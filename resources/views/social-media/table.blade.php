@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Class Table - ' . $class->name)
+@section('back_url', route('social-media.dashboard'))
 
 @section('content')
 <style>
@@ -42,7 +43,8 @@
 .gs-checkbox:hover { border-color: #94a3b8; }
 .gs-checkbox.checked { background: #10b981; border-color: #10b981; }
 .gs-checkbox.checked::after { content: '✓'; color: white; font-weight: bold; font-size: 0.85rem; }
-.gs-checkbox:disabled, .gs-checkbox.disabled { opacity: 0.5; cursor: not-allowed; background: #f1f5f9; border-color: #e2e8f0; }
+.gs-checkbox:disabled, .gs-checkbox.disabled { cursor: not-allowed; }
+.gs-checkbox:disabled:not(.checked), .gs-checkbox.disabled:not(.checked) { opacity: 0.5; background: #f1f5f9; border-color: #e2e8f0; }
 
 .gs-badge { display: inline-flex; align-items: center; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
 .gs-badge-checked { background: #dbeafe; color: #1d4ed8; }
@@ -50,6 +52,7 @@
 .gs-badge-na { background: #f1f5f9; color: #64748b; }
 </style>
 
+<div x-data="spreadsheet()">
 <div class="page-header flex flex-wrap gap-4 items-center justify-between mb-6">
     <div>
         <h1 class="page-title flex items-center gap-2">
@@ -62,7 +65,10 @@
     <div class="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div class="flex items-center -space-x-2 mr-1 pl-2">
             @foreach($class->assignedUsers->take(5) as $u)
-                <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" title="{{ $u->name }}" class="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800 shadow-sm object-cover">
+                <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" title="{{ $u->name }}" 
+                     class="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800 shadow-sm object-cover cursor-pointer hover:scale-110 transition-transform"
+                     @click="openPhotoViewer('{{ $u->avatar_url }}')" 
+                     @dblclick="openPhotoViewer('{{ $u->avatar_url }}')">
             @endforeach
             @if($class->assignedUsers->count() > 5)
                 <div class="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800 bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[9px] font-bold text-slate-600 dark:text-slate-300 shadow-sm">
@@ -92,7 +98,7 @@
 </div>
 
 <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
-    <div class="overflow-x-auto max-h-[70vh] relative" x-data="spreadsheet()">
+    <div class="overflow-x-auto max-h-[70vh] relative">
         <table class="gs-table">
             <thead>
                 <tr>
@@ -207,20 +213,21 @@
                                 @if($post && $isCompleted)
                                     <div class="flex flex-col items-center justify-center gap-1 py-1">
                                         <div class="flex items-center justify-center">
-                                            <div class="gs-checkbox {{ $isChecked ? 'checked' : '' }}"
-                                                 id="qc-check-{{ $item->id }}"
-                                                 @click="toggleQc({{ $item->id }}, {{ $post->id }})">
-                                            </div>
-                                            @if($isChecked && $isAdmin)
-                                                <form action="{{ route('social-media.posts.unlock', $post->id) }}" method="POST" class="inline ml-1" title="Unlock">
-                                                    @csrf @method('PATCH')
-                                                    <button class="text-slate-400 hover:text-rose-500"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg></button>
-                                                </form>
+                                            @if($canQc ?? false)
+                                                <div class="gs-checkbox {{ $isChecked ? 'checked' : '' }}"
+                                                     id="qc-check-{{ $item->id }}"
+                                                     @click="toggleQc({{ $item->id }}, {{ $post->id }})">
+                                                </div>
+                                            @else
+                                                <div class="gs-checkbox disabled {{ $isChecked ? 'checked' : '' }}"
+                                                     id="qc-check-{{ $item->id }}"
+                                                     title="Only QC can check this">
+                                                </div>
                                             @endif
                                         </div>
                                         @if($isChecked && $post->checker)
                                             <div class="flex items-center gap-1" title="QC: {{ $post->checker->name }}">
-                                                <span class="text-[9px] font-bold text-indigo-600 truncate max-w-[60px]">{{ explode(' ', $post->checker->name)[0] }}</span>
+                                                <span class="text-[9px] font-bold text-indigo-600 truncate max-w-[80px]">{{ $post->checker->name }}</span>
                                             </div>
                                         @endif
                                     </div>
@@ -255,9 +262,18 @@
 document.addEventListener('alpine:init', () => {
     Alpine.data('spreadsheet', () => ({
         classId: {{ $class->id }},
+        viewerOpen: false,
+        viewerUrl: '',
+        
+        openPhotoViewer(url) {
+            this.viewerUrl = url;
+            this.viewerOpen = true;
+        },
         
         async upsertPost(itemId, postDate, postUrl, optionalText = '') {
             if(!postUrl && !optionalText) return; // Don't upsert empty fields automatically
+
+            const targetUserId = {{ $viewUserId ?? 'null' }};
 
             try {
                 const res = await fetch('{{ route('social-media.posts.upsert') }}', {
@@ -272,12 +288,13 @@ document.addEventListener('alpine:init', () => {
                         social_media_item_id: itemId,
                         post_date: postDate,
                         post_url: postUrl,
-                        optional_text: optionalText
+                        optional_text: optionalText,
+                        target_user_id: targetUserId
                     })
                 });
                 
                 const data = await res.json();
-                if(data.error) { alert(data.error); return; }
+                if(data.error) { window.showToast(data.error, 'error'); return; }
                 
                 // Update complete button binding
                 const btn = document.getElementById(`complete-${itemId}`);
@@ -293,13 +310,13 @@ document.addEventListener('alpine:init', () => {
         async toggleComplete(itemId, postId) {
             const urlInput = document.getElementById(`url-${itemId}`);
             if(!urlInput.value) {
-                alert('Please enter a post link first.');
+                window.showToast('Please enter a post link first.', 'error');
                 return;
             }
 
             // Need to upsert first if no post ID exists yet
             if(!postId) {
-                alert('Saving link first...');
+                window.showToast('Saving link first...', 'info');
                 return; // Let the change event trigger first
             }
 
@@ -321,7 +338,7 @@ document.addEventListener('alpine:init', () => {
                 });
 
                 const data = await res.json();
-                if(data.error) { alert(data.error); return; }
+                if(data.error) { window.showToast(data.error, 'error'); return; }
 
                 if(data.is_completed) {
                     btn.classList.add('checked');
@@ -355,7 +372,7 @@ document.addEventListener('alpine:init', () => {
                 });
 
                 const data = await res.json();
-                if(data.error) { alert(data.error); return; }
+                if(data.error) { window.showToast(data.error, 'error'); return; }
 
                 if(data.is_checked) {
                     btn.classList.add('checked');
@@ -381,4 +398,18 @@ document.addEventListener('alpine:init', () => {
     }));
 });
 </script>
+
+{{-- Simple Photo Viewer Modal --}}
+<div class="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center backdrop-blur-sm"
+     x-show="viewerOpen"
+     x-transition.opacity
+     @click="viewerOpen = false"
+     @keydown.escape.window="viewerOpen = false"
+     style="display: none;">
+    <button type="button" class="absolute top-6 right-6 text-white hover:text-gray-300 bg-white/10 p-2 rounded-full border border-white/20 transition-transform hover:scale-110" @click.stop="viewerOpen = false">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <img :src="viewerUrl" class="w-auto h-[85vh] max-w-[95vw] rounded-2xl object-contain shadow-2xl" @click.stop>
+</div>
+</div>
 @endsection

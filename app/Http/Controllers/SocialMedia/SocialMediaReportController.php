@@ -15,8 +15,8 @@ class SocialMediaReportController extends Controller
     public function index(Request $request)
     {
         $user    = auth()->user();
-        $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital']);
-        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
+        $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin']);
+        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc']);
 
         $dateFrom   = $request->input('date_from', now()->startOfMonth()->toDateString());
         $dateTo     = $request->input('date_to', now()->toDateString());
@@ -75,6 +75,18 @@ class SocialMediaReportController extends Controller
         $callback = function () use ($posts) {
             $handle = fopen('php://output', 'w');
             fwrite($handle, "\xEF\xBB\xBF"); // UTF-8 BOM
+
+            // Output summary totals vertically
+            fputcsv($handle, ['--- SUMMARY ---']);
+            fputcsv($handle, ['Total Tasks', $posts->count()]);
+            fputcsv($handle, ['Posted', $posts->where('is_completed', true)->count()]);
+            fputcsv($handle, ['Pending', $posts->where('is_completed', false)->count()]);
+            fputcsv($handle, ['QC Checked', $posts->where('is_checked', true)->count()]);
+            fputcsv($handle, ['QC Pending', $posts->where('is_completed', true)->where('is_checked', false)->count()]);
+            fputcsv($handle, []);
+            fputcsv($handle, []);
+            
+            // Output detailed data
             fputcsv($handle, ['Date', 'Class', 'Social Media', 'User', 'Post Link', 'Completed', 'Completed At', 'QC Status', 'Checked By', 'Checked At']);
             foreach ($posts as $post) {
                 fputcsv($handle, [

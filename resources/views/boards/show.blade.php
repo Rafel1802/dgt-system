@@ -183,7 +183,7 @@
     </div>
   </div>
 
-  <div class="hidden lg:flex flex-1 justify-center px-2">
+  <div class="hidden lg:flex flex-1 justify-start pl-4 lg:pl-6">
     <button type="button"
             @click="openSwitchBoardsModal()"
             class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-indigo-700">

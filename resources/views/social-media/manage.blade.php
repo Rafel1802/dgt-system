@@ -1,15 +1,28 @@
 @extends('layouts.app')
 
 @section('title', 'Manage Classes - Social Media')
+@section('back_url', route('social-media.dashboard'))
 
 @section('content')
-<div x-data="{ showCreateModal: false, showRolesModal: false }">
+<div x-data="{ showCreateModal: false, showRolesModal: false, searchQuery: '', filterClass: '' }">
     <div class="page-header flex flex-wrap gap-4 items-end justify-between mb-6">
         <div>
             <h1 class="page-title">Manage Classes</h1>
             <p class="page-subtitle">Create classes and assign members</p>
         </div>
-        <div class="flex gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
+                <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" x-model="searchQuery" placeholder="Search class..." class="border-0 focus:ring-0 p-0 text-sm w-32 sm:w-40 placeholder-slate-400 bg-transparent">
+            </div>
+            
+            <select x-model="filterClass" class="form-select py-1.5 text-sm w-32 sm:w-48 shadow-sm">
+                <option value="">All Classes</option>
+                @foreach($classes as $c)
+                    <option value="{{ $c->id }}">{{ $c->name }}</option>
+                @endforeach
+            </select>
+
             <button @click="showRolesModal = true" class="btn btn-secondary text-sm">👥 Manage Team Roles</button>
             <button @click="showCreateModal = true" class="btn btn-primary text-sm">➕ Create Class</button>
             <a href="{{ route('social-media.dashboard') }}" class="btn btn-secondary text-sm">← Back</a>
@@ -26,7 +39,8 @@
 
     <div class="space-y-4">
         @forelse($classes as $class)
-        <div class="card" x-data="{ view: 'main', showSingleForm: false }">
+        <div class="card" x-data="{ view: 'main', showSingleForm: false }"
+             x-show="(filterClass === '' || filterClass === '{{ $class->id }}') && ('{{ strtolower($class->name) }}'.includes(searchQuery.toLowerCase()))">
             {{-- Header --}}
             <div class="card-header flex items-start justify-between gap-4">
                 <div>
@@ -36,9 +50,7 @@
                             {{ $class->status }}
                         </span>
                     </h3>
-                    @if($class->description)
-                        <p class="text-xs text-slate-500 mt-1">{{ $class->description }}</p>
-                    @endif
+
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <button type="button" @click="showSingleForm = !showSingleForm" class="btn btn-secondary text-xs px-2 py-1">
@@ -73,7 +85,7 @@
                         <div class="flex-1">
                             <label class="form-label text-[10px]">Icon (URL or Upload)</label>
                             <div class="flex gap-1">
-                                <input type="url" name="icon_url" placeholder="https://..." class="form-input py-1 text-xs flex-1">
+                                <input type="text" name="icon_url" value="{{ $class->icon }}" placeholder="https://..." class="form-input py-1 text-xs flex-1">
                                 <input type="file" name="icon_file" accept="image/*" class="form-input py-1 text-xs w-24">
                             </div>
                         </div>
@@ -88,7 +100,7 @@
                                 <option value="inactive" {{ $class->status === 'inactive' ? 'selected' : '' }}>Inactive</option>
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-primary py-1 px-3 text-sm">Save</button>
+                        <button type="submit" class="btn btn-primary py-1 px-6 text-sm self-start mt-2">Save</button>
                     </form>
                 </div>
 
@@ -135,12 +147,23 @@
 
                 {{-- Single Form --}}
                 <div x-show="showSingleForm" x-transition x-cloak class="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <form action="{{ route('social-media.items.store', $class) }}" method="POST" class="flex flex-col sm:flex-row gap-2">
+                    <form action="{{ route('social-media.items.store', $class) }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-3">
                         @csrf
-                        <input type="text" name="name" placeholder="Platform (e.g. Facebook)" required class="form-input py-1.5 px-3 text-sm rounded-lg flex-1">
-                        <input type="text" name="icon" placeholder="Icon URL or Emoji" class="form-input py-1.5 px-3 text-sm rounded-lg flex-1">
-                        <input type="hidden" name="status" value="active">
-                        <button type="submit" class="btn btn-primary py-1.5 px-4 text-sm w-full sm:w-auto">Add</button>
+                        <div class="flex flex-wrap gap-2 items-end">
+                            <div class="flex-1 min-w-[180px]">
+                                <label class="form-label text-[10px] font-bold text-slate-500 uppercase mb-1">Platform Name</label>
+                                <input type="text" name="name" placeholder="Platform (e.g. Facebook)" required class="form-input py-1.5 px-3 text-sm rounded-lg w-full">
+                            </div>
+                            <div class="flex-[2] min-w-[280px]">
+                                <label class="form-label text-[10px] font-bold text-slate-500 uppercase mb-1">Icon (URL or Upload)</label>
+                                <div class="flex gap-2">
+                                    <input type="text" name="icon_url" placeholder="https://... or Emoji" class="form-input py-1.5 px-3 text-sm rounded-lg flex-1">
+                                    <input type="file" name="icon_file" accept="image/*" class="form-input py-1 text-xs w-28">
+                                </div>
+                            </div>
+                            <input type="hidden" name="status" value="active">
+                            <button type="submit" class="btn btn-primary py-1.5 px-4 text-sm">Add</button>
+                        </div>
                     </form>
                 </div>
 
@@ -173,26 +196,31 @@
                             </div>
 
                             {{-- Edit Form --}}
-                            <form x-show="editing" x-cloak action="{{ route('social-media.items.update', $item) }}" method="POST" class="flex flex-col sm:flex-row items-start sm:items-end gap-2 mt-2" style="display: none;">
+                            <form x-show="editing" x-cloak action="{{ route('social-media.items.update', $item) }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-2 mt-2 bg-slate-50 p-3 rounded-xl border border-slate-200" style="display: none;">
                                 @csrf @method('PUT')
-                                <div class="flex-1 w-full">
-                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Platform Name</label>
-                                    <input type="text" name="name" value="{{ $item->name }}" required class="form-input py-1 px-2 text-sm w-full">
-                                </div>
-                                <div class="flex-1 w-full">
-                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Icon URL or Emoji</label>
-                                    <input type="text" name="icon" value="{{ $item->icon }}" class="form-input py-1 px-2 text-sm w-full" placeholder="Icon URL or Emoji">
-                                </div>
-                                <div class="w-full sm:w-24">
-                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Status</label>
-                                    <select name="status" class="form-select py-1 px-2 text-sm w-full">
-                                        <option value="active" {{ $item->status === 'active' ? 'selected' : '' }}>Active</option>
-                                        <option value="inactive" {{ $item->status === 'inactive' ? 'selected' : '' }}>Inactive</option>
-                                    </select>
-                                </div>
-                                <div class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0 justify-end">
-                                    <button type="button" @click="editing = false" class="btn btn-secondary text-xs py-1.5 px-3">Cancel</button>
-                                    <button type="submit" class="btn btn-primary text-xs py-1.5 px-3">Save</button>
+                                <div class="flex flex-wrap gap-2 items-end">
+                                    <div class="flex-1 min-w-[150px]">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Platform Name</label>
+                                        <input type="text" name="name" value="{{ $item->name }}" required class="form-input py-1.5 px-2 text-sm w-full">
+                                    </div>
+                                    <div class="flex-[2] min-w-[250px]">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Icon (URL or Upload)</label>
+                                        <div class="flex gap-2">
+                                            <input type="text" name="icon_url" value="{{ $item->icon }}" class="form-input py-1.5 px-2 text-sm flex-1" placeholder="https://... or Emoji">
+                                            <input type="file" name="icon_file" accept="image/*" class="form-input py-1 text-xs w-28">
+                                        </div>
+                                    </div>
+                                    <div class="w-24">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
+                                        <select name="status" class="form-select py-1.5 px-2 text-sm w-full">
+                                            <option value="active" {{ $item->status === 'active' ? 'selected' : '' }}>Active</option>
+                                            <option value="inactive" {{ $item->status === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex gap-2 justify-end mt-2 sm:mt-0">
+                                        <button type="button" @click="editing = false" class="btn btn-secondary text-xs py-1.5 px-3">Cancel</button>
+                                        <button type="submit" class="btn btn-primary text-xs py-1.5 px-3">Save</button>
+                                    </div>
                                 </div>
                             </form>
                         </div>

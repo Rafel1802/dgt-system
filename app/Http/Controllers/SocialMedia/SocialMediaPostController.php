@@ -16,8 +16,9 @@ class SocialMediaPostController extends Controller
     public function show(Request $request, SocialMediaClass $class)
     {
         $user    = auth()->user();
-        $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital']);
-        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
+        $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin']);
+        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc']);
+        $canQc   = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
 
         // Gate: social_user must be assigned to this class
         if (!$class->isVisibleTo($user)) {
@@ -40,8 +41,8 @@ class SocialMediaPostController extends Controller
         $viewUserId = null;
         if (!$isQc) {
             $viewUserId = $user->id;
-        } elseif ($request->filled('user_id')) {
-            $viewUserId = (int) $request->input('user_id');
+        } elseif ($request->has('user_id')) {
+            $viewUserId = $request->input('user_id') ? (int) $request->input('user_id') : null;
         }
 
         // Load posts for this class + date (optionally filtered by user)
@@ -61,7 +62,7 @@ class SocialMediaPostController extends Controller
         $assignedUsers = $isQc ? $class->assignedUsers()->orderBy('name')->get() : collect();
 
         return view('social-media.table', compact(
-            'class', 'items', 'posts', 'postDate', 'isAdmin', 'isQc', 'user',
+            'class', 'items', 'posts', 'postDate', 'isAdmin', 'isQc', 'canQc', 'user',
             'assignedUsers', 'viewUserId'
         ));
     }
@@ -80,6 +81,7 @@ class SocialMediaPostController extends Controller
             'post_date'             => 'required|date',
             'post_url'              => 'nullable|url|max:2048',
             'optional_text'         => 'nullable|string|max:500',
+            'target_user_id'        => 'nullable|exists:users,id',
         ]);
 
         $class = SocialMediaClass::findOrFail($validated['social_media_class_id']);
@@ -88,10 +90,19 @@ class SocialMediaPostController extends Controller
             return response()->json(['error' => 'You are not assigned to this class.'], 403);
         }
 
+        $targetUserId = $user->id;
+        if (!empty($validated['target_user_id']) && $validated['target_user_id'] != $user->id) {
+            if ($user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc'])) {
+                $targetUserId = $validated['target_user_id'];
+            } else {
+                return response()->json(['error' => 'Unauthorized to edit for other users.'], 403);
+            }
+        }
+
         $post = SocialMediaPost::where([
             'social_media_class_id' => $validated['social_media_class_id'],
             'social_media_item_id'  => $validated['social_media_item_id'],
-            'user_id'               => $user->id,
+            'user_id'               => $targetUserId,
             'post_date'             => $validated['post_date'],
         ])->first();
 
@@ -103,7 +114,7 @@ class SocialMediaPostController extends Controller
             [
                 'social_media_class_id' => $validated['social_media_class_id'],
                 'social_media_item_id'  => $validated['social_media_item_id'],
-                'user_id'               => $user->id,
+                'user_id'               => $targetUserId,
                 'post_date'             => $validated['post_date'],
             ],
             [

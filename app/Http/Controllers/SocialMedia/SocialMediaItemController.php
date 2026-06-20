@@ -13,16 +13,27 @@ class SocialMediaItemController extends Controller
     public function store(Request $request, SocialMediaClass $class)
     {
         $data = $request->validate([
-            'name'   => ['required', 'string', 'max:255', Rule::unique('social_media_items', 'name')->where('social_media_class_id', $class->id)],
-            'icon'   => ['nullable', 'string', 'max:500'],
-            'status' => ['required', Rule::in(['active', 'inactive'])],
+            'name'      => ['required', 'string', 'max:255', Rule::unique('social_media_items', 'name')->where('social_media_class_id', $class->id)],
+            'icon_url'  => ['nullable', 'string', 'max:2048'],
+            'icon_file' => ['nullable', 'image', 'max:2048'],
+            'status'    => ['required', Rule::in(['active', 'inactive'])],
         ]);
+
+        $icon = null;
+        if ($request->hasFile('icon_file')) {
+            $path = $request->file('icon_file')->store('item_icons', 'public');
+            $icon = '/storage/' . $path;
+        } elseif (!empty($data['icon_url'])) {
+            $icon = $data['icon_url'];
+        }
 
         // Set sort_order to next available
         $maxOrder = $class->items()->max('sort_order') ?? 0;
 
         $class->items()->create([
-            ...$data,
+            'name'       => $data['name'],
+            'icon'       => $icon,
+            'status'     => $data['status'],
             'sort_order' => $maxOrder + 10,
             'created_by' => auth()->id(),
         ]);
@@ -38,7 +49,7 @@ class SocialMediaItemController extends Controller
             ['name' => 'X(Twitter)', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/c/ce/X_logo_2023.svg'],
             ['name' => 'Pinterest', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/0/08/Pinterest-logo.png'],
             ['name' => 'YouTube', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg'],
-            ['name' => 'TikTok', 'icon' => 'https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg'],
+            ['name' => 'TikTok', 'icon' => 'https://sf-static.tiktokcdn.com/obj/eden-sg/uhtyvueh7nulogpoguhm/tiktok-icon2.png'],
         ];
 
         $maxOrder = $class->items()->max('sort_order') ?? 0;
@@ -62,12 +73,25 @@ class SocialMediaItemController extends Controller
     public function update(Request $request, SocialMediaItem $item)
     {
         $data = $request->validate([
-            'name'   => ['required', 'string', 'max:255', Rule::unique('social_media_items', 'name')->where('social_media_class_id', $item->social_media_class_id)->ignore($item->id)],
-            'icon'   => ['nullable', 'string', 'max:500'],
-            'status' => ['required', Rule::in(['active', 'inactive'])],
+            'name'      => ['required', 'string', 'max:255', Rule::unique('social_media_items', 'name')->where('social_media_class_id', $item->social_media_class_id)->ignore($item->id)],
+            'icon_url'  => ['nullable', 'string', 'max:2048'],
+            'icon_file' => ['nullable', 'image', 'max:2048'],
+            'status'    => ['required', Rule::in(['active', 'inactive'])],
         ]);
 
-        $item->update($data);
+        $icon = $item->icon;
+        if ($request->hasFile('icon_file')) {
+            $path = $request->file('icon_file')->store('item_icons', 'public');
+            $icon = '/storage/' . $path;
+        } elseif ($request->has('icon_url')) {
+            $icon = $data['icon_url'];
+        }
+
+        $item->update([
+            'name'   => $data['name'],
+            'icon'   => $icon,
+            'status' => $data['status'],
+        ]);
         return back()->with('success', 'Social media item updated.');
     }
 

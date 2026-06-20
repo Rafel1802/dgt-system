@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Social Media Report')
+@section('back_url', route('social-media.dashboard'))
 
 @section('content')
 <div class="page-header">
@@ -9,7 +10,7 @@
         <p class="page-subtitle">Filter, analyze and export social media posting data</p>
     </div>
     <div class="flex gap-3">
-        <a href="{{ route('social-media.tasks.index') }}" class="btn btn-secondary text-sm">← Back to Tasks</a>
+        <a href="{{ route('social-media.dashboard') }}" class="btn btn-secondary text-sm">← Back to Dashboard</a>
     </div>
 </div>
 
@@ -82,7 +83,7 @@
     @php
     $statCards = [
         ['label' => 'Total Tasks',  'value' => $summary['total'],     'color' => 'text-slate-700',   'bg' => 'bg-white'],
-        ['label' => 'Posted',       'value' => $summary['posted'],    'color' => 'text-emerald-600', 'bg' => 'bg-emerald-50'],
+        ['label' => 'Posted',       'value' => $summary['completed'], 'color' => 'text-emerald-600', 'bg' => 'bg-emerald-50'],
         ['label' => 'Pending Post', 'value' => $summary['pending'],   'color' => 'text-amber-600',   'bg' => 'bg-amber-50'],
         ['label' => 'QC Checked',   'value' => $summary['checked'],   'color' => 'text-blue-600',    'bg' => 'bg-blue-50'],
         ['label' => 'QC Pending',   'value' => $summary['qcPending'], 'color' => 'text-orange-600',  'bg' => 'bg-orange-50'],
@@ -99,59 +100,59 @@
 {{-- Report Table --}}
 <div class="card">
     <div class="card-body p-0">
-        @if($tasks->isEmpty())
+        @if($posts->isEmpty())
             <div class="text-center py-16 text-slate-400">
                 <p>No data found for the selected filters.</p>
             </div>
         @else
         <div class="overflow-x-auto">
-            <table class="data-table w-full text-sm">
-                <thead>
+            <table class="w-full text-sm text-left text-slate-600 dark:text-slate-400">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b border-slate-200 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600">
                     <tr>
-                        <th class="pl-4">Date</th>
-                        <th>Class</th>
-                        <th>Social Media</th>
-                        <th class="text-center">Post Status</th>
-                        <th>Post Link</th>
-                        <th>Submitted By</th>
-                        <th>Submitted At</th>
-                        <th class="text-center">QC Status</th>
-                        <th>Checked By</th>
-                        <th>Checked At</th>
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Class</th>
+                        <th class="px-4 py-3">Social Media</th>
+                        <th class="px-4 py-3 text-center">Post Status</th>
+                        <th class="px-4 py-3">Post Link</th>
+                        <th class="px-4 py-3">Submitted By</th>
+                        <th class="px-4 py-3">Submitted At</th>
+                        <th class="px-4 py-3 text-center">QC Status</th>
+                        <th class="px-4 py-3">Checked By</th>
+                        <th class="px-4 py-3">Checked At</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($tasks as $task)
-                    <tr>
-                        <td class="pl-4 whitespace-nowrap font-medium">{{ $task->task_date->format('d M Y') }}</td>
-                        <td class="whitespace-nowrap">{{ $task->socialMediaClass->name ?? '—' }}</td>
-                        <td class="whitespace-nowrap">{{ $task->socialMediaItem->name ?? '—' }}</td>
-                        <td class="text-center">
+                    @foreach($posts as $post)
+                    <tr class="bg-white border-b hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-600 transition-colors">
+                        <td class="px-4 py-3 whitespace-nowrap font-medium text-slate-900 dark:text-white">{{ $post->post_date->format('d M Y') }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">{{ $post->socialMediaClass->name ?? '—' }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">{{ $post->socialMediaItem->name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-center">
                             <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold
-                                {{ $task->is_posted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
-                                {{ $task->post_status_label }}
+                                {{ $post->is_completed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
+                                {{ $post->is_completed ? 'Posted' : 'Pending' }}
                             </span>
                         </td>
-                        <td class="max-w-[160px]">
-                            @if($task->post_url)
-                                <a href="{{ $task->post_url }}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline text-xs truncate block">{{ $task->post_url }}</a>
+                        <td class="px-4 py-3 max-w-[160px]">
+                            @if($post->post_url)
+                                <a href="{{ $post->post_url }}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline text-xs truncate block">{{ $post->post_url }}</a>
                             @else
                                 <span class="text-slate-400 text-xs">—</span>
                             @endif
                         </td>
-                        <td class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $task->poster?->name ?? '—' }}</td>
-                        <td class="text-xs text-slate-500 whitespace-nowrap">{{ $task->posted_at?->format('d M Y H:i') ?? '—' }}</td>
-                        <td class="text-center">
+                        <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $post->user?->name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ $post->completed_at?->format('d M Y H:i') ?? '—' }}</td>
+                        <td class="px-4 py-3 text-center">
                             <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold
-                                @if($task->is_checked) bg-blue-100 text-blue-700
-                                @elseif($task->is_posted) bg-orange-100 text-orange-700
+                                @if($post->is_checked) bg-blue-100 text-blue-700
+                                @elseif($post->is_completed) bg-orange-100 text-orange-700
                                 @else bg-slate-100 text-slate-500
                                 @endif">
-                                {{ $task->qc_status_label }}
+                                {{ $post->qc_status_label }}
                             </span>
                         </td>
-                        <td class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $task->checker?->name ?? '—' }}</td>
-                        <td class="text-xs text-slate-500 whitespace-nowrap">{{ $task->checked_at?->format('d M Y H:i') ?? '—' }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $post->checker?->name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ $post->checked_at?->format('d M Y H:i') ?? '—' }}</td>
                     </tr>
                     @endforeach
                 </tbody>

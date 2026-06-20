@@ -40,15 +40,30 @@
 [data-theme="dark"] .bg-slate-soft { background: rgba(148,163,184,0.1); color: #94a3b8; }
 </style>
 
+<div x-data="{ searchQuery: '', filterClass: '' }">
 <div class="page-header flex flex-wrap gap-4 items-end justify-between mb-8">
     <div>
         <h1 class="page-title text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-            <span class="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/30">📱</span>
+            <div class="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/30 w-12 h-12 flex items-center justify-center flex-shrink-0">
+                <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Team" class="w-8 h-8 object-contain">
+            </div>
             Social Media Team
         </h1>
         <p class="page-subtitle text-slate-500 dark:text-slate-400 mt-2 font-medium">Manage social media tasks and tracking</p>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 shadow-sm">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" x-model="searchQuery" placeholder="Search class..." class="border-0 focus:ring-0 p-0 text-sm w-32 sm:w-40 placeholder-slate-400 dark:placeholder-slate-500 bg-transparent text-slate-800 dark:text-white">
+        </div>
+        
+        <select x-model="filterClass" class="form-select py-1.5 text-sm w-32 sm:w-48 shadow-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg">
+            <option value="">All Classes</option>
+            @foreach($classesWithStats as $stat)
+                <option value="{{ $stat['model']->id }}">{{ $stat['model']->name }}</option>
+            @endforeach
+        </select>
+
         @if($isAdmin)
         <a href="{{ route('social-media.manage') }}" class="btn btn-secondary flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
@@ -88,7 +103,7 @@
 @endif
 
 {{-- Class Cards Grid --}}
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-24 md:pb-6">
     @forelse($classesWithStats as $stat)
         @php
             $class = $stat['model'];
@@ -96,7 +111,7 @@
             $pctComplete = $total > 0 ? round(($stat['completed'] / $total) * 100) : 0;
             $pctChecked  = $total > 0 ? round(($stat['qc_checked'] / $total) * 100) : 0;
         @endphp
-        <div class="ws-dash-card">
+        <div class="ws-dash-card" x-show="(filterClass === '' || filterClass === '{{ $class->id }}') && ('{{ strtolower($class->name) }}'.includes(searchQuery.toLowerCase()))">
             {{-- Card Header --}}
             <div class="p-5 border-b border-slate-100 dark:border-slate-700/50 flex items-start justify-between">
                 <div>
@@ -120,41 +135,7 @@
                 </div>
             </div>
 
-            {{-- Card Body --}}
-            <div class="p-5 flex-1 bg-slate-50/50 dark:bg-slate-800/20">
-                <div class="flex items-center justify-between mb-4">
-                    <span class="text-xs font-bold text-slate-500 uppercase">Overall Progress</span>
-                    <span class="text-xs font-bold text-indigo-600">{{ $pctComplete }}%</span>
-                </div>
-                <div class="status-bar-track mb-6">
-                    @if($total > 0)
-                        <div class="status-segment bg-blue-500" style="width: {{ $pctChecked }}%" title="QC Checked"></div>
-                        <div class="status-segment bg-emerald-400" style="width: {{ $pctComplete - $pctChecked }}%" title="Completed (Pending QC)"></div>
-                        <div class="status-segment bg-amber-300" style="width: {{ 100 - $pctComplete }}%" title="Pending"></div>
-                    @else
-                        <div class="status-segment bg-slate-200 dark:bg-slate-700" style="width: 100%"></div>
-                    @endif
-                </div>
 
-                <div class="grid grid-cols-2 gap-y-4 gap-x-2">
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Total Posts</span>
-                        <span class="text-lg font-black text-slate-700 dark:text-slate-200">{{ $stat['total_posts'] }}</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pending</span>
-                        <span class="text-lg font-black text-amber-600">{{ $stat['pending'] }}</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Completed</span>
-                        <span class="text-lg font-black text-emerald-600">{{ $stat['completed'] }}</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">QC Checked</span>
-                        <span class="text-lg font-black text-blue-600">{{ $stat['qc_checked'] }}</span>
-                    </div>
-                </div>
-            </div>
 
             {{-- Card Footer --}}
             <div class="p-4 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800 flex items-center justify-between gap-3">
@@ -175,5 +156,6 @@
             </div>
         </div>
     @endforelse
+</div>
 </div>
 @endsection

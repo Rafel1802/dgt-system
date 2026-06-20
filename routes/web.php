@@ -398,7 +398,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 });
 
                 // Class & Item Management — Admin only
-                Route::middleware('role:super-admin|admin-digital')->group(function () {
+                Route::middleware('role:super-admin|admin-digital|social_admin')->group(function () {
                     // Class
                     Route::get('/manage', [SocialMediaClassController::class, 'index'])->name('manage');
                     Route::post('/classes', [SocialMediaClassController::class, 'store'])->name('classes.store');

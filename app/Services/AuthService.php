@@ -148,9 +148,23 @@ class AuthService
             }
         }
 
+        $retriesLeft = RateLimiter::retriesLeft($rateLimiterKey, $maxAttempts);
+        $ipRetriesLeft = max(0, $banThreshold - $failedIpCount);
+        $attemptsRemaining = min($retriesLeft, $ipRetriesLeft);
+        
+        if ($user) {
+            $userRetriesLeft = max(0, $maxAttempts - $user->failed_login_count);
+            $attemptsRemaining = min($attemptsRemaining, $userRetriesLeft);
+        }
+
+        $message = 'These credentials do not match our records.';
+        if ($attemptsRemaining > 0) {
+            $message .= " You have {$attemptsRemaining} attempt" . ($attemptsRemaining === 1 ? '' : 's') . " remaining.";
+        }
+
         return [
             'success' => false,
-            'message' => 'These credentials do not match our records.',
+            'message' => $message,
         ];
     }
 

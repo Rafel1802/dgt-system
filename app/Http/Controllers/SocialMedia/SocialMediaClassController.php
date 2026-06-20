@@ -29,7 +29,7 @@ class SocialMediaClassController extends Controller
             'user_ids'     => 'nullable|array',
             'user_ids.*'   => 'exists:users,id',
             'use_template' => 'nullable|boolean',
-            'icon_url'     => 'nullable|url|max:2048',
+            'icon_url'     => 'nullable|string|max:2048',
             'icon_file'    => 'nullable|image|max:2048',
         ]);
 
@@ -64,7 +64,7 @@ class SocialMediaClassController extends Controller
                 ['name' => 'X(Twitter)', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/c/ce/X_logo_2023.svg'],
                 ['name' => 'Pinterest', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/0/08/Pinterest-logo.png'],
                 ['name' => 'YouTube', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg'],
-                ['name' => 'TikTok', 'icon' => 'https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg'],
+                ['name' => 'TikTok', 'icon' => 'https://sf-static.tiktokcdn.com/obj/eden-sg/uhtyvueh7nulogpoguhm/tiktok-icon2.png'],
             ];
 
             $order = 0;
@@ -89,14 +89,14 @@ class SocialMediaClassController extends Controller
             'name'        => ['required', 'string', 'max:255', Rule::unique('social_media_classes', 'name')->ignore($class->id)],
             'description' => 'nullable|string|max:1000',
             'status'      => ['required', Rule::in(['active', 'inactive'])],
-            'icon_url'    => 'nullable|url|max:2048',
+            'icon_url'    => 'nullable|string|max:2048',
             'icon_file'   => 'nullable|image|max:2048',
         ]);
 
         if ($request->hasFile('icon_file')) {
             $path = $request->file('icon_file')->store('class_icons', 'public');
             $data['icon'] = '/storage/' . $path;
-        } elseif (!empty($data['icon_url'])) {
+        } elseif ($request->has('icon_url')) {
             $data['icon'] = $data['icon_url'];
         }
 

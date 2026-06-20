@@ -9,20 +9,23 @@
     body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 10px; color: #1e293b; background: #fff; }
 
     /* Header */
-    .header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; padding: 20px 24px; margin-bottom: 16px; }
-    .header-title { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
-    .header-sub { font-size: 11px; opacity: 0.85; margin-top: 3px; }
+    .header { background: #1e293b; color: #fff; padding: 24px 24px; margin-bottom: 20px; border-bottom: 4px solid #4f46e5; }
+    .header-title { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+    .header-sub { font-size: 10px; opacity: 0.85; margin-top: 4px; letter-spacing: 0.5px; }
     .header-meta { margin-top: 12px; display: flex; gap: 24px; font-size: 9px; opacity: 0.9; }
 
     /* Summary cards */
-    .summary { display: flex; gap: 10px; margin: 0 24px 16px; }
-    .stat-card { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; text-align: center; background: #f8fafc; }
-    .stat-card .val { font-size: 22px; font-weight: 700; color: #4f46e5; }
-    .stat-card .lbl { font-size: 8px; color: #64748b; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat-card.green .val { color: #15803d; }
-    .stat-card.amber .val { color: #a16207; }
-    .stat-card.blue  .val { color: #1d4ed8; }
-    .stat-card.orange .val { color: #c2410c; }
+    .summary-wrap { margin: 0 24px 20px; }
+    .summary-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    .stat-card-cell { width: 20%; padding-right: 10px; vertical-align: top; }
+    .stat-card-cell:last-child { padding-right: 0; }
+    .stat-card { border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 10px; text-align: center; background: #f8fafc; }
+    .stat-card .val { font-size: 22px; font-weight: 700; color: #334155; }
+    .stat-card .lbl { font-size: 8px; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; }
+    .stat-card.green .val { color: #16a34a; }
+    .stat-card.amber .val { color: #d97706; }
+    .stat-card.blue  .val { color: #2563eb; }
+    .stat-card.orange .val { color: #ea580c; }
 
     /* Table */
     .table-wrap { margin: 0 24px 24px; }
@@ -61,27 +64,41 @@
 </div>
 
 <!-- Summary -->
-<div class="summary">
-    <div class="stat-card">
-        <div class="val">{{ $summary['total'] }}</div>
-        <div class="lbl">Total Tasks</div>
-    </div>
-    <div class="stat-card green">
-        <div class="val">{{ $summary['posted'] }}</div>
-        <div class="lbl">Posted</div>
-    </div>
-    <div class="stat-card amber">
-        <div class="val">{{ $summary['pending'] }}</div>
-        <div class="lbl">Pending</div>
-    </div>
-    <div class="stat-card blue">
-        <div class="val">{{ $summary['checked'] }}</div>
-        <div class="lbl">QC Checked</div>
-    </div>
-    <div class="stat-card orange">
-        <div class="val">{{ $summary['qcPending'] }}</div>
-        <div class="lbl">QC Pending</div>
-    </div>
+<div class="summary-wrap">
+    <table class="summary-table" cellspacing="0" cellpadding="0">
+        <tr>
+            <td class="stat-card-cell">
+                <div class="stat-card">
+                    <div class="val">{{ $summary['total'] }}</div>
+                    <div class="lbl">Total Tasks</div>
+                </div>
+            </td>
+            <td class="stat-card-cell">
+                <div class="stat-card green">
+                    <div class="val">{{ $summary['completed'] }}</div>
+                    <div class="lbl">Posted</div>
+                </div>
+            </td>
+            <td class="stat-card-cell">
+                <div class="stat-card amber">
+                    <div class="val">{{ $summary['pending'] }}</div>
+                    <div class="lbl">Pending</div>
+                </div>
+            </td>
+            <td class="stat-card-cell">
+                <div class="stat-card blue">
+                    <div class="val">{{ $summary['checked'] }}</div>
+                    <div class="lbl">QC Checked</div>
+                </div>
+            </td>
+            <td class="stat-card-cell">
+                <div class="stat-card orange">
+                    <div class="val">{{ $summary['qcPending'] }}</div>
+                    <div class="lbl">QC Pending</div>
+                </div>
+            </td>
+        </tr>
+    </table>
 </div>
 
 <!-- Table -->
@@ -103,39 +120,39 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($tasks as $i => $task)
+            @forelse($posts as $i => $post)
             <tr>
                 <td>{{ $i + 1 }}</td>
-                <td style="white-space:nowrap">{{ $task->task_date->format('d M Y') }}</td>
-                <td>{{ $task->socialMediaClass->name ?? '—' }}</td>
-                <td>{{ $task->socialMediaItem->name ?? '—' }}</td>
+                <td style="white-space:nowrap">{{ $post->post_date->format('d M Y') }}</td>
+                <td>{{ $post->socialMediaClass->name ?? '—' }}</td>
+                <td>{{ $post->socialMediaItem->name ?? '—' }}</td>
                 <td>
-                    @if($task->is_posted)
+                    @if($post->is_completed)
                         <span class="badge badge-posted">Posted</span>
                     @else
                         <span class="badge badge-pending">Pending</span>
                     @endif
                 </td>
                 <td>
-                    @if($task->post_url)
-                        <span class="link">{{ $task->post_url }}</span>
+                    @if($post->post_url)
+                        <span class="link">{{ $post->post_url }}</span>
                     @else
                         —
                     @endif
                 </td>
-                <td>{{ $task->poster?->name ?? '—' }}</td>
-                <td style="white-space:nowrap">{{ $task->posted_at?->format('d M Y H:i') ?? '—' }}</td>
+                <td>{{ $post->user?->name ?? '—' }}</td>
+                <td style="white-space:nowrap">{{ $post->completed_at?->format('d M Y H:i') ?? '—' }}</td>
                 <td>
-                    @if($task->is_checked)
+                    @if($post->is_checked)
                         <span class="badge badge-checked">Checked</span>
-                    @elseif($task->is_posted)
+                    @elseif($post->is_completed)
                         <span class="badge badge-qcp">QC Pending</span>
                     @else
                         <span class="badge badge-na">—</span>
                     @endif
                 </td>
-                <td>{{ $task->checker?->name ?? '—' }}</td>
-                <td style="white-space:nowrap">{{ $task->checked_at?->format('d M Y H:i') ?? '—' }}</td>
+                <td>{{ $post->checker?->name ?? '—' }}</td>
+                <td style="white-space:nowrap">{{ $post->checked_at?->format('d M Y H:i') ?? '—' }}</td>
             </tr>
             @empty
             <tr>

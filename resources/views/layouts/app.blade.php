@@ -105,6 +105,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
 
                 <!-- Main -->
                 @can('dashboard.view')
+                @unless(auth()->user()->hasRole('boss'))
                 <span class="sidebar-section-label">Main</span>
 
                 <a href="{{ route('dashboard') }}"
@@ -115,6 +116,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     </svg>
                     Dashboard
                 </a>
+                @endunless
                 @endcan
 
                 <!-- All Members Directory -->
@@ -128,6 +130,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 </a>
 
                 <!-- Notes -->
+                @unless(auth()->user()->hasRole('boss'))
                 <span class="sidebar-section-label">Notes</span>
                 <a href="{{ route('notes.team') }}"
                    class="sidebar-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
@@ -145,6 +148,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     </svg>
                     Private Note
                 </a>
+                @endunless
 
                 <!-- Digital Team -->
                 @can('kanban.view')
@@ -173,9 +177,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 <a href="{{ route('social-media.dashboard') }}"
                    class="sidebar-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
                    id="nav-social-media">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z"/>
-                    </svg>
+                    <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Team" class="w-5 h-5 flex-shrink-0 object-contain">
                     Social Media Team
                 </a>
                 @endif
@@ -269,6 +271,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 <?php
                     $weeklyReport = collect(\App\Models\Setting::externalToolsForGroup('board', true))->firstWhere('key', 'weekly_report_url');
                 ?>
+                @unless(auth()->user()->hasRole('boss'))
                 @if($weeklyReport)
                     <a href="{{ $weeklyReport['url'] }}"
                        target="_blank"
@@ -284,7 +287,9 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                         {{ $weeklyReport['name'] ?? 'Weekly Report' }}
                     </a>
                 @endif
+                @endunless
 
+                @unless(auth()->user()->hasRole('boss'))
                 @if(count($sidebarWorkspaceTools))
                     @php
                         $userEmail = auth()->user()->email ?? '';
@@ -427,6 +432,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                         </div>
                     </div>
                 @endif
+                @endunless
                 @endcan
 
                 <!-- CRM -->
@@ -434,6 +440,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 <span class="sidebar-section-label">CRM & Sales</span>
 
                 @can('crm.view')
+                {{-- 
                 <a href="{{ route('crm.dashboard') }}"
                    class="sidebar-item {{ request()->routeIs('crm.dashboard') ? 'active' : '' }}"
                    id="nav-crm-dashboard">
@@ -442,6 +449,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     </svg>
                     CRM Dashboard
                 </a>
+                --}}
 
                 <a href="{{ route('crm.website.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.website.*') ? 'active' : '' }}"
@@ -481,6 +489,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 @endcan
 
                 @can('sales.view')
+                {{--
                 <a href="{{ route('crm.pipeline.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.pipeline.*') ? 'active' : '' }}"
                    id="nav-pipeline">
@@ -489,12 +498,14 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     </svg>
                     Sales Pipeline
                 </a>
+                --}}
                 @endcan
                 @endcanany
 
 
                 <!-- Reports -->
                 @can('reports.view')
+                {{--
                 <span class="sidebar-section-label">Analytics</span>
 
                 <a href="{{ route('reports.index') }}"
@@ -505,6 +516,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     </svg>
                     Reports
                 </a>
+                --}}
                 @endcan
 
                 <!-- Admin -->
@@ -704,7 +716,11 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     </button>
 
                     <button type="button"
-                            onclick="window.dgtGoBack ? window.dgtGoBack('{{ route('boards.workspaces') }}') : (window.location.href='{{ route('boards.workspaces') }}')"
+                            @if(View::hasSection('back_url'))
+                                onclick="window.location.href='@yield('back_url')'"
+                            @else
+                                onclick="window.history.length > 1 ? window.history.back() : window.location.href='{{ route('boards.workspaces') }}'"
+                            @endif
                             class="mobile-back-btn"
                             title="Back"
                             aria-label="Back to previous page">

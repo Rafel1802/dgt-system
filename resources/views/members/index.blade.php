@@ -276,8 +276,9 @@
 }
 /* Full-screen photo */
 .photo-viewer-img {
-    max-width: 90vw;
-    max-height: 80vh;
+    height: 85vh;
+    width: auto;
+    max-width: 95vw;
     border-radius: 1rem;
     object-fit: contain;
     box-shadow: 0 32px 80px rgba(0,0,0,0.8);
@@ -539,8 +540,8 @@
                 <div class="member-card" :style="`animation-delay: ${Math.min(index * 35, 420)}ms`">
 
                     <div class="member-card-body">
-                        {{-- Clickable Avatar → opens full-screen viewer --}}
-                        <div class="member-avatar-wrap" @click="openPhotoViewer(member)" title="View photo">
+                        {{-- Double-Clickable Avatar → opens full-screen viewer --}}
+                        <div class="member-avatar-wrap" @dblclick="openPhotoViewer(member)" title="Double-click to view photo">
                             <img :src="member.avatar_url" :alt="member.name" class="member-avatar" loading="lazy">
                             {{-- Hover eye hint --}}
                             <div class="avatar-view-hint">
