@@ -112,14 +112,11 @@
           </div>
           <div>
             <label class="form-label">Handled By (CRM Member)</label>
-            <select name="assigned_to" class="form-input">
-              <option value="">Unassigned</option>
-              @foreach($crmUsers as $u)
-              <option value="{{ $u->id }}" {{ old('assigned_to', $lead->assigned_to) == $u->id ? 'selected' : '' }}>
-                {{ $u->name }} — {{ $u->crm_role_display }}
-              </option>
-              @endforeach
-            </select>
+            @include('crm.partials.member-searchable-select', [
+              'name'     => 'assigned_to',
+              'selected' => old('assigned_to', $lead->assigned_to),
+              'members'  => $crmUsers
+            ])
           </div>
           <div>
             <label class="form-label">Follow-Up Date</label>

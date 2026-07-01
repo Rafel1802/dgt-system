@@ -206,14 +206,11 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
           </div>
           <div>
             <label class="form-label">Assigned Staff (CRM Member)</label>
-            <select name="assigned_to" class="form-input" id="field-assigned">
-              <option value="">Unassigned</option>
-              @foreach($crmUsers as $u)
-                <option value="{{ $u->id }}" {{ old('assigned_to') == $u->id ? 'selected' : '' }}>
-                  {{ $u->name }} — {{ $u->crm_role_display }}
-                </option>
-              @endforeach
-            </select>
+            @include('crm.partials.member-searchable-select', [
+              'name'     => 'assigned_to',
+              'selected' => old('assigned_to'),
+              'members'  => $crmUsers
+            ])
           </div>
         </div>
         <div>

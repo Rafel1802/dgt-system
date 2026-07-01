@@ -70,14 +70,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="form-label">Truck Company</label>
-            <select name="truck_company_id" class="form-input">
-              <option value="">— Select Company (Optional) —</option>
-              @foreach($truckingCompanies as $tc)
-                <option value="{{ $tc->id }}" {{ old('truck_company_id', $logistic->truck_company_id) == $tc->id ? 'selected' : '' }}>
-                  {{ $tc->company_name }}
-                </option>
-              @endforeach
-            </select>
+            @include('crm.partials.trucking-searchable-select', [
+              'name'      => 'truck_company_id',
+              'selected'  => old('truck_company_id', $logistic->truck_company_id),
+              'companies' => $truckingCompanies
+            ])
           </div>
           <div>
             <label class="form-label">Driver Name</label>
@@ -139,14 +136,11 @@
           </div>
           <div>
             <label class="form-label">Assigned Staff (CRM Member)</label>
-            <select name="assigned_to" class="form-input">
-              <option value="">Unassigned</option>
-              @foreach($crmUsers as $u)
-                <option value="{{ $u->id }}" {{ old('assigned_to', $logistic->assigned_to) == $u->id ? 'selected' : '' }}>
-                  {{ $u->name }} — {{ $u->crm_role_display }}
-                </option>
-              @endforeach
-            </select>
+            @include('crm.partials.member-searchable-select', [
+              'name'     => 'assigned_to',
+              'selected' => old('assigned_to', $logistic->assigned_to),
+              'members'  => $crmUsers
+            ])
           </div>
         </div>
         <div>

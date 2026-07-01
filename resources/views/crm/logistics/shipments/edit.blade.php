@@ -46,26 +46,20 @@
 
         <div>
           <label class="form-label">Truck Company</label>
-          <select name="trucking_company_id" class="form-input">
-            <option value="">— Select Company (Optional) —</option>
-            @foreach($truckingCompanies as $tc)
-              <option value="{{ $tc->id }}" {{ old('trucking_company_id', $shipment->trucking_company_id) == $tc->id ? 'selected' : '' }}>
-                {{ $tc->company_name }}
-              </option>
-            @endforeach
-          </select>
+          @include('crm.partials.trucking-searchable-select', [
+            'name'      => 'trucking_company_id',
+            'selected'  => old('trucking_company_id', $shipment->trucking_company_id),
+            'companies' => $truckingCompanies
+          ])
         </div>
 
         <div>
           <label class="form-label">Handled By (CRM Member)</label>
-          <select name="assigned_to" class="form-input">
-            <option value="">Unassigned</option>
-            @foreach($crmUsers as $u)
-              <option value="{{ $u->id }}" {{ old('assigned_to', $shipment->assigned_to) == $u->id ? 'selected' : '' }}>
-                {{ $u->name }} — {{ $u->crm_role_display }}
-              </option>
-            @endforeach
-          </select>
+          @include('crm.partials.member-searchable-select', [
+            'name'     => 'assigned_to',
+            'selected' => old('assigned_to', $shipment->assigned_to),
+            'members'  => $crmUsers
+          ])
         </div>
 
         <div>
