@@ -64,14 +64,11 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
           </div>
           <div>
             <label class="form-label">Product Interested In</label>
-            <select name="product_id" class="form-input" id="field-product">
-              <option value="">— Select product —</option>
-              @foreach($products as $p)
-                <option value="{{ $p->id }}" {{ old('product_id') == $p->id ? 'selected' : '' }}>
-                  {{ $p->category?->icon() }} {{ $p->name }}
-                </option>
-              @endforeach
-            </select>
+            @include('crm.partials.product-searchable-select', [
+                'name'     => 'product_id',
+                'selected' => old('product_id'),
+                'products' => $products,
+            ])
           </div>
           <div>
             <label class="form-label">Or type product interest</label>
@@ -86,39 +83,19 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
         </div>
       </div>
 
-      {{-- Lead Classification --}}
+      {{-- Lead Handling --}}
       <div class="px-6 py-5 space-y-4">
-        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Lead Classification</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Lead Temperature <span class="text-red-500">*</span></label>
-            <div class="flex gap-2">
-              @foreach($temps as $t)
-              <label class="flex-1 cursor-pointer">
-                <input type="radio" name="temperature" value="{{ $t->value }}"
-                       {{ old('temperature', 'cold') === $t->value ? 'checked' : '' }}
-                       class="sr-only peer">
-                <div class="text-center py-2 rounded-xl border-2 text-sm font-semibold transition-all
-                            border-slate-200 peer-checked:border-transparent peer-checked:text-white"
-                     style="peer-checked:background:{{ $t->color() }}"
-                     x-bind:style="'border-color: transparent; background: {{ $t->color() }}22; color: {{ $t->color() }}'">
-                  {{ $t->icon() }} {{ $t->label() }}
-                </div>
-              </label>
-              @endforeach
-            </div>
-          </div>
-          <div>
-            <label class="form-label">Handled By (CRM Member)</label>
-            <select name="assigned_to" class="form-input" id="field-assigned">
-              <option value="">Unassigned</option>
-              @foreach($crmUsers as $u)
-                <option value="{{ $u->id }}" {{ old('assigned_to') == $u->id ? 'selected' : '' }}>
-                  {{ $u->name }} — {{ $u->crm_role_display }}
-                </option>
-              @endforeach
-            </select>
-          </div>
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Handling</h3>
+        <div>
+          <label class="form-label">Handled By (CRM Member)</label>
+          <select name="assigned_to" class="form-input" id="field-assigned">
+            <option value="">Unassigned</option>
+            @foreach($crmUsers as $u)
+              <option value="{{ $u->id }}" {{ old('assigned_to') == $u->id ? 'selected' : '' }}>
+                {{ $u->name }} — {{ $u->crm_role_display }}
+              </option>
+            @endforeach
+          </select>
         </div>
       </div>
 

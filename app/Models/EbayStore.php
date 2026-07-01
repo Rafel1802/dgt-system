@@ -14,8 +14,7 @@ class EbayStore extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'store_name', 'store_url', 'ebay_username',
-        'handled_by', 'notes', 'is_active',
+        'store_name', 'logo_url', 'store_url', 'ebay_username', 'handled_by', 'notes', 'is_active',
     ];
 
     protected $casts = [

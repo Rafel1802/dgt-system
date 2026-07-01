@@ -14,9 +14,10 @@ class Product extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'name', 'sku', 'category', 'description',
+        'name', 'sku', 'category', 'category_id', 'description',
         'brand', 'model', 'year', 'condition',
-        'price', 'currency', 'is_active', 'image', 'created_by',
+        'price', 'currency', 'is_active', 'status', 'image',
+        'created_by', 'updated_by',
     ];
 
     protected $casts = [
@@ -25,9 +26,22 @@ class Product extends Model
         'price'     => 'decimal:2',
     ];
 
+    // ── Relationships ─────────────────────────────────────────────────────────
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by')->withTrashed();
+    }
+
+    public function updater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by')->withTrashed();
+    }
+
+    /** New category (FK to product_categories table) */
+    public function categoryModel(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\ProductCategory::class, 'category_id');
     }
 
     public function leads(): HasMany
@@ -45,13 +59,26 @@ class Product extends Model
         return $this->hasMany(Logistic::class);
     }
 
-    public function getImageUrlAttribute(): string
+    // ── Accessors ────────────────────────────────────────────────────────────
+
+    public function getImageUrlAttribute(): ?string
     {
-        if ($this->image) return asset('storage/' . $this->image);
-        return "https://ui-avatars.com/api/?name="
-            . urlencode($this->category?->icon() . ' ' . $this->name)
-            . "&size=64&background=f59e0b&color=fff";
+        if ($this->image) {
+            if (filter_var($this->image, FILTER_VALIDATE_URL)) {
+                return $this->image;
+            }
+            return asset('storage/' . $this->image);
+        }
+        return null;
     }
+
+    /** Human-readable category name (prefers new category model, falls back to old enum) */
+    public function getCategoryNameAttribute(): string
+    {
+        return $this->categoryModel?->name ?? ucfirst((string) ($this->category?->label() ?? $this->category ?? ''));
+    }
+
+    // ── Scopes ────────────────────────────────────────────────────────────────
 
     public function scopeActive($query): mixed
     {
@@ -61,5 +88,19 @@ class Product extends Model
     public function scopeByCategory($query, string $cat): mixed
     {
         return $query->where('category', $cat);
+    }
+
+    public function scopeByCategoryId($query, int $id): mixed
+    {
+        return $query->where('category_id', $id);
+    }
+
+    public function scopeSearch($query, string $term): mixed
+    {
+        return $query->where(function ($q) use ($term) {
+            $q->where('name', 'like', "%{$term}%")
+              ->orWhere('sku', 'like', "%{$term}%")
+              ->orWhere('description', 'like', "%{$term}%");
+        });
     }
 }

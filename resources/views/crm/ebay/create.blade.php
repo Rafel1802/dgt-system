@@ -44,12 +44,11 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
           </div>
           <div>
             <label class="form-label">eBay Store</label>
-            <select name="store_id" class="form-input">
-              <option value="">— Unassigned —</option>
-              @foreach($stores as $store)
-                <option value="{{ $store->id }}" {{ old('store_id', request('store_id')) == $store->id ? 'selected' : '' }}>{{ $store->store_name }}</option>
-              @endforeach
-            </select>
+            @include('crm.partials.store-searchable-select', [
+                'name'     => 'store_id',
+                'selected' => old('store_id', request('store_id')),
+                'stores'   => $stores,
+            ])
           </div>
           <div>
             <label class="form-label">eBay Username <span class="text-slate-400 text-xs font-normal ml-1">(Optional)</span></label>
@@ -90,14 +89,11 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
         <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Product</h3>
         <div>
           <label class="form-label">Product from Catalogue</label>
-          <select name="product_id" class="form-input" id="field-product">
-            <option value="">— Select product —</option>
-            @foreach($products as $p)
-              <option value="{{ $p->id }}" {{ old('product_id') == $p->id ? 'selected' : '' }}>
-                {{ $p->category?->icon() }} {{ $p->name }} @if($p->price)— ${{ number_format($p->price) }}@endif
-              </option>
-            @endforeach
-          </select>
+          @include('crm.partials.product-searchable-select', [
+              'name'     => 'product_id',
+              'selected' => old('product_id'),
+              'products' => $products,
+          ])
         </div>
       </div>
 

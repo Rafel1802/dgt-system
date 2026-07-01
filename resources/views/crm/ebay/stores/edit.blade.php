@@ -23,12 +23,17 @@
         </div>
 
         <div>
-          <label class="form-label">Store URL</label>
+          <label class="form-label">Store Logo URL <span class="text-slate-400 normal-case font-normal">(optional)</span></label>
+          <input type="url" name="logo_url" value="{{ old('logo_url', $store->logo_url) }}" class="form-input" placeholder="https://...">
+        </div>
+
+        <div>
+          <label class="form-label">Store URL <span class="text-slate-400 normal-case font-normal">(optional)</span></label>
           <input type="url" name="store_url" value="{{ old('store_url', $store->store_url) }}" class="form-input">
         </div>
 
         <div>
-          <label class="form-label">Main eBay Username</label>
+          <label class="form-label">Main eBay Username <span class="text-slate-400 normal-case font-normal">(optional)</span></label>
           <input type="text" name="ebay_username" value="{{ old('ebay_username', $store->ebay_username) }}" class="form-input">
         </div>
 

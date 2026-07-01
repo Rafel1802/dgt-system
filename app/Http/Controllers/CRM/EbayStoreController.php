@@ -19,6 +19,10 @@ class EbayStoreController extends Controller
         if ($s = $request->get('search')) {
             $query->search($s);
         }
+        if ($storeId = $request->get('store_id')) {
+            $query->where('id', $storeId);
+        }
+        
         if ($request->get('status') === 'inactive') {
             $query->where('is_active', false);
         } elseif ($request->get('status') !== 'all') {
@@ -27,8 +31,10 @@ class EbayStoreController extends Controller
 
         $stores   = $query->latest()->paginate(20)->withQueryString();
         $crmUsers = User::crmMembers()->orderBy('name')->get();
+        $allStores = EbayStore::orderBy('store_name')->get(['id', 'store_name']);
+        $totalStoresCount = EbayStore::count();
 
-        return view('crm.ebay.stores.index', compact('stores', 'crmUsers'));
+        return view('crm.ebay.stores.index', compact('stores', 'crmUsers', 'allStores', 'totalStoresCount'));
     }
 
     public function create(): View
@@ -42,6 +48,7 @@ class EbayStoreController extends Controller
     {
         $validated = $request->validate([
             'store_name'   => ['required', 'string', 'max:255'],
+            'logo_url'     => ['nullable', 'url', 'max:1000'],
             'store_url'    => ['nullable', 'url', 'max:500'],
             'ebay_username'=> ['nullable', 'string', 'max:255'],
             'handled_by'   => ['nullable', 'exists:users,id'],
@@ -82,6 +89,7 @@ class EbayStoreController extends Controller
     {
         $validated = $request->validate([
             'store_name'   => ['required', 'string', 'max:255'],
+            'logo_url'     => ['nullable', 'url', 'max:1000'],
             'store_url'    => ['nullable', 'url', 'max:500'],
             'ebay_username'=> ['nullable', 'string', 'max:255'],
             'handled_by'   => ['nullable', 'exists:users,id'],

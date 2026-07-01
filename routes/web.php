@@ -24,6 +24,10 @@ use App\Http\Controllers\CRM\EbayStoreController;
 use App\Http\Controllers\CRM\LogisticCrmController;
 use App\Http\Controllers\CRM\TruckingCompanyController;
 use App\Http\Controllers\CRM\ShipmentController;
+use App\Http\Controllers\CRM\ProductController;
+use App\Http\Controllers\CRM\EbayCustomerController;
+use App\Http\Controllers\CRM\CrmExternalLinkController;
+use App\Http\Controllers\CRM\CrmReportController;
 use App\Http\Controllers\Board\BoardController;
 use App\Http\Controllers\Board\CardController as BoardCardController;
 use App\Http\Controllers\Board\BoardImportController;
@@ -385,6 +389,17 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::delete('/{store}', [EbayStoreController::class, 'destroy'])->name('destroy');
                     });
 
+                    // eBay Manage Customer — 6 tabs
+                    Route::prefix('customers')->name('customers.')->group(function () {
+                        Route::get('/', fn() => redirect()->route('crm.ebay.customers.index', 'urgent_client'))->name('home');
+                        Route::get('/{tab}', [EbayCustomerController::class, 'index'])->name('index');
+                        Route::get('/{tab}/create', [EbayCustomerController::class, 'create'])->name('create');
+                        Route::post('/{tab}', [EbayCustomerController::class, 'store'])->name('store');
+                        Route::get('/{tab}/{record}/edit', [EbayCustomerController::class, 'edit'])->name('edit');
+                        Route::put('/{tab}/{record}', [EbayCustomerController::class, 'update'])->name('update');
+                        Route::delete('/{tab}/{record}', [EbayCustomerController::class, 'destroy'])->name('destroy');
+                    });
+
                     Route::get('/{offer}', [EbayCrmController::class, 'show'])->name('show');
                     Route::get('/{offer}/edit', [EbayCrmController::class, 'edit'])->name('edit');
                     Route::put('/{offer}', [EbayCrmController::class, 'update'])->name('update');
@@ -436,6 +451,32 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::delete('/{logistic}', [LogisticCrmController::class, 'destroy'])->name('destroy');
                     Route::post('/{logistic}/status', [LogisticCrmController::class, 'pushStatus'])->name('status');
                     Route::post('/{logistic}/proof', [LogisticCrmController::class, 'uploadProof'])->name('proof');
+                });
+
+                // ── Products ──────────────────────────────────────────────
+                Route::prefix('products')->name('products.')->group(function () {
+                    Route::get('/', [ProductController::class, 'index'])->name('index');
+                    Route::get('/create', [ProductController::class, 'create'])->name('create');
+                    Route::post('/', [ProductController::class, 'store'])->name('store');
+                    Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
+                    Route::put('/{product}', [ProductController::class, 'update'])->name('update');
+                    Route::delete('/{product}', [ProductController::class, 'destroy'])->name('destroy');
+                    Route::post('/categories', [ProductController::class, 'storeCategory'])->name('categories.store');
+                    Route::put('/categories/{category}', [ProductController::class, 'updateCategory'])->name('categories.update');
+                    Route::delete('/categories/{category}', [ProductController::class, 'destroyCategory'])->name('categories.destroy');
+                    Route::get('/import/template', [ProductController::class, 'downloadTemplate'])->name('import.template');
+                    Route::post('/import', [ProductController::class, 'import'])->name('import');
+                    Route::get('/export', [ProductController::class, 'export'])->name('export');
+                    Route::get('/search', [ProductController::class, 'search'])->name('search');
+                });
+
+                // ── CRM External Links ─────────────────────────────────────
+                Route::prefix('links')->name('links.')->group(function () {
+                    Route::get('/', [CrmExternalLinkController::class, 'index'])->name('index');
+                    Route::post('/', [CrmExternalLinkController::class, 'store'])->name('store');
+                    Route::post('/bulk-update', [CrmExternalLinkController::class, 'bulkUpdate'])->name('bulkUpdate');
+                    Route::put('/{link}', [CrmExternalLinkController::class, 'update'])->name('update');
+                    Route::delete('/{link}', [CrmExternalLinkController::class, 'destroy'])->name('destroy');
                 });
             });
 

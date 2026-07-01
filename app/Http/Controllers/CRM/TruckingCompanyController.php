@@ -57,10 +57,13 @@ class TruckingCompanyController extends Controller
 
     public function show(TruckingCompany $truckingCompany): View
     {
-        $truckingCompany->load(['handler', 'logistics.customer', 'shipments']);
+        $truckingCompany->load(['handler']);
+        $logistics = $truckingCompany->logistics()->with('customer')->latest()->paginate(15);
 
         return view('crm.logistics.trucking.show', [
             'company' => $truckingCompany,
+            'truckingCompany' => $truckingCompany,
+            'logistics' => $logistics,
         ]);
     }
 

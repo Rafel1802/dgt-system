@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\CRM;
 
 use App\Enums\InquirySource;
-use App\Enums\LeadTemperature;
 use App\Enums\WebsiteLeadStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
@@ -33,18 +32,14 @@ class WebsiteCrmController extends Controller
             $query->where('source', $source);
         }
         if ($temp = $request->get('temperature')) {
+            // temperature filter kept for backward compat but not shown in UI
             $query->where('temperature', $temp);
-        }
-        if ($request->get('follow_up_due')) {
-            $query->followUpDue();
-        }
-
+        }       
         $leads   = $query->latest('received_at')->paginate(20)->withQueryString();
         $statuses = WebsiteLeadStatus::cases();
         $sources  = InquirySource::cases();
-        $temps    = LeadTemperature::cases();
 
-        return view('crm.website.index', compact('leads', 'statuses', 'sources', 'temps'));
+        return view('crm.website.index', compact('leads', 'statuses', 'sources'));
     }
 
     public function create(): View
@@ -52,10 +47,9 @@ class WebsiteCrmController extends Controller
         return view('crm.website.create', [
             'statuses'  => WebsiteLeadStatus::cases(),
             'sources'   => InquirySource::cases(),
-            'temps'     => LeadTemperature::cases(),
-            'products'  => Product::active()->orderBy('name')->get(),
-            'crmUsers'  => User::crmMembers()->orderBy('name')->get(),
-            'customers' => Customer::orderBy('name')->get(['id','name','phone','company']),
+            'products'  => \App\Models\Product::active()->orderBy('name')->get(),
+            'crmUsers'  => \App\Models\User::crmMembers()->orderBy('name')->get(),
+            'customers' => \App\Models\Customer::orderBy('name')->get(['id','name','phone','company']),
         ]);
     }
 
@@ -70,7 +64,6 @@ class WebsiteCrmController extends Controller
             'product_interested'=> ['nullable', 'string', 'max:255'],
             'product_id'        => ['nullable', 'exists:products,id'],
             'inquiry_details'   => ['nullable', 'string'],
-            'temperature'       => ['required', Rule::enum(LeadTemperature::class)],
             'follow_up_date'    => ['nullable', 'date'],
             'next_action'       => ['nullable', 'string', 'max:255'],
             'assigned_to'       => ['nullable', 'exists:users,id'],
@@ -84,6 +77,7 @@ class WebsiteCrmController extends Controller
             'client_name' => $customer->name,
             'handled_by'  => auth()->id(),
             'status'      => WebsiteLeadStatus::NewLead->value,
+            'temperature' => 'warm', // default, not shown in UI
         ]);
 
         return redirect()->route('crm.website.show', $lead)
@@ -97,7 +91,6 @@ class WebsiteCrmController extends Controller
         return view('crm.website.show', [
             'lead'     => $lead,
             'statuses' => WebsiteLeadStatus::cases(),
-            'temps'    => LeadTemperature::cases(),
         ]);
     }
 
@@ -107,9 +100,8 @@ class WebsiteCrmController extends Controller
             'lead'     => $lead->load('followUps'),
             'statuses' => WebsiteLeadStatus::cases(),
             'sources'  => InquirySource::cases(),
-            'temps'    => LeadTemperature::cases(),
-            'products' => Product::active()->orderBy('name')->get(),
-            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
+            'products' => \App\Models\Product::active()->orderBy('name')->get(),
+            'crmUsers' => \App\Models\User::crmMembers()->orderBy('name')->get(),
         ]);
     }
 
@@ -125,7 +117,6 @@ class WebsiteCrmController extends Controller
             'product_id'        => ['nullable', 'exists:products,id'],
             'inquiry_details'   => ['nullable', 'string'],
             'status'            => ['required', Rule::enum(WebsiteLeadStatus::class)],
-            'temperature'       => ['required', Rule::enum(LeadTemperature::class)],
             'follow_up_notes'   => ['nullable', 'string'],
             'follow_up_date'    => ['nullable', 'date'],
             'next_action'       => ['nullable', 'string'],

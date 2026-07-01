@@ -1280,8 +1280,15 @@
                                 <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $googleColors[$fu->google_indexed] ?? 'bg-slate-100 text-slate-600' }}">{{ ucfirst($fu->google_indexed) }}</span>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
-                                <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $fu->getQcStatusBadgeClass() }}">{{ ucfirst($fu->qc_status) }}</span>
-                                @if($fu->qc_checked_at)<div class="text-[10px] text-slate-400 mt-0.5">{{ $fu->qc_checked_at->format('d M') }}</div>@endif
+                                <div class="flex flex-col items-start gap-1">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $fu->getQcStatusBadgeClass() }} leading-none">{{ ucfirst($fu->qc_status) }}</span>
+                                    @if($fu->qc_checked_at)
+                                        <div class="flex flex-col">
+                                            <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $fu->qcChecker?->name ?? 'System' }}</span>
+                                            <span class="text-[10px] text-slate-400">{{ $fu->qc_checked_at->format('d M, Y') }}</span>
+                                        </div>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ $fu->assignee?->name ?? '–' }}</td>
                             <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{{ $fu->created_at->format('d M Y') }}</td>
@@ -2019,13 +2026,14 @@
                         @foreach($allWebsites as $ws)<option value="{{ $ws->id }}">{{ $ws->name }}</option>@endforeach
                     </select>
                 </div>
-                <div>
+                <div x-data="{ selectedType: 'blog_post' }">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Type *</label>
-                    <select name="type" required class="form-select w-full rounded-xl text-sm">
+                    <select name="type" required x-model="selectedType" class="form-select w-full rounded-xl text-sm">
                         @foreach(\App\Models\WebsiteFollowUp::TYPES as $key => $label)
                         <option value="{{ $key }}">{{ $label }}</option>
                         @endforeach
                     </select>
+                    <input type="text" name="custom_type" x-show="selectedType === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="selectedType === 'other'">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Google Indexed</label>
@@ -2094,6 +2102,7 @@
                         <option value="{{ $key }}">{{ $label }}</option>
                         @endforeach
                     </select>
+                    <input type="text" name="custom_type" x-model="editFollowUpForm.custom_type" x-show="editFollowUpForm.type === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="editFollowUpForm.type === 'other'">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Google Indexed</label>
@@ -2509,10 +2518,20 @@ function websitesApp() {
         },
 
         openEditFollowUpModal(id, data) {
+            const standardTypes = ['blog_post', 'indexed_page', 'website_page', 'other'];
+            let formType = data.type || '';
+            let customType = '';
+            
+            if (formType && !standardTypes.includes(formType)) {
+                customType = formType;
+                formType = 'other';
+            }
+
             this.editFollowUpAction = `/websites/follow-ups/${id}`;
             this.editFollowUpForm = {
                 website_id: data.website_id || '',
-                type: data.type || '',
+                type: formType,
+                custom_type: customType,
                 title: data.title || '',
                 url: data.url || '',
                 google_indexed: data.google_indexed || 'pending',

@@ -21,7 +21,8 @@ class WebsiteFollowUpController extends Controller
 
         $validated = $request->validate([
             'website_id'     => 'required|exists:websites,id',
-            'type'           => 'required|in:blog_post,indexed_page,website_page,other',
+            'type'           => 'required|string|max:100',
+            'custom_type'    => 'nullable|string|max:100',
             'title'          => 'nullable|string|max:255',
             'url'            => 'nullable|url|max:1000',
             'google_indexed' => 'nullable|in:yes,no,pending',
@@ -30,9 +31,13 @@ class WebsiteFollowUpController extends Controller
             'created_at'     => 'nullable|date',
         ]);
 
+        $finalType = ($validated['type'] === 'other' && !empty($validated['custom_type'])) 
+                        ? $validated['custom_type'] 
+                        : $validated['type'];
+
         $followUp = new WebsiteFollowUp([
             'website_id'     => $validated['website_id'],
-            'type'           => $validated['type'],
+            'type'           => $finalType,
             'title'          => $validated['title'] ?? null,
             'url'            => $validated['url'] ?? null,
             'google_indexed' => $validated['google_indexed'] ?? 'pending',
@@ -60,7 +65,8 @@ class WebsiteFollowUpController extends Controller
         abort_unless(auth()->user()?->hasAnyRole(self::ALLOWED_ROLES), 403);
 
         $validated = $request->validate([
-            'type'           => 'required|in:blog_post,indexed_page,website_page,other',
+            'type'           => 'required|string|max:100',
+            'custom_type'    => 'nullable|string|max:100',
             'title'          => 'nullable|string|max:255',
             'url'            => 'nullable|url|max:1000',
             'google_indexed' => 'nullable|in:yes,no,pending',
@@ -69,8 +75,12 @@ class WebsiteFollowUpController extends Controller
             'created_at'     => 'nullable|date',
         ]);
 
+        $finalType = ($validated['type'] === 'other' && !empty($validated['custom_type'])) 
+                        ? $validated['custom_type'] 
+                        : $validated['type'];
+
         $websiteFollowUp->fill([
-            'type'           => $validated['type'],
+            'type'           => $finalType,
             'title'          => $validated['title'] ?? null,
             'url'            => $validated['url'] ?? null,
             'google_indexed' => $validated['google_indexed'] ?? 'pending',

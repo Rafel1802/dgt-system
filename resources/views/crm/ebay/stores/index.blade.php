@@ -27,21 +27,32 @@
     </div>
   </div>
 
-  {{-- ── Search ────────────────────────────────────────────────────────────── --}}
-  <form method="GET" action="{{ route('crm.ebay.stores.index') }}" class="card p-4 mb-5">
-    <div class="flex flex-wrap gap-3 items-end">
-      <div class="flex-1 min-w-[200px]">
-        <label class="form-label text-xs">Search</label>
-        <div class="relative">
-          <input type="search" name="search" value="{{ request('search') }}"
-                 placeholder="Store name, eBay username…" class="form-input pl-9 py-2 text-sm" id="store-search">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+  {{-- ── Search & Filter ─────────────────────────────────────────────────── --}}
+  <form method="GET" action="{{ route('crm.ebay.stores.index') }}" class="card p-4 mb-5" x-data>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap items-end gap-3 w-full md:w-auto">
+        <div class="w-full md:w-64">
+          <label class="form-label text-xs">Search</label>
+          <div class="relative">
+            <input type="search" name="search" value="{{ request('search') }}"
+                   @input.debounce.500ms="$el.closest('form').submit()"
+                   placeholder="Store name, username…" class="form-input pl-9 py-2 text-sm" id="store-search">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+          </div>
         </div>
+        <div class="w-full md:w-56">
+          <label class="form-label text-xs">Store Name</label>
+          <select name="store_id" class="form-input py-2 text-sm" @change="$el.closest('form').submit()">
+            <option value="">All Stores</option>
+            @foreach($allStores as $s)
+              <option value="{{ $s->id }}" {{ request('store_id') == $s->id ? 'selected' : '' }}>{{ $s->store_name }}</option>
+            @endforeach
+          </select>
+        </div>
+        <input type="hidden" name="status" value="{{ request('status') }}">
       </div>
-      <input type="hidden" name="status" value="{{ request('status') }}">
-      <div class="flex gap-2">
-        <button type="submit" class="btn btn-primary py-2 text-sm">Search</button>
-        <a href="{{ route('crm.ebay.stores.index') }}" class="btn btn-secondary py-2 text-sm">Reset</a>
+      <div class="text-sm text-slate-500 font-medium">
+        Total Stores: <span class="text-slate-800 font-bold">{{ $totalStoresCount }}</span>
       </div>
     </div>
   </form>
@@ -51,13 +62,22 @@
     @forelse($stores as $store)
     <div class="card p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
       <div class="flex items-start justify-between gap-2">
-        <div>
-          <h3 class="font-semibold text-slate-800 text-base">{{ $store->store_name }}</h3>
-          @if($store->ebay_username)
-            <p class="text-xs text-slate-400 mt-0.5">@{{ $store->ebay_username }}</p>
+        <div class="flex items-center gap-3">
+          @if($store->logo_url)
+            <img src="{{ $store->logo_url }}" class="w-10 h-10 object-contain rounded-lg bg-slate-50 border border-slate-100 flex-shrink-0" alt="Logo">
+          @else
+            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-400">
+              <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" /></svg>
+            </div>
           @endif
+          <div>
+            <h3 class="font-semibold text-slate-800 text-base">{{ $store->store_name }}</h3>
+            @if($store->ebay_username)
+              <p class="text-xs text-slate-400 mt-0.5">@{{ $store->ebay_username }}</p>
+            @endif
+          </div>
         </div>
-        <span class="badge text-xs px-2 py-0.5 rounded-full {{ $store->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">
+        <span class="badge text-xs px-2 py-0.5 rounded-full flex-shrink-0 {{ $store->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">
           {{ $store->is_active ? 'Active' : 'Inactive' }}
         </span>
       </div>
