@@ -17,6 +17,7 @@ class Board extends Model
     protected $fillable = [
         'workspace_id', 'name', 'slug', 'description',
         'background_type', 'background_value', 'visibility',
+        'cover_type', 'cover_value',
         'member_permissions', 'card_covers_enabled',
         'notifications_enabled', 'browser_notifications_enabled',
 
@@ -94,18 +95,51 @@ class Board extends Model
      */
     public function backgroundStyle(): string
     {
-        return match ($this->background_type) {
-            'color'    => "background-color:{$this->background_value}",
-            'gradient' => "background:{$this->background_value}",
-            'image'    => "background-image:url('{$this->background_value}');background-size:cover",
-            default    => "background-color:#6366f1",
-        };
+        if ($this->background_type === 'image' && $this->background_value) {
+            return "background-image: url('{$this->background_value}'); background-size: cover; background-position: center;";
+        }
+        if ($this->background_type === 'color' && $this->background_value) {
+            return "background-color: {$this->background_value};";
+        }
+        return 'background-color: #6366f1;'; // Default indigo
+    }
+
+    public function coverStyle(): string
+    {
+        $type = $this->cover_type ?? $this->background_type;
+        $val = $this->cover_value ?? $this->background_value;
+
+        if ($type === 'image' && $val) {
+            return "background-image: url('{$val}'); background-size: cover; background-position: center;";
+        }
+        if ($type === 'color' && $val) {
+            return "background-color: {$val};";
+        }
+        return 'background-color: #6366f1;'; // Default indigo
     }
 
     public function userRole(int $userId): ?string
     {
         if ($this->created_by === $userId) return 'admin';
         return $this->members->firstWhere('id', $userId)?->pivot->role;
+    }
+
+    public function getNameAttribute($value)
+    {
+        $createdAt = $this->created_at ?? now();
+        $month = $createdAt->format('F');
+        $year = $createdAt->format('Y');
+        $suffix = " – {$month} {$year}";
+
+        // If it already ends with this exact suffix, return as is
+        if (str_ends_with((string)$value, $suffix)) {
+            return $value;
+        }
+
+        // Clean up old "- June" or "– June 2026" suffixes
+        $cleanName = preg_replace('/ [-–] [A-Za-z]+( \d{4})?$/u', '', (string)$value);
+
+        return $cleanName . $suffix;
     }
 
     public function hasMember(int $userId): bool

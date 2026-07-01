@@ -158,7 +158,7 @@
 <div x-data='trelloBoard(@json($boardData))' x-init="init()" x-cloak>
 
 {{-- ── Board header ────────────── --}}
-<div class="flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-wrap bg-white/65 backdrop-blur-md p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/60 shadow-sm board-header-mobile">
+<div class="relative z-30 flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-nowrap lg:flex-nowrap bg-white/65 backdrop-blur-md p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/60 shadow-sm board-header-mobile">
   <div class="relative flex items-center gap-2">
     <div>
       <nav class="hidden sm:block text-xs text-slate-400 mb-0.5">
@@ -194,7 +194,7 @@
     </button>
   </div>
 
-  <div class="ml-auto flex items-center gap-1.5 sm:gap-3">
+  <div class="ml-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-3">
     {{-- Zoom Control --}}
     <div class="zoom-container hidden md:flex items-center gap-2 mr-1 rounded-full px-3 py-1.5 border shadow-sm">
         <span class="zoom-label text-[10px] font-extrabold uppercase tracking-widest pl-1 mr-1">Zoom</span>

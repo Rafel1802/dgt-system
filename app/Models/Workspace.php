@@ -16,7 +16,7 @@ class Workspace extends Model
 
     protected $fillable = [
         'name', 'slug', 'description', 'logo',
-        'color', 'icon_text', 'visibility', 'owner_id', 'is_active',
+        'color', 'icon_text', 'visibility', 'owner_id', 'is_active', 'position',
     ];
 
     protected function casts(): array

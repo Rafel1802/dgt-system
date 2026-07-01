@@ -51,34 +51,48 @@
         </h1>
         <p class="page-subtitle text-slate-500 dark:text-slate-400 mt-2 font-medium">Manage social media tasks and tracking</p>
     </div>
-    <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 shadow-sm">
-            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            <input type="text" x-model="searchQuery" placeholder="Search class..." class="border-0 focus:ring-0 p-0 text-sm w-32 sm:w-40 placeholder-slate-400 dark:placeholder-slate-500 bg-transparent text-slate-800 dark:text-white">
+    <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+        <div class="flex gap-2 w-full sm:w-auto">
+            <div class="flex-1 flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 shadow-sm min-w-0">
+                <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" x-model="searchQuery" placeholder="Search class..." class="border-0 focus:ring-0 p-0 text-sm w-full placeholder-slate-400 dark:placeholder-slate-500 bg-transparent text-slate-800 dark:text-white min-w-0">
+            </div>
+            
+            <select x-model="filterClass" class="form-select py-1.5 text-sm flex-1 sm:w-48 shadow-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg min-w-0">
+                <option value="">All Classes</option>
+                @foreach($classesWithStats as $stat)
+                    <option value="{{ $stat['model']->id }}">{{ $stat['model']->name }}</option>
+                @endforeach
+            </select>
         </div>
-        
-        <select x-model="filterClass" class="form-select py-1.5 text-sm w-32 sm:w-48 shadow-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg">
-            <option value="">All Classes</option>
-            @foreach($classesWithStats as $stat)
-                <option value="{{ $stat['model']->id }}">{{ $stat['model']->name }}</option>
-            @endforeach
-        </select>
 
-        @if($isAdmin)
-        <a href="{{ route('social-media.manage') }}" class="btn btn-secondary flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
-            Manage Classes
-        </a>
-        @endif
-        <a href="{{ route('social-media.reports.index') }}" class="btn btn-primary flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
-            Reports
-        </a>
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            @if($canManageClasses)
+            <a href="{{ route('social-media.manage') }}" class="btn btn-secondary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                Manage Classes
+            </a>
+            @endif
+
+            @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']))
+            <a href="{{ route('social-media.analytics.index') }}" class="btn btn-secondary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+                </svg>
+                Analytics
+            </a>
+            @endif
+
+            <a href="{{ route('social-media.reports.index') }}" class="btn btn-primary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+                Reports
+            </a>
+        </div>
     </div>
 </div>
 
 {{-- Global KPIs --}}
-@if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']))
+@if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']))
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
     @php
     $kpiCards = [
@@ -102,60 +116,87 @@
 </div>
 @endif
 
-{{-- Class Cards Grid --}}
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-24 md:pb-6">
-    @forelse($classesWithStats as $stat)
-        @php
-            $class = $stat['model'];
-            $total = $stat['total_posts'];
-            $pctComplete = $total > 0 ? round(($stat['completed'] / $total) * 100) : 0;
-            $pctChecked  = $total > 0 ? round(($stat['qc_checked'] / $total) * 100) : 0;
-        @endphp
-        <div class="ws-dash-card" x-show="(filterClass === '' || filterClass === '{{ $class->id }}') && ('{{ strtolower($class->name) }}'.includes(searchQuery.toLowerCase()))">
-            {{-- Card Header --}}
-            <div class="p-5 border-b border-slate-100 dark:border-slate-700/50 flex items-start justify-between">
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-1">{{ $class->name }}</h3>
-                    <div class="flex items-center gap-2">
-                        <span class="pillar-badge {{ $class->status === 'active' ? 'bg-emerald-soft' : 'bg-slate-soft' }}">
-                            {{ ucfirst($class->status) }}
-                        </span>
-                        <span class="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
-                            {{ $class->assignedUsers->count() }} Members
-                        </span>
+@php
+    $assignedClasses = collect();
+    $otherClasses = collect();
+    foreach($classesWithStats as $stat) {
+        if ($stat['model']->assignedUsers->contains('id', auth()->id())) {
+            $assignedClasses->push($stat);
+        } else {
+            $otherClasses->push($stat);
+        }
+    }
+    
+    $sections = [
+        ['title' => 'Your Assigned Socials', 'classes' => $assignedClasses],
+        ['title' => 'Other Socials (View Only)', 'classes' => $otherClasses],
+    ];
+@endphp
+
+@foreach($sections as $section)
+    @if($section['classes']->isNotEmpty())
+        <div class="mb-6 flex items-center gap-3">
+            <h2 class="text-xl font-extrabold text-slate-800 dark:text-white">{{ $section['title'] }}</h2>
+            <div class="h-px bg-slate-200 dark:bg-slate-700/50 flex-1"></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
+            @foreach($section['classes'] as $stat)
+                @php
+                    $class = $stat['model'];
+                    $total = $stat['total_posts'];
+                    $pctComplete = $total > 0 ? round(($stat['completed'] / $total) * 100) : 0;
+                    $pctChecked  = $total > 0 ? round(($stat['qc_checked'] / $total) * 100) : 0;
+                @endphp
+                <div class="ws-dash-card" x-show="(filterClass === '' || filterClass === '{{ $class->id }}') && ('{{ strtolower($class->name) }}'.includes(searchQuery.toLowerCase()))">
+                    {{-- Card Header --}}
+                    <div class="p-5 border-b border-slate-100 dark:border-slate-700/50 flex items-start justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-1">{{ $class->name }}</h3>
+                            <div class="flex items-center gap-2">
+                                <span class="pillar-badge {{ $class->status === 'active' ? 'bg-emerald-soft' : 'bg-slate-soft' }}">
+                                    {{ ucfirst($class->status) }}
+                                </span>
+                                <span class="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
+                                    {{ $class->assignedUsers->count() }} Members
+                                </span>
+                            </div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden {{ $class->icon ? 'bg-transparent' : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg' }}">
+                            @if($class->icon)
+                                <img src="{{ filter_var($class->icon, FILTER_VALIDATE_URL) ? $class->icon : asset(ltrim($class->icon, '/')) }}" alt="{{ $class->name }}" class="w-full h-full object-cover">
+                            @else
+                                {{ strtoupper(substr($class->name, 0, 2)) }}
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Spacer to push footer down --}}
+                    <div class="flex-1"></div>
+
+                    {{-- Card Footer --}}
+                    <div class="p-4 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800 flex items-center justify-between gap-3">
+                        <a href="{{ route('social-media.class.show', $class->id) }}" class="btn btn-primary flex-1 py-2 justify-center shadow-sm">
+                            View Table
+                        </a>
                     </div>
                 </div>
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden {{ $class->icon ? 'bg-transparent' : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg' }}">
-                    @if($class->icon)
-                        <img src="{{ $class->icon }}" alt="{{ $class->name }}" class="w-full h-full object-cover">
-                    @else
-                        {{ strtoupper(substr($class->name, 0, 2)) }}
-                    @endif
-                </div>
-            </div>
-
-
-
-            {{-- Card Footer --}}
-            <div class="p-4 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800 flex items-center justify-between gap-3">
-                <a href="{{ route('social-media.class.show', $class->id) }}" class="btn btn-primary flex-1 py-2 justify-center shadow-sm">
-                    View Table
-                </a>
-            </div>
+            @endforeach
         </div>
-    @empty
-        <div class="col-span-full">
-            <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-12 text-center shadow-sm">
-                <span class="text-5xl block mb-4">📭</span>
-                <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">No Classes Found</h3>
-                <p class="text-slate-500">You haven't been assigned to any Social Media classes yet.</p>
-                @if($isAdmin)
-                    <a href="{{ route('social-media.manage') }}" class="btn btn-primary mt-6">Create Your First Class</a>
-                @endif
-            </div>
+    @endif
+@endforeach
+
+@if($classesWithStats->isEmpty())
+    <div class="col-span-full">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-12 text-center shadow-sm">
+            <span class="text-5xl block mb-4">📭</span>
+            <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">No Classes Found</h3>
+            <p class="text-slate-500">No Social Media classes have been created yet.</p>
+            @if($canManageClasses)
+                <a href="{{ route('social-media.manage') }}" class="btn btn-primary mt-6">Create Your First Class</a>
+            @endif
         </div>
-    @endforelse
-</div>
+    </div>
+@endif
 </div>
 @endsection

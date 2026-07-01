@@ -2,6 +2,12 @@
 @section('title', 'Log eBay Offer')
 @section('page_title', 'Log eBay Offer')
 
+@push('scripts')
+<script>
+window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$c->name,'company'=>$c->company??'','phone'=>$c->phone??'','label'=>$c->name.($c->company?' — '.$c->company:'').($c->phone?' · '.$c->phone:'')])->values()->toJson() !!};
+</script>
+@endpush
+
 @section('content')
 <div class="max-w-2xl animate-fade-in">
   <div class="mb-5">
@@ -26,20 +32,28 @@
       <div class="px-6 py-5 space-y-4">
         <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Client / eBay Identity</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Client Name</label>
-            <input type="text" name="client_name" value="{{ old('client_name') }}"
-                   class="form-input" placeholder="Full name (if known)" id="field-client-name">
+          <div class="sm:col-span-2">
+            <label class="form-label">Customer <span class="text-red-500">*</span></label>
+            @include('crm.partials.customer_combobox', [
+                'customers' => $customers,
+                'fieldId'   => 'ebay-customer',
+                'fieldName' => 'customer_id',
+                'required'  => true,
+            ])
+            @error('customer_id')<p class="form-error">{{ $message }}</p>@enderror
           </div>
           <div>
-            <label class="form-label">Client Email</label>
-            <input type="email" name="client_email" value="{{ old('client_email') }}"
-                   class="form-input" placeholder="buyer@email.com" id="field-client-email">
+            <label class="form-label">eBay Store</label>
+            <select name="store_id" class="form-input">
+              <option value="">— Unassigned —</option>
+              @foreach($stores as $store)
+                <option value="{{ $store->id }}" {{ old('store_id', request('store_id')) == $store->id ? 'selected' : '' }}>{{ $store->store_name }}</option>
+              @endforeach
+            </select>
           </div>
           <div>
-            <label class="form-label">eBay Username</label>
-            <input type="text" name="ebay_username" value="{{ old('ebay_username') }}"
-                   class="form-input" placeholder="buyer_username99" id="field-ebay-username">
+            <label class="form-label">eBay Username <span class="text-slate-400 text-xs font-normal ml-1">(Optional)</span></label>
+            <input type="text" name="ebay_username" value="{{ old('ebay_username') }}" class="form-input" id="field-ebay-username">
           </div>
           <div>
             <label class="form-label">eBay Message ID</label>
@@ -56,6 +70,17 @@
             <input type="datetime-local" name="received_at"
                    value="{{ old('received_at', now()->format('Y-m-d\TH:i')) }}"
                    class="form-input" required id="field-received-at">
+          </div>
+          <div>
+            <label class="form-label">Handled By (CRM Member)</label>
+            <select name="handled_by" class="form-input" id="field-handled-by">
+              <option value="">Unassigned</option>
+              @foreach($crmUsers as $u)
+                <option value="{{ $u->id }}" {{ old('handled_by', auth()->id()) == $u->id ? 'selected' : '' }}>
+                  {{ $u->name }} — {{ $u->crm_role_display }}
+                </option>
+              @endforeach
+            </select>
           </div>
         </div>
       </div>

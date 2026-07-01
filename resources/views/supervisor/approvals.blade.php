@@ -4,7 +4,7 @@
 @section('meta_description', 'Review and approve or reject tasks submitted by staff and digital team members.')
 
 @section('content')
-<div x-data="approvalQueue()" class="animate-fade-in">
+<div x-data="approvalQueue()" class="animate-fade-in pb-28 md:pb-8">
 
   {{-- ── Board Sync Selector (Admin / Super-Admin only) ─────────────────────── --}}
   @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']))

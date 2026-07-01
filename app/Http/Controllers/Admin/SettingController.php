@@ -41,17 +41,24 @@ class SettingController extends Controller
                 $key . '_label' => ['nullable', 'string', 'max:255']
             ])
             ->merge([
-                'custom_ai_tools' => ['nullable', 'array'],
-                'custom_ai_tools.*.label' => ['required_with:custom_ai_tools.*.url', 'nullable', 'string', 'max:255'],
-                'custom_ai_tools.*.url' => ['required_with:custom_ai_tools.*.label', 'nullable', 'url', 'max:2048'],
-                'custom_ai_tools.*.icon_url' => ['nullable', 'url', 'max:2048'],
+                'custom_ai_tools'            => ['nullable', 'string'],
+                'custom_board_tools'         => ['nullable', 'string'],
+                'custom_generator_tools'     => ['nullable', 'string'],
+                'custom_workspace_tools'     => ['nullable', 'string'],
+
+                'board_tools_order'          => ['nullable', 'string'],
+                'generator_tools_order'      => ['nullable', 'string'],
+                'workspace_tools_order'      => ['nullable', 'string'],
+                'ai_tools_order'             => ['nullable', 'string'],
             ])
             ->all();
 
         $validated = $request->validate($rules);
 
+        $customKeys = ['custom_ai_tools', 'custom_board_tools', 'custom_generator_tools', 'custom_workspace_tools'];
+
         foreach ($validated as $key => $value) {
-            if ($key === 'custom_ai_tools' || str_contains($key, '.')) {
+            if (in_array($key, $customKeys) || str_contains($key, '.')) {
                 continue;
             }
 
@@ -61,15 +68,39 @@ class SettingController extends Controller
             );
         }
 
-        $customAiTools = collect($request->input('custom_ai_tools', []))
-            ->filter(fn ($tool) => !empty($tool['label']) && !empty($tool['url']))
-            ->values()
-            ->toArray();
+        foreach ($customKeys as $customKey) {
+            $rawCustom = $request->input($customKey);
+            if (is_string($rawCustom)) {
+                $customTools = json_decode($rawCustom, true) ?: [];
+            } else {
+                $customTools = collect($rawCustom ?? [])
+                    ->filter(fn ($tool) => !empty($tool['label']) && !empty($tool['url']))
+                    ->values()
+                    ->toArray();
+            }
 
-        Setting::updateOrCreate(
-            ['key' => 'custom_ai_tools'],
-            ['value' => json_encode($customAiTools)]
-        );
+            // Strip internal _id and _static_key metadata before saving
+            $customTools = collect($customTools)->map(function ($tool) {
+                unset($tool['_id'], $tool['_static_key']);
+                return $tool;
+            })->filter(fn ($t) => !empty($t['label']) && !empty($t['url']))->values()->toArray();
+
+            Setting::updateOrCreate(
+                ['key' => $customKey],
+                ['value' => json_encode($customTools)]
+            );
+        }
+
+        // Save section display orders
+        foreach (['board_tools_order', 'generator_tools_order', 'workspace_tools_order', 'ai_tools_order'] as $orderKey) {
+            $orderValue = $request->input($orderKey);
+            if ($orderValue !== null) {
+                Setting::updateOrCreate(
+                    ['key' => $orderKey],
+                    ['value' => $orderValue]
+                );
+            }
+        }
 
         $route = $request->input('redirect_to') === 'dashboard'
             ? 'dashboard'

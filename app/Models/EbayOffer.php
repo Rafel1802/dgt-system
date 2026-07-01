@@ -16,7 +16,7 @@ class EbayOffer extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'customer_id', 'handled_by', 'product_id',
+        'customer_id', 'store_id', 'handled_by', 'product_id',
         'ebay_username', 'ebay_message_id', 'ebay_item_id',
         'client_name', 'client_email',
         'inquiry_notes', 'offer_details',
@@ -36,6 +36,11 @@ class EbayOffer extends Model
     ];
 
     // ── Relationships ───────────────────────────────────────────────────────
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(EbayStore::class)->withTrashed();
+    }
 
     public function customer(): BelongsTo
     {

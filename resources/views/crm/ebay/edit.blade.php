@@ -34,7 +34,16 @@
             <input type="email" name="client_email" value="{{ old('client_email', $offer->client_email) }}" class="form-input">
           </div>
           <div>
-            <label class="form-label">eBay Username</label>
+            <label class="form-label">eBay Store</label>
+            <select name="store_id" class="form-input">
+              <option value="">— Unassigned —</option>
+              @foreach($stores as $store)
+                <option value="{{ $store->id }}" {{ old('store_id', $offer->store_id) == $store->id ? 'selected' : '' }}>{{ $store->store_name }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div>
+            <label class="form-label">eBay Username <span class="text-slate-400 text-xs font-normal ml-1">(Optional)</span></label>
             <input type="text" name="ebay_username" value="{{ old('ebay_username', $offer->ebay_username) }}" class="form-input">
           </div>
           <div>
@@ -44,6 +53,17 @@
           <div>
             <label class="form-label">eBay Item ID</label>
             <input type="text" name="ebay_item_id" value="{{ old('ebay_item_id', $offer->ebay_item_id) }}" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">Handled By (CRM Member)</label>
+            <select name="handled_by" class="form-input">
+              <option value="">Unassigned</option>
+              @foreach($crmUsers as $u)
+                <option value="{{ $u->id }}" {{ old('handled_by', $offer->handled_by) == $u->id ? 'selected' : '' }}>
+                  {{ $u->name }} — {{ $u->crm_role_display }}
+                </option>
+              @endforeach
+            </select>
           </div>
         </div>
       </div>

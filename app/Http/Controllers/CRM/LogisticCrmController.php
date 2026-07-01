@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\CRM;
 
+use App\Enums\CustomerStatus;
 use App\Enums\LogisticStatus;
+use App\Enums\ProductCategory;
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\EbayOrder;
 use App\Models\Lead;
 use App\Models\Logistic;
@@ -34,10 +37,11 @@ class LogisticCrmController extends Controller
     public function create(): View
     {
         return view('crm.logistics.create', [
-            'statuses'   => LogisticStatus::cases(),
-            'products'   => Product::active()->orderBy('name')->get(),
-            'users'      => User::active()->orderBy('name')->get(),
-            'ebayOrders' => EbayOrder::confirmed()->with('customer')->latest()->limit(50)->get(),
+            'statuses'         => LogisticStatus::cases(),
+            'products'         => Product::active()->orderBy('name')->get(),
+            'crmUsers'         => User::crmMembers()->orderBy('name')->get(),
+            'ebayOrders'       => EbayOrder::confirmed()->with('customer')->latest()->limit(50)->get(),
+            'truckingCompanies'=> \App\Models\TruckingCompany::active()->orderBy('company_name')->get(),
         ]);
     }
 
@@ -88,10 +92,11 @@ class LogisticCrmController extends Controller
     public function edit(Logistic $logistic): View
     {
         return view('crm.logistics.edit', [
-            'logistic' => $logistic,
-            'statuses' => LogisticStatus::cases(),
-            'products' => Product::active()->orderBy('name')->get(),
-            'users'    => User::active()->orderBy('name')->get(),
+            'logistic'         => $logistic,
+            'statuses'         => LogisticStatus::cases(),
+            'products'         => Product::active()->orderBy('name')->get(),
+            'crmUsers'         => User::crmMembers()->orderBy('name')->get(),
+            'truckingCompanies'=> \App\Models\TruckingCompany::active()->orderBy('company_name')->get(),
         ]);
     }
 
@@ -169,5 +174,92 @@ class LogisticCrmController extends Controller
     {
         $logistic->delete();
         return redirect()->route('crm.logistics.index')->with('success', 'Shipment deleted.');
+    }
+
+    // ── AJAX: Customer search ────────────────────────────────────────────────
+
+    public function searchCustomers(Request $request): JsonResponse
+    {
+        $term = $request->get('q', '');
+        $customers = Customer::when($term, fn($q) => $q->search($term))
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id', 'name', 'email', 'phone', 'company']);
+
+        return response()->json($customers->map(fn($c) => [
+            'id'    => $c->id,
+            'text'  => $c->name . ($c->company ? ' — ' . $c->company : '') . ($c->phone ? ' · ' . $c->phone : ''),
+            'name'  => $c->name,
+            'phone' => $c->phone,
+            'email' => $c->email,
+        ]));
+    }
+
+    // ── AJAX: Product search ─────────────────────────────────────────────────
+
+    public function searchProducts(Request $request): JsonResponse
+    {
+        $term = $request->get('q', '');
+        $products = Product::active()
+            ->when($term, fn($q) => $q->where('name', 'like', "%{$term}%")
+                ->orWhere('sku', 'like', "%{$term}%"))
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id', 'name', 'category', 'sku']);
+
+        return response()->json($products->map(fn($p) => [
+            'id'   => $p->id,
+            'text' => ($p->category?->icon() ?? '') . ' ' . $p->name . ($p->sku ? ' (' . $p->sku . ')' : ''),
+            'name' => $p->name,
+        ]));
+    }
+
+    // ── AJAX: Quick-create Customer ──────────────────────────────────────────
+
+    public function quickCreateCustomer(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'    => ['required', 'string', 'max:255'],
+            'phone'   => ['nullable', 'string', 'max:30'],
+            'email'   => ['nullable', 'email', 'max:255', 'unique:customers,email'],
+            'company' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $customer = Customer::create([
+            ...$validated,
+            'status'     => CustomerStatus::Lead->value,
+            'created_by' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'id'   => $customer->id,
+            'text' => $customer->name . ($customer->company ? ' — ' . $customer->company : '') . ($customer->phone ? ' · ' . $customer->phone : ''),
+            'name' => $customer->name,
+        ], 201);
+    }
+
+    // ── AJAX: Quick-create Product ───────────────────────────────────────────
+
+    public function quickCreateProduct(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'     => ['required', 'string', 'max:255'],
+            'category' => ['required', Rule::enum(ProductCategory::class)],
+            'sku'      => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $product = Product::create([
+            ...$validated,
+            'is_active'  => true,
+            'created_by' => auth()->id(),
+        ]);
+
+        $cat = ProductCategory::from($product->category instanceof ProductCategory ? $product->category->value : $product->category);
+
+        return response()->json([
+            'id'   => $product->id,
+            'text' => $cat->icon() . ' ' . $product->name . ($product->sku ? ' (' . $product->sku . ')' : ''),
+            'name' => $product->name,
+        ], 201);
     }
 }

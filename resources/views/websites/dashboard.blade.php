@@ -134,7 +134,7 @@
 </style>
 
 {{-- Alpine.js data component --}}
-<div x-data="websitesDashboard()" x-init="init()" x-cloak>
+<div x-data="websitesDashboard()" x-init="init()" x-cloak class="pb-28 md:pb-8">
 
 {{-- ════════════════════════════════════════════════════════════════
      SECTION A: GLOBAL HEADER METRICS
@@ -195,30 +195,8 @@
      SECTION B: LIVE FILTER BAR
 ════════════════════════════════════════════════════════════════ --}}
 
-{{-- API Connection Status Banner --}}
-@if(!$apiConfigured)
-<div class="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
-    <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
-    <div>
-        <span class="font-bold">kiuq.kiuq.net Database not connected.</span>
-        Set <code class="bg-amber-100 px-1 rounded text-xs">KIUQ_DB_CONNECTION</code> in your <code class="bg-amber-100 px-1 rounded text-xs">.env</code> file to enable live remote data (eBay clicks, blog audits, plugin updates, QC scores).
-        Showing local board data only.
-    </div>
-</div>
-@elseif($apiConfigured && !$apiConnected)
-<div class="mb-4 flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-sm text-rose-800">
-    <svg class="w-5 h-5 text-rose-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
-    <div>
-        <span class="font-bold">Connected to kiuq.kiuq.net Database, but no data found.</span>
-        Connection is valid, but the database appears to be empty or missing websites. Showing local board data only.
-    </div>
-</div>
-@elseif($apiConnected)
-<div class="mb-4 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm text-emerald-800">
-    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse inline-block flex-shrink-0"></span>
-    <span><span class="font-bold">kiuq.kiuq.net Database connected.</span> Live data for eBay clicks, blog audits, plugin updates &amp; QC scores is active.</span>
-</div>
-@endif
+
+
 
 <div class="filter-section mb-6">
     <!-- Mobile Filter Toggle Button -->

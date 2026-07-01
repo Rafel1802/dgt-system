@@ -154,19 +154,13 @@
               <button type="button"
                       @click="switchToBoard(b)"
                       class="block h-28 w-full overflow-hidden bg-slate-200 text-left"
-                      :style="sbmBoardPreviewStyle(b)"
+                      :style="sbmCoverStyle(b)"
                       :aria-label="'Switch to ' + b.name">
                 <div class="relative h-full w-full bg-slate-950/15 transition group-hover:bg-slate-950/5">
                   <div class="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] items-center gap-2">
                     <span class="rounded-md bg-white/90 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700 shadow-sm" x-text="sbmBoardWorkspaceName(b)"></span>
-                    <template x-if="b.id === boardId">
-                      <span class="rounded-md bg-sky-600 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm">Current</span>
-                    </template>
                   </div>
 
-                  <div class="absolute bottom-3 left-3 right-3">
-                    <h4 class="line-clamp-2 text-base font-black leading-tight text-white drop-shadow" x-text="b.name"></h4>
-                  </div>
                 </div>
               </button>
 
@@ -175,8 +169,7 @@
                   <button type="button"
                           @click="switchToBoard(b)"
                           class="min-w-0 flex-1 text-left">
-                    <span class="block truncate text-sm font-black text-slate-900 transition hover:text-sky-700" x-text="b.name"></span>
-                    <span class="block truncate text-xs font-semibold text-slate-500" x-text="sbmBoardWorkspaceName(b)"></span>
+                    <span class="block text-sm font-black text-slate-900 transition hover:text-sky-700" x-text="b.name"></span>
                   </button>
 
                   <button type="button"
@@ -196,82 +189,6 @@
             </article>
           </template>
 
-          @if(auth()->user()->canCreateBoards())
-          <template x-if="!switchBoardsModal.search && ['your', 'workspace'].includes(switchBoardsModal.tab)">
-            <form method="POST"
-                  action="{{ route('boards.store') }}"
-                  class="min-h-[214px] rounded-xl border-2 border-dashed border-slate-300 bg-white/70 p-3 shadow-sm transition hover:border-sky-300 hover:bg-sky-50/40">
-              @csrf
-              <input type="hidden" name="workspace_id" :value="sbmCreateWorkspaceId()">
-              <input type="hidden" name="background_type" :value="switchBoardsModal.createColorType || 'color'">
-              <input type="hidden" name="background_value" :value="switchBoardsModal.createColor">
-
-              <div x-show="!switchBoardsModal.creating" class="flex h-full min-h-[188px] flex-col items-center justify-center text-center">
-                <button type="button"
-                        @click="switchBoardsModal.creating = true; $nextTick(() => $refs.sbmCreateBoardName?.focus())"
-                        class="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-sky-600 shadow-sm ring-1 ring-sky-100 transition hover:scale-105">
-                  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                </button>
-                <p class="mt-3 text-sm font-black text-slate-800">Create new board</p>
-                <p class="mt-1 max-w-40 text-xs font-medium text-slate-500" x-text="'In ' + sbmCreateWorkspaceName()"></p>
-              </div>
-
-              <div x-show="switchBoardsModal.creating" x-cloak class="space-y-3">
-                <div>
-                  <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">Board name</label>
-                  <input x-ref="sbmCreateBoardName"
-                         x-model="switchBoardsModal.createBoardName"
-                         name="name"
-                         type="text"
-                         required
-                         maxlength="100"
-                         placeholder="New board name"
-                         class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100">
-                </div>
-
-                <div>
-                  <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">Style</label>
-                  <div class="grid grid-cols-5 gap-1.5">
-                    <template x-for="palette in switchBoardsModal.createColors" :key="palette.type + '-' + palette.value">
-                      <button type="button"
-                              @click="switchBoardsModal.createColorType = palette.type; switchBoardsModal.createColor = palette.value"
-                              class="h-7 w-7 rounded-lg border border-white/60 ring-offset-2 transition shadow-sm"
-                              :class="switchBoardsModal.createColor === palette.value && switchBoardsModal.createColorType === palette.type ? 'ring-2 ring-sky-500 scale-105' : 'ring-1 ring-slate-200 hover:ring-slate-300 hover:scale-[1.03]'"
-                              :style="'background:' + (palette.preview || palette.value)"
-                              :aria-label="'Use ' + palette.type + ' style ' + palette.value">
-                      </button>
-                    </template>
-                  </div>
-                </div>
-
-                <div>
-                  <label class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">Visibility</label>
-                  <select name="visibility"
-                          x-model="switchBoardsModal.createVisibility"
-                          class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100">
-                    <option value="workspace">Workspace</option>
-                    <option value="private">Private</option>
-                    <option value="public">Public</option>
-                  </select>
-                </div>
-
-                <div class="flex gap-2 pt-1">
-                  <button type="button"
-                          @click="switchBoardsModal.creating = false; switchBoardsModal.createBoardName = ''"
-                          class="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-50">
-                    Cancel
-                  </button>
-                  <button type="submit"
-                          class="flex-1 rounded-lg bg-sky-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-sky-700">
-                    Create
-                  </button>
-                </div>
-              </div>
-            </form>
-          </template>
-          @endif
 
           <template x-if="sbmFilteredBoards().length === 0">
             <div class="col-span-full flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">

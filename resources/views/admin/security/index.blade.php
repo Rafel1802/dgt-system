@@ -3,7 +3,55 @@
 @section('page_title', 'Security Command Center')
 
 @section('content')
-<div class="space-y-6 animate-fade-in" x-data="{ activeTab: new URLSearchParams(location.search).has('activity_page') ? 'activity' : (new URLSearchParams(location.search).has('attempt_page') ? 'attempts' : (new URLSearchParams(location.search).has('user_page') ? 'users' : 'ips')) }">
+<div class="space-y-6 animate-fade-in pb-28 md:pb-8" x-data="{ activeTab: new URLSearchParams(location.search).has('activity_page') ? 'activity' : (new URLSearchParams(location.search).has('attempt_page') ? 'attempts' : (new URLSearchParams(location.search).has('user_page') ? 'users' : 'ips')) }">
+
+<style>
+/* ── Mobile Responsive Table ── */
+@media (max-width: 768px) {
+  .responsive-table thead { display: none; }
+  .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
+  .responsive-table tr {
+    margin-bottom: 1rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  }
+  .responsive-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem !important;
+    border-bottom: 1px solid #f8fafc;
+    text-align: right;
+  }
+  .responsive-table td:last-child { border-bottom: none; }
+  .responsive-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-right: 1rem;
+    text-align: left;
+  }
+  .responsive-table td > div { text-align: right; justify-content: flex-end; }
+  /* User cell gets special treatment */
+  .responsive-table td.user-cell {
+    flex-direction: column;
+    align-items: flex-start;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 1rem !important;
+  }
+  .responsive-table td.user-cell::before { display: none; }
+  .responsive-table td.user-cell > div { text-align: left; justify-content: flex-start; width: 100%; }
+}
+/* Ensure tabs can scroll horizontally without wrapping */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
 
   {{-- Stats Grid --}}
   <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -53,7 +101,7 @@
   </div>
 
   {{-- Tab Navigation --}}
-  <div class="flex border-b border-slate-200 gap-6">
+  <div class="flex border-b border-slate-200 gap-6 overflow-x-auto whitespace-nowrap hide-scrollbar">
     <button @click="activeTab = 'ips'"
             :class="activeTab === 'ips' ? 'border-indigo-600 text-indigo-600 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-700'"
             class="py-3 px-1 border-b-2 text-sm transition-all focus:outline-none">
@@ -121,7 +169,7 @@
             <span class="text-xs text-slate-400">{{ $bannedIps->total() }} restricted IPs</span>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-left border-collapse responsive-table">
               <thead>
                 <tr class="border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50/50">
                   <th class="px-6 py-3">IP Address</th>
@@ -134,10 +182,10 @@
               <tbody class="divide-y divide-slate-50 text-slate-600 text-xs">
                 @forelse($bannedIps as $ban)
                   <tr class="hover:bg-slate-50/50 transition-colors">
-                    <td class="px-6 py-3 font-mono font-semibold text-slate-700">{{ $ban->ip_address }}</td>
-                    <td class="px-6 py-3">{{ $ban->reason ?? 'N/A' }}</td>
-                    <td class="px-6 py-3">{{ $ban->bannedBy?->name ?? 'System' }}</td>
-                    <td class="px-6 py-3">
+                    <td class="px-6 py-3 font-mono font-semibold text-slate-700" data-label="IP Address">{{ $ban->ip_address }}</td>
+                    <td class="px-6 py-3" data-label="Reason">{{ $ban->reason ?? 'N/A' }}</td>
+                    <td class="px-6 py-3" data-label="Banned By">{{ $ban->bannedBy?->name ?? 'System' }}</td>
+                    <td class="px-6 py-3" data-label="Expires At">
                       @if($ban->expires_at)
                         <span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">
                           {{ $ban->expires_at->diffForHumans() }}
@@ -146,7 +194,7 @@
                         <span class="px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">Permanent</span>
                       @endif
                     </td>
-                    <td class="px-6 py-3 text-right">
+                    <td class="px-6 py-3 text-right" data-label="Action">
                       <form method="POST" action="{{ route('admin.security.unban-ip', $ban) }}"
                             data-confirm-title="Lift IP ban?"
                             data-confirm="Lift ban for {{ $ban->ip_address }}?"
@@ -181,7 +229,7 @@
         <span class="text-xs text-slate-400">{{ $blockedUsers->total() }} users</span>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full text-left border-collapse responsive-table">
           <thead>
             <tr class="border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50/50">
               <th class="px-6 py-3">User</th>
@@ -194,16 +242,16 @@
           <tbody class="divide-y divide-slate-50 text-slate-600 text-xs">
             @forelse($blockedUsers as $u)
               <tr class="hover:bg-slate-50/50 transition-colors">
-                <td class="px-6 py-3 flex items-center gap-3">
+                <td class="px-6 py-3 flex items-center gap-3 user-cell" data-label="User">
                   <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover">
                   <div>
                     <p class="font-semibold text-slate-700">{{ $u->name }}</p>
                     <p class="text-[10px] text-slate-400">{{ $u->email }}</p>
                   </div>
                 </td>
-                <td class="px-6 py-3 font-semibold text-rose-600">{{ $u->failed_login_count }}</td>
-                <td class="px-6 py-3 font-mono">{{ $u->last_login_ip ?? 'N/A' }}</td>
-                <td class="px-6 py-3">
+                <td class="px-6 py-3 font-semibold text-rose-600" data-label="Failed Attempts">{{ $u->failed_login_count }}</td>
+                <td class="px-6 py-3 font-mono" data-label="Last Login IP">{{ $u->last_login_ip ?? 'N/A' }}</td>
+                <td class="px-6 py-3" data-label="Blocked Until">
                   @if($u->isLockedOut())
                     <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold text-[10px]">
                       Locked until {{ $u->locked_until->format('H:i') }} ({{ $u->locked_until->diffForHumans() }})
@@ -214,7 +262,7 @@
                     </span>
                   @endif
                 </td>
-                <td class="px-6 py-3 text-right">
+                <td class="px-6 py-3 text-right" data-label="Action">
                   <form method="POST" action="{{ route('admin.security.unblock-user', $u) }}"
                         data-confirm-title="Unblock user?"
                         data-confirm="Unblock user {{ $u->name }}?"
@@ -247,7 +295,7 @@
         <span class="text-xs text-slate-400">{{ $failedAttempts->total() }} raw logs</span>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full text-left border-collapse responsive-table">
           <thead>
             <tr class="border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50/50">
               <th class="px-6 py-3">Email Attempted</th>
@@ -259,12 +307,12 @@
           <tbody class="divide-y divide-slate-50 text-slate-600 text-xs">
             @forelse($failedAttempts as $attempt)
               <tr class="hover:bg-slate-50/50 transition-colors">
-                <td class="px-6 py-3 font-semibold text-slate-700">{{ $attempt->email }}</td>
-                <td class="px-6 py-3 font-mono">{{ $attempt->ip_address }}</td>
-                <td class="px-6 py-3 text-slate-400 max-w-xs truncate" title="{{ $attempt->user_agent }}">
+                <td class="px-6 py-3 font-semibold text-slate-700" data-label="Email Attempted">{{ $attempt->email }}</td>
+                <td class="px-6 py-3 font-mono" data-label="IP Address">{{ $attempt->ip_address }}</td>
+                <td class="px-6 py-3 text-slate-400 max-w-xs truncate" title="{{ $attempt->user_agent }}" data-label="User Agent">
                   {{ $attempt->user_agent }}
                 </td>
-                <td class="px-6 py-3 text-slate-400 font-medium">{{ $attempt->attempted_at->format('M d, Y H:i:s') }}</td>
+                <td class="px-6 py-3 text-slate-400 font-medium" data-label="Timestamp">{{ $attempt->attempted_at->format('M d, Y H:i:s') }}</td>
               </tr>
             @empty
               <tr>
@@ -302,7 +350,7 @@
         @endif
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full text-left border-collapse responsive-table">
           <thead>
             <tr class="border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50/50">
               <th class="px-6 py-3">User</th>
@@ -315,11 +363,11 @@
           <tbody class="divide-y divide-slate-50 text-slate-600 text-xs">
             @forelse($activityLogs as $log)
               <tr class="hover:bg-slate-50/50 transition-colors">
-                <td class="px-6 py-3 font-semibold text-slate-700">{{ $log->user?->name ?? 'System' }}</td>
-                <td class="px-6 py-3 font-mono text-[10px] uppercase font-bold text-indigo-600">{{ $log->action }}</td>
-                <td class="px-6 py-3">{{ $log->description }}</td>
-                <td class="px-6 py-3 font-mono">{{ $log->ip_address ?? 'N/A' }}</td>
-                <td class="px-6 py-3 text-slate-400">{{ $log->created_at->diffForHumans() }}</td>
+                <td class="px-6 py-3 font-semibold text-slate-700" data-label="User">{{ $log->user?->name ?? 'System' }}</td>
+                <td class="px-6 py-3 font-mono text-[10px] uppercase font-bold text-indigo-600" data-label="Action">{{ $log->action }}</td>
+                <td class="px-6 py-3" data-label="Description">{{ $log->description }}</td>
+                <td class="px-6 py-3 font-mono" data-label="IP Address">{{ $log->ip_address ?? 'N/A' }}</td>
+                <td class="px-6 py-3 text-slate-400" data-label="Time">{{ $log->created_at->diffForHumans() }}</td>
               </tr>
             @empty
               <tr>

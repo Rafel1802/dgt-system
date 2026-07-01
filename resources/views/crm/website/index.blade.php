@@ -8,21 +8,24 @@
   {{-- ── Toolbar ─────────────────────────────────────────────────────────── --}}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <div class="flex gap-2 flex-wrap">
-      {{-- Temperature quick filters --}}
-      @foreach(['' => 'All', 'hot' => '🔥 Hot', 'warm' => '🌤 Warm', 'cold' => '🧊 Cold'] as $val => $lbl)
-      <a href="{{ route('crm.website.index', array_merge(request()->query(), ['temperature' => $val])) }}"
-         class="btn text-xs py-1.5 px-3 {{ request('temperature') === $val ? 'btn-primary' : 'btn-secondary' }}">
+        {{-- Status quick filters matching flowchart exactly --}}
+      @foreach(['' => 'All', 'new_lead' => 'New Customer', 'successful' => 'Successful Lead', 'in_delivery' => 'In Delivery', 'delivered' => 'Delivered', 'lost' => 'Lost Interested', 'technical_support' => 'In Technical'] as $val => $lbl)
+      <a href="{{ route('crm.website.index', array_merge(request()->query(), ['status' => $val])) }}"
+         class="btn text-xs py-1.5 px-3 {{ request('status') === $val ? 'btn-primary' : 'btn-secondary' }}">
         {{ $lbl }}
       </a>
       @endforeach
-      @if(request('follow_up_due'))
+      @if(request('handled_by') || request('follow_up_due'))
       <a href="{{ route('crm.website.index') }}" class="btn btn-secondary text-xs py-1.5 px-3">Clear Filters</a>
       @endif
     </div>
-    <a href="{{ route('crm.website.create') }}" class="btn btn-primary text-sm" id="btn-new-lead">
-      <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-      New Inquiry
-    </a>
+    <div class="flex gap-2 items-center">
+      @include('crm.partials.report_export_modal', ['type' => 'website', 'btnClass' => 'btn btn-secondary text-sm py-1.5'])
+      <a href="{{ route('crm.website.create') }}" class="btn btn-primary text-sm" id="btn-new-lead">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        New Inquiry
+      </a>
+    </div>
   </div>
 
   {{-- ── Search & Filters ────────────────────────────────────────────────── --}}
@@ -54,7 +57,7 @@
           @endforeach
         </select>
       </div>
-      <input type="hidden" name="temperature" value="{{ request('temperature') }}">
+      <input type="hidden" name="status" value="{{ request('status') }}">
       <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
         <input type="checkbox" name="follow_up_due" value="1" {{ request('follow_up_due') ? 'checked' : '' }} class="accent-indigo-600">
         Follow-ups due
@@ -76,7 +79,6 @@
             <th class="px-4 py-3 text-left">Source</th>
             <th class="px-4 py-3 text-left">Product</th>
             <th class="px-4 py-3 text-left">Status</th>
-            <th class="px-4 py-3 text-left">Temp</th>
             <th class="px-4 py-3 text-left">Follow-Up</th>
             <th class="px-4 py-3 text-left">Handled By</th>
             <th class="px-4 py-3 text-left">Received</th>
@@ -113,11 +115,6 @@
               </span>
             </td>
             <td class="px-4 py-3">
-              @if($lead->temperature)
-              <span class="text-base" title="{{ $lead->temperature->label() }}">{{ $lead->temperature->icon() }}</span>
-              @endif
-            </td>
-            <td class="px-4 py-3">
               @if($lead->follow_up_date)
                 <span class="text-xs {{ $lead->is_overdue ? 'text-red-600 font-bold' : 'text-slate-500' }}">
                   {{ $lead->is_overdue ? '⚠️ ' : '' }}{{ $lead->follow_up_date->format('d M Y') }}
@@ -148,7 +145,7 @@
           </tr>
           @empty
           <tr>
-            <td colspan="9" class="text-center py-14">
+            <td colspan="8" class="text-center py-14">
               <div class="text-4xl mb-3">🌐</div>
               <p class="text-slate-500 font-medium">No leads found</p>
               <p class="text-slate-400 text-xs mt-1">Try adjusting your filters or log a new inquiry</p>

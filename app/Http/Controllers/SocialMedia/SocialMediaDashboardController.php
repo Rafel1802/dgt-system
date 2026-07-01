@@ -11,18 +11,15 @@ class SocialMediaDashboardController extends Controller
     public function index()
     {
         $user    = auth()->user();
-        $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin']);
-        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc']);
+        $canManageClasses = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
+        $isQc             = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss']);
 
         // Build class query based on role
         $classQuery = SocialMediaClass::with(['activeItems', 'assignedUsers'])
             ->withCount('activeItems as items_count');
 
-        $canSeeAllClasses = $user->hasAnyRole(['super-admin', 'admin-digital']);
-        if (!$canSeeAllClasses) {
-            // social_user: only assigned classes
-            $classQuery->whereHas('assignedUsers', fn ($q) => $q->where('user_id', $user->id));
-        }
+        $canSeeAllClasses = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss', 'digital-team']);
+        // Remove the restriction so everyone sees all classes (unassigned users will see them in view-only mode)
 
         $classes = $classQuery->orderBy('name')->get();
 
@@ -59,7 +56,7 @@ class SocialMediaDashboardController extends Controller
         ];
 
         return view('social-media.dashboard', compact(
-            'classesWithStats', 'globalStats', 'isAdmin', 'isQc', 'user'
+            'classesWithStats', 'globalStats', 'canManageClasses', 'isQc', 'user'
         ));
     }
 }

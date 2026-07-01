@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\SocialMedia;
 
 use App\Http\Controllers\Controller;
+use App\Models\SocialMediaAnalytic;
 use App\Models\SocialMediaClass;
 use App\Models\SocialMediaItem;
 use App\Models\SocialMediaPost;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use ZipArchive;
 
 class SocialMediaReportController extends Controller
 {
@@ -16,17 +19,16 @@ class SocialMediaReportController extends Controller
     {
         $user    = auth()->user();
         $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin']);
-        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc']);
+        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss']);
 
         $dateFrom   = $request->input('date_from', now()->startOfMonth()->toDateString());
         $dateTo     = $request->input('date_to', now()->toDateString());
         $classId    = $request->input('class_id');
-        $itemId     = $request->input('item_id');
         $userId     = $request->input('user_id');
         $qcStatus   = $request->input('qc_status');
         $postStatus = $request->input('post_status');
 
-        $posts = $this->buildQuery($user, $isQc, $dateFrom, $dateTo, $classId, $itemId, $userId, $qcStatus, $postStatus)->get();
+        $posts = $this->buildQuery($user, $isQc, $dateFrom, $dateTo, $classId, $userId, $qcStatus, $postStatus)->get();
 
         // Classes visible to user
         $classQuery = SocialMediaClass::orderBy('name');
@@ -35,7 +37,6 @@ class SocialMediaReportController extends Controller
         }
         $classes = $classQuery->get();
 
-        $items   = SocialMediaItem::orderBy('name')->get();
         $users   = $isQc ? User::where('is_active', true)->orderBy('name')->get() : collect([$user]);
 
         $summary = [
@@ -46,47 +47,223 @@ class SocialMediaReportController extends Controller
             'qcPending' => $posts->where('is_completed', true)->where('is_checked', false)->count(),
         ];
 
+        // Check whether any analytics files exist for the current filter
+        $analyticsQuery = SocialMediaAnalytic::query();
+        if ($classId) {
+            $analyticsQuery->whereHas('classes', fn ($q) => $q->where('social_media_classes.id', $classId));
+        }
+        $analyticsQuery->where(function($q) use ($dateFrom, $dateTo) {
+            $q->whereDate('date_from', '<=', $dateTo)
+              ->whereDate('date_to', '>=', $dateFrom);
+        });
+        $hasAnalytics = $analyticsQuery->exists();
+
+        // Available analytics attached to the classes in scope
+        $classIds = $classId
+            ? [$classId]
+            : $classes->pluck('id')->toArray();
+
+        $availableAnalytics = SocialMediaAnalytic::whereHas('classes', fn ($q) => $q->whereIn('social_media_classes.id', $classIds))
+            ->with('classes')
+            ->where(function($q) use ($dateFrom, $dateTo) {
+                $q->whereDate('date_from', '<=', $dateTo)
+                  ->whereDate('date_to', '>=', $dateFrom);
+            })
+            ->orderByDesc('date_from')
+            ->get();
+
         return view('social-media.reports.index', compact(
-            'posts', 'classes', 'items', 'users', 'summary',
-            'dateFrom', 'dateTo', 'classId', 'itemId', 'userId',
-            'qcStatus', 'postStatus', 'isAdmin', 'isQc'
+            'posts', 'classes', 'users', 'summary',
+            'dateFrom', 'dateTo', 'classId', 'userId',
+            'qcStatus', 'postStatus', 'isAdmin', 'isQc',
+            'hasAnalytics', 'availableAnalytics'
         ));
     }
 
-    public function exportCsv(Request $request)
+    // ─── Unified Export (ZIP or single file) ──────────────────────────────────
+
+    public function exportZip(Request $request)
     {
-        $user    = auth()->user();
-        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
+        $request->validate([
+            'include_csv'       => ['nullable', 'boolean'],
+            'include_pdf'       => ['nullable', 'boolean'],
+            'include_analytics' => ['nullable', 'boolean'],
+        ]);
+
+        $user  = auth()->user();
+        $isQc  = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']);
+
+        $dateFrom   = $request->input('date_from', now()->startOfMonth()->toDateString());
+        $dateTo     = $request->input('date_to', now()->toDateString());
+        $classId    = $request->input('class_id');
 
         $posts = $this->buildQuery(
-            $user, $isQc,
-            $request->input('date_from', now()->startOfMonth()->toDateString()),
-            $request->input('date_to', now()->toDateString()),
-            $request->input('class_id'),
-            $request->input('item_id'),
+            $user, $isQc, $dateFrom, $dateTo,
+            $classId,
             $request->input('user_id'),
             $request->input('qc_status'),
             $request->input('post_status')
         )->get();
 
+        $summary = [
+            'total'     => $posts->count(),
+            'completed' => $posts->where('is_completed', true)->count(),
+            'pending'   => $posts->where('is_completed', false)->count(),
+            'checked'   => $posts->where('is_checked', true)->count(),
+            'qcPending' => $posts->where('is_completed', true)->where('is_checked', false)->count(),
+        ];
+
+        $wantCsv       = (bool) $request->input('include_csv', false);
+        $wantPdf       = (bool) $request->input('include_pdf', false);
+        $wantAnalytics = (bool) $request->input('include_analytics', false);
+
+        $chosenCount = (int) $wantCsv + (int) $wantPdf + (int) $wantAnalytics;
+
+        // Single-file shortcuts
+        if ($chosenCount === 1 && $wantCsv)  return $this->streamCsv($posts);
+        if ($chosenCount === 1 && $wantPdf)  return $this->streamPdf($posts, $summary, $dateFrom, $dateTo, $user->name);
+
+        // Analytics-only shortcut
+        if ($chosenCount === 1 && $wantAnalytics) {
+            $analytic = $this->pickAnalytic($classId, $dateFrom, $dateTo);
+            if ($analytic && $analytic->fileExists()) {
+                return Storage::download($analytic->file_path, $analytic->original_name);
+            }
+            return back()->with('error', 'No analytics file found for the current filter.');
+        }
+
+        // ── Build ZIP ─────────────────────────────────────────────────────────
+        $stamp   = now()->format('Y-m-d');
+        $zipName = 'social-media-report-' . $stamp . '.zip';
+        $tmpPath = sys_get_temp_dir() . '/' . $zipName;
+
+        $zip = new ZipArchive();
+        if ($zip->open($tmpPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            abort(500, 'Could not create ZIP archive.');
+        }
+
+        if ($wantCsv) {
+            $zip->addFromString(
+                'social-media-report-' . $stamp . '.csv',
+                $this->buildCsvString($posts)
+            );
+        }
+
+        if ($wantPdf) {
+            $pdfContent = Pdf::loadView('social-media.reports.pdf', [
+                'posts'         => $posts,
+                'summary'       => $summary,
+                'dateFrom'      => $dateFrom,
+                'dateTo'        => $dateTo,
+                'generatedBy'   => $user->name,
+                'generatedDate' => now()->format('d M Y H:i'),
+            ])->setPaper('a4', 'landscape')->output();
+
+            $zip->addFromString('social-media-report-' . $stamp . '.pdf', $pdfContent);
+        }
+
+        if ($wantAnalytics) {
+            // Gather analytics for all relevant classes within the date range
+            $classIds = $classId ? [$classId] : SocialMediaClass::pluck('id')->toArray();
+            $analytics = SocialMediaAnalytic::whereHas('classes', fn ($q) => $q->whereIn('social_media_classes.id', $classIds))
+                ->with('classes')
+                ->where(function($q) use ($dateFrom, $dateTo) {
+                    $q->whereDate('date_from', '<=', $dateTo)
+                      ->whereDate('date_to', '>=', $dateFrom);
+                })
+                ->orderByDesc('date_from')
+                ->get();
+
+            // Keep the latest PDF covering each class, while adding a shared PDF
+            // only once even when it belongs to several selected classes.
+            $coveredClassIds = collect();
+            $analytics = $analytics->filter(function ($analytic) use (&$coveredClassIds, $classIds) {
+                $relevantIds = $analytic->classes->pluck('id')->intersect($classIds);
+                if ($relevantIds->diff($coveredClassIds)->isEmpty()) {
+                    return false;
+                }
+                $coveredClassIds = $coveredClassIds->merge($relevantIds)->unique();
+                return true;
+            });
+
+            foreach ($analytics as $analytic) {
+                if ($analytic->fileExists()) {
+                    $className = $analytic->classes
+                        ->pluck('name')
+                        ->map(fn ($name) => preg_replace('/[^A-Za-z0-9_\-]/', '-', $name))
+                        ->join('_');
+                    $entryName  = 'analytics/' . ($className ?: 'classes') . '-' . $analytic->date_from->format('Y-m-d') . '-to-' . $analytic->date_to->format('Y-m-d') . '.pdf';
+                    $zip->addFile($analytic->absolutePath(), $entryName);
+                }
+            }
+        }
+
+        $zip->close();
+
+        return response()->download($tmpPath, $zipName, [
+            'Content-Type' => 'application/zip',
+        ])->deleteFileAfterSend(true);
+    }
+
+    // ─── Legacy single-format routes (kept for backward compat) ───────────────
+
+    public function exportCsv(Request $request)
+    {
+        $user = auth()->user();
+        $isQc = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']);
+        $posts = $this->buildQuery(
+            $user, $isQc,
+            $request->input('date_from', now()->startOfMonth()->toDateString()),
+            $request->input('date_to', now()->toDateString()),
+            $request->input('class_id'),
+            $request->input('user_id'),
+            $request->input('qc_status'),
+            $request->input('post_status')
+        )->get();
+        return $this->streamCsv($posts);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $user     = auth()->user();
+        $isQc     = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']);
+        $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
+        $dateTo   = $request->input('date_to', now()->toDateString());
+        $posts    = $this->buildQuery(
+            $user, $isQc, $dateFrom, $dateTo,
+            $request->input('class_id'),
+            $request->input('user_id'), $request->input('qc_status'), $request->input('post_status')
+        )->get();
+        $summary = [
+            'total'     => $posts->count(),
+            'completed' => $posts->where('is_completed', true)->count(),
+            'pending'   => $posts->where('is_completed', false)->count(),
+            'checked'   => $posts->where('is_checked', true)->count(),
+            'qcPending' => $posts->where('is_completed', true)->where('is_checked', false)->count(),
+        ];
+        return $this->streamPdf($posts, $summary, $dateFrom, $dateTo, $user->name);
+    }
+
+    // ─── Private helpers ──────────────────────────────────────────────────────
+
+    private function streamCsv($posts)
+    {
         $filename = 'social-media-report-' . now()->format('Y-m-d') . '.csv';
-        $headers  = ['Content-Type' => 'text/csv', 'Content-Disposition' => 'attachment; filename="' . $filename . '"'];
-
-        $callback = function () use ($posts) {
+        $headers  = [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+        $callback = fn () => fwrite(fopen('php://output', 'w'), "\xEF\xBB\xBF" . $this->buildCsvString($posts));
+        return response()->stream(function () use ($posts) {
             $handle = fopen('php://output', 'w');
-            fwrite($handle, "\xEF\xBB\xBF"); // UTF-8 BOM
-
-            // Output summary totals vertically
+            fwrite($handle, "\xEF\xBB\xBF");
             fputcsv($handle, ['--- SUMMARY ---']);
             fputcsv($handle, ['Total Tasks', $posts->count()]);
-            fputcsv($handle, ['Posted', $posts->where('is_completed', true)->count()]);
-            fputcsv($handle, ['Pending', $posts->where('is_completed', false)->count()]);
-            fputcsv($handle, ['QC Checked', $posts->where('is_checked', true)->count()]);
-            fputcsv($handle, ['QC Pending', $posts->where('is_completed', true)->where('is_checked', false)->count()]);
+            fputcsv($handle, ['Posted',      $posts->where('is_completed', true)->count()]);
+            fputcsv($handle, ['Pending',     $posts->where('is_completed', false)->count()]);
+            fputcsv($handle, ['QC Checked',  $posts->where('is_checked', true)->count()]);
+            fputcsv($handle, ['QC Pending',  $posts->where('is_completed', true)->where('is_checked', false)->count()]);
             fputcsv($handle, []);
-            fputcsv($handle, []);
-            
-            // Output detailed data
             fputcsv($handle, ['Date', 'Class', 'Social Media', 'User', 'Post Link', 'Completed', 'Completed At', 'QC Status', 'Checked By', 'Checked At']);
             foreach ($posts as $post) {
                 fputcsv($handle, [
@@ -103,62 +280,79 @@ class SocialMediaReportController extends Controller
                 ]);
             }
             fclose($handle);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        }, 200, $headers);
     }
 
-    public function exportPdf(Request $request)
+    private function buildCsvString($posts): string
     {
-        $user  = auth()->user();
-        $isQc  = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
-        $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo   = $request->input('date_to', now()->toDateString());
+        ob_start();
+        $handle = fopen('php://output', 'w');
+        fputcsv($handle, ['--- SUMMARY ---']);
+        fputcsv($handle, ['Total Tasks', $posts->count()]);
+        fputcsv($handle, ['Posted',      $posts->where('is_completed', true)->count()]);
+        fputcsv($handle, ['Pending',     $posts->where('is_completed', false)->count()]);
+        fputcsv($handle, ['QC Checked',  $posts->where('is_checked', true)->count()]);
+        fputcsv($handle, ['QC Pending',  $posts->where('is_completed', true)->where('is_checked', false)->count()]);
+        fputcsv($handle, []);
+        fputcsv($handle, ['Date', 'Class', 'Social Media', 'User', 'Post Link', 'Completed', 'Completed At', 'QC Status', 'Checked By', 'Checked At']);
+        foreach ($posts as $post) {
+            fputcsv($handle, [
+                $post->post_date->format('Y-m-d'),
+                $post->socialMediaClass->name ?? '',
+                $post->socialMediaItem->name ?? '',
+                $post->user->name ?? '',
+                $post->post_url ?? '',
+                $post->is_completed ? 'Yes' : 'No',
+                $post->completed_at?->format('Y-m-d H:i') ?? '',
+                $post->qc_status_label,
+                $post->checker->name ?? '',
+                $post->checked_at?->format('Y-m-d H:i') ?? '',
+            ]);
+        }
+        fclose($handle);
+        return ob_get_clean();
+    }
 
-        $posts = $this->buildQuery(
-            $user, $isQc, $dateFrom, $dateTo,
-            $request->input('class_id'), $request->input('item_id'),
-            $request->input('user_id'), $request->input('qc_status'), $request->input('post_status')
-        )->get();
-
-        $summary = [
-            'total'     => $posts->count(),
-            'completed' => $posts->where('is_completed', true)->count(),
-            'pending'   => $posts->where('is_completed', false)->count(),
-            'checked'   => $posts->where('is_checked', true)->count(),
-            'qcPending' => $posts->where('is_completed', true)->where('is_checked', false)->count(),
-        ];
-
+    private function streamPdf($posts, $summary, $dateFrom, $dateTo, $userName)
+    {
         $pdf = Pdf::loadView('social-media.reports.pdf', [
             'posts'         => $posts,
             'summary'       => $summary,
             'dateFrom'      => $dateFrom,
             'dateTo'        => $dateTo,
-            'generatedBy'   => $user->name,
+            'generatedBy'   => $userName,
             'generatedDate' => now()->format('d M Y H:i'),
         ])->setPaper('a4', 'landscape');
 
         return $pdf->download('social-media-report-' . now()->format('Y-m-d') . '.pdf');
     }
 
-    // ─── Private ──────────────────────────────────────────────────────────────
+    private function pickAnalytic(?string $classId, string $dateFrom, string $dateTo): ?SocialMediaAnalytic
+    {
+        $query = SocialMediaAnalytic::query();
+        if ($classId) {
+            $query->whereHas('classes', fn ($q) => $q->where('social_media_classes.id', $classId));
+        }
+        $query->where(function($q) use ($dateFrom, $dateTo) {
+            $q->whereDate('date_from', '<=', $dateTo)
+              ->whereDate('date_to', '>=', $dateFrom);
+        });
+        return $query->orderByDesc('date_from')->first();
+    }
 
-    private function buildQuery(User $user, bool $isQc, string $dateFrom, string $dateTo, ?string $classId, ?string $itemId, ?string $userId, ?string $qcStatus, ?string $postStatus)
+    private function buildQuery(User $user, bool $isQc, string $dateFrom, string $dateTo, ?string $classId, ?string $userId, ?string $qcStatus, ?string $postStatus)
     {
         $query = SocialMediaPost::with(['socialMediaClass', 'socialMediaItem', 'user', 'checker'])
             ->whereBetween('post_date', [$dateFrom, $dateTo]);
 
-        // Role-based scope
         if (!$isQc) {
             $query->where('user_id', $user->id);
-            // Also restrict to assigned classes
             $assignedClassIds = SocialMediaClass::whereHas('assignedUsers', fn ($q) => $q->where('user_id', $user->id))->pluck('id');
             $query->whereIn('social_media_class_id', $assignedClassIds);
         }
 
         return $query
             ->when($classId,                fn ($q) => $q->where('social_media_class_id', $classId))
-            ->when($itemId,                 fn ($q) => $q->where('social_media_item_id', $itemId))
             ->when($userId && $isQc,        fn ($q) => $q->where('user_id', $userId))
             ->when($qcStatus === 'checked', fn ($q) => $q->where('is_checked', true))
             ->when($qcStatus === 'pending', fn ($q) => $q->where('is_checked', false))

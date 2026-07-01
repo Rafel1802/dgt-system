@@ -11,7 +11,7 @@
   [data-theme="dark"] .email-empty-title { color: #ffffff !important; }
   [data-theme="dark"] .email-empty-sub { color: #94a3b8 !important; }
 </style>
-<div class="animate-fade-in space-y-4" x-data="emailList()">
+<div class="animate-fade-in space-y-4 pb-28 md:pb-8" x-data="emailList()">
 
   {{-- Stats + Actions Row --}}
   <div class="flex flex-wrap items-center justify-between gap-3">
@@ -31,31 +31,44 @@
         </div>
       </div>
     </div>
+    @hasanyrole('super-admin|admin-crm')
     <a href="{{ route('admin.emails.accounts') }}" class="btn btn-secondary text-sm">⚙️ Manage Accounts</a>
+    @endhasanyrole
   </div>
 
   {{-- Filters --}}
   <div class="card email-card-dark p-3">
-    <form method="GET" action="{{ route('admin.emails.index') }}" class="flex flex-wrap items-center gap-3">
-      <div class="relative flex-1 min-w-[200px] max-w-xs">
+    <form method="GET" action="{{ route('admin.emails.index') }}" class="flex flex-wrap items-center gap-3 w-full">
+      
+      {{-- Search Box --}}
+      <div class="relative flex-1 min-w-[200px]">
         <input type="search" name="search" value="{{ request('search') }}" placeholder="Search subject, sender…"
-               class="form-input email-filter-input pl-9 py-2 text-sm" id="email-search">
+               class="form-input email-filter-input pl-9 py-2 text-sm w-full" id="email-search">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
         </svg>
       </div>
-      <select name="account" class="form-input email-filter-input py-2 text-sm w-auto">
-        <option value="">All Accounts</option>
-        @foreach($accounts as $acct)
-          <option value="{{ $acct->id }}" @selected(request('account') == $acct->id)>{{ $acct->name }}</option>
-        @endforeach
-      </select>
-      <label class="email-filter-text flex items-center gap-1.5 text-sm cursor-pointer" style="color: #475569;">
-        <input type="checkbox" name="unread" value="1" @checked(request('unread')) class="rounded border-slate-300">
-        Unread only
-      </label>
-      <button type="submit" class="btn btn-primary text-sm py-2">Filter</button>
-      <a href="{{ route('admin.emails.index') }}" class="btn btn-secondary text-sm py-2">Clear</a>
+
+      {{-- Filters Row --}}
+      <div class="flex items-center gap-3 shrink-0">
+        <select name="account" class="form-input email-filter-input py-2 text-sm min-w-[130px]">
+          <option value="">All Accounts</option>
+          @foreach($accounts as $acct)
+            <option value="{{ $acct->id }}" @selected(request('account') == $acct->id)>{{ $acct->name }}</option>
+          @endforeach
+        </select>
+        
+        <label class="email-filter-text flex items-center gap-1.5 text-sm cursor-pointer whitespace-nowrap shrink-0" style="color: #475569;">
+          <input type="checkbox" name="unread" value="1" @checked(request('unread')) class="rounded border-slate-300">
+          Unread only
+        </label>
+      </div>
+
+      {{-- Buttons --}}
+      <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+        <button type="submit" class="btn btn-primary text-sm py-2 px-4 flex-1 sm:flex-none justify-center">Filter</button>
+        <a href="{{ route('admin.emails.index') }}" class="btn btn-secondary text-sm py-2 px-4 flex-1 sm:flex-none text-center">Clear</a>
+      </div>
     </form>
   </div>
 
@@ -235,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let lastCheckedAt = "{{ now()->toIso8601String() }}";
     
     // Play a gentle notification sound
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
     
     function showToast(sender, subject) {
         const container = document.getElementById('live-toast-container');

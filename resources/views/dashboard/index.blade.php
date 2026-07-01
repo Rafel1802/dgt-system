@@ -224,7 +224,7 @@
     }
 </style>
 
-<div class="dash-shell space-y-6 animate-fade-in"
+<div class="dash-shell space-y-6 animate-fade-in pb-28 md:pb-8"
      x-data="dashboardAppearance(@json($appearance))"
      x-init="init()"
      :style="'--dashboard-bg:' + cssFor('background') + '; --dashboard-cover:' + cssFor('cover')">
@@ -357,7 +357,9 @@
                         <h2 class="dash-panel-title">Recent activities</h2>
                         <p class="mt-1 text-sm font-medium text-slate-500">Latest audited actions across the system.</p>
                     </div>
-                    <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase text-emerald-700">Live</span>
+                    <div class="flex items-center gap-2">
+                        <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase text-emerald-700">Live</span>
+                    </div>
                 </div>
 
                 @if($recentActivities->isEmpty())
@@ -366,7 +368,7 @@
                         <p class="mt-1 text-xs font-semibold text-slate-400">Audited user actions will appear here.</p>
                     </div>
                 @else
-                    <div class="mt-5 divide-y divide-slate-200/70">
+                    <div class="mt-5 divide-y divide-slate-200/70 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
                         @foreach($recentActivities as $log)
                             <div class="flex items-start gap-3 py-4">
                                 <img src="{{ $log->user?->avatar_url ?? 'https://ui-avatars.com/api/?name=System&size=64&background=6366f1&color=fff' }}"

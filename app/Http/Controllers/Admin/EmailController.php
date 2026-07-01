@@ -16,7 +16,7 @@ class EmailController extends Controller
     /** All mails inbox */
     public function index(Request $request): View
     {
-        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm']), 403);
+        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm', 'boss']), 403);
 
         $accounts = EmailAccount::where('is_active', true)->get();
 
@@ -54,7 +54,7 @@ class EmailController extends Controller
     /** API: Poll for new emails in real-time */
     public function pollNewEmails(Request $request): JsonResponse
     {
-        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm']), 403);
+        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm', 'boss']), 403);
 
         $since = $request->get('since');
         if (!$since) {
@@ -105,7 +105,7 @@ class EmailController extends Controller
     /** View single email */
     public function show(EmailMessage $email): View
     {
-        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm']), 403);
+        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm', 'boss']), 403);
 
         $email->load('account');
 
@@ -120,7 +120,7 @@ class EmailController extends Controller
     /** Toggle read/unread */
     public function toggleRead(EmailMessage $email): JsonResponse
     {
-        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm']), 403);
+        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm', 'boss']), 403);
 
         $email->update(['is_read' => ! $email->is_read]);
 
@@ -133,7 +133,7 @@ class EmailController extends Controller
     /** Toggle star */
     public function toggleStar(EmailMessage $email): JsonResponse
     {
-        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm']), 403);
+        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm', 'boss']), 403);
 
         $email->update(['is_starred' => ! $email->is_starred]);
 

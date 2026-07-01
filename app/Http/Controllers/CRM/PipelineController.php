@@ -26,7 +26,7 @@ class PipelineController extends Controller
 
         $pipeline  = $this->crmService->getPipelineData(auth()->user());
         $customers = Customer::active()->get(['id', 'name', 'company']);
-        $users     = User::active()->get(['id', 'name']);
+        $users     = User::crmMembers()->get(['id', 'name']);
 
         // Pipeline summary stats
         $totalActive = collect($pipeline)

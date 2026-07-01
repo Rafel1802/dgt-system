@@ -38,7 +38,7 @@ class UserController extends Controller
             $query->where('is_active', (bool) $request->get('active'));
         }
 
-        $users = $query->orderBy('name')->paginate(20)->withQueryString();
+        $users = $query->orderBy('name')->get();
         $roles = Role::where('name', 'not like', 'social_%')->orderBy('name')->get();
 
         $stats = [

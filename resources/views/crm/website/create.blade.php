@@ -2,6 +2,12 @@
 @section('title', 'Log New Inquiry')
 @section('page_title', 'New Client Inquiry')
 
+@push('scripts')
+<script>
+window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$c->name,'company'=>$c->company??'','phone'=>$c->phone??'','label'=>$c->name.($c->company?' — '.$c->company:'').($c->phone?' · '.$c->phone:'')])->values()->toJson() !!};
+</script>
+@endpush
+
 @section('content')
 <div class="max-w-2xl animate-fade-in">
   <div class="mb-5">
@@ -20,28 +26,16 @@
       {{-- Client Information --}}
       <div class="px-6 py-5 space-y-4">
         <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Client Information</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4">
           <div>
-            <label class="form-label">Client Name <span class="text-red-500">*</span></label>
-            <input type="text" name="client_name" value="{{ old('client_name') }}"
-                   class="form-input @error('client_name') error @enderror"
-                   placeholder="Full name" id="field-client-name" required>
-            @error('client_name')<p class="form-error">{{ $message }}</p>@enderror
-          </div>
-          <div>
-            <label class="form-label">Phone</label>
-            <input type="tel" name="client_phone" value="{{ old('client_phone') }}"
-                   class="form-input" placeholder="+61 4xx xxx xxx" id="field-client-phone">
-          </div>
-          <div>
-            <label class="form-label">Email</label>
-            <input type="email" name="client_email" value="{{ old('client_email') }}"
-                   class="form-input" placeholder="client@email.com" id="field-client-email">
-          </div>
-          <div>
-            <label class="form-label">WhatsApp</label>
-            <input type="tel" name="client_whatsapp" value="{{ old('client_whatsapp') }}"
-                   class="form-input" placeholder="+61 4xx xxx xxx" id="field-client-whatsapp">
+            <label class="form-label">Customer <span class="text-red-500">*</span></label>
+            @include('crm.partials.customer_combobox', [
+                'customers' => $customers,
+                'fieldId'   => 'website-customer',
+                'fieldName' => 'customer_id',
+                'required'  => true,
+            ])
+            @error('customer_id')<p class="form-error">{{ $message }}</p>@enderror
           </div>
         </div>
       </div>
@@ -115,11 +109,13 @@
             </div>
           </div>
           <div>
-            <label class="form-label">Assign To</label>
+            <label class="form-label">Handled By (CRM Member)</label>
             <select name="assigned_to" class="form-input" id="field-assigned">
               <option value="">Unassigned</option>
-              @foreach($users as $u)
-                <option value="{{ $u->id }}" {{ old('assigned_to') == $u->id ? 'selected' : '' }}>{{ $u->name }}</option>
+              @foreach($crmUsers as $u)
+                <option value="{{ $u->id }}" {{ old('assigned_to') == $u->id ? 'selected' : '' }}>
+                  {{ $u->name }} — {{ $u->crm_role_display }}
+                </option>
               @endforeach
             </select>
           </div>

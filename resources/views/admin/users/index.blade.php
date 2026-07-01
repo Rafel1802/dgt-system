@@ -3,7 +3,55 @@
 @section('page_title', 'User Management')
 
 @section('content')
-<div x-data="userManager()" class="animate-fade-in">
+<div x-data="userManager()" class="animate-fade-in pb-28 md:pb-8">
+
+<style>
+/* ── Mobile Responsive Table ── */
+@media (max-width: 768px) {
+  .responsive-table thead { display: none; }
+  .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
+  .responsive-table tr {
+    margin-bottom: 1rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  }
+  .responsive-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem !important;
+    border-bottom: 1px solid #f8fafc;
+    text-align: right;
+  }
+  .responsive-table td:last-child { border-bottom: none; }
+  .responsive-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-right: 1rem;
+    text-align: left;
+  }
+  .responsive-table td > div { text-align: right; justify-content: flex-end; }
+  /* User cell gets special treatment */
+  .responsive-table td.user-cell {
+    flex-direction: column;
+    align-items: flex-start;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 1rem !important;
+  }
+  .responsive-table td.user-cell::before { display: none; }
+  .responsive-table td.user-cell > div { text-align: left; justify-content: flex-start; width: 100%; }
+  .responsive-table td.check-cell::before { display: none; }
+  .responsive-table td.check-cell { border-bottom: none; padding-bottom: 0 !important; }
+}
+</style>
+
 
   {{-- Stats --}}
   <div class="mobile-scroll-x lg:grid lg:grid-cols-3 gap-4 mb-6">
@@ -27,36 +75,42 @@
     </div>
   </div>
 
-  {{-- Search & Filters --}}
+  {{-- Search & Filters (client-side live filter) --}}
   <div class="card mb-5">
-    <form method="GET" action="{{ route('admin.users.index') }}" class="flex flex-wrap gap-3 items-end">
+    <div class="flex flex-wrap gap-3 items-end">
       <div class="flex-1 min-w-[200px]">
         <label class="form-label text-xs">Search</label>
         <div class="relative">
-          <input type="search" name="search" value="{{ request('search') }}" placeholder="Name or email…" class="form-input pl-9 py-2 text-sm" id="users-search">
+          <input type="search" id="users-search" x-model="search" placeholder="Name or email…"
+              class="form-input pl-9 py-2 text-sm"
+              autocomplete="off"
+              @input="applyFilters()">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+          <button type="button" x-show="search" @click="search=''; applyFilters()" x-cloak
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+          </button>
         </div>
       </div>
       <div>
         <label class="form-label text-xs">Role</label>
-        <select name="role" class="form-input py-2 text-sm" id="filter-role">
+        <select id="filter-role" x-model="filterRole" @change="applyFilters()" class="form-input py-2 text-sm">
           <option value="">All Roles</option>
           @foreach($roles as $role)
-            <option value="{{ $role->name }}" {{ request('role') === $role->name ? 'selected' : '' }}>{{ ucwords(str_replace('-', ' ', $role->name)) }}</option>
+            <option value="{{ $role->name }}">{{ ucwords(str_replace('-', ' ', $role->name)) }}</option>
           @endforeach
         </select>
       </div>
       <div>
         <label class="form-label text-xs">Status</label>
-        <select name="active" class="form-input py-2 text-sm" id="filter-active">
+        <select id="filter-active" x-model="filterStatus" @change="applyFilters()" class="form-input py-2 text-sm">
           <option value="">All</option>
-          <option value="1" {{ request('active') === '1' ? 'selected' : '' }}>Active</option>
-          <option value="0" {{ request('active') === '0' ? 'selected' : '' }}>Inactive</option>
+          <option value="active">Active</option>
+          <option value="frozen">Frozen / Inactive</option>
         </select>
       </div>
       <div class="flex gap-2">
-        <button type="submit" class="btn btn-primary py-2">Search</button>
-        <a href="{{ route('admin.users.index') }}" class="btn btn-secondary py-2">Reset</a>
+        <button type="button" @click="resetFilters()" class="btn btn-secondary py-2">Reset</button>
       </div>
 
       {{-- Bulk Actions Dropdown --}}
@@ -83,13 +137,18 @@
         <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
         Add User
       </a>
-    </form>
+    </div>
+
+    {{-- Live result count --}}
+    <p class="mt-3 text-xs font-semibold text-slate-400" x-show="search || filterRole || filterStatus" x-cloak>
+      Showing <span class="font-black text-slate-700" x-text="visibleCount"></span> of {{ count($users) }} users
+    </p>
   </div>
 
   {{-- Users Table --}}
   <div class="card p-0 overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <table class="w-full text-sm responsive-table">
         <thead>
           <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
             <th class="px-5 py-3 text-left w-10 transition-all duration-200" x-show="selectMode" x-cloak>
@@ -105,11 +164,21 @@
         </thead>
         <tbody class="divide-y divide-slate-50">
           @forelse($users as $user)
-          <tr class="hover:bg-slate-50/70 transition-colors" id="user-row-{{ $user->id }}">
-            <td class="px-5 py-3 transition-all duration-200" x-show="selectMode" x-cloak>
+          @php
+            $userRole = ($user->roles->first(fn($r) => strpos($r->name, 'social_') !== 0) ?? $user->roles->first())?->name ?? '';
+          @endphp
+          <tr class="hover:bg-slate-50/70 transition-colors" id="user-row-{{ $user->id }}"
+              x-show="matchesFilter(
+                '{{ addslashes(strtolower($user->name)) }}',
+                '{{ addslashes(strtolower($user->email)) }}',
+                '{{ addslashes(strtolower($userRole)) }}',
+                '{{ $user->is_active ? 'active' : 'frozen' }}'
+              )"
+              x-cloak>
+            <td class="px-5 py-3 transition-all duration-200 check-cell" x-show="selectMode" x-cloak>
               <input type="checkbox" value="{{ $user->id }}" x-model="selectedUsers" class="user-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" {{ $user->id === auth()->id() ? 'disabled' : '' }}>
             </td>
-            <td class="px-5 py-3"
+            <td class="px-5 py-3 user-cell"
                 :class="selectMode && {{ $user->id !== auth()->id() ? 'true' : 'false' }} ? 'cursor-pointer' : ''"
                 @click="handleUserCellClick({{ $user->id !== auth()->id() ? 'true' : 'false' }}, {{ $user->id }})">
               <div class="flex items-center gap-3 cursor-zoom-in"
@@ -126,7 +195,7 @@
                 </div>
               </div>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3" data-label="Role">
               @php $role = $user->roles->first(fn($r) => strpos($r->name, 'social_') !== 0) ?? $user->roles->first(); @endphp
               @if($role)
                 <span class="badge badge-indigo text-xs">{{ ucwords(str_replace('-', ' ', $role->name)) }}</span>
@@ -134,7 +203,7 @@
                 <span class="text-slate-300 text-xs">No role</span>
               @endif
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3" data-label="Status">
               <button @click="toggleActive({{ $user->id }}, {{ $user->is_active ? 'true' : 'false' }})"
                       id="status-btn-{{ $user->id }}"
                       {{ $user->id === auth()->id() ? 'disabled' : '' }}
@@ -143,15 +212,15 @@
                 <span id="status-text-{{ $user->id }}">{{ $user->is_active ? 'Active' : 'Frozen' }}</span>
               </button>
             </td>
-            <td class="px-4 py-3 text-xs text-slate-400">
+            <td class="px-4 py-3 text-xs text-slate-400" data-label="Last Login">
               {{ $user->last_login_at ? $user->last_login_at->diffForHumans() : 'Never' }}
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3" data-label="Security">
               <span class="text-[10px] font-semibold px-2 py-0.5 rounded w-fit {{ $user->can_edit_profile ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600' }}">
                 {{ $user->can_edit_profile ? 'Allowed' : 'Not Allowed' }}
               </span>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3" data-label="Actions">
               <div class="flex items-center gap-1 justify-end">
                 <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="Edit">
                   <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
@@ -166,44 +235,14 @@
             </td>
           </tr>
           @empty
-          <tr>
-            <td colspan="7" class="text-center py-12 text-slate-400">No users found.</td>
+          <tr x-show="visibleCount === 0" x-cloak>
+            <td colspan="7" class="text-center py-12 text-slate-400">No users match your filters.</td>
           </tr>
+          <tr x-show="visibleCount !== 0" style="display:none;"></tr>
           @endforelse
         </tbody>
       </table>
     </div>
-    @if($users->hasPages())
-    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
-      <p class="text-xs text-slate-400 font-medium">
-        Showing {{ $users->firstItem() }} to {{ $users->lastItem() }} of {{ $users->total() }} results
-      </p>
-      <div class="flex items-center gap-1">
-        {{-- Prev arrow --}}
-        @if($users->onFirstPage())
-          <span class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 cursor-not-allowed text-xs">‹</span>
-        @else
-          <a href="{{ $users->previousPageUrl() }}" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors text-xs font-bold">‹</a>
-        @endif
-
-        {{-- Page numbers --}}
-        @foreach($users->getUrlRange(1, $users->lastPage()) as $page => $url)
-          @if($page == $users->currentPage())
-            <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-sm">{{ $page }}</span>
-          @else
-            <a href="{{ $url }}" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors text-xs font-bold">{{ $page }}</a>
-          @endif
-        @endforeach
-
-        {{-- Next arrow --}}
-        @if($users->hasMorePages())
-          <a href="{{ $users->nextPageUrl() }}" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors text-xs font-bold">›</a>
-        @else
-          <span class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 cursor-not-allowed text-xs">›</span>
-        @endif
-      </div>
-    </div>
-    @endif
   </div>
 
   {{-- Reset Password Modal --}}
@@ -284,6 +323,37 @@ function userManager() {
       open: false,
       url: '',
       title: '',
+    },
+    // Filter states
+    search: '',
+    filterRole: '',
+    filterStatus: '',
+    visibleCount: {{ count($users) }},
+
+    applyFilters() {
+      // Allow Alpine to update the DOM first (x-show applies style="display:none")
+      this.$nextTick(() => {
+        let count = 0;
+        document.querySelectorAll('tr[id^="user-row-"]').forEach(row => {
+          if (row.style.display !== 'none') count++;
+        });
+        this.visibleCount = count;
+      });
+    },
+
+    resetFilters() {
+      this.search = '';
+      this.filterRole = '';
+      this.filterStatus = '';
+      this.applyFilters();
+    },
+
+    matchesFilter(name, email, role, status) {
+      const q = this.search.toLowerCase().trim();
+      const matchSearch = !q || name.includes(q) || email.includes(q);
+      const matchRole = !this.filterRole || role === this.filterRole.toLowerCase();
+      const matchStatus = !this.filterStatus || status === this.filterStatus.toLowerCase();
+      return matchSearch && matchRole && matchStatus;
     },
 
     toggleSelectMode() {

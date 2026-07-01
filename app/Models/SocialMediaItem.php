@@ -46,8 +46,13 @@ class SocialMediaItem extends Model
     {
         $raw = $this->attributes['icon'] ?? null;
         if ($raw) {
-            if (filter_var($raw, FILTER_VALIDATE_URL)) {
-                return '<img src="'.htmlspecialchars($raw).'" class="w-5 h-5 object-contain inline-block">';
+            if (filter_var($raw, FILTER_VALIDATE_URL) 
+                || str_starts_with($raw, '/') 
+                || str_starts_with($raw, 'storage/') 
+                || preg_match('/\.(jpeg|jpg|png|gif|svg|webp)/i', $raw)
+            ) {
+                $src = filter_var($raw, FILTER_VALIDATE_URL) ? $raw : asset(ltrim($raw, '/'));
+                return '<img src="'.htmlspecialchars($src).'" class="w-5 h-5 object-contain inline-block flex-shrink-0">';
             }
             return htmlspecialchars($raw);
         }

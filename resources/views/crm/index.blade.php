@@ -110,12 +110,15 @@
         <a href="{{ route('crm.customers.index') }}" class="btn btn-secondary py-2">Reset</a>
       </div>
 
-      @can('crm.create')
-      <a href="{{ route('crm.customers.create') }}" class="btn btn-primary py-2 ml-auto" id="btn-add-customer">
-        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-        Add Customer
-      </a>
-      @endcan
+      <div class="flex gap-2 ml-auto">
+        @include('crm.partials.report_export_modal', ['type' => 'customers', 'btnClass' => 'btn btn-secondary py-2'])
+        @can('crm.create')
+        <a href="{{ route('crm.customers.create') }}" class="btn btn-primary py-2" id="btn-add-customer">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Add Customer
+        </a>
+        @endcan
+      </div>
     </form>
   </div>
 
@@ -135,6 +138,7 @@
       <table class="w-full text-sm" id="customer-table">
         <thead>
           <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <th class="px-5 py-3 text-left">#</th>
             <th class="px-5 py-3 text-left">Customer</th>
             <th class="px-4 py-3 text-left">Status</th>
             <th class="px-4 py-3 text-left">Source</th>
@@ -149,6 +153,9 @@
         <tbody class="divide-y divide-slate-50">
           @forelse($customers as $customer)
           <tr class="hover:bg-slate-50/70 transition-colors" id="customer-row-{{ $customer->id }}">
+            <td class="px-5 py-3 text-slate-400 font-medium">
+              {{ ($customers->currentPage() - 1) * $customers->perPage() + $loop->iteration }}
+            </td>
             {{-- Customer --}}
             <td class="px-5 py-3">
               <div class="flex items-center gap-3">
@@ -240,7 +247,7 @@
           </tr>
           @empty
           <tr>
-            <td colspan="9" class="text-center py-16 text-slate-400">
+            <td colspan="10" class="text-center py-16 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="#cbd5e1" class="w-12 h-12 mx-auto mb-3">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
               </svg>

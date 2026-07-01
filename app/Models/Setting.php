@@ -204,13 +204,43 @@ class Setting extends Model
             fn (array $tool): bool => $tool['group'] === $group
         ));
 
+        $customToolsKey = "custom_{$group}_tools";
+        $customToolsJson = self::get($customToolsKey, '[]');
+        $customTools = json_decode($customToolsJson, true) ?: [];
+
+        foreach ($customTools as &$ct) {
+            $ct['group'] = $group;
+        }
+
+        $tools = array_merge($tools, $customTools);
+
+        // Sort by saved group-specific order
+        $orderKey = $group . '_tools_order';
+        $savedOrderJson = self::get($orderKey, '[]');
+        $savedOrder = json_decode($savedOrderJson, true) ?: [];
+
+        if (!empty($savedOrder)) {
+            usort($tools, function ($a, $b) use ($savedOrder) {
+                $keyA = $a['key'] ?? $a['custom_id'] ?? null;
+                $keyB = $b['key'] ?? $b['custom_id'] ?? null;
+
+                $posA = $keyA ? array_search($keyA, $savedOrder) : false;
+                $posB = $keyB ? array_search($keyB, $savedOrder) : false;
+
+                $posA = ($posA !== false) ? $posA : 9999;
+                $posB = ($posB !== false) ? $posB : 9999;
+
+                return $posA <=> $posB;
+            });
+        }
+
         if (! $configuredOnly) {
             return $tools;
         }
 
         return array_values(array_filter(
             $tools,
-            fn (array $tool): bool => filled($tool['url'])
+            fn (array $tool): bool => filled($tool['url'] ?? null)
         ));
     }
 

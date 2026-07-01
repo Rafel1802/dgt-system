@@ -44,11 +44,17 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
 
     <!-- ── Sidebar Overlay (mobile) ───────────────────────────────────── -->
     <div
+        id="dgt-app-wrapper"
         x-data="sidebar"
         x-on:keydown.escape.window="close"
         :class="{ 'sidebar-is-collapsed': collapsed }"
         class="relative h-full"
     >
+        <script>
+            if (localStorage.getItem('dgt-sidebar-collapsed') === 'true') {
+                document.getElementById('dgt-app-wrapper').classList.add('sidebar-is-collapsed');
+            }
+        </script>
         <!-- Mobile overlay backdrop -->
         <div
             x-show="mobileOpen && !isDesktop"
@@ -157,14 +163,12 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     $sidebarWebTools = \App\Models\Setting::externalToolsForGroup('board', true);
                     $sidebarSystemTools = \App\Models\Setting::externalToolsForGroup('generator', true);
                     $sidebarWorkspaceTools = \App\Models\Setting::externalToolsForGroup('workspace', true);
-                    $staticAiTools = \App\Models\Setting::externalToolsForGroup('ai', true);
-                    $dynamicAiTools = json_decode(\App\Models\Setting::get('custom_ai_tools', '[]'), true);
-                    $sidebarAiTools = array_merge($staticAiTools, $dynamicAiTools);
+                    $sidebarAiTools = \App\Models\Setting::externalToolsForGroup('ai', true);
                     $canSeeApprovalQueue = auth()->user()->can('kanban.approve');
                 ?>
 
                 <a href="{{ route('boards.workspaces') }}"
-                   class="sidebar-item {{ request()->routeIs('boards.*') ? 'active' : '' }}"
+                   class="sidebar-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                    id="nav-boards">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/>
@@ -173,7 +177,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 </a>
 
                 {{-- Social Media Team --}}
-                @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc']))
+                @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
                 <a href="{{ route('social-media.dashboard') }}"
                    class="sidebar-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
                    id="nav-social-media">
@@ -204,34 +208,33 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 </a>
                 @endif
 
-                @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'digital-team', 'boss']))
+                @if(auth()->user()->hasWebsiteAccess())
                 {{-- All Websites accordion sub-menu --}}
                 <div x-data="{ wsOpen: localStorage.getItem('dgt-websites-menu-open') === 'true' || {{ request()->routeIs('websites.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
-                    <button
-                        @click="wsOpen = !wsOpen; localStorage.setItem('dgt-websites-menu-open', wsOpen)"
-                        type="button"
+                    <div
                         class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('websites.*') ? 'active' : '' }}"
-                        aria-label="Toggle Websites menu"
                         id="nav-websites-toggle"
                     >
-                        <span class="flex items-center gap-[0.625rem]">
+                        <a href="{{ route('websites.index', ['tab' => 'build']) }}" class="flex items-center gap-[0.625rem] flex-1">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
                             </svg>
                             <span>All Websites</span>
-                        </span>
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="2.5"
-                            stroke="currentColor"
-                            class="w-3.5 h-3.5 transition-transform duration-200"
-                            :class="{ 'rotate-180': wsOpen }"
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                        </svg>
-                    </button>
+                        </a>
+                        <button type="button" @click.stop="wsOpen = !wsOpen; localStorage.setItem('dgt-websites-menu-open', wsOpen)" class="p-1 -mr-1 rounded hover:bg-slate-700/50 transition-colors" aria-label="Toggle Websites menu">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke-width="2.5"
+                                stroke="currentColor"
+                                class="w-3.5 h-3.5 transition-transform duration-200"
+                                :class="{ 'rotate-180': wsOpen }"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+                    </div>
 
                     <div
                         id="submenu-websites"
@@ -245,24 +248,25 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                         x-cloak
                         class="sidebar-submenu-list mt-1 space-y-1 relative"
                     >
-                        {{-- Website List --}}
-                        <a href="{{ route('websites.index') }}"
-                           class="sidebar-submenu-item {{ request()->routeIs('websites.index') ? 'active' : '' }}"
-                           id="nav-website-list">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                            </svg>
-                            <span>Website List</span>
-                        </a>
-
-                        {{-- All Websites Dashboard --}}
-                        <a href="{{ route('websites.dashboard') }}"
-                           class="sidebar-submenu-item {{ request()->routeIs('websites.dashboard*') ? 'active' : '' }}"
-                           id="nav-websites-dashboard">
+                        {{-- 1. Website Status --}}
+                        @php
+                            $wsStatusTabs = ['build','build-progress','live','maintenance','qc-error','supervisor-error'];
+                            $isOnStatusTab = request()->routeIs('websites.index') && in_array(request()->get('tab','build'), $wsStatusTabs);
+                        @endphp
+                        <a href="{{ route('websites.index', ['tab' => 'build']) }}"
+                           class="sidebar-submenu-item {{ $isOnStatusTab ? 'active' : '' }}"
+                           id="nav-websites-status">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
                             </svg>
-                            <span>All Websites Dashboard</span>
+                            <span>Website Status</span>
+                        </a>
+                        {{-- 2. Follow Up --}}
+                        <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
+                           class="sidebar-submenu-item {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
+                           id="nav-websites-followup">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                            <span>Follow Up</span>
                         </a>
                     </div>
                 </div>
@@ -322,7 +326,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                                 @else
                                     <x-external-tool-icon :name="$tool['icon']" />
                                 @endif
-                                <span>{{ $tool['short_label'] }}</span>
+                                <span>{{ $tool['short_label'] ?? $tool['label'] }}</span>
                             </a>
                         @endforeach
                     </div>
@@ -331,7 +335,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 <?php
                     $sidebarWebTools = collect(\App\Models\Setting::externalToolsForGroup('board', true))
                         ->reject(function($t) {
-                            return $t['key'] === 'weekly_report_url';
+                            return ($t['key'] ?? null) === 'weekly_report_url';
                         })
                         ->all();
                 ?>
@@ -350,7 +354,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                                 @else
                                     <x-external-tool-icon :name="$tool['icon']" />
                                 @endif
-                                <span>{{ $tool['short_label'] }}</span>
+                                <span>{{ $tool['short_label'] ?? $tool['label'] }}</span>
                             </a>
                         @endforeach
                     </div>
@@ -370,7 +374,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                                 @else
                                     <x-external-tool-icon :name="$tool['icon']" />
                                 @endif
-                                <span>{{ $tool['short_label'] }}</span>
+                                <span>{{ $tool['short_label'] ?? $tool['label'] }}</span>
                             </a>
                          @endforeach
                     </div>
@@ -424,7 +428,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                                     @if(isset($tool['icon_url']) && $tool['icon_url'])
                                         <img src="{{ $tool['icon_url'] }}" class="h-4.5 w-4.5 object-contain" alt="">
                                     @else
-                                        <x-external-tool-icon name="sparkles" />
+                                        <x-external-tool-icon :name="$tool['icon'] ?? 'sparkles'" />
                                     @endif
                                     <span>{{ $tool['label'] }}</span>
                                 </a>
@@ -437,7 +441,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
 
                 <!-- CRM -->
                 @canany(['crm.view', 'sales.view'])
-                <span class="sidebar-section-label">CRM & Sales</span>
+                <span class="sidebar-section-label">CRM &amp; Sales</span>
 
                 @can('crm.view')
                 {{-- 
@@ -451,6 +455,17 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 </a>
                 --}}
 
+                @hasanyrole('super-admin|admin-crm|sales-crm')
+                <a href="{{ route('admin.emails.index') }}"
+                   class="sidebar-item {{ request()->routeIs('admin.emails.*') ? 'active' : '' }}"
+                   aria-label="Manage Emails" title="Email Accounts">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    </svg>
+                    <span>All Mails</span>
+                </a>
+                @endhasanyrole
+
                 <a href="{{ route('crm.website.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.website.*') ? 'active' : '' }}"
                    id="nav-website-crm">
@@ -460,7 +475,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     Website CRM
                 </a>
 
-                <a href="{{ route('crm.ebay.index') }}"
+                <a href="{{ route('crm.ebay.stores.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.ebay.*') ? 'active' : '' }}"
                    id="nav-ebay-crm">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -469,7 +484,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     eBay CRM
                 </a>
 
-                <a href="{{ route('crm.logistics.index') }}"
+                <a href="{{ route('crm.logistics.shipments.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.logistics.*') ? 'active' : '' }}"
                    id="nav-logistic-crm">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -486,6 +501,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     </svg>
                     Customers
                 </a>
+
                 @endcan
 
                 @can('sales.view')
@@ -523,6 +539,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 @if(auth()->check() && (auth()->user()->canany(['users.view', 'roles.view', 'security.view', 'backup.view']) || auth()->user()->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm'])))
                 <span class="sidebar-section-label">Administration</span>
 
+
                 @can('users.view')
                 <a href="{{ route('admin.users.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"
@@ -556,16 +573,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 </a>
                 @endcan
 
-                @hasanyrole('super-admin|admin-crm|sales-crm')
-                <a href="{{ route('admin.emails.index') }}"
-                   class="sidebar-item {{ request()->routeIs('admin.emails.*') ? 'active' : '' }}"
-                   aria-label="Manage Emails" title="Email Accounts">
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                    </svg>
-                    <span>All Mails</span>
-                </a>
-                @endhasanyrole
+
 
                 @hasanyrole('super-admin|admin-digital')
                 <a href="{{ route('admin.settings.index') }}"
@@ -970,7 +978,9 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
     <!-- ── Mobile Bottom Navigation Bar ──────────────────────────────────── -->
     <nav class="mobile-bottom-nav lg:hidden" id="mobile-bottom-nav" aria-label="Mobile navigation">
         <div class="mobile-bottom-nav-inner">
+            <div id="nav-active-bubble"></div>
 
+            <!-- Home (Everyone) -->
             @can('dashboard.view')
             <a href="{{ route('dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
@@ -984,9 +994,10 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
             </a>
             @endcan
 
+            <!-- Boards (Everyone) -->
             @can('kanban.view')
             <a href="{{ route('boards.workspaces') }}"
-               class="mobile-nav-item {{ request()->routeIs('boards.*') ? 'active' : '' }}"
+               class="mobile-nav-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                aria-label="Boards">
                 <span class="mobile-nav-icon">
                     <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -997,43 +1008,108 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
             </a>
             @endcan
 
-            @canany(['crm.view', 'sales.view'])
-            <a href="{{ route('crm.dashboard') }}"
-               class="mobile-nav-item {{ request()->routeIs('crm.*') ? 'active' : '' }}"
-               aria-label="CRM">
-                <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
-                    </svg>
-                </span>
-                <span class="mobile-nav-label">CRM</span>
-            </a>
-            @endcanany
+            <!-- Boss specific items -->
+            @if(auth()->user()->hasRole('boss'))
+                <!-- Approval Queue -->
+                <a href="{{ route('approvals.index') }}"
+                   class="mobile-nav-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
+                   aria-label="Approval">
+                    <span class="mobile-nav-icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375"/>
+                        </svg>
+                    </span>
+                    <span class="mobile-nav-label">Approval</span>
+                </a>
+            @endif
 
-            <a href="{{ route('notes.team') }}"
-               class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
-               aria-label="Notes">
+            <!-- All Mails (CRM + Boss) -->
+            @hasanyrole('super-admin|admin-crm|sales-crm|boss')
+            <a href="{{ route('admin.emails.index') }}"
+               class="mobile-nav-item {{ request()->routeIs('admin.emails.*') ? 'active' : '' }}"
+               aria-label="All Mails">
                 <span class="mobile-nav-icon">
                     <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.909A2.25 2.25 0 0 1 2.25 6.993V6.75m19.5 0v.243m0 0a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.909A2.25 2.25 0 0 1 2.25 6.993" />
                     </svg>
                 </span>
-                <span class="mobile-nav-label">Notes</span>
+                <span class="mobile-nav-label">All Mails</span>
             </a>
+            @endhasanyrole
 
-            <!-- More / Menu trigger -->
-            <button type="button"
-                    class="mobile-nav-item {{ request()->routeIs('admin.*') || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
-                    x-data
-                    @click="$dispatch('open-mobile-sidebar')"
-                    aria-label="More">
+            <!-- Social Media (Boss, super-admin, Digital Team) -->
+            @if(auth()->user()->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
+            <a href="{{ route('social-media.dashboard') }}"
+               class="mobile-nav-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
+               aria-label="Social">
+                <span class="mobile-nav-icon">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social" class="w-5 h-5 flex-shrink-0 object-contain">
+                </span>
+                <span class="mobile-nav-label">Social</span>
+            </a>
+            @endif
+
+            <!-- Websites (Boss + super-admin) -->
+            @if(auth()->user()->hasAnyRole(['boss', 'super-admin']))
+            <a href="{{ route('websites.dashboard') }}"
+               class="mobile-nav-item {{ request()->routeIs('websites.*') ? 'active' : '' }}"
+               aria-label="Websites">
                 <span class="mobile-nav-icon">
                     <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
                     </svg>
                 </span>
-                <span class="mobile-nav-label">More</span>
-            </button>
+                <span class="mobile-nav-label">Websites</span>
+            </a>
+            @endif
+
+            <!-- Digital Team (Private Note) -->
+            @hasanyrole('admin-digital|digital-team|staff|social_qc|social_admin')
+                @unless(auth()->user()->hasAnyRole(['super-admin', 'boss', 'admin-crm', 'sales-crm']))
+                <a href="{{ route('notes.private') }}"
+                   class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
+                   aria-label="Note">
+                    <span class="mobile-nav-icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                        </svg>
+                    </span>
+                    <span class="mobile-nav-label">Note</span>
+                </a>
+                @endunless
+            @endhasanyrole
+
+            <!-- CRM Team (Team Notes & More) -->
+            @hasanyrole('super-admin|admin-crm|sales-crm')
+                @unless(auth()->user()->hasRole('boss'))
+                <!-- Team Notes -->
+                <a href="{{ route('notes.team') }}"
+                   class="mobile-nav-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
+                   aria-label="Notes">
+                    <span class="mobile-nav-icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                        </svg>
+                    </span>
+                    <span class="mobile-nav-label">Notes</span>
+                </a>
+
+                <!-- More / Menu trigger -->@unless(auth()->user()->hasRole('super-admin'))
+                <button type="button"
+                        class="mobile-nav-item {{ (request()->routeIs('admin.*') && !request()->routeIs('admin.emails.*')) || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
+                        x-data
+                        @click="$dispatch('open-mobile-sidebar')"
+                        aria-label="More">
+                    <span class="mobile-nav-icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </span>
+                    <span class="mobile-nav-label">More</span>
+                </button>
+@endunless
+                @endunless
+            @endhasanyrole
 
         </div>
     </nav>
@@ -1253,27 +1329,11 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
 
     window.playNotificationSound = function() {
         if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
-        try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) return;
-            const ctx = new AudioContext();
-            const gain = ctx.createGain();
-            gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(1.5, ctx.currentTime + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
-            gain.connect(ctx.destination);
-
-            [660, 880].forEach((frequency, index) => {
-                const oscillator = ctx.createOscillator();
-                oscillator.type = 'square';
-                oscillator.frequency.setValueAtTime(frequency, ctx.currentTime + index * 0.08);
-                oscillator.connect(gain);
-                oscillator.start(ctx.currentTime + index * 0.08);
-                oscillator.stop(ctx.currentTime + 0.24 + index * 0.08);
-            });
-
-            setTimeout(() => ctx.close(), 500);
-        } catch (_) {}
+        const audio = document.getElementById('notif-sound');
+        if (audio) {
+            audio.volume = 1.0;
+            audio.play().catch(e => console.log('Audio play blocked:', e));
+        }
     };
 
     // Global Toast Notification Helper
@@ -1519,19 +1579,6 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                 // Trigger animations and toasts
                 if (notifItem.data && notifItem.data.actor_name) {
                     window.showRichNotificationToast(notifItem.data);
-                    if (notifItem.data.browser_notifications_enabled !== false) {
-                        window.sendBrowserNotification(
-                            "DGT Board Update",
-                            `${notifItem.data.actor_name} ${notifItem.data.description ? notifItem.data.description.replace(/\*/g, '') : notifItem.data.message.replace(/\*/g, '')}`,
-                            notifItem.data.actor_avatar
-                        );
-                        // Play notification sound
-                        const audio = document.getElementById('notif-sound');
-                        if (audio) {
-                            audio.volume = 100.0;
-                            audio.play().catch(e => console.log('Audio play blocked:', e));
-                        }
-                    }
                 }
             },
 
@@ -1645,6 +1692,220 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
 
     @stack('scripts')
     <!-- Notification Sound Effect -->
-    <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    @php
+        $defaultNotifSound = '01.mp3';
+        $userNotifSound = auth()->check() && auth()->user()->notification_sound ? auth()->user()->notification_sound : $defaultNotifSound;
+        $notifSoundPath = 'notificationsound/' . $userNotifSound;
+        $notifSoundUrl = file_exists(public_path($notifSoundPath)) ? asset($notifSoundPath) : 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
+    @endphp
+    <audio id="notif-sound" src="{{ $notifSoundUrl }}" preload="auto"></audio>
+
+    {{-- iOS Style Drag & Slide Navigation Logic --}}
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const navContainer = document.getElementById('mobile-bottom-nav');
+        if (!navContainer) return;
+        
+        const innerContainer = navContainer.querySelector('.mobile-bottom-nav-inner');
+        const items = Array.from(innerContainer.querySelectorAll('.mobile-nav-item'));
+        const bubble = document.getElementById('nav-active-bubble');
+        if (!bubble || items.length === 0) return;
+        
+        let activeIndex = items.findIndex(item => item.classList.contains('active'));
+        if (activeIndex === -1) activeIndex = 0;
+        
+        let currentX = 0;
+        let itemWidth = 0;
+        const PADDING = 12; // 6px padding on each side of the bubble
+        
+        const updateLayout = () => {
+            if (!items[activeIndex]) return;
+            itemWidth = items[activeIndex].offsetWidth;
+            bubble.style.width = `${itemWidth - PADDING}px`;
+            // relative to inner container
+            currentX = items[activeIndex].offsetLeft + (PADDING / 2);
+            bubble.style.transform = `translateX(${currentX}px) translateY(-50%)`;
+        };
+        
+        // Apply instantly on load to avoid sliding-in animation glitch
+        bubble.style.transition = 'none';
+        updateLayout();
+        
+        // Restore transition for dragging and resizing
+        setTimeout(() => {
+            bubble.style.transition = '';
+        }, 100);
+        window.addEventListener('resize', updateLayout);
+        
+        let isDragging = false;
+        let startX = 0;
+        let initialBubbleX = 0;
+        let touchTargetItem = null;
+        
+        innerContainer.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            touchTargetItem = e.target.closest('.mobile-nav-item');
+            
+            if (touchTargetItem) {
+                const index = items.indexOf(touchTargetItem);
+                if (index === activeIndex) {
+                    isDragging = true;
+                    startX = touch.clientX;
+                    initialBubbleX = currentX;
+                    bubble.style.transition = 'none';
+                    bubble.classList.add('is-dragging');
+                    innerContainer.classList.add('is-dragging-active');
+                    // Allow normal touch but prep for drag
+                }
+            }
+        }, { passive: true });
+        
+        innerContainer.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - startX;
+            
+            // If dragging started, prevent default scroll
+            if (Math.abs(deltaX) > 5) {
+                e.preventDefault();
+            }
+            
+            let newX = initialBubbleX + deltaX;
+            
+            const minX = items[0].offsetLeft + (PADDING / 2);
+            const maxX = items[items.length - 1].offsetLeft + (PADDING / 2);
+            newX = Math.max(minX, Math.min(newX, maxX));
+            
+            bubble.style.transform = `translateX(${newX}px) translateY(-50%)`;
+            
+            let closestIndex = 0;
+            let minDiff = Infinity;
+            items.forEach((item, index) => {
+                const itemCenter = item.offsetLeft + (item.offsetWidth / 2);
+                const bubbleCenter = newX + ((itemWidth - PADDING) / 2);
+                const diff = Math.abs(bubbleCenter - itemCenter);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIndex = index;
+                }
+            });
+            
+            items.forEach((item, index) => {
+                if (index === closestIndex) item.classList.add('active');
+                else item.classList.remove('active');
+            });
+            
+        }, { passive: false });
+        
+        innerContainer.addEventListener('touchend', (e) => {
+            bubble.classList.remove('is-dragging');
+            innerContainer.classList.remove('is-dragging-active');
+            
+            if (!isDragging) return;
+            isDragging = false;
+            bubble.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            
+            const currentBubbleRect = bubble.getBoundingClientRect();
+            const bubbleCenterX = currentBubbleRect.left + currentBubbleRect.width / 2;
+            
+            let closestIndex = 0;
+            let minDiff = Infinity;
+            
+            items.forEach((item, index) => {
+                const itemRect = item.getBoundingClientRect();
+                const itemCenterX = itemRect.left + itemRect.width / 2;
+                const diff = Math.abs(bubbleCenterX - itemCenterX);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIndex = index;
+                }
+            });
+            
+            const selectedItem = items[closestIndex];
+            currentX = selectedItem.offsetLeft + (PADDING / 2);
+            bubble.style.transform = `translateX(${currentX}px) translateY(-50%)`;
+            
+            items.forEach((item, index) => {
+                if (index === closestIndex) item.classList.add('active');
+                else item.classList.remove('active');
+            });
+            
+            if (closestIndex !== activeIndex) {
+                activeIndex = closestIndex;
+                setTimeout(() => {
+                    handleNavAction(selectedItem);
+                }, 250);
+            }
+        });
+        
+        const handleNavAction = (item) => {
+            const href = item.getAttribute('href');
+            if (href && href !== '#' && !item.hasAttribute('x-data')) {
+                window.location.href = href;
+            } else if (item.hasAttribute('x-data')) {
+                // Use a proper MouseEvent so AlpineJS catches it natively
+                const clickEvent = new MouseEvent('click', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true
+                });
+                item.dispatchEvent(clickEvent);
+            }
+        };
+        
+        items.forEach((item, index) => {
+            item.addEventListener('click', (e) => {
+                bubble.classList.remove('is-dragging');
+                innerContainer.classList.remove('is-dragging-active');
+                
+                // Ignore if we were just dragging
+                if (isDragging) {
+                    e.preventDefault();
+                    return;
+                }
+                
+                if (e.ctrlKey || e.metaKey || e.shiftKey || (e.button !== undefined && e.button !== 0)) return;
+                
+                // If it's not a trusted event (i.e. we dispatched it programmatically), let it pass to Alpine
+                if (!e.isTrusted) return;
+                
+                if (index === activeIndex) {
+                    if (item.hasAttribute('x-data')) {
+                        return; // Let standard click work for things like More button if already active
+                    }
+                    return; 
+                }
+                
+                e.preventDefault();
+                
+                activeIndex = index;
+                currentX = item.offsetLeft + (PADDING / 2);
+                
+                items.forEach((it, i) => {
+                    if (i === activeIndex) it.classList.add('active');
+                    else it.classList.remove('active');
+                });
+                
+                bubble.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                bubble.style.transform = `translateX(${currentX}px) translateY(-50%)`;
+                
+                setTimeout(() => {
+                    handleNavAction(item);
+                }, 250);
+            });
+        });
+        
+        let scrollTimeout;
+        window.addEventListener('scroll', () => {
+            if (!isDragging) {
+                bubble.classList.add('is-scrolling');
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    bubble.classList.remove('is-scrolling');
+                }, 150);
+            }
+        }, { passive: true, capture: true });
+    });
+    </script>
 </body>
 </html>

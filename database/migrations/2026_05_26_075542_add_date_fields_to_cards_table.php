@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('cards', function (Blueprint $table) {
-            $table->date('start_date')->nullable()->after('due_at');
+            $table->date('start_date')->nullable()->after('deadline');
             $table->time('due_time')->nullable()->after('start_date');
             // reminder: minutes before due (e.g. 0=at due, 5, 10, 15, 30, 60, 1440, 2880)
             $table->unsignedSmallInteger('reminder')->nullable()->after('due_time');

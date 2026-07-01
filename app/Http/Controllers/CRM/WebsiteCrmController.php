@@ -6,6 +6,7 @@ use App\Enums\InquirySource;
 use App\Enums\LeadTemperature;
 use App\Enums\WebsiteLeadStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\LeadFollowUp;
 use App\Models\Product;
@@ -49,18 +50,19 @@ class WebsiteCrmController extends Controller
     public function create(): View
     {
         return view('crm.website.create', [
-            'statuses' => WebsiteLeadStatus::cases(),
-            'sources'  => InquirySource::cases(),
-            'temps'    => LeadTemperature::cases(),
-            'products' => Product::active()->orderBy('name')->get(),
-            'users'    => User::active()->orderBy('name')->get(),
+            'statuses'  => WebsiteLeadStatus::cases(),
+            'sources'   => InquirySource::cases(),
+            'temps'     => LeadTemperature::cases(),
+            'products'  => Product::active()->orderBy('name')->get(),
+            'crmUsers'  => User::crmMembers()->orderBy('name')->get(),
+            'customers' => Customer::orderBy('name')->get(['id','name','phone','company']),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'client_name'       => ['required', 'string', 'max:255'],
+            'customer_id'       => ['required', 'exists:customers,id'],
             'client_phone'      => ['nullable', 'string', 'max:30'],
             'client_email'      => ['nullable', 'email', 'max:255'],
             'client_whatsapp'   => ['nullable', 'string', 'max:30'],
@@ -75,10 +77,13 @@ class WebsiteCrmController extends Controller
             'received_at'       => ['required', 'date'],
         ]);
 
+        $customer = Customer::find($validated['customer_id']);
+        
         $lead = Lead::create([
             ...$validated,
-            'handled_by' => auth()->id(),
-            'status'     => WebsiteLeadStatus::NewLead->value,
+            'client_name' => $customer->name,
+            'handled_by'  => auth()->id(),
+            'status'      => WebsiteLeadStatus::NewLead->value,
         ]);
 
         return redirect()->route('crm.website.show', $lead)
@@ -104,7 +109,7 @@ class WebsiteCrmController extends Controller
             'sources'  => InquirySource::cases(),
             'temps'    => LeadTemperature::cases(),
             'products' => Product::active()->orderBy('name')->get(),
-            'users'    => User::active()->orderBy('name')->get(),
+            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
         ]);
     }
 

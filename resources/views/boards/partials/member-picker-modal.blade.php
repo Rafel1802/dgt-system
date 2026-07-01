@@ -130,39 +130,7 @@
         </div>
       </template>
 
-      {{-- ── Workspace Members ─────────────────────────── --}}
-      <template x-if="memberPicker.workspaceMembers.length">
-        <div>
-          <p class="text-[10px] uppercase font-extrabold text-slate-400 px-4 pt-3 pb-1.5 select-none tracking-wider">
-            Workspace Members
-          </p>
-          <template x-for="u in memberPicker.workspaceMembers" :key="'wm-'+u.id">
-            <button @click="mpToggleMember(u)"
-                    class="w-full flex items-center gap-3 px-4 py-2 hover:bg-indigo-50/50 transition-colors group">
-              <div class="flex-shrink-0">
-                <template x-if="u.avatar && !u.avatar.includes('ui-avatars')">
-                  <img :src="u.avatar" :alt="u.name"
-                       class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100">
-                </template>
-                <template x-if="!u.avatar || u.avatar.includes('ui-avatars')">
-                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm"
-                       :style="'background:' + mpAvatarBg(u.name)">
-                    <span x-text="u.initials || u.name.charAt(0).toUpperCase()"></span>
-                  </div>
-                </template>
-              </div>
-              <div class="flex-1 min-w-0 text-left">
-                <p class="text-xs font-semibold text-slate-700 truncate" x-text="u.name"></p>
-                <p class="text-[10px] text-slate-400 truncate" x-text="u.email"></p>
-              </div>
-              <svg class="w-4 h-4 text-slate-300 group-hover:text-indigo-500 flex-shrink-0 transition-colors"
-                   fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-              </svg>
-            </button>
-          </template>
-        </div>
-      </template>
+      {{-- Workspace Members removed intentionally to only show assigned board members --}}
 
       {{-- Empty state --}}
       <template x-if="!memberPicker.cardMembers.length && !memberPicker.boardMembers.length && !memberPicker.workspaceMembers.length">

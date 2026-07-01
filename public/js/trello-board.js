@@ -989,6 +989,9 @@ function trelloBoard(config) {
               animation: 180,
               ghostClass: 'bg-indigo-50/70',
               dragClass: 'opacity-50',
+              delay: 150,
+              delayOnTouchOnly: true,
+              touchStartThreshold: 5,
               onEnd: async (evt) => {
                 const cardId = evt.item.dataset.id;
                 const fromListId = evt.from.dataset.listId;
@@ -1045,19 +1048,23 @@ function trelloBoard(config) {
         if (fromListId !== toListId) {
           const res = await this.api(`/boards/cards/${cardId}/move`, 'POST', {
             board_list_id: parseInt(toListId),
+            source_list_id: parseInt(fromListId),
             position: newIndex
           });
           
           if (res.card) {
-            // Check if automation moved it to a different board
-            if (res.card.board_id !== this.boardId) {
+            const currentUser = this.allWorkspaceMembers.find(m => m.id === this.currentUserId) || {};
+            const fromList = this.lists.find(l => l.id == fromListId)?.name || 'another list';
+            const toList = this.lists.find(l => l.id == toListId)?.name || 'another list';
+
+            // Only label a move as automated when the server confirms a rule ran.
+            if (res.automation_triggered && res.card.board_id !== this.boardId) {
                // Remove it from targetList
                const currentList = this.lists.find(l => l.id == toListId);
                if (currentList) {
                  currentList.cards = currentList.cards.filter(c => c.id !== res.card.id);
                }
-               window.showToast("Card moved by automation rule!");
-            } else if (res.card.board_list_id !== toListId) {
+            } else if (res.automation_triggered && res.card.board_list_id !== parseInt(toListId)) {
                // Remove it from targetList
                const currentList = this.lists.find(l => l.id == toListId);
                if (currentList) {
@@ -1068,23 +1075,28 @@ function trelloBoard(config) {
                if (actualTargetList) {
                  actualTargetList.cards.push(res.card);
                }
-               window.showToast("Card moved by automation rule!");
+            }
+
+            if (window.showRichNotificationToast) {
+              const automationNote = res.automation_triggered
+                ? ` Automation then ${res.automation?.action_type === 'copy' ? 'copied' : 'moved'} the card (${res.automation?.reason || 'matching rule'}).`
+                : '';
+
+              window.showRichNotificationToast({
+                actor_name: currentUser.name || 'You',
+                actor_avatar: currentUser.avatar_url || currentUser.avatar || this.avatarUrl(currentUser) || '',
+                actor_initials: currentUser.initials || currentUser.avatar_initials || '',
+                actor_avatar_color: currentUser.avatar_color || '#64748b',
+                card_title: res.card.title,
+                description: `moved this card from **${fromList}** to **${toList}**.${automationNote}`,
+                created_at: new Date().toISOString()
+              });
             } else {
-              if (window.showRichNotificationToast) {
-                const currentUser = this.allWorkspaceMembers.find(m => m.id === this.currentUserId) || {};
-                const fromList = this.lists.find(l => l.id == fromListId)?.name || 'another list';
-                const toList = this.lists.find(l => l.id == toListId)?.name || 'another list';
-                
-                window.showRichNotificationToast({
-                  actor_name: currentUser.name || 'You',
-                  actor_avatar: currentUser.avatar_url || currentUser.avatar || this.avatarUrl(currentUser) || '',
-                  card_title: res.card.title,
-                  description: `moved this card from **${fromList}** to **${toList}**`,
-                  created_at: new Date().toISOString()
-                });
-              } else {
-                window.showToast("Card position saved.");
-              }
+              window.showToast(`${currentUser.name || 'You'} moved "${res.card.title}" from ${fromList} to ${toList}.`);
+            }
+
+            if (this.activityOpen || (this.boardMenu.open && this.boardMenu.view === 'activity')) {
+              await this.fetchBoardActivities();
             }
           }
         } else {
@@ -2407,10 +2419,8 @@ function trelloBoard(config) {
         .filter(u => !assigneeIds.has(u.id))
         .map(u => ({ ...u }));
 
-      // Workspace members not on the board at all
-      mp.workspaceMembers = this.allWorkspaceMembers
-        .filter(u => !assigneeIds.has(u.id) && !boardMemberIds.has(u.id))
-        .map(u => ({ ...u }));
+      // Workspace members intentionally excluded from card assignment
+      mp.workspaceMembers = [];
     },
 
     // Live search: filter existing data first; fall back to server if needed
@@ -2433,10 +2443,10 @@ function trelloBoard(config) {
       mp.cardMembers      = (card.assignees || []).filter(a => match({ name: a.name, email: a.email || '' }))
         .map(a => ({ ...a, initials: a.avatar_initials || a.initials || this.avatarInitials(a), avatar_color: a.avatar_color || this.avatarColor(a) }));
       mp.boardMembers     = this.allBoardMembers.filter(u => !assigneeIds.has(u.id) && match(u));
-      mp.workspaceMembers = this.allWorkspaceMembers.filter(u => !assigneeIds.has(u.id) && !boardMemberIds.has(u.id) && match(u));
+      mp.workspaceMembers = [];
 
       // If nothing found locally, ask the server
-      if (!mp.cardMembers.length && !mp.boardMembers.length && !mp.workspaceMembers.length) {
+      if (!mp.cardMembers.length && !mp.boardMembers.length) {
         mp.loading = true;
         try {
           const res = await fetch(`/boards/${this.boardSlug}/members/search?q=${encodeURIComponent(q)}`, {
@@ -2445,7 +2455,7 @@ function trelloBoard(config) {
           });
           const data = await res.json();
           mp.boardMembers     = (data.board_members || []).filter(u => !assigneeIds.has(u.id));
-          mp.workspaceMembers = (data.workspace_members || []).filter(u => !assigneeIds.has(u.id) && !boardMemberIds.has(u.id));
+          mp.workspaceMembers = [];
         } finally {
           mp.loading = false;
         }
@@ -2723,6 +2733,16 @@ function trelloBoard(config) {
         return `background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url("${safeUrl}"); background-size: cover; background-position: center;`;
       }
 
+      return `background: ${value};`;
+    },
+
+    sbmCoverStyle(board) {
+      const type = board?.cover_type || board?.background_type || 'color';
+      const value = board?.cover_value || board?.background_value || '#6366f1';
+      if (type === 'image') {
+        const safeUrl = String(value).replace(/"/g, '\\"');
+        return `background-image: url("${safeUrl}"); background-size: cover; background-position: center;`;
+      }
       return `background: ${value};`;
     },
 

@@ -81,14 +81,11 @@ class BoardExportController extends Controller
                 $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
                 $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
 
-                if (!$isBypassed && $user->hasRole('digital-team')) {
-                    return $board->hasMember($user->id);
+                if ($isBypassed) {
+                    return true;
                 }
 
-                if ($user->hasAnyRole(['digital-team', 'sales-crm']) && ! $user->hasRole('super-admin')) {
-                    if ($board->visibility === 'workspace' || $board->visibility === 'public') {
-                        return true;
-                    }
+                if ($user->hasAnyRole(['digital-team', 'sales-crm'])) {
                     return $board->hasMember($user->id);
                 }
                 return true;

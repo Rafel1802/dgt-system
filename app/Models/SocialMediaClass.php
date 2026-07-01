@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SocialMediaClass extends Model
 {
@@ -38,6 +39,16 @@ class SocialMediaClass extends Model
         return $this->hasMany(SocialMediaPost::class, 'social_media_class_id');
     }
 
+    public function analytics(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            SocialMediaAnalytic::class,
+            'social_media_analytic_class',
+            'social_media_class_id',
+            'social_media_analytic_id'
+        )->withTimestamps()->orderByDesc('date_from');
+    }
+
     /** Users assigned to this class */
     public function assignedUsers(): BelongsToMany
     {
@@ -66,7 +77,7 @@ class SocialMediaClass extends Model
      */
     public function isVisibleTo(User $user): bool
     {
-        if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
+        if ($user->hasAnyRole(['super-admin', 'admin-digital', 'boss', 'digital-team', 'social_admin', 'social_qc'])) {
             return true;
         }
         return $this->isAssignedTo($user);
@@ -78,7 +89,7 @@ class SocialMediaClass extends Model
     {
         $query = $this->posts();
 
-        if ($user && !$user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc'])) {
+        if ($user && !$user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss'])) {
             $query = $query->where('user_id', $user->id);
         }
 

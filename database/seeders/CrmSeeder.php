@@ -14,8 +14,8 @@ class CrmSeeder extends Seeder
 {
     public function run(): void
     {
-        $staff = User::role('sales-crm')->first()
-               ?? User::role('admin')->first()
+        $staff = User::role(['sales-crm', 'admin-crm'])->first()
+               ?? User::role('super-admin')->first()
                ?? User::first();
 
         if (! $staff) return;
@@ -112,6 +112,67 @@ class CrmSeeder extends Seeder
             }
         }
 
-        $this->command->info('✅ CRM seed complete — 5 customers + deals created.');
+        // --- Seed eBay Stores ---
+        $stores = [
+            ['store_name' => 'TechGadgetsStore', 'store_url' => 'https://ebay.com/usr/techgadgets', 'notes' => 'Top Rated Seller'],
+            ['store_name' => 'VintageCollectibles', 'store_url' => 'https://ebay.com/usr/vintageco', 'notes' => 'Collectibles and antiques'],
+        ];
+        foreach ($stores as $s) {
+            \App\Models\EbayStore::firstOrCreate(['store_name' => $s['store_name']], $s);
+        }
+
+        // --- Seed Trucking Companies ---
+        $truckingCompanies = [
+            ['company_name' => 'FastFreight Logistics', 'pic_name' => 'John Doe', 'phone' => '123-456-7890', 'email' => 'dispatch@fastfreight.com', 'is_active' => true],
+            ['company_name' => 'Reliable Transport', 'pic_name' => 'Jane Smith', 'phone' => '098-765-4321', 'email' => 'info@reliablet.com', 'is_active' => true],
+        ];
+        foreach ($truckingCompanies as $tc) {
+            \App\Models\TruckingCompany::firstOrCreate(['company_name' => $tc['company_name']], $tc);
+        }
+
+        // --- Seed Shipments ---
+        if (\App\Models\Customer::count() > 0) {
+            $trucking = \App\Models\TruckingCompany::first();
+            $customer1 = \App\Models\Customer::first();
+            $customer2 = \App\Models\Customer::skip(1)->first();
+
+            $shipment = \App\Models\Shipment::firstOrCreate(
+                ['shipment_code' => 'SHP-10001'],
+                [
+                    'trucking_company_id' => $trucking->id ?? null,
+                    'estimated_arrival' => now()->addDays(3),
+                    'status' => 'pending',
+                    'assigned_to' => $staff->id,
+                    'created_by' => $staff->id,
+                    'notes' => 'Sample shipment',
+                ]
+            );
+
+            // Attach customers to shipment
+            if ($customer1) {
+                \App\Models\ShipmentCustomer::firstOrCreate([
+                    'shipment_id' => $shipment->id,
+                    'customer_id' => $customer1->id,
+                ], [
+                    'recipient_name' => $customer1->name,
+                    'recipient_phone' => $customer1->phone,
+                    'shipping_address' => '123 Main St, Sydney',
+                    'status' => 'pending'
+                ]);
+            }
+            if ($customer2) {
+                \App\Models\ShipmentCustomer::firstOrCreate([
+                    'shipment_id' => $shipment->id,
+                    'customer_id' => $customer2->id,
+                ], [
+                    'recipient_name' => $customer2->name,
+                    'recipient_phone' => $customer2->phone,
+                    'shipping_address' => '456 Market St, Melbourne',
+                    'status' => 'pending'
+                ]);
+            }
+        }
+
+        $this->command->info('✅ CRM seed complete — 5 customers + deals, stores, trucking, and shipments created.');
     }
 }

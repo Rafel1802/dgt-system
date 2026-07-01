@@ -59,6 +59,11 @@ class Customer extends Model
         return $this->hasMany(Deal::class)->orderByDesc('created_at');
     }
 
+    public function attachments(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
+    }
+
     // ─── Accessors ─────────────────────────────────────────────────────────
 
     public function getAvatarUrlAttribute(): string

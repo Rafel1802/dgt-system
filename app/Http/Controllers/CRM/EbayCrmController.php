@@ -5,6 +5,7 @@ namespace App\Http\Controllers\CRM;
 use App\Enums\AuthorizationStatus;
 use App\Enums\EbayLeadStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\EbayOffer;
 use App\Models\EbayOrder;
 use App\Models\Product;
@@ -35,16 +36,19 @@ class EbayCrmController extends Controller
     public function create(): View
     {
         return view('crm.ebay.create', [
-            'products' => Product::active()->orderBy('name')->get(),
-            'statuses' => EbayLeadStatus::cases(),
+            'products'  => Product::active()->orderBy('name')->get(),
+            'statuses'  => EbayLeadStatus::cases(),
+            'crmUsers'  => User::crmMembers()->orderBy('name')->get(),
+            'stores'    => \App\Models\EbayStore::active()->orderBy('store_name')->get(),
+            'customers' => Customer::orderBy('name')->get(['id','name','phone','company']),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'client_name'    => ['nullable', 'string', 'max:255'],
-            'client_email'   => ['nullable', 'email'],
+            'customer_id'    => ['required', 'exists:customers,id'],
+            'store_id'       => ['nullable', 'exists:ebay_stores,id'],
             'ebay_username'  => ['nullable', 'string', 'max:255'],
             'ebay_message_id'=> ['nullable', 'string'],
             'ebay_item_id'   => ['nullable', 'string'],
@@ -55,8 +59,12 @@ class EbayCrmController extends Controller
             'received_at'    => ['required', 'date'],
         ]);
 
+        $customer = Customer::find($validated['customer_id']);
+
         $offer = EbayOffer::create([
             ...$validated,
+            'client_name'          => $customer->name,
+            'client_email'         => $customer->email ?? null,
             'handled_by'           => auth()->id(),
             'status'               => EbayLeadStatus::Inquiry->value,
             'authorization_status' => AuthorizationStatus::Pending->value,
@@ -81,6 +89,8 @@ class EbayCrmController extends Controller
             'offer'    => $offer,
             'statuses' => EbayLeadStatus::cases(),
             'products' => Product::active()->orderBy('name')->get(),
+            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
+            'stores'   => \App\Models\EbayStore::active()->orderBy('store_name')->get(),
         ]);
     }
 

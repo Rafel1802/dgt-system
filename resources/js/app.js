@@ -4,8 +4,9 @@ import focus from '@alpinejs/focus';
 import Sortable from 'sortablejs';
 import Chart from 'chart.js/auto';
 
-// Expose globally for inline Blade scripts
+// Expose globally for inline scripts
 window.Chart = Chart;
+window.Sortable = Sortable;
 
 // Register Alpine.js plugins
 Alpine.plugin(collapse);

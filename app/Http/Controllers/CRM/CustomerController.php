@@ -28,7 +28,7 @@ class CustomerController extends Controller
 
         $customers = $this->crmService->searchCustomers($request->all(), auth()->user());
         $stats     = $this->crmService->getDashboardStats();
-        $users     = User::active()->get(['id', 'name']);
+        $users     = User::crmMembers()->get(['id', 'name']);
         $statuses  = CustomerStatus::cases();
         $sources   = CustomerSource::cases();
 
@@ -44,7 +44,7 @@ class CustomerController extends Controller
             'statuses' => CustomerStatus::cases(),
             'sources'  => CustomerSource::cases(),
             'stages'   => DealStage::cases(),
-            'users'    => User::active()->get(['id', 'name']),
+            'users'    => User::crmMembers()->get(['id', 'name']),
         ]);
     }
 
@@ -96,6 +96,7 @@ class CustomerController extends Controller
             'creator:id,name',
             'interactions.user:id,name,avatar',
             'deals.assignee:id,name',
+            'attachments.uploader:id,name',
         ]);
 
         return view('crm.show', compact('customer'));
@@ -111,7 +112,7 @@ class CustomerController extends Controller
             'statuses' => CustomerStatus::cases(),
             'sources'  => CustomerSource::cases(),
             'stages'   => DealStage::cases(),
-            'users'    => User::active()->get(['id', 'name']),
+            'users'    => User::crmMembers()->get(['id', 'name']),
         ]);
     }
 
@@ -210,5 +211,41 @@ class CustomerController extends Controller
         $customer->update(['pipeline_stage' => $validated['pipeline_stage']]);
 
         return response()->json(['success' => true, 'stage' => $customer->fresh()->pipeline_stage]);
+    }
+
+    /** Upload an attachment to a customer */
+    public function uploadAttachment(Request $request, Customer $customer): RedirectResponse
+    {
+        $this->authorize('update', $customer);
+
+        $request->validate([
+            'attachment' => [
+                'required',
+                'file',
+                'mimes:pdf,jpg,jpeg,png,gif',
+                'max:51200', // 50MB in Kilobytes
+            ],
+            'label' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $file = $request->file('attachment');
+        $originalName = $file->getClientOriginalName();
+        $mime = $file->getClientMimeType();
+        $size = $file->getSize();
+
+        $path = $file->store('customer_attachments', 'public');
+
+        $customer->attachments()->create([
+            'uploaded_by'   => auth()->id(),
+            'filename'      => basename($path),
+            'original_name' => $originalName,
+            'mime_type'     => $mime,
+            'file_size'     => $size,
+            'disk'          => 'public',
+            'path'          => $path,
+            'label'         => $request->get('label') ?: null,
+        ]);
+
+        return back()->with('success', 'File uploaded successfully.');
     }
 }

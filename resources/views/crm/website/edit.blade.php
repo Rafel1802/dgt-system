@@ -111,11 +111,13 @@
             </select>
           </div>
           <div>
-            <label class="form-label">Assign To</label>
+            <label class="form-label">Handled By (CRM Member)</label>
             <select name="assigned_to" class="form-input">
               <option value="">Unassigned</option>
-              @foreach($users as $u)
-              <option value="{{ $u->id }}" {{ old('assigned_to', $lead->assigned_to) == $u->id ? 'selected' : '' }}>{{ $u->name }}</option>
+              @foreach($crmUsers as $u)
+              <option value="{{ $u->id }}" {{ old('assigned_to', $lead->assigned_to) == $u->id ? 'selected' : '' }}>
+                {{ $u->name }} — {{ $u->crm_role_display }}
+              </option>
               @endforeach
             </select>
           </div>

@@ -21,7 +21,7 @@ class WebsitesDashboardController extends Controller
 
     public function index(Request $request): \Illuminate\View\View
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ALLOWED_ROLES), 403);
+        abort_unless(auth()->user()?->hasWebsiteAccess(), 403);
 
         $filters = $this->resolveFilters($request);
 
@@ -56,7 +56,7 @@ class WebsitesDashboardController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ALLOWED_ROLES), 403);
+        abort_unless(auth()->user()?->hasWebsiteAccess(), 403);
 
         $filters = $this->resolveFilters($request);
         $rows    = $this->service->exportRows($filters);

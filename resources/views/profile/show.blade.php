@@ -241,12 +241,68 @@
           <p class="mt-1 text-xs font-medium text-slate-400">Leave blank to use the phone number above.</p>
           @error('whatsapp')<p class="form-error">{{ $message }}</p>@enderror
         </div>
+
+        <div class="sm:col-span-2 border-t border-slate-100 pt-5 mt-2" x-data="{ currentSound: '{{ old('notification_sound', $user->notification_sound ?? '01.mp3') }}' }">
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <label class="form-label flex gap-2 mb-1">Notification Sound</label>
+              <p class="text-xs text-slate-500">Choose the sound that plays when you receive a notification.</p>
+            </div>
+            @hasrole('super-admin')
+            <button type="button" @click="$refs.newSoundInput.click()" class="btn justify-center bg-white border border-slate-200 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-xs py-1.5 px-3 rounded-lg flex-shrink-0 transition-colors shadow-sm">
+              <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add Sound
+            </button>
+            @endhasrole
+          </div>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            @foreach($sounds as $sound)
+            <label class="relative flex cursor-pointer rounded-xl border p-3 focus:outline-none group"
+                   :class="currentSound === '{{ $sound }}' ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200 hover:bg-slate-50'">
+              <input type="radio" name="notification_sound" value="{{ $sound }}" class="sr-only" 
+                     x-model="currentSound"
+                     @change="
+                        const audio = new Audio('{{ asset('notificationsound/' . $sound) }}');
+                        audio.play();
+                     ">
+              <span class="flex flex-1 flex-col">
+                <span class="block text-sm font-medium" :class="currentSound === '{{ $sound }}' ? 'text-indigo-900' : 'text-slate-900'">
+                  {{ Str::beforeLast($sound, '.') }}
+                </span>
+                <span class="mt-1 flex items-center text-xs" :class="currentSound === '{{ $sound }}' ? 'text-indigo-700' : 'text-slate-500'">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5 mr-1">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+                  </svg>
+                  Preview
+                </span>
+              </span>
+              <svg class="h-5 w-5 text-indigo-600" :class="currentSound === '{{ $sound }}' ? 'opacity-100' : 'opacity-0'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+              </svg>
+              @hasrole('super-admin')
+              <button type="button" 
+                      class="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-sm border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all z-10"
+                      title="Remove Sound"
+                      onclick="event.preventDefault(); event.stopPropagation(); if(confirm('Are you sure you want to completely remove this sound?')) { const f = document.getElementById('delete-sound-form'); f.action = '{{ route('profile.sound.delete', $sound) }}'; f.submit(); }">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+              @endhasrole
+            </label>
+            @endforeach
+            @if($sounds->isEmpty())
+                <div class="col-span-full text-sm text-slate-500 italic py-2">
+                    No sounds available in the public/notificationsound directory.
+                </div>
+            @endif
+          </div>
+          @error('notification_sound')<p class="form-error">{{ $message }}</p>@enderror
+        </div>
       </div>
 
       <div class="mt-7 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-between">
         <div class="flex flex-col gap-3 sm:flex-row">
           <a href="{{ route('settings') }}" class="btn justify-center bg-white border border-slate-200 text-slate-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:-translate-y-0.5 hover:shadow-sm transition-colors">Change Password</a>
-          <a href="{{ route('dashboard') }}" class="btn justify-center bg-white border border-slate-200 text-slate-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:-translate-y-0.5 hover:shadow-sm transition-colors">Back to Dashboard</a>
         </div>
         <button type="submit" class="btn justify-center px-5 bg-indigo-600 text-white border border-indigo-600 hover:bg-white hover:text-slate-900 hover:border-green-500 hover:ring-1 hover:ring-green-500 hover:shadow-lg transition-colors" id="btn-save-profile">
           Save Changes
@@ -254,5 +310,17 @@
       </div>
     </section>
   </form>
+
+  @hasrole('super-admin')
+  <form x-ref="soundUploadForm" method="POST" action="{{ route('profile.sound.upload') }}" enctype="multipart/form-data" class="hidden">
+      @csrf
+      <input type="file" name="new_sound" x-ref="newSoundInput" accept="audio/mpeg,audio/wav,audio/ogg" @change="$refs.soundUploadForm.submit()">
+  </form>
+
+  <form id="delete-sound-form" method="POST" action="" class="hidden">
+      @csrf
+      @method('DELETE')
+  </form>
+  @endhasrole
 </div>
 @endsection

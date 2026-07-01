@@ -14,6 +14,7 @@ use App\Notifications\BoardActivityNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -35,11 +36,13 @@ class BoardController extends Controller
         $workspaces = $this->getAuthorizedWorkspaces($user);
         
         $hiddenBoards = collect();
+        $trashedWorkspaces = collect();
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $hiddenBoards = \App\Models\Board::where('is_hidden', true)->with('workspace')->get();
+            $trashedWorkspaces = \App\Models\Workspace::onlyTrashed()->get();
         }
 
-        return view('boards.workspaces', compact('workspaces', 'hiddenBoards'));
+        return view('boards.workspaces', compact('workspaces', 'hiddenBoards', 'trashedWorkspaces'));
     }
 
     /** Show a single board with its lists and cards (the Trello view). */
@@ -51,12 +54,15 @@ class BoardController extends Controller
             'icon_text' => ['nullable', 'string', 'max:5'],
         ]);
 
+        $maxPosition = Workspace::max('position') ?? 0;
+
         Workspace::create([
             'name' => $validated['name'],
             'color' => $validated['color'],
             'icon_text' => $validated['icon_text'] ?: strtoupper(substr($validated['name'], 0, 1)),
             'owner_id' => auth()->id(),
             'is_active' => true,
+            'position' => $maxPosition + 1,
         ]);
 
         return back()->with('success', 'Workspace created successfully.');
@@ -80,6 +86,124 @@ class BoardController extends Controller
         ]);
 
         return back()->with('success', 'Workspace renamed successfully.');
+    }
+
+    /** Move a workspace to trash (soft delete). */
+    public function destroyWorkspace(Request $request, Workspace $workspace): RedirectResponse
+    {
+        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $workspace->delete();
+
+        return back()->with('success', 'Workspace moved to trash.');
+    }
+
+    /** Restore a trashed workspace. */
+    public function restoreWorkspace($id): RedirectResponse
+    {
+        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $workspace = Workspace::onlyTrashed()->findOrFail($id);
+        $workspace->restore();
+
+        return back()->with('success', 'Workspace recovered successfully.');
+    }
+
+    /** Permanently delete a workspace. */
+    public function forceDeleteWorkspace($id): RedirectResponse
+    {
+        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $workspace = Workspace::onlyTrashed()->findOrFail($id);
+        
+        // Let's also delete all related boards.
+        foreach ($workspace->boards()->withTrashed()->get() as $board) {
+            $board->forceDelete();
+        }
+
+        $workspace->forceDelete();
+
+        return back()->with('success', 'Workspace permanently deleted.');
+    }
+
+    /** Move workspace up (decrease position). */
+    public function moveUpWorkspace(Request $request, Workspace $workspace): RedirectResponse
+    {
+        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $previous = Workspace::where('position', '<=', $workspace->position)
+            ->where('id', '!=', $workspace->id)
+            ->orderBy('position', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($previous) {
+            $temp = $workspace->position;
+            $workspace->update(['position' => $previous->position]);
+            $previous->update(['position' => $temp]);
+        }
+
+        return back()->with('success', 'Workspace moved up.');
+    }
+
+    /** Move workspace down (increase position). */
+    public function moveDownWorkspace(Request $request, Workspace $workspace): RedirectResponse
+    {
+        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $next = Workspace::where('position', '>=', $workspace->position)
+            ->where('id', '!=', $workspace->id)
+            ->orderBy('position', 'asc')
+            ->orderBy('id', 'asc')
+            ->first();
+
+        if ($next) {
+            $temp = $workspace->position;
+            $workspace->update(['position' => $next->position]);
+            $next->update(['position' => $temp]);
+        }
+
+        return back()->with('success', 'Workspace moved down.');
+    }
+
+    /** Persist drag-and-drop board ordering inside a workspace. */
+    public function reorderWorkspaceBoards(Request $request, Workspace $workspace): JsonResponse
+    {
+        $this->authorizeWorkspace($workspace->id);
+
+        $validated = $request->validate([
+            'order' => ['required', 'array', 'min:1'],
+            'order.*' => ['required', 'integer', 'distinct', 'exists:boards,id'],
+        ]);
+
+        $boardIds = collect($validated['order'])->map(fn ($id) => (int) $id)->values();
+        $validCount = Board::where('workspace_id', $workspace->id)
+            ->whereIn('id', $boardIds)
+            ->count();
+
+        if ($validCount !== $boardIds->count()) {
+            return response()->json(['message' => 'One or more boards do not belong to this workspace.'], 422);
+        }
+
+        DB::transaction(function () use ($boardIds, $workspace) {
+            foreach ($boardIds as $position => $boardId) {
+                Board::where('workspace_id', $workspace->id)
+                    ->whereKey($boardId)
+                    ->update(['position' => $position]);
+            }
+        });
+
+        return response()->json(['message' => 'Board order saved.']);
     }
 
     /** Show a single board with its lists and cards (the Trello view). */
@@ -107,10 +231,14 @@ class BoardController extends Controller
             ->orderBy('position')
             ->get()
             ->filter(function ($b) use ($user) {
-                if ($user->hasAnyRole(['digital-team', 'sales-crm']) && ! $user->hasRole('super-admin')) {
-                    if ($b->visibility === 'workspace' || $b->visibility === 'public') {
-                        return true;
-                    }
+                $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
+                $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
+
+                if ($isBypassed) {
+                    return true;
+                }
+
+                if ($user->hasAnyRole(['digital-team', 'sales-crm'])) {
                     return $b->hasMember($user->id);
                 }
                 return true;
@@ -126,6 +254,8 @@ class BoardController extends Controller
                 'visibility' => $board->visibility,
                 'background_type' => $board->background_type,
                 'background_value' => $board->background_value,
+                'cover_type' => $board->cover_type,
+                'cover_value' => $board->cover_value,
                 'member_permissions' => $board->member_permissions ?? 'members',
                 'card_covers_enabled' => (bool) ($board->card_covers_enabled ?? true),
                 'notifications_enabled' => (bool) ($board->notifications_enabled ?? true),
@@ -211,6 +341,8 @@ class BoardController extends Controller
                     'is_starred' => (bool) $b->is_starred,
                     'background_type' => $b->background_type,
                     'background_value' => $b->background_value,
+                    'cover_type' => $b->cover_type,
+                    'cover_value' => $b->cover_value,
                     'lists' => $b->activeLists->map(fn($list) => [
                         'id' => $list->id,
                         'name' => $list->name,
@@ -241,12 +373,21 @@ class BoardController extends Controller
             'workspace_id'     => ['required', 'exists:workspaces,id'],
             'name'             => ['nullable', 'string', 'max:100'],
             'background_type'  => ['required', 'in:color,gradient,image'],
-            'background_value' => ['required', 'string', 'max:2048'],
+            'background_value' => ['nullable', 'string', 'max:2048'],
+            'background_image_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:8192'],
             'visibility'       => ['required', 'in:private,workspace,public'],
             'template'         => ['nullable', 'string', 'in:normal,workflow,planning'],
             'template_month'   => ['nullable', 'string'],
             'template_year'    => ['nullable', 'string'],
         ]);
+
+        $backgroundValue = $validated['background_value'] ?? '';
+        if ($validated['background_type'] === 'image' && $request->hasFile('background_image_file')) {
+            $uploadedUrl = $this->handleBackgroundImageUpload($request->file('background_image_file'));
+            if ($uploadedUrl) {
+                $backgroundValue = $uploadedUrl;
+            }
+        }
 
         $this->authorizeWorkspace($validated['workspace_id']);
 
@@ -270,7 +411,9 @@ class BoardController extends Controller
         $board = Board::create([
             'workspace_id' => $validated['workspace_id'],
             'background_type' => $validated['background_type'],
-            'background_value' => $validated['background_value'],
+            'background_value' => $backgroundValue,
+            'cover_type' => $validated['background_type'],
+            'cover_value' => $backgroundValue,
             'visibility' => $validated['visibility'],
             'name' => $boardName,
             'created_by' => auth()->id(),
@@ -299,6 +442,10 @@ class BoardController extends Controller
             if ($templateBoard) {
                 $listMap = [];
                 foreach ($templateBoard->lists as $list) {
+                    if (($validated['template'] ?? '') === 'workflow' && strtolower($list->name) === 'urgent') {
+                        continue; // Skip Urgent list for Workflow templates
+                    }
+
                     $newList = $board->lists()->create([
                         'name' => $list->name,
                         'position' => $list->position,
@@ -314,27 +461,61 @@ class BoardController extends Controller
                     ]);
                 }
 
-                // Copy board members
-                foreach ($templateBoard->members as $member) {
-                    // Make sure member is in target workspace
-                    if (!$board->workspace->hasMember($member->id)) {
-                        $board->workspace->members()->syncWithoutDetaching([
-                            $member->id => ['role' => 'member']
+                // Copy board members ONLY if the template board belongs to the same workspace
+                if ($templateBoard->workspace_id == $board->workspace_id) {
+                    foreach ($templateBoard->members as $member) {
+                        // Make sure member is in target workspace
+                        if (!$board->workspace->hasMember($member->id)) {
+                            $board->workspace->members()->syncWithoutDetaching([
+                                $member->id => ['role' => 'member']
+                            ]);
+                        }
+                        // Sync member to board with their role
+                        $board->members()->syncWithoutDetaching([
+                            $member->id => ['role' => $member->pivot->role ?? 'member']
                         ]);
                     }
-                    // Sync member to board with their role
-                    $board->members()->syncWithoutDetaching([
-                        $member->id => ['role' => $member->pivot->role ?? 'member']
-                    ]);
                 }
 
                 // Copy automations from the template board
                 $templateAutomations = \App\Models\BoardAutomation::where('board_id', $templateBoard->id)->get();
+                $newMonthYear = $request->template_month && $request->template_year ? $request->template_month . ' ' . $request->template_year : null;
+
                 foreach ($templateAutomations as $auto) {
+                    // Skip automations that rely on a skipped list on this board
+                    if ($auto->trigger_board_id == $templateBoard->id && !isset($listMap[$auto->trigger_list_id])) continue;
+                    if ($auto->target_board_id == $templateBoard->id && !isset($listMap[$auto->target_list_id])) continue;
+
                     $newTriggerBoardId = ($auto->trigger_board_id == $templateBoard->id) ? $board->id : $auto->trigger_board_id;
                     $newTriggerListId = isset($listMap[$auto->trigger_list_id]) ? $listMap[$auto->trigger_list_id] : $auto->trigger_list_id;
                     $newTargetBoardId = ($auto->target_board_id == $templateBoard->id) ? $board->id : $auto->target_board_id;
                     $newTargetListId = isset($listMap[$auto->target_list_id]) ? $listMap[$auto->target_list_id] : $auto->target_list_id;
+
+                    // Intelligent Cross-Board Reference Resolution
+                    if ($auto->target_board_id != $templateBoard->id && $auto->target_board_id && $newMonthYear) {
+                        $oldTargetBoard = \App\Models\Board::find($auto->target_board_id);
+                        if ($oldTargetBoard) {
+                            $baseNamePattern = trim(preg_replace('/[–-]?\s*[A-Za-z]+\s+20\d{2}$/u', '', $oldTargetBoard->name));
+                            if ($baseNamePattern) {
+                                $resolvedBoard = \App\Models\Board::where('workspace_id', $board->workspace_id)
+                                    ->where('name', 'like', $baseNamePattern . '%')
+                                    ->where('name', 'like', '%' . $newMonthYear . '%')
+                                    ->first();
+                                
+                                if ($resolvedBoard) {
+                                    $newTargetBoardId = $resolvedBoard->id;
+                                    $oldList = \App\Models\BoardList::find($auto->target_list_id);
+                                    if ($oldList) {
+                                        $resolvedList = \App\Models\BoardList::where('board_id', $resolvedBoard->id)
+                                            ->where('name', $oldList->name)->first();
+                                        if ($resolvedList) {
+                                            $newTargetListId = $resolvedList->id;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     \App\Models\BoardAutomation::create([
                         'board_id' => $board->id,
@@ -347,6 +528,29 @@ class BoardController extends Controller
                         'target_assignee_id' => $auto->target_assignee_id,
                         'target_assignee_role' => $auto->target_assignee_role,
                     ]);
+                }
+
+                // Retroactive Linkup: If THIS newly created board acts as a target for other boards created THIS month
+                if ($newMonthYear) {
+                    $automationsPointingToTemplate = \App\Models\BoardAutomation::where('target_board_id', $templateBoard->id)
+                        ->where('board_id', '!=', $templateBoard->id)
+                        ->get();
+
+                    foreach ($automationsPointingToTemplate as $autoToUpdate) {
+                        $ownerBoard = \App\Models\Board::find($autoToUpdate->board_id);
+                        if ($ownerBoard && str_contains($ownerBoard->name, $newMonthYear) && $ownerBoard->workspace_id == $board->workspace_id) {
+                            $oldList = \App\Models\BoardList::find($autoToUpdate->target_list_id);
+                            if ($oldList) {
+                                $matchedList = \App\Models\BoardList::where('board_id', $board->id)->where('name', $oldList->name)->first();
+                                if ($matchedList) {
+                                    $autoToUpdate->update([
+                                        'target_board_id' => $board->id,
+                                        'target_list_id' => $matchedList->id
+                                    ]);
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
                 $defaults = ['To Do', 'In Progress', 'Done'];
@@ -456,6 +660,14 @@ class BoardController extends Controller
             }
         }
 
+        // Auto delete unused background image
+        if (in_array('background_value', $changed)) {
+            $oldBg = $before['background_value'] ?? null;
+            if ($oldBg && $oldBg !== $board->cover_value) {
+                $this->deleteStoredBoardBackground($oldBg);
+            }
+        }
+
         if ($changed) {
             $action = in_array('is_archived', $changed, true)
                 ? ($board->is_archived ? 'archived' : 'unarchived')
@@ -475,6 +687,83 @@ class BoardController extends Controller
         }
 
         return response()->json(['message' => 'Board updated.', 'board' => $this->boardPayload($board)]);
+    }
+
+    /** Helper to handle background image uploads and convert to WebP */
+    private function handleBackgroundImageUpload($file): ?string
+    {
+        if (!$file || !$file->isValid()) return null;
+
+        $extension = strtolower($file->extension());
+        $image = match($extension) {
+            'jpeg', 'jpg' => @imagecreatefromjpeg($file->path()),
+            'png' => @imagecreatefrompng($file->path()),
+            'gif' => @imagecreatefromgif($file->path()),
+            'webp' => @imagecreatefromwebp($file->path()),
+            default => null
+        };
+
+        if ($image) {
+            $filename = \Illuminate\Support\Str::random(40) . '.webp';
+            $path = "board-backgrounds/{$filename}";
+            \Illuminate\Support\Facades\Storage::disk('public')->makeDirectory('board-backgrounds');
+            
+            // For PNG/GIF transparency
+            imagepalettetotruecolor($image);
+            imagealphablending($image, true);
+            imagesavealpha($image, true);
+            
+            imagewebp($image, \Illuminate\Support\Facades\Storage::disk('public')->path($path), 85);
+            imagedestroy($image);
+            
+            return \Illuminate\Support\Facades\Storage::url($path);
+        }
+
+        // Fallback if conversion fails
+        $path = $file->store("board-backgrounds", 'public');
+        return \Illuminate\Support\Facades\Storage::url($path);
+    }
+
+    /** Basic update for board name and background from the workspaces view. */
+    public function updateBoardBasic(Request $request, Board $board): RedirectResponse
+    {
+        $this->authorizeBoard($board);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'background_type' => ['required', 'in:color,image'],
+            'background_value' => ['nullable', 'string', 'max:2048'],
+            'background_image_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:8192'],
+        ]);
+
+        $backgroundValue = $validated['background_value'] ?? '';
+
+        if ($validated['background_type'] === 'image') {
+            if ($request->hasFile('background_image_file')) {
+                $uploadedUrl = $this->handleBackgroundImageUpload($request->file('background_image_file'));
+                if ($uploadedUrl) {
+                    $backgroundValue = $uploadedUrl;
+                }
+            } elseif (! $this->isAllowedBackgroundImageValue($backgroundValue)) {
+                return back()->with('error', 'Enter a valid background image URL or upload an image.');
+            }
+        } elseif ($validated['background_type'] === 'color' && ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $backgroundValue)) {
+            return back()->with('error', 'Choose a valid hex background color.');
+        }
+
+        $oldCover = $board->cover_value;
+
+        $board->update([
+            'name' => $validated['name'],
+            'cover_type' => $validated['background_type'],
+            'cover_value' => $backgroundValue,
+        ]);
+
+        if ($oldCover && $oldCover !== $backgroundValue && $oldCover !== $board->background_value) {
+            $this->deleteStoredBoardBackground($oldCover);
+        }
+
+        return back()->with('success', 'Board updated successfully.');
     }
 
     /** Upload and apply a board background image. */
@@ -498,7 +787,9 @@ class BoardController extends Controller
             'background_value' => Storage::url($path),
         ]);
 
-        $this->deleteStoredBoardBackground($oldBackground);
+        if ($oldBackground !== $board->cover_value) {
+            $this->deleteStoredBoardBackground($oldBackground);
+        }
 
         $board = $board->fresh(['workspace']);
         $this->logBoardActivity($board, 'background_updated', "updated board background for **{$board->name}**", [
@@ -1116,13 +1407,16 @@ class BoardController extends Controller
         // If explicitly a member of the board, they have access
         if ($board->hasMember($user->id)) return;
 
+        // Boss and other supervisor/QC roles also bypass the membership check
+        $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
+        $isBypassed = $user->hasAnyRole(['admin', 'supervisor', 'boss']) || $isQc;
+        if ($isBypassed) return;
+
         abort_unless($board->workspace->hasMember($user->id), 403, 'You are not a member of this workspace.');
 
-        // If they are a normal member and board is private, check board membership
+        // If they are a normal member, check board membership (must be explicitly added)
         if ($user->hasAnyRole(['digital-team', 'sales-crm'])) {
-            if ($board->visibility === 'private') {
-                abort_unless($board->hasMember($user->id), 403, 'You do not have permission to access this private board.');
-            }
+            abort_unless($board->hasMember($user->id), 403, 'You do not have permission to access this board.');
         }
     }
 
@@ -1145,7 +1439,8 @@ class BoardController extends Controller
                 'boards.members:id,name,avatar',
             ])
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('position')
+                ->orderBy('id')
                 ->get();
         } else {
             $allActiveWorkspaces = Workspace::with([
@@ -1154,7 +1449,8 @@ class BoardController extends Controller
                 'boards.members:id,name,avatar',
             ])
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('position')
+                ->orderBy('id')
                 ->get();
             $workspaces = $allActiveWorkspaces->filter(function ($ws) use ($user) {
                 if ($ws->hasMember($user->id)) return true;
@@ -1170,10 +1466,11 @@ class BoardController extends Controller
                 $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
                 $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
 
-                if ($user->hasAnyRole(['digital-team', 'sales-crm']) && ! $user->hasRole('super-admin')) {
-                    if ($board->visibility === 'workspace' || $board->visibility === 'public') {
-                        return true;
-                    }
+                if ($isBypassed) {
+                    return true;
+                }
+
+                if ($user->hasAnyRole(['digital-team', 'sales-crm'])) {
                     return $board->hasMember($user->id);
                 }
                 return true;

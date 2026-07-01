@@ -2,17 +2,17 @@
     <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="flex items-center justify-between w-full">
         <div class="flex flex-col sm:flex-row gap-4 items-center justify-between w-full">
             <div>
-                <p class="text-sm text-slate-300 dark:text-slate-200 leading-5">
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-5">
                     {!! __('Showing') !!}
                     @if ($paginator->firstItem())
-                        <span class="font-semibold text-white">{{ $paginator->firstItem() }}</span>
+                        <span class="font-semibold text-slate-900 dark:text-white">{{ $paginator->firstItem() }}</span>
                         {!! __('to') !!}
-                        <span class="font-semibold text-white">{{ $paginator->lastItem() }}</span>
+                        <span class="font-semibold text-slate-900 dark:text-white">{{ $paginator->lastItem() }}</span>
                     @else
-                        {{ $paginator->count() }}
+                        <span class="font-semibold text-slate-900 dark:text-white">{{ $paginator->count() }}</span>
                     @endif
                     {!! __('of') !!}
-                    <span class="font-semibold text-white">{{ $paginator->total() }}</span>
+                    <span class="font-semibold text-slate-900 dark:text-white">{{ $paginator->total() }}</span>
                     {!! __('results') !!}
                 </p>
             </div>

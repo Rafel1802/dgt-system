@@ -202,14 +202,14 @@ class CardController extends Controller
         ]);
     }
 
-    private function checkAutomations(Card $card, ?int $movedToListId = null, ?string $commentText = null, bool $titleChanged = false): void
+    private function checkAutomations(Card $card, ?int $movedToListId = null, ?string $commentText = null, bool $titleChanged = false): ?array
     {
         $automations = \App\Models\BoardAutomation::where('trigger_board_id', $card->board_id)
             ->orWhere(function($q) use ($card) {
                 $q->whereNull('trigger_board_id')->where('board_id', $card->board_id);
             })->get();
             
-        if ($automations->isEmpty()) return;
+        if ($automations->isEmpty()) return null;
 
         foreach ($automations as $automation) {
             $isMatch = false;
@@ -245,6 +245,8 @@ class CardController extends Controller
             }
 
             if ($isMatch) {
+                $sourceBoardName = $card->board?->name ?? 'Unknown board';
+                $sourceListName = $card->boardList?->name ?? 'Unknown list';
                 $reason = 'automation rule';
                 if ($automation->trigger_type === 'keyword') $reason = "keyword '{$automation->trigger_word}'";
                 elseif ($automation->trigger_type === 'list') $reason = "moving to list";
@@ -280,14 +282,24 @@ class CardController extends Controller
                     }
                 } else {
                     $maxPos = \App\Models\Card::where('board_list_id', $automation->target_list_id)->max('position') ?? 0;
+                    $targetBoard = \App\Models\Board::find($automation->target_board_id);
+                    $targetList = \App\Models\BoardList::find($automation->target_list_id);
                     
                     $card->update([
                         'board_id' => $automation->target_board_id,
                         'board_list_id' => $automation->target_list_id,
                         'position' => $maxPos + 1,
                     ]);
+                    $card->unsetRelation('board');
+                    $card->unsetRelation('boardList');
 
-                    $this->logCardActivity($card, 'moved_by_automation', "card automatically moved to another board based on {$reason}");
+                    $this->logCardActivity(
+                        $card,
+                        'moved_by_automation',
+                        "automatically moved this card from **{$sourceBoardName} / {$sourceListName}** to **" .
+                        ($targetBoard?->name ?? 'Unknown board') . ' / ' . ($targetList?->name ?? 'Unknown list') .
+                        "** based on {$reason}"
+                    );
 
                     if ($automation->target_assignee_id) {
                         if (!$card->assignees()->where('users.id', $automation->target_assignee_id)->exists()) {
@@ -311,9 +323,17 @@ class CardController extends Controller
                     }
                 }
 
-                break; // Only apply the first matching rule to avoid loops or conflicts
+                return [
+                    'triggered' => true,
+                    'rule_id' => $automation->id,
+                    'trigger_type' => $automation->trigger_type,
+                    'action_type' => $automation->action_type,
+                    'reason' => $reason,
+                ]; // Only apply the first matching rule to avoid loops or conflicts
             }
         }
+
+        return null;
     }
 
     /** Soft-delete a card. */
@@ -413,10 +433,16 @@ class CardController extends Controller
     {
         $request->validate([
             'board_list_id' => ['required', 'exists:board_lists,id'],
+            'source_list_id' => ['nullable', 'exists:board_lists,id'],
             'position'      => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $oldList = $card->boardList?->name ?? 'Unknown';
+        // Drag-and-drop persists the visual order first, so the card may already point
+        // at the target list here. The client supplies the real source list explicitly.
+        $sourceList = $request->filled('source_list_id')
+            ? BoardList::find((int) $request->source_list_id)
+            : $card->boardList;
+        $oldList = $sourceList?->name ?? 'Unknown';
         $targetList = BoardList::findOrFail((int) $request->board_list_id);
 
         $card->update([
@@ -426,10 +452,15 @@ class CardController extends Controller
         ]);
         $newList = $targetList->name;
 
-        $this->logCardActivity($card, 'moved', "moved card from **{$oldList}** to **{$newList}**");
-        $this->checkAutomations($card, $targetList->id);
+        $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$newList}**");
+        $automation = $this->checkAutomations($card, $targetList->id);
 
-        return response()->json(['card' => $this->formatCardForBoard($card), 'message' => 'Card moved.']);
+        return response()->json([
+            'card' => $this->formatCardForBoard($card),
+            'message' => 'Card moved.',
+            'automation' => $automation,
+            'automation_triggered' => $automation !== null,
+        ]);
     }
 
     /** Duplicate a card into the same list (or an optionally supplied list). */

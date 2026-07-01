@@ -44,12 +44,12 @@ class SocialMediaItemController extends Controller
     public function storeTemplate(SocialMediaClass $class)
     {
         $templates = [
-            ['name' => 'Facebook', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/b/b8/2021_Facebook_icon.svg'],
-            ['name' => 'Instagram', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg'],
-            ['name' => 'X(Twitter)', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/c/ce/X_logo_2023.svg'],
-            ['name' => 'Pinterest', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/0/08/Pinterest-logo.png'],
-            ['name' => 'YouTube', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg'],
-            ['name' => 'TikTok', 'icon' => 'https://sf-static.tiktokcdn.com/obj/eden-sg/uhtyvueh7nulogpoguhm/tiktok-icon2.png'],
+            ['name' => 'Facebook', 'icon' => '/images/social/facebook.svg'],
+            ['name' => 'Instagram', 'icon' => '/images/social/instagram.svg'],
+            ['name' => 'X(Twitter)', 'icon' => '/images/social/x.svg'],
+            ['name' => 'Pinterest', 'icon' => '/images/social/pinterest.png'],
+            ['name' => 'YouTube', 'icon' => '/images/social/youtube.svg'],
+            ['name' => 'TikTok', 'icon' => '/images/social/tiktok.png'],
         ];
 
         $maxOrder = $class->items()->max('sort_order') ?? 0;

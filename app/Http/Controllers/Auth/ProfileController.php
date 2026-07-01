@@ -15,7 +15,18 @@ class ProfileController extends Controller
 {
     public function show(): View
     {
-        return view('profile.show', ['user' => auth()->user()]);
+        $sounds = collect();
+        if (is_dir(public_path('notificationsound'))) {
+            $files = \Illuminate\Support\Facades\File::files(public_path('notificationsound'));
+            $sounds = collect($files)->map(function ($file) {
+                return $file->getFilename();
+            });
+        }
+        
+        return view('profile.show', [
+            'user' => auth()->user(),
+            'sounds' => $sounds
+        ]);
     }
 
     public function update(Request $request): RedirectResponse
@@ -25,12 +36,13 @@ class ProfileController extends Controller
         $isPrivileged = $user->can_edit_profile || $user->hasAnyRole(['super-admin', 'admin']);
 
         $rules = [
-            'name'          => ['required', 'string', 'max:255'],
-            'phone'         => ['nullable', 'string', 'max:40'],
-            'whatsapp'      => ['nullable', 'string', 'max:40'],
-            'avatar'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
-            'avatar_url'    => ['nullable', 'url', 'starts_with:http://,https://', 'max:2048'],
-            'remove_avatar' => ['nullable', 'boolean'],
+            'name'               => ['required', 'string', 'max:255'],
+            'phone'              => ['nullable', 'string', 'max:40'],
+            'whatsapp'           => ['nullable', 'string', 'max:40'],
+            'notification_sound' => ['nullable', 'string', 'max:255'],
+            'avatar'             => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
+            'avatar_url'         => ['nullable', 'url', 'starts_with:http://,https://', 'max:2048'],
+            'remove_avatar'      => ['nullable', 'boolean'],
         ];
 
         if ($isPrivileged) {
@@ -108,5 +120,44 @@ class ProfileController extends Controller
         ]);
 
         return back()->with('success', 'Password changed successfully.');
+    }
+
+    public function uploadSound(Request $request): RedirectResponse
+    {
+        if (!auth()->user()->hasRole('super-admin')) {
+            return back()->with('error', 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'new_sound' => ['required', 'file', 'mimetypes:audio/mpeg,audio/wav,audio/ogg', 'max:5120'], // 5MB max
+        ]);
+
+        $file = $request->file('new_sound');
+        
+        $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $file->getClientOriginalName());
+        
+        $file->move(public_path('notificationsound'), $filename);
+
+        return back()->with('success', 'New notification sound added successfully!');
+    }
+
+    public function deleteSound(Request $request, string $sound): RedirectResponse
+    {
+        if (!auth()->user()->hasRole('super-admin')) {
+            return back()->with('error', 'Unauthorized action.');
+        }
+
+        $filename = basename($sound);
+        $path = public_path('notificationsound/' . $filename);
+
+        if (file_exists($path) && is_file($path)) {
+            unlink($path);
+            
+            // If users are using this sound, we might want to reset them or just let them fall back to default
+            
+            return back()->with('success', 'Notification sound deleted successfully!');
+        }
+
+        return back()->with('error', 'Sound file not found.');
     }
 }

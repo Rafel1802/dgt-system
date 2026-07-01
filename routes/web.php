@@ -20,11 +20,15 @@ use App\Http\Controllers\CRM\PipelineController;
 use App\Http\Controllers\CRM\CrmDashboardController;
 use App\Http\Controllers\CRM\WebsiteCrmController;
 use App\Http\Controllers\CRM\EbayCrmController;
+use App\Http\Controllers\CRM\EbayStoreController;
 use App\Http\Controllers\CRM\LogisticCrmController;
+use App\Http\Controllers\CRM\TruckingCompanyController;
+use App\Http\Controllers\CRM\ShipmentController;
 use App\Http\Controllers\Board\BoardController;
 use App\Http\Controllers\Board\CardController as BoardCardController;
 use App\Http\Controllers\Board\BoardImportController;
 use App\Http\Controllers\SocialMedia\SocialMediaClassController;
+use App\Http\Controllers\SocialMedia\SocialMediaAnalyticsController;
 use App\Http\Controllers\SocialMedia\SocialMediaItemController;
 use App\Http\Controllers\SocialMedia\SocialMediaDashboardController;
 use App\Http\Controllers\SocialMedia\SocialMediaPostController;
@@ -55,20 +59,57 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+        // Polymorphic attachments download/delete/view
+        Route::get('/attachments/{attachment}/download', [\App\Http\Controllers\AttachmentController::class, 'download'])->name('attachments.download');
+        Route::get('/attachments/{attachment}/view', [\App\Http\Controllers\AttachmentController::class, 'view'])->name('attachments.view');
+        Route::delete('/attachments/{attachment}', [\App\Http\Controllers\AttachmentController::class, 'destroy'])->name('attachments.destroy');
+
         // ── All Members Directory (read-only — data from users table) ────────
         Route::get('/members', [MemberController::class, 'index'])->name('members.index');
         Route::get('/members/search', [MemberController::class, 'search'])->name('members.search');
 
         // All Websites (Digital Team)
         // ── All Websites Executive Dashboard ──────────────────────────────────
-        Route::get('/websites/dashboard', [\App\Http\Controllers\WebsitesDashboardController::class, 'index'])->name('websites.dashboard');
-        Route::get('/websites/dashboard/export', [\App\Http\Controllers\WebsitesDashboardController::class, 'export'])->name('websites.dashboard.export');
+        Route::middleware(['maintenance:all_websites'])->group(function () {
+            Route::get('/websites/dashboard', [\App\Http\Controllers\WebsitesDashboardController::class, 'index'])->name('websites.dashboard');
+            Route::get('/websites/dashboard/export', [\App\Http\Controllers\WebsitesDashboardController::class, 'export'])->name('websites.dashboard.export');
 
-        Route::post('/websites/category', [\App\Http\Controllers\WebsiteController::class, 'storeCategory'])->name('websites.storeCategory');
-        Route::put('/websites/category/rename', [\App\Http\Controllers\WebsiteController::class, 'renameCategory'])->name('websites.renameCategory');
-        Route::put('/websites/category/reorder', [\App\Http\Controllers\WebsiteController::class, 'reorderCategory'])->name('websites.reorderCategory');
-        Route::delete('/websites/category', [\App\Http\Controllers\WebsiteController::class, 'destroyCategory'])->name('websites.destroyCategory');
-        Route::resource('websites', \App\Http\Controllers\WebsiteController::class)->except(['create', 'show', 'edit']);
+            // Category management
+            Route::post('/websites/category', [\App\Http\Controllers\WebsiteController::class, 'storeCategory'])->name('websites.storeCategory');
+            Route::put('/websites/category/rename', [\App\Http\Controllers\WebsiteController::class, 'renameCategory'])->name('websites.renameCategory');
+            Route::put('/websites/category/reorder', [\App\Http\Controllers\WebsiteController::class, 'reorderCategory'])->name('websites.reorderCategory');
+            Route::delete('/websites/category', [\App\Http\Controllers\WebsiteController::class, 'destroyCategory'])->name('websites.destroyCategory');
+
+            // New action routes (must be before resource to avoid conflicts)
+            Route::get('/websites/export', [\App\Http\Controllers\WebsiteController::class, 'exportReport'])->name('websites.export');
+            Route::post('/websites/{website}/progress', [\App\Http\Controllers\WebsiteController::class, 'updateProgress'])->name('websites.progress.update');
+            Route::post('/websites/{website}/approve-qc', [\App\Http\Controllers\WebsiteController::class, 'approveQc'])->name('websites.qc.approve');
+            Route::post('/websites/{website}/approve-supervisor', [\App\Http\Controllers\WebsiteController::class, 'approveSupervisor'])->name('websites.supervisor.approve');
+            Route::post('/websites/{website}/qc-error', [\App\Http\Controllers\WebsiteController::class, 'qcError'])->name('websites.qc.error');
+            Route::post('/websites/{website}/supervisor-error', [\App\Http\Controllers\WebsiteController::class, 'supervisorError'])->name('websites.supervisor.error');
+            Route::post('/websites/{website}/error-progress', [\App\Http\Controllers\WebsiteController::class, 'updateErrorProgress'])->name('websites.error.progress');
+            Route::post('/websites/{website}/complete-qc-error', [\App\Http\Controllers\WebsiteController::class, 'completeQcError'])->name('websites.qc.error.complete');
+            Route::post('/websites/{website}/complete-supervisor-error', [\App\Http\Controllers\WebsiteController::class, 'completeSupervisorError'])->name('websites.supervisor.error.complete');
+            Route::post('/websites/members', [\App\Http\Controllers\WebsiteController::class, 'storeMember'])->name('websites.members.store');
+            Route::delete('/websites/members/{member}', [\App\Http\Controllers\WebsiteController::class, 'destroyMember'])->name('websites.members.destroy');
+            Route::post('/websites/{website}/start-maintenance', [\App\Http\Controllers\WebsiteController::class, 'startMaintenance'])->name('websites.maintenance.start');
+            Route::post('/websites/{website}/maintenance-progress', [\App\Http\Controllers\WebsiteController::class, 'updateMaintenanceProgress'])->name('websites.maintenance.update');
+
+            // Website CRUD resource
+            Route::resource('websites', \App\Http\Controllers\WebsiteController::class)->except(['create', 'show', 'edit']);
+
+            // Follow Ups
+            Route::post('/websites/follow-ups/{websiteFollowUp}/qc', [\App\Http\Controllers\WebsiteFollowUpController::class, 'qcCheck'])->name('websites.followups.qc');
+            Route::resource('websites/follow-ups', \App\Http\Controllers\WebsiteFollowUpController::class, [
+                'as'        => 'websites',
+                'names'     => [
+                    'store'   => 'websites.followups.store',
+                    'update'  => 'websites.followups.update',
+                    'destroy' => 'websites.followups.destroy',
+                ],
+                'parameters' => ['follow-ups' => 'websiteFollowUp'],
+            ])->only(['store', 'update', 'destroy']);
+        });
 
         Route::put('/dashboard/appearance', [DashboardController::class, 'updateAppearance'])->name('dashboard.appearance.update');
 
@@ -81,8 +122,15 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::prefix('boards')->name('boards.')->middleware('maintenance:boards')->group(function () {
             Route::get('/', [BoardController::class, 'workspaces'])->name('workspaces');
             Route::post('/workspaces', [BoardController::class, 'storeWorkspace'])->name('workspaces.store');
+            Route::post('/workspaces/{workspace}/move-up', [BoardController::class, 'moveUpWorkspace'])->name('workspaces.moveUp');
+            Route::post('/workspaces/{workspace}/move-down', [BoardController::class, 'moveDownWorkspace'])->name('workspaces.moveDown');
             Route::put('/workspaces/{workspace}', [BoardController::class, 'updateWorkspace'])->name('workspaces.update');
+            Route::delete('/workspaces/{workspace}', [BoardController::class, 'destroyWorkspace'])->name('workspaces.destroy');
+            Route::post('/workspaces/{id}/restore', [BoardController::class, 'restoreWorkspace'])->name('workspaces.restore');
+            Route::delete('/workspaces/{id}/force', [BoardController::class, 'forceDeleteWorkspace'])->name('workspaces.forceDelete');
+            Route::post('/workspaces/{workspace}/boards/reorder', [BoardController::class, 'reorderWorkspaceBoards'])->name('workspaces.boards.reorder');
             Route::post('/', [BoardController::class, 'store'])->name('store');
+            Route::post('/{board}/basic-update', [BoardController::class, 'updateBoardBasic'])->name('basic-update');
             Route::get('/personal-report', [\App\Http\Controllers\Board\BoardExportController::class, 'personalReport'])->name('reports.personal');
             Route::get('/personal-report/export', [\App\Http\Controllers\Board\BoardExportController::class, 'exportPersonalReport'])->name('reports.personal.export');
             Route::get('/{board:slug}', [BoardController::class, 'show'])->name('show');
@@ -257,7 +305,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         });
 
         // ── All Mails (Accessible to CRM roles) ───────────────────────────
-        Route::middleware(['role:super-admin|admin-crm|sales-crm'])->prefix('admin')->name('admin.')->group(function () {
+        Route::middleware(['role:super-admin|admin-crm|sales-crm|boss'])->prefix('admin')->name('admin.')->group(function () {
             Route::get('/emails', [EmailController::class, 'index'])->name('emails.index');
             Route::get('/emails/accounts', [EmailController::class, 'accounts'])->name('emails.accounts');
             Route::post('/emails/accounts', [EmailController::class, 'storeAccount'])->name('emails.accounts.store');
@@ -296,6 +344,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::post('/customers/{customer}/interactions', [CustomerController::class, 'logInteraction'])->name('customers.interactions');
                 Route::post('/customers/{customer}/purchase', [CustomerController::class, 'recordPurchase'])->name('customers.purchase');
                 Route::patch('/customers/{customer}/stage', [CustomerController::class, 'updateStage'])->name('customers.stage');
+                Route::post('/customers/{customer}/attachments', [CustomerController::class, 'uploadAttachment'])->name('customers.attachments.upload');
 
                 // Sales pipeline
                 Route::get('/pipeline', [PipelineController::class, 'index'])->name('pipeline.index');
@@ -305,6 +354,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::delete('/pipeline/deals/{deal}', [PipelineController::class, 'destroyDeal'])->name('pipeline.deals.destroy');
                 // ── CRM Dashboard (3-panel) ───────────────────────────────
                 Route::get('/dashboard', [CrmDashboardController::class, 'index'])->name('dashboard');
+                Route::get('/export/{type}', [CrmReportController::class, 'export'])->name('export');
 
                 // ── Website CRM ───────────────────────────────────────────
                 Route::prefix('website')->name('website.')->group(function () {
@@ -324,6 +374,17 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::get('/', [EbayCrmController::class, 'index'])->name('index');
                     Route::get('/create', [EbayCrmController::class, 'create'])->name('create');
                     Route::post('/', [EbayCrmController::class, 'store'])->name('store');
+                    // eBay Stores
+                    Route::prefix('stores')->name('stores.')->group(function () {
+                        Route::get('/', [EbayStoreController::class, 'index'])->name('index');
+                        Route::get('/create', [EbayStoreController::class, 'create'])->name('create');
+                        Route::post('/', [EbayStoreController::class, 'store'])->name('store');
+                        Route::get('/{store}', [EbayStoreController::class, 'show'])->name('show');
+                        Route::get('/{store}/edit', [EbayStoreController::class, 'edit'])->name('edit');
+                        Route::put('/{store}', [EbayStoreController::class, 'update'])->name('update');
+                        Route::delete('/{store}', [EbayStoreController::class, 'destroy'])->name('destroy');
+                    });
+
                     Route::get('/{offer}', [EbayCrmController::class, 'show'])->name('show');
                     Route::get('/{offer}/edit', [EbayCrmController::class, 'edit'])->name('edit');
                     Route::put('/{offer}', [EbayCrmController::class, 'update'])->name('update');
@@ -337,6 +398,38 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::get('/', [LogisticCrmController::class, 'index'])->name('index');
                     Route::get('/create', [LogisticCrmController::class, 'create'])->name('create');
                     Route::post('/', [LogisticCrmController::class, 'store'])->name('store');
+                    // AJAX search + quick-create helpers
+                    Route::get('/search/customers', [LogisticCrmController::class, 'searchCustomers'])->name('search.customers');
+                    Route::get('/search/products', [LogisticCrmController::class, 'searchProducts'])->name('search.products');
+                    Route::post('/quick/customer', [LogisticCrmController::class, 'quickCreateCustomer'])->name('quick.customer');
+                    Route::post('/quick/product', [LogisticCrmController::class, 'quickCreateProduct'])->name('quick.product');
+                    // Trucking Company Management
+                    Route::prefix('trucking')->name('trucking.')->group(function () {
+                        Route::get('/', [TruckingCompanyController::class, 'index'])->name('index');
+                        Route::get('/create', [TruckingCompanyController::class, 'create'])->name('create');
+                        Route::post('/', [TruckingCompanyController::class, 'store'])->name('store');
+                        Route::get('/{truckingCompany}', [TruckingCompanyController::class, 'show'])->name('show');
+                        Route::get('/{truckingCompany}/edit', [TruckingCompanyController::class, 'edit'])->name('edit');
+                        Route::put('/{truckingCompany}', [TruckingCompanyController::class, 'update'])->name('update');
+                        Route::delete('/{truckingCompany}', [TruckingCompanyController::class, 'destroy'])->name('destroy');
+                    });
+
+                    // Shipment Management
+                    Route::prefix('shipments')->name('shipments.')->group(function () {
+                        Route::get('/', [ShipmentController::class, 'index'])->name('index');
+                        Route::get('/create', [ShipmentController::class, 'create'])->name('create');
+                        Route::post('/', [ShipmentController::class, 'store'])->name('store');
+                        Route::get('/{shipment}', [ShipmentController::class, 'show'])->name('show');
+                        Route::get('/{shipment}/edit', [ShipmentController::class, 'edit'])->name('edit');
+                        Route::put('/{shipment}', [ShipmentController::class, 'update'])->name('update');
+                        Route::delete('/{shipment}', [ShipmentController::class, 'destroy'])->name('destroy');
+                        // Customer sub-routes
+                        Route::post('/{shipment}/customers', [ShipmentController::class, 'addCustomer'])->name('customers.add');
+                        Route::get('/{shipment}/customers/{customer}/edit', [ShipmentController::class, 'editCustomer'])->name('customers.edit');
+                        Route::put('/{shipment}/customers/{customer}', [ShipmentController::class, 'updateCustomer'])->name('customers.update');
+                        Route::delete('/{shipment}/customers/{customer}', [ShipmentController::class, 'removeCustomer'])->name('customers.remove');
+                    });
+
                     Route::get('/{logistic}', [LogisticCrmController::class, 'show'])->name('show');
                     Route::get('/{logistic}/edit', [LogisticCrmController::class, 'edit'])->name('edit');
                     Route::put('/{logistic}', [LogisticCrmController::class, 'update'])->name('update');
@@ -359,6 +452,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::get('/emails/{email}', [App\Http\Controllers\Admin\EmailController::class, 'show'])->name('admin.emails.show');
         Route::get('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'show'])->name('profile.show');
         Route::put('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'update'])->name('profile.update');
+        Route::post('/profile/sound', [App\Http\Controllers\Auth\ProfileController::class, 'uploadSound'])->name('profile.sound.upload');
+        Route::delete('/profile/sound/{sound}', [App\Http\Controllers\Auth\ProfileController::class, 'deleteSound'])->name('profile.sound.delete');
         Route::get('/settings', [App\Http\Controllers\Auth\ProfileController::class, 'settings'])->name('settings');
         Route::put('/settings/password', [App\Http\Controllers\Auth\ProfileController::class, 'updatePassword'])->name('settings.password');
 
@@ -370,17 +465,19 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         // ── Social Media Team ─────────────────────────────────────────────
         Route::prefix('social-media')
             ->name('social-media.')
-            ->middleware(['auth', 'ensure.active']) // Add ensure.active if needed or just use standard middleware
+            ->middleware(['auth', 'ensure.active', 'maintenance:social_media']) // Add ensure.active if needed or just use standard middleware
             ->group(function () {
 
-                // Dashboard — all SM roles
-                Route::middleware('role:super-admin|admin-digital|social_admin|social_qc')
+                // Dashboard & Class Table (read-only views) — accessible to SM roles and digital-team (view-only)
+                Route::middleware('role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team')
                     ->group(function () {
                         Route::get('/', [SocialMediaDashboardController::class, 'index'])->name('dashboard');
-
-                        // Class Table (spreadsheet view)
                         Route::get('/class/{class}', [SocialMediaPostController::class, 'show'])->name('class.show');
-                        
+                    });
+
+                // Post updates and Reports (controls/management) — SM roles only
+                Route::middleware('role:super-admin|admin-digital|social_admin|social_qc|boss')
+                    ->group(function () {
                         // AJAX post actions
                         Route::post('/posts/upsert', [SocialMediaPostController::class, 'storeOrUpdate'])->name('posts.upsert');
                         Route::patch('/posts/{post}/complete', [SocialMediaPostController::class, 'markCompleted'])->name('posts.complete');
@@ -389,16 +486,27 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::get('/reports', [SocialMediaReportController::class, 'index'])->name('reports.index');
                         Route::get('/reports/export/csv', [SocialMediaReportController::class, 'exportCsv'])->name('reports.export.csv');
                         Route::get('/reports/export/pdf', [SocialMediaReportController::class, 'exportPdf'])->name('reports.export.pdf');
+                        Route::post('/reports/export/zip', [SocialMediaReportController::class, 'exportZip'])->name('reports.export.zip');
                     });
 
-                // Admin/QC actions
+                // Analytics View/Download (including Boss)
+                Route::middleware('role:super-admin|admin-digital|social_qc|boss')->group(function () {
+                    Route::get('/analytics', [SocialMediaAnalyticsController::class, 'index'])->name('analytics.index');
+                    Route::get('/analytics/{analytic}/download', [SocialMediaAnalyticsController::class, 'download'])->name('analytics.download');
+                    Route::get('/analytics/{analytic}/preview', [SocialMediaAnalyticsController::class, 'preview'])->name('analytics.preview');
+                });
+
+                // Admin/QC actions (excluding Boss)
                 Route::middleware('role:super-admin|admin-digital|social_qc')->group(function () {
                     Route::patch('/posts/{post}/check', [SocialMediaPostController::class, 'markChecked'])->name('posts.check');
                     Route::patch('/posts/{post}/unlock', [SocialMediaPostController::class, 'unlock'])->name('posts.unlock');
+                    Route::post('/analytics', [SocialMediaAnalyticsController::class, 'store'])->name('analytics.store');
+                    Route::delete('/analytics/{analytic}', [SocialMediaAnalyticsController::class, 'destroy'])->name('analytics.destroy');
                 });
 
-                // Class & Item Management — Admin only
-                Route::middleware('role:super-admin|admin-digital|social_admin')->group(function () {
+
+                // Class & Item Management — platform admins and Social QC only
+                Route::middleware('role:super-admin|admin-digital|social_qc')->group(function () {
                     // Class
                     Route::get('/manage', [SocialMediaClassController::class, 'index'])->name('manage');
                     Route::post('/classes', [SocialMediaClassController::class, 'store'])->name('classes.store');

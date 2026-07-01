@@ -30,7 +30,7 @@ class BoardImportController extends Controller
     /** Standard import columns in order */
     private const HEADERS = [
         'Title', 'Label', 'Description', 'Start Date', 'Due Date',
-        'Assigned To', 'Attachment Link', 'Checklist', 'Status',
+        'Assigned To', 'Attachment Link', 'Checklist', 'Week',
     ];
 
     // ── Template ──────────────────────────────────────────────────────────────
@@ -99,21 +99,25 @@ class BoardImportController extends Controller
         $dataRows = array_slice($rows, 1);
 
         // Pre-load board context for validation
-        $boardLists    = $board->activeLists()->pluck('id', 'name')->all(); // ['List Name' => id]
-        $firstListId   = $board->activeLists()->orderBy('position')->value('id');
-        $existingTitles = Card::where('board_id', $board->id)
-                              ->whereNull('deleted_at')
-                              ->pluck('title')
-                              ->map(fn($t) => strtolower(trim($t)))
-                              ->all();
-        $boardLabels   = Label::where(function($q) use ($board) {
-                                  $q->whereNull('workspace_id')->whereNull('board_id')
-                                    ->orWhere('workspace_id', $board->workspace_id)
-                                    ->orWhere('board_id', $board->id);
-                              })
-                              ->get()
-                              ->mapWithKeys(fn($l) => [strtolower(trim($l->name)) => $l->id])
-                              ->all();
+        $boardLists  = $board->activeLists()->pluck('id', 'name')->all();
+        $firstListId = $board->activeLists()->orderBy('position')->value('id');
+
+        // Build a composite key set: "title|due_date" for precise duplicate detection
+        $existingCardKeys = Card::where('board_id', $board->id)
+            ->whereNull('deleted_at')
+            ->select('title', 'due_at')
+            ->get()
+            ->map(fn($c) => strtolower(trim($c->title)) . '|' . ($c->due_at ? \Carbon\Carbon::parse($c->due_at)->format('Y-m-d') : ''))
+            ->all();
+
+        $boardLabels = Label::where(function ($q) use ($board) {
+            $q->whereNull('workspace_id')->whereNull('board_id')
+              ->orWhere('workspace_id', $board->workspace_id)
+              ->orWhere('board_id', $board->id);
+        })
+        ->get()
+        ->mapWithKeys(fn($l) => [strtolower(trim($l->name)) => $l->id])
+        ->all();
 
         $preview = [];
         $totalValid   = 0;
@@ -174,13 +178,13 @@ class BoardImportController extends Controller
                 }
             }
 
-            // Status — resolve to list ID
+            // Week — resolve to list ID
             $listId   = $firstListId;
             $listName = array_search($firstListId, $boardLists) ?: 'First list';
-            if (!empty($row['Status'])) {
+            if (!empty($row['Week'])) {
                 $matchedListId = null;
                 foreach ($boardLists as $name => $id) {
-                    if (strcasecmp(trim($name), trim($row['Status'])) === 0) {
+                    if (strcasecmp(trim($name), trim($row['Week'])) === 0) {
                         $matchedListId = $id;
                         $listName = $name;
                         break;
@@ -189,15 +193,17 @@ class BoardImportController extends Controller
                 if ($matchedListId) {
                     $listId = $matchedListId;
                 } else {
-                    $warnings[] = "Status \"{$row['Status']}\" does not match any list. Card will be placed in the first list.";
+                    $warnings[] = "Week \"{$row['Week']}\" does not match any list. Card will be placed in the first list.";
                     $listName = array_search($firstListId, $boardLists) ?: 'First list';
                 }
             }
 
-            // Duplicate detection
-            $isDuplicate = in_array(strtolower(trim($row['Title'] ?? '')), $existingTitles);
+            // Duplicate detection — same title AND same due date means a true duplicate
+            $dueDateNorm  = !empty($row['Due Date']) ? (strtotime($row['Due Date']) ? date('Y-m-d', strtotime($row['Due Date'])) : '') : '';
+            $compositeKey = strtolower(trim($row['Title'] ?? '')) . '|' . $dueDateNorm;
+            $isDuplicate  = in_array($compositeKey, $existingCardKeys);
             if ($isDuplicate) {
-                $warnings[] = "A card with this title already exists on the board (possible duplicate).";
+                $warnings[] = 'Duplicate skipped: a card with this exact title and due date already exists on the board.';
             }
 
             $isValid = empty($errors);
@@ -252,8 +258,28 @@ class BoardImportController extends Controller
         $rows    = collect($request->rows)->where('valid', true);
         $created = [];
         $skipped = 0;
+        $skippedDuplicates = 0;
+
+        // Build composite key set for real-time duplicate checking during import
+        $importedKeys = [];
+        $existingCardKeys = Card::where('board_id', $board->id)
+            ->whereNull('deleted_at')
+            ->select('title', 'due_at')
+            ->get()
+            ->map(fn($c) => strtolower(trim($c->title)) . '|' . ($c->due_at ? \Carbon\Carbon::parse($c->due_at)->format('Y-m-d') : ''))
+            ->all();
 
         foreach ($rows as $row) {
+            // ── 0. Skip confirmed duplicates (same title + same due date) ─
+            $dueDateNorm  = !empty($row['due_date']) ? (strtotime($row['due_date']) ? date('Y-m-d', strtotime($row['due_date'])) : '') : '';
+            $compositeKey = strtolower(trim($row['title'])) . '|' . $dueDateNorm;
+
+            if (in_array($compositeKey, $existingCardKeys) || in_array($compositeKey, $importedKeys)) {
+                $skippedDuplicates++;
+                continue;
+            }
+            $importedKeys[] = $compositeKey;
+
             // ── 1. Position ───────────────────────────────────────────────
             $position = Card::where('board_list_id', $row['list_id'])->max('position') + 1;
 
@@ -341,11 +367,34 @@ class BoardImportController extends Controller
             $created[] = $this->formatCardForBoard($card);
         }
 
+        $importedCount = count($created);
+
+        // ── Send import notification to all board members ─────────────────
+        if ($importedCount > 0) {
+            try {
+                \App\Notifications\BoardActivityNotification::send(
+                    $board,
+                    'cards_imported',
+                    "imported **{$importedCount} card" . ($importedCount !== 1 ? 's' : '') . "** into **{$board->name}**",
+                    null,
+                    true
+                );
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Import notification failed: ' . $e->getMessage());
+            }
+        }
+
+        $messageParts = ["{$importedCount} card" . ($importedCount !== 1 ? 's' : '') . ' imported successfully'];
+        if ($skippedDuplicates > 0) {
+            $messageParts[] = "{$skippedDuplicates} duplicate" . ($skippedDuplicates !== 1 ? 's' : '') . ' skipped (same title & date already exist)';
+        }
+
         return response()->json([
-            'created' => count($created),
-            'skipped' => $skipped,
-            'cards'   => $created,
-            'message' => count($created) . ' card(s) imported successfully.',
+            'created'            => $importedCount,
+            'skipped'            => $skipped,
+            'skipped_duplicates' => $skippedDuplicates,
+            'cards'              => $created,
+            'message'            => implode('. ', $messageParts) . '.',
         ], 201);
     }
 

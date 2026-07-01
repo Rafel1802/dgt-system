@@ -29,6 +29,11 @@ class Attachment extends Model
         return route('attachments.download', $this->id);
     }
 
+    public function getViewUrlAttribute(): string
+    {
+        return route('attachments.view', $this->id);
+    }
+
     public function getFormattedSizeAttribute(): string
     {
         if (! $this->file_size) return '—';

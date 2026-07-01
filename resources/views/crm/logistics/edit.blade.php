@@ -70,7 +70,14 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="form-label">Truck Company</label>
-            <input type="text" name="truck_company" value="{{ old('truck_company', $logistic->truck_company) }}" class="form-input" placeholder="Company name">
+            <select name="truck_company_id" class="form-input">
+              <option value="">— Select Company (Optional) —</option>
+              @foreach($truckingCompanies as $tc)
+                <option value="{{ $tc->id }}" {{ old('truck_company_id', $logistic->truck_company_id) == $tc->id ? 'selected' : '' }}>
+                  {{ $tc->company_name }}
+                </option>
+              @endforeach
+            </select>
           </div>
           <div>
             <label class="form-label">Driver Name</label>
@@ -131,11 +138,13 @@
                    class="form-input">
           </div>
           <div>
-            <label class="form-label">Assigned Staff</label>
+            <label class="form-label">Assigned Staff (CRM Member)</label>
             <select name="assigned_to" class="form-input">
               <option value="">Unassigned</option>
-              @foreach($users as $u)
-                <option value="{{ $u->id }}" {{ old('assigned_to', $logistic->assigned_to) == $u->id ? 'selected' : '' }}>{{ $u->name }}</option>
+              @foreach($crmUsers as $u)
+                <option value="{{ $u->id }}" {{ old('assigned_to', $logistic->assigned_to) == $u->id ? 'selected' : '' }}>
+                  {{ $u->name }} — {{ $u->crm_role_display }}
+                </option>
               @endforeach
             </select>
           </div>

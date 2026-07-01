@@ -9,6 +9,9 @@
 
 @import "tailwindcss";
 
+/* Override Tailwind's default media-query dark mode to use our data attribute */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* ─── CSS Custom Properties (Design Tokens) ─────────────────────────────── */
 @layer base {
   :root {
@@ -948,6 +951,7 @@
     border-right: 1px solid var(--sidebar-border);
     box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08), 16px 0 36px rgba(15, 23, 42, 0.12);
     height: 100vh;
+    height: 100dvh;
     position: fixed;
     top: 0;
     left: 0;
@@ -1165,7 +1169,7 @@
     padding: 0 1.5rem;
     position: sticky;
     top: 0;
-    z-index: 30;
+    z-index: 40;
     box-shadow: var(--shadow-sm);
   }
 
@@ -1639,32 +1643,34 @@
   /* ── Mobile Bottom Navigation Bar ────────────────────────────────────── */
   .mobile-bottom-nav {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    left: 1.25rem;
+    right: 1.25rem;
     z-index: 45;
-    background: var(--bg-card);
-    border-top: 1px solid var(--border-color);
-    box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.10), 0 -1px 0 var(--border-color);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 2.5rem;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    padding: 0;
+    backdrop-filter: blur(32px) saturate(200%);
+    -webkit-backdrop-filter: blur(32px) saturate(200%);
+    max-width: 480px;
+    margin: 0 auto;
   }
 
   [data-theme="dark"] .mobile-bottom-nav {
-    background: rgba(17, 19, 24, 0.95);
-    border-top-color: var(--border-color);
-    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5), 0 -1px 0 var(--border-color);
+    background: rgba(30, 41, 59, 0.65);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.15);
   }
 
   .mobile-bottom-nav-inner {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     justify-content: space-around;
-    height: 60px;
-    padding: 0 0.25rem;
-    max-width: 480px;
-    margin: 0 auto;
+    height: 64px;
+    padding: 0 0.5rem;
+    position: relative;
   }
 
   .mobile-nav-item {
@@ -1681,46 +1687,39 @@
     border: none;
     cursor: pointer;
     position: relative;
+    z-index: 10;
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    margin: 4px 2px;
-  }
-
-  .mobile-nav-item:active {
-    transform: scale(0.88);
   }
 
   .mobile-nav-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 10px;
+    width: 28px;
+    height: 28px;
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .mobile-nav-icon svg {
-    width: 22px;
-    height: 22px;
-    color: var(--text-muted);
+    width: 24px;
+    height: 24px;
+    color: #64748b;
     transition: all 0.2s ease;
   }
 
   .mobile-nav-label {
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    color: var(--text-muted);
+    font-weight: 600;
+    color: #64748b;
     transition: color 0.2s ease;
     line-height: 1;
   }
 
-  /* Active state */
+  /* Active state logic */
   .mobile-nav-item.active .mobile-nav-icon {
-    background: linear-gradient(135deg, #2F68ED15, #2F68ED0A);
-    box-shadow: 0 2px 8px rgba(47, 104, 237, 0.15);
+    transform: translateY(-2px);
   }
 
   .mobile-nav-item.active .mobile-nav-icon svg {
@@ -1729,52 +1728,81 @@
 
   .mobile-nav-item.active .mobile-nav-label {
     color: #2F68ED;
+    font-weight: 700;
   }
 
-  /* Active indicator dot */
-  .mobile-nav-item.active::after {
-    content: '';
-    position: absolute;
-    bottom: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 4px;
-    height: 4px;
-    border-radius: 2px;
-    background: #2F68ED;
-    opacity: 0.7;
-  }
-
-  /* Dark mode */
-  [data-theme="dark"] .mobile-nav-item.active .mobile-nav-icon {
-    background: rgba(129, 140, 248, 0.15);
-    box-shadow: 0 2px 8px rgba(129, 140, 248, 0.2);
-  }
-
-  [data-theme="dark"] .mobile-nav-item.active .mobile-nav-icon svg {
-    color: var(--color-primary-light);
-  }
-
+  [data-theme="dark"] .mobile-nav-item.active .mobile-nav-icon svg,
   [data-theme="dark"] .mobile-nav-item.active .mobile-nav-label {
     color: var(--color-primary-light);
   }
 
-  [data-theme="dark"] .mobile-nav-item.active::after {
-    background: var(--color-primary-light);
+  /* ── Liquid Glass Active Bubble ─────────────────────────────────────── */
+  #nav-active-bubble {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 48px;
+    background: transparent;
+    border-radius: 999px;
+    z-index: 0;
+    transform-origin: center center;
+    will-change: transform, width;
+    transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
   }
 
-  /* Hover (non-active) for desktop-like devices */
-  .mobile-nav-item:not(.active):hover .mobile-nav-icon svg {
-    color: var(--text-secondary);
+  #nav-active-bubble::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 
+      0 4px 16px rgba(47, 104, 237, 0.15),
+      inset 0 1px 4px rgba(255, 255, 255, 0.8),
+      inset 0 -2px 6px rgba(255, 255, 255, 0.3);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  .mobile-nav-item:not(.active):hover .mobile-nav-label {
-    color: var(--text-secondary);
+  #nav-active-bubble.is-dragging::before {
+    transform: scale(1.15);
+    background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 100%);
+    box-shadow: 
+      0 8px 24px rgba(47, 104, 237, 0.25),
+      inset 0 1px 4px rgba(255, 255, 255, 0.9);
+  }
+
+  #nav-active-bubble.is-scrolling::before {
+    transform: scale(1.08);
+    background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.3) 100%);
+    box-shadow: 
+      0 8px 24px rgba(47, 104, 237, 0.25),
+      inset 0 1px 4px rgba(255, 255, 255, 0.9);
+  }
+
+  [data-theme="dark"] #nav-active-bubble::before {
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.02) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.3),
+      inset 0 1px 4px rgba(255, 255, 255, 0.2),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  [data-theme="dark"] #nav-active-bubble.is-dragging::before,
+  [data-theme="dark"] #nav-active-bubble.is-scrolling::before {
+    background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 100%);
+    box-shadow: 
+      0 8px 24px rgba(0, 0, 0, 0.4),
+      inset 0 1px 4px rgba(255, 255, 255, 0.3);
   }
 
   /* ── Mobile page content bottom padding ─────────────────────────────── */
   .mobile-page-content {
-    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 1rem);
+    padding-bottom: calc(85px + env(safe-area-inset-bottom, 0px) + 1.25rem);
   }
 
   /* ── Sidebar Mobile Toggle ───────────────────────────────────────────── */
@@ -1783,6 +1811,7 @@
       transform: translateX(-100%);
       box-shadow: none;
       width: min(var(--sidebar-width), 88vw);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
     }
 
     .sidebar.open {
@@ -1950,6 +1979,12 @@
     transform: translateX(2px);
   }
 
+  .sidebar-submenu-item.active {
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-active);
+    font-weight: 600;
+  }
+
   .sidebar-submenu-item::before {
     content: "";
     position: absolute;
@@ -1996,11 +2031,11 @@
     -webkit-backdrop-filter: blur(12px);
   }
   .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.1s ease-out;
   }
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
 }
 

@@ -9,7 +9,7 @@ class WebsiteProgressLog extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['website_id', 'user_id', 'percent', 'note', 'created_at'];
+    protected $fillable = ['website_id', 'type', 'user_id', 'percent', 'note', 'created_at'];
 
     protected $casts = [
         'percent'    => 'integer',
@@ -24,5 +24,16 @@ class WebsiteProgressLog extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    // Scopes
+    public function scopeBuild($query)
+    {
+        return $query->where('type', 'build');
+    }
+
+    public function scopeMaintenance($query)
+    {
+        return $query->where('type', 'maintenance');
     }
 }

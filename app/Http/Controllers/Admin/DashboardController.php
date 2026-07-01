@@ -27,8 +27,9 @@ class DashboardController extends Controller
             'total_users' => User::active()->count(),
             'online_users' => User::where('last_login_at', '>=', now()->subMinutes(30))->count(),
             'recent_activities' => ActivityLog::with('user')
+                ->where('module', 'board')
                 ->latest('created_at')
-                ->limit(10)
+                ->limit(50)
                 ->get(),
         ];
 

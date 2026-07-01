@@ -178,7 +178,7 @@
                 <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Assigned To</td><td>Member username</td></tr>
                 <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Attachment Link</td><td>Any URL (Google Drive, etc.)</td></tr>
                 <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Checklist</td><td>Items separated by semicolons</td></tr>
-                <tr><td class="py-1.5 pr-3 font-bold">Status</td><td>Column/list name (defaults to first list)</td></tr>
+                <tr><td class="py-1.5 pr-3 font-bold">Week</td><td>Column/list name (defaults to first list)</td></tr>
               </tbody>
             </table>
           </div>

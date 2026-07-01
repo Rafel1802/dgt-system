@@ -62,8 +62,8 @@
     </div>
     
     {{-- Top Controls: Date and User filter --}}
-    <div class="flex items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div class="flex items-center -space-x-2 mr-1 pl-2">
+    <div class="flex flex-wrap items-center justify-between sm:justify-start gap-2 sm:gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm w-full lg:w-auto">
+        <div class="flex items-center -space-x-2 pl-2 flex-shrink-0">
             @foreach($class->assignedUsers->take(5) as $u)
                 <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" title="{{ $u->name }}" 
                      class="w-7 h-7 rounded-full border-2 border-white dark:border-slate-800 shadow-sm object-cover cursor-pointer hover:scale-110 transition-transform"
@@ -76,22 +76,22 @@
                 </div>
             @endif
         </div>
-        @if($isQc)
-            <div class="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
+        @if($isQc || $isViewOnlyUser)
+            <div class="w-px h-6 bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
         @endif
-        <form method="GET" action="{{ route('social-media.class.show', $class) }}" class="flex items-center gap-3">
-            @if($isQc)
-                <select name="user_id" class="form-select py-1.5 text-sm border-none bg-slate-50 dark:bg-slate-900 rounded-lg" onchange="this.form.submit()">
+        <form method="GET" action="{{ route('social-media.class.show', $class) }}" class="flex flex-wrap items-center gap-2 sm:gap-3 flex-1 justify-end sm:justify-start">
+            @if($isQc || $isViewOnlyUser)
+                <select name="user_id" class="form-select py-1.5 text-xs sm:text-sm border-none bg-slate-50 dark:bg-slate-900 rounded-lg max-w-[120px] sm:max-w-none" onchange="this.form.submit()">
                     <option value="">All Users</option>
                     @foreach($assignedUsers as $u)
                         <option value="{{ $u->id }}" {{ $viewUserId == $u->id ? 'selected' : '' }}>{{ $u->name }}</option>
                     @endforeach
                 </select>
-                <div class="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
+                <div class="w-px h-6 bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
             @endif
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wide px-2">Date</span>
-                <input type="date" name="date" value="{{ $postDate }}" class="form-input py-1.5 text-sm border-none bg-slate-50 dark:bg-slate-900 rounded-lg font-bold" onchange="this.form.submit()">
+            <div class="flex items-center gap-1 sm:gap-2">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wide px-1 sm:px-2">Date</span>
+                <input type="date" name="date" value="{{ $postDate }}" class="form-input py-1.5 text-xs sm:text-sm border-none bg-slate-50 dark:bg-slate-900 rounded-lg font-bold" onchange="this.form.submit()">
             </div>
         </form>
     </div>
@@ -124,22 +124,18 @@
                         $postUrl     = $post ? $post->post_url : '';
                         
                         // Edit rules
-                        // Normal user cannot edit if checked.
-                        $canEdit = true;
+                        // View-only user cannot edit. Normal user cannot edit if checked.
+                        $canEdit = !$isViewOnlyUser;
                         if ($isChecked && !$isAdmin) $canEdit = false;
                         
-                        // If viewing "All Users" (viewUserId is null), user cannot edit, it's just a view.
-                        // Actually, to make it simple, if viewUserId is null, we shouldn't show input fields, 
-                        // but the controller handles viewUserId=null by aggregating. Wait, the controller keyBy uses user_id.
-                        // If viewUserId is null, multiple users might have posts for this item. 
-                        // The table logic requires a specific user to edit.
-                        $isViewOnly = is_null($viewUserId);
+                        // If viewing "All Users" (viewUserId is null) or user is view-only, they cannot edit, it's just a view.
+                        $isViewOnly = is_null($viewUserId) || $isViewOnlyUser;
                     @endphp
                     <tr id="row-{{ $item->id }}" data-item-id="{{ $item->id }}">
                         {{-- 1. Socials --}}
                         <td class="font-bold text-slate-700 dark:text-slate-300">
                             <div class="flex items-center">
-                                <span class="mr-2 inline-flex items-center justify-center">{!! $item->icon_html !!}</span>
+                                <span class="mr-2 inline-flex items-center justify-center flex-shrink-0">{!! $item->icon_html !!}</span>
                                 <span>{{ $item->name }}</span>
                             </div>
                         </td>

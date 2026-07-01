@@ -131,24 +131,26 @@ class RolesAndPermissionsSeeder extends Seeder
         $boss->syncPermissions([
             'dashboard.view',
             'reports.view',
-            'kanban.view',
+            'kanban.view', 'kanban.approve',
             'crm.view',
             'sales.view',
             'authorize-ebay-offers', // Boss can authorize eBay offers
+            'social-media.view',
+            'social-media.export',
         ]);
 
         // 8. Social Admin
         $socialAdmin = Role::firstOrCreate(['name' => 'social_admin', 'guard_name' => 'web']);
         $socialAdmin->syncPermissions([
             'dashboard.view',
-            'social-media.view', 'social-media.submit', 'social-media.qc', 'social-media.manage', 'social-media.export',
+            'social-media.view', 'social-media.submit', 'social-media.qc', 'social-media.export',
         ]);
 
         // 9. Social QC
         $socialQc = Role::firstOrCreate(['name' => 'social_qc', 'guard_name' => 'web']);
         $socialQc->syncPermissions([
             'dashboard.view',
-            'social-media.view', 'social-media.qc', 'social-media.export',
+            'social-media.view', 'social-media.qc', 'social-media.manage', 'social-media.export',
         ]);
 
         $this->command->info('✅ Roles and permissions seeded successfully.');

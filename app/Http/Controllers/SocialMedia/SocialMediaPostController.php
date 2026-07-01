@@ -17,13 +17,11 @@ class SocialMediaPostController extends Controller
     {
         $user    = auth()->user();
         $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin']);
-        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc']);
+        $isQc    = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss']);
         $canQc   = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
 
-        // Gate: social_user must be assigned to this class
-        if (!$class->isVisibleTo($user)) {
-            abort(403, 'You are not assigned to this class.');
-        }
+        // Allow unassigned users to view the class in read-only mode, so we don't abort here anymore.
+        $isAssigned = $class->isAssignedTo($user);
 
         $postDate = $request->input('date', now()->toDateString());
 
@@ -33,16 +31,26 @@ class SocialMediaPostController extends Controller
             $postDate = now()->toDateString();
         }
 
+        // A user is view-only if they are not an Admin/QC/Boss AND they are not assigned to this class.
+        $isViewOnlyUser = !$isAdmin && !$user->hasRole('social_qc') && !$user->hasRole('boss') && !$isAssigned;
+        $isWorker = $isAssigned && !$isAdmin && !$user->hasRole('social_qc') && !$user->hasRole('boss');
+
         // Load all active items for this class
         $items = $class->activeItems()->get();
 
         // Determine which users to show posts for
-        // Admin/QC see all users' posts; social_user sees only their own
         $viewUserId = null;
-        if (!$isQc) {
+        if ($isViewOnlyUser) {
+            $viewUserId = $request->has('user_id') && $request->input('user_id') ? (int) $request->input('user_id') : null;
+        } elseif ($isWorker) {
             $viewUserId = $user->id;
         } elseif ($request->has('user_id')) {
             $viewUserId = $request->input('user_id') ? (int) $request->input('user_id') : null;
+        } else {
+            // Default for QC/Admin if no user_id is provided in URL
+            if ($isAssigned) {
+                $viewUserId = $user->id;
+            }
         }
 
         // Load posts for this class + date (optionally filtered by user)
@@ -58,12 +66,12 @@ class SocialMediaPostController extends Controller
             return $viewUserId ? ($p->social_media_item_id . '_' . $p->user_id) : $p->social_media_item_id;
         });
 
-        // Assigned users for filter dropdown (admin/QC only)
-        $assignedUsers = $isQc ? $class->assignedUsers()->orderBy('name')->get() : collect();
+        // Assigned users for filter dropdown (admin/QC/view-only only)
+        $assignedUsers = ($isQc || $isViewOnlyUser) ? $class->assignedUsers()->orderBy('name')->get() : collect();
 
         return view('social-media.table', compact(
             'class', 'items', 'posts', 'postDate', 'isAdmin', 'isQc', 'canQc', 'user',
-            'assignedUsers', 'viewUserId'
+            'assignedUsers', 'viewUserId', 'isViewOnlyUser'
         ));
     }
 

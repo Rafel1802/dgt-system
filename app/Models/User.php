@@ -41,6 +41,8 @@ class User extends Authenticatable
         'dashboard_appearance',
         'can_edit_profile',
         'team_role',
+        'crm_role',
+        'notification_sound',
     ];
 
     /**
@@ -224,6 +226,48 @@ SVG;
         return $query->where('is_active', true);
     }
 
+    /**
+     * Scope: only users who belong to the CRM team.
+     * Includes admin-crm, sales-crm, boss, and super-admin.
+     * Excludes digital-team, admin-digital, social_admin, social_qc.
+     */
+    public function scopeCrmMembers($query): mixed
+    {
+        return $query->whereHas('roles', function ($q) {
+            $q->whereIn('name', ['super-admin', 'admin-crm', 'sales-crm', 'boss']);
+        })->where('is_active', true);
+    }
+
+    /**
+     * Check whether this user is a CRM team member.
+     */
+    public function isCrmMember(): bool
+    {
+        return $this->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm', 'boss']);
+    }
+
+    /**
+     * Get a CRM-specific role display label.
+     * Returns: Boss | CRM Supervisor | CRM Member
+     */
+    public function getCrmRoleDisplayAttribute(): string
+    {
+        if ($this->hasAnyRole(['super-admin', 'boss'])) {
+            return 'Boss';
+        }
+        if ($this->hasRole('admin-crm')) {
+            return 'CRM Supervisor';
+        }
+        if ($this->hasRole('sales-crm')) {
+            // crm_role column can further distinguish: 'supervisor' or 'member'
+            if ($this->crm_role === 'supervisor') {
+                return 'CRM Supervisor';
+            }
+            return 'CRM Member';
+        }
+        return $this->role_display;
+    }
+
     public function canCreateBoards(): bool
     {
         if ($this->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor'])) {
@@ -236,6 +280,58 @@ SVG;
         }
 
         return false;
+    }
+
+    // ─── Website Permissions & Roles ──────────────────────────────────────────
+
+    public function hasWebsiteAccess(): bool
+    {
+        if ($this->hasAnyRole(['super-admin', 'admin-digital'])) {
+            return true;
+        }
+        return \App\Models\WebsiteMember::where('user_id', $this->id)->exists();
+    }
+
+    public function websiteRole(): ?string
+    {
+        $member = \App\Models\WebsiteMember::where('user_id', $this->id)->first();
+        return $member ? $member->role : null;
+    }
+
+    public function isWebsiteViewer(): bool
+    {
+        return strtolower($this->websiteRole() ?? '') === 'viewer';
+    }
+
+    public function canApproveWebsiteQc(): bool
+    {
+        if ($this->hasAnyRole(['super-admin', 'admin-digital'])) {
+            return true;
+        }
+        $role = $this->websiteRole();
+        return $role && strtolower($role) === 'qc';
+    }
+
+    public function canApproveWebsiteSupervisor(): bool
+    {
+        if ($this->hasAnyRole(['super-admin', 'admin-digital'])) {
+            return true;
+        }
+        $role = $this->websiteRole();
+        return $role && strtolower($role) === 'supervisor';
+    }
+
+    public function canUpdateWebsiteProgress(): bool
+    {
+        if ($this->isWebsiteViewer()) {
+            return false;
+        }
+
+        if ($this->hasAnyRole(['super-admin', 'admin-digital', 'digital-team', 'boss'])) {
+            return true;
+        }
+        $role = $this->websiteRole();
+        return $role && in_array(strtolower($role), ['developer', 'qc', 'supervisor']);
     }
 
     /**
@@ -268,6 +364,7 @@ SVG;
         return $this->isQc() || $this->isSupervisorRole();
     }
 
+
     /**
      * Convert the model instance to an array for serialization.
      */
@@ -278,6 +375,7 @@ SVG;
         $array['avatar_url'] = $this->avatar_url;
         $array['avatar_initials'] = $this->avatar_initials;
         $array['avatar_color'] = $this->avatar_color;
+        $array['crm_role_display'] = $this->crm_role_display;
         return $array;
     }
 }

@@ -16,7 +16,7 @@ class Logistic extends Model
 
     protected $fillable = [
         'customer_id', 'product_id', 'ebay_order_id', 'lead_id',
-        'created_by', 'assigned_to',
+        'created_by', 'assigned_to', 'trucking_company_id',
         'order_id', 'product_description',
         'shipping_address', 'recipient_name', 'recipient_phone',
         'truck_company', 'driver_name', 'driver_phone',
@@ -55,6 +55,11 @@ class Logistic extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class)->withTrashed();
+    }
+
+    public function truckingCompany(): BelongsTo
+    {
+        return $this->belongsTo(TruckingCompany::class)->withTrashed();
     }
 
     public function creator(): BelongsTo
