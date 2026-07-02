@@ -39,6 +39,7 @@ class LogisticCrmController extends Controller
         return view('crm.logistics.create', [
             'statuses'         => LogisticStatus::cases(),
             'products'         => Product::active()->orderBy('name')->get(),
+            'customers'        => Customer::orderBy('name')->get(['id', 'name', 'company', 'phone']),
             'crmUsers'         => User::crmMembers()->orderBy('name')->get(),
             'ebayOrders'       => EbayOrder::confirmed()->with('customer')->latest()->limit(50)->get(),
             'truckingCompanies'=> \App\Models\TruckingCompany::active()->orderBy('company_name')->get(),

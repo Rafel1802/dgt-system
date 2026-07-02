@@ -138,9 +138,8 @@ class ShipmentController extends Controller
         if (empty($validated['recipient_name'])) {
             return back()->withErrors(['recipient_name' => 'Recipient name is required.'])->withInput();
         }
-        if (empty($validated['shipping_address'])) {
-            return back()->withErrors(['shipping_address' => 'Shipping address is required.'])->withInput();
-        }
+
+        $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
         $shipment->shipmentCustomers()->create([
             ...$validated,
@@ -170,12 +169,14 @@ class ShipmentController extends Controller
             'customer_id'       => ['nullable', 'exists:customers,id'],
             'recipient_name'    => ['required', 'string', 'max:255'],
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
-            'shipping_address'  => ['required', 'string'],
+            'shipping_address'  => ['nullable', 'string'],
             'product_description'=> ['nullable', 'string', 'max:255'],
             'status'            => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
         ]);
+
+        $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
         $customer->update($validated);
 

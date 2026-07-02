@@ -4,6 +4,7 @@ namespace App\Http\Controllers\CRM;
 
 use App\Enums\InquirySource;
 use App\Enums\WebsiteLeadStatus;
+use App\Enums\LeadTemperature;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Lead;
@@ -91,6 +92,7 @@ class WebsiteCrmController extends Controller
         return view('crm.website.show', [
             'lead'     => $lead,
             'statuses' => WebsiteLeadStatus::cases(),
+            'temps'    => LeadTemperature::cases(),
         ]);
     }
 
@@ -102,6 +104,7 @@ class WebsiteCrmController extends Controller
             'sources'  => InquirySource::cases(),
             'products' => \App\Models\Product::active()->orderBy('name')->get(),
             'crmUsers' => \App\Models\User::crmMembers()->orderBy('name')->get(),
+            'temps'    => LeadTemperature::cases(),
         ]);
     }
 
