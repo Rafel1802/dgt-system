@@ -56,8 +56,8 @@
 
         @if(in_array('buyer_name', $columns))
         <div>
-          <label class="form-label">Buyer Name</label>
-          <input type="text" name="buyer_name" value="{{ old('buyer_name') }}" class="form-input">
+          <label class="form-label">Full Name</label>
+          <input type="text" name="buyer_name" value="{{ old('buyer_name') }}" class="form-input" placeholder="Customer full name">
         </div>
         @endif
 

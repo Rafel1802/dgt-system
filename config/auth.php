@@ -42,6 +42,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        'api' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
+        ],
     ],
 
     /*
@@ -123,5 +128,6 @@ return [
     */
     'login_max_attempts' => env('LOGIN_MAX_ATTEMPTS', 5),
     'login_decay_minutes' => env('LOGIN_DECAY_MINUTES', 15),
+    'remember_users_by_default' => env('AUTH_REMEMBER_USERS_BY_DEFAULT', true),
 
 ];

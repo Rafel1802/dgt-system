@@ -1,21 +1,31 @@
 <?php
-$appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favicon.svg') : asset('favicon.svg');
+$appIconPath = file_exists(public_path('storage/favicon.svg')) ? 'storage/favicon.svg' : 'favicon.svg';
+$appIconVersion = file_exists(public_path($appIconPath)) ? filemtime(public_path($appIconPath)) : time();
+$appIconAsset = asset($appIconPath);
+$appIcon = $appIconAsset . '?v=' . $appIconVersion;
+$faviconIco = asset('favicon.ico') . '?v=' . (file_exists(public_path('favicon.ico')) ? filemtime(public_path('favicon.ico')) : $appIconVersion);
+$faviconPng = asset('favicon-32x32.png') . '?v=' . (file_exists(public_path('favicon-32x32.png')) ? filemtime(public_path('favicon-32x32.png')) : $appIconVersion);
+$appleTouchIcon = asset('apple-touch-icon.png') . '?v=' . (file_exists(public_path('apple-touch-icon.png')) ? filemtime(public_path('apple-touch-icon.png')) : $appIconVersion);
+$isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOSApp');
 ?>
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- SEO -->
-    <title>@yield('title', 'DGT System') | Digital Team & CRM Management</title>
+    <title>@yield('title', 'KIUQ SYSTEM') | Digital & CRM Management</title>
     <meta name="description" content="@yield('meta_description', 'Digital Team and CRM Management System — Manage tasks, customers, and sales pipelines efficiently.')">
     <meta name="robots" content="noindex, nofollow">
 
     <!-- Favicon -->
+    <link rel="icon" href="{{ $faviconIco }}" sizes="any">
     <link rel="icon" type="image/svg+xml" href="{{ $appIcon }}">
-    <link rel="shortcut icon" href="{{ $appIcon }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ $faviconPng }}">
+    <link rel="apple-touch-icon" href="{{ $appleTouchIcon }}">
+    <link rel="shortcut icon" href="{{ $faviconIco }}">
 
     <!-- Fonts preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,6 +36,82 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
 
     @stack('styles')
     @stack('head')
+
+    @if($isMacDesktopApp)
+        <style>
+            html.dgt-macos-app,
+            html.dgt-macos-app body {
+                width: 100%;
+                height: 100%;
+                min-height: 100%;
+                overflow: hidden;
+                overscroll-behavior: none;
+                background: var(--bg-page, #f4f7fb);
+            }
+
+            html.dgt-macos-app #dgt-app-wrapper {
+                width: 100%;
+                height: 100vh;
+                height: 100dvh;
+                min-height: 100vh;
+                min-height: 100dvh;
+                overflow: hidden;
+                background: var(--bg-page, #f4f7fb);
+            }
+
+            html.dgt-macos-app .sidebar-logo {
+                padding-top: 3.15rem;
+            }
+
+            html.dgt-macos-app .sidebar-logo-icon {
+                width: 36px;
+                height: 36px;
+            }
+
+            html.dgt-macos-app .sidebar-logo-icon img {
+                width: 100%;
+                height: 100%;
+                image-rendering: auto;
+                filter: none;
+            }
+
+            html.dgt-macos-app .sidebar-logo-text {
+                white-space: nowrap;
+            }
+
+            html.dgt-macos-app .sidebar-logo-sub {
+                white-space: nowrap;
+            }
+
+            html.dgt-macos-app .sidebar {
+                top: 0;
+                height: 100vh;
+                height: 100dvh;
+                overscroll-behavior: contain;
+            }
+
+            html.dgt-macos-app .main-wrapper {
+                height: 100vh;
+                height: 100dvh;
+                min-height: 0;
+                overflow: hidden;
+                background: var(--bg-page, #f4f7fb);
+            }
+
+            html.dgt-macos-app .topbar {
+                flex: 0 0 64px;
+            }
+
+            html.dgt-macos-app .page-content {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-x: hidden;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: auto;
+            }
+        </style>
+    @endif
 
     <!-- Prevent dark mode flash (FOUC) -->
     <script>
@@ -79,10 +165,10 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
             <!-- Logo -->
             <div class="sidebar-logo">
                 <div class="sidebar-logo-icon">
-                    <img src="{{ $appIcon }}" alt="DGT System logo" class="h-full w-full object-contain">
+                    <img src="{{ $appIconAsset }}" alt="KIUQ SYSTEM logo" class="h-full w-full object-contain">
                 </div>
                 <div>
-                    <div class="sidebar-logo-text">DGT System</div>
+                    <div class="sidebar-logo-text">KIUQ SYSTEM</div>
                     <div class="sidebar-logo-sub">Digital & CRM</div>
                 </div>
                 <!-- Desktop collapse btn -->
@@ -743,6 +829,12 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                             </svg>
                             Settings
                         </a>
+                        <a href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-macos-app">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 18h8m-6 3h4m-9-6h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/>
+                            </svg>
+                            macOS App
+                        </a>
                         <hr class="border-[var(--border-color)] my-1">
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
@@ -836,7 +928,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                     </button>
                     <!-- Page Title (visible on all screens) -->
                     <div class="mobile-topbar-title">
-                        <p class="mobile-topbar-title-text">@yield('title', 'DGT System')</p>
+                        <p class="mobile-topbar-title-text">@yield('title', 'KIUQ SYSTEM')</p>
                     </div>
                 </div>
 
@@ -1025,6 +1117,12 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                                 </svg>
                                 Settings
+                            </a>
+                            <a href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-macos-app">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 18h8m-6 3h4m-9-6h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/>
+                                </svg>
+                                macOS App
                             </a>
                             <hr class="border-[var(--border-color)] my-1">
                             <form method="POST" action="{{ route('logout') }}">
@@ -1538,7 +1636,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
         if (!("Notification" in window)) return;
         const options = {
             body: body,
-            icon: iconUrl || window.dgtInitialsAvatar('DGT', '#4f46e5')
+            icon: iconUrl || window.dgtInitialsAvatar('KQ', '#4f46e5')
         };
 
         if (Notification.permission === "granted") {
@@ -1639,14 +1737,14 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
                                 window.showRichNotificationToast(newNotif.data);
                                 if (newNotif.data.browser_notifications_enabled !== false) {
                                     window.sendBrowserNotification(
-                                        "DGT Board Update", 
+                                        "KIUQ Board Update", 
                                         `${newNotif.data.actor_name} ${newNotif.data.description.replace(/\*\*/g, '')}`,
                                         newNotif.data.actor_avatar
                                     );
                                 }
                             } else {
                                 window.showToast(newNotif.data.message || "New update received");
-                                window.sendBrowserNotification("DGT System Update", newNotif.data.message || "New update");
+                                window.sendBrowserNotification("KIUQ SYSTEM Update", newNotif.data.message || "New update");
                             }
                         });
                     }
@@ -1718,7 +1816,7 @@ $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favi
             },
 
             actorName(notif) {
-                return notif?.data?.actor_name || 'DGT System';
+                return notif?.data?.actor_name || 'KIUQ SYSTEM';
             },
 
             stripMarkdown(value) {

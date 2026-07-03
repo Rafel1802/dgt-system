@@ -62,6 +62,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::view('/mac-app', 'downloads.mac-app')->name('downloads.mac-app');
+        Route::get('/mac-app/download', function () {
+            return redirect(asset('downloads/KIUQ-SYSTEM-1.0.0.dmg'));
+        })->name('downloads.mac-app.file');
 
         // Polymorphic attachments download/delete/view
         Route::get('/attachments/{attachment}/download', [\App\Http\Controllers\AttachmentController::class, 'download'])->name('attachments.download');
@@ -339,6 +343,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
                 Route::get('/customers/create', [CustomerController::class, 'create'])->name('customers.create');
                 Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
+                Route::post('/customers/quick-create', [CustomerController::class, 'quickCreate'])->name('customers.quick-create');
                 Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
                 Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
                 Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');

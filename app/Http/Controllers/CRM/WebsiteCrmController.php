@@ -50,7 +50,7 @@ class WebsiteCrmController extends Controller
             'sources'   => InquirySource::cases(),
             'products'  => \App\Models\Product::active()->orderBy('name')->get(),
             'crmUsers'  => \App\Models\User::crmMembers()->orderBy('name')->get(),
-            'customers' => \App\Models\Customer::orderBy('name')->get(['id','name','phone','company']),
+            'customers' => \App\Models\Customer::orderBy('name')->get(['id','name','email','phone','company','address']),
         ]);
     }
 
@@ -72,6 +72,9 @@ class WebsiteCrmController extends Controller
         ]);
 
         $customer = Customer::find($validated['customer_id']);
+        $validated['client_phone'] = ($validated['client_phone'] ?? null) ?: ($customer->phone ?? null);
+        $validated['client_email'] = ($validated['client_email'] ?? null) ?: ($customer->email ?? null);
+        $validated['client_whatsapp'] = ($validated['client_whatsapp'] ?? null) ?: ($customer->whatsapp ?? null);
         
         $lead = Lead::create([
             ...$validated,

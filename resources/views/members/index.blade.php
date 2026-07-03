@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'All Members')
-@section('meta_description', 'DGT System company directory — find and connect with your team members.')
+@section('meta_description', 'KIUQ SYSTEM company directory — find and connect with your team members.')
 
 @section('content')
 @php

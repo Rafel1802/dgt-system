@@ -86,6 +86,37 @@ class CustomerController extends Controller
             ->with('success', "Customer \"{$customer->name}\" created successfully.");
     }
 
+    /** Quick-create a minimal customer from CRM forms */
+    public function quickCreate(Request $request): JsonResponse
+    {
+        $this->authorize('create', Customer::class);
+
+        $validated = $request->validate([
+            'name'  => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255', 'unique:customers,email'],
+            'phone' => ['nullable', 'string', 'max:30'],
+        ]);
+
+        $customer = Customer::create([
+            ...$validated,
+            'status'         => CustomerStatus::Lead->value,
+            'source'         => CustomerSource::Website->value,
+            'pipeline_stage' => DealStage::NewLead->value,
+            'created_by'     => auth()->id(),
+        ]);
+
+        return response()->json([
+            'id'      => $customer->id,
+            'name'    => $customer->name,
+            'email'   => $customer->email ?? '',
+            'phone'   => $customer->phone ?? '',
+            'company' => '',
+            'address' => '',
+            'label'   => $customer->name . ($customer->phone ? ' · ' . $customer->phone : ''),
+            'text'    => $customer->name . ($customer->phone ? ' · ' . $customer->phone : ''),
+        ], 201);
+    }
+
     /** Customer profile view */
     public function show(Customer $customer): View
     {

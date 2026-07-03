@@ -255,7 +255,7 @@
 
     <div class="footer">
         <div class="footer-left">
-            DGT System &copy; {{ date('Y') }} - Website Follow Ups Report
+            KIUQ SYSTEM &copy; {{ date('Y') }} - Website Follow Ups Report
         </div>
         <div class="footer-right">
             Confidential Document

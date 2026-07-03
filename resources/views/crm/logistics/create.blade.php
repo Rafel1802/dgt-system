@@ -42,6 +42,8 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
                 'fieldName' => 'customer_id',
                 'required'  => true,
                 'autofill'  => true,
+                'allowCreate' => true,
+                'autofillAddressId' => 'field-shipping-address',
             ])
             @error('customer_id')<p class="form-error">{{ $message }}</p>@enderror
           </div>
@@ -148,7 +150,7 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
         </div>
         <div>
           <label class="form-label">Shipping / Delivery Address <span class="text-red-500">*</span></label>
-          <textarea name="shipping_address" rows="3" class="form-input @error('shipping_address') error @enderror"
+          <textarea name="shipping_address" rows="3" id="field-shipping-address" class="form-input @error('shipping_address') error @enderror"
                     placeholder="Full delivery address including suburb, state, postcode" required>{{ old('shipping_address') }}</textarea>
           @error('shipping_address')<p class="form-error">{{ $message }}</p>@enderror
         </div>

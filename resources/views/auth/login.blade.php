@@ -417,7 +417,7 @@
                 </div>
 
                 <h1 class="mt-8 max-w-3xl font-display text-5xl font-black leading-[1.04] tracking-normal text-white xl:text-6xl">
-                    Digital Team & CRM Management, refined.
+                    Digital & CRM Management, refined.
                 </h1>
                 <p class="mt-5 max-w-xl text-lg font-semibold leading-8 text-sky-100/82">
                     A focused command center for boards, approvals, sales activity, customer pipelines, and team operations.
@@ -433,7 +433,7 @@
                         <p class="mt-1 text-sm font-bold text-sky-100/75">Pipeline ready</p>
                     </div>
                     <div class="login-metric rounded-2xl p-5">
-                        <p class="text-3xl font-black text-white">DGT</p>
+                        <p class="text-3xl font-black text-white">KQ</p>
                         <p class="mt-1 text-sm font-bold text-sky-100/75">Team boards</p>
                     </div>
                 </div>
@@ -443,20 +443,20 @@
         <div class="mx-auto w-full max-w-[520px]">
             <div class="mb-6 text-center lg:hidden">
                 <div class="brand-mark mx-auto flex h-16 w-16 items-center justify-center rounded-3xl">
-                    <img src="{{ $appIcon }}" alt="DGT System logo" class="h-12 w-12 object-contain">
+                    <img src="{{ $appIcon }}" alt="KIUQ SYSTEM logo" class="h-12 w-12 object-contain">
                 </div>
-                <h1 class="mt-4 font-display text-3xl font-black text-white">DGT System</h1>
-                <p class="mt-1 text-sm font-semibold text-sky-100/80">Digital Team & CRM Management</p>
+                <h1 class="mt-4 font-display text-3xl font-black text-white">KIUQ SYSTEM</h1>
+                <p class="mt-1 text-sm font-semibold text-sky-100/80">Digital & CRM Management</p>
             </div>
 
             <div class="login-card rounded-[2.25rem] p-6 sm:p-8 lg:p-10">
                 <div class="relative z-10">
                     <div class="hidden items-center gap-4 lg:flex">
                         <div class="brand-mark flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-3xl">
-                            <img src="{{ $appIcon }}" alt="DGT System logo" class="h-12 w-12 object-contain">
+                            <img src="{{ $appIcon }}" alt="KIUQ SYSTEM logo" class="h-12 w-12 object-contain">
                         </div>
                         <div>
-                            <p class="text-sm font-black uppercase tracking-[0.22em] text-cyan-200/80">DGT System</p>
+                            <p class="text-sm font-black uppercase tracking-[0.22em] text-cyan-200/80">KIUQ SYSTEM</p>
                             <h2 class="font-display text-4xl font-black tracking-normal text-white">
                                 Welcome <span class="text-cyan-300">Back</span>
                             </h2>
@@ -548,9 +548,9 @@
 
                         <div class="flex items-center justify-between gap-4">
                             <label for="remember" class="flex cursor-pointer items-center gap-3 text-sm font-bold text-sky-100/82">
-                                <input type="hidden" name="remember" value="0">
-                                <input type="checkbox" id="remember" name="remember" value="1" @checked(old('remember')) class="login-check h-5 w-5 rounded-md text-cyan-400 focus:ring-cyan-300">
-                                Remember me
+                                <input type="hidden" name="remember" value="1">
+                                <input type="checkbox" id="remember" name="remember" value="1" checked class="login-check h-5 w-5 rounded-md text-cyan-400 focus:ring-cyan-300">
+                                Keep me signed in
                             </label>
                             <span class="hidden text-xs font-bold text-sky-100/52 sm:inline">Protected access</span>
                         </div>
@@ -568,7 +568,7 @@
             </div>
 
             <p class="mt-6 text-center text-xs font-semibold leading-6 text-sky-100/68">
-                &copy; {{ date('Y') }} DGT System. Secure sign-in with rate limiting and IP monitoring.
+                &copy; {{ date('Y') }} KIUQ SYSTEM. Secure sign-in with rate limiting and IP monitoring.
             </p>
         </div>
     </section>

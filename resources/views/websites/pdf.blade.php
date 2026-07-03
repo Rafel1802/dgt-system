@@ -446,7 +446,7 @@
     @endforelse
 
     <div class="footer">
-        DGT System — All Websites Report &nbsp;|&nbsp; Generated {{ now()->format('d M Y, g:i a') }} &nbsp;|&nbsp; Total: {{ $websites->count() }} website(s)
+        KIUQ SYSTEM — All Websites Report &nbsp;|&nbsp; Generated {{ now()->format('d M Y, g:i a') }} &nbsp;|&nbsp; Total: {{ $websites->count() }} website(s)
     </div>
 
 </body>

@@ -103,7 +103,7 @@
             @if(in_array('date', $columns))        <th class="px-4 py-3 text-left">Date</th>@endif
             @if(in_array('order_date', $columns))  <th class="px-4 py-3 text-left">Order Date</th>@endif
             @if(in_array('username', $columns))    <th class="px-4 py-3 text-left">Username</th>@endif
-            @if(in_array('buyer_name', $columns))  <th class="px-4 py-3 text-left">Buyer Name</th>@endif
+            @if(in_array('buyer_name', $columns))  <th class="px-4 py-3 text-left">Full Name</th>@endif
             @if(in_array('informations', $columns))<th class="px-4 py-3 text-left">Informations</th>@endif
             @if(in_array('email', $columns))       <th class="px-4 py-3 text-left">Email</th>@endif
             @if(in_array('ebay_store_id', $columns))<th class="px-4 py-3 text-left">eBay Store</th>@endif

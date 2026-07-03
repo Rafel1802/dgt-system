@@ -227,7 +227,7 @@
     </table>
 
     <div class="footer">
-        Digital Team & CRM Management System · Confidential Reports
+        Digital & CRM Management System · Confidential Reports
     </div>
 
 </body>

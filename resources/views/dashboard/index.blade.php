@@ -2,7 +2,7 @@
 
 @section('title', 'Dashboard')
 @section('page_title', 'Dashboard')
-@section('meta_description', 'DGT System overview: tasks, CRM, sales, notifications, and team activity at a glance.')
+@section('meta_description', 'KIUQ SYSTEM overview: tasks, CRM, sales, notifications, and team activity at a glance.')
 
 @section('content')
 @php
@@ -555,7 +555,7 @@
                         @foreach($dashboardNotifications as $notification)
                             @php
                                 $data = $notification->data;
-                                $actorName = data_get($data, 'actor_name', 'DGT System');
+                                $actorName = data_get($data, 'actor_name', 'KIUQ SYSTEM');
                                 $actorAvatar = data_get($data, 'actor_avatar', 'https://ui-avatars.com/api/?name=System&size=64&background=6366f1&color=fff');
                                 $description = data_get($data, 'description') ?: data_get($data, 'message', 'New notification');
                                 $boardName = data_get($data, 'board_name');

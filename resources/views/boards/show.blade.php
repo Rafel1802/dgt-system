@@ -635,5 +635,9 @@
 @push('scripts')
 <!-- Quill JS -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
-<script src="{{ asset('js/trello-board.js') }}?v={{ filemtime(public_path('js/trello-board.js')) }}"></script>
+@php
+    $trelloBoardScript = public_path('js/trello-board.js');
+    $trelloBoardVersion = file_exists($trelloBoardScript) ? filemtime($trelloBoardScript) : time();
+@endphp
+<script src="{{ asset('js/trello-board.js') }}?v={{ $trelloBoardVersion }}"></script>
 @endpush

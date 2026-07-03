@@ -146,6 +146,21 @@
                     $total = $stat['total_posts'];
                     $pctComplete = $total > 0 ? round(($stat['completed'] / $total) * 100) : 0;
                     $pctChecked  = $total > 0 ? round(($stat['qc_checked'] / $total) * 100) : 0;
+                    $classIcon = trim((string) ($class->getRawOriginal('icon') ?? ''));
+                    $classInitials = collect(preg_split('/\s+|[._-]+/', $class->name))
+                        ->filter()
+                        ->take(2)
+                        ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+                        ->join('') ?: mb_strtoupper(mb_substr($class->name, 0, 2));
+                    $classIconIsImage = $classIcon !== '' && (
+                        filter_var($classIcon, FILTER_VALIDATE_URL)
+                        || str_starts_with($classIcon, '/')
+                        || str_starts_with($classIcon, 'storage/')
+                        || preg_match('/\.(jpeg|jpg|png|gif|svg|webp)(\?.*)?$/i', $classIcon)
+                    );
+                    $classIconSrc = $classIconIsImage
+                        ? (filter_var($classIcon, FILTER_VALIDATE_URL) ? $classIcon : asset(ltrim($classIcon, '/')))
+                        : null;
                 @endphp
                 <div class="ws-dash-card" x-show="(filterClass === '' || filterClass === '{{ $class->id }}') && ('{{ strtolower($class->name) }}'.includes(searchQuery.toLowerCase()))">
                     {{-- Card Header --}}
@@ -162,11 +177,21 @@
                                 </span>
                             </div>
                         </div>
-                        <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden {{ $class->icon ? 'bg-transparent' : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg' }}">
-                            @if($class->icon)
-                                <img src="{{ filter_var($class->icon, FILTER_VALIDATE_URL) ? $class->icon : asset(ltrim($class->icon, '/')) }}" alt="{{ $class->name }}" class="w-full h-full object-cover">
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg">
+                            @if($classIconSrc)
+                                <img
+                                    src="{{ $classIconSrc }}"
+                                    alt="{{ $class->name }}"
+                                    class="w-full h-full object-cover bg-white"
+                                    loading="lazy"
+                                    referrerpolicy="no-referrer"
+                                    onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"
+                                >
+                                <span class="hidden">{{ $classInitials }}</span>
+                            @elseif($classIcon !== '')
+                                <span>{{ $classIcon }}</span>
                             @else
-                                {{ strtoupper(substr($class->name, 0, 2)) }}
+                                <span>{{ $classInitials }}</span>
                             @endif
                         </div>
                     </div>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Task Needs Revision — DGT System</title>
+<title>Task Needs Revision — KIUQ SYSTEM</title>
 <style>
   body { margin:0; padding:0; background:#f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   .email-wrapper { background:#f1f5f9; padding: 32px 16px; }
@@ -40,7 +40,7 @@
 <div class="email-container">
 
   <div class="email-header">
-    <span class="email-logo-text">⬡ DGT System</span>
+    <span class="email-logo-text">⬡ KIUQ SYSTEM</span>
     <div class="email-hero-icon">❌</div>
     <h1 class="email-hero-title">Task Needs Revision</h1>
     <p class="email-hero-sub">Your supervisor has returned this task for changes</p>
@@ -98,13 +98,13 @@
     </div>
 
     <p class="email-p" style="font-size:13px; color:#94a3b8; margin:0;">
-      This is an automated notification from DGT System. If you have questions, contact your supervisor directly.
+      This is an automated notification from KIUQ SYSTEM. If you have questions, contact your supervisor directly.
     </p>
   </div>
 
   <div class="email-footer">
     <p class="footer-text">
-      © {{ date('Y') }} DGT System — Digital Team & CRM Management<br>
+      © {{ date('Y') }} KIUQ SYSTEM — Digital & CRM Management<br>
       <a href="{{ url('/') }}" class="footer-link">Open System</a> &bull;
       <a href="{{ url('/kanban') }}" class="footer-link">Kanban Board</a>
     </p>

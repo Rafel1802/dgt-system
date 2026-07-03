@@ -67,7 +67,10 @@ class AuthService
         $authenticated = false;
 
         try {
-            $authenticated = Auth::attempt($credentials, $request->boolean('remember'));
+            $authenticated = Auth::attempt(
+                $credentials,
+                (bool) config('auth.remember_users_by_default', true) || $request->boolean('remember')
+            );
         } catch (RuntimeException $exception) {
             if ($exception->getMessage() !== 'This password does not use the Bcrypt algorithm.') {
                 throw $exception;

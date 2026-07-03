@@ -136,10 +136,13 @@ class EbayCustomerController extends Controller
             ->with('success', 'Record updated.');
     }
 
-    public function destroy(EbayCustomerRecord $record): RedirectResponse
+    public function destroy(string $tab, EbayCustomerRecord $record): RedirectResponse
     {
-        $tab = $record->tab_type;
+        $tab = $this->resolveTab($tab);
+        $tab = $record->tab_type ?: $tab;
+
         $record->delete();
+
         return redirect()->route('crm.ebay.customers.index', $tab)
             ->with('success', 'Record deleted.');
     }

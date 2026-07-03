@@ -139,25 +139,32 @@
                         <div class="p-6 space-y-4">
                           <div>
                             <label class="form-label">Customer</label>
-                            <select name="customer_id" class="form-input" required>
-                              @foreach(App\Models\Customer::orderBy('name')->get() as $c)
-                                <option value="{{ $c->id }}" {{ $sc->customer_id == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
-                              @endforeach
-                            </select>
+                            @include('crm.partials.customer_combobox', [
+                              'customers' => $customers,
+                              'fieldId' => 'shipment-customer-'.$sc->id,
+                              'fieldName' => 'customer_id',
+                              'selected' => $sc->customer_id,
+                              'required' => true,
+                              'autofill' => true,
+                              'allowCreate' => true,
+                              'autofillNameId' => 'edit-recipient-name-'.$sc->id,
+                              'autofillPhoneId' => 'edit-recipient-phone-'.$sc->id,
+                              'autofillAddressId' => 'edit-shipping-address-'.$sc->id,
+                            ])
                           </div>
                           <div class="grid grid-cols-2 gap-4">
                             <div>
                               <label class="form-label">Recipient Name</label>
-                              <input type="text" name="recipient_name" value="{{ $sc->recipient_name }}" class="form-input">
+                              <input type="text" id="edit-recipient-name-{{ $sc->id }}" name="recipient_name" value="{{ $sc->recipient_name }}" class="form-input">
                             </div>
                             <div>
                               <label class="form-label">Recipient Phone</label>
-                              <input type="text" name="recipient_phone" value="{{ $sc->recipient_phone }}" class="form-input">
+                              <input type="text" id="edit-recipient-phone-{{ $sc->id }}" name="recipient_phone" value="{{ $sc->recipient_phone }}" class="form-input">
                             </div>
                           </div>
                           <div>
                             <label class="form-label">Shipping Address</label>
-                            <textarea name="shipping_address" rows="2" class="form-input">{{ $sc->shipping_address }}</textarea>
+                            <textarea id="edit-shipping-address-{{ $sc->id }}" name="shipping_address" rows="2" class="form-input">{{ $sc->shipping_address }}</textarea>
                           </div>
                           <div>
                             <label class="form-label">Product Description</label>
@@ -211,26 +218,31 @@
       <div class="p-6 space-y-4">
         <div>
           <label class="form-label">Customer <span class="text-red-500">*</span></label>
-          <select name="customer_id" class="form-input" required>
-            <option value="">— Select Customer —</option>
-            @foreach(App\Models\Customer::orderBy('name')->get() as $c)
-              <option value="{{ $c->id }}">{{ $c->name }}</option>
-            @endforeach
-          </select>
+          @include('crm.partials.customer_combobox', [
+            'customers' => $customers,
+            'fieldId' => 'shipment-add-customer',
+            'fieldName' => 'customer_id',
+            'required' => true,
+            'autofill' => true,
+            'allowCreate' => true,
+            'autofillNameId' => 'add-recipient-name',
+            'autofillPhoneId' => 'add-recipient-phone',
+            'autofillAddressId' => 'add-shipping-address',
+          ])
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="form-label">Recipient Name</label>
-            <input type="text" name="recipient_name" class="form-input" placeholder="Leave blank if same as customer">
+            <input type="text" id="add-recipient-name" name="recipient_name" class="form-input" placeholder="Leave blank if same as customer">
           </div>
           <div>
             <label class="form-label">Recipient Phone</label>
-            <input type="text" name="recipient_phone" class="form-input" placeholder="Leave blank if same as customer">
+            <input type="text" id="add-recipient-phone" name="recipient_phone" class="form-input" placeholder="Leave blank if same as customer">
           </div>
         </div>
         <div>
           <label class="form-label">Shipping Address</label>
-          <textarea name="shipping_address" rows="2" class="form-input" placeholder="Leave blank if same as customer"></textarea>
+          <textarea id="add-shipping-address" name="shipping_address" rows="2" class="form-input" placeholder="Leave blank if same as customer"></textarea>
         </div>
         <div>
           <label class="form-label">Product Description</label>

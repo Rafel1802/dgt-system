@@ -56,7 +56,7 @@ class EbayCustomerRecord extends Model
     {
         return match($tab) {
             self::TAB_URGENT => [
-                'n', 'username', 'informations', 'email', 'ebay_store_id',
+                'n', 'username', 'buyer_name', 'informations', 'email', 'ebay_store_id',
                 'order_id', 'summary', 'attention_required', 'order_date', 'status',
             ],
             self::TAB_CANCELATION => [

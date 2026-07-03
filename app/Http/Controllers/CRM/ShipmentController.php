@@ -37,7 +37,7 @@ class ShipmentController extends Controller
             'statuses'         => Shipment::statuses(),
             'truckingCompanies'=> TruckingCompany::active()->orderBy('company_name')->get(),
             'crmUsers'         => User::crmMembers()->orderBy('name')->get(),
-            'customers'        => Customer::orderBy('name')->get(),
+            'customers'        => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
         ]);
     }
 
@@ -69,6 +69,7 @@ class ShipmentController extends Controller
             'shipment'     => $shipment,
             'statuses'     => Shipment::statuses(),
             'custStatuses' => ShipmentCustomer::statuses(),
+            'customers'    => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
         ]);
     }
 
@@ -158,7 +159,7 @@ class ShipmentController extends Controller
             'entry'        => $customer->load('customer'),
             'statuses'     => ShipmentCustomer::statuses(),
             'crmUsers'     => User::crmMembers()->orderBy('name')->get(),
-            'customers'    => Customer::orderBy('name')->get(),
+            'customers'    => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
         ]);
     }
 
@@ -167,7 +168,7 @@ class ShipmentController extends Controller
     {
         $validated = $request->validate([
             'customer_id'       => ['nullable', 'exists:customers,id'],
-            'recipient_name'    => ['required', 'string', 'max:255'],
+            'recipient_name'    => ['nullable', 'string', 'max:255'],
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
             'shipping_address'  => ['nullable', 'string'],
             'product_description'=> ['nullable', 'string', 'max:255'],
@@ -175,6 +176,23 @@ class ShipmentController extends Controller
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
         ]);
+
+        if (empty($validated['recipient_name']) && !empty($validated['customer_id'])) {
+            $cust = Customer::find($validated['customer_id']);
+            if ($cust) {
+                $validated['recipient_name'] = $cust->name;
+                if (empty($validated['recipient_phone'])) {
+                    $validated['recipient_phone'] = $cust->phone ?? '';
+                }
+                if (empty($validated['shipping_address'])) {
+                    $validated['shipping_address'] = $cust->address ?? '';
+                }
+            }
+        }
+
+        if (empty($validated['recipient_name'])) {
+            return back()->withErrors(['recipient_name' => 'Recipient name is required.'])->withInput();
+        }
 
         $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
