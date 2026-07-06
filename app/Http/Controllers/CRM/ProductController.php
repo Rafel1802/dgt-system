@@ -49,9 +49,6 @@ class ProductController extends Controller
             'category_id' => ['nullable', 'exists:product_categories,id'],
             'description' => ['nullable', 'string'],
             'brand'       => ['nullable', 'string', 'max:100'],
-            'model'       => ['nullable', 'string', 'max:100'],
-            'year'        => ['nullable', 'string', 'max:10'],
-            'condition'   => ['nullable', 'string', 'in:new,used,refurbished'],
             'price'       => ['nullable', 'numeric', 'min:0'],
             'currency'    => ['nullable', 'string', 'max:3'],
             'is_active'   => ['boolean'],
@@ -62,6 +59,7 @@ class ProductController extends Controller
         $validated['is_active']  = $request->boolean('is_active', true);
         $validated['status']     = $validated['is_active'] ? 'active' : 'inactive';
         $validated['created_by'] = auth()->id();
+        $validated['condition']  = 'new';
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('products', 'public');
@@ -92,9 +90,6 @@ class ProductController extends Controller
             'category_id' => ['nullable', 'exists:product_categories,id'],
             'description' => ['nullable', 'string'],
             'brand'       => ['nullable', 'string', 'max:100'],
-            'model'       => ['nullable', 'string', 'max:100'],
-            'year'        => ['nullable', 'string', 'max:10'],
-            'condition'   => ['nullable', 'string', 'in:new,used,refurbished'],
             'price'       => ['nullable', 'numeric', 'min:0'],
             'currency'    => ['nullable', 'string', 'max:3'],
             'is_active'   => ['boolean'],
@@ -121,9 +116,9 @@ class ProductController extends Controller
 
     public function destroy(Product $product): RedirectResponse
     {
-        $product->delete();
+        $product->forceDelete();
         return redirect()->route('crm.products.index')
-            ->with('success', 'Product deleted.');
+            ->with('success', 'Product deleted permanently.');
     }
 
     // ── Category management ───────────────────────────────────────────────────

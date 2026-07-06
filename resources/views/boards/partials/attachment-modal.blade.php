@@ -9,7 +9,7 @@
            amFormatBytes()
 --}}
 <div x-show="attachmentModal.open" x-cloak
-     class="fixed inset-0 z-[65] flex items-center justify-center p-4"
+     class="fixed inset-0 z-[80] flex items-center justify-center p-4"
      @keydown.escape.window="closeAttachmentModal()">
 
   {{-- Backdrop --}}

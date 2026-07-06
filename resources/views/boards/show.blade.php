@@ -426,7 +426,7 @@
       {{-- Cards Container with SortableJS hook --}}
       <div class="list-cards flex-1 overflow-y-auto min-h-12 pb-8 scrollbar-thin transition-colors" :id="'cards-'+list.id" :data-list-id="list.id">
         <template x-for="card in filteredCards(list)" :key="card.id">
-          <div class="kanban-card select-none transform transition-all duration-150"
+          <div class="kanban-card select-none"
                :class="['priority-' + card.priority, canDragCard(card, list) ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-80']"
                :data-id="card.id"
                :data-can-drag="canDragCard(card, list) ? '1' : '0'"

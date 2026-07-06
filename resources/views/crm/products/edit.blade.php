@@ -65,27 +65,6 @@
             <input type="text" name="brand" value="{{ old('brand', $product->brand) }}" class="form-input">
           </div>
           <div>
-            <label class="form-label">Model</label>
-            <input type="text" name="model" value="{{ old('model', $product->model) }}" class="form-input">
-          </div>
-          <div>
-            <label class="form-label">Year</label>
-            <input type="text" name="year" value="{{ old('year', $product->year) }}" class="form-input">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="form-label">Condition</label>
-            <select name="condition" class="form-input">
-              @foreach(['used','new','refurbished'] as $c)
-              <option value="{{ $c }}" {{ old('condition', $product->condition) === $c ? 'selected' : '' }}>
-                {{ ucfirst($c) }}
-              </option>
-              @endforeach
-            </select>
-          </div>
-          <div>
             <label class="form-label">Price</label>
             <input type="number" name="price" value="{{ old('price', $product->price) }}" class="form-input" step="0.01" min="0">
           </div>

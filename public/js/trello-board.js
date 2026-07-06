@@ -2429,8 +2429,12 @@ function trelloBoard(config) {
       if (!this.activeCard) return;
       try {
         const res = await this.api(`/boards/cards/${this.activeCard.id}`, 'GET', null, { silentErrors: true });
-        if (res.card) this.activeCard = res.card;
-        if (res.activities) this.cardActivities = res.activities;
+        if (res.card && JSON.stringify(this.activeCard) !== JSON.stringify(res.card)) {
+          this.activeCard = res.card;
+        }
+        if (res.activities && JSON.stringify(this.cardActivities) !== JSON.stringify(res.activities)) {
+          this.cardActivities = res.activities;
+        }
       } catch (_) {}
     },
 
@@ -3684,17 +3688,19 @@ function trelloBoard(config) {
       this.boardId = payload.boardId || this.boardId;
       this.boardSlug = payload.boardSlug || this.boardSlug;
       this.currentUser = payload.currentUser || this.currentUser;
-      this.lists = payload.lists || this.lists;
       this.labels = payload.labels || this.labels;
       this.allBoardMembers = payload.boardMembers || this.allBoardMembers;
       this.allWorkspaceMembers = payload.workspaceMembers || this.allWorkspaceMembers;
       this.allWorkspaces = payload.allWorkspaces || this.allWorkspaces;
 
-      this.loadBoardMembers();
+      if (payload.lists && JSON.stringify(this.lists) !== JSON.stringify(payload.lists)) {
+        this.lists = payload.lists;
+        this.$nextTick(() => {
+          this.initSortable();
+        });
+      }
 
-      this.$nextTick(() => {
-        this.initSortable();
-      });
+      this.loadBoardMembers();
 
       if (activeCardId) {
         const stillExists = this.lists.some(list => (list.cards || []).some(card => parseInt(card.id, 10) === activeCardId));

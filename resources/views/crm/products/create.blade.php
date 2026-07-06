@@ -67,25 +67,6 @@
             <input type="text" name="brand" value="{{ old('brand') }}" class="form-input">
           </div>
           <div>
-            <label class="form-label">Model</label>
-            <input type="text" name="model" value="{{ old('model') }}" class="form-input">
-          </div>
-          <div>
-            <label class="form-label">Year</label>
-            <input type="text" name="year" value="{{ old('year') }}" class="form-input" placeholder="2023">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="form-label">Condition</label>
-            <select name="condition" class="form-input">
-              <option value="used" {{ old('condition') === 'used' ? 'selected' : '' }}>Used</option>
-              <option value="new" {{ old('condition') === 'new' ? 'selected' : '' }}>New</option>
-              <option value="refurbished" {{ old('condition') === 'refurbished' ? 'selected' : '' }}>Refurbished</option>
-            </select>
-          </div>
-          <div>
             <label class="form-label">Price</label>
             <input type="number" name="price" value="{{ old('price') }}" class="form-input" step="0.01" min="0">
           </div>

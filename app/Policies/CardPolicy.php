@@ -37,13 +37,12 @@ class CardPolicy
         return $user->can('kanban.create');
     }
 
-    /** Creators can edit their own cards; admins/supervisors can edit any */
     public function update(User $user, Card $card): bool
     {
         if ($user->hasAnyRole(['admin', 'supervisor'])) {
             return true;
         }
-        return $user->can('kanban.edit') && $card->created_by === $user->id;
+        return $card->board->hasAccess($user->id) || $card->assignees->contains($user->id) || $card->created_by === $user->id;
     }
 
     /** Only admins can delete cards */
@@ -69,6 +68,9 @@ class CardPolicy
     /** Check if user can move a card to a specific status */
     public function moveTo(User $user, Card $card, CardStatus $newStatus): bool
     {
+        if ($card->board->hasAccess($user->id) || $card->assignees->contains($user->id)) {
+            return true;
+        }
         $role = $user->roles->first()?->name ?? '';
         $allowed = $card->status->allowedTransitions($role);
 
@@ -78,8 +80,7 @@ class CardPolicy
     /** Can assign users to a card */
     public function assign(User $user, Card $card): bool
     {
-        return $user->can('kanban.assign')
-            || ($user->can('kanban.edit') && $card->created_by === $user->id);
+        return $card->board->hasAccess($user->id) || $card->assignees->contains($user->id) || $card->created_by === $user->id;
     }
 
     /** Any viewer can comment */
@@ -91,8 +92,6 @@ class CardPolicy
     /** Can upload files */
     public function upload(User $user, Card $card): bool
     {
-        return $user->can('kanban.edit')
-            || $card->created_by === $user->id
-            || $card->assignees->contains($user->id);
+        return $card->board->hasAccess($user->id) || $card->assignees->contains($user->id) || $card->created_by === $user->id;
     }
 }

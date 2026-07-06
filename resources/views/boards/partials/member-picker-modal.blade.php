@@ -6,7 +6,7 @@
                                mpToggleMember(), mpSearch(), mpAvatarBg()
 --}}
 <div x-show="memberPicker.open" x-cloak
-     class="fixed inset-0 z-[65] flex items-start justify-center pt-24 px-4"
+     class="fixed inset-0 z-[80] flex items-start justify-center pt-24 px-4"
      @keydown.escape.window="closeMemberPicker()">
 
   {{-- Backdrop --}}

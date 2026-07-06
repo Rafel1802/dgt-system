@@ -212,7 +212,8 @@ const LABEL_NAME = 'dgt-synced';
 
 function syncNewEmails() {
   const label   = getOrCreateLabel(LABEL_NAME);
-  const threads = GmailApp.search('in:inbox -label:' + LABEL_NAME, 0, 20);
+  // Only search recent emails (last 2 days) to avoid syncing years of old messages
+  const threads = GmailApp.search('in:inbox newer_than:2d -label:' + LABEL_NAME, 0, 20);
 
   threads.forEach(function(thread) {
     const msg = thread.getMessages()[0];

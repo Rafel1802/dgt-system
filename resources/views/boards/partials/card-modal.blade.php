@@ -1,6 +1,6 @@
 {{-- Upgraded Card Detail Modal (Phase 2 Trello features) --}}
 <div x-show="activeCard !== null" x-cloak
-     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-16 overflow-y-auto"
+     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-start justify-center p-4 pt-16 overflow-y-auto"
      @click.self="closeCard()">
 
   <div class="trello-card-modal bg-white rounded-2xl shadow-2xl w-full max-w-4xl mb-8 overflow-hidden border border-slate-100 flex flex-col"

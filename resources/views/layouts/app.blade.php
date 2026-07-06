@@ -539,7 +539,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 @can('crm.view')
 
-                @hasanyrole('super-admin|admin-crm|sales-crm')
+                @hasanyrole('super-admin|admin-crm|sales-crm|boss')
                 <a href="{{ route('admin.emails.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.emails.*') ? 'active' : '' }}"
                    aria-label="Manage Emails" title="Email Accounts" id="nav-crm-emails">
