@@ -95,12 +95,16 @@ class CustomerController extends Controller
             'name'  => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', 'unique:customers,email'],
             'phone' => ['nullable', 'string', 'max:30'],
+            'source' => ['nullable', Rule::enum(CustomerSource::class)],
         ]);
+
+        $source = $validated['source'] ?? CustomerSource::Website->value;
+        unset($validated['source']);
 
         $customer = Customer::create([
             ...$validated,
             'status'         => CustomerStatus::Lead->value,
-            'source'         => CustomerSource::Website->value,
+            'source'         => $source,
             'pipeline_stage' => DealStage::NewLead->value,
             'created_by'     => auth()->id(),
         ]);

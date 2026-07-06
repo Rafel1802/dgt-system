@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Board;
 use App\Models\BoardList;
 use App\Models\Card;
+use App\Models\Label;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Workspace;
@@ -220,6 +221,8 @@ class BoardController extends Controller
             'activeLists.cards.assignees',
             'activeLists.cards.labels',
             'activeLists.cards.checklists.items',
+            'activeLists.cards.files',
+            'activeLists.cards.comments',
             'members',
         ]);
 
@@ -269,6 +272,13 @@ class BoardController extends Controller
             'boardSlug' => $board->slug,
             'csrfToken' => csrf_token(),
             'currentUserId' => $user->id,
+            'currentUser' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'is_digital_team' => $user->hasRole('digital-team'),
+                'can_move_any_card' => $this->canMoveAnyCard($user),
+                'can_manage_blocked_cards' => $this->canManageBlockedCards($user),
+            ],
             'lists'     => $board->activeLists->map(fn($l) => [
                 'id'       => $l->id,
                 'name'     => $l->name,
@@ -282,6 +292,10 @@ class BoardController extends Controller
                     'due_time'   => $c->due_time,
                     'reminder'   => $c->reminder,
                     'recurring'  => $c->recurring ?? 'none',
+                    'board_list_id' => $c->board_list_id,
+                    'status'     => $c->status?->value ?? (string) $c->status,
+                    'block_completed_at' => $c->block_completed_at?->toISOString(),
+                    'block_completed_by' => $c->block_completed_by,
                     'labels'   => $c->labels->map(fn($lb) => ['id'=>$lb->id,'name'=>$lb->name,'color'=>$lb->color]),
                     'assignees'=> $c->assignees->map(fn($u) => [
                         'id' => $u->id,
@@ -360,6 +374,14 @@ class BoardController extends Controller
         $externalTools = Setting::externalTools();
 
         return view('boards.show', compact('board', 'workspaceBoards', 'allWorkspaces', 'boardData', 'externalTools'));
+    }
+
+    /** Return the current board state for realtime UI refreshes. */
+    public function snapshot(Board $board): JsonResponse
+    {
+        $this->authorizeBoard($board);
+
+        return response()->json($this->boardSnapshotPayload($board, auth()->user()));
     }
 
     // ── Board CRUD ────────────────────────────────────────────────────────────
@@ -1068,15 +1090,62 @@ class BoardController extends Controller
             'list_id'  => ['required', 'exists:board_lists,id'],
             'order'    => ['required', 'array'],
             'order.*'  => ['integer', 'exists:cards,id'],
+            'moving_card_id' => ['nullable', 'integer', 'exists:cards,id'],
+            'source_list_id' => ['nullable', 'integer', 'exists:board_lists,id'],
         ]);
 
-        foreach ($request->order as $position => $cardId) {
-            Card::where('id', $cardId)
+        $user = auth()->user();
+        $targetList = BoardList::where('board_id', $board->id)->findOrFail((int) $request->list_id);
+        $cards = Card::with(['assignees:id', 'boardList'])
+            ->where('board_id', $board->id)
+            ->whereIn('id', $request->order)
+            ->get()
+            ->keyBy('id');
+
+        if ($request->filled('moving_card_id')) {
+            $movingCard = Card::with(['assignees:id', 'boardList'])
                 ->where('board_id', $board->id)
-                ->update([
-                    'board_list_id' => $request->list_id,
-                    'position'      => $position,
-                ]);
+                ->findOrFail((int) $request->moving_card_id);
+            $sourceList = $request->filled('source_list_id')
+                ? BoardList::where('board_id', $board->id)->find((int) $request->source_list_id)
+                : $movingCard->boardList;
+
+            if (! $this->canMoveCard($user, $movingCard, $sourceList, $targetList)) {
+                return response()->json(['error' => 'You can only move cards assigned to you. Blocked cards can only be moved by supervisors.'], 403);
+            }
+        }
+
+        foreach ($request->order as $position => $cardId) {
+            $card = $cards->get((int) $cardId);
+            if (! $card) {
+                continue;
+            }
+
+            if (! $request->filled('moving_card_id') && ! $this->canMoveCard($user, $card, $card->boardList, $targetList)) {
+                return response()->json(['error' => 'You can only move cards assigned to you. Blocked cards can only be moved by supervisors.'], 403);
+            }
+
+            $card->update([
+                'board_list_id' => $targetList->id,
+                'position'      => $position,
+            ]);
+        }
+
+        if (
+            isset($movingCard)
+            && $request->filled('source_list_id')
+            && (int) $request->source_list_id === (int) $targetList->id
+        ) {
+            try {
+                BoardActivityNotification::send(
+                    $board,
+                    'card_reordered',
+                    "reordered card **{$movingCard->title}**",
+                    $movingCard
+                );
+            } catch (\Throwable $e) {
+                Log::error('Failed sending board reorder notification: ' . $e->getMessage());
+            }
         }
 
         return response()->json(['message' => 'Cards reordered.']);
@@ -1168,6 +1237,36 @@ class BoardController extends Controller
         return false;
     }
 
+    private function canMoveAnyCard(\App\Models\User $user): bool
+    {
+        return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
+            || $user->isQcOrSupervisor();
+    }
+
+    private function canManageBlockedCards(\App\Models\User $user): bool
+    {
+        return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
+            || $user->isSupervisorRole();
+    }
+
+    private function canMoveCard(\App\Models\User $user, Card $card, ?BoardList $sourceList, BoardList $targetList): bool
+    {
+        if ($this->isBlockList($sourceList?->name) || $this->isBlockList($targetList->name)) {
+            return $this->canManageBlockedCards($user);
+        }
+
+        if ($this->canMoveAnyCard($user)) {
+            return true;
+        }
+
+        return $card->assignees->contains('id', $user->id);
+    }
+
+    private function isBlockList(?string $name): bool
+    {
+        return str_contains(strtolower($name ?? ''), 'block');
+    }
+
     private function canDeleteBoard(User $user, Board $board): bool
     {
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
@@ -1230,6 +1329,8 @@ class BoardController extends Controller
             'visibility' => $board->visibility,
             'background_type' => $board->background_type,
             'background_value' => $board->background_value,
+            'cover_type' => $board->cover_type,
+            'cover_value' => $board->cover_value,
             'member_permissions' => $board->member_permissions ?? 'members',
             'card_covers_enabled' => (bool) ($board->card_covers_enabled ?? true),
             'notifications_enabled' => (bool) ($board->notifications_enabled ?? true),
@@ -1240,6 +1341,130 @@ class BoardController extends Controller
             'workspace_name' => $board->workspace?->name,
             'can_manage_board' => $this->canManageBoard(auth()->user(), $board),
             'can_delete_board' => $this->canDeleteBoard(auth()->user(), $board),
+        ];
+    }
+
+    private function boardSnapshotPayload(Board $board, User $user): array
+    {
+        $board->load([
+            'workspace.members',
+            'labels',
+            'activeLists.cards.assignees',
+            'activeLists.cards.labels',
+            'activeLists.cards.checklists.items',
+            'activeLists.cards.files',
+            'activeLists.cards.comments',
+            'members',
+        ]);
+
+        $allWorkspaces = $this->getAuthorizedWorkspaces($user);
+
+        return [
+            'board' => $this->boardPayload($board),
+            'boardId' => $board->id,
+            'boardSlug' => $board->slug,
+            'currentUserId' => $user->id,
+            'currentUser' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'is_digital_team' => $user->hasRole('digital-team'),
+                'can_move_any_card' => $this->canMoveAnyCard($user),
+                'can_manage_blocked_cards' => $this->canManageBlockedCards($user),
+            ],
+            'lists' => $board->activeLists->map(fn($list) => [
+                'id' => $list->id,
+                'name' => $list->name,
+                'color' => $list->color,
+                'cards' => $list->cards->map(fn($card) => [
+                    'id' => $card->id,
+                    'title' => $card->title,
+                    'priority' => $card->priority?->value ?? 'medium',
+                    'due_at' => $card->due_at?->format('Y-m-d'),
+                    'start_date' => $card->start_date?->format('Y-m-d'),
+                    'due_time' => $card->due_time,
+                    'reminder' => $card->reminder,
+                    'recurring' => $card->recurring ?? 'none',
+                    'board_list_id' => $card->board_list_id,
+                    'status' => $card->status?->value ?? (string) $card->status,
+                    'block_completed_at' => $card->block_completed_at?->toISOString(),
+                    'block_completed_by' => $card->block_completed_by,
+                    'labels' => $card->labels->map(fn($label) => [
+                        'id' => $label->id,
+                        'name' => $label->name,
+                        'color' => $label->color,
+                    ])->values()->all(),
+                    'assignees' => $card->assignees->map(fn($member) => [
+                        'id' => $member->id,
+                        'name' => $member->name,
+                        'email' => $member->email,
+                        'avatar' => $member->avatar_url,
+                        'initials' => $member->avatar_initials,
+                        'avatar_color' => $member->avatar_color,
+                    ])->values()->all(),
+                    'checklist_total' => $card->checklists->flatMap->items->count(),
+                    'checklist_done' => $card->checklists->flatMap->items->where('is_completed', true)->count(),
+                    'has_files' => $card->files->count() > 0,
+                    'comment_count' => $card->comments->count(),
+                ])->values()->all(),
+            ])->values()->all(),
+            'labels' => Label::where(function ($query) use ($board) {
+                $query->whereNull('workspace_id')->whereNull('board_id')
+                    ->orWhere('workspace_id', $board->workspace_id)
+                    ->orWhere('board_id', $board->id);
+            })
+                ->orderBy('name')
+                ->get()
+                ->unique(fn($label) => strtolower($label->name))
+                ->map(fn($label) => ['id' => $label->id, 'name' => $label->name, 'color' => $label->color])
+                ->values()
+                ->all(),
+            'boardMembers' => $board->members->map(fn($member) => [
+                'id' => $member->id,
+                'name' => $member->name,
+                'email' => $member->email,
+                'avatar' => $member->avatar_url,
+                'initials' => $member->avatar_initials,
+                'avatar_color' => $member->avatar_color,
+                'role' => $member->pivot->role ?? 'member',
+            ])->values()->all(),
+            'workspaceMembers' => $board->workspace->members
+                ->filter(fn($member) => ! $board->members->contains('id', $member->id))
+                ->map(fn($member) => [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'email' => $member->email,
+                    'avatar' => $member->avatar_url,
+                    'initials' => $member->avatar_initials,
+                    'avatar_color' => $member->avatar_color,
+                    'role' => 'workspace',
+                ])->values()->all(),
+            'allWorkspaces' => $allWorkspaces->map(fn($workspace) => [
+                'id' => $workspace->id,
+                'name' => $workspace->name,
+                'slug' => $workspace->slug,
+                'boards' => $workspace->boards->map(fn($workspaceBoard) => [
+                    'id' => $workspaceBoard->id,
+                    'name' => $workspaceBoard->name,
+                    'slug' => $workspaceBoard->slug,
+                    'workspace_id' => $workspaceBoard->workspace_id,
+                    'is_starred' => (bool) $workspaceBoard->is_starred,
+                    'background_type' => $workspaceBoard->background_type,
+                    'background_value' => $workspaceBoard->background_value,
+                    'cover_type' => $workspaceBoard->cover_type,
+                    'cover_value' => $workspaceBoard->cover_value,
+                    'lists' => $workspaceBoard->activeLists->map(fn($list) => [
+                        'id' => $list->id,
+                        'name' => $list->name,
+                        'position' => $list->position,
+                    ])->values()->all(),
+                    'members' => $workspaceBoard->members->map(fn($member) => [
+                        'id' => $member->id,
+                        'name' => $member->name,
+                        'avatar' => $member->avatar_url,
+                    ])->values()->all(),
+                ])->values()->all(),
+            ])->values()->all(),
+            'refreshed_at' => now()->toISOString(),
         ];
     }
 

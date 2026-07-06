@@ -380,7 +380,11 @@
                                         <span class="text-slate-400">-</span>
                                         {{ $log->description }}
                                     </p>
-                                    <p class="mt-1 text-xs font-bold text-slate-400">{{ $log->created_at?->diffForHumans() ?? 'just now' }}</p>
+                                    <p class="mt-1 text-xs font-bold text-slate-400">
+                                        {{ $log->created_at?->format('d M Y, H:i') ?? 'just now' }}
+                                        <span class="text-slate-300">·</span>
+                                        {{ $log->created_at?->diffForHumans() ?? 'live' }}
+                                    </p>
                                 </div>
                                 <span class="hidden rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 sm:inline-flex">
                                     {{ $log->module ?: 'system' }}

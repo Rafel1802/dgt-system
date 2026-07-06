@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
 class TaskApprovedNotification extends Notification implements ShouldQueue
@@ -20,7 +21,7 @@ class TaskApprovedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'broadcast'];
     }
 
     /**
@@ -51,6 +52,17 @@ class TaskApprovedNotification extends Notification implements ShouldQueue
             'card_title'  => $this->card->title,
             'approved_by' => $this->approvedBy->name,
             'type'        => 'task_approved',
+            'title'       => 'Task approved',
+            'message'     => "{$this->approvedBy->name} approved {$this->card->title}",
         ];
+    }
+
+    public function toBroadcast(object $notifiable): BroadcastMessage
+    {
+        return new BroadcastMessage([
+            'id' => $this->id,
+            'data' => $this->toArray($notifiable),
+            'created_at' => now()->toIso8601String(),
+        ]);
     }
 }

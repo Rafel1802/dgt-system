@@ -15,6 +15,9 @@
 
     <form method="POST" action="{{ route('crm.ebay.customers.update', [$tab, $record]) }}" class="divide-y divide-slate-100">
       @csrf @method('PUT')
+      @php
+        $hasCustomerFields = collect(['username', 'buyer_name', 'email'])->contains(fn ($field) => in_array($field, $columns));
+      @endphp
 
       @if($errors->any())
       <div class="px-6 py-3 bg-red-50 border-b border-red-100">
@@ -47,25 +50,35 @@
         </div>
         @endif
 
-        @if(in_array('username', $columns))
+        @if($hasCustomerFields)
         <div>
-          <label class="form-label">Username</label>
-          <input type="text" name="username" value="{{ old('username', $record->username) }}" class="form-input">
+          <label class="form-label">Customer</label>
+          @include('crm.partials.customer_combobox', [
+            'customers' => $customers,
+            'fieldId' => 'ebay-record-customer',
+            'fieldName' => 'customer_id',
+            'selected' => old('customer_id', $record->customer_id),
+            'required' => false,
+            'allowCreate' => true,
+            'quickCreateSource' => \App\Enums\CustomerSource::Ebay->value,
+            'autofill' => true,
+            'autofillNameId' => 'field-buyer-name',
+            'autofillEmailId' => 'field-email',
+            'autofillUsernameId' => 'field-username',
+          ])
         </div>
+        @endif
+
+        @if(in_array('username', $columns))
+        <input id="field-username" type="hidden" name="username" value="{{ old('username', $record->username) }}">
         @endif
 
         @if(in_array('buyer_name', $columns))
-        <div>
-          <label class="form-label">Full Name</label>
-          <input type="text" name="buyer_name" value="{{ old('buyer_name', $record->buyer_name) }}" class="form-input" placeholder="Customer full name">
-        </div>
+        <input id="field-buyer-name" type="hidden" name="buyer_name" value="{{ old('buyer_name', $record->buyer_name) }}">
         @endif
 
         @if(in_array('email', $columns))
-        <div>
-          <label class="form-label">Email</label>
-          <input type="email" name="email" value="{{ old('email', $record->email) }}" class="form-input">
-        </div>
+        <input id="field-email" type="hidden" name="email" value="{{ old('email', $record->email) }}">
         @endif
 
         @if(in_array('informations', $columns))

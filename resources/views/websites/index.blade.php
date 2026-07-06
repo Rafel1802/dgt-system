@@ -127,11 +127,11 @@
                 <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg>
                 Manage Members
             </button>
+            @endif
             <button type="button" @click="showManageClassesModal = true" class="btn btn-secondary flex items-center gap-2 text-sm">
                 <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
                 Manage Classes
             </button>
-            @endif
             @if(!auth()->user()->isWebsiteViewer() && !auth()->user()->hasRole('boss'))
             <button type="button" @click="showCreateModal = true"
                     class="btn btn-primary flex items-center gap-2 text-sm">
@@ -258,6 +258,15 @@
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
+                    @endif
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                        </button>
+                    </form>
                     @endif
                 </div>
             </div>
@@ -471,6 +480,21 @@
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
+                    @if(auth()->user()->canUpdateWebsiteProgress())
+                    <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
+                    </button>
+                    @endif
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                        </button>
+                    </form>
+                    @endif
                 </div>
             </div>
         </div>
@@ -635,6 +659,15 @@
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
+                    @endif
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                        </button>
+                    </form>
                     @endif
                 </div>
             </div>
@@ -849,6 +882,21 @@
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
+                    @if(auth()->user()->canUpdateWebsiteProgress())
+                    <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
+                    </button>
+                    @endif
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                        </button>
+                    </form>
+                    @endif
                     </div>
                 </div>
             </div>
@@ -929,6 +977,12 @@
                         View Reference
                     </a>
                     @endif
+                    @if($website->error_attachment_path)
+                    <a href="{{ asset('storage/'.$website->error_attachment_path) }}" target="_blank" class="inline-flex items-center gap-1 mt-2 ml-2 text-[10px] font-semibold text-red-500 hover:text-red-700">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25A2.25 2.25 0 0 0 6 4.5v15A2.25 2.25 0 0 0 8.25 21h7.5A2.25 2.25 0 0 0 18 18.75M15 2.25V6a2.25 2.25 0 0 0 2.25 2.25H21"/></svg>
+                        {{ Str::limit($website->error_attachment_name ?? 'Reference file', 22) }}
+                    </a>
+                    @endif
                     @if($website->error_flagged_at)
                     <p class="text-[10px] text-slate-400 mt-1">Flagged {{ $website->error_flagged_at->diffForHumans() }}</p>
                     @endif
@@ -979,6 +1033,21 @@
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
+                    @if(auth()->user()->canUpdateWebsiteProgress())
+                    <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
+                    </button>
+                    @endif
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                        </button>
+                    </form>
+                    @endif
                 </div>
             </div>
         </div>
@@ -1054,6 +1123,12 @@
                         View Reference
                     </a>
                     @endif
+                    @if($website->error_attachment_path)
+                    <a href="{{ asset('storage/'.$website->error_attachment_path) }}" target="_blank" class="inline-flex items-center gap-1 mt-2 ml-2 text-[10px] font-semibold text-orange-500 hover:text-orange-700">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25A2.25 2.25 0 0 0 6 4.5v15A2.25 2.25 0 0 0 8.25 21h7.5A2.25 2.25 0 0 0 18 18.75M15 2.25V6a2.25 2.25 0 0 0 2.25 2.25H21"/></svg>
+                        {{ Str::limit($website->error_attachment_name ?? 'Reference file', 22) }}
+                    </a>
+                    @endif
                     @if($website->error_flagged_at)
                     <p class="text-[10px] text-slate-400 mt-1">Flagged {{ $website->error_flagged_at->diffForHumans() }}</p>
                     @endif
@@ -1104,6 +1179,21 @@
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
+                    @if(auth()->user()->canUpdateWebsiteProgress())
+                    <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
+                    </button>
+                    @endif
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                        </button>
+                    </form>
+                    @endif
                 </div>
             </div>
         </div>
@@ -1890,7 +1980,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="qcErrorModalAction" method="POST" class="p-5 space-y-4">
+        <form :action="qcErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4">
             @csrf
             <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-xs text-red-700 dark:text-red-300">
                 The website will move to the <strong>QC Error</strong> tab. The team must fix the issues and mark complete (0→100%) before this website returns to QC Checking.
@@ -1910,6 +2000,13 @@
                 <input type="text" name="error_link"
                        class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-red-500 focus:ring focus:ring-red-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
                        placeholder="https://www.canva.com/... or any reference URL">
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Reference File <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional PDF or image)</span>
+                </label>
+                <input type="file" name="error_file" accept=".pdf,image/png,image/jpeg,image/webp"
+                       class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 file:mr-3 file:rounded-lg file:border-0 file:bg-red-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-red-600">
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
                 <button type="button" @click="showQcErrorModal = false" class="btn btn-secondary text-sm">Cancel</button>
@@ -1933,7 +2030,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="supervisorErrorModalAction" method="POST" class="p-5 space-y-4">
+        <form :action="supervisorErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4">
             @csrf
             <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-xs text-red-700 dark:text-red-300">
                 The website will move to the <strong>Supervisor Error</strong> tab. The team must fix and complete before it goes back to QC → Supervisor approval.
@@ -1953,6 +2050,13 @@
                 <input type="text" name="error_link"
                        class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-red-500 focus:ring focus:ring-red-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
                        placeholder="https://www.canva.com/... or any reference URL">
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Reference File <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional PDF or image)</span>
+                </label>
+                <input type="file" name="error_file" accept=".pdf,image/png,image/jpeg,image/webp"
+                       class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 file:mr-3 file:rounded-lg file:border-0 file:bg-orange-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-orange-600">
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
                 <button type="button" @click="showSupervisorErrorModal = false" class="btn btn-secondary text-sm">Cancel</button>

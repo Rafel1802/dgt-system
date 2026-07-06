@@ -445,6 +445,13 @@ class CardController extends Controller
         $oldList = $sourceList?->name ?? 'Unknown';
         $targetList = BoardList::findOrFail((int) $request->board_list_id);
 
+        $card->loadMissing('assignees:id');
+        if (! $this->canMoveCard(auth()->user(), $card, $sourceList, $targetList)) {
+            return response()->json([
+                'error' => 'You can only move cards assigned to you. Blocked cards can only be moved by supervisors.',
+            ], 403);
+        }
+
         $card->update([
             'board_id'      => $targetList->board_id,
             'board_list_id' => $targetList->id,
@@ -453,6 +460,7 @@ class CardController extends Controller
         $newList = $targetList->name;
 
         $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$newList}**");
+        $this->addSystemComment($card, "moved this card from **{$oldList}** to **{$newList}**");
         $automation = $this->checkAutomations($card, $targetList->id);
 
         return response()->json([
@@ -506,6 +514,36 @@ class CardController extends Controller
             'card'    => $this->formatCardForBoard($copy),
             'message' => "Card copied as \"" . $copy->title . "\".",
         ], 201);
+    }
+
+    public function completeBlock(Card $card): JsonResponse
+    {
+        $user = auth()->user();
+        $card->loadMissing('boardList');
+
+        if (! $this->canManageBlockedCards($user) || ! $this->isBlockList($card->boardList?->name)) {
+            return response()->json([
+                'error' => 'Only supervisors can complete blocked cards.',
+            ], 403);
+        }
+
+        $isCompleted = ! empty($card->block_completed_at);
+        $card->update([
+            'block_completed_at' => $isCompleted ? null : now(),
+            'block_completed_by' => $isCompleted ? null : $user->id,
+        ]);
+
+        $message = $isCompleted
+            ? 'marked this blocked card as not fixed'
+            : 'marked this blocked card as fixed';
+
+        $this->logCardActivity($card, $isCompleted ? 'block_reopened' : 'block_completed', $message);
+        $this->addSystemComment($card, $message);
+
+        return response()->json([
+            'card' => $this->formatCardForBoard($card),
+            'message' => $isCompleted ? 'Blocked card marked not fixed.' : 'Blocked card marked complete.',
+        ]);
     }
 
     // ── Checklists ────────────────────────────────────────────────────────────
@@ -1068,6 +1106,15 @@ class CardController extends Controller
         }
     }
 
+    private function addSystemComment(Card $card, string $content): void
+    {
+        $card->comments()->create([
+            'user_id' => auth()->id(),
+            'content' => $content,
+            'is_system' => true,
+        ]);
+    }
+
     private function formatCardForBoard(Card $card): array
     {
         $card->load([
@@ -1089,6 +1136,9 @@ class CardController extends Controller
             'recurring'       => $card->recurring ?? 'none',
             'board_id'        => $card->board_id,
             'board_list_id'   => $card->board_list_id,
+            'status'          => $card->status?->value ?? (string) $card->status,
+            'block_completed_at' => $card->block_completed_at?->toISOString(),
+            'block_completed_by' => $card->block_completed_by,
             'position'        => $card->position,
             'labels'          => $card->labels->map(fn($lb) => ['id' => $lb->id, 'name' => $lb->name, 'color' => $lb->color])->values()->all(),
             'assignees'       => $card->assignees->map(fn($u) => [
@@ -1104,5 +1154,35 @@ class CardController extends Controller
             'has_files'       => $card->files->count() > 0,
             'comment_count'   => $card->comments->count(),
         ];
+    }
+
+    private function canMoveAnyCard(User $user): bool
+    {
+        return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
+            || $user->isQcOrSupervisor();
+    }
+
+    private function canManageBlockedCards(User $user): bool
+    {
+        return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
+            || $user->isSupervisorRole();
+    }
+
+    private function canMoveCard(User $user, Card $card, ?BoardList $sourceList, BoardList $targetList): bool
+    {
+        if ($this->isBlockList($sourceList?->name) || $this->isBlockList($targetList->name)) {
+            return $this->canManageBlockedCards($user);
+        }
+
+        if ($this->canMoveAnyCard($user)) {
+            return true;
+        }
+
+        return $card->assignees->contains('id', $user->id);
+    }
+
+    private function isBlockList(?string $name): bool
+    {
+        return str_contains(strtolower($name ?? ''), 'block');
     }
 }

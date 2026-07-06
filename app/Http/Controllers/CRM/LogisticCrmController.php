@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\CRM;
 
 use App\Enums\CustomerStatus;
+use App\Enums\CustomerSource;
 use App\Enums\LogisticStatus;
 use App\Enums\ProductCategory;
 use App\Http\Controllers\Controller;
@@ -229,6 +230,7 @@ class LogisticCrmController extends Controller
         $customer = Customer::create([
             ...$validated,
             'status'     => CustomerStatus::Lead->value,
+            'source'     => CustomerSource::Logistic->value,
             'created_by' => auth()->id(),
         ]);
 

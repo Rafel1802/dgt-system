@@ -10,10 +10,12 @@
   $autofill  = $autofill  ?? false;
   $allowCreate = $allowCreate ?? true;
   $quickCreateUrl = $quickCreateUrl ?? route('crm.customers.quick-create');
+  $quickCreateSource = $quickCreateSource ?? '';
   $autofillNameId = $autofillNameId ?? 'field-recipient-name';
   $autofillPhoneId = $autofillPhoneId ?? 'field-recipient-phone';
   $autofillEmailId = $autofillEmailId ?? '';
   $autofillAddressId = $autofillAddressId ?? '';
+  $autofillUsernameId = $autofillUsernameId ?? '';
 
   $customerJson = $customers->map(fn($c) => [
       'id'      => $c->id,
@@ -43,8 +45,10 @@
   data-autofill-phone-id="{{ $autofillPhoneId }}"
   data-autofill-email-id="{{ $autofillEmailId }}"
   data-autofill-address-id="{{ $autofillAddressId }}"
+  data-autofill-username-id="{{ $autofillUsernameId }}"
   data-allow-create="{{ $allowCreate ? 'true' : 'false' }}"
   data-quick-create-url="{{ $quickCreateUrl }}"
+  data-quick-create-source="{{ $quickCreateSource }}"
 >
   <script type="application/json" id="{{ $fieldId }}-data">{!! $customerJson !!}</script>
 
@@ -125,7 +129,7 @@
   @if($allowCreate)
     <div id="{{ $fieldId }}-modal" class="fixed inset-0 z-[220] hidden items-center justify-center">
       <div class="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" id="{{ $fieldId }}-modal-backdrop"></div>
-      <div class="relative w-full max-w-md mx-4 overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div class="relative w-full max-w-md mx-4 overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
             <h3 class="font-display text-base font-black text-slate-900">Add New Customer</h3>
@@ -137,7 +141,7 @@
             </svg>
           </button>
         </div>
-        <div class="space-y-4 p-5">
+        <div class="space-y-4 p-5 overflow-y-auto">
           <div id="{{ $fieldId }}-modal-error" class="hidden rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600"></div>
           <div>
             <label class="form-label">Full Name <span class="text-red-500">*</span></label>
@@ -234,6 +238,7 @@
     const modalSave = document.getElementById(id + '-modal-save');
     const modalSpin = document.getElementById(id + '-modal-spin');
     const quickCreateUrl = wrap.dataset.quickCreateUrl || '';
+    const quickCreateSource = wrap.dataset.quickCreateSource || '';
     const autofill = wrap.dataset.autofill === 'true';
     let open = false;
 
@@ -330,6 +335,7 @@
         setIfEmpty(wrap.dataset.autofillPhoneId, c.phone);
         setIfEmpty(wrap.dataset.autofillEmailId, c.email);
         setIfEmpty(wrap.dataset.autofillAddressId, c.address);
+        setIfEmpty(wrap.dataset.autofillUsernameId, c.name);
       }
     }
 
@@ -368,6 +374,9 @@
       modalSave.disabled = true;
       modalSpin?.classList.remove('hidden');
 
+      const payload = { name, email, phone };
+      if (quickCreateSource) payload.source = quickCreateSource;
+
       fetch(quickCreateUrl, {
         method: 'POST',
         headers: {
@@ -376,7 +385,7 @@
           'X-CSRF-TOKEN': csrf(),
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ name, email, phone }),
+        body: JSON.stringify(payload),
       })
       .then(async response => {
         const data = await response.json();

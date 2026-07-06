@@ -39,6 +39,7 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
                 'fieldId'   => 'ebay-customer',
                 'fieldName' => 'customer_id',
                 'required'  => true,
+                'quickCreateSource' => \App\Enums\CustomerSource::Ebay->value,
             ])
             @error('customer_id')<p class="form-error">{{ $message }}</p>@enderror
           </div>

@@ -208,10 +208,94 @@
 
     {{-- Board Members Stack --}}
     <div class="flex items-center -space-x-1.5 sm:-space-x-2 mr-0.5 sm:mr-1">
-      @foreach($board->members as $bm)
+      @foreach($board->members->take(3) as $bm)
         <img src="{{ $bm->avatar_url }}" alt="{{ $bm->name }}" title="{{ $bm->name }}"
              class="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100">
       @endforeach
+      @if($board->members->count() > 3)
+        <span class="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white bg-slate-900/80 text-white text-[10px] font-black flex items-center justify-center shadow-sm ring-1 ring-slate-100">
+          +{{ $board->members->count() - 3 }}
+        </span>
+      @endif
+    </div>
+
+    {{-- Board Search --}}
+    <div class="relative">
+      <button type="button"
+              @click="searchOpen = !searchOpen; if (searchOpen) { $nextTick(() => $refs.boardSearchInput?.focus()) }"
+              class="btn btn-secondary btn-icon w-8 h-8 sm:w-9 sm:h-9"
+              :class="searchQuery.trim() ? '!bg-indigo-50 !text-indigo-700 !border-indigo-200' : ''"
+              title="Search cards"
+              aria-label="Search cards">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6.04 6.04a7.5 7.5 0 0 0 10.61 10.61Z" />
+        </svg>
+      </button>
+      <div x-show="searchOpen" @click.outside="searchOpen = false" x-cloak
+           class="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl z-50"
+           x-transition:enter="transition ease-out duration-100"
+           x-transition:enter-start="opacity-0 scale-95"
+           x-transition:enter-end="opacity-100 scale-100">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+          <p class="text-[10px] uppercase font-black tracking-widest text-slate-400">Search cards</p>
+          <button type="button" x-show="searchQuery.trim()" x-cloak @click="searchQuery = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+        </div>
+        <div class="relative">
+          <input x-ref="boardSearchInput"
+                 x-model.debounce.150ms="searchQuery"
+                 type="search"
+                 class="form-input w-full rounded-xl pl-9 text-sm"
+                 placeholder="Type card name...">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6.04 6.04a7.5 7.5 0 0 0 10.61 10.61Z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    {{-- Board Filters --}}
+    <div class="relative">
+      <button type="button"
+              @click="filtersOpen = !filtersOpen"
+              class="btn btn-secondary py-1 sm:py-1.5 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1.5 font-semibold"
+              :class="activeFiltersCount() ? '!bg-indigo-50 !text-indigo-700 !border-indigo-200' : ''">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 20.5v-6.068a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+        </svg>
+        <span class="hidden sm:inline">Filters</span>
+        <span x-show="activeFiltersCount()" x-cloak class="min-w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] leading-4 text-center" x-text="activeFiltersCount()"></span>
+      </button>
+      <div x-show="filtersOpen" @click.outside="filtersOpen = false" x-cloak
+           class="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl z-50"
+           x-transition:enter="transition ease-out duration-100"
+           x-transition:enter-start="opacity-0 scale-95"
+           x-transition:enter-end="opacity-100 scale-100">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+          <p class="text-[10px] uppercase font-black tracking-widest text-slate-400">Board filters</p>
+          <button type="button" @click="clearFilters()" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+        </div>
+        <div class="space-y-3">
+          <label class="block">
+            <span class="block text-[11px] font-bold text-slate-500 mb-1">Member</span>
+            <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs">
+              <option value="">All members</option>
+              <template x-for="member in allBoardMembers" :key="member.id">
+                <option :value="member.id" x-text="member.name"></option>
+              </template>
+            </select>
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="block">
+              <span class="block text-[11px] font-bold text-slate-500 mb-1">From</span>
+              <input type="date" x-model="filterDateFrom" class="form-input w-full rounded-xl text-xs">
+            </label>
+            <label class="block">
+              <span class="block text-[11px] font-bold text-slate-500 mb-1">To</span>
+              <input type="date" x-model="filterDateTo" class="form-input w-full rounded-xl text-xs">
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
 
     {{-- Manage Board Members Dropdown (Only for Board Admins/Managers) --}}
@@ -342,9 +426,10 @@
       {{-- Cards Container with SortableJS hook --}}
       <div class="list-cards flex-1 overflow-y-auto min-h-12 pb-8 scrollbar-thin transition-colors" :id="'cards-'+list.id" :data-list-id="list.id">
         <template x-for="card in filteredCards(list)" :key="card.id">
-          <div class="kanban-card select-none cursor-grab active:cursor-grabbing transform transition-all duration-150"
-               :class="'priority-' + card.priority"
+          <div class="kanban-card select-none transform transition-all duration-150"
+               :class="['priority-' + card.priority, canDragCard(card, list) ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-80']"
                :data-id="card.id"
+               :data-can-drag="canDragCard(card, list) ? '1' : '0'"
                @click="openCard(card.id)"
                @contextmenu.prevent="openCtxMenu($event, card, list)"
                @touchstart="ctxTouchStart($event, card, list)"
@@ -374,6 +459,24 @@
                  x-text="card.title"></p>
               <svg x-show="list.name.toLowerCase().includes('approved') || card.status === 'Approved'" 
                    class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <button type="button"
+                      x-show="isBlockList(list) && currentUser.can_manage_blocked_cards"
+                      x-cloak
+                      @click.stop="completeBlockedCard(card, list)"
+                      :class="card.block_completed_at
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                        : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400 hover:text-emerald-500'"
+                      class="w-5 h-5 rounded-full border flex flex-shrink-0 items-center justify-center mt-0.5 transition"
+                      :title="card.block_completed_at ? 'Mark blocked card not fixed' : 'Mark blocked card fixed'">
+                <svg x-show="!card.block_completed_at" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor"><circle cx="12" cy="12" r="8.5" /></svg>
+                <svg x-show="card.block_completed_at" x-cloak class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+              </button>
+              <svg x-show="isBlockList(list) && card.block_completed_at && !currentUser.can_manage_blocked_cards"
+                   x-cloak
+                   class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm"
+                   fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
             </div>
@@ -417,6 +520,9 @@
                     </template>
                   </span>
                 </template>
+                <span x-show="card.assignees && card.assignees.length > 3" x-cloak
+                      class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 bg-slate-800 text-white flex items-center justify-center text-[10px] font-black"
+                      x-text="'+' + ((card.assignees || []).length - 3)"></span>
               </div>
             </div>
           </div>

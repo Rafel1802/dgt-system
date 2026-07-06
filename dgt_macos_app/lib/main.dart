@@ -69,6 +69,7 @@ class NativeNotificationService {
     required String body,
     String? subtitle,
     String? link,
+    String? avatarUrl,
   }) async {
     try {
       return await _channel.invokeMethod<bool>('showNotification', {
@@ -77,6 +78,7 @@ class NativeNotificationService {
             'subtitle': subtitle ?? '',
             'body': body,
             'link': link ?? '',
+            'avatarUrl': avatarUrl ?? '',
           }) ??
           false;
     } catch (_) {
@@ -114,8 +116,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   late final WebViewController controller;
   late final NativeNotificationPoller notificationPoller;
   int loadingProgress = 0;
+  bool hasLoadedFirstPage = false;
   String? loadError;
   final Set<String> shownNativeNotificationIds = <String>{};
+  final Map<String, DateTime> recentNativeNotificationFingerprints =
+      <String, DateTime>{};
 
   Uri get appUri => Uri.parse(appBaseUrl);
 
@@ -138,13 +143,23 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (progress) {
-            setState(() => loadingProgress = progress);
+            if (!hasLoadedFirstPage) {
+              setState(() => loadingProgress = progress);
+            }
           },
           onPageStarted: (_) {
-            setState(() => loadError = null);
+            setState(() {
+              loadError = null;
+              if (!hasLoadedFirstPage) {
+                loadingProgress = 0;
+              }
+            });
           },
           onPageFinished: (_) {
-            setState(() => loadingProgress = 100);
+            setState(() {
+              loadingProgress = 100;
+              hasLoadedFirstPage = true;
+            });
             _prepareOfficialAppSurface();
             notificationPoller.start();
           },
@@ -212,7 +227,10 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
           document.documentElement.classList.add('dgt-macos-app');
         }
 
-        if (window.__dgtNativeNotificationBridgeReady) return;
+        if (window.__dgtNativeNotificationBridgeReady) {
+          window.__dgtNativeConnectPusher?.();
+          return;
+        }
         window.__dgtNativeNotificationBridgeReady = true;
         window.__dgtNativeNotificationBridgeStartedAt = Date.now();
 
@@ -236,13 +254,89 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
           const actorName = data.actor_name || data.sender_name || notification?.sender?.name || 'KIUQ SYSTEM';
           const title = notification?.title || data.title || data.card_title || data.board_name || 'KIUQ SYSTEM';
           const message = notification?.message || data.message || data.description || data.action || 'New KIUQ SYSTEM notification';
+          const rawAvatar = data.actor_avatar || data.sender_avatar || notification?.sender?.avatar_url || '';
+          const avatarUrl = rawAvatar && String(rawAvatar).startsWith('/')
+            ? window.location.origin + rawAvatar
+            : rawAvatar;
           return {
             id: notificationId(notification),
             title: String(title).replace(/\\*\\*/g, ''),
             subtitle: String(actorName).replace(/\\*\\*/g, ''),
             message: String(message).replace(/\\*\\*/g, ''),
-            link: data.link || notification?.link || ''
+            link: data.link || notification?.link || '',
+            avatarUrl: avatarUrl || ''
           };
+        };
+
+        const loadPusherScript = () => new Promise(resolve => {
+          if (window.Pusher) {
+            resolve(true);
+            return;
+          }
+
+          if (window.__dgtPusherScriptLoading) {
+            window.__dgtPusherScriptCallbacks.push(resolve);
+            return;
+          }
+
+          window.__dgtPusherScriptLoading = true;
+          window.__dgtPusherScriptCallbacks = [resolve];
+          const script = document.createElement('script');
+          script.src = 'https://js.pusher.com/8.4.0/pusher.min.js';
+          script.async = true;
+          script.onload = () => {
+            window.__dgtPusherScriptLoading = false;
+            window.__dgtPusherScriptCallbacks.splice(0).forEach(callback => callback(true));
+          };
+          script.onerror = () => {
+            window.__dgtPusherScriptLoading = false;
+            window.__dgtPusherScriptCallbacks.splice(0).forEach(callback => callback(false));
+          };
+          document.head.appendChild(script);
+        });
+
+        window.__dgtNativeConnectPusher = async () => {
+          const userId = document.querySelector('meta[name="kiuq-user-id"]')?.content;
+          const key = document.querySelector('meta[name="kiuq-pusher-key"]')?.content;
+          const cluster = document.querySelector('meta[name="kiuq-pusher-cluster"]')?.content || 'ap1';
+          const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+          if (!userId || !key || !csrf) return;
+          if (window.__dgtNativePusherUserId === userId && window.__dgtNativePusher) return;
+
+          const loaded = await loadPusherScript();
+          if (!loaded || !window.Pusher) return;
+
+          window.__dgtNativePusherUserId = userId;
+          window.__dgtNativePusher = new Pusher(key, {
+            cluster,
+            forceTLS: true,
+            authEndpoint: '/broadcasting/auth',
+            auth: {
+              headers: {
+                'X-CSRF-TOKEN': csrf,
+                'X-Requested-With': 'XMLHttpRequest'
+              }
+            }
+          });
+
+          const channel = window.__dgtNativePusher.subscribe('private-App.Models.User.' + userId);
+          const handleBroadcast = notification => {
+            if (!notification) return;
+            const normalized = normalizeNotification(notification);
+            if (!normalized.id) return;
+            localStorage.setItem('dgt_native_last_seen_notification_id', normalized.id);
+            localStorage.setItem(`dgt_native_notification_shown_\${normalized.id}`, 'true');
+            postNativeNotification(normalized);
+          };
+
+          channel.bind('Illuminate\\\\Notifications\\\\Events\\\\BroadcastNotificationCreated', handleBroadcast);
+          channel.bind('Illuminate\\\\\\\\Notifications\\\\\\\\Events\\\\\\\\BroadcastNotificationCreated', handleBroadcast);
+          channel.bind_global((eventName, notification) => {
+            if (String(eventName).includes('BroadcastNotificationCreated')) {
+              handleBroadcast(notification);
+            }
+          });
         };
 
         window.__dgtNativeNotificationPoll = async () => {
@@ -287,6 +381,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
           }
         };
 
+        window.__dgtNativeConnectPusher();
         window.__dgtNativeNotificationPoll();
         window.__dgtNativeNotificationTimer = window.setInterval(() => {
           window.__dgtNativeNotificationPoll();
@@ -317,10 +412,9 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     Map<String, dynamic> payload,
   ) async {
     final id = (payload['id'] ?? '').toString();
-    if (id.isEmpty || shownNativeNotificationIds.contains(id)) {
+    if (id.isEmpty) {
       return;
     }
-    shownNativeNotificationIds.add(id);
 
     final title = _cleanNotificationText(payload['title'] ?? 'KIUQ SYSTEM');
     final subtitle = _cleanNotificationText(payload['subtitle'] ?? '');
@@ -328,6 +422,22 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       payload['message'] ?? 'New notification',
     );
     final link = (payload['link'] ?? '').toString();
+    final fingerprint = _notificationFingerprint(
+      title: title,
+      subtitle: subtitle,
+      body: body,
+      link: link,
+    );
+
+    _forgetOldNotificationFingerprints();
+    if (shownNativeNotificationIds.contains(id) ||
+        recentNativeNotificationFingerprints.containsKey(fingerprint)) {
+      return;
+    }
+
+    shownNativeNotificationIds.add(id);
+    recentNativeNotificationFingerprints[fingerprint] = DateTime.now();
+    final avatarUrl = (payload['avatarUrl'] ?? '').toString();
 
     await NativeNotificationService.show(
       id: id,
@@ -335,6 +445,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       subtitle: subtitle,
       body: body,
       link: link,
+      avatarUrl: avatarUrl,
     );
   }
 
@@ -346,6 +457,22 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
         .trim();
   }
 
+  String _notificationFingerprint({
+    required String title,
+    required String subtitle,
+    required String body,
+    required String link,
+  }) {
+    return '$title|$subtitle|$body|$link'.toLowerCase();
+  }
+
+  void _forgetOldNotificationFingerprints() {
+    final cutoff = DateTime.now().subtract(const Duration(minutes: 3));
+    recentNativeNotificationFingerprints.removeWhere(
+      (_, shownAt) => shownAt.isBefore(cutoff),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -353,7 +480,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       body: Stack(
         children: [
           Positioned.fill(child: WebViewWidget(controller: controller)),
-          if (loadingProgress < 100 && loadError == null)
+          if (!hasLoadedFirstPage && loadingProgress < 100 && loadError == null)
             Positioned(
               top: 0,
               left: 0,
@@ -556,6 +683,11 @@ class NativeNotificationPoller {
         notificationData['sender_name'] ??
         senderData['name'] ??
         'KIUQ SYSTEM';
+    final avatarUrl =
+        notificationData['actor_avatar'] ??
+        notificationData['sender_avatar'] ??
+        senderData['avatar_url'] ??
+        '';
     final title =
         notification['title'] ??
         notificationData['title'] ??
@@ -575,6 +707,7 @@ class NativeNotificationPoller {
       'subtitle': actorName.toString().replaceAll('**', ''),
       'message': message.toString().replaceAll('**', ''),
       'link': notificationData['link'] ?? notification['link'] ?? '',
+      'avatarUrl': avatarUrl.toString(),
     };
   }
 

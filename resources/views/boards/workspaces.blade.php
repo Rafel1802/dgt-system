@@ -261,7 +261,7 @@
                       x-bind:style="'background: conic-gradient(#ef4444, #f59e0b, #10b981, #06b6d4, #3b82f6, #8b5cf6, #d946ef, #ef4444); --tw-ring-color: ' + customColor">
                     <span class="block w-4 h-4 rounded-full border-2 border-white shadow-md" x-bind:style="'background-color: ' + customColor"></span>
                 </span>
-                <input type="color" name="background_value" x-model="customColor" @input="$refs.customRadio.checked = true" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Pick a color" :disabled="bgType !== 'color'">
+                <input type="hidden" name="background_value" x-model="customColor" :disabled="bgType !== 'color'">
               </label>
               
               <div class="relative">
@@ -327,7 +327,7 @@
 
         <div>
           <label class="form-label">Color Theme <span class="text-red-500">*</span></label>
-          <input type="color" name="color" class="w-14 h-10 p-1 border border-slate-200 rounded-lg cursor-pointer" value="#6366f1" required>
+          <input type="text" name="color" class="form-input font-mono uppercase" value="#6366f1" pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" required>
         </div>
 
         <div>
@@ -363,7 +363,7 @@
 
         <div>
           <label class="form-label">Color Theme <span class="text-red-500">*</span></label>
-          <input type="color" name="color" x-model="editWorkspaceModal.color" class="w-14 h-10 p-1 border border-slate-200 rounded-lg cursor-pointer" required>
+          <input type="text" name="color" x-model="editWorkspaceModal.color" class="form-input font-mono uppercase" pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" required>
         </div>
 
         <div>
@@ -582,7 +582,7 @@
                       x-bind:style="'background: conic-gradient(#ef4444, #f59e0b, #10b981, #06b6d4, #3b82f6, #8b5cf6, #d946ef, #ef4444); --tw-ring-color: ' + editBoardModal.customColor">
                     <span class="block w-4 h-4 rounded-full border-2 border-white shadow-md" x-bind:style="'background-color: ' + editBoardModal.customColor"></span>
                 </span>
-                <input type="color" name="background_value" x-model="editBoardModal.customColor" @input="$refs.editCustomRadio.checked = true" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" :disabled="editBoardModal.bgType !== 'color'">
+                <input type="hidden" name="background_value" x-model="editBoardModal.customColor" :disabled="editBoardModal.bgType !== 'color'">
               </label>
 
               <div class="relative">

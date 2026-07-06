@@ -13,6 +13,7 @@ function trelloBoard(config) {
     boardSlug:  config.boardSlug,
     csrfToken:  config.csrfToken,
     currentUserId: config.currentUserId,
+    currentUser: config.currentUser || { id: config.currentUserId, can_move_any_card: false, can_manage_blocked_cards: false, is_digital_team: false },
     lists:      config.lists,
     labels:     config.labels,
 
@@ -26,6 +27,10 @@ function trelloBoard(config) {
     searchQuery: '',
     filterPriority: '',
     filterAssignee: '',
+    filterDateFrom: '',
+    filterDateTo: '',
+    filtersOpen: false,
+    searchOpen: false,
     boardMembers: [], // unique list for filter dropdown (populated by loadBoardMembers)
 
     // Activity drawer
@@ -266,6 +271,14 @@ function trelloBoard(config) {
       title: '',
     },
     khTimeZone: 'Asia/Phnom_Penh',
+    realtimeBound: false,
+    realtimeTimer: null,
+    realtimePollTimer: null,
+    realtimeChannel: null,
+    realtimeConnectAttempts: 0,
+    realtimeInFlight: false,
+    realtimeDragging: false,
+    lastSnapshotAt: 0,
 
     // ── Init ─────────────────────────────────────────────────────────────────
     init() {
@@ -290,6 +303,7 @@ function trelloBoard(config) {
 
       // Initialize SortableJS drag-and-drop
       this.initSortable();
+      this.bindRealtimeBoardUpdates();
 
       // Auto-open card if passed in query param
       const urlParams = new URLSearchParams(window.location.search);
@@ -986,13 +1000,27 @@ function trelloBoard(config) {
 
             el.sortableInstance = new Sortable(el, {
               group: 'cards',
+              draggable: '.kanban-card[data-can-drag="1"]',
               animation: 180,
               ghostClass: 'bg-indigo-50/70',
               dragClass: 'opacity-50',
               delay: 150,
               delayOnTouchOnly: true,
               touchStartThreshold: 5,
+              onStart: () => {
+                this.realtimeDragging = true;
+              },
+              onMove: (evt) => {
+                const card = this.findCard(parseInt(evt.dragged.dataset.id));
+                const fromList = this.lists.find(l => l.id === parseInt(evt.from.dataset.listId));
+                const toList = this.lists.find(l => l.id === parseInt(evt.to.dataset.listId));
+                if (!this.canDragCard(card, fromList) || !this.canDragCard(card, toList)) {
+                  return false;
+                }
+                return true;
+              },
               onEnd: async (evt) => {
+                this.realtimeDragging = false;
                 const cardId = evt.item.dataset.id;
                 const fromListId = evt.from.dataset.listId;
                 const toListId = evt.to.dataset.listId;
@@ -1009,6 +1037,14 @@ function trelloBoard(config) {
     },
 
     async persistCardOrder(cardId, fromListId, toListId, newIndex) {
+      const cardBeforeMove = this.findCard(parseInt(cardId));
+      const sourceListBeforeMove = this.lists.find(l => l.id === parseInt(fromListId));
+      const targetListBeforeMove = this.lists.find(l => l.id === parseInt(toListId));
+      if (!this.canDragCard(cardBeforeMove, sourceListBeforeMove) || !this.canDragCard(cardBeforeMove, targetListBeforeMove)) {
+        this.initSortable();
+        return;
+      }
+
       // Find the card element in local state and move it
       let movedCard = null;
       this.lists.forEach(l => {
@@ -1039,10 +1075,16 @@ function trelloBoard(config) {
 
       try {
         // Save target list order
-        await this.api(`/boards/${this.boardSlug}/cards/reorder`, 'POST', {
+        const reorderRes = await this.api(`/boards/${this.boardSlug}/cards/reorder`, 'POST', {
           list_id: parseInt(toListId),
+          source_list_id: parseInt(fromListId),
+          moving_card_id: parseInt(cardId),
           order: order
-        });
+        }, { silentErrors: true });
+        if (reorderRes._ok === false) {
+          setTimeout(() => window.location.reload(), 800);
+          return;
+        }
 
         // If moved to a different column, trigger move notifications/activities
         if (fromListId !== toListId) {
@@ -1050,7 +1092,11 @@ function trelloBoard(config) {
             board_list_id: parseInt(toListId),
             source_list_id: parseInt(fromListId),
             position: newIndex
-          });
+          }, { silentErrors: true });
+          if (res._ok === false) {
+            setTimeout(() => window.location.reload(), 800);
+            return;
+          }
           
           if (res.card) {
             const currentUser = this.allWorkspaceMembers.find(m => m.id === this.currentUserId) || {};
@@ -1105,6 +1151,7 @@ function trelloBoard(config) {
       } catch (err) {
         console.error("Failed to reorder:", err);
         window.showToast("Failed to save card positions", "error");
+        this.initSortable();
       }
     },
 
@@ -1185,6 +1232,8 @@ function trelloBoard(config) {
       if (this.searchQuery.trim()) count++;
       if (this.filterPriority) count++;
       if (this.filterAssignee) count++;
+      if (this.filterDateFrom) count++;
+      if (this.filterDateTo) count++;
       return count;
     },
 
@@ -1192,10 +1241,14 @@ function trelloBoard(config) {
       this.searchQuery = '';
       this.filterPriority = '';
       this.filterAssignee = '';
+      this.filterDateFrom = '';
+      this.filterDateTo = '';
+      this.searchOpen = false;
+      this.filtersOpen = false;
     },
 
     filteredCards(list) {
-      return list.cards.filter(c => {
+      const cards = list.cards.filter(c => {
         // Search text
         if (this.searchQuery.trim()) {
           const q = this.searchQuery.toLowerCase();
@@ -1215,8 +1268,59 @@ function trelloBoard(config) {
           if (!hasAssignee) return false;
         }
 
+        if (this.filterDateFrom || this.filterDateTo) {
+          const cardDate = c.due_at || c.start_date || '';
+          if (!cardDate) return false;
+          if (this.filterDateFrom && cardDate < this.filterDateFrom) return false;
+          if (this.filterDateTo && cardDate > this.filterDateTo) return false;
+        }
+
         return true;
       });
+
+      if (this.isBlockList(list)) {
+        return [...cards].sort((a, b) => {
+          const aDone = a.block_completed_at ? 1 : 0;
+          const bDone = b.block_completed_at ? 1 : 0;
+          if (aDone !== bDone) return aDone - bDone;
+          return (a.position ?? 0) - (b.position ?? 0);
+        });
+      }
+
+      return cards;
+    },
+
+    findCard(cardId) {
+      for (const list of this.lists) {
+        const card = list.cards.find(c => c.id === cardId);
+        if (card) return card;
+      }
+      return null;
+    },
+
+    isBlockList(list) {
+      const name = typeof list === 'string' ? list : (list?.name || '');
+      return name.toLowerCase().includes('block');
+    },
+
+    canDragCard(card, list) {
+      if (!card) return false;
+      if (this.isBlockList(list)) return !!this.currentUser.can_manage_blocked_cards;
+      if (this.currentUser.can_move_any_card) return true;
+      return (card.assignees || []).some(u => parseInt(u.id) === parseInt(this.currentUserId));
+    },
+
+    async completeBlockedCard(card, list) {
+      if (!this.isBlockList(list) || !this.currentUser.can_manage_blocked_cards) {
+        window.showToast('Only supervisors can complete blocked cards.', 'error');
+        return;
+      }
+
+      const res = await this.api(`/boards/cards/${card.id}/block-complete`, 'POST', {});
+      if (res.card) {
+        Object.assign(card, res.card);
+        window.showToast(res.message || 'Blocked card updated.');
+      }
     },
 
     // ── Board Activity Drawer ────────────────────────────────────────────────
@@ -2321,6 +2425,15 @@ function trelloBoard(config) {
     },
 
     // Silently refresh only the activity log and comments — no flicker
+    async refreshActiveCard() {
+      if (!this.activeCard) return;
+      try {
+        const res = await this.api(`/boards/cards/${this.activeCard.id}`, 'GET', null, { silentErrors: true });
+        if (res.card) this.activeCard = res.card;
+        if (res.activities) this.cardActivities = res.activities;
+      } catch (_) {}
+    },
+
     async refreshCardActivities() {
       if (!this.activeCard) return;
       try {
@@ -3486,8 +3599,115 @@ function trelloBoard(config) {
       }
     },
 
+    bindRealtimeBoardUpdates() {
+      if (this.realtimeBound) return;
+      this.realtimeBound = true;
+
+      const triggerRefresh = (reason = 'push') => this.scheduleBoardSnapshot(reason);
+      this.connectBoardRealtimeChannel();
+
+      window.addEventListener('kiuq:realtime-notification', (event) => {
+        const payload = event.detail?.data || event.detail || {};
+        if (String(payload.board_slug || '') !== String(this.boardSlug)) return;
+        triggerRefresh('push');
+      });
+
+      window.addEventListener('focus', () => triggerRefresh('focus'));
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) triggerRefresh('visible');
+      });
+
+      this.realtimePollTimer = setInterval(() => {
+        if (!document.hidden) triggerRefresh('poll');
+      }, 5000);
+    },
+
+    connectBoardRealtimeChannel() {
+      if (this.realtimeChannel || !this.boardId) return;
+
+      const pusher = window.kiuqGetPusherClient?.();
+      if (!pusher) {
+        if (this.realtimeConnectAttempts < 20) {
+          this.realtimeConnectAttempts++;
+          setTimeout(() => this.connectBoardRealtimeChannel(), 500);
+        }
+        return;
+      }
+
+      this.realtimeChannel = pusher.subscribe(`private-boards.${this.boardId}`);
+      const handleBoardUpdate = (payload = {}) => {
+        if (payload.board_id && parseInt(payload.board_id, 10) !== parseInt(this.boardId, 10)) return;
+        this.scheduleBoardSnapshot('push');
+      };
+
+      this.realtimeChannel.bind('board.updated', handleBoardUpdate);
+      this.realtimeChannel.bind('.board.updated', handleBoardUpdate);
+      this.realtimeChannel.bind('App\\Events\\BoardUpdated', handleBoardUpdate);
+      this.realtimeChannel.bind_global((eventName, payload) => {
+        if (String(eventName).includes('board.updated') || String(eventName).includes('BoardUpdated')) {
+          handleBoardUpdate(payload);
+        }
+      });
+    },
+
+    scheduleBoardSnapshot(reason = 'push') {
+      if (this.realtimeDragging) return;
+
+      clearTimeout(this.realtimeTimer);
+      const delay = reason === 'push' ? 200 : 650;
+      this.realtimeTimer = setTimeout(() => this.refreshBoardSnapshot(reason), delay);
+    },
+
+    async refreshBoardSnapshot(reason = 'push') {
+      if (this.realtimeInFlight || this.realtimeDragging) return;
+
+      const now = Date.now();
+      if (reason !== 'push' && now - this.lastSnapshotAt < 2500) return;
+
+      this.realtimeInFlight = true;
+
+      try {
+        const payload = await this.api(`/boards/${this.boardSlug}/snapshot`, 'GET', null, { silentErrors: true });
+        if (!payload || payload._ok === false || !Array.isArray(payload.lists)) return;
+
+        this.applyBoardSnapshot(payload);
+        this.lastSnapshotAt = Date.now();
+      } finally {
+        this.realtimeInFlight = false;
+      }
+    },
+
+    applyBoardSnapshot(payload) {
+      const activeCardId = this.activeCard?.id ? parseInt(this.activeCard.id, 10) : null;
+
+      this.board = payload.board || this.board;
+      this.boardId = payload.boardId || this.boardId;
+      this.boardSlug = payload.boardSlug || this.boardSlug;
+      this.currentUser = payload.currentUser || this.currentUser;
+      this.lists = payload.lists || this.lists;
+      this.labels = payload.labels || this.labels;
+      this.allBoardMembers = payload.boardMembers || this.allBoardMembers;
+      this.allWorkspaceMembers = payload.workspaceMembers || this.allWorkspaceMembers;
+      this.allWorkspaces = payload.allWorkspaces || this.allWorkspaces;
+
+      this.loadBoardMembers();
+
+      this.$nextTick(() => {
+        this.initSortable();
+      });
+
+      if (activeCardId) {
+        const stillExists = this.lists.some(list => (list.cards || []).some(card => parseInt(card.id, 10) === activeCardId));
+        if (stillExists) {
+          this.refreshActiveCard();
+        } else {
+          this.closeCard();
+        }
+      }
+    },
+
     // ── API request helper ───────────────────────────────────────────────────
-    async api(url, method = 'GET', data = null) {
+    async api(url, method = 'GET', data = null, options = {}) {
       const opts = {
         method,
         headers: {
@@ -3501,7 +3721,9 @@ function trelloBoard(config) {
       try {
         const res = await fetch(url, opts);
         const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
+        payload._ok = res.ok;
+        payload._status = res.status;
+        if (!res.ok && !options.silentErrors) {
           const firstError = payload.errors
             ? Object.values(payload.errors).flat()[0]
             : (payload.error || payload.message || 'Request failed.');

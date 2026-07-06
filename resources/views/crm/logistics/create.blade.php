@@ -43,6 +43,7 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
                 'required'  => true,
                 'autofill'  => true,
                 'allowCreate' => true,
+                'quickCreateSource' => \App\Enums\CustomerSource::Logistic->value,
                 'autofillAddressId' => 'field-shipping-address',
             ])
             @error('customer_id')<p class="form-error">{{ $message }}</p>@enderror

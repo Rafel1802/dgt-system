@@ -14,6 +14,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @auth
+        @if(config('broadcasting.default') === 'pusher' && config('broadcasting.connections.pusher.key'))
+            <meta name="kiuq-user-id" content="{{ auth()->id() }}">
+            <meta name="kiuq-pusher-key" content="{{ config('broadcasting.connections.pusher.key') }}">
+            <meta name="kiuq-pusher-cluster" content="{{ config('broadcasting.connections.pusher.options.cluster') }}">
+            <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+        @endif
+    @endauth
 
     <!-- SEO -->
     <title>@yield('title', 'KIUQ SYSTEM') | Digital & CRM Management</title>
@@ -1644,6 +1652,58 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }
     };
 
+    window.kiuqGetPusherClient = function() {
+        if (!window.Pusher) return null;
+
+        if (window.__kiuqPusher) return window.__kiuqPusher;
+
+        const key = document.querySelector('meta[name="kiuq-pusher-key"]')?.content;
+        const cluster = document.querySelector('meta[name="kiuq-pusher-cluster"]')?.content || 'ap1';
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        if (!key || !csrf) return null;
+
+        window.__kiuqPusher = new Pusher(key, {
+            cluster,
+            forceTLS: true,
+            authEndpoint: '/broadcasting/auth',
+            auth: {
+                headers: {
+                    'X-CSRF-TOKEN': csrf,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            },
+        });
+
+        return window.__kiuqPusher;
+    };
+
+    window.kiuqConnectPusherNotifications = function(onNotification) {
+        if (window.__kiuqNotificationsSubscribed) return true;
+
+        const userId = document.querySelector('meta[name="kiuq-user-id"]')?.content;
+        const pusher = window.kiuqGetPusherClient?.();
+
+        if (!userId || !pusher) return false;
+
+        window.__kiuqNotificationsSubscribed = true;
+        const channel = window.__kiuqPusher.subscribe(`private-App.Models.User.${userId}`);
+        const handle = payload => {
+            if (!payload) return;
+            onNotification(payload);
+        };
+
+        channel.bind('Illuminate\\Notifications\\Events\\BroadcastNotificationCreated', handle);
+        channel.bind('Illuminate\\\\Notifications\\\\Events\\\\BroadcastNotificationCreated', handle);
+        channel.bind_global((eventName, payload) => {
+            if (String(eventName).includes('BroadcastNotificationCreated')) {
+                handle(payload);
+            }
+        });
+
+        return true;
+    };
+
     // AlpineJS Notification Dropdown Component
     function notificationSystem() {
         return {
@@ -1658,16 +1718,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 this.refreshBrowserPermission();
                 this.fetchData();
 
-                // Setup Laravel Echo Private Channel listener if available
-                if (window.Echo) {
-                    window.Echo.private(`App.Models.User.${ {{ auth()->id() }} }`)
-                        .notification((n) => {
-                            this.handleIncoming(n);
-                        });
-                }
+                window.kiuqConnectPusherNotifications?.(n => this.handleIncoming(n));
 
-                // Short polling failover backup (every 12 seconds)
-                setInterval(() => this.fetchData(), 12000);
+                // Fast polling failover backup; Pusher is instant when broadcasting is enabled.
+                setInterval(() => this.fetchData(), 5000);
             },
 
             refreshBrowserPermission() {
@@ -1770,6 +1824,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 this.notifications.unshift(notifItem);
                 this.unreadCount++;
+                window.dispatchEvent(new CustomEvent('kiuq:realtime-notification', { detail: notifItem }));
 
                 // Trigger animations and toasts
                 if (notifItem.data && notifItem.data.actor_name) {

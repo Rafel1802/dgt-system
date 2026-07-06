@@ -6,6 +6,7 @@ use App\Models\Card;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -21,7 +22,7 @@ class TaskRejectedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', 'database', 'broadcast'];
     }
 
     /**
@@ -50,6 +51,17 @@ class TaskRejectedNotification extends Notification implements ShouldQueue
             'rejected_by' => $this->rejectedBy->name,
             'reason'      => $this->reason,
             'type'        => 'task_rejected',
+            'title'       => 'Task needs revision',
+            'message'     => "{$this->rejectedBy->name} rejected {$this->card->title}",
         ];
+    }
+
+    public function toBroadcast(object $notifiable): BroadcastMessage
+    {
+        return new BroadcastMessage([
+            'id' => $this->id,
+            'data' => $this->toArray($notifiable),
+            'created_at' => now()->toIso8601String(),
+        ]);
     }
 }

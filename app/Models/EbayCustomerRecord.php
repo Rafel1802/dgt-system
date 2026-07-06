@@ -22,6 +22,7 @@ class EbayCustomerRecord extends Model
 
     protected $fillable = [
         'tab_type',
+        'customer_id',
         'n', 'username', 'buyer_name', 'informations', 'email',
         'ebay_store_id', 'order_id', 'summary', 'sku_number',
         'date', 'order_date',
@@ -87,6 +88,11 @@ class EbayCustomerRecord extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(EbayStore::class, 'ebay_store_id')->withTrashed();
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class)->withTrashed();
     }
 
     public function creator(): BelongsTo

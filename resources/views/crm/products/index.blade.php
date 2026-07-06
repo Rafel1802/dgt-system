@@ -58,11 +58,26 @@
     {{ session('success') }}
   </div>
   @endif
+  @if(session('error'))
+  <div class="mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 text-sm font-medium flex items-center gap-2">
+    <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>
+    {{ session('error') }}
+  </div>
+  @endif
 
   {{-- ── Import Form (collapsible) ──────────────────────────────────────── --}}
   <div x-show="showImport" x-transition x-cloak class="card p-5 mb-5">
-    <h3 class="font-semibold text-slate-700 mb-3">Import Products</h3>
-    <form method="POST" action="{{ route('crm.products.import') }}" enctype="multipart/form-data" class="flex flex-col gap-4" onsubmit="return confirm('Are you sure you want to import products? This will update existing products based on SKU or add new ones.')">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+      <div>
+        <h3 class="font-semibold text-slate-800">Import Products</h3>
+        <p class="text-xs text-slate-400 mt-1">Preview Google Sheets or CSV rows before they are saved.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="{{ route('crm.products.import.template.xlsx') }}" class="btn btn-primary text-sm">Google Sheets Template</a>
+        <a href="{{ route('crm.products.import.template') }}" class="btn btn-secondary text-sm">CSV Template</a>
+      </div>
+    </div>
+    <form method="POST" action="{{ route('crm.products.import') }}" enctype="multipart/form-data" class="flex flex-col gap-4">
       @csrf
       <div class="flex flex-wrap items-end gap-4">
         <div class="flex-1 min-w-[200px]">
@@ -79,12 +94,117 @@
       </div>
       
       <div class="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
-        <button type="submit" class="btn btn-primary">Upload & Import</button>
-        <a href="{{ route('crm.products.import.template') }}" class="btn btn-secondary">Download CSV Template</a>
+        <button type="submit" class="btn btn-primary">Preview Import</button>
+        <span class="text-xs text-slate-400">Nothing is saved until you confirm after preview.</span>
       </div>
     </form>
-    <p class="text-xs text-slate-400 mt-2">Required Columns: name. Optional Columns: sku, category_name, description, brand, model, year, condition, price, currency</p>
+    <div class="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3">
+      <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Required template columns</p>
+      <p class="text-sm text-slate-700 mt-1 font-mono">NO, name, sku, category_name, brand, price, currency, product_image</p>
+      <p class="text-xs text-slate-400 mt-2">Duplicate products are skipped. Category names must match existing categories; case, spacing, and small typos are handled automatically.</p>
+      <p class="text-xs text-slate-400 mt-1">For Google Sheets, download the template above, upload/open it in Sheets, then paste its public share URL here when ready.</p>
+      @if($categories->count())
+      <div class="flex flex-wrap gap-1.5 mt-3">
+        @foreach($categories as $cat)
+          <span class="category-badge bg-white text-slate-600 border border-slate-200">{{ $cat->name }}</span>
+        @endforeach
+      </div>
+      @endif
+    </div>
   </div>
+
+  @if($preview = session('product_import_preview'))
+  <div class="card p-5 mb-5 border border-indigo-100">
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">Import Preview</p>
+        <h3 class="font-bold text-slate-800 mt-1">{{ $preview['source'] }}</h3>
+        <p class="text-xs text-slate-400 mt-1">Review the result before products are added to CRM.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="{{ route('crm.products.index') }}" class="btn btn-secondary">Cancel</a>
+        <form method="POST" action="{{ route('crm.products.import') }}" data-confirm="Import the ready products now? Duplicates and failed rows will not be saved.">
+          @csrf
+          <input type="hidden" name="confirm_import" value="1">
+          <button type="submit" class="btn btn-primary" {{ $preview['importable_count'] < 1 ? 'disabled' : '' }}>
+            Import {{ $preview['importable_count'] }} Ready Products
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="grid gap-3 sm:grid-cols-4 mb-4">
+      <div class="rounded-xl bg-slate-50 border border-slate-200 p-3">
+        <p class="text-xs font-bold text-slate-400 uppercase">Rows</p>
+        <p class="text-2xl font-black text-slate-800">{{ $preview['total'] }}</p>
+      </div>
+      <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+        <p class="text-xs font-bold text-emerald-500 uppercase">Ready</p>
+        <p class="text-2xl font-black text-emerald-700">{{ $preview['importable_count'] }}</p>
+      </div>
+      <div class="rounded-xl bg-amber-50 border border-amber-200 p-3">
+        <p class="text-xs font-bold text-amber-500 uppercase">Duplicates</p>
+        <p class="text-2xl font-black text-amber-700">{{ $preview['duplicate_count'] }}</p>
+      </div>
+      <div class="rounded-xl bg-rose-50 border border-rose-200 p-3">
+        <p class="text-xs font-bold text-rose-500 uppercase">Failed</p>
+        <p class="text-2xl font-black text-rose-700">{{ $preview['failed_count'] }}</p>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+      <table class="w-full text-xs">
+        <thead class="bg-slate-50 text-slate-500 uppercase tracking-wide">
+          <tr>
+            <th class="px-3 py-2 text-left">Row</th>
+            <th class="px-3 py-2 text-left">Status</th>
+            <th class="px-3 py-2 text-left">Product</th>
+            <th class="px-3 py-2 text-left">SKU</th>
+            <th class="px-3 py-2 text-left">Category</th>
+            <th class="px-3 py-2 text-left">Brand</th>
+            <th class="px-3 py-2 text-left">Price</th>
+            <th class="px-3 py-2 text-left">Image</th>
+            <th class="px-3 py-2 text-left">Message</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @foreach($preview['rows'] as $row)
+          <tr class="bg-white">
+            <td class="px-3 py-2 text-slate-400">{{ $row['row_number'] }}</td>
+            <td class="px-3 py-2">
+              @if($row['status'] === 'ready')
+                <span class="category-badge bg-emerald-100 text-emerald-700">Ready</span>
+              @elseif($row['status'] === 'duplicate')
+                <span class="category-badge bg-amber-100 text-amber-700">Duplicate</span>
+              @else
+                <span class="category-badge bg-rose-100 text-rose-700">Failed</span>
+              @endif
+            </td>
+            <td class="px-3 py-2 font-semibold text-slate-700">{{ $row['name'] ?: '—' }}</td>
+            <td class="px-3 py-2 font-mono text-slate-500">{{ $row['sku'] ?: '—' }}</td>
+            <td class="px-3 py-2 text-slate-600">{{ $row['category_name'] ?: '—' }}</td>
+            <td class="px-3 py-2 text-slate-500">{{ $row['brand'] ?: '—' }}</td>
+            <td class="px-3 py-2 text-slate-500">
+              {{ $row['price'] !== null ? number_format((float) $row['price'], 2) . ' ' . $row['currency'] : '—' }}
+            </td>
+            <td class="px-3 py-2 text-slate-500">
+              @if(!empty($row['product_image']))
+                <a href="{{ $row['product_image'] }}" target="_blank" class="text-indigo-600 hover:underline">View</a>
+              @else
+                —
+              @endif
+            </td>
+            <td class="px-3 py-2 text-slate-500">{{ $row['message'] }}</td>
+          </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </div>
+    @if($preview['total'] > count($preview['rows']))
+      <p class="text-xs text-slate-400 mt-2">Showing the first {{ count($preview['rows']) }} rows only.</p>
+    @endif
+  </div>
+  @endif
 
   {{-- ── Manage Categories Modal ────────────────────────────────────────── --}}
   <div x-show="showCatModal" x-transition x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
@@ -109,9 +229,17 @@
               <label class="form-label">Category Name</label>
               <input type="text" name="name" x-model="catForm.name" class="form-input" placeholder="e.g. Excavators" required>
             </div>
-            <div>
+            <div class="min-w-[170px]">
               <label class="form-label">Color</label>
-              <input type="color" name="color" x-model="catForm.color" class="h-10 w-14 rounded-lg border border-slate-300 cursor-pointer p-1">
+              <div class="flex items-center gap-2">
+                <span class="h-10 w-10 rounded-xl border border-slate-200 shadow-inner" :style="`background:${catForm.color || '#6366f1'}`"></span>
+                <input type="text" name="color" x-model="catForm.color" class="form-input w-28 py-2 text-sm font-mono" placeholder="#6366f1" maxlength="20">
+              </div>
+              <div class="mt-2 flex flex-wrap gap-1.5">
+                <template x-for="swatch in colorSwatches" :key="swatch">
+                  <button type="button" @click="catForm.color = swatch" class="h-6 w-6 rounded-lg border border-white shadow ring-1 ring-slate-200" :style="`background:${swatch}`" :title="swatch"></button>
+                </template>
+              </div>
             </div>
             <div class="flex-1 min-w-[200px]">
               <label class="form-label">Icon URL (optional)</label>
@@ -141,6 +269,28 @@
               </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
+              <div class="flex items-center rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
+                <form action="{{ route('crm.products.categories.reorder', $cat) }}" method="POST">
+                  @csrf @method('PATCH')
+                  <input type="hidden" name="direction" value="up">
+                  <button type="submit"
+                          title="Move up"
+                          class="h-8 w-8 inline-flex items-center justify-center text-slate-500 hover:bg-white hover:text-indigo-600 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-slate-500"
+                          {{ $loop->first ? 'disabled' : '' }}>
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>
+                  </button>
+                </form>
+                <form action="{{ route('crm.products.categories.reorder', $cat) }}" method="POST" class="border-l border-slate-200">
+                  @csrf @method('PATCH')
+                  <input type="hidden" name="direction" value="down">
+                  <button type="submit"
+                          title="Move down"
+                          class="h-8 w-8 inline-flex items-center justify-center text-slate-500 hover:bg-white hover:text-indigo-600 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-slate-500"
+                          {{ $loop->last ? 'disabled' : '' }}>
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>
+                  </button>
+                </form>
+              </div>
               <button type="button" @click="editCat({{ $cat->id }}, '{{ addslashes($cat->name) }}', '{{ $cat->color }}', '{{ $cat->icon_url }}', '{{ addslashes($cat->description) }}')" class="btn btn-secondary btn-sm text-xs px-3">Edit</button>
               <form action="{{ route('crm.products.categories.destroy', $cat) }}" method="POST" data-confirm="Are you sure you want to delete the category '{{ addslashes($cat->name) }}'? (Products inside will NOT be deleted, they will just become uncategorized)">
                 @csrf @method('DELETE')
@@ -220,7 +370,6 @@
             <th class="px-5 py-3 text-left">Product</th>
             <th class="px-4 py-3 text-left">SKU</th>
             <th class="px-4 py-3 text-left">Category</th>
-            <th class="px-4 py-3 text-left">Condition</th>
             <th class="px-4 py-3 text-left">Price</th>
             <th class="px-4 py-3 text-left">Status</th>
             <th class="px-4 py-3 text-right">Actions</th>
@@ -266,7 +415,6 @@
               <span class="text-slate-300 text-xs">Uncategorized</span>
               @endif
             </td>
-            <td class="px-4 py-3 text-xs text-slate-500 capitalize">{{ $product->condition ?? '—' }}</td>
             <td class="px-4 py-3 text-xs text-slate-600">
               @if($product->price)
                 {{ number_format($product->price, 2) }} {{ $product->currency }}
@@ -300,7 +448,7 @@
           </tr>
           @empty
           <tr>
-            <td colspan="7" class="text-center py-16">
+            <td colspan="6" class="text-center py-16">
               <div class="text-5xl mb-3">📦</div>
               <p class="text-slate-500 font-medium">No products found</p>
               <p class="text-slate-400 text-xs mt-1">Create your first product or import from CSV</p>
@@ -334,6 +482,7 @@ function productPage() {
             icon_url: '',
             description: ''
         },
+        colorSwatches: ['#6366f1', '#2563eb', '#0ea5e9', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#111827'],
         openNewCat() {
             this.editCatId = null;
             this.catForm = { name: '', color: '#6366f1', icon_url: '', description: '' };

@@ -357,7 +357,10 @@ class WebsiteController extends Controller
         $validated = $request->validate([
             'error_note' => 'required|string|min:5|max:2000',
             'error_link' => 'nullable|string|max:1000',
+            'error_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         ]);
+        $errorLink = $validated['error_link'] ?? null;
+        $attachment = $this->storeErrorAttachment($request);
 
         $oldStatus = $website->status;
         $isMaintenanceFlow = in_array($oldStatus, [
@@ -371,7 +374,9 @@ class WebsiteController extends Controller
         $website->update([
             'status'                => $newStatus,
             'error_note'            => $validated['error_note'],
-            'error_link'            => $validated['error_link'] ?? null,
+            'error_link'            => $errorLink,
+            'error_attachment_path' => $attachment['path'],
+            'error_attachment_name' => $attachment['name'],
             'error_flagged_at'      => now(),
             'error_flagged_by'      => auth()->id(),
             'error_progress_percent'=> 0,
@@ -383,7 +388,7 @@ class WebsiteController extends Controller
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
             'percent'    => 0,
-            'note'       => "QC Error flagged: {$validated['error_note']}" . ($validated['error_link'] ? " | Link: {$validated['error_link']}" : ''),
+            'note'       => "QC Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : '') . ($attachment['name'] ? " | File: {$attachment['name']}" : ''),
             'created_at' => now(),
         ]);
 
@@ -391,7 +396,7 @@ class WebsiteController extends Controller
             'website_id'   => $website->id,
             'user_id'      => auth()->id(),
             'action'       => 'qc_error',
-            'note'         => "QC Error flagged: {$validated['error_note']}" . ($validated['error_link'] ? " | Link: {$validated['error_link']}" : ''),
+            'note'         => "QC Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : '') . ($attachment['name'] ? " | File: {$attachment['name']}" : ''),
             'old_status'   => $oldStatus,
             'new_status'   => $newStatus,
             'old_progress' => $website->progress_percent,
@@ -412,7 +417,10 @@ class WebsiteController extends Controller
         $validated = $request->validate([
             'error_note' => 'required|string|min:5|max:2000',
             'error_link' => 'nullable|string|max:1000',
+            'error_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         ]);
+        $errorLink = $validated['error_link'] ?? null;
+        $attachment = $this->storeErrorAttachment($request);
 
         $oldStatus = $website->status;
         $isMaintenanceFlow = in_array($oldStatus, [
@@ -426,7 +434,9 @@ class WebsiteController extends Controller
         $website->update([
             'status'                => $newStatus,
             'error_note'            => $validated['error_note'],
-            'error_link'            => $validated['error_link'] ?? null,
+            'error_link'            => $errorLink,
+            'error_attachment_path' => $attachment['path'],
+            'error_attachment_name' => $attachment['name'],
             'error_flagged_at'      => now(),
             'error_flagged_by'      => auth()->id(),
             'error_progress_percent'=> 0,
@@ -438,7 +448,7 @@ class WebsiteController extends Controller
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
             'percent'    => 0,
-            'note'       => "Supervisor Error flagged: {$validated['error_note']}" . ($validated['error_link'] ? " | Link: {$validated['error_link']}" : ''),
+            'note'       => "Supervisor Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : '') . ($attachment['name'] ? " | File: {$attachment['name']}" : ''),
             'created_at' => now(),
         ]);
 
@@ -446,7 +456,7 @@ class WebsiteController extends Controller
             'website_id'   => $website->id,
             'user_id'      => auth()->id(),
             'action'       => 'supervisor_error',
-            'note'         => "Supervisor Error flagged: {$validated['error_note']}" . ($validated['error_link'] ? " | Link: {$validated['error_link']}" : ''),
+            'note'         => "Supervisor Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : '') . ($attachment['name'] ? " | File: {$attachment['name']}" : ''),
             'old_status'   => $oldStatus,
             'new_status'   => $newStatus,
             'old_progress' => $website->progress_percent,
@@ -512,6 +522,8 @@ class WebsiteController extends Controller
     {
         abort_unless(auth()->user()?->canApproveWebsiteQc(), 403);
 
+        $this->deleteErrorAttachment($website);
+
         $oldStatus = $website->status;
         $isMaintenanceFlow = ($oldStatus === Website::STATUS_MAINTENANCE_QC_ERROR);
         $newStatus = $isMaintenanceFlow
@@ -523,6 +535,8 @@ class WebsiteController extends Controller
             'error_progress_percent' => 100,
             'error_note'             => null,
             'error_link'             => null,
+            'error_attachment_path'  => null,
+            'error_attachment_name'  => null,
             'error_flagged_at'       => null,
             'error_flagged_by'       => null,
             'updated_by'             => auth()->id(),
@@ -559,6 +573,8 @@ class WebsiteController extends Controller
     {
         abort_unless(auth()->user()?->canApproveWebsiteSupervisor(), 403);
 
+        $this->deleteErrorAttachment($website);
+
         $oldStatus = $website->status;
         $isMaintenanceFlow = ($oldStatus === Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR);
         $newStatus = $isMaintenanceFlow
@@ -570,6 +586,8 @@ class WebsiteController extends Controller
             'error_progress_percent' => 100,
             'error_note'             => null,
             'error_link'             => null,
+            'error_attachment_path'  => null,
+            'error_attachment_name'  => null,
             'error_flagged_at'       => null,
             'error_flagged_by'       => null,
             'updated_by'             => auth()->id(),
@@ -1024,10 +1042,33 @@ class WebsiteController extends Controller
             Storage::disk('public')->delete($website->logo_path);
         }
 
+        $this->deleteErrorAttachment($website);
+
         $website->delete();
 
         return redirect()->route('websites.index')
             ->with('success', 'Website removed successfully.');
+    }
+
+    private function storeErrorAttachment(Request $request): array
+    {
+        if (! $request->hasFile('error_file')) {
+            return ['path' => null, 'name' => null];
+        }
+
+        $file = $request->file('error_file');
+
+        return [
+            'path' => $file->store('website-error-references', 'public'),
+            'name' => $file->getClientOriginalName(),
+        ];
+    }
+
+    private function deleteErrorAttachment(Website $website): void
+    {
+        if ($website->error_attachment_path && Storage::disk('public')->exists($website->error_attachment_path)) {
+            Storage::disk('public')->delete($website->error_attachment_path);
+        }
     }
 
     // ── CATEGORY ACTIONS ──────────────────────────────────────────────────────

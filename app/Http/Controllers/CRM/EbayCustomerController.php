@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\EbayCustomerRecord;
 use App\Models\EbayStore;
 use App\Models\User;
@@ -52,6 +53,7 @@ class EbayCustomerController extends Controller
             'tabs'    => EbayCustomerRecord::tabs(),
             'columns' => EbayCustomerRecord::columnsForTab($tab),
             'stores'  => EbayStore::active()->orderBy('store_name')->get(),
+            'customers' => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
         ]);
     }
 
@@ -61,6 +63,7 @@ class EbayCustomerController extends Controller
         $cols = EbayCustomerRecord::columnsForTab($tab);
 
         $rules = [];
+        $rules['customer_id'] = ['nullable', 'exists:customers,id'];
         if (in_array('username', $cols))            $rules['username']           = ['nullable', 'string', 'max:255'];
         if (in_array('buyer_name', $cols))          $rules['buyer_name']         = ['nullable', 'string', 'max:255'];
         if (in_array('informations', $cols))        $rules['informations']        = ['nullable', 'string'];
@@ -78,6 +81,7 @@ class EbayCustomerController extends Controller
         if (in_array('n', $cols))                   $rules['n']                  = ['nullable', 'integer'];
 
         $validated = $request->validate($rules);
+        $this->fillCustomerSnapshot($validated);
         $validated['tab_type']   = $tab;
         $validated['created_by'] = auth()->id();
 
@@ -102,6 +106,7 @@ class EbayCustomerController extends Controller
             'tabs'    => EbayCustomerRecord::tabs(),
             'columns' => EbayCustomerRecord::columnsForTab($tab),
             'stores'  => EbayStore::active()->orderBy('store_name')->get(),
+            'customers' => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
         ]);
     }
 
@@ -111,6 +116,7 @@ class EbayCustomerController extends Controller
         $cols = EbayCustomerRecord::columnsForTab($tab);
 
         $rules = [];
+        $rules['customer_id'] = ['nullable', 'exists:customers,id'];
         if (in_array('username', $cols))            $rules['username']           = ['nullable', 'string', 'max:255'];
         if (in_array('buyer_name', $cols))          $rules['buyer_name']         = ['nullable', 'string', 'max:255'];
         if (in_array('informations', $cols))        $rules['informations']        = ['nullable', 'string'];
@@ -128,6 +134,7 @@ class EbayCustomerController extends Controller
         if (in_array('n', $cols))                   $rules['n']                  = ['nullable', 'integer'];
 
         $validated = $request->validate($rules);
+        $this->fillCustomerSnapshot($validated);
         $validated['updated_by'] = auth()->id();
 
         $record->update($validated);
@@ -145,5 +152,29 @@ class EbayCustomerController extends Controller
 
         return redirect()->route('crm.ebay.customers.index', $tab)
             ->with('success', 'Record deleted.');
+    }
+
+    private function fillCustomerSnapshot(array &$validated): void
+    {
+        if (empty($validated['customer_id'])) {
+            return;
+        }
+
+        $customer = Customer::find($validated['customer_id']);
+        if (! $customer) {
+            return;
+        }
+
+        if (array_key_exists('buyer_name', $validated)) {
+            $validated['buyer_name'] = $customer->name;
+        }
+
+        if (array_key_exists('email', $validated)) {
+            $validated['email'] = $customer->email;
+        }
+
+        if (array_key_exists('username', $validated)) {
+            $validated['username'] = $customer->name;
+        }
     }
 }

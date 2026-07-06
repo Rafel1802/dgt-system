@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Events\BoardUpdated;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\BroadcastMessage;
@@ -60,10 +61,6 @@ class BoardActivityNotification extends Notification
         $actor = auth()->user();
         if (!$actor) return;
 
-        if (!$force && $board->notifications_enabled === false) {
-            return;
-        }
-
         $payload = [
             'actor_id'     => $actor->id,
             'actor_name'   => $actor->name,
@@ -81,6 +78,12 @@ class BoardActivityNotification extends Notification
             'link'         => route('boards.show', $board->slug) . ($card ? "?card={$card->id}" : ""),
             'created_at'   => now()->toIso8601String(),
         ];
+
+        event(new BoardUpdated($board->id, $board->slug, $action, $card?->id, $actor->id));
+
+        if (!$force && $board->notifications_enabled === false) {
+            return;
+        }
 
         $board->loadMissing('members');
         foreach ($board->members as $member) {

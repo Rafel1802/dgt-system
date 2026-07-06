@@ -74,6 +74,8 @@ class Website extends Model
         'notes',
         'error_note',
         'error_link',
+        'error_attachment_path',
+        'error_attachment_name',
         'error_flagged_at',
         'error_flagged_by',
         'error_progress_percent',

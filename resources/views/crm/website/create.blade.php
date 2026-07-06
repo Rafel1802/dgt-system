@@ -35,6 +35,7 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
                 'fieldName' => 'customer_id',
                 'required'  => true,
                 'allowCreate' => true,
+                'quickCreateSource' => \App\Enums\CustomerSource::Website->value,
             ])
             @error('customer_id')<p class="form-error">{{ $message }}</p>@enderror
           </div>

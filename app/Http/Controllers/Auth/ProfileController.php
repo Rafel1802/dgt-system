@@ -68,6 +68,7 @@ class ProfileController extends Controller
         } elseif ($request->hasFile('avatar')) {
             $this->deleteLocalAvatar($user->avatar);
             $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
+            $this->publishLocalAvatar($validated['avatar']);
         } elseif ($avatarUrl !== '') {
             $this->deleteLocalAvatar($user->avatar);
             $validated['avatar'] = $avatarUrl;
@@ -94,6 +95,34 @@ class ProfileController extends Controller
         }
 
         Storage::disk('public')->delete($path);
+        @unlink(public_path('storage/' . $path));
+        @unlink(base_path('storage/' . $path));
+    }
+
+    private function publishLocalAvatar(string $path): void
+    {
+        $source = Storage::disk('public')->path($path);
+        $targets = [
+            public_path('storage/' . $path),
+            base_path('storage/' . $path),
+        ];
+
+        foreach ($targets as $target) {
+            if ($target === $source) {
+                continue;
+            }
+
+            if (! is_file($source)) {
+                continue;
+            }
+
+            $directory = dirname($target);
+            if (! is_dir($directory)) {
+                @mkdir($directory, 0755, true);
+            }
+
+            @copy($source, $target);
+        }
     }
 
     public function settings(): View

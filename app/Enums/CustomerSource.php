@@ -7,6 +7,7 @@ enum CustomerSource: string
     case Website    = 'website';
     case Referral   = 'referral';
     case Ebay       = 'ebay';
+    case Logistic   = 'logistic';
     case SocialMedia = 'social_media';
     case ColdCall   = 'cold_call';
     case WalkIn     = 'walk_in';
@@ -20,6 +21,7 @@ enum CustomerSource: string
             self::Website     => 'Website',
             self::Referral    => 'Referral',
             self::Ebay        => 'eBay',
+            self::Logistic    => 'Logistic',
             self::SocialMedia => 'Social Media',
             self::ColdCall    => 'Cold Call',
             self::WalkIn      => 'Walk In',
@@ -35,6 +37,7 @@ enum CustomerSource: string
             self::Website     => '🌐',
             self::Referral    => '👥',
             self::Ebay        => '🛒',
+            self::Logistic    => '🚚',
             self::SocialMedia => '📱',
             self::ColdCall    => '📞',
             self::WalkIn      => '🚶',

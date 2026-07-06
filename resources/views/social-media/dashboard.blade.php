@@ -177,21 +177,21 @@
                                 </span>
                             </div>
                         </div>
-                        <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg">
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden bg-white ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700 text-white font-bold text-lg p-1.5">
                             @if($classIconSrc)
                                 <img
                                     src="{{ $classIconSrc }}"
                                     alt="{{ $class->name }}"
-                                    class="w-full h-full object-cover bg-white"
+                                    class="max-h-full max-w-full object-contain rounded-lg"
                                     loading="lazy"
                                     referrerpolicy="no-referrer"
                                     onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"
                                 >
-                                <span class="hidden">{{ $classInitials }}</span>
+                                <span class="hidden h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classInitials }}</span>
                             @elseif($classIcon !== '')
-                                <span>{{ $classIcon }}</span>
+                                <span class="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classIcon }}</span>
                             @else
-                                <span>{{ $classInitials }}</span>
+                                <span class="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classInitials }}</span>
                             @endif
                         </div>
                     </div>

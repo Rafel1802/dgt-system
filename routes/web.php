@@ -64,7 +64,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::view('/mac-app', 'downloads.mac-app')->name('downloads.mac-app');
         Route::get('/mac-app/download', function () {
-            return redirect(asset('downloads/KIUQ-SYSTEM-1.0.0.dmg'));
+            $version = '1.0.5';
+
+            return redirect(asset("downloads/KIUQ-SYSTEM-{$version}.dmg"));
         })->name('downloads.mac-app.file');
 
         // Polymorphic attachments download/delete/view
@@ -142,6 +144,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/personal-report', [\App\Http\Controllers\Board\BoardExportController::class, 'personalReport'])->name('reports.personal');
             Route::get('/personal-report/export', [\App\Http\Controllers\Board\BoardExportController::class, 'exportPersonalReport'])->name('reports.personal.export');
             Route::get('/{board:slug}', [BoardController::class, 'show'])->name('show');
+            Route::get('/{board:slug}/snapshot', [BoardController::class, 'snapshot'])->name('snapshot');
             Route::patch('/{board:slug}', [BoardController::class, 'update'])->name('update');
             Route::patch('/{board:slug}/toggle-hidden', [BoardController::class, 'toggleHidden'])->name('toggle-hidden');
             Route::delete('/{board:slug}', [BoardController::class, 'destroy'])->name('destroy');
@@ -170,6 +173,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::delete('/cards/{card}', [BoardCardController::class, 'destroy'])->name('cards.destroy');
             Route::post('/cards/{card}/move', [BoardCardController::class, 'move'])->name('cards.move');
             Route::post('/cards/{card}/copy', [BoardCardController::class, 'copy'])->name('cards.copy');
+            Route::post('/cards/{card}/block-complete', [BoardCardController::class, 'completeBlock'])->name('cards.block-complete');
             Route::post('/cards/{card}/members', [BoardCardController::class, 'toggleMember'])->name('cards.members');
             Route::post('/cards/{card}/labels', [BoardCardController::class, 'toggleLabel'])->name('cards.labels');
 
@@ -467,9 +471,11 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::put('/{product}', [ProductController::class, 'update'])->name('update');
                     Route::delete('/{product}', [ProductController::class, 'destroy'])->name('destroy');
                     Route::post('/categories', [ProductController::class, 'storeCategory'])->name('categories.store');
+                    Route::patch('/categories/{category}/reorder', [ProductController::class, 'reorderCategory'])->name('categories.reorder');
                     Route::put('/categories/{category}', [ProductController::class, 'updateCategory'])->name('categories.update');
                     Route::delete('/categories/{category}', [ProductController::class, 'destroyCategory'])->name('categories.destroy');
                     Route::get('/import/template', [ProductController::class, 'downloadTemplate'])->name('import.template');
+                    Route::get('/import/template-xlsx', [ProductController::class, 'downloadGoogleSheetsTemplate'])->name('import.template.xlsx');
                     Route::post('/import', [ProductController::class, 'import'])->name('import');
                     Route::get('/export', [ProductController::class, 'export'])->name('export');
                     Route::get('/search', [ProductController::class, 'search'])->name('search');

@@ -27,11 +27,22 @@ flutter build macos --release --dart-define=APP_BASE_URL="$APP_BASE_URL"
 rm -rf "$DMG_DIR"
 mkdir -p "$DMG_DIR"
 
+STAGE_DIR="$DMG_DIR/stage"
+mkdir -p "$STAGE_DIR"
+cp -R "$APP_PATH" "$STAGE_DIR/$APP_NAME.app"
+ln -s /Applications "$STAGE_DIR/Applications"
+
+if command -v codesign >/dev/null 2>&1; then
+  codesign --force --deep --sign - "$STAGE_DIR/$APP_NAME.app" || true
+fi
+
 hdiutil create \
   -volname "$APP_NAME" \
-  -srcfolder "$APP_PATH" \
+  -srcfolder "$STAGE_DIR" \
   -ov \
   -format UDZO \
   "$DMG_PATH"
+
+rm -rf "$STAGE_DIR"
 
 echo "$DMG_PATH"

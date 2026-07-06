@@ -129,6 +129,14 @@ class User extends Authenticatable
                 return asset('storage/' . $normalized);
             }
 
+            if (is_file(public_path('storage/' . $normalized))) {
+                return asset('storage/' . $normalized);
+            }
+
+            if (is_file(base_path('storage/' . $normalized))) {
+                return asset('storage/' . $normalized);
+            }
+
             if (is_file(public_path($normalized))) {
                 return asset($normalized);
             }

@@ -200,11 +200,8 @@
             </template>
           </div>
           <div class="mt-4 grid grid-cols-[auto_1fr] gap-2">
-            <input x-model="boardMenu.backgroundColorDraft"
-                   @input="boardMenu.backgroundType = 'color'; boardMenu.backgroundValue = boardMenu.backgroundColorDraft"
-                   type="color"
-                   class="h-10 w-12 cursor-pointer rounded-lg border border-slate-200 bg-white p-1"
-                   :disabled="!board.can_manage_board">
+            <span class="h-10 w-12 rounded-lg border border-slate-200 bg-white shadow-inner"
+                  :style="'background-color: ' + boardMenu.backgroundColorDraft"></span>
             <input x-model="boardMenu.backgroundColorDraft"
                    @input="boardMenu.backgroundType = 'color'; boardMenu.backgroundValue = boardMenu.backgroundColorDraft"
                    type="text"
@@ -316,7 +313,8 @@
             </template>
           </div>
           <div class="mt-3 grid grid-cols-[auto_1fr_auto] gap-2">
-            <input x-model="boardMenu.backgroundColorDraft" type="color" class="h-11 w-12 cursor-pointer rounded-xl border border-slate-200 bg-white p-1">
+            <span class="h-11 w-12 rounded-xl border border-slate-200 bg-white shadow-inner"
+                  :style="'background-color: ' + boardMenu.backgroundColorDraft"></span>
             <input x-model="boardMenu.backgroundColorDraft" type="text" maxlength="7" class="form-input text-sm" placeholder="#2F68ED">
             <button type="button" @click="saveBoardMenuBackground('color', boardMenu.backgroundColorDraft)" class="btn btn-primary flex-shrink-0" :disabled="boardMenu.busy">Apply</button>
           </div>

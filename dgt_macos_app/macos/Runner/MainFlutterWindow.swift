@@ -1,6 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import UserNotifications
+import UniformTypeIdentifiers
 
 class MainFlutterWindow: NSWindow {
   override func awakeFromNib() {
@@ -20,11 +21,32 @@ class MainFlutterWindow: NSWindow {
 
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
+    installWindowDragHandle()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     setupNativeNotificationsChannel(flutterViewController)
 
     super.awakeFromNib()
+  }
+
+  private func installWindowDragHandle() {
+    guard let contentView = self.contentView else {
+      return
+    }
+
+    let dragHandle = WindowDragHandleView()
+    dragHandle.translatesAutoresizingMaskIntoConstraints = false
+    dragHandle.wantsLayer = true
+    dragHandle.layer?.backgroundColor = NSColor.clear.cgColor
+    dragHandle.toolTip = "Drag KIUQ SYSTEM window"
+
+    contentView.addSubview(dragHandle, positioned: .above, relativeTo: nil)
+    NSLayoutConstraint.activate([
+      dragHandle.topAnchor.constraint(equalTo: contentView.topAnchor),
+      dragHandle.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+      dragHandle.widthAnchor.constraint(equalToConstant: 360),
+      dragHandle.heightAnchor.constraint(equalToConstant: 54)
+    ])
   }
 
   private func setupNativeNotificationsChannel(_ flutterViewController: FlutterViewController) {
@@ -71,6 +93,7 @@ class MainFlutterWindow: NSWindow {
     let subtitle = args["subtitle"] as? String ?? ""
     let body = args["body"] as? String ?? "New notification"
     let link = args["link"] as? String ?? ""
+    let avatarUrl = args["avatarUrl"] as? String ?? ""
 
     UNUserNotificationCenter.current().getNotificationSettings { settings in
       if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
@@ -80,6 +103,7 @@ class MainFlutterWindow: NSWindow {
           subtitle: subtitle,
           body: body,
           link: link,
+          avatarUrl: avatarUrl,
           result: result
         )
       } else {
@@ -88,7 +112,8 @@ class MainFlutterWindow: NSWindow {
           title: title,
           subtitle: subtitle,
           body: body,
-          link: link
+          link: link,
+          avatarUrl: avatarUrl
         )
         DispatchQueue.main.async {
           result(true)
@@ -103,6 +128,7 @@ class MainFlutterWindow: NSWindow {
     subtitle: String,
     body: String,
     link: String,
+    avatarUrl: String,
     result: @escaping FlutterResult
   ) {
     let content = UNMutableNotificationContent()
@@ -112,27 +138,34 @@ class MainFlutterWindow: NSWindow {
     content.sound = .default
     content.userInfo = ["link": link]
 
-    let request = UNNotificationRequest(
-      identifier: identifier,
-      content: content,
-      trigger: nil
-    )
+    makeNotificationAttachment(from: avatarUrl) { attachment in
+      if let attachment = attachment {
+        content.attachments = [attachment]
+      }
 
-    UNUserNotificationCenter.current().add(request) { error in
-      DispatchQueue.main.async {
-        if let error = error {
-          NSLog("DGT native notification show error: %@", error.localizedDescription)
-          self.showLegacyNotification(
-            identifier: identifier,
-            title: title,
-            subtitle: subtitle,
-            body: body,
-            link: link
-          )
-          result(true)
-        } else {
-          NSLog("DGT native notification scheduled: %@", identifier)
-          result(true)
+      let request = UNNotificationRequest(
+        identifier: identifier,
+        content: content,
+        trigger: nil
+      )
+
+      UNUserNotificationCenter.current().add(request) { error in
+        DispatchQueue.main.async {
+          if let error = error {
+            NSLog("DGT native notification show error: %@", error.localizedDescription)
+            self.showLegacyNotification(
+              identifier: identifier,
+              title: title,
+              subtitle: subtitle,
+              body: body,
+              link: link,
+              avatarUrl: avatarUrl
+            )
+            result(true)
+          } else {
+            NSLog("DGT native notification scheduled: %@", identifier)
+            result(true)
+          }
         }
       }
     }
@@ -143,7 +176,8 @@ class MainFlutterWindow: NSWindow {
     title: String,
     subtitle: String,
     body: String,
-    link: String
+    link: String,
+    avatarUrl: String
   ) {
     let notification = NSUserNotification()
     notification.identifier = identifier
@@ -152,7 +186,129 @@ class MainFlutterWindow: NSWindow {
     notification.informativeText = body
     notification.soundName = NSUserNotificationDefaultSoundName
     notification.userInfo = ["link": link]
+    if let image = legacyNotificationImage(from: avatarUrl) {
+      notification.contentImage = image
+    }
     NSUserNotificationCenter.default.deliver(notification)
     NSLog("DGT legacy notification delivered: %@", identifier)
+  }
+
+  private func makeNotificationAttachment(
+    from rawValue: String,
+    completion: @escaping (UNNotificationAttachment?) -> Void
+  ) {
+    let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      completion(nil)
+      return
+    }
+
+    if trimmed.hasPrefix("data:image/") {
+      completion(makeAttachmentFromDataUri(trimmed))
+      return
+    }
+
+    guard let url = URL(string: trimmed), ["http", "https"].contains(url.scheme?.lowercased()) else {
+      completion(nil)
+      return
+    }
+
+    URLSession.shared.dataTask(with: url) { data, response, _ in
+      guard let data = data, !data.isEmpty else {
+        completion(nil)
+        return
+      }
+
+      let mimeType = (response as? HTTPURLResponse)?.mimeType
+      completion(self.makeAttachment(from: data, mimeType: mimeType, suggestedExtension: url.pathExtension))
+    }.resume()
+  }
+
+  private func makeAttachmentFromDataUri(_ dataUri: String) -> UNNotificationAttachment? {
+    let parts = dataUri.split(separator: ",", maxSplits: 1).map(String.init)
+    guard parts.count == 2, let data = Data(base64Encoded: parts[1]) else {
+      return nil
+    }
+
+    let mimeType = parts[0]
+      .replacingOccurrences(of: "data:", with: "")
+      .components(separatedBy: ";")
+      .first
+
+    return makeAttachment(from: data, mimeType: mimeType, suggestedExtension: nil)
+  }
+
+  private func makeAttachment(
+    from data: Data,
+    mimeType: String?,
+    suggestedExtension: String?
+  ) -> UNNotificationAttachment? {
+    let ext = preferredImageExtension(mimeType: mimeType, suggestedExtension: suggestedExtension)
+    let fileUrl = URL(fileURLWithPath: NSTemporaryDirectory())
+      .appendingPathComponent("kiuq-notification-avatar-\(UUID().uuidString).\(ext)")
+
+    do {
+      try data.write(to: fileUrl, options: [.atomic])
+      return try UNNotificationAttachment(identifier: "kiuq-user-profile", url: fileUrl)
+    } catch {
+      NSLog("DGT notification avatar attachment error: %@", error.localizedDescription)
+      return nil
+    }
+  }
+
+  private func preferredImageExtension(mimeType: String?, suggestedExtension: String?) -> String {
+    let ext = (suggestedExtension ?? "").lowercased()
+    if ["png", "jpg", "jpeg", "gif", "heic", "webp"].contains(ext) {
+      return ext == "jpg" ? "jpeg" : ext
+    }
+
+    switch mimeType?.lowercased() {
+    case "image/png":
+      return "png"
+    case "image/gif":
+      return "gif"
+    case "image/heic":
+      return "heic"
+    case "image/webp":
+      return "webp"
+    default:
+      return "jpeg"
+    }
+  }
+
+  private func legacyNotificationImage(from rawValue: String) -> NSImage? {
+    let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      return nil
+    }
+
+    if trimmed.hasPrefix("data:image/") {
+      let parts = trimmed.split(separator: ",", maxSplits: 1).map(String.init)
+      guard parts.count == 2, let data = Data(base64Encoded: parts[1]) else {
+        return nil
+      }
+      return NSImage(data: data)
+    }
+
+    guard let url = URL(string: trimmed), let data = try? Data(contentsOf: url) else {
+      return nil
+    }
+
+    return NSImage(data: data)
+  }
+}
+
+final class WindowDragHandleView: NSView {
+  override var acceptsFirstResponder: Bool {
+    true
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    if event.clickCount == 2 {
+      window?.performZoom(nil)
+      return
+    }
+
+    window?.performDrag(with: event)
   }
 }

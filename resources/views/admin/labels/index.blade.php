@@ -100,7 +100,8 @@
         <div>
             <label class="form-label text-xs">Color Hex</label>
             <div class="flex items-center gap-3">
-                <input type="color" x-model="form.color" class="w-10 h-10 rounded cursor-pointer border-0 p-0">
+                <span class="w-10 h-10 rounded border border-slate-200 shadow-inner"
+                      :style="'background-color: ' + form.color"></span>
                 <input type="text" name="color" x-model="form.color" required pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" class="form-input py-2 text-sm flex-1 font-mono uppercase" placeholder="#ef4444">
             </div>
         </div>
