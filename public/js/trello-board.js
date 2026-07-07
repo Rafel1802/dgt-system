@@ -303,7 +303,8 @@ function trelloBoard(config) {
 
       // Initialize SortableJS drag-and-drop
       this.initSortable();
-      this.bindRealtimeBoardUpdates();
+      // Disable real-time board updates to prevent auto-refresh wiping out card edits
+      // this.bindRealtimeBoardUpdates();
 
       // Auto-open card if passed in query param
       const urlParams = new URLSearchParams(window.location.search);
@@ -1082,7 +1083,7 @@ function trelloBoard(config) {
           order: order
         }, { silentErrors: true });
         if (reorderRes._ok === false) {
-          setTimeout(() => window.location.reload(), 800);
+          // setTimeout(() => window.location.reload(), 800);
           return;
         }
 
@@ -1094,7 +1095,7 @@ function trelloBoard(config) {
             position: newIndex
           }, { silentErrors: true });
           if (res._ok === false) {
-            setTimeout(() => window.location.reload(), 800);
+            // setTimeout(() => window.location.reload(), 800);
             return;
           }
           
@@ -1752,7 +1753,7 @@ function trelloBoard(config) {
       if (res.message || res.card || res.list) {
         window.showToast(type === 'list' ? 'List restored.' : 'Card restored.');
         await this.fetchArchivedItems();
-        setTimeout(() => window.location.reload(), 500);
+        // setTimeout(() => window.location.reload(), 500);
       }
     },
 
@@ -2430,7 +2431,7 @@ function trelloBoard(config) {
       try {
         const res = await this.api(`/boards/cards/${this.activeCard.id}`, 'GET', null, { silentErrors: true });
         if (res.card && JSON.stringify(this.activeCard) !== JSON.stringify(res.card)) {
-          this.activeCard = res.card;
+          Object.assign(this.activeCard, res.card);
         }
         if (res.activities && JSON.stringify(this.cardActivities) !== JSON.stringify(res.activities)) {
           this.cardActivities = res.activities;
@@ -3584,7 +3585,7 @@ function trelloBoard(config) {
       if (element) element.disabled = false;
       if (res.message) {
         window.showToast(res.message);
-        setTimeout(() => window.location.reload(), 800);
+        // setTimeout(() => window.location.reload(), 800);
       } else if (res.error) {
         window.showToast(res.error, 'error');
       }
@@ -3597,7 +3598,7 @@ function trelloBoard(config) {
       if (element) element.disabled = false;
       if (res.message) {
         window.showToast(res.message);
-        setTimeout(() => window.location.reload(), 800);
+        // setTimeout(() => window.location.reload(), 800);
       } else if (res.error) {
         window.showToast(res.error, 'error');
       }
@@ -3621,9 +3622,10 @@ function trelloBoard(config) {
         if (!document.hidden) triggerRefresh('visible');
       });
 
-      this.realtimePollTimer = setInterval(() => {
-        if (!document.hidden) triggerRefresh('poll');
-      }, 5000);
+      // Polling removed to prevent UI blinking. Real-time relies purely on WebSockets/Pusher.
+      // this.realtimePollTimer = setInterval(() => {
+      //   if (!document.hidden) triggerRefresh('poll');
+      // }, 5000);
     },
 
     connectBoardRealtimeChannel() {
@@ -3693,11 +3695,71 @@ function trelloBoard(config) {
       this.allWorkspaceMembers = payload.workspaceMembers || this.allWorkspaceMembers;
       this.allWorkspaces = payload.allWorkspaces || this.allWorkspaces;
 
-      if (payload.lists && JSON.stringify(this.lists) !== JSON.stringify(payload.lists)) {
-        this.lists = payload.lists;
-        this.$nextTick(() => {
-          this.initSortable();
+      if (payload.lists) {
+        let listStructureChanged = false;
+        const newLists = payload.lists;
+        const newListIds = new Set(newLists.map(l => l.id));
+
+        // 1. Remove deleted lists
+        for (let i = this.lists.length - 1; i >= 0; i--) {
+            if (!newListIds.has(this.lists[i].id)) {
+                this.lists.splice(i, 1);
+                listStructureChanged = true;
+            }
+        }
+
+        // 2. Add or update lists
+        newLists.forEach((newList, lIndex) => {
+            let existingList = this.lists.find(l => l.id === newList.id);
+            if (!existingList) {
+                this.lists.splice(lIndex, 0, newList);
+                listStructureChanged = true;
+            } else {
+                // Update list properties in place
+                Object.assign(existingList, {
+                    name: newList.name,
+                    position: newList.position,
+                    color: newList.color
+                });
+
+                if (newList.cards) {
+                    const newCardIds = new Set(newList.cards.map(c => c.id));
+                    if (!existingList.cards) existingList.cards = [];
+                    
+                    // Remove deleted cards
+                    for (let c = existingList.cards.length - 1; c >= 0; c--) {
+                        if (!newCardIds.has(existingList.cards[c].id)) {
+                            existingList.cards.splice(c, 1);
+                        }
+                    }
+
+                    // Add or update cards
+                    newList.cards.forEach((newCard, cIndex) => {
+                        let existingCard = existingList.cards.find(c => c.id === newCard.id);
+                        if (!existingCard) {
+                            existingList.cards.splice(cIndex, 0, newCard);
+                        } else {
+                            // Update card properties in place
+                            Object.assign(existingCard, newCard);
+                            // Adjust position in array if needed
+                            if (existingList.cards.indexOf(existingCard) !== cIndex) {
+                                existingList.cards.splice(existingList.cards.indexOf(existingCard), 1);
+                                existingList.cards.splice(cIndex, 0, existingCard);
+                            }
+                        }
+                    });
+                }
+            }
         });
+
+        // 3. Sort lists
+        this.lists.sort((a, b) => (a.position || 0) - (b.position || 0));
+
+        if (listStructureChanged) {
+            this.$nextTick(() => {
+                this.initSortable();
+            });
+        }
       }
 
       this.loadBoardMembers();

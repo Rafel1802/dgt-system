@@ -1,0 +1,13 @@
+#!/usr/bin/expect -f
+set timeout 10
+spawn ssh -p 65002 u768808434@191.101.12.132 "pwd && ls -la && ls -la domains/rosybrown-baboon-228003.hostingersite.com/public_html || true"
+expect {
+    "yes/no" {
+        send "yes\r"
+        exp_continue
+    }
+    "password:" {
+        send "KhmerLucky#2888\r"
+    }
+}
+expect eof

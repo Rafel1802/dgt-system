@@ -1721,7 +1721,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 window.kiuqConnectPusherNotifications?.(n => this.handleIncoming(n));
 
                 // Fast polling failover backup; Pusher is instant when broadcasting is enabled.
-                setInterval(() => this.fetchData(), 5000);
+                // setInterval(() => this.fetchData(), 5000);
             },
 
             refreshBrowserPermission() {

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 const configuredAppBaseUrl = String.fromEnvironment('APP_BASE_URL');
 const configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
@@ -20,12 +20,12 @@ String _resolveAppBaseUrl() {
       : configuredApiBaseUrl;
 
   if (rawUrl.isEmpty) {
-    return 'http://localhost:8000';
+    return 'https://rosybrown-baboon-228003.hostingersite.com';
   }
 
   final uri = Uri.tryParse(rawUrl);
   if (uri == null || !uri.hasScheme) {
-    return 'http://localhost:8000';
+    return 'https://rosybrown-baboon-228003.hostingersite.com';
   }
 
   final normalizedPath = uri.path.replaceFirst(RegExp(r'/api/?$'), '');
@@ -113,7 +113,7 @@ class DgtWebsiteShell extends StatefulWidget {
 
 class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     with WidgetsBindingObserver {
-  late final WebViewController controller;
+  InAppWebViewController? controller;
   late final NativeNotificationPoller notificationPoller;
   int loadingProgress = 0;
   bool hasLoadedFirstPage = false;
@@ -132,58 +132,6 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       appUri: appUri,
       onNotification: _showNativeNotificationPayload,
     );
-
-    controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent('DGTSystemMacOSApp/1.0')
-      ..addJavaScriptChannel(
-        'DgtNativeNotifications',
-        onMessageReceived: _handleNativeNotificationMessage,
-      )
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            if (!hasLoadedFirstPage) {
-              setState(() => loadingProgress = progress);
-            }
-          },
-          onPageStarted: (_) {
-            setState(() {
-              loadError = null;
-              if (!hasLoadedFirstPage) {
-                loadingProgress = 0;
-              }
-            });
-          },
-          onPageFinished: (_) {
-            setState(() {
-              loadingProgress = 100;
-              hasLoadedFirstPage = true;
-            });
-            _prepareOfficialAppSurface();
-            notificationPoller.start();
-          },
-          onWebResourceError: (error) {
-            if (error.isForMainFrame == true) {
-              setState(() => loadError = error.description);
-            }
-          },
-          onNavigationRequest: (request) {
-            final uri = Uri.tryParse(request.url);
-            if (uri == null) {
-              return NavigationDecision.navigate;
-            }
-
-            if (_isInternalUrl(uri)) {
-              return NavigationDecision.navigate;
-            }
-
-            launchUrl(uri, mode: LaunchMode.externalApplication);
-            return NavigationDecision.prevent;
-          },
-        ),
-      )
-      ..loadRequest(appUri);
   }
 
   @override
@@ -213,11 +161,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
   Future<void> _reload() async {
     setState(() => loadError = null);
-    await controller.reload();
+    await controller?.reload();
   }
 
   Future<void> _prepareOfficialAppSurface() async {
-    await controller.runJavaScript('''
+    await controller?.evaluateJavascript(source: '''
       (() => {
         if (!window.__dgtOfficialAppReady) {
           window.__dgtOfficialAppReady = true;
@@ -236,7 +184,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
         const postNativeNotification = notification => {
           try {
-            window.DgtNativeNotifications?.postMessage(JSON.stringify(notification));
+            if (window.flutter_inappwebview) {
+               window.flutter_inappwebview.callHandler('DgtNativeNotifications', JSON.stringify(notification));
+            } else if (window.DgtNativeNotifications) {
+               window.DgtNativeNotifications.postMessage(JSON.stringify(notification));
+            }
           } catch (error) {
             console.error('DGT native notification bridge error', error);
           }
@@ -397,10 +349,8 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     ''');
   }
 
-  Future<void> _handleNativeNotificationMessage(
-    JavaScriptMessage message,
-  ) async {
-    final payload = jsonDecode(message.message);
+  Future<void> _handleNativeNotificationMessage(String message) async {
+    final payload = jsonDecode(message);
     if (payload is! Map<String, dynamic>) {
       return;
     }
@@ -479,7 +429,64 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       backgroundColor: const Color(0xFFF4F7FB),
       body: Stack(
         children: [
-          Positioned.fill(child: WebViewWidget(controller: controller)),
+          Positioned.fill(
+            child: InAppWebView(
+              initialUrlRequest: URLRequest(url: WebUri(appUri.toString())),
+              initialSettings: InAppWebViewSettings(
+                userAgent: 'DGTSystemMacOSApp/1.0',
+                javaScriptEnabled: true,
+                transparentBackground: true,
+              ),
+              onWebViewCreated: (webViewController) {
+                controller = webViewController;
+                controller?.addJavaScriptHandler(
+                  handlerName: 'DgtNativeNotifications',
+                  callback: (args) {
+                    if (args.isNotEmpty) {
+                      _handleNativeNotificationMessage(args[0].toString());
+                    }
+                  },
+                );
+              },
+              onProgressChanged: (controller, progress) {
+                if (!hasLoadedFirstPage) {
+                  setState(() => loadingProgress = progress);
+                }
+              },
+              onLoadStart: (controller, url) {
+                setState(() {
+                  loadError = null;
+                  if (!hasLoadedFirstPage) {
+                    loadingProgress = 0;
+                  }
+                });
+              },
+              onLoadStop: (controller, url) async {
+                setState(() {
+                  loadingProgress = 100;
+                  hasLoadedFirstPage = true;
+                });
+                await _prepareOfficialAppSurface();
+                notificationPoller.start();
+              },
+              onReceivedError: (controller, request, error) {
+                if (request.isForMainFrame ?? false) {
+                  setState(() => loadError = error.description);
+                }
+              },
+              shouldOverrideUrlLoading: (controller, navigationAction) async {
+                final uri = navigationAction.request.url;
+                if (uri != null) {
+                  if (_isInternalUrl(uri)) {
+                    return NavigationActionPolicy.ALLOW;
+                  }
+                  launchUrl(uri, mode: LaunchMode.externalApplication);
+                  return NavigationActionPolicy.CANCEL;
+                }
+                return NavigationActionPolicy.ALLOW;
+              },
+            ),
+          ),
           if (!hasLoadedFirstPage && loadingProgress < 100 && loadError == null)
             Positioned(
               top: 0,
@@ -512,7 +519,7 @@ class NativeNotificationPoller {
 
   final Uri appUri;
   final Future<void> Function(Map<String, dynamic> payload) onNotification;
-  final WebViewCookieManager cookieManager = WebViewCookieManager();
+  final CookieManager cookieManager = CookieManager.instance();
   final Set<String> shownIds = <String>{};
   final DateTime startedAt = DateTime.now();
 
@@ -587,7 +594,7 @@ class NativeNotificationPoller {
   }
 
   Future<Map<String, dynamic>?> _fetchNotifications() async {
-    final cookies = await cookieManager.getCookies(domain: appUri);
+    final cookies = await cookieManager.getCookies(url: WebUri(appUri.toString()));
     if (cookies.isEmpty) {
       return null;
     }

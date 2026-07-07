@@ -43,7 +43,7 @@ dependencies:
   package_info_plus: ^10.2.0
   intl: ^0.20.3
   shimmer: ^3.0.0
-  webview_flutter: ^4.14.0
+  flutter_inappwebview: ^6.0.0
 
 dev_dependencies:
   flutter_test:

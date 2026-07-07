@@ -338,9 +338,9 @@ Alpine.data('kanbanBoard', (config = {}) => ({
         const col = document.querySelector(`[data-kanban-column][data-status="${card.status}"]`);
         if (col) {
             const el = document.getElementById(`card-tpl-${card.id}`);
-            if (! el) window.location.reload(); // fallback
+            // if (! el) window.location.reload(); // fallback
         } else {
-            window.location.reload();
+            // window.location.reload();
         }
     },
 
@@ -483,7 +483,7 @@ Alpine.data('kanbanBoard', (config = {}) => ({
             const data = await api(`/kanban/cards/${cardId}/approve`, { method: 'POST' });
             this.detailCard.card.status = 'approved';
             this.showToast(data.message, 'success');
-            setTimeout(() => window.location.reload(), 1500);
+            // setTimeout(() => window.location.reload(), 1500);
         } catch (err) {
             this.showToast(err.message, 'error');
         }
@@ -503,7 +503,7 @@ Alpine.data('kanbanBoard', (config = {}) => ({
             this.showRejectModal = false;
             this.rejectReason = '';
             this.showToast(data.message, 'success');
-            setTimeout(() => window.location.reload(), 1500);
+            // setTimeout(() => window.location.reload(), 1500);
         } catch (err) {
             this.showToast(err.message, 'error');
         }

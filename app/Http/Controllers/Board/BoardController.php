@@ -92,9 +92,7 @@ class BoardController extends Controller
     /** Move a workspace to trash (soft delete). */
     public function destroyWorkspace(Request $request, Workspace $workspace): RedirectResponse
     {
-        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
-            abort(403, 'Unauthorized.');
-        }
+        $this->authorizeWorkspace($workspace->id);
 
         $workspace->delete();
 
@@ -104,10 +102,6 @@ class BoardController extends Controller
     /** Restore a trashed workspace. */
     public function restoreWorkspace($id): RedirectResponse
     {
-        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
-            abort(403, 'Unauthorized.');
-        }
-
         $workspace = Workspace::onlyTrashed()->findOrFail($id);
         $workspace->restore();
 
@@ -117,10 +111,6 @@ class BoardController extends Controller
     /** Permanently delete a workspace. */
     public function forceDeleteWorkspace($id): RedirectResponse
     {
-        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
-            abort(403, 'Unauthorized.');
-        }
-
         $workspace = Workspace::onlyTrashed()->findOrFail($id);
         
         // Let's also delete all related boards.
@@ -136,9 +126,7 @@ class BoardController extends Controller
     /** Move workspace up (decrease position). */
     public function moveUpWorkspace(Request $request, Workspace $workspace): RedirectResponse
     {
-        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
-            abort(403, 'Unauthorized.');
-        }
+        $this->authorizeWorkspace($workspace->id);
 
         $previous = Workspace::where('position', '<=', $workspace->position)
             ->where('id', '!=', $workspace->id)
@@ -158,9 +146,7 @@ class BoardController extends Controller
     /** Move workspace down (increase position). */
     public function moveDownWorkspace(Request $request, Workspace $workspace): RedirectResponse
     {
-        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
-            abort(403, 'Unauthorized.');
-        }
+        $this->authorizeWorkspace($workspace->id);
 
         $next = Workspace::where('position', '>=', $workspace->position)
             ->where('id', '!=', $workspace->id)
@@ -1221,20 +1207,8 @@ class BoardController extends Controller
 
     private function canManageBoard(\App\Models\User $user, Board $board): bool
     {
-        // Super Admin, Digital Admin, and Supervisors manage everything
-        if ($user->hasAnyRole(['super-admin', 'admin-digital']) || $user->isSupervisorRole()) {
-            return true;
-        }
-
-        if ($board->created_by === $user->id || $board->workspace?->owner_id === $user->id) {
-            return true;
-        }
-
-        if ($board->members()->where('users.id', $user->id)->wherePivot('role', 'admin')->exists()) {
-            return true;
-        }
-
-        return false;
+        // Allow all workspace members to manage the board
+        return $board->workspace?->hasMember($user->id) ?? true;
     }
 
     private function canMoveAnyCard(\App\Models\User $user): bool
@@ -1269,15 +1243,8 @@ class BoardController extends Controller
 
     private function canDeleteBoard(User $user, Board $board): bool
     {
-        if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
-            return true;
-        }
-
-        if ($board->created_by === $user->id) {
-            return true;
-        }
-
-        return $board->members()->where('users.id', $user->id)->wherePivot('role', 'admin')->exists();
+        // Allow all workspace members to delete the board
+        return $board->workspace?->hasMember($user->id) ?? true;
     }
 
     private function settingLabel(string $field): string
@@ -1687,18 +1654,19 @@ class BoardController extends Controller
         }
 
         foreach ($workspaces as $workspace) {
-            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($user) {
-                $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
-                $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
-
-                if ($isBypassed) {
+            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($user, $workspace) {
+                // If they are a member of the workspace, they can see all its boards
+                if ($workspace->hasMember($user->id)) {
+                    return true;
+                }
+                
+                // If they created the board, they can see it
+                if ($board->created_by === $user->id) {
                     return true;
                 }
 
-                if ($user->hasAnyRole(['digital-team', 'sales-crm'])) {
-                    return $board->hasMember($user->id);
-                }
-                return true;
+                // Otherwise, they must be explicitly added to the board
+                return $board->hasMember($user->id);
             }));
         }
 

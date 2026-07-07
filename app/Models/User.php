@@ -279,16 +279,8 @@ SVG;
 
     public function canCreateBoards(): bool
     {
-        if ($this->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor'])) {
-            return true;
-        }
-
-        $teamRole = strtolower($this->team_role ?? '');
-        if (str_contains($teamRole, 'head')) {
-            return true;
-        }
-
-        return false;
+        // All active members can create boards
+        return true;
     }
 
     // ─── Website Permissions & Roles ──────────────────────────────────────────
