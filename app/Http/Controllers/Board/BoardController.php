@@ -235,6 +235,8 @@ class BoardController extends Controller
                 return true;
             });
 
+        $allBoardMembers = $board->members;
+
         $boardData = [
             'board'     => [
                 'id'         => $board->id,
@@ -311,17 +313,17 @@ class BoardController extends Controller
             ->map(fn($l) => ['id'=>$l->id,'name'=>$l->name,'color'=>$l->color])
             ->values()
             ->all(),
-            'boardMembers'     => $board->members->map(fn($u) => [
+            'boardMembers'     => $allBoardMembers->map(fn($u) => [
                 'id'      => $u->id,
                 'name'    => $u->name,
                 'email'   => $u->email,
                 'avatar'  => $u->avatar_url,
                 'initials'=> $u->avatar_initials,
                 'avatar_color' => $u->avatar_color,
-                'role'    => $u->pivot->role ?? 'member',
+                'role'    => $u->pivot?->role ?? 'member',
             ])->values()->all(),
             'workspaceMembers' => $board->workspace->members
-                ->filter(fn($u) => !$board->members->contains('id', $u->id))
+                ->filter(fn($u) => !$allBoardMembers->contains('id', $u->id))
                 ->map(fn($u) => [
                     'id'      => $u->id,
                     'name'    => $u->name,
@@ -430,7 +432,7 @@ class BoardController extends Controller
         if (($validated['template'] ?? '') === 'workflow') {
             $defaults = ['Draft', 'Head Review', 'Text (QC) Review (Mr. Dara)', 'Supervisor Review (Ms. Somalika)', 'Approved', 'Block/Waiting'];
         } elseif (($validated['template'] ?? '') === 'planning') {
-            $defaults = ['Week 1 (1st-4th)', 'Week 2 (6th-11st)', 'Week 3 (17th-18th)', 'Week 4 (20th-25th)', 'Meeting Schedule'];
+            $defaults = ['Week 1 (1st-4th)', 'Week 2 (6th-11st)', 'Week 3 (17th-18th)', 'Week 4 (20th-25th)', 'Meeting Schedule', 'Block/Waiting'];
         } else {
             $defaults = ['To Do', 'In Progress', 'Done'];
         }
@@ -456,6 +458,57 @@ class BoardController extends Controller
                 $board->members()->syncWithoutDetaching([
                     $member->id => ['role' => $boardRole]
                 ]);
+            }
+        }
+
+        // Seed Default Automations
+        if (($validated['template'] ?? '') === 'workflow') {
+            $lists = $board->lists()->get()->keyBy('name');
+            $rules = [
+                ['Draft', 'Team approved', 'Head Review', 'Standard Member'],
+                ['Head Review', 'Head approved', 'Text (QC) Review (Mr. Dara)', 'Standard Member'],
+                ['Text (QC) Review (Mr. Dara)', 'QC approved', 'Supervisor Review (Ms. Somalika)', 'QC'],
+                ['Text (QC) Review (Mr. Dara)', 'Error', 'Draft', 'QC'],
+                ['Supervisor Review (Ms. Somalika)', 'Approved', 'Approved', 'Supervisor'],
+                ['Supervisor Review (Ms. Somalika)', 'Rejected', 'Block/Waiting', 'Supervisor'],
+            ];
+            foreach ($rules as $rule) {
+                if (isset($lists[$rule[0]]) && isset($lists[$rule[2]])) {
+                    \App\Models\BoardAutomation::create([
+                        'board_id' => $board->id,
+                        'trigger_type' => 'keyword',
+                        'trigger_word' => $rule[1],
+                        'trigger_board_id' => $board->id,
+                        'trigger_list_id' => $lists[$rule[0]]->id,
+                        'target_board_id' => $board->id,
+                        'target_list_id' => $lists[$rule[2]]->id,
+                        'action_type' => 'move',
+                        'target_assignee_role' => $rule[3]
+                    ]);
+                }
+            }
+        } elseif (($validated['template'] ?? '') === 'planning') {
+            // Find matching workflow board by month/year suffix
+            $suffix = trim(str_ireplace('Planning board', '', $boardName));
+            $workflowName = trim("Workflow board " . $suffix);
+            $workflowBoard = \App\Models\Board::where('workspace_id', $board->workspace_id)
+                ->where('name', $workflowName)->first() 
+                ?? \App\Models\Board::where('workspace_id', $board->workspace_id)->where('name', 'like', '%Workflow board%')->latest()->first();
+
+            if ($workflowBoard) {
+                $draftList = $workflowBoard->lists()->where('name', 'like', '%Draft%')->first();
+                if ($draftList) {
+                    \App\Models\BoardAutomation::create([
+                        'board_id' => $board->id,
+                        'trigger_type' => 'keyword',
+                        'trigger_word' => 'ready',
+                        'trigger_board_id' => $board->id,
+                        'trigger_list_id' => null, // Any list
+                        'target_board_id' => $workflowBoard->id,
+                        'target_list_id' => $draftList->id,
+                        'action_type' => 'copy'
+                    ]);
+                }
             }
         }
 

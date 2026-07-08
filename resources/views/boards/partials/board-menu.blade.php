@@ -532,6 +532,7 @@
               <select x-model="newAutomation.combined_assignee" class="form-input text-sm">
                 <option value="">Do not assign</option>
                 <optgroup label="Auto-Assign Role">
+                  <option value="role_Standard Member">Role: Digital Team (Standard Members)</option>
                   <option value="role_Graphic Head">Role: Graphic Head</option>
                   <option value="role_Listing Head">Role: Listing Head</option>
                   <option value="role_Video Head">Role: Video Head</option>

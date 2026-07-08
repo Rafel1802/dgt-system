@@ -251,6 +251,40 @@ class CardController extends Controller
             }
 
             if ($isMatch) {
+                // CUSTOM DGT WORKFLOW CONSTRAINTS
+                if ($commentText) {
+                    $trigger = strtolower($automation->trigger_word ?? '');
+                    
+                    if (str_contains($trigger, 'ready')) {
+                        $assignees = $card->assignees;
+                        if (!$assignees->contains('id', auth()->id())) continue; // Commenter not assigned
+                        $allReady = true;
+                        foreach ($assignees as $assignee) {
+                            $hasReady = $card->comments()->where('user_id', $assignee->id)->where('is_system', false)
+                                ->whereRaw('LOWER(content) LIKE ?', ['%ready%'])->exists();
+                            if (!$hasReady) { $allReady = false; break; }
+                        }
+                        if (!$allReady) continue; // Wait for everyone
+                    }
+
+                    if (str_contains($trigger, 'head approved')) {
+                        if (stripos(auth()->user()->team_role ?? '', 'head') === false) continue;
+                    }
+                    if (str_contains($trigger, 'qc approved') || str_contains($trigger, 'error')) {
+                        if (stripos(auth()->user()->team_role ?? '', 'qc') === false) continue;
+                    }
+                    if (str_contains($trigger, 'approved') && !str_contains($trigger, 'head') && !str_contains($trigger, 'qc') && !str_contains($trigger, 'team') || str_contains($trigger, 'rejected')) {
+                        if (stripos(auth()->user()->team_role ?? '', 'supervisor') === false) continue;
+                    }
+                    if (str_contains($trigger, 'team approved')) {
+                        // "Team approved" can be triggered by any assigned member (or any digital team member if unassigned)
+                        $assignees = $card->assignees;
+                        if ($assignees->count() > 0 && !$assignees->contains('id', auth()->id())) {
+                            continue; // Must be assigned to trigger this
+                        }
+                    }
+                }
+
                 $sourceBoardName = $card->board?->name ?? 'Unknown board';
                 $sourceListName = $card->boardList?->name ?? 'Unknown list';
                 $reason = 'automation rule';
@@ -264,7 +298,7 @@ class CardController extends Controller
                     
                     $copy = $card->replicateRelationally($automation->target_board_id, $automation->target_list_id, $newTitle, auth()->id() ?? $card->created_by, true);
 
-                    $this->logCardActivity($copy, 'copied_by_automation', "card automatically copied from board '{$card->board->name}' list '{$card->boardList->name}' based on {$reason}");
+                    $this->logCardActivity($copy, 'copied_by_automation', "copied this card from **{$sourceListName}**");
                     
                     if ($automation->target_assignee_id) {
                         if (!$copy->assignees()->where('users.id', $automation->target_assignee_id)->exists()) {
@@ -277,11 +311,22 @@ class CardController extends Controller
                     } elseif ($automation->target_assignee_role) {
                         $targetBoard = \App\Models\Board::find($automation->target_board_id);
                         if ($targetBoard) {
-                            $roleUsers = $targetBoard->members()->where('users.team_role', $automation->target_assignee_role)->get();
+                            if ($automation->target_assignee_role === 'Standard Member') {
+                                // Find all board members who are in the digital-team but don't have a specific team_role (like Head, QC, etc)
+                                $roleUsers = $targetBoard->members()->get()->filter(function($u) {
+                                    $tr = $u->team_role;
+                                    $isStandard = is_null($tr) || $tr === '' || $tr === 'None';
+                                    return $isStandard && ($u->hasRole('digital-team') || $u->hasRole('digital_team') || str_contains(strtolower($u->roles->pluck('name')->join(',')), 'digital'));
+                                });
+                            } else {
+                                $roleUsers = $targetBoard->members()->where('users.team_role', $automation->target_assignee_role)->get();
+                            }
+                            
                             foreach ($roleUsers as $u) {
                                 if (!$copy->assignees()->where('users.id', $u->id)->exists()) {
                                     $copy->assignees()->attach($u->id);
-                                    $this->logCardActivity($copy, 'member_added', "assigned **{$u->name}** (Role: {$automation->target_assignee_role}) to this card via automation");
+                                    $roleName = $automation->target_assignee_role === 'Standard Member' ? 'Digital Team' : $automation->target_assignee_role;
+                                    $this->logCardActivity($copy, 'member_added', "assigned **{$u->name}** (Role: {$roleName}) to this card via automation");
                                 }
                             }
                         }
@@ -298,13 +343,15 @@ class CardController extends Controller
                     ]);
                     $card->unsetRelation('board');
                     $card->unsetRelation('boardList');
+                    
+                    if (str_contains(strtolower($targetList->name), 'block/waiting')) {
+                        app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Block/Waiting');
+                    }
 
                     $this->logCardActivity(
                         $card,
                         'moved_by_automation',
-                        "automatically moved this card from **{$sourceBoardName} / {$sourceListName}** to **" .
-                        ($targetBoard?->name ?? 'Unknown board') . ' / ' . ($targetList?->name ?? 'Unknown list') .
-                        "** based on {$reason}"
+                        "moved this card from **{$sourceListName}** to **" . ($targetList?->name ?? 'Unknown list') . "**"
                     );
 
                     if ($automation->target_assignee_id) {
@@ -318,11 +365,21 @@ class CardController extends Controller
                     } elseif ($automation->target_assignee_role) {
                         $targetBoard = \App\Models\Board::find($automation->target_board_id);
                         if ($targetBoard) {
-                            $roleUsers = $targetBoard->members()->where('users.team_role', $automation->target_assignee_role)->get();
+                            if ($automation->target_assignee_role === 'Standard Member') {
+                                $roleUsers = $targetBoard->members()->get()->filter(function($u) {
+                                    $tr = $u->team_role;
+                                    $isStandard = is_null($tr) || $tr === '' || $tr === 'None';
+                                    return $isStandard && ($u->hasRole('digital-team') || $u->hasRole('digital_team') || str_contains(strtolower($u->roles->pluck('name')->join(',')), 'digital'));
+                                });
+                            } else {
+                                $roleUsers = $targetBoard->members()->where('users.team_role', $automation->target_assignee_role)->get();
+                            }
+                            
                             foreach ($roleUsers as $u) {
                                 if (!$card->assignees()->where('users.id', $u->id)->exists()) {
                                     $card->assignees()->attach($u->id);
-                                    $this->logCardActivity($card, 'member_added', "assigned **{$u->name}** (Role: {$automation->target_assignee_role}) to this card via automation");
+                                    $roleName = $automation->target_assignee_role === 'Standard Member' ? 'Digital Team' : $automation->target_assignee_role;
+                                    $this->logCardActivity($card, 'member_added', "assigned **{$u->name}** (Role: {$roleName}) to this card via automation");
                                 }
                             }
                         }
@@ -472,6 +529,10 @@ class CardController extends Controller
 
         $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$newList}**");
         $this->addSystemComment($card, "moved this card from **{$oldList}** to **{$newList}**");
+
+        if (str_contains(strtolower($newList), 'block/waiting')) {
+            app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Block/Waiting');
+        }
         $automation = $this->checkAutomations($card, $targetList->id);
 
         return response()->json([
@@ -678,6 +739,9 @@ class CardController extends Controller
         $originalListId = $card->board_list_id;
 
         $this->checkAutomations($card, null, $validated['body']);
+
+        // Reload board relation in case the card was moved to another board by automation
+        $card->load('board');
 
         $cardMoved = $card->board_id !== $originalBoardId || $card->board_list_id !== $originalListId;
 
@@ -1117,7 +1181,7 @@ class CardController extends Controller
         }
     }
 
-    private function addSystemComment(Card $card, string $content): void
+    public function addSystemComment(Card $card, string $content): void
     {
         $card->comments()->create([
             'user_id' => auth()->id(),

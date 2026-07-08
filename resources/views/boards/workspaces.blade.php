@@ -134,7 +134,7 @@
           <div data-board-id="{{ $board->id }}"
                x-data="{ openBoardMenu: false }"
                :class="{ 'z-50': openBoardMenu, 'z-10': !openBoardMenu }"
-               onclick="if(!window.isDraggingBoard && !openBoardMenu) window.location.href='{{ route('boards.show', $board->slug) }}'"
+               @click="if(!window.isDraggingBoard && !openBoardMenu) window.location.href='{{ route('boards.show', $board->slug) }}'"
                title="Drag to move this board left or right"
                class="group relative h-28 cursor-grab active:cursor-grabbing rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
                style="{{ $board->coverStyle() }}">

@@ -34,6 +34,7 @@ if __name__ == "__main__":
         "app/Models/Board.php",
         "resources/views/layouts/app.blade.php",
         "routes/web.php",
+        "app/Services/BoardWorkflowService.php",
         "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"
     ]
     run_cmd(rsync_cmd)
