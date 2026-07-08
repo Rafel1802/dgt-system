@@ -148,6 +148,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::patch('/{board:slug}', [BoardController::class, 'update'])->name('update');
             Route::patch('/{board:slug}/toggle-hidden', [BoardController::class, 'toggleHidden'])->name('toggle-hidden');
             Route::delete('/{board:slug}', [BoardController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/restore', [BoardController::class, 'restore'])->name('restore');
+            Route::delete('/{id}/force', [BoardController::class, 'forceDelete'])->name('forceDelete');
             Route::post('/{board:slug}/copy', [BoardController::class, 'copy'])->name('copy');
             Route::get('/{board:slug}/archived', [BoardController::class, 'archivedItems'])->name('archived');
             Route::get('/{board:slug}/export/csv', [\App\Http\Controllers\Board\BoardExportController::class, 'exportCsv'])->name('export.csv');
@@ -585,6 +587,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 });
 
 // Root redirect
+
 Route::get('/', function () {
     if (auth()->check()) {
         if (auth()->user()->hasRole('admin-crm')) {

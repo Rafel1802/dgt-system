@@ -126,6 +126,15 @@ class Board extends Model
 
     public function getNameAttribute($value)
     {
+        // If the stored name already has a month suffix, extract and preserve it
+        $pattern = '/\s+[-–]\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:\s+(\d{4}))?$/i';
+        if (preg_match($pattern, (string)$value, $matches)) {
+            $month = $matches[1];
+            $year = $matches[2] ?? ($this->created_at ? $this->created_at->format('Y') : date('Y'));
+            $cleanName = preg_replace($pattern, '', (string)$value);
+            return $cleanName . " – {$month} {$year}";
+        }
+
         $createdAt = $this->created_at ?? now();
         $month = $createdAt->format('F');
         $year = $createdAt->format('Y');

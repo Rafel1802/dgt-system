@@ -189,14 +189,13 @@
 
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p class="mb-3 text-xs font-black uppercase tracking-wider text-slate-400">Background</p>
-          <div class="grid grid-cols-4 gap-2">
+          <div class="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto scrollbar-thin pr-1">
             <template x-for="color in boardMenu.backgroundColors" :key="color">
               <button type="button"
                       @click="boardMenu.backgroundType = 'color'; boardMenu.backgroundValue = color; boardMenu.backgroundColorDraft = color"
                       class="h-11 rounded-lg ring-offset-2 transition hover:scale-[1.02]"
                       :class="boardMenu.backgroundType === 'color' && boardMenu.backgroundValue === color ? 'ring-2 ring-sky-500' : 'ring-1 ring-slate-200'"
-                      :style="'background:' + color"
-                      :disabled="!board.can_manage_board"></button>
+                      :style="'background:' + color"></button>
             </template>
           </div>
           <div class="mt-4 grid grid-cols-[auto_1fr] gap-2">
@@ -207,8 +206,7 @@
                    type="text"
                    maxlength="7"
                    class="form-input text-sm"
-                   placeholder="#2F68ED"
-                   :disabled="!board.can_manage_board">
+                   placeholder="#2F68ED">
           </div>
           <div class="mt-3 flex gap-2">
             <input x-model="boardMenu.backgroundImageUrl"
@@ -217,12 +215,11 @@
                    type="url"
                    maxlength="2048"
                    class="form-input text-sm"
-                   placeholder="https://example.com/board-background.jpg"
-                   :disabled="!board.can_manage_board">
+                   placeholder="https://example.com/board-background.jpg">
             <button type="button"
                     @click="$refs.boardSettingsBgUpload.click()"
                     class="btn btn-secondary flex-shrink-0"
-                    :disabled="boardMenu.busy || !board.can_manage_board">
+                    :disabled="boardMenu.busy">
               Upload
             </button>
             <input x-ref="boardSettingsBgUpload" type="file" accept="image/jpeg,image/png,image/gif,image/webp" class="hidden" @change="uploadBoardBackground($event)">
@@ -277,9 +274,6 @@
 
         <div class="space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
           <p class="text-xs font-black uppercase tracking-wider text-rose-400">Danger zone</p>
-          <button type="button" @click="archiveBoard()" :disabled="boardMenu.busy || !board.can_manage_board" class="btn btn-secondary w-full justify-center border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
-            Archive board
-          </button>
           <button type="button" x-show="board.can_delete_board" @click="deleteBoard()" :disabled="boardMenu.busy" class="btn btn-danger w-full justify-center">
             Delete board
           </button>
@@ -302,10 +296,10 @@
 
         <div>
           <p class="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">Colors</p>
-          <div class="grid grid-cols-4 gap-2">
+          <div class="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto scrollbar-thin pr-1">
             <template x-for="color in boardMenu.backgroundColors" :key="color">
               <button type="button"
-                      @click="saveBoardMenuBackground('color', color)"
+                      @click="boardMenu.backgroundColorDraft = color; saveBoardMenuBackground('color', color)"
                       class="h-14 rounded-xl ring-offset-2 transition hover:scale-[1.02]"
                       :class="board.background_type === 'color' && board.background_value === color ? 'ring-2 ring-sky-500' : 'ring-1 ring-slate-200'"
                       :style="'background:' + color"
@@ -313,16 +307,18 @@
             </template>
           </div>
           <div class="mt-3 grid grid-cols-[auto_1fr_auto] gap-2">
-            <span class="h-11 w-12 rounded-xl border border-slate-200 bg-white shadow-inner"
-                  :style="'background-color: ' + boardMenu.backgroundColorDraft"></span>
-            <input x-model="boardMenu.backgroundColorDraft" type="text" maxlength="7" class="form-input text-sm" placeholder="#2F68ED">
+            <label class="relative h-11 w-12 rounded-xl border border-slate-200 bg-white shadow-inner overflow-hidden cursor-pointer block" title="Choose custom color">
+              <input type="color" x-model="boardMenu.backgroundColorDraft" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+              <div class="w-full h-full" :style="'background-color: ' + boardMenu.backgroundColorDraft"></div>
+            </label>
+            <input x-model="boardMenu.backgroundColorDraft" @input="if(!$el.value.startsWith('#')) $el.value = '#' + $el.value; boardMenu.backgroundColorDraft = $el.value;" type="text" maxlength="7" class="form-input text-sm" placeholder="#2F68ED">
             <button type="button" @click="saveBoardMenuBackground('color', boardMenu.backgroundColorDraft)" class="btn btn-primary flex-shrink-0" :disabled="boardMenu.busy">Apply</button>
           </div>
         </div>
 
         <div>
           <p class="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">Gradients</p>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto scrollbar-thin pr-1">
             <template x-for="gradient in boardMenu.backgroundGradients" :key="gradient">
               <button type="button"
                       @click="saveBoardMenuBackground('gradient', gradient)"

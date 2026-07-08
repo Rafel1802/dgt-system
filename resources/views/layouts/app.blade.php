@@ -733,15 +733,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
                 @endcan
 
-                @hasanyrole('super-admin|admin-crm|boss')
-                <a href="{{ route('crm.links.index') }}"
-                   class="sidebar-item {{ request()->routeIs('crm.links.*') ? 'active' : '' }}"
-                   id="nav-admin-crm-links">
-                    <x-external-tool-icon name="link" class="w-5 h-5 flex-shrink-0" />
-                    <span>External System Links CRM</span>
-                </a>
-                @endhasanyrole
-                
+
                 @hasanyrole('super-admin|admin-digital')
                 <a href="{{ route('admin.labels.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.labels.*') ? 'active' : '' }}"

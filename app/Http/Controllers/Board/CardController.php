@@ -27,8 +27,14 @@ use Illuminate\View\View;
 class CardController extends Controller
 {
     /** Return full card data for the detail modal. */
-    public function show(Card $card): JsonResponse
+    public function show($id): JsonResponse
     {
+        $card = Card::find($id);
+        
+        if (!$card) {
+            return response()->json(['error' => 'This card has been deleted or no longer exists.'], 404);
+        }
+
         $card->load([
             'assignees',
             'labels',
@@ -339,6 +345,11 @@ class CardController extends Controller
     /** Soft-delete a card. */
     public function destroy(Card $card): JsonResponse
     {
+        $user = auth()->user();
+        if (!$user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'Graphic Head', 'Video head', 'QC', 'Listing head', 'Graphic Head', 'Video Head', 'Listing Head'])) {
+            return response()->json(['error' => 'Unauthorized. Only admins and team heads can delete cards.'], 403);
+        }
+
         $this->logCardActivity($card, 'deleted', "deleted card '{$card->title}'");
         $card->delete();
         return response()->json(['message' => 'Card deleted.']);

@@ -38,12 +38,14 @@ class BoardController extends Controller
         
         $hiddenBoards = collect();
         $trashedWorkspaces = collect();
+        $trashedBoards = collect();
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $hiddenBoards = \App\Models\Board::where('is_hidden', true)->with('workspace')->get();
             $trashedWorkspaces = \App\Models\Workspace::onlyTrashed()->get();
+            $trashedBoards = \App\Models\Board::onlyTrashed()->with('workspace')->get();
         }
 
-        return view('boards.workspaces', compact('workspaces', 'hiddenBoards', 'trashedWorkspaces'));
+        return view('boards.workspaces', compact('workspaces', 'hiddenBoards', 'trashedWorkspaces', 'trashedBoards'));
     }
 
     /** Show a single board with its lists and cards (the Trello view). */
@@ -405,10 +407,7 @@ class BoardController extends Controller
             $year = $validated['template_year'] ?? '';
             $prefix = $validated['template'] === 'workflow' ? 'Workflow board' : 'Planning board';
             if ($month && $year) {
-                $boardName = "{$prefix} - {$month}";
-                if ($year !== date('Y')) {
-                    $boardName .= " {$year}"; // Only append year if it's not the current year, or just append it anyway? The screenshot shows "Workflow board - June". Let's match: "Workflow board - June" if year is current, else "Workflow board - June 2026"
-                }
+                $boardName = "{$prefix} - {$month} {$year}";
             } else {
                 $boardName = $prefix;
             }
@@ -428,148 +427,35 @@ class BoardController extends Controller
             'position'   => $position,
         ]);
 
-        if (in_array($validated['template'] ?? '', ['workflow', 'planning'])) {
-            $prefix = $validated['template'] === 'workflow' ? 'Workflow board' : 'Planning board';
-            // First: find the most recent template board in the SAME workspace (so we copy the correct members)
-            $templateBoard = Board::where('name', 'like', $prefix . '%')
-                ->where('id', '!=', $board->id)
-                ->where('workspace_id', $board->workspace_id)
-                ->with(['lists', 'labels', 'members'])
-                ->orderBy('created_at', 'desc')
-                ->first();
-
-            // Fallback: if no template found in the same workspace, search globally for structure only
-            if (!$templateBoard) {
-                $templateBoard = Board::where('name', 'like', $prefix . '%')
-                    ->where('id', '!=', $board->id)
-                    ->with(['lists', 'labels', 'members'])
-                    ->orderBy('created_at', 'asc')
-                    ->first();
-            }
-
-            if ($templateBoard) {
-                $listMap = [];
-                foreach ($templateBoard->lists as $list) {
-                    if (($validated['template'] ?? '') === 'workflow' && strtolower($list->name) === 'urgent') {
-                        continue; // Skip Urgent list for Workflow templates
-                    }
-
-                    $newList = $board->lists()->create([
-                        'name' => $list->name,
-                        'position' => $list->position,
-                        'color' => $list->color,
-                        'wip_limit' => $list->wip_limit,
-                    ]);
-                    $listMap[$list->id] = $newList->id;
-                }
-                foreach ($templateBoard->labels as $label) {
-                    $board->labels()->create([
-                        'name' => $label->name,
-                        'color' => $label->color,
-                    ]);
-                }
-
-                // Copy board members ONLY if the template board belongs to the same workspace
-                if ($templateBoard->workspace_id == $board->workspace_id) {
-                    foreach ($templateBoard->members as $member) {
-                        // Make sure member is in target workspace
-                        if (!$board->workspace->hasMember($member->id)) {
-                            $board->workspace->members()->syncWithoutDetaching([
-                                $member->id => ['role' => 'member']
-                            ]);
-                        }
-                        // Sync member to board with their role
-                        $board->members()->syncWithoutDetaching([
-                            $member->id => ['role' => $member->pivot->role ?? 'member']
-                        ]);
-                    }
-                }
-
-                // Copy automations from the template board
-                $templateAutomations = \App\Models\BoardAutomation::where('board_id', $templateBoard->id)->get();
-                $newMonthYear = $request->template_month && $request->template_year ? $request->template_month . ' ' . $request->template_year : null;
-
-                foreach ($templateAutomations as $auto) {
-                    // Skip automations that rely on a skipped list on this board
-                    if ($auto->trigger_board_id == $templateBoard->id && !isset($listMap[$auto->trigger_list_id])) continue;
-                    if ($auto->target_board_id == $templateBoard->id && !isset($listMap[$auto->target_list_id])) continue;
-
-                    $newTriggerBoardId = ($auto->trigger_board_id == $templateBoard->id) ? $board->id : $auto->trigger_board_id;
-                    $newTriggerListId = isset($listMap[$auto->trigger_list_id]) ? $listMap[$auto->trigger_list_id] : $auto->trigger_list_id;
-                    $newTargetBoardId = ($auto->target_board_id == $templateBoard->id) ? $board->id : $auto->target_board_id;
-                    $newTargetListId = isset($listMap[$auto->target_list_id]) ? $listMap[$auto->target_list_id] : $auto->target_list_id;
-
-                    // Intelligent Cross-Board Reference Resolution
-                    if ($auto->target_board_id != $templateBoard->id && $auto->target_board_id && $newMonthYear) {
-                        $oldTargetBoard = \App\Models\Board::find($auto->target_board_id);
-                        if ($oldTargetBoard) {
-                            $baseNamePattern = trim(preg_replace('/[–-]?\s*[A-Za-z]+\s+20\d{2}$/u', '', $oldTargetBoard->name));
-                            if ($baseNamePattern) {
-                                $resolvedBoard = \App\Models\Board::where('workspace_id', $board->workspace_id)
-                                    ->where('name', 'like', $baseNamePattern . '%')
-                                    ->where('name', 'like', '%' . $newMonthYear . '%')
-                                    ->first();
-                                
-                                if ($resolvedBoard) {
-                                    $newTargetBoardId = $resolvedBoard->id;
-                                    $oldList = \App\Models\BoardList::find($auto->target_list_id);
-                                    if ($oldList) {
-                                        $resolvedList = \App\Models\BoardList::where('board_id', $resolvedBoard->id)
-                                            ->where('name', $oldList->name)->first();
-                                        if ($resolvedList) {
-                                            $newTargetListId = $resolvedList->id;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    \App\Models\BoardAutomation::create([
-                        'board_id' => $board->id,
-                        'trigger_type' => $auto->trigger_type,
-                        'trigger_word' => $auto->trigger_word,
-                        'trigger_board_id' => $newTriggerBoardId,
-                        'trigger_list_id' => $newTriggerListId,
-                        'target_board_id' => $newTargetBoardId,
-                        'target_list_id' => $newTargetListId,
-                        'target_assignee_id' => $auto->target_assignee_id,
-                        'target_assignee_role' => $auto->target_assignee_role,
-                    ]);
-                }
-
-                // Retroactive Linkup: If THIS newly created board acts as a target for other boards created THIS month
-                if ($newMonthYear) {
-                    $automationsPointingToTemplate = \App\Models\BoardAutomation::where('target_board_id', $templateBoard->id)
-                        ->where('board_id', '!=', $templateBoard->id)
-                        ->get();
-
-                    foreach ($automationsPointingToTemplate as $autoToUpdate) {
-                        $ownerBoard = \App\Models\Board::find($autoToUpdate->board_id);
-                        if ($ownerBoard && str_contains($ownerBoard->name, $newMonthYear) && $ownerBoard->workspace_id == $board->workspace_id) {
-                            $oldList = \App\Models\BoardList::find($autoToUpdate->target_list_id);
-                            if ($oldList) {
-                                $matchedList = \App\Models\BoardList::where('board_id', $board->id)->where('name', $oldList->name)->first();
-                                if ($matchedList) {
-                                    $autoToUpdate->update([
-                                        'target_board_id' => $board->id,
-                                        'target_list_id' => $matchedList->id
-                                    ]);
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                $defaults = ['To Do', 'In Progress', 'Done'];
-                foreach ($defaults as $i => $name) {
-                    $board->lists()->create(['name' => $name, 'position' => $i]);
-                }
-            }
+        if (($validated['template'] ?? '') === 'workflow') {
+            $defaults = ['Draft', 'Head Review', 'Text (QC) Review (Mr. Dara)', 'Supervisor Review (Ms. Somalika)', 'Approved', 'Block/Waiting'];
+        } elseif (($validated['template'] ?? '') === 'planning') {
+            $defaults = ['Week 1 (1st-4th)', 'Week 2 (6th-11st)', 'Week 3 (17th-18th)', 'Week 4 (20th-25th)', 'Meeting Schedule'];
         } else {
             $defaults = ['To Do', 'In Progress', 'Done'];
-            foreach ($defaults as $i => $name) {
-                $board->lists()->create(['name' => $name, 'position' => $i]);
+        }
+        
+        foreach ($defaults as $i => $name) {
+            $board->lists()->create(['name' => $name, 'position' => $i]);
+        }
+
+        // Add workspace members to the new board automatically
+        if ($board->workspace) {
+            $workspaceMembers = $board->workspace->members()->get();
+            foreach ($workspaceMembers as $member) {
+                // Map workspace roles to valid board roles (board_members only allows admin, member, observer)
+                $wsRole = $member->pivot->role ?? 'member';
+                $boardRole = 'member';
+                
+                if ($wsRole === 'owner' || $wsRole === 'admin') {
+                    $boardRole = 'admin';
+                } elseif ($wsRole === 'guest') {
+                    $boardRole = 'observer';
+                }
+
+                $board->members()->syncWithoutDetaching([
+                    $member->id => ['role' => $boardRole]
+                ]);
             }
         }
 
@@ -971,6 +857,27 @@ class BoardController extends Controller
             ->with('success', "Board \"{$boardName}\" deleted.");
     }
 
+    /** Restore a deleted board. */
+    public function restore($id): RedirectResponse
+    {
+        $board = Board::onlyTrashed()->findOrFail($id);
+        $board->restore();
+        
+        $this->logBoardActivity($board, 'restored', "restored board **{$board->name}**");
+
+        return back()->with('success', 'Board restored successfully.');
+    }
+
+    /** Permanently delete a board. */
+    public function forceDelete($id): RedirectResponse
+    {
+        $board = Board::onlyTrashed()->findOrFail($id);
+        $boardName = $board->name;
+        $board->forceDelete();
+
+        return back()->with('success', "Board \"{$boardName}\" permanently deleted.");
+    }
+
     // ── List AJAX endpoints ───────────────────────────────────────────────────
 
     /** Add a new list to a board. */
@@ -1243,6 +1150,9 @@ class BoardController extends Controller
 
     private function canDeleteBoard(User $user, Board $board): bool
     {
+        if ($user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'Graphic Head', 'Video head', 'QC', 'Listing head', 'Graphic Head', 'Video Head', 'Listing Head'])) {
+            return true;
+        }
         // Allow all workspace members to delete the board
         return $board->workspace?->hasMember($user->id) ?? true;
     }

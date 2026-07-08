@@ -5,6 +5,10 @@
  * card detail modal, checklists, comments, attachments upload, labels, members,
  * star favorite toggles, and sliding activity drawers.
  */
+
+// Safe guard flag to prevent live production board from flickering/auto-refreshing
+const ENABLE_BOARD_REALTIME_SYNC = false;
+
 function trelloBoard(config) {
   return {
     // ── State ────────────────────────────────────────────────────────────────
@@ -303,8 +307,8 @@ function trelloBoard(config) {
 
       // Initialize SortableJS drag-and-drop
       this.initSortable();
-      // Disable real-time board updates to prevent auto-refresh wiping out card edits
-      // this.bindRealtimeBoardUpdates();
+      
+      this.bindRealtimeBoardUpdates();
 
       // Auto-open card if passed in query param
       const urlParams = new URLSearchParams(window.location.search);
@@ -3605,27 +3609,8 @@ function trelloBoard(config) {
     },
 
     bindRealtimeBoardUpdates() {
-      if (this.realtimeBound) return;
-      this.realtimeBound = true;
-
-      const triggerRefresh = (reason = 'push') => this.scheduleBoardSnapshot(reason);
-      this.connectBoardRealtimeChannel();
-
-      window.addEventListener('kiuq:realtime-notification', (event) => {
-        const payload = event.detail?.data || event.detail || {};
-        if (String(payload.board_slug || '') !== String(this.boardSlug)) return;
-        triggerRefresh('push');
-      });
-
-      window.addEventListener('focus', () => triggerRefresh('focus'));
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) triggerRefresh('visible');
-      });
-
-      // Polling removed to prevent UI blinking. Real-time relies purely on WebSockets/Pusher.
-      // this.realtimePollTimer = setInterval(() => {
-      //   if (!document.hidden) triggerRefresh('poll');
-      // }, 5000);
+      console.log('[Board] Realtime board sync is DISABLED.');
+      return;
     },
 
     connectBoardRealtimeChannel() {
@@ -3642,6 +3627,8 @@ function trelloBoard(config) {
 
       this.realtimeChannel = pusher.subscribe(`private-boards.${this.boardId}`);
       const handleBoardUpdate = (payload = {}) => {
+        if (!ENABLE_BOARD_REALTIME_SYNC) return;
+        
         if (payload.board_id && parseInt(payload.board_id, 10) !== parseInt(this.boardId, 10)) return;
         this.scheduleBoardSnapshot('push');
       };
@@ -3657,6 +3644,7 @@ function trelloBoard(config) {
     },
 
     scheduleBoardSnapshot(reason = 'push') {
+      if (!ENABLE_BOARD_REALTIME_SYNC) return;
       if (this.realtimeDragging) return;
 
       clearTimeout(this.realtimeTimer);
@@ -3665,6 +3653,7 @@ function trelloBoard(config) {
     },
 
     async refreshBoardSnapshot(reason = 'push') {
+      if (!ENABLE_BOARD_REALTIME_SYNC) return;
       if (this.realtimeInFlight || this.realtimeDragging) return;
 
       const now = Date.now();
