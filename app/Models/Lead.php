@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\InquirySource;
 use App\Enums\LeadTemperature;
 use App\Enums\WebsiteLeadStatus;
+use App\Services\TechSupportCaseService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,21 @@ class Lead extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected static function booted(): void
+    {
+        static::created(function (self $lead) {
+            if ($lead->status === WebsiteLeadStatus::TechnicalSupport) {
+                app(TechSupportCaseService::class)->createCaseFor($lead);
+            }
+        });
+
+        static::updated(function (self $lead) {
+            if ($lead->wasChanged('status') && $lead->status === WebsiteLeadStatus::TechnicalSupport) {
+                app(TechSupportCaseService::class)->createCaseFor($lead);
+            }
+        });
+    }
+
     protected $fillable = [
         'customer_id', 'handled_by', 'assigned_to',
         'client_name', 'client_phone', 'client_email', 'client_whatsapp',
@@ -23,6 +39,7 @@ class Lead extends Model
         'status', 'temperature',
         'follow_up_notes', 'follow_up_date', 'next_action',
         'converted', 'converted_at', 'lost_reason',
+        'tech_resolved', 'tech_resolved_at',
     ];
 
     protected $casts = [
@@ -33,6 +50,8 @@ class Lead extends Model
         'converted_at' => 'datetime',
         'follow_up_date'=> 'date',
         'converted'    => 'boolean',
+        'tech_resolved'    => 'boolean',
+        'tech_resolved_at' => 'date',
     ];
 
     // ── Relationships ───────────────────────────────────────────────────────
@@ -108,6 +127,12 @@ class Lead extends Model
               ->orWhere('client_phone', 'like', "%{$term}%")
               ->orWhere('client_email', 'like', "%{$term}%");
         });
+    }
+
+    public function scopeTechnicalIssuesOpen($query): mixed
+    {
+        return $query->where('status', WebsiteLeadStatus::TechnicalSupport->value)
+            ->where('tech_resolved', false);
     }
 
     // ── Accessors ────────────────────────────────────────────────────────────

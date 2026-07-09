@@ -47,6 +47,11 @@
         </div>
 
         <div>
+          <label class="form-label">Total Sales ($)</label>
+          <input type="number" step="0.01" min="0" name="total_sales" value="{{ old('total_sales', $store->total_sales) }}" class="form-input">
+        </div>
+
+        <div>
           <label class="form-label">Notes</label>
           <textarea name="notes" rows="3" class="form-input">{{ old('notes', $store->notes) }}</textarea>
         </div>

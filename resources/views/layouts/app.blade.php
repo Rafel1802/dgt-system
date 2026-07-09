@@ -550,15 +550,44 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
                 @endhasanyrole
 
-                {{-- ── 1. Website CRM ─────────────────────────────────────── --}}
-                <a href="{{ route('crm.website.index') }}"
-                   class="sidebar-item {{ request()->routeIs('crm.website.*') ? 'active' : '' }}"
-                   id="nav-website-crm">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253"/>
-                    </svg>
-                    Website CRM
-                </a>
+                {{-- ── 1. Website CRM (with accordion submenu) ────────────── --}}
+                <div x-data="{ open: {{ request()->routeIs('crm.website.*') ? 'true' : 'false' }} }" class="w-full">
+                    <button type="button"
+                        @click="open = !open"
+                        class="sidebar-item w-full justify-between {{ request()->routeIs('crm.website.*') ? 'active' : '' }}"
+                        id="nav-website-crm-toggle"
+                        aria-expanded="open">
+                        <span class="flex items-center gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253"/>
+                            </svg>
+                            Website CRM
+                        </span>
+                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0"
+                             :class="{'rotate-180': open}"
+                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
+                        </svg>
+                    </button>
+                    <div x-show="open" x-transition x-cloak class="ml-8 mt-0.5 space-y-0.5 border-l-2 border-slate-100 pl-3">
+                        <a href="{{ route('crm.website.index') }}"
+                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.website.*') && ! request()->routeIs('crm.website.call-reports.*') ? 'active' : '' }}"
+                           id="nav-website-leads">
+                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
+                            </svg>
+                            Leads
+                        </a>
+                        <a href="{{ route('crm.website.call-reports.index') }}"
+                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.website.call-reports.*') ? 'active' : '' }}"
+                           id="nav-website-call-reports">
+                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.362-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"/>
+                            </svg>
+                            Call Reports
+                        </a>
+                    </div>
+                </div>
 
                 {{-- ── 2. eBay CRM (with accordion submenu) ──────────────── --}}
                 <div x-data="{ open: {{ request()->routeIs('crm.ebay.*') ? 'true' : 'false' }} }" class="w-full">
@@ -588,7 +617,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Manage Store
                         </a>
-                        <a href="{{ route('crm.ebay.customers.home') }}"
+                        <a href="{{ route('crm.ebay.customers.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.ebay.customers.*') ? 'active' : '' }}"
                            id="nav-ebay-manage-customer">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -656,6 +685,30 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         <path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
                     </svg>
                     Product
+                </a>
+
+                {{-- ── 6. Tech Support ────────────────────────────────────── --}}
+                <a href="{{ route('crm.tech-support.index') }}"
+                   class="sidebar-item {{ request()->routeIs('crm.tech-support.*') ? 'active' : '' }}"
+                   id="nav-tech-support">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437 5.492-5.492"/>
+                    </svg>
+                    Tech Support
+                    @php $newTechCaseCount = \App\Models\TechSupportCase::status(\App\Models\TechSupportCase::STATUS_NEW)->count(); @endphp
+                    @if($newTechCaseCount > 0)
+                    <span class="ml-auto text-xs font-bold bg-rose-500 text-white rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center">{{ $newTechCaseCount }}</span>
+                    @endif
+                </a>
+
+                {{-- ── 8. Reports ─────────────────────────────────────────── --}}
+                <a href="{{ route('crm.reports.index') }}"
+                   class="sidebar-item {{ request()->routeIs('crm.reports.*') ? 'active' : '' }}"
+                   id="nav-crm-reports">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/>
+                    </svg>
+                    Reports
                 </a>
 
                 <?php

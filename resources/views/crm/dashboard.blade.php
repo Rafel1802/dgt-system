@@ -5,6 +5,38 @@
 @section('content')
 <div class="animate-fade-in space-y-6">
 
+  {{-- ── Cross-team KPI tiles ────────────────────────────────────────────── --}}
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="card p-3 text-center">
+      <div class="text-2xl font-bold text-indigo-700">{{ $dedupedCustomers }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Total Customers (deduped)</div>
+    </div>
+    <div class="card p-3 text-center">
+      <div class="text-2xl font-bold text-red-600">{{ $techIssuesOpen }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Open Technical Issues</div>
+    </div>
+    <div class="card p-3 text-center">
+      <div class="text-2xl font-bold text-amber-600">{{ $negFeedbackOpen }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Open Negative Feedback</div>
+    </div>
+    <div class="card p-3 text-center">
+      <div class="text-2xl font-bold text-blue-600">{{ $activeShipments }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Active Shipments</div>
+    </div>
+    <div class="card p-3 text-center">
+      <div class="text-2xl font-bold text-slate-700">{{ $truckingCompanyCount }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Trucking Companies</div>
+    </div>
+    <div class="card p-3 text-center">
+      <div class="text-2xl font-bold text-slate-700">{{ $ebayStoreCount }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">eBay Stores</div>
+    </div>
+    <div class="card p-3 text-center">
+      <div class="text-2xl font-bold text-emerald-600">{{ $pendingCallRequests }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Pending Call Requests</div>
+    </div>
+  </div>
+
   {{-- ── 3-Panel Stats Row ────────────────────────────────────────────────── --}}
   <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
@@ -209,5 +241,51 @@
     </div>
   </div>
 
+  {{-- ── Charts ──────────────────────────────────────────────────────────── --}}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div class="card p-4">
+      <h4 class="font-semibold text-slate-700 text-sm mb-3">CRM Website — Status Breakdown</h4>
+      <canvas id="crmStatusChart" height="180"></canvas>
+    </div>
+    <div class="card p-4">
+      <h4 class="font-semibold text-slate-700 text-sm mb-3">Shipment Status Breakdown</h4>
+      <canvas id="crmShipmentChart" height="180"></canvas>
+    </div>
+  </div>
+
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (!window.Chart) return;
+
+    const statusChartEl = document.getElementById('crmStatusChart');
+    if (statusChartEl) {
+        new Chart(statusChartEl, {
+            type: 'bar',
+            data: {
+                labels: @json($statusChart['labels']),
+                datasets: [{ label: 'Leads', data: @json($statusChart['data']), backgroundColor: '#6366f1' }],
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { x: { ticks: { autoSkip: false, maxRotation: 60, minRotation: 30 } } },
+            },
+        });
+    }
+
+    const shipmentChartEl = document.getElementById('crmShipmentChart');
+    if (shipmentChartEl) {
+        new Chart(shipmentChartEl, {
+            type: 'doughnut',
+            data: {
+                labels: @json($shipmentChart['labels']),
+                datasets: [{ data: @json($shipmentChart['data']), backgroundColor: ['#94a3b8', '#3b82f6', '#22c55e', '#ef4444'] }],
+            },
+        });
+    }
+});
+</script>
+@endpush

@@ -245,11 +245,30 @@ class Setting extends Model
     }
 
     /**
+     * @var array<string, string>|null In-request cache of all settings, keyed by `key`.
+     */
+    protected static ?array $cache = null;
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::$cache = null);
+        static::deleted(fn () => self::$cache = null);
+    }
+
+    /**
      * Get a setting value by key, or return default.
+     *
+     * Loads all settings in a single query on first call and caches them for
+     * the rest of the request, since callers (e.g. externalTools()) fetch
+     * dozens of keys individually per page load. Invalidated automatically
+     * on save/delete (see booted() above).
      */
     public static function get(string $key, $default = null)
     {
-        $setting = self::where('key', $key)->first();
-        return $setting ? $setting->value : $default;
+        if (self::$cache === null) {
+            self::$cache = self::query()->pluck('value', 'key')->all();
+        }
+
+        return self::$cache[$key] ?? $default;
     }
 }

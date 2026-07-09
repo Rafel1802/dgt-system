@@ -20,6 +20,10 @@
       @endif
     </div>
     <div class="flex gap-2 items-center">
+      <a href="{{ route('crm.website.call-reports.index') }}" class="btn btn-secondary text-sm" id="btn-call-reports">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.362-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"/></svg>
+        Call Reports
+      </a>
       @include('crm.partials.report_export_modal', ['type' => 'website', 'btnClass' => 'btn btn-secondary text-sm py-1.5'])
       <a href="{{ route('crm.website.create') }}" class="btn btn-primary text-sm" id="btn-new-lead">
         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
@@ -144,6 +148,7 @@
             </td>
           </tr>
           @empty
+          @if($customerOnlyRows->isEmpty())
           <tr>
             <td colspan="8" class="text-center py-14">
               <div class="text-4xl mb-3">🌐</div>
@@ -152,13 +157,101 @@
               <a href="{{ route('crm.website.create') }}" class="btn btn-primary text-sm mt-4 inline-flex">+ New Inquiry</a>
             </td>
           </tr>
+          @endif
           @endforelse
+
+          {{-- Customers with a Website-channel source but no Lead of their own yet
+               (same "Website" bucket the All Customers page's source filter shows).
+               Read-only rows — no pipeline/status/follow-up controls since they
+               aren't Leads. --}}
+          @foreach($customerOnlyRows as $c)
+          <tr class="hover:bg-slate-50/70 transition-colors bg-violet-50/20">
+            <td class="px-5 py-3">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <p class="font-semibold text-slate-800">{{ $c['name'] }}</p>
+                  <span class="badge text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700">Customer</span>
+                </div>
+                <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                  @if($c['phone'])
+                    <a href="tel:{{ $c['phone'] }}" class="text-xs text-slate-400 hover:text-indigo-600">{{ $c['phone'] }}</a>
+                  @endif
+                  @if($c['email'])
+                    <a href="mailto:{{ $c['email'] }}" class="text-xs text-slate-400 hover:text-indigo-600 truncate max-w-[160px]">{{ $c['email'] }}</a>
+                  @endif
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3">
+              <span class="text-sm">{{ $c['source_icon'] }}</span>
+              <span class="text-xs text-slate-500">{{ $c['source'] }}</span>
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-300">—</td>
+            <td class="px-4 py-3">
+              <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                {{ $c['status_label'] }}
+              </span>
+            </td>
+            <td class="px-4 py-3"><span class="text-xs text-slate-300">Not a lead</span></td>
+            <td class="px-4 py-3">
+              @if($c['handler'])
+                <span class="text-xs text-slate-600 truncate max-w-[80px]">{{ $c['handler'] }}</span>
+              @else
+                <span class="text-xs text-slate-300">—</span>
+              @endif
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-300">—</td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-1 justify-end">
+                <a href="{{ $c['link'] }}" class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="View Customer">
+                  <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                </a>
+              </div>
+            </td>
+          </tr>
+          @endforeach
         </tbody>
       </table>
     </div>
     @if($leads->hasPages())
     <div class="px-6 py-4 border-t border-slate-100">{{ $leads->links() }}</div>
     @endif
+  </div>
+
+  {{-- ── Pending Call Requests (from Tech Support) ───────────────────────── --}}
+  <div class="card p-3 mt-5">
+    <h3 class="font-display font-bold text-sm text-slate-800 mb-3">📲 Pending Call Requests (from Tech Support)</h3>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <th class="px-4 py-2 text-left">Customer</th>
+            <th class="px-4 py-2 text-left">Phone</th>
+            <th class="px-4 py-2 text-left">Reason</th>
+            <th class="px-4 py-2 text-left">Requested</th>
+            <th class="px-4 py-2 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          @forelse($callRequests as $request)
+          <tr>
+            <td class="px-4 py-2">{{ $request->name }}</td>
+            <td class="px-4 py-2 text-slate-500">{{ $request->phone ?: '—' }}</td>
+            <td class="px-4 py-2 text-slate-600">{{ $request->note }}</td>
+            <td class="px-4 py-2 text-xs text-slate-400">{{ $request->created_at->diffForHumans() }}</td>
+            <td class="px-4 py-2 text-right">
+              <form method="POST" action="{{ route('crm.website.call-requests.fulfill', $request) }}">
+                @csrf
+                <button type="submit" class="btn btn-primary text-xs py-1 px-2.5">Mark Called</button>
+              </form>
+            </td>
+          </tr>
+          @empty
+          <tr><td colspan="5" class="text-center text-slate-400 py-6 text-sm">No pending requests</td></tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
   </div>
 
 </div>

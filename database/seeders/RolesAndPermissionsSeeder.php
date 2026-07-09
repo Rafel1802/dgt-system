@@ -53,6 +53,9 @@ class RolesAndPermissionsSeeder extends Seeder
             // Sales Pipeline
             'sales.view', 'sales.manage',
 
+            // Technical Support cases
+            'tech-support.manage',
+
             // Reports
             'reports.view', 'reports.export',
 
@@ -102,6 +105,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'authorize-ebay-offers',
             'logistic.manage',
             'sales.view', 'sales.manage',
+            'tech-support.manage',
             'reports.view', 'reports.export',
             'security.view', 'security.manage',
             'backup.run', 'backup.view',
@@ -116,6 +120,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'crm.view', 'crm.create', 'crm.edit', 'crm.delete',
             'sales.view', 'sales.manage',
             'reports.view',
+        ]);
+
+        // Technical Support
+        $techSupport = Role::firstOrCreate(['name' => 'tech-support', 'guard_name' => 'web']);
+        $techSupport->syncPermissions([
+            'dashboard.view',
+            'crm.view',
+            'tech-support.manage',
         ]);
 
         // 6. Digital Team

@@ -12,6 +12,8 @@ enum WebsiteLeadStatus: string
     case InDelivery       = 'in_delivery';
     case Delivered        = 'delivered';
     case Lost             = 'lost';
+    case DelayedShipment  = 'delayed_shipment';
+    case MachineReturn    = 'machine_return';
 
     public function label(): string
     {
@@ -24,6 +26,8 @@ enum WebsiteLeadStatus: string
             self::InDelivery       => 'In Delivery',
             self::Delivered        => 'Delivered',
             self::Lost             => 'Lost / Not Interested',
+            self::DelayedShipment  => 'Logistic Issues',
+            self::MachineReturn    => 'Machine Return',
         };
     }
 
@@ -38,6 +42,8 @@ enum WebsiteLeadStatus: string
             self::InDelivery       => '#06b6d4',
             self::Delivered        => '#22c55e',
             self::Lost             => '#ef4444',
+            self::DelayedShipment  => '#f97316',
+            self::MachineReturn    => '#64748b',
         };
     }
 
@@ -52,6 +58,8 @@ enum WebsiteLeadStatus: string
             self::InDelivery       => 'badge-cyan',
             self::Delivered        => 'badge-green',
             self::Lost             => 'badge-rose',
+            self::DelayedShipment  => 'badge-amber',
+            self::MachineReturn    => 'badge-slate',
         };
     }
 

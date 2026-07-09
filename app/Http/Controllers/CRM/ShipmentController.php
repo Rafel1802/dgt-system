@@ -8,15 +8,20 @@ use App\Models\Shipment;
 use App\Models\ShipmentCustomer;
 use App\Models\TruckingCompany;
 use App\Models\User;
+use App\Services\CrmCustomerMatchService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class ShipmentController extends Controller
 {
+    public function __construct(private CrmCustomerMatchService $matcher)
+    {
+    }
+
     public function index(Request $request): View
     {
-        $query = Shipment::with(['truckingCompany', 'assignee', 'shipmentCustomers']);
+        $query = Shipment::with(['truckingCompany', 'assignee'])->withCount('shipmentCustomers');
 
         if ($s = $request->get('search')) {
             $query->search($s);
@@ -69,6 +74,8 @@ class ShipmentController extends Controller
             'shipment'     => $shipment,
             'statuses'     => Shipment::statuses(),
             'custStatuses' => ShipmentCustomer::statuses(),
+            'machineSkus'    => ShipmentCustomer::whereNotNull('machine_sku')->distinct()->pluck('machine_sku'),
+            'attachmentSkus' => ShipmentCustomer::whereNotNull('attachment_sku')->distinct()->pluck('attachment_sku'),
             'customers'    => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
         ]);
     }
@@ -117,8 +124,11 @@ class ShipmentController extends Controller
             'customer_id'       => ['nullable', 'exists:customers,id'],
             'recipient_name'    => ['nullable', 'string', 'max:255'],
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
+            'recipient_email'   => ['nullable', 'email', 'max:255'],
             'shipping_address'  => ['nullable', 'string'],
             'product_description'=> ['nullable', 'string', 'max:255'],
+            'machine_sku'       => ['nullable', 'string', 'max:100'],
+            'attachment_sku'    => ['nullable', 'string', 'max:100'],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
         ]);
@@ -132,6 +142,9 @@ class ShipmentController extends Controller
                 }
                 if (empty($validated['recipient_phone'])) {
                     $validated['recipient_phone'] = $cust->phone ?? '';
+                }
+                if (empty($validated['recipient_email'])) {
+                    $validated['recipient_email'] = $cust->email ?? '';
                 }
             }
         }
@@ -151,27 +164,18 @@ class ShipmentController extends Controller
             ->with('success', 'Customer added to shipment.');
     }
 
-    /** Edit a customer on a shipment */
-    public function editCustomer(Shipment $shipment, ShipmentCustomer $customer): View
-    {
-        return view('crm.logistics.shipments.customer_edit', [
-            'shipment'     => $shipment,
-            'entry'        => $customer->load('customer'),
-            'statuses'     => ShipmentCustomer::statuses(),
-            'crmUsers'     => User::crmMembers()->orderBy('name')->get(),
-            'customers'    => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
-        ]);
-    }
-
-    /** Update a customer on a shipment */
+    /** Update a customer on a shipment (edited via the inline modal on the shipment show page) */
     public function updateCustomer(Request $request, Shipment $shipment, ShipmentCustomer $customer): RedirectResponse
     {
         $validated = $request->validate([
             'customer_id'       => ['nullable', 'exists:customers,id'],
             'recipient_name'    => ['nullable', 'string', 'max:255'],
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
+            'recipient_email'   => ['nullable', 'email', 'max:255'],
             'shipping_address'  => ['nullable', 'string'],
             'product_description'=> ['nullable', 'string', 'max:255'],
+            'machine_sku'       => ['nullable', 'string', 'max:100'],
+            'attachment_sku'    => ['nullable', 'string', 'max:100'],
             'status'            => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
@@ -183,6 +187,9 @@ class ShipmentController extends Controller
                 $validated['recipient_name'] = $cust->name;
                 if (empty($validated['recipient_phone'])) {
                     $validated['recipient_phone'] = $cust->phone ?? '';
+                }
+                if (empty($validated['recipient_email'])) {
+                    $validated['recipient_email'] = $cust->email ?? '';
                 }
                 if (empty($validated['shipping_address'])) {
                     $validated['shipping_address'] = $cust->address ?? '';
@@ -196,7 +203,13 @@ class ShipmentController extends Controller
 
         $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
+        $becameProblem = $validated['status'] === ShipmentCustomer::STATUS_PROBLEM && $customer->status !== ShipmentCustomer::STATUS_PROBLEM;
+
         $customer->update($validated);
+
+        if ($becameProblem) {
+            $this->matcher->propagateShipmentProblem($customer);
+        }
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Customer record updated.');

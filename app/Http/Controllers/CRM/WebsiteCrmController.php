@@ -6,11 +6,14 @@ use App\Enums\InquirySource;
 use App\Enums\WebsiteLeadStatus;
 use App\Enums\LeadTemperature;
 use App\Http\Controllers\Controller;
+use App\Models\CallReport;
+use App\Models\CallRequest;
 use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\LeadFollowUp;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\CrmCustomerMatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,9 +22,20 @@ use Illuminate\View\View;
 
 class WebsiteCrmController extends Controller
 {
+    public function __construct(private CrmCustomerMatchService $matcher)
+    {
+    }
+
     public function index(Request $request): View
     {
         $query = Lead::with(['handler', 'customer', 'product']);
+
+        // Role-based visibility: sales-crm only sees leads they handle themselves
+        // (matches the same convention used in CrmService for Customers/Deals).
+        $user = auth()->user();
+        if ($user->hasRole('sales-crm') && ! $user->hasAnyRole(['admin', 'supervisor', 'super-admin'])) {
+            $query->where('handled_by', $user->id);
+        }
 
         if ($s = $request->get('search')) {
             $query->search($s);
@@ -40,7 +54,39 @@ class WebsiteCrmController extends Controller
         $statuses = WebsiteLeadStatus::cases();
         $sources  = InquirySource::cases();
 
-        return view('crm.website.index', compact('leads', 'statuses', 'sources'));
+        $callRequests = CallRequest::with(['requestedBy', 'source'])->pending()->latest()->get();
+
+        // Customers with a Website-channel source but no Lead of their own yet —
+        // the same "Website" bucket shown by the All Customers page's source filter.
+        // Shown read-only here (no pipeline/status/follow-up controls, since they
+        // aren't Leads) unless the current user is search/status/source filtering,
+        // in which case we keep the leads table the sole focus.
+        $customerOnlyRows = collect();
+        if (! $request->get('search') && ! $request->get('status') && ! $request->get('source')) {
+            $customerOnlyRows = $this->matcher->buildUnifiedDirectory()->filter(fn ($c) => $c['source'] === 'Website');
+        }
+
+        return view('crm.website.index', compact('leads', 'statuses', 'sources', 'callRequests', 'customerOnlyRows'));
+    }
+
+    /** Standalone call log — a separate page under Website CRM */
+    public function callReportsIndex(Request $request): View
+    {
+        $query = CallReport::with('answeredBy');
+
+        if ($s = $request->get('search')) {
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                  ->orWhere('phone', 'like', "%{$s}%")
+                  ->orWhere('email', 'like', "%{$s}%");
+            });
+        }
+
+        $callReports = $query->latest('occurred_at')->paginate(20)->withQueryString();
+        $inquiryTypes = CallReport::INQUIRY_TYPES;
+        $crmUsers = User::crmMembers()->orderBy('name')->get();
+
+        return view('crm.website.call-reports', compact('callReports', 'inquiryTypes', 'crmUsers'));
     }
 
     public function create(): View
@@ -176,11 +222,25 @@ class WebsiteCrmController extends Controller
     public function updateStatus(Request $request, Lead $lead): JsonResponse
     {
         $request->validate(['status' => ['required', Rule::enum(WebsiteLeadStatus::class)]]);
-        $lead->update(['status' => $request->status]);
+        $newStatus = WebsiteLeadStatus::from($request->status);
+
+        if ($lead->status !== $newStatus) {
+            $lead->update(['status' => $newStatus]);
+
+            // Every status transition is recorded here too, not just ones made
+            // through the follow-up modal, so the history timeline is complete.
+            LeadFollowUp::create([
+                'lead_id'           => $lead->id,
+                'user_id'           => auth()->id(),
+                'notes'             => 'Status changed to ' . $newStatus->label() . '.',
+                'status_changed_to' => $newStatus,
+                'contacted_at'      => now(),
+            ]);
+        }
 
         return response()->json([
             'message' => 'Status updated.',
-            'status'  => WebsiteLeadStatus::from($request->status),
+            'status'  => $newStatus,
         ]);
     }
 
@@ -188,5 +248,34 @@ class WebsiteCrmController extends Controller
     {
         $lead->delete();
         return redirect()->route('crm.website.index')->with('success', 'Lead deleted.');
+    }
+
+    /** Log a standalone call (not tied to any existing lead) */
+    public function storeCallReport(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name'          => ['required', 'string', 'max:255'],
+            'phone'         => ['nullable', 'string', 'max:30'],
+            'email'         => ['nullable', 'email', 'max:255'],
+            'inquiry_type'  => ['required', Rule::in(CallReport::INQUIRY_TYPES)],
+            'answered_by'   => ['required', 'exists:users,id'],
+            'occurred_at'   => ['required', 'date'],
+        ]);
+
+        CallReport::create([...$validated, 'created_by' => auth()->id()]);
+
+        return redirect()->route('crm.website.call-reports.index')->with('success', 'Call report logged.');
+    }
+
+    /** Mark a pending call request (raised from Tech Support) as called */
+    public function fulfillCallRequest(CallRequest $callRequest): RedirectResponse
+    {
+        $callRequest->update([
+            'fulfilled'    => true,
+            'fulfilled_at' => now(),
+            'fulfilled_by' => auth()->id(),
+        ]);
+
+        return redirect()->route('crm.website.index')->with('success', 'Call request marked as called.');
     }
 }

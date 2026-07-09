@@ -14,6 +14,7 @@ use App\Models\Logistic;
 use App\Models\LogisticUpdate;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\CrmCustomerMatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,10 @@ use Illuminate\View\View;
 
 class LogisticCrmController extends Controller
 {
+    public function __construct(private readonly CrmCustomerMatchService $matcher)
+    {
+    }
+
     public function index(Request $request): View
     {
         $query = Logistic::with(['customer', 'product', 'assignee']);
@@ -223,16 +228,20 @@ class LogisticCrmController extends Controller
         $validated = $request->validate([
             'name'    => ['required', 'string', 'max:255'],
             'phone'   => ['nullable', 'string', 'max:30'],
-            'email'   => ['nullable', 'email', 'max:255', 'unique:customers,email'],
+            'email'   => ['nullable', 'email', 'max:255'],
             'company' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $customer = Customer::create([
-            ...$validated,
-            'status'     => CustomerStatus::Lead->value,
-            'source'     => CustomerSource::Logistic->value,
-            'created_by' => auth()->id(),
-        ]);
+        $customer = $this->matcher->findCustomerByContact($validated['email'] ?? null, $validated['phone'] ?? null);
+
+        if (! $customer) {
+            $customer = Customer::create([
+                ...$validated,
+                'status'     => CustomerStatus::Lead->value,
+                'source'     => CustomerSource::Logistic->value,
+                'created_by' => auth()->id(),
+            ]);
+        }
 
         return response()->json([
             'id'   => $customer->id,

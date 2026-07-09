@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\CrmService;
+use App\Services\CrmCustomerMatchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,21 +19,42 @@ use Illuminate\View\View;
 class CustomerController extends Controller
 {
     public function __construct(
-        private readonly CrmService $crmService
+        private readonly CrmService $crmService,
+        private readonly CrmCustomerMatchService $matcher,
     ) {}
 
-    /** Searchable customer database */
+    /**
+     * Customer Database — a single unified list deduped across CRM Website
+     * (Leads), eBay, and Logistics-problem records, filterable by the
+     * cross-source status categories (Technical issues / Logistic issues /
+     * Negative feedback) alongside a free-text search.
+     */
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Customer::class);
 
-        $customers = $this->crmService->searchCustomers($request->all(), auth()->user());
-        $stats     = $this->crmService->getDashboardStats();
-        $users     = User::crmMembers()->get(['id', 'name']);
-        $statuses  = CustomerStatus::cases();
-        $sources   = CustomerSource::cases();
+        $stats = $this->crmService->getDashboardStats();
 
-        return view('crm.index', compact('customers', 'stats', 'users', 'statuses', 'sources'));
+        $all = $this->matcher->buildUnifiedDirectory(['search' => $request->get('search')]);
+        $totalUnique = $all->count();
+
+        $statusFilter = $request->get('status_filter', 'All');
+        $category = match ($statusFilter) {
+            'Technical issues'  => 'technical',
+            'Logistic issues'   => 'shipment_delay',
+            'Negative feedback' => 'negative_feedback',
+            default => null,
+        };
+        $customers = $category ? $all->filter(fn ($c) => $c['category'] === $category) : $all;
+
+        $sourceFilter = $request->get('source_filter', 'All');
+        $customers = match ($sourceFilter) {
+            'eBay'    => $customers->filter(fn ($c) => $c['source'] === 'eBay'),
+            'Website' => $customers->filter(fn ($c) => $c['source'] !== 'eBay'),
+            default   => $customers,
+        };
+
+        return view('crm.index', compact('stats', 'customers', 'statusFilter', 'sourceFilter', 'totalUnique'));
     }
 
     /** Create customer form */
@@ -86,14 +108,14 @@ class CustomerController extends Controller
             ->with('success', "Customer \"{$customer->name}\" created successfully.");
     }
 
-    /** Quick-create a minimal customer from CRM forms */
+    /** Quick-create a minimal customer from CRM forms — reuses an existing match by email/phone instead of duplicating */
     public function quickCreate(Request $request): JsonResponse
     {
         $this->authorize('create', Customer::class);
 
         $validated = $request->validate([
             'name'  => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255', 'unique:customers,email'],
+            'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
             'source' => ['nullable', Rule::enum(CustomerSource::class)],
         ]);
@@ -101,21 +123,25 @@ class CustomerController extends Controller
         $source = $validated['source'] ?? CustomerSource::Website->value;
         unset($validated['source']);
 
-        $customer = Customer::create([
-            ...$validated,
-            'status'         => CustomerStatus::Lead->value,
-            'source'         => $source,
-            'pipeline_stage' => DealStage::NewLead->value,
-            'created_by'     => auth()->id(),
-        ]);
+        $customer = $this->matcher->findCustomerByContact($validated['email'] ?? null, $validated['phone'] ?? null);
+
+        if (! $customer) {
+            $customer = Customer::create([
+                ...$validated,
+                'status'         => CustomerStatus::Lead->value,
+                'source'         => $source,
+                'pipeline_stage' => DealStage::NewLead->value,
+                'created_by'     => auth()->id(),
+            ]);
+        }
 
         return response()->json([
             'id'      => $customer->id,
             'name'    => $customer->name,
             'email'   => $customer->email ?? '',
             'phone'   => $customer->phone ?? '',
-            'company' => '',
-            'address' => '',
+            'company' => $customer->company ?? '',
+            'address' => $customer->address ?? '',
             'label'   => $customer->name . ($customer->phone ? ' · ' . $customer->phone : ''),
             'text'    => $customer->name . ($customer->phone ? ' · ' . $customer->phone : ''),
         ], 201);

@@ -15,8 +15,8 @@
       <div class="card p-6">
         <div class="flex justify-between items-start mb-4">
           <h2 class="font-display font-bold text-slate-800 text-xl">{{ $shipment->shipment_code }}</h2>
-          <span class="badge {{ $shipment->status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
-            {{ ucfirst($shipment->status) }}
+          <span class="badge" style="background:{{ $shipment->statusColor() }}22; color:{{ $shipment->statusColor() }}">
+            {{ $shipment->statusLabel() }}
           </span>
         </div>
 
@@ -82,7 +82,7 @@
             <thead>
               <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                 <th class="px-5 py-3 text-left">Customer</th>
-                <th class="px-4 py-3 text-left">Product Description</th>
+                <th class="px-4 py-3 text-left">Machine / Attachment SKU</th>
                 <th class="px-4 py-3 text-left">Shipping Address</th>
                 <th class="px-4 py-3 text-left">Status</th>
                 <th class="px-4 py-3 text-right">Actions</th>
@@ -100,16 +100,21 @@
                     <p class="text-xs text-slate-400">Phone: {{ $sc->recipient_phone }}</p>
                   @endif
                 </td>
-                <td class="px-4 py-3 text-slate-600">
-                  {{ $sc->product_description ?? '—' }}
+                <td class="px-4 py-3 text-slate-600 text-xs">
+                  <p>{{ $sc->machine_sku ?: '—' }}</p>
+                  @if($sc->attachment_sku)<p class="text-slate-400">+ {{ $sc->attachment_sku }}</p>@endif
+                  @if($sc->product_description)<p class="text-slate-400 mt-0.5">{{ $sc->product_description }}</p>@endif
                 </td>
                 <td class="px-4 py-3 text-xs text-slate-600 max-w-xs truncate" title="{{ $sc->shipping_address }}">
                   {{ $sc->shipping_address ?? '—' }}
                 </td>
                 <td class="px-4 py-3">
-                  <span class="badge text-xs px-2 py-0.5 rounded-full {{ $sc->status === 'delivered' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
-                    {{ ucfirst($sc->status) }}
+                  <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $sc->statusColor() }}22; color:{{ $sc->statusColor() }}">
+                    {{ $sc->statusLabel() }}
                   </span>
+                  @if($sc->status === \App\Models\ShipmentCustomer::STATUS_PROBLEM && $sc->notes)
+                    <p class="text-xs text-red-500 mt-1">{{ $sc->notes }}</p>
+                  @endif
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex justify-end gap-1">
@@ -164,8 +169,22 @@
                             </div>
                           </div>
                           <div>
+                            <label class="form-label">Recipient Email</label>
+                            <input type="email" name="recipient_email" value="{{ $sc->recipient_email }}" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
+                          </div>
+                          <div>
                             <label class="form-label">Shipping Address</label>
                             <textarea id="edit-shipping-address-{{ $sc->id }}" name="shipping_address" rows="2" class="form-input">{{ $sc->shipping_address }}</textarea>
+                          </div>
+                          <div class="grid grid-cols-2 gap-4">
+                            <div>
+                              <label class="form-label">Machine SKU</label>
+                              <input type="text" name="machine_sku" value="{{ $sc->machine_sku }}" list="machine-sku-list" class="form-input">
+                            </div>
+                            <div>
+                              <label class="form-label">Attachment SKU</label>
+                              <input type="text" name="attachment_sku" value="{{ $sc->attachment_sku }}" list="attachment-sku-list" class="form-input">
+                            </div>
                           </div>
                           <div>
                             <label class="form-label">Product Description</label>
@@ -174,12 +193,17 @@
                           <div>
                             <label class="form-label">Status</label>
                             <select name="status" class="form-input">
-                              <option value="pending" {{ $sc->status === 'pending' ? 'selected' : '' }}>Pending</option>
-                              <option value="in_transit" {{ $sc->status === 'in_transit' ? 'selected' : '' }}>In Transit</option>
-                              <option value="delivered" {{ $sc->status === 'delivered' ? 'selected' : '' }}>Delivered</option>
-                              <option value="problem" {{ $sc->status === 'problem' ? 'selected' : '' }}>Problem</option>
+                              @foreach($custStatuses as $value => $label)
+                              <option value="{{ $value }}" {{ $sc->status === $value ? 'selected' : '' }}>{{ $label }}</option>
+                              @endforeach
                             </select>
                           </div>
+                          @if($sc->status === \App\Models\ShipmentCustomer::STATUS_PROBLEM)
+                          <div>
+                            <label class="form-label">Problem Note</label>
+                            <textarea name="notes" rows="2" class="form-input">{{ $sc->notes }}</textarea>
+                          </div>
+                          @endif
                         </div>
                         <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl">
                           <button type="button" onclick="document.getElementById('editCustomerModal{{ $sc->id }}').classList.add('hidden')" class="btn btn-secondary text-sm">Cancel</button>
@@ -204,6 +228,14 @@
     </div>
   </div>
 </div>
+
+{{-- SKU autocomplete lists (shared by add/edit modals) --}}
+<datalist id="machine-sku-list">
+  @foreach($machineSkus as $sku)<option value="{{ $sku }}">@endforeach
+</datalist>
+<datalist id="attachment-sku-list">
+  @foreach($attachmentSkus as $sku)<option value="{{ $sku }}">@endforeach
+</datalist>
 
 {{-- Add Customer Modal --}}
 <div id="addCustomerModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center">
@@ -243,8 +275,22 @@
           </div>
         </div>
         <div>
+          <label class="form-label">Recipient Email</label>
+          <input type="email" name="recipient_email" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
+        </div>
+        <div>
           <label class="form-label">Shipping Address</label>
           <textarea id="add-shipping-address" name="shipping_address" rows="2" class="form-input" placeholder="Leave blank if same as customer"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Machine SKU</label>
+            <input type="text" name="machine_sku" list="machine-sku-list" class="form-input" placeholder="Search or type new">
+          </div>
+          <div>
+            <label class="form-label">Attachment SKU <span class="text-slate-400 normal-case font-normal">(optional)</span></label>
+            <input type="text" name="attachment_sku" list="attachment-sku-list" class="form-input">
+          </div>
         </div>
         <div>
           <label class="form-label">Product Description</label>

@@ -14,7 +14,7 @@ class EbayStoreController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = EbayStore::with(['handler']);
+        $query = EbayStore::with(['handler'])->withCount('customerRecords');
 
         if ($s = $request->get('search')) {
             $query->search($s);
@@ -22,7 +22,7 @@ class EbayStoreController extends Controller
         if ($storeId = $request->get('store_id')) {
             $query->where('id', $storeId);
         }
-        
+
         if ($request->get('status') === 'inactive') {
             $query->where('is_active', false);
         } elseif ($request->get('status') !== 'all') {
@@ -53,6 +53,7 @@ class EbayStoreController extends Controller
             'ebay_username'=> ['nullable', 'string', 'max:255'],
             'handled_by'   => ['nullable', 'exists:users,id'],
             'notes'        => ['nullable', 'string'],
+            'total_sales'  => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $store = EbayStore::create([...$validated, 'is_active' => true]);
@@ -63,7 +64,7 @@ class EbayStoreController extends Controller
 
     public function show(EbayStore $store, Request $request): View
     {
-        $store->load(['handler']);
+        $store->load(['handler'])->loadCount('customerRecords');
 
         $offersQuery = EbayOffer::with(['customer', 'handler', 'order'])
             ->where('store_id', $store->id);
@@ -95,6 +96,7 @@ class EbayStoreController extends Controller
             'handled_by'   => ['nullable', 'exists:users,id'],
             'notes'        => ['nullable', 'string'],
             'is_active'    => ['sometimes', 'boolean'],
+            'total_sales'  => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $store->update($validated);
@@ -108,5 +110,34 @@ class EbayStoreController extends Controller
         $store->delete();
         return redirect()->route('crm.ebay.stores.index')
             ->with('success', 'Store deleted.');
+    }
+
+    /** CSV export of a single store's customer records + summary (mirrors CrmReportController's CSV pattern) */
+    public function exportReport(EbayStore $store)
+    {
+        $records = $store->customerRecords()->with('handlerHistory.user')->get();
+
+        $filename = str($store->store_name)->slug('_') . '_report.csv';
+
+        return response()->streamDownload(function () use ($store, $records) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Store', $store->store_name]);
+            fputcsv($out, ['Email', $store->ebay_username]);
+            fputcsv($out, ['URL', $store->store_url]);
+            fputcsv($out, ['Total Sales', $store->total_sales]);
+            fputcsv($out, ['Customers this week', $records->where('created_at', '>=', now()->subDays(7))->count()]);
+            fputcsv($out, ['Customers this month', $records->where('created_at', '>=', now()->startOfMonth())->count()]);
+            fputcsv($out, []);
+            fputcsv($out, ['Name', 'Username', 'Status', 'Handler']);
+            foreach ($records as $record) {
+                fputcsv($out, [
+                    $record->buyer_name,
+                    $record->username,
+                    $record->status,
+                    $record->current_handler?->name,
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 }

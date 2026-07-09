@@ -21,10 +21,10 @@
         </div>
 
         <div class="space-y-4">
-          @if($truckingCompany->contact_person)
+          @if($truckingCompany->pic_name)
           <div>
             <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Contact Person</span>
-            <p class="text-sm text-slate-800">{{ $truckingCompany->contact_person }}</p>
+            <p class="text-sm text-slate-800">{{ $truckingCompany->pic_name }}</p>
           </div>
           @endif
           @if($truckingCompany->phone)

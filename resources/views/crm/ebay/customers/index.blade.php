@@ -34,15 +34,19 @@
 @section('content')
 <div class="animate-fade-in">
 
-  {{-- ── Tabs ──────────────────────────────────────────────────────────── --}}
+  {{-- ── Status Filter (buttons, same UI as before) ─────────────────────── --}}
   <div class="flex gap-2 flex-wrap mb-5 overflow-x-auto pb-1">
+    <a href="{{ route('crm.ebay.customers.index', array_merge(request()->except('tab_type'), ['tab_type' => ''])) }}"
+       class="tab-btn {{ ! $tabType ? 'active' : '' }}" id="tab-all">
+      All
+    </a>
     @foreach($tabs as $key => $label)
-    <a href="{{ route('crm.ebay.customers.index', $key) }}"
-       class="tab-btn {{ $tab === $key ? 'active' : '' }}" id="tab-{{ $key }}">
+    <a href="{{ route('crm.ebay.customers.index', array_merge(request()->except('tab_type'), ['tab_type' => $key])) }}"
+       class="tab-btn {{ $tabType === $key ? 'active' : '' }}" id="tab-{{ $key }}">
       {{ $label }}
       @php $cnt = \App\Models\EbayCustomerRecord::forTab($key)->count(); @endphp
       @if($cnt > 0)
-        <span class="ml-1 text-xs {{ $tab === $key ? 'opacity-70' : 'text-indigo-500' }}">({{ $cnt }})</span>
+        <span class="ml-1 text-xs {{ $tabType === $key ? 'opacity-70' : 'text-indigo-500' }}">({{ $cnt }})</span>
       @endif
     </a>
     @endforeach
@@ -50,10 +54,8 @@
 
   {{-- ── Toolbar ───────────────────────────────────────────────────────── --}}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-    <div>
-      <h2 class="font-bold text-slate-800 text-base">{{ $tabs[$tab] }}</h2>
-    </div>
-    <a href="{{ route('crm.ebay.customers.create', $tab) }}"
+    <h2 class="font-bold text-slate-800 text-base">{{ $tabType ? $tabs[$tabType] : 'All Records' }}</h2>
+    <a href="{{ route('crm.ebay.customers.create', $tabType ? ['tab_type' => $tabType] : []) }}"
        class="btn btn-primary text-sm" id="btn-new-ebay-customer">
       <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       + New Record
@@ -68,7 +70,8 @@
   @endif
 
   {{-- ── Search & Store Filter ───────────────────────────────────────────── --}}
-  <form method="GET" action="{{ route('crm.ebay.customers.index', $tab) }}" class="card p-4 mb-4" x-data>
+  <form method="GET" action="{{ route('crm.ebay.customers.index') }}" class="card p-4 mb-4" x-data>
+    <input type="hidden" name="tab_type" value="{{ $tabType }}">
     <div class="flex flex-wrap gap-3 items-end">
       <div class="flex-1 min-w-[180px]">
         <label class="form-label text-xs">Search</label>
@@ -76,8 +79,7 @@
                @input.debounce.500ms="$el.closest('form').submit()"
                placeholder="Username, buyer, order ID…" class="form-input py-2 text-sm">
       </div>
-      @if(in_array('ebay_store_id', $columns))
-      <div>
+      <div class="min-w-[180px]">
         <label class="form-label text-xs">eBay Store</label>
         <select name="store_id" class="form-input py-2 text-sm" @change="$el.closest('form').submit()">
           <option value="">All Stores</option>
@@ -88,6 +90,8 @@
           @endforeach
         </select>
       </div>
+      @if(request('search') || request('store_id'))
+      <a href="{{ route('crm.ebay.customers.index', ['tab_type' => $tabType]) }}" class="btn btn-secondary text-sm py-2">Clear Filters</a>
       @endif
     </div>
   </form>
@@ -98,57 +102,54 @@
       <table class="w-full text-sm">
         <thead>
           <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-            {{-- Dynamic headers based on tab --}}
-            @if(in_array('n', $columns))          <th class="px-4 py-3 text-left">N</th>@endif
-            @if(in_array('date', $columns))        <th class="px-4 py-3 text-left">Date</th>@endif
-            @if(in_array('order_date', $columns))  <th class="px-4 py-3 text-left">Order Date</th>@endif
-            @if(in_array('username', $columns))    <th class="px-4 py-3 text-left">Username</th>@endif
-            @if(in_array('buyer_name', $columns))  <th class="px-4 py-3 text-left">Full Name</th>@endif
-            @if(in_array('informations', $columns))<th class="px-4 py-3 text-left">Informations</th>@endif
-            @if(in_array('email', $columns))       <th class="px-4 py-3 text-left">Email</th>@endif
-            @if(in_array('ebay_store_id', $columns))<th class="px-4 py-3 text-left">eBay Store</th>@endif
-            @if(in_array('order_id', $columns))    <th class="px-4 py-3 text-left">Order ID</th>@endif
-            @if(in_array('sku_number', $columns))  <th class="px-4 py-3 text-left">SKU Number</th>@endif
-            @if(in_array('summary', $columns))     <th class="px-4 py-3 text-left">Summary</th>@endif
-            @if(in_array('attention_required', $columns)) <th class="px-4 py-3 text-left">Attention Required</th>@endif
-            @if(in_array('required_attentions', $columns))<th class="px-4 py-3 text-left">Required Attentions</th>@endif
-            @if(in_array('updates', $columns))     <th class="px-4 py-3 text-left">Updates</th>@endif
-            @if(in_array('status', $columns))      <th class="px-4 py-3 text-left">Status</th>@endif
+            <th class="px-4 py-3 text-left">Status</th>
+            <th class="px-4 py-3 text-left">Customer</th>
+            <th class="px-4 py-3 text-left">eBay Store</th>
+            <th class="px-4 py-3 text-left">Order ID</th>
+            <th class="px-4 py-3 text-left">Summary</th>
+            <th class="px-4 py-3 text-left">Date</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-50">
           @forelse($records as $record)
           <tr class="hover:bg-slate-50/70 transition-colors">
-            @if(in_array('n', $columns))          <td class="px-4 py-3 text-xs font-mono text-slate-500">{{ $record->n }}</td>@endif
-            @if(in_array('date', $columns))        <td class="px-4 py-3 text-xs text-slate-500">{{ $record->date?->format('d/m/Y') ?? '—' }}</td>@endif
-            @if(in_array('order_date', $columns))  <td class="px-4 py-3 text-xs text-slate-500">{{ $record->order_date?->format('d/m/Y') ?? '—' }}</td>@endif
-            @if(in_array('username', $columns))    <td class="px-4 py-3 font-medium text-slate-800">{{ $record->username ?? '—' }}</td>@endif
-            @if(in_array('buyer_name', $columns))  <td class="px-4 py-3 text-slate-700">{{ $record->buyer_name ?? '—' }}</td>@endif
-            @if(in_array('informations', $columns))<td class="px-4 py-3 text-xs text-slate-600 max-w-[200px] truncate" title="{{ $record->informations }}">{{ Str::limit($record->informations, 60) }}</td>@endif
-            @if(in_array('email', $columns))       <td class="px-4 py-3 text-xs text-slate-500">{{ $record->email ?? '—' }}</td>@endif
-            @if(in_array('ebay_store_id', $columns))<td class="px-4 py-3 text-xs text-indigo-600">{{ $record->store?->store_name ?? '—' }}</td>@endif
-            @if(in_array('order_id', $columns))    <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ $record->order_id ?? '—' }}</td>@endif
-            @if(in_array('sku_number', $columns))  <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ $record->sku_number ?? '—' }}</td>@endif
-            @if(in_array('summary', $columns))     <td class="px-4 py-3 text-xs text-slate-600 max-w-[180px] truncate" title="{{ $record->summary }}">{{ Str::limit($record->summary, 50) }}</td>@endif
-            @if(in_array('attention_required', $columns)) <td class="px-4 py-3 text-xs text-orange-600 max-w-[180px] truncate" title="{{ $record->attention_required }}">{{ Str::limit($record->attention_required, 50) }}</td>@endif
-            @if(in_array('required_attentions', $columns))<td class="px-4 py-3 text-xs text-orange-600 max-w-[180px] truncate" title="{{ $record->required_attentions }}">{{ Str::limit($record->required_attentions, 50) }}</td>@endif
-            @if(in_array('updates', $columns))     <td class="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate" title="{{ $record->updates }}">{{ Str::limit($record->updates, 50) }}</td>@endif
-            @if(in_array('status', $columns))
-              <td class="px-4 py-3">
-                <span class="text-xs font-semibold px-2 py-0.5 rounded-full
-                  {{ $record->status === 'open' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500' }}">
-                  {{ ucfirst($record->status ?? 'open') }}
+            <td class="px-4 py-3">
+              @php $tabColor = \App\Models\EbayCustomerRecord::tabColor($record->tab_type); @endphp
+              <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $tabColor }}22; color:{{ $tabColor }}">
+                {{ $tabs[$record->tab_type] ?? $record->tab_type }}
+              </span>
+              @if($record->shipment_delay)
+                <span class="badge text-xs px-2 py-0.5 rounded-full block mt-1 w-fit"
+                      style="background:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}22; color:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}">
+                  ⚠ Logistic Issues
                 </span>
-              </td>
-            @endif
+              @endif
+            </td>
+            <td class="px-4 py-3">
+              <p class="font-medium text-slate-800">{{ $record->buyer_name ?: $record->username ?: '—' }}</p>
+              @if($record->username && $record->buyer_name)
+                <p class="text-xs text-slate-400">@{{ $record->username }}</p>
+              @endif
+              @if($record->email)
+                <p class="text-xs text-slate-400">{{ $record->email }}</p>
+              @endif
+            </td>
+            <td class="px-4 py-3 text-xs text-indigo-600">{{ $record->store?->store_name ?? '—' }}</td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ $record->order_id ?? '—' }}</td>
+            <td class="px-4 py-3 text-xs text-slate-600 max-w-[220px] truncate" title="{{ $record->summary }}">{{ Str::limit($record->summary, 60) ?: '—' }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ ($record->date ?? $record->order_date)?->format('d/m/Y') ?? '—' }}</td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
-                <a href="{{ route('crm.ebay.customers.edit', [$tab, $record]) }}"
+                <a href="{{ route('crm.ebay.customers.show', $record) }}"
+                   class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="View">
+                  <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                </a>
+                <a href="{{ route('crm.ebay.customers.edit', $record) }}"
                    class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="Edit">
                   <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
                 </a>
-                <form method="POST" action="{{ route('crm.ebay.customers.destroy', [$tab, $record]) }}"
+                <form method="POST" action="{{ route('crm.ebay.customers.destroy', $record) }}"
                       onsubmit="return confirm('Delete this record?')" class="inline">
                   @csrf @method('DELETE')
                   <button type="submit" class="btn btn-secondary btn-icon text-red-400 hover:text-red-600"
@@ -161,10 +162,10 @@
           </tr>
           @empty
           <tr>
-            <td colspan="20" class="text-center py-14">
+            <td colspan="7" class="text-center py-14">
               <div class="text-4xl mb-3">📋</div>
-              <p class="text-slate-500 font-medium">No records in {{ $tabs[$tab] }}</p>
-              <a href="{{ route('crm.ebay.customers.create', $tab) }}"
+              <p class="text-slate-500 font-medium">No records found</p>
+              <a href="{{ route('crm.ebay.customers.create', $tabType ? ['tab_type' => $tabType] : []) }}"
                  class="btn btn-primary text-sm mt-4 inline-flex">+ New Record</a>
             </td>
           </tr>

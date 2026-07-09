@@ -6,7 +6,10 @@
 <div class="animate-fade-in">
   <div class="mb-5 flex justify-between">
     <a href="{{ route('crm.ebay.stores.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Stores</a>
-    <a href="{{ route('crm.ebay.stores.edit', $store) }}" class="btn btn-secondary text-sm">Edit Store</a>
+    <div class="flex gap-2">
+      <a href="{{ route('crm.ebay.stores.export', $store) }}" class="btn btn-secondary text-sm">Export CSV</a>
+      <a href="{{ route('crm.ebay.stores.edit', $store) }}" class="btn btn-secondary text-sm">Edit Store</a>
+    </div>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -56,6 +59,17 @@
             <div class="text-sm text-slate-600 whitespace-pre-wrap">{{ $store->notes }}</div>
           </div>
           @endif
+        </div>
+      </div>
+
+      <div class="card p-6 grid grid-cols-2 gap-4">
+        <div>
+          <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Customers</span>
+          <p class="text-2xl font-bold text-slate-800">{{ $store->customer_records_count }}</p>
+        </div>
+        <div>
+          <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Total Sales</span>
+          <p class="text-2xl font-bold text-slate-800">${{ number_format($store->total_sales, 2) }}</p>
         </div>
       </div>
     </div>

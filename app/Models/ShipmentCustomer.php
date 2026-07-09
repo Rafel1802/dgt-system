@@ -12,8 +12,9 @@ class ShipmentCustomer extends Model
 
     protected $fillable = [
         'shipment_id', 'customer_id',
-        'recipient_name', 'recipient_phone', 'shipping_address',
+        'recipient_name', 'recipient_phone', 'recipient_email', 'shipping_address',
         'status', 'handled_by', 'notes', 'product_description',
+        'machine_sku', 'attachment_sku',
     ];
 
     const STATUS_PENDING    = 'pending';

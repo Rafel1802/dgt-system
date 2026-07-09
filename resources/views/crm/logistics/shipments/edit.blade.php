@@ -25,10 +25,9 @@
           <div>
             <label class="form-label">Status <span class="text-red-500">*</span></label>
             <select name="status" class="form-input" required>
-              <option value="pending" {{ old('status', $shipment->status) === 'pending' ? 'selected' : '' }}>Pending</option>
-              <option value="in_transit" {{ old('status', $shipment->status) === 'in_transit' ? 'selected' : '' }}>In Transit</option>
-              <option value="completed" {{ old('status', $shipment->status) === 'completed' ? 'selected' : '' }}>Completed</option>
-              <option value="cancelled" {{ old('status', $shipment->status) === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+              @foreach($statuses as $value => $label)
+              <option value="{{ $value }}" {{ old('status', $shipment->status) === $value ? 'selected' : '' }}>{{ $label }}</option>
+              @endforeach
             </select>
           </div>
         </div>
