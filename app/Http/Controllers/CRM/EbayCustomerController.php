@@ -277,6 +277,12 @@ class EbayCustomerController extends Controller
      */
     private function validatedRecord(Request $request): array
     {
+        $isIssueCategory = in_array($request->input('tab_type'), [
+            EbayCustomerRecord::TAB_TECHNICAL,
+            EbayCustomerRecord::TAB_POT_NEGATIVES,
+            EbayCustomerRecord::TAB_NEGATIVES,
+        ]);
+
         $rules = [
             'customer_id'   => ['nullable', 'exists:customers,id'],
             'tab_type'      => ['required', Rule::in(array_keys(EbayCustomerRecord::tabs()))],
@@ -286,7 +292,9 @@ class EbayCustomerController extends Controller
             'phone'         => ['nullable', 'string', 'max:30'],
             'ebay_store_id' => ['nullable', 'exists:ebay_stores,id'],
             'summary'       => ['nullable', 'string'],
-            'informations'  => ['nullable', 'string'],
+            // Technical Issues / Negative Feedback categories require a note
+            // explaining the issue — every other category leaves it optional.
+            'informations'  => $isIssueCategory ? ['required', 'string'] : ['nullable', 'string'],
         ];
 
         if (in_array($request->input('tab_type'), [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])) {
@@ -295,7 +303,9 @@ class EbayCustomerController extends Controller
             $rules['negative_feedback_resolved'] = ['nullable', 'boolean'];
         }
 
-        return $request->validate($rules);
+        return $request->validate($rules, [
+            'informations.required' => 'A note is required for Technical Issues and Negative Feedback records.',
+        ]);
     }
 
     /**

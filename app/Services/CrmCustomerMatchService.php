@@ -96,15 +96,25 @@ class CrmCustomerMatchService
 
     /**
      * When a shipment customer is marked "Problem", flip the matching CRM lead
-     * to Logistic Issues and/or the matching eBay record's shipment_delay flag,
-     * recording the transition in each source's own history trail.
+     * to Logistic Issues, the matching eBay record's shipment_delay flag, and
+     * the base Customer record's own shipment_delay flag (so the flag shows up
+     * everywhere that customer appears — their own profile page included, not
+     * just the unified directory), recording the transition where each source
+     * keeps its own history trail.
      */
     public function propagateShipmentProblem(ShipmentCustomer $shipmentCustomer): void
     {
         $email = $shipmentCustomer->recipient_email;
         $phone = $shipmentCustomer->recipient_phone;
+        $customerId = $shipmentCustomer->customer_id;
 
-        $lead = $this->findLeadByContact($email, $phone);
+        // Prefer the direct customer_id link (set when the recipient was
+        // picked via the customer combobox) over contact matching wherever
+        // possible — recipient_email/phone on the shipment customer can be
+        // manually edited to something unrelated to the linked Customer, in
+        // which case contact matching alone would silently miss the real match.
+        $lead = ($customerId ? Lead::where('customer_id', $customerId)->first() : null)
+            ?? $this->findLeadByContact($email, $phone);
         if ($lead && $lead->status !== WebsiteLeadStatus::DelayedShipment) {
             $lead->update(['status' => WebsiteLeadStatus::DelayedShipment]);
             LeadFollowUp::create([
@@ -116,9 +126,18 @@ class CrmCustomerMatchService
             ]);
         }
 
-        $ebayRecord = $this->findEbayRecordByContact($email, $phone);
+        $ebayRecord = ($customerId ? EbayCustomerRecord::where('customer_id', $customerId)->first() : null)
+            ?? $this->findEbayRecordByContact($email, $phone);
         if ($ebayRecord && ! $ebayRecord->shipment_delay) {
             $ebayRecord->update(['shipment_delay' => true]);
+        }
+
+        $customer = $customerId
+            ? $shipmentCustomer->customer
+            : $this->findCustomerByContact($email, $phone);
+
+        if ($customer && ! $customer->shipment_delay) {
+            $customer->update(['shipment_delay' => true]);
         }
     }
 
@@ -136,17 +155,50 @@ class CrmCustomerMatchService
         $seen = [];
         $out = collect();
 
-        $key = function (?string $email, ?string $phone, string $fallback): string {
-            $value = $email ?: ($phone ?: $fallback);
-            return strtolower(trim($value));
+        // A record can be identified by up to three independent signals: its
+        // customer_id FK, its email, and its phone. Any one of these matching
+        // an earlier row means it's the same person — a Lead/eBay/Shipment row
+        // can carry a typo'd or stale email while still being correctly linked
+        // via customer_id, and that link needs to cross-match against a plain
+        // Customer row (or another source) found only by contact info, in
+        // either direction. So every pass reserves ALL of its known signals,
+        // and checks against ALL of them, rather than collapsing to one key.
+        $keysFor = function (?string $email, ?string $phone, string $fallback, ?int $customerId = null): array {
+            $keys = [];
+            if ($customerId) {
+                $keys[] = 'customer-' . $customerId;
+            }
+            if ($email) {
+                $keys[] = 'email-' . strtolower(trim($email));
+            }
+            if ($phone) {
+                $keys[] = 'phone-' . strtolower(trim($phone));
+            }
+            if (empty($keys)) {
+                $keys[] = 'fallback-' . strtolower(trim($fallback));
+            }
+            return $keys;
+        };
+        $anySeen = function (array $keys) use (&$seen): bool {
+            foreach ($keys as $k) {
+                if (isset($seen[$k])) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        $reserve = function (array $keys) use (&$seen): void {
+            foreach ($keys as $k) {
+                $seen[$k] = true;
+            }
         };
 
-        Lead::with('handler')->get()->each(function (Lead $lead) use (&$seen, &$out, $key) {
-            $k = $key($lead->client_email, $lead->client_phone, 'lead-' . $lead->id);
-            if (isset($seen[$k])) {
+        Lead::with('handler')->get()->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
+            $k = $keysFor($lead->client_email, $lead->client_phone, 'lead-' . $lead->id, $lead->customer_id);
+            if ($anySeen($k)) {
                 return;
             }
-            $seen[$k] = true;
+            $reserve($k);
             $out->push([
                 'source'      => $lead->source?->label() ?? 'Website',
                 'source_icon' => $lead->source?->icon() ?? '🌐',
@@ -167,12 +219,12 @@ class CrmCustomerMatchService
             ]);
         });
 
-        EbayCustomerRecord::with('handlerHistory.user')->get()->each(function (EbayCustomerRecord $record) use (&$seen, &$out, $key) {
-            $k = $key($record->email, $record->phone, 'ebay-' . $record->id);
-            if (isset($seen[$k])) {
+        EbayCustomerRecord::with('handlerHistory.user')->get()->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
+            $k = $keysFor($record->email, $record->phone, 'ebay-' . $record->id, $record->customer_id);
+            if ($anySeen($k)) {
                 return;
             }
-            $seen[$k] = true;
+            $reserve($k);
             $out->push([
                 'source'      => 'eBay',
                 'source_icon' => '🛒',
@@ -197,12 +249,12 @@ class CrmCustomerMatchService
         ShipmentCustomer::with('shipment')
             ->where('status', ShipmentCustomer::STATUS_PROBLEM)
             ->get()
-            ->each(function (ShipmentCustomer $sc) use (&$seen, &$out, $key) {
-                $k = $key($sc->recipient_email, $sc->recipient_phone, 'shipment-' . $sc->id);
-                if (isset($seen[$k])) {
+            ->each(function (ShipmentCustomer $sc) use (&$out, $keysFor, $anySeen, $reserve) {
+                $k = $keysFor($sc->recipient_email, $sc->recipient_phone, 'shipment-' . $sc->id, $sc->customer_id);
+                if ($anySeen($k)) {
                     return;
                 }
-                $seen[$k] = true;
+                $reserve($k);
                 $out->push([
                     'source'      => 'Logistics',
                     'source_icon' => '🚚',
@@ -219,12 +271,15 @@ class CrmCustomerMatchService
                 ]);
             });
 
-        Customer::with('assignee')->get()->each(function (Customer $customer) use (&$seen, &$out, $key) {
-            $k = $key($customer->email, $customer->phone, 'customer-' . $customer->id);
-            if (isset($seen[$k])) {
+        Customer::with('assignee')->get()->each(function (Customer $customer) use (&$out, $keysFor, $anySeen, $reserve) {
+            // Reserving/checking its own id alongside email+phone means this
+            // correctly cross-matches an earlier row whether that row was
+            // linked via customer_id or only matched by contact info.
+            $k = $keysFor($customer->email, $customer->phone, 'customer-' . $customer->id, $customer->id);
+            if ($anySeen($k)) {
                 return;
             }
-            $seen[$k] = true;
+            $reserve($k);
             // Every customer originates either from eBay or from a CRM Website
             // inquiry channel — there is no separate Referral/Cold Call/Manual
             // etc. source in this business, so a Customer row with no matching
@@ -239,11 +294,11 @@ class CrmCustomerMatchService
                 'name'        => $customer->name,
                 'email'       => $customer->email,
                 'phone'       => $customer->phone,
-                'status_label'=> $customer->status?->label() ?? $customer->status,
-                'status_color'=> $customer->status?->color() ?? '#94a3b8',
+                'status_label'=> $customer->shipment_delay ? 'Logistic issues' : ($customer->status?->label() ?? $customer->status),
+                'status_color'=> $customer->shipment_delay ? EbayCustomerRecord::LOGISTIC_ISSUES_COLOR : ($customer->status?->color() ?? '#94a3b8'),
                 'handler'     => $customer->assignee?->name,
                 'link'        => route('crm.customers.show', $customer),
-                'category'    => null,
+                'category'    => $customer->shipment_delay ? 'shipment_delay' : null,
             ]);
         });
 

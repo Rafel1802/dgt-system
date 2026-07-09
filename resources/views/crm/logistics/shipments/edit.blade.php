@@ -53,6 +53,25 @@
         </div>
 
         <div>
+          <label class="form-label">Driver</label>
+          <select name="driver_id" class="form-input @error('driver_id') error @enderror">
+            <option value="">— Select Driver —</option>
+            @foreach($truckingCompanies as $tc)
+              @if($tc->drivers->isNotEmpty())
+              <optgroup label="{{ $tc->company_name }}">
+                @foreach($tc->drivers as $driver)
+                <option value="{{ $driver->id }}" {{ (string) old('driver_id', $shipment->driver_id) === (string) $driver->id ? 'selected' : '' }}>
+                  {{ $driver->name }}{{ $driver->phone ? ' — '.$driver->phone : '' }}
+                </option>
+                @endforeach
+              </optgroup>
+              @endif
+            @endforeach
+          </select>
+          @error('driver_id')<p class="form-error">{{ $message }}</p>@enderror
+        </div>
+
+        <div>
           <label class="form-label">Handled By (CRM Member)</label>
           @include('crm.partials.member-searchable-select', [
             'name'     => 'assigned_to',

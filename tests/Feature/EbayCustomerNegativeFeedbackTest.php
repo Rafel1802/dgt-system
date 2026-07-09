@@ -37,6 +37,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
                 'tab_type' => $record->tab_type,
                 'username' => 'nancy_d',
                 'buyer_name' => 'Nancy Drew',
+                'informations' => 'Buyer left negative feedback about shipping delay.',
                 'negative_feedback_causes' => ['Logistic issues'],
                 'negative_feedback_resolved' => '1',
             ]
@@ -97,5 +98,32 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             route('crm.ebay.customers.update', $record),
             ['tab_type' => $record->tab_type, 'username' => 'nancy_d', 'buyer_name' => 'Nancy Drew', 'negative_feedback_causes' => ['Not A Real Cause']]
         )->assertSessionHasErrors('negative_feedback_causes.0');
+    }
+
+    public function test_a_note_is_required_for_technical_and_negative_feedback_categories(): void
+    {
+        foreach ([EbayCustomerRecord::TAB_TECHNICAL, EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES] as $tab) {
+            $record = EbayCustomerRecord::create(['tab_type' => EbayCustomerRecord::TAB_NEW_ORDER, 'username' => 'issue_'.$tab]);
+
+            $response = $this->actingAs($this->user)->put(
+                route('crm.ebay.customers.update', $record),
+                ['tab_type' => $tab, 'username' => 'issue_'.$tab]
+            );
+
+            $response->assertSessionHasErrors('informations');
+            $this->assertEquals(EbayCustomerRecord::TAB_NEW_ORDER, $record->fresh()->tab_type);
+        }
+    }
+
+    public function test_a_note_is_not_required_for_other_categories(): void
+    {
+        $record = EbayCustomerRecord::create(['tab_type' => EbayCustomerRecord::TAB_URGENT, 'username' => 'no_note_needed']);
+
+        $response = $this->actingAs($this->user)->put(
+            route('crm.ebay.customers.update', $record),
+            ['tab_type' => EbayCustomerRecord::TAB_NEW_ORDER, 'username' => 'no_note_needed', 'order_id' => 'ORD-1', 'products' => [['name' => 'Widget', 'price' => '9.99']]]
+        );
+
+        $response->assertSessionDoesntHaveErrors();
     }
 }

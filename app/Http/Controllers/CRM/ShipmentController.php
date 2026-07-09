@@ -4,6 +4,7 @@ namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\ShipmentCustomer;
 use App\Models\TruckingCompany;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Services\CrmCustomerMatchService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ShipmentController extends Controller
@@ -26,8 +28,15 @@ class ShipmentController extends Controller
         if ($s = $request->get('search')) {
             $query->search($s);
         }
-        if ($status = $request->get('status')) {
+
+        $status = $request->get('status');
+        if ($status === 'all') {
+            // no status filter — show every shipment regardless of status
+        } elseif ($status) {
             $query->where('status', $status);
+        } else {
+            // default "Active" tab: anything not yet complete
+            $query->where('status', '!=', Shipment::STATUS_COMPLETE);
         }
 
         $shipments  = $query->latest()->paginate(20)->withQueryString();
@@ -40,7 +49,7 @@ class ShipmentController extends Controller
     {
         return view('crm.logistics.shipments.create', [
             'statuses'         => Shipment::statuses(),
-            'truckingCompanies'=> TruckingCompany::active()->orderBy('company_name')->get(),
+            'truckingCompanies'=> TruckingCompany::active()->with('drivers')->orderBy('company_name')->get(),
             'crmUsers'         => User::crmMembers()->orderBy('name')->get(),
             'customers'        => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
         ]);
@@ -52,6 +61,7 @@ class ShipmentController extends Controller
             'shipment_code'        => ['nullable', 'string', 'max:100', 'unique:shipments,shipment_code'],
             'status'               => ['required', 'string', 'in:' . implode(',', array_keys(Shipment::statuses()))],
             'trucking_company_id'  => ['nullable', 'exists:trucking_companies,id'],
+            'driver_id'            => ['nullable', Rule::exists('trucking_company_drivers', 'id')->where('trucking_company_id', $request->input('trucking_company_id'))],
             'assigned_to'          => ['nullable', 'exists:users,id'],
             'estimated_arrival'    => ['nullable', 'date'],
             'notes'                => ['nullable', 'string'],
@@ -68,15 +78,14 @@ class ShipmentController extends Controller
 
     public function show(Shipment $shipment, Request $request): View
     {
-        $shipment->load(['truckingCompany', 'creator', 'assignee', 'shipmentCustomers.customer', 'shipmentCustomers.handler']);
+        $shipment->load(['truckingCompany', 'driver', 'creator', 'assignee', 'shipmentCustomers.customer', 'shipmentCustomers.handler', 'shipmentCustomers.products']);
 
         return view('crm.logistics.shipments.show', [
-            'shipment'     => $shipment,
-            'statuses'     => Shipment::statuses(),
-            'custStatuses' => ShipmentCustomer::statuses(),
-            'machineSkus'    => ShipmentCustomer::whereNotNull('machine_sku')->distinct()->pluck('machine_sku'),
-            'attachmentSkus' => ShipmentCustomer::whereNotNull('attachment_sku')->distinct()->pluck('attachment_sku'),
-            'customers'    => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
+            'shipment'        => $shipment,
+            'statuses'        => Shipment::statuses(),
+            'custStatuses'    => ShipmentCustomer::statuses(),
+            'catalogProducts' => Product::active()->orderBy('name')->get(['id', 'name', 'sku', 'price']),
+            'customers'       => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
         ]);
     }
 
@@ -85,7 +94,7 @@ class ShipmentController extends Controller
         return view('crm.logistics.shipments.edit', [
             'shipment'         => $shipment,
             'statuses'         => Shipment::statuses(),
-            'truckingCompanies'=> TruckingCompany::active()->orderBy('company_name')->get(),
+            'truckingCompanies'=> TruckingCompany::active()->with('drivers')->orderBy('company_name')->get(),
             'crmUsers'         => User::crmMembers()->orderBy('name')->get(),
         ]);
     }
@@ -96,6 +105,7 @@ class ShipmentController extends Controller
             'shipment_code'        => ['nullable', 'string', 'max:100', 'unique:shipments,shipment_code,' . $shipment->id],
             'status'               => ['required', 'string', 'in:' . implode(',', array_keys(Shipment::statuses()))],
             'trucking_company_id'  => ['nullable', 'exists:trucking_companies,id'],
+            'driver_id'            => ['nullable', Rule::exists('trucking_company_drivers', 'id')->where('trucking_company_id', $request->input('trucking_company_id'))],
             'assigned_to'          => ['nullable', 'exists:users,id'],
             'estimated_arrival'    => ['nullable', 'date'],
             'actual_arrival'       => ['nullable', 'date'],
@@ -126,12 +136,16 @@ class ShipmentController extends Controller
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
             'recipient_email'   => ['nullable', 'email', 'max:255'],
             'shipping_address'  => ['nullable', 'string'],
-            'product_description'=> ['nullable', 'string', 'max:255'],
-            'machine_sku'       => ['nullable', 'string', 'max:100'],
-            'attachment_sku'    => ['nullable', 'string', 'max:100'],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
+            'products'              => ['nullable', 'array'],
+            'products.*.product_id' => ['nullable', 'exists:products,id'],
+            'products.*.price'      => ['nullable', 'numeric', 'min:0'],
+            'products.*.quantity'   => ['nullable', 'integer', 'min:1'],
         ]);
+
+        $productRows = $validated['products'] ?? [];
+        unset($validated['products']);
 
         if (empty($validated['recipient_name']) && !empty($validated['customer_id'])) {
             $cust = Customer::find($validated['customer_id']);
@@ -150,15 +164,19 @@ class ShipmentController extends Controller
         }
 
         if (empty($validated['recipient_name'])) {
-            return back()->withErrors(['recipient_name' => 'Recipient name is required.'])->withInput();
+            return redirect()->route('crm.logistics.shipments.show', $shipment)
+                ->withErrors(['recipient_name' => 'Recipient name is required.'])->withInput();
         }
 
         $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
-        $shipment->shipmentCustomers()->create([
+        $shipmentCustomer = $shipment->shipmentCustomers()->create([
             ...$validated,
             'status' => ShipmentCustomer::STATUS_PENDING,
         ]);
+
+        $this->syncShipmentCustomerProducts($shipmentCustomer, $productRows);
+        $this->syncShipmentCompletionStatus($shipment);
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Customer added to shipment.');
@@ -173,13 +191,18 @@ class ShipmentController extends Controller
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
             'recipient_email'   => ['nullable', 'email', 'max:255'],
             'shipping_address'  => ['nullable', 'string'],
-            'product_description'=> ['nullable', 'string', 'max:255'],
-            'machine_sku'       => ['nullable', 'string', 'max:100'],
-            'attachment_sku'    => ['nullable', 'string', 'max:100'],
             'status'            => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
+            'tracking_number'   => ['nullable', 'string', 'max:150'],
+            'products'              => ['nullable', 'array'],
+            'products.*.product_id' => ['nullable', 'exists:products,id'],
+            'products.*.price'      => ['nullable', 'numeric', 'min:0'],
+            'products.*.quantity'   => ['nullable', 'integer', 'min:1'],
         ]);
+
+        $productRows = $validated['products'] ?? [];
+        unset($validated['products']);
 
         if (empty($validated['recipient_name']) && !empty($validated['customer_id'])) {
             $cust = Customer::find($validated['customer_id']);
@@ -201,15 +224,30 @@ class ShipmentController extends Controller
             return back()->withErrors(['recipient_name' => 'Recipient name is required.'])->withInput();
         }
 
-        $validated['shipping_address'] = $validated['shipping_address'] ?? '';
+        // Only the Problem status (Logistic issues) requires a note — routine
+        // transitions like Pending → In Transit → Delivered don't need one.
+        if ($validated['status'] === ShipmentCustomer::STATUS_PROBLEM && empty($validated['notes'])) {
+            return redirect()->route('crm.logistics.shipments.show', $shipment)
+                ->withErrors(['notes' => 'A note is required for Logistic issues (Problem status).'])
+                ->withInput();
+        }
 
-        $becameProblem = $validated['status'] === ShipmentCustomer::STATUS_PROBLEM && $customer->status !== ShipmentCustomer::STATUS_PROBLEM;
+        $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
         $customer->update($validated);
 
-        if ($becameProblem) {
+        $this->syncShipmentCustomerProducts($customer, $productRows);
+
+        // Re-run on every save while status is Problem (not just the
+        // transition into it) — propagation is internally idempotent, and
+        // this lets a corrected customer_id link (or contact info) get
+        // picked up on a later save even if an earlier save already set the
+        // status but matched the wrong (or no) record.
+        if ($customer->status === ShipmentCustomer::STATUS_PROBLEM) {
             $this->matcher->propagateShipmentProblem($customer);
         }
+
+        $this->syncShipmentCompletionStatus($shipment);
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Customer record updated.');
@@ -219,7 +257,74 @@ class ShipmentController extends Controller
     public function removeCustomer(Shipment $shipment, ShipmentCustomer $customer): RedirectResponse
     {
         $customer->delete();
+
+        $this->syncShipmentCompletionStatus($shipment);
+
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Customer removed from shipment.');
+    }
+
+    /** Replace a shipment customer's recorded product line items with the given rows (each requires a product_id). */
+    private function syncShipmentCustomerProducts(ShipmentCustomer $shipmentCustomer, array $rows): void
+    {
+        $rows = collect($rows)->filter(fn ($row) => ! empty($row['product_id']))->values();
+
+        $shipmentCustomer->products()->delete();
+
+        foreach ($rows as $row) {
+            $product = Product::find($row['product_id']);
+            if (! $product) {
+                continue;
+            }
+
+            $shipmentCustomer->products()->create([
+                'product_id'   => $product->id,
+                'product_name' => $product->name,
+                'sku'          => $product->sku,
+                'price'        => $row['price'] ?? $product->price,
+                'quantity'     => $row['quantity'] ?? 1,
+            ]);
+        }
+    }
+
+    /**
+     * The shipment's own status only ever auto-changes when every one of its
+     * customers shares the exact same status — a single customer going to
+     * Problem (or Delivered) while others are still pending doesn't collapse
+     * the whole shipment into that state. When customers are mixed, the
+     * shipment's status is left as-is; the UI shows a per-status count
+     * breakdown instead (see Shipment::customerStatusCounts()).
+     */
+    private function syncShipmentCompletionStatus(Shipment $shipment): void
+    {
+        $customers = $shipment->shipmentCustomers()->get();
+
+        if ($customers->isEmpty()) {
+            return;
+        }
+
+        $uniqueStatuses = $customers->pluck('status')->unique();
+
+        if ($uniqueStatuses->count() !== 1) {
+            return;
+        }
+
+        $shipmentStatus = match ($uniqueStatuses->first()) {
+            ShipmentCustomer::STATUS_PENDING    => Shipment::STATUS_PENDING,
+            ShipmentCustomer::STATUS_IN_TRANSIT => Shipment::STATUS_IN_PROGRESS,
+            ShipmentCustomer::STATUS_DELIVERED  => Shipment::STATUS_COMPLETE,
+            ShipmentCustomer::STATUS_PROBLEM    => Shipment::STATUS_PROBLEM,
+            default => null,
+        };
+
+        if ($shipmentStatus === null || $shipment->status === $shipmentStatus) {
+            return;
+        }
+
+        $update = ['status' => $shipmentStatus];
+        if ($shipmentStatus === Shipment::STATUS_COMPLETE) {
+            $update['actual_arrival'] = $shipment->actual_arrival ?? now();
+        }
+        $shipment->update($update);
     }
 }

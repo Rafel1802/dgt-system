@@ -152,8 +152,8 @@
         </div>
 
         <div>
-          <label class="form-label">Note</label>
-          <textarea name="informations" rows="3" class="form-input">{{ old('informations') }}</textarea>
+          <label class="form-label">Note <span class="text-red-500" x-show="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)" x-cloak>*</span></label>
+          <textarea name="informations" rows="3" class="form-input" x-bind:required="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)">{{ old('informations') }}</textarea>
         </div>
 
       </div>

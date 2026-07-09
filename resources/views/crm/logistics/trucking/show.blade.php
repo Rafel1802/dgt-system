@@ -53,14 +53,49 @@
           @endif
         </div>
       </div>
+
+      {{-- Drivers --}}
+      <div class="card p-6">
+        <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Drivers</h4>
+
+        <div class="mb-3">
+          @forelse($truckingCompany->drivers as $driver)
+          <div class="flex items-center justify-between py-1.5 {{ !$loop->last ? 'border-b border-slate-50' : '' }}">
+            <div>
+              <span class="text-sm text-slate-800">{{ $driver->name }}</span>
+              <span class="text-xs text-slate-500 ml-2">{{ $driver->phone ?: '—' }}</span>
+            </div>
+            <button type="submit" form="delete-driver-{{ $driver->id }}-form" class="text-slate-300 hover:text-red-500" title="Remove driver">
+              <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            </button>
+            <form id="delete-driver-{{ $driver->id }}-form" method="POST" action="{{ route('crm.logistics.trucking.drivers.destroy', [$truckingCompany, $driver]) }}"
+                  onsubmit="return confirm('Remove this driver?')" class="hidden">
+              @csrf @method('DELETE')
+            </form>
+          </div>
+          @empty
+          <p class="text-slate-400 text-sm">No drivers on file.</p>
+          @endforelse
+        </div>
+
+        <form method="POST" action="{{ route('crm.logistics.trucking.drivers.store', $truckingCompany) }}" class="pt-3 border-t border-slate-100 space-y-2">
+          @csrf
+          <div class="flex gap-2">
+            <input type="text" name="name" placeholder="Full Name" class="form-input text-sm flex-1" required>
+            <input type="tel" name="phone" placeholder="Phone Number" class="form-input text-sm w-32">
+          </div>
+          @error('name')<p class="form-error">{{ $message }}</p>@enderror
+          <button type="submit" class="btn btn-secondary text-xs w-full">+ Add Driver</button>
+        </form>
+      </div>
     </div>
 
     {{-- Right Col: Shipments --}}
     <div class="lg:col-span-2">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h3 class="font-display font-bold text-slate-800 text-lg">Shipment History</h3>
-        <a href="{{ route('crm.logistics.create', ['truck_company_id' => $truckingCompany->id]) }}" class="btn btn-primary text-sm">
-          + Log Shipment
+        <h3 class="font-display font-bold text-slate-800 text-lg">Shipments</h3>
+        <a href="{{ route('crm.logistics.shipments.create', ['truck_company_id' => $truckingCompany->id]) }}" class="btn btn-primary text-sm">
+          + New Shipment
         </a>
       </div>
 
@@ -69,29 +104,39 @@
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                <th class="px-5 py-3 text-left">Internal ID</th>
-                <th class="px-4 py-3 text-left">Customer</th>
-                <th class="px-4 py-3 text-left">Pickup Date</th>
+                <th class="px-5 py-3 text-left">Shipment Code</th>
+                <th class="px-4 py-3 text-left">Date</th>
+                <th class="px-4 py-3 text-left">Customers</th>
                 <th class="px-4 py-3 text-left">Status</th>
+                <th class="px-4 py-3 text-left">Handled By</th>
                 <th class="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-50">
-              @forelse($logistics as $logistic)
+              @forelse($shipments as $shipment)
               <tr class="hover:bg-slate-50/70 transition-colors">
-                <td class="px-5 py-3 font-semibold text-slate-800">{{ $logistic->order_id ?? '#'.$logistic->id }}</td>
-                <td class="px-4 py-3 text-slate-600">{{ $logistic->recipient_name }}</td>
+                <td class="px-5 py-3">
+                  <a href="{{ route('crm.logistics.shipments.show', $shipment) }}" class="font-semibold text-indigo-600 hover:underline">
+                    {{ $shipment->shipment_code }}
+                  </a>
+                </td>
                 <td class="px-4 py-3 text-xs text-slate-500">
-                  {{ $logistic->pickup_datetime ? $logistic->pickup_datetime->format('d M Y') : '—' }}
+                  {{ $shipment->estimated_arrival ? $shipment->estimated_arrival->format('d M Y') : '—' }}
                 </td>
                 <td class="px-4 py-3">
-                  <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $logistic->status?->color() }}22; color:{{ $logistic->status?->color() }}">
-                    {{ $logistic->status?->label() }}
+                  <span class="badge bg-slate-100 text-slate-600">{{ $shipment->shipment_customers_count }} customers</span>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $shipment->statusColor() }}22; color:{{ $shipment->statusColor() }}">
+                    {{ $shipment->statusLabel() }}
                   </span>
+                </td>
+                <td class="px-4 py-3 text-slate-500 text-xs">
+                  {{ $shipment->assignee?->name ?? 'Unassigned' }}
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex justify-end gap-1">
-                    <a href="{{ route('crm.logistics.show', $logistic) }}" class="btn btn-secondary btn-icon" style="width:28px;height:28px;">
+                    <a href="{{ route('crm.logistics.shipments.show', $shipment) }}" class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="View">
                       <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                     </a>
                   </div>
@@ -99,7 +144,7 @@
               </tr>
               @empty
               <tr>
-                <td colspan="5" class="text-center py-10">
+                <td colspan="6" class="text-center py-10">
                   <p class="text-slate-500 font-medium">No shipments handled by this company</p>
                 </td>
               </tr>
@@ -107,8 +152,8 @@
             </tbody>
           </table>
         </div>
-        @if($logistics->hasPages())
-        <div class="px-6 py-4 border-t border-slate-100">{{ $logistics->links() }}</div>
+        @if($shipments->hasPages())
+        <div class="px-6 py-4 border-t border-slate-100">{{ $shipments->links() }}</div>
         @endif
       </div>
     </div>

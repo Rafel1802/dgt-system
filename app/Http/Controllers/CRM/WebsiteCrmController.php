@@ -136,24 +136,26 @@ class WebsiteCrmController extends Controller
 
     public function show(Lead $lead): View
     {
-        $lead->load(['handler', 'assignee', 'customer', 'product', 'followUps.user', 'attachments']);
+        $lead->load(['handler', 'assignee', 'customer', 'product', 'products', 'followUps.user', 'attachments']);
 
         return view('crm.website.show', [
-            'lead'     => $lead,
-            'statuses' => WebsiteLeadStatus::cases(),
-            'temps'    => LeadTemperature::cases(),
+            'lead'            => $lead,
+            'statuses'        => WebsiteLeadStatus::cases(),
+            'temps'           => LeadTemperature::cases(),
+            'catalogProducts' => Product::active()->orderBy('name')->get(['id', 'name', 'sku', 'price']),
         ]);
     }
 
     public function edit(Lead $lead): View
     {
         return view('crm.website.edit', [
-            'lead'     => $lead->load('followUps'),
-            'statuses' => WebsiteLeadStatus::cases(),
-            'sources'  => InquirySource::cases(),
-            'products' => \App\Models\Product::active()->orderBy('name')->get(),
-            'crmUsers' => \App\Models\User::crmMembers()->orderBy('name')->get(),
-            'temps'    => LeadTemperature::cases(),
+            'lead'            => $lead->load(['followUps', 'products']),
+            'statuses'        => WebsiteLeadStatus::cases(),
+            'sources'         => InquirySource::cases(),
+            'products'        => Product::active()->orderBy('name')->get(),
+            'catalogProducts' => Product::active()->orderBy('name')->get(['id', 'name', 'sku', 'price']),
+            'crmUsers'        => \App\Models\User::crmMembers()->orderBy('name')->get(),
+            'temps'           => LeadTemperature::cases(),
         ]);
     }
 
@@ -174,9 +176,28 @@ class WebsiteCrmController extends Controller
             'next_action'       => ['nullable', 'string'],
             'assigned_to'       => ['nullable', 'exists:users,id'],
             'lost_reason'       => ['nullable', 'string'],
+            'products'          => ['nullable', 'array'],
+            'products.*.product_id' => ['nullable', 'exists:products,id'],
+            'products.*.price'      => ['nullable', 'numeric', 'min:0'],
+            'products.*.quantity'   => ['nullable', 'integer', 'min:1'],
         ]);
 
+        $productRows = $validated['products'] ?? [];
+        unset($validated['products']);
+
+        $productRows = collect($productRows)->filter(fn ($row) => ! empty($row['product_id']))->values()->all();
+
+        if ($validated['status'] === WebsiteLeadStatus::Successful->value && empty($productRows)) {
+            return redirect()->route('crm.website.edit', $lead)
+                ->withErrors(['products' => 'At least one product is required to mark this lead as Successful.'])
+                ->withInput();
+        }
+
         $lead->update($validated);
+
+        if ($lead->status === WebsiteLeadStatus::Successful) {
+            $this->syncLeadProducts($lead, $productRows);
+        }
 
         return redirect()->route('crm.website.show', $lead)->with('success', 'Lead updated.');
     }
@@ -221,8 +242,24 @@ class WebsiteCrmController extends Controller
     /** Quick status update (AJAX) */
     public function updateStatus(Request $request, Lead $lead): JsonResponse
     {
-        $request->validate(['status' => ['required', Rule::enum(WebsiteLeadStatus::class)]]);
-        $newStatus = WebsiteLeadStatus::from($request->status);
+        $validated = $request->validate([
+            'status'                 => ['required', Rule::enum(WebsiteLeadStatus::class)],
+            'products'               => ['nullable', 'array'],
+            'products.*.product_id'  => ['nullable', 'exists:products,id'],
+            'products.*.price'       => ['nullable', 'numeric', 'min:0'],
+            'products.*.quantity'    => ['nullable', 'integer', 'min:1'],
+        ]);
+        $newStatus = WebsiteLeadStatus::from($validated['status']);
+
+        $productRows = collect($validated['products'] ?? [])
+            ->filter(fn ($row) => ! empty($row['product_id']))
+            ->values()->all();
+
+        if ($newStatus === WebsiteLeadStatus::Successful && empty($productRows)) {
+            return response()->json([
+                'message' => 'At least one product is required to mark this lead as Successful.',
+            ], 422);
+        }
 
         if ($lead->status !== $newStatus) {
             $lead->update(['status' => $newStatus]);
@@ -238,10 +275,35 @@ class WebsiteCrmController extends Controller
             ]);
         }
 
+        if ($newStatus === WebsiteLeadStatus::Successful) {
+            $this->syncLeadProducts($lead, $productRows);
+        }
+
         return response()->json([
             'message' => 'Status updated.',
             'status'  => $newStatus,
         ]);
+    }
+
+    /** Replace a lead's recorded product line items with the given rows (each requires a product_id). */
+    private function syncLeadProducts(Lead $lead, array $rows): void
+    {
+        $lead->products()->delete();
+
+        foreach ($rows as $row) {
+            $product = Product::find($row['product_id']);
+            if (! $product) {
+                continue;
+            }
+
+            $lead->products()->create([
+                'product_id'   => $product->id,
+                'product_name' => $product->name,
+                'sku'          => $product->sku,
+                'price'        => $row['price'] ?? $product->price,
+                'quantity'     => $row['quantity'] ?? 1,
+            ]);
+        }
     }
 
     public function destroy(Lead $lead): RedirectResponse

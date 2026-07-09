@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\CustomerSource;
+use App\Enums\CustomerStatus;
 use App\Enums\InquirySource;
 use App\Enums\WebsiteLeadStatus;
+use App\Models\Customer;
 use App\Models\EbayCustomerRecord;
 use App\Models\Lead;
 use App\Models\Shipment;
@@ -97,6 +100,69 @@ class UnifiedCustomerDirectoryTest extends TestCase
             ->get(route('crm.customers.index'))
             ->assertOk()
             ->assertSee('1 unique customer');
+    }
+
+    public function test_a_customer_flagged_with_shipment_delay_shows_as_logistic_issues_even_without_a_lead_or_ebay_match(): void
+    {
+        Customer::create([
+            'name' => 'Flagged Customer',
+            'email' => 'flagged@email.com',
+            'shipment_delay' => true,
+            'status' => CustomerStatus::Active->value,
+            'source' => CustomerSource::Website->value,
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('crm.customers.index', [
+            'status_filter' => 'Logistic issues',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Flagged Customer');
+    }
+
+    public function test_records_linked_via_customer_id_are_deduplicated_even_with_mismatched_contact_info(): void
+    {
+        // Reproduces the real "Marady" duplicate: an eBay record and a
+        // ShipmentCustomer both linked to the same Customer via customer_id,
+        // but with DIFFERENT emails on file (the shipment recipient's email
+        // was mistyped/stale) — should still collapse into one row because
+        // the customer_id link is more trustworthy than the contact fields.
+        $customer = Customer::create([
+            'name' => 'Marady',
+            'email' => 'marady@gmail.com',
+            'phone' => '09384383242',
+            'status' => CustomerStatus::Active->value,
+            'source' => CustomerSource::Ebay->value,
+            'created_by' => $this->user->id,
+        ]);
+
+        EbayCustomerRecord::create([
+            'tab_type' => EbayCustomerRecord::TAB_RESOLVED,
+            'buyer_name' => 'Marady',
+            'username' => 'marady',
+            'email' => 'marady@gmail.com',
+            'phone' => '09384383242',
+            'shipment_delay' => true,
+            'customer_id' => $customer->id,
+        ]);
+
+        $shipment = Shipment::create(['shipment_code' => 'SHP-DIR-2']);
+        ShipmentCustomer::create([
+            'shipment_id' => $shipment->id,
+            'customer_id' => $customer->id,
+            'recipient_name' => 'Marady',
+            'recipient_email' => 'totally-different@example.com', // mismatched on purpose
+            'recipient_phone' => '09384383242',
+            'shipping_address' => '',
+            'status' => ShipmentCustomer::STATUS_PROBLEM,
+        ]);
+
+        $service = app(\App\Services\CrmCustomerMatchService::class);
+        $directory = $service->buildUnifiedDirectory();
+
+        $marodyRows = $directory->filter(fn ($row) => $row['name'] === 'Marady');
+        $this->assertCount(1, $marodyRows);
     }
 
     public function test_directory_route_redirects_to_customers_index(): void

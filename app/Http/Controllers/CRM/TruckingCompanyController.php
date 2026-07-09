@@ -4,6 +4,7 @@ namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\TruckingCompany;
+use App\Models\TruckingCompanyDriver;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -57,13 +58,17 @@ class TruckingCompanyController extends Controller
 
     public function show(TruckingCompany $truckingCompany): View
     {
-        $truckingCompany->load(['handler']);
-        $logistics = $truckingCompany->logistics()->with('customer')->latest()->paginate(15);
+        $truckingCompany->load(['handler', 'drivers']);
+        $shipments = $truckingCompany->shipments()
+            ->with('assignee')
+            ->withCount('shipmentCustomers')
+            ->latest()
+            ->paginate(15);
 
         return view('crm.logistics.trucking.show', [
             'company' => $truckingCompany,
             'truckingCompany' => $truckingCompany,
-            'logistics' => $logistics,
+            'shipments' => $shipments,
         ]);
     }
 
@@ -99,5 +104,30 @@ class TruckingCompanyController extends Controller
         $truckingCompany->delete();
         return redirect()->route('crm.logistics.trucking.index')
             ->with('success', 'Trucking company deleted.');
+    }
+
+    /** Add a single driver from the Trucking Profile page */
+    public function storeDriver(Request $request, TruckingCompany $truckingCompany): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name'  => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $truckingCompany->drivers()->create($validated);
+
+        return redirect()->route('crm.logistics.trucking.show', $truckingCompany)
+            ->with('success', 'Driver added.');
+    }
+
+    /** Remove a single driver from the Trucking Profile page */
+    public function destroyDriver(TruckingCompany $truckingCompany, TruckingCompanyDriver $driver): RedirectResponse
+    {
+        abort_unless($driver->trucking_company_id === $truckingCompany->id, 404);
+
+        $driver->delete();
+
+        return redirect()->route('crm.logistics.trucking.show', $truckingCompany)
+            ->with('success', 'Driver removed.');
     }
 }

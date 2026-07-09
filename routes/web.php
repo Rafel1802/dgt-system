@@ -525,6 +525,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::get('/{truckingCompany}/edit', [TruckingCompanyController::class, 'edit'])->name('edit');
                         Route::put('/{truckingCompany}', [TruckingCompanyController::class, 'update'])->name('update');
                         Route::delete('/{truckingCompany}', [TruckingCompanyController::class, 'destroy'])->name('destroy');
+                        Route::post('/{truckingCompany}/drivers', [TruckingCompanyController::class, 'storeDriver'])->name('drivers.store');
+                        Route::delete('/{truckingCompany}/drivers/{driver}', [TruckingCompanyController::class, 'destroyDriver'])->name('drivers.destroy');
                     });
 
                     // Shipment Management
@@ -600,6 +602,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 // ── Staff Performance / Team Reports ────────────────────────
                 Route::prefix('reports')->name('reports.')->group(function () {
                     Route::get('/', [CrmStaffReportController::class, 'index'])->name('index');
+                    Route::get('/{user}', [CrmStaffReportController::class, 'show'])->name('show');
+                    Route::get('/{user}/export', [CrmStaffReportController::class, 'export'])->name('export');
                 });
             });
 

@@ -3,7 +3,7 @@
 @section('page_title', 'Lead Profile')
 
 @section('content')
-<div x-data="leadProfile({{ $lead->id }})" class="animate-fade-in">
+<div x-data="leadProfile({{ $lead->id }}, {{ Js::from($lead->products->map(fn($p) => ['product_id' => $p->product_id, 'price' => $p->price, 'quantity' => $p->quantity])) }}, {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }})" class="animate-fade-in">
 
   <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
     <a href="{{ route('crm.website.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Website CRM</a>
@@ -119,6 +119,27 @@
       <div class="card">
         <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Inquiry Details</h4>
         <p class="text-sm text-slate-700 leading-relaxed">{{ $lead->inquiry_details }}</p>
+      </div>
+      @endif
+
+      {{-- Products Sold --}}
+      @if($lead->products->isNotEmpty())
+      <div class="card">
+        <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Products Sold</h4>
+        <div class="space-y-2">
+          @foreach($lead->products as $p)
+          <div class="flex items-center justify-between text-sm">
+            <div>
+              <p class="text-slate-700 font-medium">{{ $p->product_name }}</p>
+              @if($p->sku)<p class="text-xs text-slate-400 font-mono">{{ $p->sku }}</p>@endif
+            </div>
+            <div class="text-right text-xs text-slate-500">
+              <p>× {{ $p->quantity }}</p>
+              @if($p->price !== null)<p class="font-semibold text-slate-700">${{ number_format($p->price, 2) }}</p>@endif
+            </div>
+          </div>
+          @endforeach
+        </div>
       </div>
       @endif
     </div>
@@ -276,18 +297,69 @@
     </div>
   </div>
 
+  {{-- ── Mark Successful Modal (products required) ──────────────────────── --}}
+  <div x-show="showProductsModal" x-cloak class="modal-overlay" @keydown.escape.window="showProductsModal = false">
+    <div class="modal-box max-w-lg" @click.stop>
+      <div class="modal-header">
+        <h3 class="font-display font-bold text-slate-800">Products Sold</h3>
+        <button @click="showProductsModal = false" class="btn btn-secondary btn-icon ml-auto">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <p class="text-xs text-slate-400">At least one product is required to mark this lead as Successful.</p>
+        <div class="space-y-2">
+          <template x-for="(line, i) in lines" :key="i">
+            <div class="flex gap-2 items-start">
+              <select x-model.number="line.product_id" @change="applyProduct(i)" class="form-input flex-1">
+                <option value="">— Select Product —</option>
+                <template x-for="p in catalog" :key="p.id">
+                  <option :value="p.id" x-text="p.name + (p.sku ? ' (' + p.sku + ')' : '')"></option>
+                </template>
+              </select>
+              <input type="number" step="0.01" min="0" x-model="line.price" placeholder="Price" class="form-input w-28">
+              <input type="number" min="1" x-model.number="line.quantity" placeholder="Qty" class="form-input w-20">
+              <button type="button" @click="removeLine(i)" x-show="lines.length > 1"
+                      class="btn btn-secondary btn-icon text-red-400 hover:text-red-600 shrink-0" style="width:38px;height:38px;">
+                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </template>
+        </div>
+        <button type="button" @click="addLine()" class="btn btn-secondary text-xs">+ Add Another Product</button>
+        <div class="flex gap-3 pt-2">
+          <button @click="showProductsModal = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="confirmSuccessful()" :disabled="statusLoading" class="btn btn-primary flex-1">
+            <span x-show="!statusLoading">Save & Mark Successful</span>
+            <span x-show="statusLoading" x-cloak>Saving…</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   @include('kanban.partials.toast')
 </div>
 @endsection
 
 @push('scripts')
 <script>
-function leadProfile(leadId) {
+function leadProfile(leadId, existingProducts, catalog) {
   return {
     showFollowUp: {{ session('open_followup') ? 'true' : 'false' }},
+    showProductsModal: false,
+    pendingStatus: null,
     fuLoading: false,
     statusLoading: false,
     fuForm: { notes: '', status: '', temperature: '', follow_up_date: '', next_action: '' },
+    lines: existingProducts.length ? existingProducts : [{ product_id: '', price: '', quantity: 1 }],
+    catalog: catalog,
+    addLine() { this.lines.push({ product_id: '', price: '', quantity: 1 }); },
+    removeLine(i) { if (this.lines.length > 1) this.lines.splice(i, 1); },
+    applyProduct(i) {
+      const p = this.catalog.find(c => c.id == this.lines[i].product_id);
+      if (p && !this.lines[i].price) { this.lines[i].price = p.price; }
+    },
 
     async submitFollowUp() {
       if (!this.fuForm.notes.trim()) {
@@ -308,12 +380,32 @@ function leadProfile(leadId) {
       } finally { this.fuLoading = false; }
     },
 
-    async updateStatus(newStatus) {
+    updateStatus(newStatus) {
+      if (newStatus === 'successful') {
+        this.pendingStatus = newStatus;
+        this.showProductsModal = true;
+        return;
+      }
+      this._patchStatus(newStatus, null);
+    },
+
+    async confirmSuccessful() {
+      if (!this.lines.length || this.lines.some(l => !l.product_id)) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Select a product for each line.', type: 'error' } }));
+        return;
+      }
+      this.showProductsModal = false;
+      await this._patchStatus(this.pendingStatus, this.lines);
+    },
+
+    async _patchStatus(newStatus, lines) {
       this.statusLoading = true;
       try {
+        const body = { status: newStatus };
+        if (lines) body.products = lines.map(l => ({ product_id: l.product_id, price: l.price, quantity: l.quantity }));
         await api(`/crm/website/${leadId}/status`, {
           method: 'PATCH',
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify(body),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
         setTimeout(() => location.reload(), 700);

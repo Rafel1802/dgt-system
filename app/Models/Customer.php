@@ -18,7 +18,7 @@ class Customer extends Model
     protected $fillable = [
         'name', 'email', 'phone', 'company', 'job_title', 'website',
         'country', 'state', 'city', 'address', 'postcode',
-        'status', 'source', 'pipeline_stage',
+        'status', 'source', 'pipeline_stage', 'shipment_delay',
         'product_interests', 'tags',
         'lifetime_value', 'currency',
         'has_purchased', 'first_purchase_date', 'last_purchase_date', 'total_orders',
@@ -29,6 +29,7 @@ class Customer extends Model
     protected $casts = [
         'status'              => CustomerStatus::class,
         'pipeline_stage'      => DealStage::class,
+        'shipment_delay'      => 'boolean',
         'product_interests'   => 'array',
         'tags'                => 'array',
         'has_purchased'       => 'boolean',

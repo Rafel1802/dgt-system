@@ -81,6 +81,11 @@ class Lead extends Model
         return $this->hasMany(LeadFollowUp::class)->orderByDesc('contacted_at');
     }
 
+    public function products(): HasMany
+    {
+        return $this->hasMany(LeadProduct::class);
+    }
+
     public function logistic(): HasMany
     {
         return $this->hasMany(Logistic::class);

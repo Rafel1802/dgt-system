@@ -23,10 +23,16 @@
           <p class="text-slate-400 text-sm">{{ collect([$customer->job_title, $customer->company])->filter()->join(' @ ') }}</p>
         @endif
 
-        <div class="flex justify-center gap-2 mt-3">
+        <div class="flex justify-center gap-2 mt-3 flex-wrap">
           <span class="badge {{ $customer->status?->badgeClass() }}">{{ $customer->status?->label() }}</span>
           @if($customer->has_purchased)
             <span class="badge badge-emerald">✓ Purchased</span>
+          @endif
+          @if($customer->shipment_delay)
+            <span class="badge text-xs px-2 py-0.5 rounded-full"
+                  style="background:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}22; color:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}">
+              ⚠ Logistic Issues
+            </span>
           @endif
         </div>
 

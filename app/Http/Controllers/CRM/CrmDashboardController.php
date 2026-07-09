@@ -73,7 +73,7 @@ class CrmDashboardController extends Controller
         $negFeedbackOpen = EbayCustomerRecord::whereIn('tab_type', [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])
             ->where('negative_feedback_resolved', false)
             ->count();
-        $activeShipments = Shipment::where('status', '!=', Shipment::STATUS_DELIVERED)->count();
+        $activeShipments = Shipment::where('status', '!=', Shipment::STATUS_COMPLETE)->count();
         $truckingCompanyCount = TruckingCompany::active()->count();
         $ebayStoreCount = EbayStore::active()->count();
         $pendingCallRequests = CallRequest::pending()->count();

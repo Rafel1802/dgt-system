@@ -23,7 +23,17 @@
       </div>
     </div>
 
-    <form method="POST" action="{{ route('crm.website.update', $lead) }}" class="divide-y divide-slate-100">
+    <form method="POST" action="{{ route('crm.website.update', $lead) }}" class="divide-y divide-slate-100" x-data="{
+      status: '{{ old('status', $lead->status?->value) }}',
+      lines: {{ old('products') ? Js::from(old('products')) : ($lead->products->isNotEmpty() ? Js::from($lead->products->map(fn($p) => ['product_id' => $p->product_id, 'price' => $p->price, 'quantity' => $p->quantity])) : Js::from([['product_id' => '', 'price' => '', 'quantity' => 1]])) }},
+      catalog: {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }},
+      addLine() { this.lines.push({ product_id: '', price: '', quantity: 1 }); },
+      removeLine(i) { if (this.lines.length > 1) this.lines.splice(i, 1); },
+      applyProduct(i) {
+        const p = this.catalog.find(c => c.id == this.lines[i].product_id);
+        if (p && !this.lines[i].price) { this.lines[i].price = p.price; }
+      },
+    }">
       @csrf @method('PUT')
 
       {{-- Client Information --}}
@@ -92,7 +102,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="form-label">Pipeline Status</label>
-            <select name="status" class="form-input">
+            <select name="status" class="form-input" x-model="status">
               @foreach($statuses as $s)
               <option value="{{ $s->value }}" {{ old('status', $lead->status?->value) === $s->value ? 'selected' : '' }}>
                 {{ $s->label() }}
@@ -131,6 +141,31 @@
           <label class="form-label">Next Action</label>
           <input type="text" name="next_action" value="{{ old('next_action', $lead->next_action) }}" class="form-input" placeholder="e.g. Call to discuss finance options">
         </div>
+      </div>
+
+      {{-- Products Sold (required to mark Successful) --}}
+      <div x-show="status === 'successful'" x-cloak class="px-6 py-5 space-y-3">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Products Sold <span class="text-red-500">*</span></h3>
+        @error('products')<p class="form-error">{{ $message }}</p>@enderror
+        <div class="space-y-2">
+          <template x-for="(line, i) in lines" :key="i">
+            <div class="flex gap-2 items-start">
+              <select :name="`products[${i}][product_id]`" x-model.number="line.product_id" @change="applyProduct(i)" class="form-input flex-1">
+                <option value="">— Select Product —</option>
+                <template x-for="p in catalog" :key="p.id">
+                  <option :value="p.id" x-text="p.name + (p.sku ? ' (' + p.sku + ')' : '')"></option>
+                </template>
+              </select>
+              <input type="number" step="0.01" min="0" :name="`products[${i}][price]`" x-model="line.price" placeholder="Price" class="form-input w-28">
+              <input type="number" min="1" :name="`products[${i}][quantity]`" x-model.number="line.quantity" placeholder="Qty" class="form-input w-20">
+              <button type="button" @click="removeLine(i)" x-show="lines.length > 1"
+                      class="btn btn-secondary btn-icon text-red-400 hover:text-red-600 shrink-0" style="width:38px;height:38px;">
+                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </template>
+        </div>
+        <button type="button" @click="addLine()" class="btn btn-secondary text-xs">+ Add Another Product</button>
       </div>
 
       {{-- Lost Reason --}}
