@@ -206,13 +206,18 @@ class BoardController extends Controller
         $board->load([
             'workspace.members',
             'labels',
-            'activeLists.cards.assignees',
-            'activeLists.cards.labels',
-            'activeLists.cards.checklists.items',
-            'activeLists.cards.files',
-            'activeLists.cards.comments',
             'members',
         ]);
+
+        $board->load(['activeLists.cards' => function ($query) {
+            $query->withCount('comments')
+                  ->with([
+                      'assignees',
+                      'labels',
+                      'checklists.items',
+                      'files'
+                  ]);
+        }]);
 
         $user = auth()->user();
         $workspaceBoards = $board->workspace
@@ -298,7 +303,7 @@ class BoardController extends Controller
                     'checklist_total' => $c->checklists->flatMap->items->count(),
                     'checklist_done'  => $c->checklists->flatMap->items->where('is_completed',true)->count(),
                     'has_files'       => $c->files->count() > 0,
-                    'comment_count'   => $c->comments->count(),
+                    'comment_count'   => $c->comments_count ?? 0,
                 ])->values()->all(),
             ])->values()->all(),
             'labels'           => \App\Models\Label::where(function($q) use ($board) {
@@ -1590,7 +1595,6 @@ class BoardController extends Controller
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position'),
-                'boards.activeLists' => fn($q) => $q->where('is_archived', false)->orderBy('position'),
                 'boards.members:id,name,avatar',
             ])
                 ->where('is_active', true)
@@ -1600,7 +1604,6 @@ class BoardController extends Controller
         } else {
             $allActiveWorkspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position'),
-                'boards.activeLists' => fn($q) => $q->where('is_archived', false)->orderBy('position'),
                 'boards.members:id,name,avatar',
             ])
                 ->where('is_active', true)

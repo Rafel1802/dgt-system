@@ -88,8 +88,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
-      body: SafeArea(
-        child: Stack(
+      body: Stack(
           children: [
             // ── WebView ──────────────────────────────────────────────
             Positioned.fill(
@@ -166,7 +165,6 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               ),
           ],
         ),
-      ),
     );
   }
 }

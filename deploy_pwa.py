@@ -26,9 +26,11 @@ rsync_cmd = [
     "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002", "--relative",
     "resources/views/layouts/app.blade.php",
     "resources/views/layouts/auth.blade.php",
+    "resources/views/downloads/mac-app.blade.php",
     "public/manifest.json",
     "app/Services/BoardWorkflowService.php",
     "app/Models/Workspace.php",
+    "app/Http/Controllers/Board/BoardController.php",
     "app/Http/Controllers/Board/CardController.php",
     "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"
 ]
