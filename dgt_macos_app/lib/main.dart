@@ -425,9 +425,16 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
-      body: Stack(
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyR, meta: true): _reload,
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): _reload,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF4F7FB),
+          body: Stack(
         children: [
           Positioned.fill(
             child: InAppWebView(
@@ -506,6 +513,8 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               onRetry: _reload,
             ),
         ],
+      ),
+        ),
       ),
     );
   }
