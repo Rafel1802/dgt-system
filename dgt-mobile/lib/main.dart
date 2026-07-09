@@ -126,6 +126,10 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 },
                 onReceivedError: (controller, request, error) {
                   if (request.isForMainFrame ?? false) {
+                    final desc = error.description.toLowerCase();
+                    if (desc.contains('-999') || desc.contains('cancelled') || desc.contains('aborted')) {
+                      return;
+                    }
                     setState(() => loadError = error.description);
                   }
                 },
