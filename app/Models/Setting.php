@@ -7,6 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
+    
+    protected static $cachedSettings = null;
+
+    protected static function booted()
+    {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('global_settings');
+            self::$cachedSettings = null;
+        });
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('global_settings');
+            self::$cachedSettings = null;
+        });
+    }
 
     public static function externalToolDefinitions(): array
     {
@@ -244,12 +258,14 @@ class Setting extends Model
         ));
     }
 
-    /**
-     * Get a setting value by key, or return default.
-     */
     public static function get(string $key, $default = null)
     {
-        $setting = self::where('key', $key)->first();
-        return $setting ? $setting->value : $default;
+        if (self::$cachedSettings === null) {
+            self::$cachedSettings = \Illuminate\Support\Facades\Cache::rememberForever('global_settings', function () {
+                return self::pluck('value', 'key')->all();
+            });
+        }
+
+        return self::$cachedSettings[$key] ?? $default;
     }
 }

@@ -44,6 +44,26 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
+    <!-- Turbo 8 for ultra-fast SPA navigation & Instant Visual Feedback -->
+    <meta name="turbo-prefetch" content="true">
+    <style>
+        .turbo-progress-bar {
+            height: 3px;
+            background-color: #2563eb;
+        }
+        
+        /* Disable manual fade-in to prevent SPA blinking/flashing during transitions */
+        .animate-fade-in {
+            animation: none !important;
+            opacity: 1 !important;
+        }
+    </style>
+    <script type="module">
+        import * as Turbo from "https://unpkg.com/@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js";
+        Turbo.setProgressBarDelay(0);
+    </script>
+    <script src="https://instant.page/5.2.0" type="module" integrity="sha384-jnZyxPjiipYXnSU0ygqeac2q7CVYMbh84q0uHVRRxm3jF-bsaH022026/GkU-A6J"></script>
+
     <!-- Vite assets (Tailwind CSS + Alpine.js) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 

@@ -255,8 +255,9 @@
 </div>
 
 <script>
-document.addEventListener('alpine:init', () => {
-    Alpine.data('spreadsheet', () => ({
+(function() {
+    const initSocialApp = () => {
+        Alpine.data('spreadsheet', () => ({
         classId: {{ $class->id }},
         viewerOpen: false,
         viewerUrl: '',
@@ -392,7 +393,14 @@ document.addEventListener('alpine:init', () => {
             setTimeout(() => { toast.style.opacity = '0'; }, 2000);
         }
     }));
-});
+    };
+
+    if (window.Alpine) {
+        initSocialApp();
+    } else {
+        document.addEventListener('alpine:init', initSocialApp);
+    }
+})();
 </script>
 
 {{-- Simple Photo Viewer Modal --}}

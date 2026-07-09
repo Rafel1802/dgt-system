@@ -140,8 +140,9 @@
 
 @push('scripts')
 <script>
-document.addEventListener('alpine:init', () => {
-    Alpine.data('labelManager', () => ({
+(function() {
+    const initLabelsApp = () => {
+        Alpine.data('labelManager', () => ({
         showModal: false,
         editId: null,
         form: {
@@ -168,6 +169,13 @@ document.addEventListener('alpine:init', () => {
             this.showModal = true;
         }
     }));
-});
+    };
+
+    if (window.Alpine) {
+        initLabelsApp();
+    } else {
+        document.addEventListener('alpine:init', initLabelsApp);
+    }
+})();
 </script>
 @endpush
