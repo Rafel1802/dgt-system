@@ -5,14 +5,19 @@ $appIconAsset = asset($appIconPath);
 $appIcon = $appIconAsset . '?v=' . $appIconVersion;
 $faviconIco = asset('favicon.ico') . '?v=' . (file_exists(public_path('favicon.ico')) ? filemtime(public_path('favicon.ico')) : $appIconVersion);
 $faviconPng = asset('favicon-32x32.png') . '?v=' . (file_exists(public_path('favicon-32x32.png')) ? filemtime(public_path('favicon-32x32.png')) : $appIconVersion);
-$appleTouchIcon = asset('apple-touch-icon.png') . '?v=' . (file_exists(public_path('apple-touch-icon.png')) ? filemtime(public_path('apple-touch-icon.png')) : $appIconVersion);
+$appleTouchIcon = $appIcon;
 $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOSApp');
 ?>
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="KIUQ SYSTEM">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @auth
         @if(config('broadcasting.default') === 'pusher' && config('broadcasting.connections.pusher.key'))

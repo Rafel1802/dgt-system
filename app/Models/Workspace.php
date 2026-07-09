@@ -81,27 +81,6 @@ class Workspace extends Model
             return true;
         }
 
-        // Infographic@KiuQ workspace: all digital members automatically join
-        if ($this->name === 'Infographic@KiuQ' || $this->slug === 'infographic-kiuq') {
-            if ($user->hasAnyRole(['super-admin', 'admin', 'supervisor', 'digital-team', 'staff', 'boss'])) {
-                return true;
-            }
-        }
-
-        // CRM Team workspace: CRM members automatically join
-        if ($this->name === 'CRM Team' || $this->slug === 'crm-team') {
-            if ($user->hasAnyRole(['super-admin', 'admin', 'sales-crm'])) {
-                return true;
-            }
-        }
-
-        // Admin Team workspace: super-admin, admin, supervisor join
-        if ($this->name === 'Admin Team' || $this->slug === 'admin-team') {
-            if ($user->hasAnyRole(['super-admin', 'admin', 'supervisor'])) {
-                return true;
-            }
-        }
-
         return $this->owner_id === $userId
             || $this->members()->where('users.id', $userId)->exists();
     }

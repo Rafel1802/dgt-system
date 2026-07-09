@@ -47,24 +47,8 @@ class BoardWorkflowService
             return; // Commenter is not assigned
         }
 
-        // Check if ALL assignees have commented "Ready" since the card was moved here
-        $allReady = true;
-        foreach ($assignees as $assignee) {
-            $hasReady = $card->comments()
-                ->where('user_id', $assignee->id)
-                ->where('is_system', false)
-                ->whereRaw('LOWER(content) LIKE ?', ['%ready%'])
-                ->exists();
-
-            if (!$hasReady) {
-                $allReady = false;
-                break;
-            }
-        }
-
-        if ($allReady) {
-            $this->triggerPlanningToWorkflowCopy($card);
-        }
+        // Trigger the workflow immediately if ANY assignee comments "Ready"
+        $this->triggerPlanningToWorkflowCopy($card);
     }
 
     private function triggerPlanningToWorkflowCopy(Card $card)

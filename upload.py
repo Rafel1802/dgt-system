@@ -6,7 +6,7 @@ pid, fd = pty.fork()
 if pid == 0:
     # Child process
     os.execlp("rsync", "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002", "--relative", 
-              "app/Http/Controllers/CRM/ProductController.php", 
+              "check_db_info.php", 
               "resources/views/crm/products/create.blade.php", 
               "resources/views/crm/products/edit.blade.php", 
               "app/Policies/CardPolicy.php", 
