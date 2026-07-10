@@ -70,10 +70,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     @stack('styles')
     @stack('head')
 
-    @if($isMacDesktopApp)
+    @php
+        $isIosApp = str_contains((string) request()->userAgent(), 'DGTSystemiOSApp');
+        $isDesktopOrMobileApp = $isMacDesktopApp || $isIosApp;
+    @endphp
+
+    @if($isDesktopOrMobileApp)
         <style>
-            html.dgt-macos-app,
-            html.dgt-macos-app body {
+            .turbo-progress-bar {
+                display: none !important;
+                visibility: hidden !important;
+            }
+
+            html.dgt-macos-app, html.dgt-mobile-app,
+            html.dgt-macos-app body, html.dgt-mobile-app body {
                 width: 100%;
                 height: 100%;
                 min-height: 100%;
@@ -82,7 +92,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 background: var(--bg-page, #f4f7fb);
             }
 
-            html.dgt-macos-app #dgt-app-wrapper {
+            html.dgt-macos-app #dgt-app-wrapper, html.dgt-mobile-app #dgt-app-wrapper {
                 width: 100%;
                 height: 100vh;
                 height: 100dvh;
@@ -92,38 +102,38 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 background: var(--bg-page, #f4f7fb);
             }
 
-            html.dgt-macos-app .sidebar-logo {
+            html.dgt-macos-app .sidebar-logo, html.dgt-mobile-app .sidebar-logo {
                 padding-top: 3.15rem;
             }
 
-            html.dgt-macos-app .sidebar-logo-icon {
+            html.dgt-macos-app .sidebar-logo-icon, html.dgt-mobile-app .sidebar-logo-icon {
                 width: 36px;
                 height: 36px;
             }
 
-            html.dgt-macos-app .sidebar-logo-icon img {
+            html.dgt-macos-app .sidebar-logo-icon img, html.dgt-mobile-app .sidebar-logo-icon img {
                 width: 100%;
                 height: 100%;
                 image-rendering: auto;
                 filter: none;
             }
 
-            html.dgt-macos-app .sidebar-logo-text {
+            html.dgt-macos-app .sidebar-logo-text, html.dgt-mobile-app .sidebar-logo-text {
                 white-space: nowrap;
             }
 
-            html.dgt-macos-app .sidebar-logo-sub {
+            html.dgt-macos-app .sidebar-logo-sub, html.dgt-mobile-app .sidebar-logo-sub {
                 white-space: nowrap;
             }
 
-            html.dgt-macos-app .sidebar {
+            html.dgt-macos-app .sidebar, html.dgt-mobile-app .sidebar {
                 top: 0;
                 height: 100vh;
                 height: 100dvh;
                 overscroll-behavior: contain;
             }
 
-            html.dgt-macos-app .main-wrapper {
+            html.dgt-macos-app .main-wrapper, html.dgt-mobile-app .main-wrapper {
                 height: 100vh;
                 height: 100dvh;
                 min-height: 0;
@@ -131,11 +141,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 background: var(--bg-page, #f4f7fb);
             }
 
-            html.dgt-macos-app .topbar {
+            html.dgt-macos-app .topbar, html.dgt-mobile-app .topbar {
                 flex: 0 0 64px;
             }
 
-            html.dgt-macos-app .page-content {
+            html.dgt-macos-app .page-content, html.dgt-mobile-app .page-content {
                 flex: 1 1 auto;
                 min-height: 0;
                 overflow-x: hidden;

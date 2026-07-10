@@ -98,10 +98,14 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                   userAgent: 'DGTSystemiOSApp/1.0',
                   javaScriptEnabled: true,
                   transparentBackground: true,
-                  // Enables native file picker on iOS when tapping <input type="file">
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
                   mediaPlaybackRequiresUserGesture: false,
+                  disableContextMenu: true,
+                  verticalScrollBarEnabled: false,
+                  horizontalScrollBarEnabled: false,
+                  allowsBackForwardNavigationGestures: true,
+                  useShouldOverrideUrlLoading: true,
                 ),
                 onWebViewCreated: (webViewController) {
                   controller = webViewController;
@@ -146,19 +150,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               ),
             ),
 
-            // ── Loading Bar ──────────────────────────────────────────
-            if (!hasLoadedFirstPage && loadingProgress < 100 && loadError == null)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: LinearProgressIndicator(
-                  value: loadingProgress / 100,
-                  minHeight: 2,
-                  color: const Color(0xFF2F68ED),
-                  backgroundColor: const Color(0xFFEAF2FF),
-                ),
-              ),
+            // ── Loading Bar Removed for Instant Feel ─────────────────────────
 
             // ── Error Panel ──────────────────────────────────────────
             if (loadError != null)
