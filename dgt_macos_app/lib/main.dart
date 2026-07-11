@@ -425,9 +425,16 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
-      body: Stack(
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyR, meta: true): _reload,
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): _reload,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF4F7FB),
+          body: Stack(
         children: [
           Positioned.fill(
             child: InAppWebView(
@@ -471,6 +478,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               },
               onReceivedError: (controller, request, error) {
                 if (request.isForMainFrame ?? false) {
+                  final desc = error.description.toLowerCase();
+                  // Ignore harmless cancellation errors caused by Turbo routing/back navigation
+                  if (desc.contains('-999') || desc.contains('cancelled') || desc.contains('aborted')) {
+                    return;
+                  }
                   setState(() => loadError = error.description);
                 }
               },
@@ -506,6 +518,8 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               onRetry: _reload,
             ),
         ],
+      ),
+        ),
       ),
     );
   }

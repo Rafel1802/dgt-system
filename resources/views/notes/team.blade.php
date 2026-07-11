@@ -359,11 +359,12 @@
 @push('scripts')
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 <script>
-    document.addEventListener('alpine:init', () => {
-        let quillInstance = null;
-        let saveTimeoutTimer = null;
+    (function() {
+        const initNotesApp = () => {
+            let quillInstance = null;
+            let saveTimeoutTimer = null;
 
-        Alpine.data('notesApp', (type, team) => ({
+            Alpine.data('notesApp', (type, team) => ({
             type: type,
             team: team,
             folders: @json($folders ?? []),
@@ -894,6 +895,13 @@
                 return date.toLocaleString([], {month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute:'2-digit'});
             }
         }));
-    });
+        };
+        
+        if (window.Alpine) {
+            initNotesApp();
+        } else {
+            document.addEventListener('alpine:init', initNotesApp);
+        }
+    })();
 </script>
 @endpush

@@ -184,8 +184,9 @@
 <div id="live-toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2"></div>
 
 <script>
-document.addEventListener('alpine:init', () => {
-    Alpine.data('emailList', () => ({
+(function() {
+    const initEmailApp = () => {
+        Alpine.data('emailList', () => ({
         selected: [],
         selectAll: false,
         showCheckboxes: false,
@@ -242,7 +243,14 @@ document.addEventListener('alpine:init', () => {
             this.showDeleteModal = false;
         }
     }));
-});
+    };
+
+    if (window.Alpine) {
+        initEmailApp();
+    } else {
+        document.addEventListener('alpine:init', initEmailApp);
+    }
+})();
 
 document.addEventListener('DOMContentLoaded', function() {
     let lastCheckedAt = "{{ now()->toIso8601String() }}";

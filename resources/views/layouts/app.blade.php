@@ -5,14 +5,19 @@ $appIconAsset = asset($appIconPath);
 $appIcon = $appIconAsset . '?v=' . $appIconVersion;
 $faviconIco = asset('favicon.ico') . '?v=' . (file_exists(public_path('favicon.ico')) ? filemtime(public_path('favicon.ico')) : $appIconVersion);
 $faviconPng = asset('favicon-32x32.png') . '?v=' . (file_exists(public_path('favicon-32x32.png')) ? filemtime(public_path('favicon-32x32.png')) : $appIconVersion);
-$appleTouchIcon = asset('apple-touch-icon.png') . '?v=' . (file_exists(public_path('apple-touch-icon.png')) ? filemtime(public_path('apple-touch-icon.png')) : $appIconVersion);
+$appleTouchIcon = $appIcon;
 $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOSApp');
 ?>
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="KIUQ SYSTEM">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @auth
         @if(config('broadcasting.default') === 'pusher' && config('broadcasting.connections.pusher.key'))
@@ -39,16 +44,46 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
+    <!-- Turbo 8 for ultra-fast SPA navigation & Instant Visual Feedback -->
+    <meta name="turbo-prefetch" content="true">
+    <style>
+        .turbo-progress-bar {
+            height: 3px;
+            background-color: #2563eb;
+        }
+        
+        /* Disable manual fade-in to prevent SPA blinking/flashing during transitions */
+        .animate-fade-in {
+            animation: none !important;
+            opacity: 1 !important;
+        }
+    </style>
+    <script type="module">
+        import * as Turbo from "https://unpkg.com/@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js";
+        Turbo.setProgressBarDelay(0);
+    </script>
+    <script src="https://instant.page/5.2.0" type="module" integrity="sha384-jnZyxPjiipYXnSU0ygqeac2q7CVYMbh84q0uHVRRxm3jF-bsaH022026/GkU-A6J"></script>
+
     <!-- Vite assets (Tailwind CSS + Alpine.js) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     @stack('styles')
     @stack('head')
 
-    @if($isMacDesktopApp)
+    @php
+        $isIosApp = str_contains((string) request()->userAgent(), 'DGTSystemiOSApp');
+        $isDesktopOrMobileApp = $isMacDesktopApp || $isIosApp;
+    @endphp
+
+    @if($isDesktopOrMobileApp)
         <style>
-            html.dgt-macos-app,
-            html.dgt-macos-app body {
+            .turbo-progress-bar {
+                display: none !important;
+                visibility: hidden !important;
+            }
+
+            html.dgt-macos-app, html.dgt-mobile-app,
+            html.dgt-macos-app body, html.dgt-mobile-app body {
                 width: 100%;
                 height: 100%;
                 min-height: 100%;
@@ -57,7 +92,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 background: var(--bg-page, #f4f7fb);
             }
 
-            html.dgt-macos-app #dgt-app-wrapper {
+            html.dgt-macos-app #dgt-app-wrapper, html.dgt-mobile-app #dgt-app-wrapper {
                 width: 100%;
                 height: 100vh;
                 height: 100dvh;
@@ -67,38 +102,38 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 background: var(--bg-page, #f4f7fb);
             }
 
-            html.dgt-macos-app .sidebar-logo {
+            html.dgt-macos-app .sidebar-logo, html.dgt-mobile-app .sidebar-logo {
                 padding-top: 3.15rem;
             }
 
-            html.dgt-macos-app .sidebar-logo-icon {
+            html.dgt-macos-app .sidebar-logo-icon, html.dgt-mobile-app .sidebar-logo-icon {
                 width: 36px;
                 height: 36px;
             }
 
-            html.dgt-macos-app .sidebar-logo-icon img {
+            html.dgt-macos-app .sidebar-logo-icon img, html.dgt-mobile-app .sidebar-logo-icon img {
                 width: 100%;
                 height: 100%;
                 image-rendering: auto;
                 filter: none;
             }
 
-            html.dgt-macos-app .sidebar-logo-text {
+            html.dgt-macos-app .sidebar-logo-text, html.dgt-mobile-app .sidebar-logo-text {
                 white-space: nowrap;
             }
 
-            html.dgt-macos-app .sidebar-logo-sub {
+            html.dgt-macos-app .sidebar-logo-sub, html.dgt-mobile-app .sidebar-logo-sub {
                 white-space: nowrap;
             }
 
-            html.dgt-macos-app .sidebar {
+            html.dgt-macos-app .sidebar, html.dgt-mobile-app .sidebar {
                 top: 0;
                 height: 100vh;
                 height: 100dvh;
                 overscroll-behavior: contain;
             }
 
-            html.dgt-macos-app .main-wrapper {
+            html.dgt-macos-app .main-wrapper, html.dgt-mobile-app .main-wrapper {
                 height: 100vh;
                 height: 100dvh;
                 min-height: 0;
@@ -106,11 +141,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 background: var(--bg-page, #f4f7fb);
             }
 
-            html.dgt-macos-app .topbar {
+            html.dgt-macos-app .topbar, html.dgt-mobile-app .topbar {
                 flex: 0 0 64px;
             }
 
-            html.dgt-macos-app .page-content {
+            html.dgt-macos-app .page-content, html.dgt-mobile-app .page-content {
                 flex: 1 1 auto;
                 min-height: 0;
                 overflow-x: hidden;

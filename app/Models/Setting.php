@@ -7,6 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
+    
+    protected static $cachedSettings = null;
+
+    protected static function booted()
+    {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('global_settings');
+            self::$cachedSettings = null;
+        });
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('global_settings');
+            self::$cachedSettings = null;
+        });
+    }
 
     public static function externalToolDefinitions(): array
     {
@@ -244,31 +258,14 @@ class Setting extends Model
         ));
     }
 
-    /**
-     * @var array<string, string>|null In-request cache of all settings, keyed by `key`.
-     */
-    protected static ?array $cache = null;
-
-    protected static function booted(): void
-    {
-        static::saved(fn () => self::$cache = null);
-        static::deleted(fn () => self::$cache = null);
-    }
-
-    /**
-     * Get a setting value by key, or return default.
-     *
-     * Loads all settings in a single query on first call and caches them for
-     * the rest of the request, since callers (e.g. externalTools()) fetch
-     * dozens of keys individually per page load. Invalidated automatically
-     * on save/delete (see booted() above).
-     */
     public static function get(string $key, $default = null)
     {
-        if (self::$cache === null) {
-            self::$cache = self::query()->pluck('value', 'key')->all();
+        if (self::$cachedSettings === null) {
+            self::$cachedSettings = \Illuminate\Support\Facades\Cache::rememberForever('global_settings', function () {
+                return self::pluck('value', 'key')->all();
+            });
         }
 
-        return self::$cache[$key] ?? $default;
+        return self::$cachedSettings[$key] ?? $default;
     }
 }

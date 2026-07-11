@@ -258,13 +258,9 @@ class CardController extends Controller
                     if (str_contains($trigger, 'ready')) {
                         $assignees = $card->assignees;
                         if (!$assignees->contains('id', auth()->id())) continue; // Commenter not assigned
-                        $allReady = true;
-                        foreach ($assignees as $assignee) {
-                            $hasReady = $card->comments()->where('user_id', $assignee->id)->where('is_system', false)
-                                ->whereRaw('LOWER(content) LIKE ?', ['%ready%'])->exists();
-                            if (!$hasReady) { $allReady = false; break; }
-                        }
-                        if (!$allReady) continue; // Wait for everyone
+                        
+                        // We no longer require ALL assignees to comment 'ready'. 
+                        // If ANY assignee comments 'ready', this automation triggers immediately.
                     }
 
                     if (str_contains($trigger, 'head approved')) {
@@ -299,38 +295,7 @@ class CardController extends Controller
                     $copy = $card->replicateRelationally($automation->target_board_id, $automation->target_list_id, $newTitle, auth()->id() ?? $card->created_by, true);
 
                     $this->logCardActivity($copy, 'copied_by_automation', "copied this card from **{$sourceListName}**");
-                    
-                    if ($automation->target_assignee_id) {
-                        if (!$copy->assignees()->where('users.id', $automation->target_assignee_id)->exists()) {
-                            $copy->assignees()->attach($automation->target_assignee_id);
-                            $assignedUser = \App\Models\User::find($automation->target_assignee_id);
-                            if ($assignedUser) {
-                                $this->logCardActivity($copy, 'member_added', "assigned **{$assignedUser->name}** to this card via automation");
-                            }
-                        }
-                    } elseif ($automation->target_assignee_role) {
-                        $targetBoard = \App\Models\Board::find($automation->target_board_id);
-                        if ($targetBoard) {
-                            if ($automation->target_assignee_role === 'Standard Member') {
-                                // Find all board members who are in the digital-team but don't have a specific team_role (like Head, QC, etc)
-                                $roleUsers = $targetBoard->members()->get()->filter(function($u) {
-                                    $tr = $u->team_role;
-                                    $isStandard = is_null($tr) || $tr === '' || $tr === 'None';
-                                    return $isStandard && ($u->hasRole('digital-team') || $u->hasRole('digital_team') || str_contains(strtolower($u->roles->pluck('name')->join(',')), 'digital'));
-                                });
-                            } else {
-                                $roleUsers = $targetBoard->members()->where('users.team_role', $automation->target_assignee_role)->get();
-                            }
-                            
-                            foreach ($roleUsers as $u) {
-                                if (!$copy->assignees()->where('users.id', $u->id)->exists()) {
-                                    $copy->assignees()->attach($u->id);
-                                    $roleName = $automation->target_assignee_role === 'Standard Member' ? 'Digital Team' : $automation->target_assignee_role;
-                                    $this->logCardActivity($copy, 'member_added', "assigned **{$u->name}** (Role: {$roleName}) to this card via automation");
-                                }
-                            }
-                        }
-                    }
+                    // Retain original members. Removed logic that automatically adds more members based on target_assignee_role.
                 } else {
                     $maxPos = \App\Models\Card::where('board_list_id', $automation->target_list_id)->max('position') ?? 0;
                     $targetBoard = \App\Models\Board::find($automation->target_board_id);
@@ -354,36 +319,7 @@ class CardController extends Controller
                         "moved this card from **{$sourceListName}** to **" . ($targetList?->name ?? 'Unknown list') . "**"
                     );
 
-                    if ($automation->target_assignee_id) {
-                        if (!$card->assignees()->where('users.id', $automation->target_assignee_id)->exists()) {
-                            $card->assignees()->attach($automation->target_assignee_id);
-                            $assignedUser = \App\Models\User::find($automation->target_assignee_id);
-                            if ($assignedUser) {
-                                $this->logCardActivity($card, 'member_added', "assigned **{$assignedUser->name}** to this card via automation");
-                            }
-                        }
-                    } elseif ($automation->target_assignee_role) {
-                        $targetBoard = \App\Models\Board::find($automation->target_board_id);
-                        if ($targetBoard) {
-                            if ($automation->target_assignee_role === 'Standard Member') {
-                                $roleUsers = $targetBoard->members()->get()->filter(function($u) {
-                                    $tr = $u->team_role;
-                                    $isStandard = is_null($tr) || $tr === '' || $tr === 'None';
-                                    return $isStandard && ($u->hasRole('digital-team') || $u->hasRole('digital_team') || str_contains(strtolower($u->roles->pluck('name')->join(',')), 'digital'));
-                                });
-                            } else {
-                                $roleUsers = $targetBoard->members()->where('users.team_role', $automation->target_assignee_role)->get();
-                            }
-                            
-                            foreach ($roleUsers as $u) {
-                                if (!$card->assignees()->where('users.id', $u->id)->exists()) {
-                                    $card->assignees()->attach($u->id);
-                                    $roleName = $automation->target_assignee_role === 'Standard Member' ? 'Digital Team' : $automation->target_assignee_role;
-                                    $this->logCardActivity($card, 'member_added', "assigned **{$u->name}** (Role: {$roleName}) to this card via automation");
-                                }
-                            }
-                        }
-                    }
+                    // Retain original members. Removed logic that automatically adds more members based on target_assignee_role.
                 }
 
                 return [
@@ -403,9 +339,6 @@ class CardController extends Controller
     public function destroy(Card $card): JsonResponse
     {
         $user = auth()->user();
-        if (!$user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'Graphic Head', 'Video head', 'QC', 'Listing head', 'Graphic Head', 'Video Head', 'Listing Head'])) {
-            return response()->json(['error' => 'Unauthorized. Only admins and team heads can delete cards.'], 403);
-        }
 
         $this->logCardActivity($card, 'deleted', "deleted card '{$card->title}'");
         $card->delete();
