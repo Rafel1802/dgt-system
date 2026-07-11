@@ -10,7 +10,7 @@ window.workspacePage = function() {
     },
     showHiddenBoards: false,
     showTrashWorkspaces: false,
-    selectedWorkspaceId: {{ $workspaces->first()?->id ?? 'null' }},
+    selectedWorkspaceId: null,
 
     init() {
       this.$nextTick(() => this.initBoardSorting());

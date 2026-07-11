@@ -217,10 +217,10 @@
       </div>
       <div class="p-6 overflow-y-auto">
         {{-- Add/Edit Form --}}
-        <div class="mb-8 p-5 bg-slate-50/50 rounded-xl border border-slate-200">
+        <div class="mb-8 p-5 bg-slate-50/50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
           <div class="flex items-center justify-between mb-4">
-              <h4 class="font-bold text-slate-700" x-text="editCatId ? 'Edit Category' : 'Create New Category'"></h4>
-              <button x-show="editCatId" @click="openNewCat()" type="button" class="text-xs text-blue-600 hover:underline">Cancel Edit</button>
+              <h4 class="font-bold text-slate-700 dark:text-slate-200" x-text="editCatId ? 'Edit Category' : 'Create New Category'"></h4>
+              <button x-show="editCatId" @click="openNewCat()" type="button" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Cancel Edit</button>
           </div>
           <form method="POST" :action="editCatId ? `/crm/products/categories/${editCatId}` : '{{ route('crm.products.categories.store') }}'" class="flex flex-wrap items-end gap-3">
             @csrf

@@ -11,4 +11,5 @@ return [
     'api_url'  => env('KIUQ_API_URL', 'https://kiuq.kiuq.net'),
     'token'    => env('KIUQ_API_TOKEN', ''),
     'timeout'  => (int) env('KIUQ_API_TIMEOUT', 15),
+    'db_connection' => env('KIUQ_DB_CONNECTION', 'kiuq_mysql'),
 ];

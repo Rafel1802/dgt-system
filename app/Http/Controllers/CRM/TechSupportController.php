@@ -47,6 +47,7 @@ class TechSupportController extends Controller
             'resolved'    => TechSupportCase::status(TechSupportCase::STATUS_RESOLVED)->count(),
         ];
 
+        \Spatie\Permission\Models\Role::findOrCreate('tech-support', 'web');
         $technicians = User::role('tech-support')->where('is_active', true)->orderBy('name')->get();
         $statuses = TechSupportCase::statuses();
 
@@ -77,6 +78,7 @@ class TechSupportController extends Controller
         // badge doesn't keep flagging an outcome they've already read.
         $this->service->markCallCompletedNotificationsRead([$case->id]);
 
+        \Spatie\Permission\Models\Role::findOrCreate('tech-support', 'web');
         $technicians = User::role('tech-support')->where('is_active', true)->orderBy('name')->get();
         $statuses = TechSupportCase::statuses();
 

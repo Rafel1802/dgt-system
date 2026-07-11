@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -106,6 +105,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                   horizontalScrollBarEnabled: false,
                   allowsBackForwardNavigationGestures: true,
                   useShouldOverrideUrlLoading: true,
+                  cacheEnabled: true,
                 ),
                 onWebViewCreated: (webViewController) {
                   controller = webViewController;
@@ -151,6 +151,44 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
             ),
 
             // ── Loading Bar Removed for Instant Feel ─────────────────────────
+
+            // ── Splash Screen Overlay ────────────────────────────────────────
+            if (!hasLoadedFirstPage)
+              Container(
+                color: const Color(0xFF161922),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2F68ED),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'KQ',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 32,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Welcome to KIUQ SYSTEM',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             // ── Error Panel ──────────────────────────────────────────
             if (loadError != null)

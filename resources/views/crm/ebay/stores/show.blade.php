@@ -85,7 +85,7 @@
       </div>
 
       <div class="card p-0 overflow-hidden">
-        <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+        <div class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
           <form method="GET" action="{{ route('crm.ebay.stores.show', $store) }}" class="flex gap-2">
             <input type="search" name="search" value="{{ request('search') }}" placeholder="Search order ID / customer..." class="form-input text-sm flex-1">
             <button type="submit" class="btn btn-secondary text-sm">Search</button>

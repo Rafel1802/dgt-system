@@ -3,7 +3,7 @@
 @section('page_title', 'Workspaces')
 
 @section('content')
-<div class="animate-fade-in space-y-8 pb-28 md:pb-8" x-data="workspacePage()">
+<div class="animate-fade-in space-y-8 pb-28 md:pb-8" x-data="workspacePage()" x-init="selectedWorkspaceId = {{ $workspaces->first()?->id ?? 'null' }}">
 
   {{-- ── Header ───────────────────────────────────────────────────────── --}}
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

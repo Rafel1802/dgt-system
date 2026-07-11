@@ -57,12 +57,66 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             animation: none !important;
             opacity: 1 !important;
         }
+
+        /* Global Dark Mode Contrast Overrides */
+        [data-theme="dark"] .bg-slate-50\/50 {
+            background-color: rgba(30, 41, 59, 0.4) !important;
+        }
+        [data-theme="dark"] .bg-slate-50\/40 {
+            background-color: rgba(30, 41, 59, 0.3) !important;
+        }
+        [data-theme="dark"] .border-slate-200 {
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        [data-theme="dark"] .text-slate-700 {
+            color: #cbd5e1 !important;
+        }
     </style>
     <script type="module">
         import * as Turbo from "https://unpkg.com/@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js";
         Turbo.setProgressBarDelay(0);
     </script>
-    <script src="{{ asset('js/workspace-alpine.js') }}?v={{ time() }}" data-turbo-track="reload"></script>
+    <script>
+        (function() {
+            const prefetch = (url) => {
+                if (!url || url.includes('#') || url.startsWith('javascript:')) return;
+                if (url.includes('/logout') || url.includes('/login')) return;
+                if (document.querySelector(`link[rel="prefetch"][href="${url}"]`)) return;
+                const link = document.createElement('link');
+                link.rel = 'prefetch';
+                link.href = url;
+                document.head.appendChild(link);
+            };
+
+            const prefetchVisibleLinks = () => {
+                setTimeout(() => {
+                    const links = document.querySelectorAll('#sidebar a[href], .board-link a[href], a.prefetch-link');
+                    links.forEach(a => {
+                        if (a.href && a.origin === window.location.origin) {
+                            if (window.requestIdleCallback) {
+                                window.requestIdleCallback(() => prefetch(a.href));
+                            } else {
+                                setTimeout(() => prefetch(a.href), 50);
+                            }
+                        }
+                    });
+                }, 400);
+            };
+
+            document.addEventListener('DOMContentLoaded', prefetchVisibleLinks);
+            document.addEventListener('turbo:load', prefetchVisibleLinks);
+
+            const handleTrigger = (e) => {
+                const a = e.target.closest('a');
+                if (a && a.href && a.origin === window.location.origin) {
+                    prefetch(a.href);
+                }
+            };
+            document.addEventListener('touchstart', handleTrigger, { passive: true });
+            document.addEventListener('mousedown', handleTrigger, { passive: true });
+        })();
+    </script>
+    <script src="{{ asset('js/workspace-alpine.js') }}?v={{ file_exists(public_path('js/workspace-alpine.js')) ? filemtime(public_path('js/workspace-alpine.js')) : '1.0.0' }}"></script>
     <!-- Vite assets (Tailwind CSS + Alpine.js) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -81,6 +135,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 visibility: hidden !important;
             }
 
+            /* Make transitions ultra-fast (120ms) in the app for a smooth but instant feel */
+            html.dgt-macos-app *, html.dgt-macos-app *::before, html.dgt-macos-app *::after,
+            html.dgt-mobile-app *, html.dgt-mobile-app *::before, html.dgt-mobile-app *::after {
+                transition-duration: 120ms !important;
+                animation-duration: 120ms !important;
+            }
+
+            /* Smooth scrolling and momentum touch scroll globally */
+            html, body, .page-content, .board-wrap, .sidebar {
+                scroll-behavior: smooth;
+                -webkit-overflow-scrolling: touch;
+            }
+
             html.dgt-macos-app, html.dgt-mobile-app,
             html.dgt-macos-app body, html.dgt-mobile-app body {
                 width: 100%;
@@ -89,6 +156,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 overflow: hidden;
                 overscroll-behavior: none;
                 background: var(--bg-page, #f4f7fb);
+                -webkit-tap-highlight-color: transparent;
             }
 
             html.dgt-macos-app #dgt-app-wrapper, html.dgt-mobile-app #dgt-app-wrapper {
@@ -150,10 +218,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 overflow-x: hidden;
                 overflow-y: auto;
                 overscroll-behavior: contain;
-                -webkit-overflow-scrolling: auto;
             }
         </style>
     @endif
+
+    <!-- Service Worker Registration for Instant Offline-First Cache Loads -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker registered!'))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            });
+        }
+    </script>
 
     <!-- Prevent dark mode flash (FOUC) -->
     <script>
@@ -171,12 +249,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 <body class="h-full bg-[var(--bg-page)]" x-data="themeSystem()" x-init="initTheme()">
 
     <!-- ── Sidebar Overlay (mobile) ───────────────────────────────────── -->
+    <style>
+        #dgt-app-wrapper.not-ready .sidebar,
+        #dgt-app-wrapper.not-ready .main-wrapper {
+            transition: none !important;
+        }
+    </style>
     <div
         id="dgt-app-wrapper"
         x-data="sidebar"
+        x-init="$nextTick(() => { $el.classList.remove('not-ready') })"
         x-on:keydown.escape.window="close"
         :class="{ 'sidebar-is-collapsed': collapsed }"
-        class="relative h-full"
+        class="relative h-full not-ready"
     >
         <script>
             if (localStorage.getItem('dgt-sidebar-collapsed') === 'true') {

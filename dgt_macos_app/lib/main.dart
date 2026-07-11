@@ -337,13 +337,13 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
         window.__dgtNativeNotificationPoll();
         window.__dgtNativeNotificationTimer = window.setInterval(() => {
           window.__dgtNativeNotificationPoll();
-        }, 2000);
+        }, 30000);
 
         document.addEventListener('visibilitychange', () => {
           window.clearInterval(window.__dgtNativeNotificationTimer);
           window.__dgtNativeNotificationTimer = window.setInterval(() => {
             window.__dgtNativeNotificationPoll();
-          }, 2000);
+          }, 30000);
         });
       })();
     ''');
@@ -443,6 +443,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 userAgent: 'DGTSystemMacOSApp/1.0',
                 javaScriptEnabled: true,
                 transparentBackground: true,
+                cacheEnabled: true,
               ),
               onWebViewCreated: (webViewController) {
                 controller = webViewController;
@@ -499,16 +500,41 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               },
             ),
           ),
-          if (!hasLoadedFirstPage && loadingProgress < 100 && loadError == null)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: LinearProgressIndicator(
-                value: loadingProgress / 100,
-                minHeight: 2,
-                color: const Color(0xFF2F68ED),
-                backgroundColor: const Color(0xFFEAF2FF),
+          // ── Splash Screen Overlay ────────────────────────────────────────
+          if (!hasLoadedFirstPage)
+            Container(
+              color: const Color(0xFF161922),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2F68ED),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'KQ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 32,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Welcome to KIUQ SYSTEM',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             ),
           if (loadError != null)
@@ -558,7 +584,7 @@ class NativeNotificationPoller {
     }
   }
 
-  Duration get _pollInterval => const Duration(seconds: 2);
+  Duration get _pollInterval => const Duration(seconds: 30);
 
   Future<void> poll() async {
     if (_isPolling) {

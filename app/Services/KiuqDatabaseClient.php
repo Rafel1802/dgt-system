@@ -20,8 +20,8 @@ class KiuqDatabaseClient
 
     public function __construct()
     {
-        // Default to kiuq_mysql, switchable via .env
-        $this->connection = config('kiuq.db_connection', env('KIUQ_DB_CONNECTION', 'kiuq_mysql'));
+        // Default to kiuq_mysql, switchable via config
+        $this->connection = config('kiuq.db_connection', 'kiuq_mysql');
     }
 
     /**
