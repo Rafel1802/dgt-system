@@ -84,6 +84,11 @@
             <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full" style="background:{{ $tabColor }}22; color:{{ $tabColor }}">
               {{ $tabs[$record->tab_type] ?? $record->tab_type }}
             </span>
+            @if($record->techSupportCase?->occurrence_label)
+              <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">
+                🔁 {{ $record->techSupportCase->occurrence_label }}
+              </span>
+            @endif
             @if($record->shipment_delay)
             <span class="badge text-xs px-2 py-0.5 rounded-full"
                   style="background:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}22; color:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}">
@@ -187,8 +192,9 @@
         <h4 class="font-semibold text-slate-700 mb-4">Status History</h4>
         <div class="space-y-3">
           @forelse($record->statusHistory as $entry)
+          @php $historyColor = \App\Models\EbayCustomerRecord::tabColor($entry->status); @endphp
           <div class="flex items-center gap-2 text-sm">
-            <span class="badge text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{{ $tabs[$entry->status] ?? $entry->status }}</span>
+            <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $historyColor }}22; color:{{ $historyColor }}">{{ $tabs[$entry->status] ?? $entry->status }}</span>
             <span class="text-xs text-slate-400">{{ $entry->changed_at?->format('d M Y, g:ia') }}</span>
             <span class="text-xs text-slate-400">— {{ $entry->changedBy?->name }}</span>
           </div>
@@ -256,6 +262,16 @@
                 <img src="{{ $fu->user?->avatar_url }}" class="w-4 h-4 rounded-full">
                 <span class="text-xs text-slate-400">{{ $fu->user?->name }}</span>
                 <span class="text-xs text-slate-400 ml-auto">{{ $fu->contacted_at?->format('d M Y, g:ia') }}</span>
+                @if($fu->user_id === auth()->id())
+                <form method="POST" action="{{ route('crm.ebay.customers.follow-up.destroy', [$record, $fu]) }}"
+                      data-confirm-title="Delete this follow-up?"
+                      data-confirm="This will permanently remove this follow-up note."
+                      data-confirm-text="Delete"
+                      data-confirm-tone="danger">
+                  @csrf @method('DELETE')
+                  <button type="submit" class="text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
+                </form>
+                @endif
               </div>
             </div>
           </div>

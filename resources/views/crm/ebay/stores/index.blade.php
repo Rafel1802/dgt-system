@@ -77,7 +77,7 @@
           <div>
             <h3 class="font-semibold text-slate-800 text-base">{{ $store->store_name }}</h3>
             @if($store->ebay_username)
-              <p class="text-xs text-slate-400 mt-0.5">@{{ $store->ebay_username }}</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ '@' . $store->ebay_username }}</p>
             @endif
           </div>
         </div>
@@ -103,7 +103,7 @@
 
       <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
         <span>{{ $store->customer_records_count }} customer(s)</span>
-        <span class="font-semibold text-slate-700">${{ number_format($store->total_sales, 2) }}</span>
+        <span class="font-semibold text-slate-700">${{ number_format($salesByStore[$store->id] ?? 0, 2) }}</span>
       </div>
 
       <div class="mt-auto flex gap-2 pt-2 border-t border-slate-100">

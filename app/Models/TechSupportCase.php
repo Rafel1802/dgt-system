@@ -21,7 +21,7 @@ class TechSupportCase extends Model
 
     protected $fillable = [
         'source_type', 'source_id', 'customer_id', 'order_id',
-        'status', 'assigned_to', 'created_by',
+        'status', 'occurrence_count', 'assigned_to', 'created_by',
         'acknowledged_at', 'resolved_at', 'ebay_synced_at',
     ];
 
@@ -50,6 +50,33 @@ class TechSupportCase extends Model
             self::STATUS_RESOLVED    => '#10b981', // emerald
             default => '#94a3b8',
         };
+    }
+
+    /** "1st", "2nd", "3rd", "4th", ... — shared by the reopen-case log/notification text and the occurrence badge below. */
+    public static function ordinal(int $n): string
+    {
+        if ($n % 100 >= 11 && $n % 100 <= 13) {
+            return "{$n}th";
+        }
+
+        return $n . match ($n % 10) {
+            1 => 'st',
+            2 => 'nd',
+            3 => 'rd',
+            default => 'th',
+        };
+    }
+
+    /** e.g. "(2nd)" once a customer has reported the same technical issue more than once, null otherwise — for a compact badge next to the case/customer's status wherever it's shown. */
+    public function getOccurrenceLabelAttribute(): ?string
+    {
+        return $this->occurrence_count > 1 ? '(' . self::ordinal($this->occurrence_count) . ')' : null;
+    }
+
+    /** Most recent call request raised on this case, null if none — for a "Call Requested"/"Call Completed" badge on the case row. Reads off an eager-loaded callRequests() to avoid an extra query per row. */
+    public function getLatestCallRequestAttribute(): ?CallRequest
+    {
+        return $this->callRequests->sortByDesc('created_at')->first();
     }
 
     // ── Relationships ───────────────────────────────────────────────────────

@@ -20,7 +20,7 @@
           <div>
             <h2 class="font-display font-bold text-slate-800 text-xl">{{ $store->store_name }}</h2>
             @if($store->ebay_username)
-              <p class="text-sm text-slate-500 font-medium">@{{ $store->ebay_username }}</p>
+              <p class="text-sm text-slate-500 font-medium">{{ '@' . $store->ebay_username }}</p>
             @endif
           </div>
           <span class="badge {{ $store->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">
@@ -68,82 +68,65 @@
           <p class="text-2xl font-bold text-slate-800">{{ $store->customer_records_count }}</p>
         </div>
         <div>
+          <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Total Orders</span>
+          <p class="text-2xl font-bold text-slate-800">{{ $totalOrders }}</p>
+        </div>
+        <div class="col-span-2">
           <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Total Sales</span>
-          <p class="text-2xl font-bold text-slate-800">${{ number_format($store->total_sales, 2) }}</p>
+          <p class="text-2xl font-bold text-slate-800 break-words">${{ number_format($totalSales, 2) }}</p>
         </div>
       </div>
     </div>
 
-    {{-- Right Col: Customers/Offers --}}
+    {{-- Right Col: Orders --}}
     <div class="lg:col-span-2">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h3 class="font-display font-bold text-slate-800 text-lg">Customers Purchased From eBay</h3>
-        <a href="{{ route('crm.ebay.create', ['store_id' => $store->id]) }}" class="btn btn-primary text-sm">
-          + Log Offer
-        </a>
+        <h3 class="font-display font-bold text-slate-800 text-lg">Clients Who Ordered From This Store</h3>
       </div>
 
       <div class="card p-0 overflow-hidden">
         <div class="p-4 border-b border-slate-100 bg-slate-50/50">
           <form method="GET" action="{{ route('crm.ebay.stores.show', $store) }}" class="flex gap-2">
-            <input type="search" name="search" value="{{ request('search') }}" placeholder="Search offers/customers..." class="form-input text-sm flex-1">
+            <input type="search" name="search" value="{{ request('search') }}" placeholder="Search order ID / customer..." class="form-input text-sm flex-1">
             <button type="submit" class="btn btn-secondary text-sm">Search</button>
           </form>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                <th class="px-5 py-3 text-left">Customer</th>
-                <th class="px-4 py-3 text-left">Product</th>
-                <th class="px-4 py-3 text-left">Offer Amount</th>
-                <th class="px-4 py-3 text-left">Status</th>
-                <th class="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-50">
-              @forelse($offers as $offer)
-              <tr class="hover:bg-slate-50/70 transition-colors">
-                <td class="px-5 py-3">
-                  <p class="font-semibold text-slate-800">{{ $offer->client_name ?? '(No name)' }}</p>
-                  @if($offer->client_email)
-                    <p class="text-xs text-slate-500">{{ $offer->client_email }}</p>
-                  @endif
-                </td>
-                <td class="px-4 py-3 text-xs text-slate-600">{{ $offer->product?->name ?? '—' }}</td>
-                <td class="px-4 py-3 font-medium text-slate-800">
-                  @if($offer->offer_amount)
-                    ${{ number_format($offer->offer_amount) }}
-                  @else
-                    —
-                  @endif
-                </td>
-                <td class="px-4 py-3">
-                  <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $offer->status?->color() }}22; color:{{ $offer->status?->color() }}">
-                    {{ $offer->status?->label() }}
-                  </span>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex justify-end gap-1">
-                    <a href="{{ route('crm.ebay.show', $offer) }}" class="btn btn-secondary btn-icon" style="width:28px;height:28px;">
-                      <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
-                    </a>
-                  </div>
-                </td>
-              </tr>
+        <div class="p-4 space-y-4">
+          @forelse($orders as $order)
+          <div class="border border-slate-100 rounded-xl p-4">
+            <div class="flex items-start justify-between flex-wrap gap-2 mb-3">
+              <div>
+                @if($order->record)
+                <a href="{{ route('crm.ebay.customers.show', $order->record) }}" class="text-base font-bold text-slate-800 hover:text-indigo-600 transition-colors">
+                  {{ $order->record->buyer_name ?: $order->record->username }}
+                </a>
+                @else
+                <span class="text-base font-bold text-slate-800">Unknown Customer</span>
+                @endif
+                <p class="font-mono text-xs text-slate-400 mt-0.5">Order #{{ $order->order_id }}</p>
+              </div>
+              <span class="text-xs text-slate-400 shrink-0">{{ $order->ordered_at?->format('d M Y') }}</span>
+            </div>
+            <div class="divide-y divide-slate-50">
+              @forelse($order->items as $item)
+              <div class="flex items-center justify-between py-1.5 text-sm">
+                <span class="text-slate-700">
+                  <span class="text-[10px] text-slate-400 uppercase font-semibold tracking-wide mr-1.5">SKU</span>{{ $item->product_name }}
+                </span>
+                <span class="text-slate-500">{{ $item->price !== null ? '$'.number_format($item->price, 2) : '—' }}</span>
+              </div>
               @empty
-              <tr>
-                <td colspan="5" class="text-center py-10">
-                  <p class="text-slate-500 font-medium">No customers found for this store</p>
-                </td>
-              </tr>
+              <p class="text-slate-400 text-sm py-1.5">No products logged for this order.</p>
               @endforelse
-            </tbody>
-          </table>
+            </div>
+          </div>
+          @empty
+          <p class="text-slate-500 font-medium text-center py-10">No orders found for this store</p>
+          @endforelse
         </div>
-        @if($offers->hasPages())
-        <div class="px-6 py-4 border-t border-slate-100">{{ $offers->links() }}</div>
+        @if($orders->hasPages())
+        <div class="px-6 py-4 border-t border-slate-100">{{ $orders->links() }}</div>
         @endif
       </div>
     </div>

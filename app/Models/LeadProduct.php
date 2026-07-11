@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class LeadProduct extends Model
 {
     protected $fillable = [
-        'lead_id', 'product_id', 'product_name', 'sku', 'price', 'quantity',
+        'lead_id', 'lead_order_id', 'product_id', 'product_name', 'sku', 'price', 'quantity',
     ];
 
     protected $casts = [
@@ -19,6 +19,11 @@ class LeadProduct extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(LeadOrder::class, 'lead_order_id');
     }
 
     public function product(): BelongsTo

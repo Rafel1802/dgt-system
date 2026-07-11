@@ -165,6 +165,58 @@ class UnifiedCustomerDirectoryTest extends TestCase
         $this->assertCount(1, $marodyRows);
     }
 
+    public function test_ebay_rows_link_to_the_detail_page_not_the_edit_form(): void
+    {
+        $record = EbayCustomerRecord::create([
+            'tab_type' => EbayCustomerRecord::TAB_NEW_ORDER,
+            'buyer_name' => 'Ebay Row',
+            'username' => 'ebayrow',
+        ]);
+
+        $service = app(\App\Services\CrmCustomerMatchService::class);
+        $row = $service->buildUnifiedDirectory()->firstWhere('name', 'Ebay Row');
+
+        $this->assertEquals(route('crm.ebay.customers.show', $record), $row['link']);
+    }
+
+    public function test_logistics_rows_with_a_linked_customer_link_to_that_customer(): void
+    {
+        $customer = Customer::create([
+            'name' => 'Linked Recipient',
+            'status' => CustomerStatus::Active->value,
+            'source' => CustomerSource::Website->value,
+            'created_by' => $this->user->id,
+        ]);
+
+        $shipment = Shipment::create(['shipment_code' => 'SHP-DIR-3']);
+        $shipment->shipmentCustomers()->create([
+            'customer_id' => $customer->id,
+            'recipient_name' => 'Linked Recipient',
+            'shipping_address' => '',
+            'status' => ShipmentCustomer::STATUS_PROBLEM,
+        ]);
+
+        $service = app(\App\Services\CrmCustomerMatchService::class);
+        $row = $service->buildUnifiedDirectory()->firstWhere('name', 'Linked Recipient');
+
+        $this->assertEquals(route('crm.customers.show', $customer), $row['link']);
+    }
+
+    public function test_logistics_rows_without_a_linked_customer_fall_back_to_the_shipment_page(): void
+    {
+        $shipment = Shipment::create(['shipment_code' => 'SHP-DIR-4']);
+        $shipment->shipmentCustomers()->create([
+            'recipient_name' => 'Unlinked Recipient',
+            'shipping_address' => '',
+            'status' => ShipmentCustomer::STATUS_PROBLEM,
+        ]);
+
+        $service = app(\App\Services\CrmCustomerMatchService::class);
+        $row = $service->buildUnifiedDirectory()->firstWhere('name', 'Unlinked Recipient');
+
+        $this->assertEquals(route('crm.logistics.shipments.show', $shipment), $row['link']);
+    }
+
     public function test_directory_route_redirects_to_customers_index(): void
     {
         $this->actingAs($this->user)

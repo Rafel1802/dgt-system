@@ -3,7 +3,7 @@
 @section('page_title', 'Lead Profile')
 
 @section('content')
-<div x-data="leadProfile({{ $lead->id }}, {{ Js::from($lead->products->map(fn($p) => ['product_id' => $p->product_id, 'price' => $p->price, 'quantity' => $p->quantity])) }}, {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }})" class="animate-fade-in">
+<div x-data="leadProfile({{ $lead->id }}, {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }})" class="animate-fade-in">
 
   <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
     <a href="{{ route('crm.website.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Website CRM</a>
@@ -29,7 +29,7 @@
 
         <div class="text-center pb-2">
           <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3"
-               style="background: linear-gradient(135deg, {{ $lead->status?->color() ?? '#94a3b8' }}, {{ $lead->temperature?->color() ?? '#94a3b8' }})">
+               style="background: linear-gradient(135deg, {{ $lead->status?->color() }}, {{ $lead->temperature?->color() ?? '#94a3b8' }})">
             {{ strtoupper(substr($lead->client_name, 0, 1)) }}
           </div>
           <h2 class="font-display font-bold text-slate-800 text-lg">{{ $lead->client_name }}</h2>
@@ -38,6 +38,11 @@
                   style="background:{{ $lead->status?->color() }}22; color:{{ $lead->status?->color() }}">
               {{ $lead->status?->label() }}
             </span>
+            @if($lead->techSupportCase?->occurrence_label)
+              <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">
+                🔁 {{ $lead->techSupportCase->occurrence_label }}
+              </span>
+            @endif
             @if($lead->temperature)
             <span class="text-sm" title="{{ $lead->temperature->label() }}">{{ $lead->temperature->icon() }} {{ $lead->temperature->label() }}</span>
             @endif
@@ -122,26 +127,6 @@
       </div>
       @endif
 
-      {{-- Products Sold --}}
-      @if($lead->products->isNotEmpty())
-      <div class="card">
-        <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Products Sold</h4>
-        <div class="space-y-2">
-          @foreach($lead->products as $p)
-          <div class="flex items-center justify-between text-sm">
-            <div>
-              <p class="text-slate-700 font-medium">{{ $p->product_name }}</p>
-              @if($p->sku)<p class="text-xs text-slate-400 font-mono">{{ $p->sku }}</p>@endif
-            </div>
-            <div class="text-right text-xs text-slate-500">
-              <p>× {{ $p->quantity }}</p>
-              @if($p->price !== null)<p class="font-semibold text-slate-700">${{ number_format($p->price, 2) }}</p>@endif
-            </div>
-          </div>
-          @endforeach
-        </div>
-      </div>
-      @endif
     </div>
 
     {{-- ── Right: Pipeline + Activity Timeline ─────────────────────────────── --}}
@@ -152,7 +137,7 @@
         <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Pipeline Progress</h4>
         <div class="flex gap-1 overflow-x-auto pb-2">
           @foreach($statuses as $s)
-          @php $isActive = $lead->status?->value === $s->value; $isPast = false; @endphp
+          @php $isActive = $lead->status?->value === $s->value; @endphp
           <button
             @click="updateStatus('{{ $s->value }}')"
             :disabled="statusLoading"
@@ -164,6 +149,35 @@
           @endforeach
         </div>
         <p class="text-xs text-slate-400 mt-2">Click a stage to move this lead.</p>
+      </div>
+
+      {{-- Order History --}}
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <h4 class="font-semibold text-slate-700">Order History</h4>
+          <button @click="openNewOrderModal()" class="btn btn-primary text-sm" id="btn-add-order">+ Add New Order</button>
+        </div>
+
+        <div class="space-y-4">
+          @forelse($lead->orders as $order)
+          <div class="border border-slate-100 rounded-xl p-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <span class="font-mono text-xs text-slate-400">Order #{{ $order->id }}</span>
+              <span class="text-xs text-slate-400">{{ $order->order_date?->format('d M Y') }}</span>
+            </div>
+            <div class="divide-y divide-slate-50">
+              @foreach($order->items as $item)
+              <div class="flex items-center justify-between py-1.5 text-sm">
+                <span class="text-slate-700">{{ $item->product_name }} <span class="text-xs text-slate-400">× {{ $item->quantity }}</span></span>
+                <span class="text-slate-500">{{ $item->price !== null ? '$'.number_format($item->price, 2) : '—' }}</span>
+              </div>
+              @endforeach
+            </div>
+          </div>
+          @empty
+          <p class="text-slate-400 text-sm">No orders logged yet.</p>
+          @endforelse
+        </div>
       </div>
 
       {{-- Follow-Up History / Activity Timeline --}}
@@ -224,6 +238,16 @@
               <div class="flex items-center gap-1 mt-1">
                 <img src="{{ $fu->user?->avatar_url }}" class="w-4 h-4 rounded-full">
                 <span class="text-xs text-slate-400">{{ $fu->user?->name }}</span>
+                @if($fu->user_id === auth()->id())
+                <form method="POST" action="{{ route('crm.website.follow-up.destroy', [$lead, $fu]) }}" class="ml-auto"
+                      data-confirm-title="Delete this follow-up?"
+                      data-confirm="This will permanently remove this follow-up entry."
+                      data-confirm-text="Delete"
+                      data-confirm-tone="danger">
+                  @csrf @method('DELETE')
+                  <button type="submit" class="text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
+                </form>
+                @endif
               </div>
             </div>
           </div>
@@ -297,26 +321,23 @@
     </div>
   </div>
 
-  {{-- ── Mark Successful Modal (products required) ──────────────────────── --}}
-  <div x-show="showProductsModal" x-cloak class="modal-overlay" @keydown.escape.window="showProductsModal = false">
+  {{-- ── Order Modal — shared by "+ Add New Order" and "Mark Successful" ─── --}}
+  <div x-show="showOrderModal" x-cloak class="modal-overlay" @keydown.escape.window="showOrderModal = false">
     <div class="modal-box max-w-lg" @click.stop>
       <div class="modal-header">
-        <h3 class="font-display font-bold text-slate-800">Products Sold</h3>
-        <button @click="showProductsModal = false" class="btn btn-secondary btn-icon ml-auto">
+        <h3 class="font-display font-bold text-slate-800" x-text="orderModalPurpose === 'successful' ? 'Products Sold' : 'Log New Order'"></h3>
+        <button @click="showOrderModal = false" class="btn btn-secondary btn-icon ml-auto">
           <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
         </button>
       </div>
       <div class="p-6 space-y-4">
-        <p class="text-xs text-slate-400">At least one product is required to mark this lead as Successful.</p>
+        <p class="text-xs text-slate-400" x-show="orderModalPurpose === 'successful'">At least one product is required to mark this lead as Successful.</p>
+        <p class="text-xs text-slate-400" x-show="orderModalPurpose !== 'successful'">Search the catalog or type a product name manually — each order is kept in history, nothing gets overwritten.</p>
         <div class="space-y-2">
           <template x-for="(line, i) in lines" :key="i">
             <div class="flex gap-2 items-start">
-              <select x-model.number="line.product_id" @change="applyProduct(i)" class="form-input flex-1">
-                <option value="">— Select Product —</option>
-                <template x-for="p in catalog" :key="p.id">
-                  <option :value="p.id" x-text="p.name + (p.sku ? ' (' + p.sku + ')' : '')"></option>
-                </template>
-              </select>
+              <input type="text" list="catalog-products-{{ $lead->id }}" x-model="line.product_name" @input="matchCatalogProduct(line)"
+                     placeholder="Search or type a product" class="form-input flex-1">
               <input type="number" step="0.01" min="0" x-model="line.price" placeholder="Price" class="form-input w-28">
               <input type="number" min="1" x-model.number="line.quantity" placeholder="Qty" class="form-input w-20">
               <button type="button" @click="removeLine(i)" x-show="lines.length > 1"
@@ -326,11 +347,42 @@
             </div>
           </template>
         </div>
+        <datalist id="catalog-products-{{ $lead->id }}">
+          @foreach($catalogProducts as $p)
+          <option value="{{ $p->name }}">{{ $p->sku ? '('.$p->sku.')' : '' }} — ${{ number_format($p->price, 2) }}</option>
+          @endforeach
+        </datalist>
         <button type="button" @click="addLine()" class="btn btn-secondary text-xs">+ Add Another Product</button>
         <div class="flex gap-3 pt-2">
-          <button @click="showProductsModal = false" class="btn btn-secondary flex-1">Cancel</button>
-          <button @click="confirmSuccessful()" :disabled="statusLoading" class="btn btn-primary flex-1">
-            <span x-show="!statusLoading">Save & Mark Successful</span>
+          <button @click="showOrderModal = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="confirmOrder()" :disabled="statusLoading || orderLoading" class="btn btn-primary flex-1">
+            <span x-show="!statusLoading && !orderLoading" x-text="orderModalPurpose === 'successful' ? 'Save & Mark Successful' : 'Save Order'"></span>
+            <span x-show="statusLoading || orderLoading" x-cloak>Saving…</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- ── Mark Technical Support Modal (note required) ─────────────────────── --}}
+  <div x-show="showTechNoteModal" x-cloak class="modal-overlay" @keydown.escape.window="showTechNoteModal = false">
+    <div class="modal-box max-w-lg" @click.stop>
+      <div class="modal-header">
+        <h3 class="font-display font-bold text-slate-800">Mark as Technical Support</h3>
+        <button @click="showTechNoteModal = false" class="btn btn-secondary btn-icon ml-auto">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <p class="text-xs text-slate-400">A note explaining the technical issue is required to mark this lead as Technical Support.</p>
+        <div>
+          <label class="form-label">Note <span class="text-red-500">*</span></label>
+          <textarea x-model="techNote" rows="4" class="form-input" placeholder="What's the technical issue?"></textarea>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button @click="showTechNoteModal = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="confirmTechSupport()" :disabled="statusLoading" class="btn btn-primary flex-1">
+            <span x-show="!statusLoading">Save & Mark Technical Support</span>
             <span x-show="statusLoading" x-cloak>Saving…</span>
           </button>
         </div>
@@ -344,21 +396,31 @@
 
 @push('scripts')
 <script>
-function leadProfile(leadId, existingProducts, catalog) {
+function leadProfile(leadId, catalog) {
   return {
     showFollowUp: {{ session('open_followup') ? 'true' : 'false' }},
-    showProductsModal: false,
+    showOrderModal: false,
+    orderModalPurpose: 'new', // 'new' (standalone order log) or 'successful' (tied to a status change)
+    showTechNoteModal: false,
+    techNote: '',
     pendingStatus: null,
     fuLoading: false,
     statusLoading: false,
+    orderLoading: false,
     fuForm: { notes: '', status: '', temperature: '', follow_up_date: '', next_action: '' },
-    lines: existingProducts.length ? existingProducts : [{ product_id: '', price: '', quantity: 1 }],
+    lines: [{ product_id: null, product_name: '', price: '', quantity: 1 }],
     catalog: catalog,
-    addLine() { this.lines.push({ product_id: '', price: '', quantity: 1 }); },
+    addLine() { this.lines.push({ product_id: null, product_name: '', price: '', quantity: 1 }); },
     removeLine(i) { if (this.lines.length > 1) this.lines.splice(i, 1); },
-    applyProduct(i) {
-      const p = this.catalog.find(c => c.id == this.lines[i].product_id);
-      if (p && !this.lines[i].price) { this.lines[i].price = p.price; }
+    matchCatalogProduct(line) {
+      const typed = (line.product_name || '').trim().toLowerCase();
+      const match = this.catalog.find(p => p.name.toLowerCase() === typed);
+      if (match) {
+        line.product_id = match.id;
+        if (!line.price) line.price = match.price;
+      } else {
+        line.product_id = null;
+      }
     },
 
     async submitFollowUp() {
@@ -383,26 +445,54 @@ function leadProfile(leadId, existingProducts, catalog) {
     updateStatus(newStatus) {
       if (newStatus === 'successful') {
         this.pendingStatus = newStatus;
-        this.showProductsModal = true;
+        this.orderModalPurpose = 'successful';
+        this.lines = [{ product_id: null, product_name: '', price: '', quantity: 1 }];
+        this.showOrderModal = true;
         return;
       }
-      this._patchStatus(newStatus, null);
-    },
-
-    async confirmSuccessful() {
-      if (!this.lines.length || this.lines.some(l => !l.product_id)) {
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Select a product for each line.', type: 'error' } }));
+      if (newStatus === 'technical_support') {
+        this.pendingStatus = newStatus;
+        this.techNote = '';
+        this.showTechNoteModal = true;
         return;
       }
-      this.showProductsModal = false;
-      await this._patchStatus(this.pendingStatus, this.lines);
+      this._patchStatus(newStatus, null, null);
     },
 
-    async _patchStatus(newStatus, lines) {
+    openNewOrderModal() {
+      this.orderModalPurpose = 'new';
+      this.lines = [{ product_id: null, product_name: '', price: '', quantity: 1 }];
+      this.showOrderModal = true;
+    },
+
+    async confirmOrder() {
+      if (!this.lines.length || this.lines.some(l => !l.product_id && !String(l.product_name || '').trim())) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Enter a product for each line.', type: 'error' } }));
+        return;
+      }
+      this.showOrderModal = false;
+      if (this.orderModalPurpose === 'successful') {
+        await this._patchStatus(this.pendingStatus, this.lines, null);
+      } else {
+        await this._storeOrder(this.lines);
+      }
+    },
+
+    async confirmTechSupport() {
+      if (!this.techNote.trim()) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A note explaining the technical issue is required.', type: 'error' } }));
+        return;
+      }
+      this.showTechNoteModal = false;
+      await this._patchStatus(this.pendingStatus, null, this.techNote);
+    },
+
+    async _patchStatus(newStatus, lines, note) {
       this.statusLoading = true;
       try {
         const body = { status: newStatus };
-        if (lines) body.products = lines.map(l => ({ product_id: l.product_id, price: l.price, quantity: l.quantity }));
+        if (lines) body.products = lines.map(l => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, quantity: l.quantity }));
+        if (note) body.note = note;
         await api(`/crm/website/${leadId}/status`, {
           method: 'PATCH',
           body: JSON.stringify(body),
@@ -412,6 +502,21 @@ function leadProfile(leadId, existingProducts, catalog) {
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.statusLoading = false; }
+    },
+
+    async _storeOrder(lines) {
+      this.orderLoading = true;
+      try {
+        const body = { products: lines.map(l => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, quantity: l.quantity })) };
+        await api(`/crm/website/${leadId}/orders`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order logged!', type: 'success' } }));
+        setTimeout(() => location.reload(), 700);
+      } catch(err) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+      } finally { this.orderLoading = false; }
     },
   };
 }

@@ -179,6 +179,8 @@ class LogisticCrmController extends Controller
 
     public function destroy(Logistic $logistic): RedirectResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, CRM Supervisor, or Boss can delete shipments.');
+
         $logistic->delete();
         return redirect()->route('crm.logistics.index')->with('success', 'Shipment deleted.');
     }

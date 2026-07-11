@@ -73,8 +73,8 @@
           <div>
             <label class="form-label">Currency</label>
             <select name="currency" class="form-input">
-              @foreach(['AUD','USD','EUR','GBP','SGD'] as $cur)
-              <option value="{{ $cur }}" {{ old('currency', 'AUD') === $cur ? 'selected' : '' }}>{{ $cur }}</option>
+              @foreach(['USD','AUD','EUR','GBP','SGD'] as $cur)
+              <option value="{{ $cur }}" {{ old('currency', 'USD') === $cur ? 'selected' : '' }}>{{ $cur }}</option>
               @endforeach
             </select>
           </div>

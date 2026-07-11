@@ -56,7 +56,11 @@
       </div>
 
       <div class="px-6 py-4 flex gap-3 justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('logistic'))
         <button type="submit" form="delete-company-form" class="btn btn-danger text-sm">Delete Company</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.logistics.trucking.show', $company) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -64,6 +68,7 @@
       </div>
     </form>
 
+    @if(auth()->user()->canDeleteCrmRecords('logistic'))
     <form id="delete-company-form" method="POST" action="{{ route('crm.logistics.trucking.destroy', $company) }}"
           data-confirm-title="Delete Trucking Company?"
           data-confirm="Are you sure you want to delete this company? Existing logistics records linked to it will not be deleted, but will become unassigned."
@@ -72,6 +77,7 @@
           class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

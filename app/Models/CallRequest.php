@@ -12,7 +12,7 @@ class CallRequest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'source_type', 'source_id', 'name', 'phone', 'note',
+        'source_type', 'source_id', 'name', 'phone', 'note', 'fulfillment_note',
         'requested_by', 'fulfilled', 'fulfilled_at', 'fulfilled_by',
     ];
 

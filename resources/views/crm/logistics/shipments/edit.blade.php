@@ -87,7 +87,11 @@
       </div>
 
       <div class="px-6 py-4 flex gap-3 justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('logistic'))
         <button type="submit" form="delete-shipment-form" class="btn btn-danger text-sm">Delete</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.logistics.shipments.show', $shipment) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -95,6 +99,7 @@
       </div>
     </form>
 
+    @if(auth()->user()->canDeleteCrmRecords('logistic'))
     <form id="delete-shipment-form"
           method="POST"
           action="{{ route('crm.logistics.shipments.destroy', $shipment) }}"
@@ -105,6 +110,7 @@
           class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

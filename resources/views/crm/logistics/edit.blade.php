@@ -96,14 +96,14 @@
         <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Shipping Cost</h3>
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="form-label">Budget (AUD)</label>
+            <label class="form-label">Budget (USD)</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
               <input type="number" name="shipping_budget" value="{{ old('shipping_budget', $logistic->shipping_budget) }}" class="form-input pl-7" step="0.01">
             </div>
           </div>
           <div>
-            <label class="form-label">Final Cost (AUD)</label>
+            <label class="form-label">Final Cost (USD)</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
               <input type="number" name="final_shipping_cost" value="{{ old('final_shipping_cost', $logistic->final_shipping_cost) }}" class="form-input pl-7" step="0.01">
@@ -150,7 +150,11 @@
       </div>
 
       <div class="px-6 py-4 flex gap-3 justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('logistic'))
         <button type="submit" form="delete-logistic-form" class="btn btn-danger text-sm">Delete</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.logistics.show', $logistic) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -158,6 +162,7 @@
       </div>
     </form>
 
+    @if(auth()->user()->canDeleteCrmRecords('logistic'))
     <form id="delete-logistic-form"
           method="POST"
           action="{{ route('crm.logistics.destroy', $logistic) }}"
@@ -168,6 +173,7 @@
           class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

@@ -8,6 +8,7 @@ enum WebsiteLeadStatus: string
     case Contacted        = 'contacted';
     case Nurturing        = 'nurturing';
     case TechnicalSupport = 'technical_support';
+    case Resolved         = 'resolved';
     case Successful       = 'successful';
     case InDelivery       = 'in_delivery';
     case Delivered        = 'delivered';
@@ -22,6 +23,7 @@ enum WebsiteLeadStatus: string
             self::Contacted        => 'Contacted',
             self::Nurturing        => 'Nurturing',
             self::TechnicalSupport => 'Technical Support',
+            self::Resolved         => 'Resolved',
             self::Successful       => 'Successful Lead',
             self::InDelivery       => 'In Delivery',
             self::Delivered        => 'Delivered',
@@ -38,6 +40,7 @@ enum WebsiteLeadStatus: string
             self::Contacted        => '#3b82f6',
             self::Nurturing        => '#8b5cf6',
             self::TechnicalSupport => '#f59e0b',
+            self::Resolved         => '#10b981',
             self::Successful       => '#10b981',
             self::InDelivery       => '#06b6d4',
             self::Delivered        => '#22c55e',
@@ -54,6 +57,7 @@ enum WebsiteLeadStatus: string
             self::Contacted        => 'badge-sky',
             self::Nurturing        => 'badge-indigo',
             self::TechnicalSupport => 'badge-amber',
+            self::Resolved         => 'badge-emerald',
             self::Successful       => 'badge-emerald',
             self::InDelivery       => 'badge-cyan',
             self::Delivered        => 'badge-green',

@@ -356,7 +356,7 @@
 
         {{-- Final amount (for approve / negotiate) --}}
         <div x-show="authDecision !== 'rejected'">
-          <label class="form-label">Final Agreed Amount (AUD)</label>
+          <label class="form-label">Final Agreed Amount (USD)</label>
           <div class="relative">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
             <input type="number" x-model="authForm.final_amount" class="form-input pl-7"
@@ -408,7 +408,7 @@
           <input type="text" name="ebay_order_id" class="form-input" placeholder="e.g. 18-12345-67890" id="field-ebay-order-id">
         </div>
         <div>
-          <label class="form-label">Sale Amount (AUD) <span class="text-red-500">*</span></label>
+          <label class="form-label">Sale Amount (USD) <span class="text-red-500">*</span></label>
           <div class="relative">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
             <input type="number" name="sale_amount" value="{{ $offer->final_amount ?? $offer->offer_amount }}"

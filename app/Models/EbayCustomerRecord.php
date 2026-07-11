@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EbayCustomerRecord extends Model
@@ -178,6 +179,12 @@ class EbayCustomerRecord extends Model
     public function attachments(): MorphMany
     {
         return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    /** The (at most one) technical support case tracking this record's Technical Issues occurrences — see TechSupportCaseService::createCaseFor(). */
+    public function techSupportCase(): MorphOne
+    {
+        return $this->morphOne(TechSupportCase::class, 'source')->latestOfMany();
     }
 
     // ── Accessors ────────────────────────────────────────────────────────────

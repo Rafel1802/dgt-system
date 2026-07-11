@@ -7,7 +7,7 @@
 <div class="animate-fade-in">
 
   {{-- ── Stats Row ─────────────────────────────────────────────────────────── --}}
-  <div class="mobile-scroll-x lg:grid lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+  <div class="mobile-scroll-x lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
     <div class="stat-card flex-shrink-0 w-[240px] lg:w-auto">
       <div class="stat-icon" style="background:linear-gradient(135deg,#e0e7ff,#c7d2fe)">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#4f46e5" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
@@ -26,14 +26,8 @@
       </div>
       <div>
         <div class="stat-value text-xl">{{ number_format($stats['total_value'], 0) }}</div>
-        <div class="stat-label">Total Revenue (AUD)</div>
+        <div class="stat-label">Total Revenue (USD)</div>
       </div>
-    </div>
-    <div class="stat-card flex-shrink-0 w-[240px] lg:w-auto">
-      <div class="stat-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe)">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#7c3aed" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
-      </div>
-      <div><div class="stat-value">{{ $stats['pipeline_value'] > 0 ? '$'.number_format($stats['pipeline_value'],0) : '—' }}</div><div class="stat-label">Pipeline Value</div></div>
     </div>
   </div>
 
@@ -80,9 +74,6 @@
   <div class="card p-0 overflow-hidden">
     <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
       <p class="text-sm text-slate-500">Showing <strong>{{ $customers->count() }}</strong> customer(s)</p>
-      <a href="{{ route('crm.pipeline.index') }}" class="btn btn-secondary text-sm py-1.5">
-        📊 Pipeline View
-      </a>
     </div>
 
     <div class="overflow-x-auto">
@@ -94,6 +85,7 @@
             <th class="px-4 py-3 text-left">Source</th>
             <th class="px-4 py-3 text-left">Status</th>
             <th class="px-4 py-3 text-left">Handler</th>
+            <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-50">
@@ -119,12 +111,26 @@
               <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $customer['status_color'] ?? '#94a3b8' }}22; color:{{ $customer['status_color'] ?? '#94a3b8' }}">
                 {{ $customer['status_label'] }}
               </span>
+              @if($customer['occurrence_label'] ?? null)
+                <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">
+                  🔁 {{ $customer['occurrence_label'] }}
+                </span>
+              @endif
             </td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ $customer['handler'] ?: '—' }}</td>
+            <td class="px-4 py-3">
+              <div class="flex justify-end gap-1">
+                @if($customer['link'])
+                <a href="{{ $customer['link'] }}" class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="View">
+                  <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                </a>
+                @endif
+              </div>
+            </td>
           </tr>
           @empty
           <tr>
-            <td colspan="5" class="text-center py-16 text-slate-400">
+            <td colspan="6" class="text-center py-16 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="#cbd5e1" class="w-12 h-12 mx-auto mb-3">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
               </svg>

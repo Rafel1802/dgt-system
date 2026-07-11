@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\User;
 use App\Services\CrmService;
 use App\Services\CrmCustomerMatchService;
+use App\Services\TechSupportCaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class CustomerController extends Controller
     public function __construct(
         private readonly CrmService $crmService,
         private readonly CrmCustomerMatchService $matcher,
+        private readonly TechSupportCaseService $techSupportCases,
     ) {}
 
     /**
@@ -156,9 +158,15 @@ class CustomerController extends Controller
             'assignee:id,name,avatar',
             'creator:id,name',
             'interactions.user:id,name,avatar',
-            'deals.assignee:id,name',
             'attachments.uploader:id,name',
+            'latestTechSupportCase',
         ]);
+
+        // Viewing the customer counts as viewing the outcome of any of their
+        // technical support cases, same as opening the case itself.
+        $this->techSupportCases->markCallCompletedNotificationsRead(
+            $customer->techSupportCases()->pluck('id')->all()
+        );
 
         return view('crm.show', compact('customer'));
     }
@@ -212,13 +220,14 @@ class CustomerController extends Controller
             ->with('success', 'Customer updated successfully.');
     }
 
-    /** Soft-delete customer */
+    /** Permanently delete a customer and all data linked to them across every CRM domain. */
     public function destroy(Customer $customer): RedirectResponse
     {
         $this->authorize('delete', $customer);
-        $customer->delete();
+        $name = $customer->name;
+        $this->crmService->deleteCascading($customer);
         return redirect()->route('crm.customers.index')
-            ->with('success', "\"{$customer->name}\" has been removed.");
+            ->with('success', "\"{$name}\" and all related data have been permanently removed.");
     }
 
     /** Log an interaction (AJAX) */

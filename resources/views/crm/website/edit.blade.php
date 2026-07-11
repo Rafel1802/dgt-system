@@ -25,14 +25,6 @@
 
     <form method="POST" action="{{ route('crm.website.update', $lead) }}" class="divide-y divide-slate-100" x-data="{
       status: '{{ old('status', $lead->status?->value) }}',
-      lines: {{ old('products') ? Js::from(old('products')) : ($lead->products->isNotEmpty() ? Js::from($lead->products->map(fn($p) => ['product_id' => $p->product_id, 'price' => $p->price, 'quantity' => $p->quantity])) : Js::from([['product_id' => '', 'price' => '', 'quantity' => 1]])) }},
-      catalog: {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }},
-      addLine() { this.lines.push({ product_id: '', price: '', quantity: 1 }); },
-      removeLine(i) { if (this.lines.length > 1) this.lines.splice(i, 1); },
-      applyProduct(i) {
-        const p = this.catalog.find(c => c.id == this.lines[i].product_id);
-        if (p && !this.lines[i].price) { this.lines[i].price = p.price; }
-      },
     }">
       @csrf @method('PUT')
 
@@ -143,30 +135,7 @@
         </div>
       </div>
 
-      {{-- Products Sold (required to mark Successful) --}}
-      <div x-show="status === 'successful'" x-cloak class="px-6 py-5 space-y-3">
-        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Products Sold <span class="text-red-500">*</span></h3>
-        @error('products')<p class="form-error">{{ $message }}</p>@enderror
-        <div class="space-y-2">
-          <template x-for="(line, i) in lines" :key="i">
-            <div class="flex gap-2 items-start">
-              <select :name="`products[${i}][product_id]`" x-model.number="line.product_id" @change="applyProduct(i)" class="form-input flex-1">
-                <option value="">— Select Product —</option>
-                <template x-for="p in catalog" :key="p.id">
-                  <option :value="p.id" x-text="p.name + (p.sku ? ' (' + p.sku + ')' : '')"></option>
-                </template>
-              </select>
-              <input type="number" step="0.01" min="0" :name="`products[${i}][price]`" x-model="line.price" placeholder="Price" class="form-input w-28">
-              <input type="number" min="1" :name="`products[${i}][quantity]`" x-model.number="line.quantity" placeholder="Qty" class="form-input w-20">
-              <button type="button" @click="removeLine(i)" x-show="lines.length > 1"
-                      class="btn btn-secondary btn-icon text-red-400 hover:text-red-600 shrink-0" style="width:38px;height:38px;">
-                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-          </template>
-        </div>
-        <button type="button" @click="addLine()" class="btn btn-secondary text-xs">+ Add Another Product</button>
-      </div>
+      {{-- Products are logged separately via "Mark Successful" or "+ Add New Order" on the Lead Profile page, not here — editing lead details shouldn't silently create a new order. --}}
 
       {{-- Lost Reason --}}
       @if($lead->status?->value === 'lost' || request('show_lost'))
@@ -177,7 +146,11 @@
       @endif
 
       <div class="px-6 py-4 flex gap-3 justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('website'))
         <button type="submit" form="delete-website-lead-form" class="btn btn-danger text-sm">Delete Lead</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.website.show', $lead) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -185,16 +158,20 @@
       </div>
     </form>
 
+    @if(auth()->user()->canDeleteCrmRecords('website'))
     <form id="delete-website-lead-form"
           method="POST"
           action="{{ route('crm.website.destroy', $lead) }}"
-          data-confirm-title="Delete lead?"
-          data-confirm="Delete this lead? All follow-ups will be removed."
-          data-confirm-text="Delete lead"
+          data-confirm-title="{{ $lead->customer ? 'Delete lead and customer?' : 'Delete lead?' }}"
+          data-confirm="{{ $lead->customer
+              ? 'This lead is linked to "' . $lead->customer->name . '" — deleting it will PERMANENTLY delete that customer and everything tied to them across every CRM domain (other leads, eBay records, shipments, tech support cases). This cannot be undone.'
+              : 'Delete this lead? All follow-ups will be removed.' }}"
+          data-confirm-text="{{ $lead->customer ? 'Delete lead & customer' : 'Delete lead' }}"
           data-confirm-tone="danger"
           class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

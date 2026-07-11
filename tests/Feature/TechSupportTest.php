@@ -6,7 +6,6 @@ use App\Enums\CustomerSource;
 use App\Enums\CustomerStatus;
 use App\Enums\InquirySource;
 use App\Enums\WebsiteLeadStatus;
-use App\Models\CallRequest;
 use App\Models\Customer;
 use App\Models\EbayCustomerRecord;
 use App\Models\Lead;
@@ -178,48 +177,37 @@ class TechSupportTest extends TestCase
         ]);
     }
 
+    public function test_request_call_requires_a_note(): void
+    {
+        $case = $this->makeOpenCase();
+
+        $this->actingAs($this->admin)->postJson(route('crm.tech-support.request-call', $case), [])
+            ->assertStatus(422);
+
+        $this->assertDatabaseMissing('call_requests', ['source_id' => $case->id]);
+    }
+
     public function test_request_call_creates_a_call_request_and_notifies_the_assigned_technician(): void
     {
         $case = $this->makeOpenCase();
         $case->update(['assigned_to' => $this->tech->id]);
 
-        $response = $this->actingAs($this->admin)->postJson(route('crm.tech-support.request-call', $case));
+        $response = $this->actingAs($this->admin)->postJson(route('crm.tech-support.request-call', $case), [
+            'note' => 'Customer needs to confirm the return address.',
+        ]);
 
         $response->assertOk();
         $this->assertDatabaseHas('call_requests', [
             'source_type' => TechSupportCase::class,
             'source_id'   => $case->id,
+            'note'        => 'Customer needs to confirm the return address.',
         ]);
         $this->assertEquals(1, $this->tech->fresh()->notifications()->count());
     }
 
-    public function test_completing_a_call_requires_a_summary_and_can_update_status(): void
+    public function test_tech_support_can_no_longer_complete_calls_themselves(): void
     {
-        $case = $this->makeOpenCase();
-        $callRequest = CallRequest::create([
-            'source_type'  => TechSupportCase::class,
-            'source_id'    => $case->id,
-            'name'         => 'Maria Lopez',
-            'note'         => 'Please call back about the order.',
-            'requested_by' => $this->admin->id,
-        ]);
-
-        $this->actingAs($this->tech)
-            ->postJson(route('crm.tech-support.complete-call', [$case, $callRequest]), [])
-            ->assertStatus(422);
-
-        $response = $this->actingAs($this->tech)->postJson(
-            route('crm.tech-support.complete-call', [$case, $callRequest]),
-            ['summary' => 'Discussed resolution steps with the customer.', 'status' => TechSupportCase::STATUS_RESOLVED]
-        );
-
-        $response->assertOk();
-        $this->assertTrue($callRequest->fresh()->fulfilled);
-        $this->assertEquals(TechSupportCase::STATUS_RESOLVED, $case->fresh()->status);
-        $this->assertDatabaseHas('tech_support_case_logs', [
-            'tech_support_case_id' => $case->id,
-            'type'                 => 'call_completed',
-        ]);
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('crm.tech-support.complete-call'));
     }
 
     public function test_resolving_a_case_syncs_the_linked_ebay_record(): void
@@ -262,6 +250,91 @@ class TechSupportTest extends TestCase
             'customer_id' => $customer->id,
             'subject'     => 'eBay Synchronization Completed',
         ]);
+    }
+
+    /**
+     * Resolving a case doesn't revert Lead.status away from
+     * TechnicalSupport (that would lose the "this lead once had a
+     * technical issue" history) — tech_resolved is the real signal. Every
+     * page showing the lead's status badge (Website CRM Leads list, the
+     * Lead profile page) needs to read Lead::display_status_label instead
+     * of the raw status, or it keeps showing "Technical Support" forever.
+     */
+    public function test_resolving_a_case_shows_resolved_status_on_the_website_crm_leads_pages(): void
+    {
+        $lead = Lead::create([
+            'handled_by'  => $this->admin->id,
+            'client_name' => 'Status Display Lead',
+            'source'      => InquirySource::WhatsApp->value,
+            'status'      => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now(),
+        ]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+
+        $case = TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->firstOrFail();
+
+        $this->actingAs($this->tech)->patchJson(
+            route('crm.tech-support.status', $case),
+            ['status' => TechSupportCase::STATUS_RESOLVED]
+        )->assertOk();
+
+        $lead->refresh();
+        $this->assertTrue($lead->tech_resolved);
+        $this->assertEquals(WebsiteLeadStatus::TechnicalSupport, $lead->status);
+        $this->assertEquals('Resolved', $lead->display_status_label);
+
+        // Note: "Technical Support" legitimately still appears elsewhere on
+        // this page (the status filter dropdown lists every possible
+        // status), so this only checks the resolved badge text is present.
+        $indexResponse = $this->actingAs($this->admin)->get(route('crm.website.index'));
+        $indexResponse->assertOk();
+        $indexResponse->assertSee('Status Display Lead');
+        $indexResponse->assertSee('Resolved');
+
+        $showResponse = $this->actingAs($this->admin)->get(route('crm.website.show', $lead));
+        $showResponse->assertOk();
+        $showResponse->assertSee('Resolved');
+    }
+
+    /**
+     * reopenCase() bumps the occurrence count and reopens the case, but
+     * previously never reset the source's tech_resolved flag — so a
+     * second, brand-new technical issue kept showing "Resolved" on the
+     * Lead profile page (carried over from the *first* resolution) instead
+     * of the real "Technical Support" status.
+     */
+    public function test_marking_a_lead_technical_support_a_second_time_clears_the_stale_resolved_badge(): void
+    {
+        $lead = Lead::create([
+            'handled_by'  => $this->admin->id,
+            'client_name' => 'Repeat Issue Lead',
+            'source'      => InquirySource::WhatsApp->value,
+            'status'      => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now(),
+        ]);
+
+        // First occurrence, resolved.
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $case = TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->firstOrFail();
+        $this->actingAs($this->tech)->patchJson(
+            route('crm.tech-support.status', $case),
+            ['status' => TechSupportCase::STATUS_RESOLVED]
+        )->assertOk();
+        $this->assertTrue($lead->fresh()->tech_resolved);
+
+        // Lead moves elsewhere, then re-enters Technical Support — a second, unresolved occurrence.
+        $lead->update(['status' => WebsiteLeadStatus::Contacted]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+
+        $lead->refresh();
+        $this->assertFalse($lead->tech_resolved);
+        $this->assertEquals('Technical Support', $lead->display_status_label);
+        $this->assertEquals(2, $case->fresh()->occurrence_count);
+        $this->assertEquals(1, TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->count());
+
+        $showResponse = $this->actingAs($this->admin)->get(route('crm.website.show', $lead));
+        $showResponse->assertOk();
+        $showResponse->assertDontSee('Resolved');
     }
 
     private function makeOpenCase(): TechSupportCase

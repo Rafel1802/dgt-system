@@ -65,7 +65,11 @@
       </div>
 
       <div class="px-6 py-4 flex gap-3 justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('ebay'))
         <button type="submit" form="delete-store-form" class="btn btn-danger text-sm">Delete Store</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.ebay.stores.show', $store) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -73,6 +77,7 @@
       </div>
     </form>
 
+    @if(auth()->user()->canDeleteCrmRecords('ebay'))
     <form id="delete-store-form" method="POST" action="{{ route('crm.ebay.stores.destroy', $store) }}"
           data-confirm-title="Delete Store?"
           data-confirm="Are you sure you want to delete this store profile? Offers linked to it will NOT be deleted, but will become unlinked."
@@ -81,6 +86,7 @@
           class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

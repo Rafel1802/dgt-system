@@ -9,7 +9,7 @@
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <div class="flex gap-2 flex-wrap">
         {{-- Status quick filters matching flowchart exactly --}}
-      @foreach(['' => 'All', 'new_lead' => 'New Customer', 'successful' => 'Successful Lead', 'in_delivery' => 'In Delivery', 'delivered' => 'Delivered', 'lost' => 'Lost Interested', 'technical_support' => 'In Technical'] as $val => $lbl)
+      @foreach(['' => 'All', 'new_lead' => 'New Customer', 'successful' => 'Successful Lead', 'in_delivery' => 'In Delivery', 'delivered' => 'Delivered', 'lost' => 'Lost Interested', 'technical_support' => 'In Technical', 'resolved' => 'Resolved'] as $val => $lbl)
       <a href="{{ route('crm.website.index', array_merge(request()->query(), ['status' => $val])) }}"
          class="btn text-xs py-1.5 px-3 {{ request('status') === $val ? 'btn-primary' : 'btn-secondary' }}">
         {{ $lbl }}
@@ -24,7 +24,18 @@
         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.362-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"/></svg>
         Call Reports
       </a>
+      <a href="{{ route('crm.website.call-requests.index') }}" class="btn btn-secondary text-sm relative" id="btn-call-requests">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/></svg>
+        Call Requests
+        @if($pendingCallRequestsCount > 0)
+        <span class="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{{ $pendingCallRequestsCount }}</span>
+        @endif
+      </a>
       @include('crm.partials.report_export_modal', ['type' => 'website', 'btnClass' => 'btn btn-secondary text-sm py-1.5'])
+      @if(auth()->user()->hasAnyRole(['super-admin', 'admin-crm', 'boss']))
+      <a href="{{ route('crm.reports.index') }}" class="btn btn-secondary text-sm">📊 Team Report</a>
+      @endif
+      <a href="{{ route('crm.reports.show', auth()->user()) }}" class="btn btn-secondary text-sm">📈 My Report</a>
       <a href="{{ route('crm.website.create') }}" class="btn btn-primary text-sm" id="btn-new-lead">
         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
         New Inquiry
@@ -58,6 +69,15 @@
           <option value="">All Sources</option>
           @foreach($sources as $s)
             <option value="{{ $s->value }}" {{ request('source') === $s->value ? 'selected' : '' }}>{{ $s->icon() }} {{ $s->label() }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div>
+        <label class="form-label text-xs">Handler</label>
+        <select name="handled_by" class="form-input py-2 text-sm" id="filter-handled-by">
+          <option value="">All Handlers</option>
+          @foreach($crmUsers as $crmUser)
+            <option value="{{ $crmUser->id }}" {{ request('handled_by') == $crmUser->id ? 'selected' : '' }}>{{ $crmUser->name }}</option>
           @endforeach
         </select>
       </div>
@@ -117,6 +137,11 @@
                     style="background:{{ $lead->status?->color() }}22; color:{{ $lead->status?->color() }}">
                 {{ $lead->status?->label() }}
               </span>
+              @if($lead->techSupportCase?->occurrence_label)
+                <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full block mt-1 w-fit bg-amber-50 text-amber-700" title="Repeat technical issue">
+                  🔁 {{ $lead->techSupportCase->occurrence_label }}
+                </span>
+              @endif
             </td>
             <td class="px-4 py-3">
               @if($lead->follow_up_date)
@@ -216,42 +241,6 @@
     @if($leads->hasPages())
     <div class="px-6 py-4 border-t border-slate-100">{{ $leads->links() }}</div>
     @endif
-  </div>
-
-  {{-- ── Pending Call Requests (from Tech Support) ───────────────────────── --}}
-  <div class="card p-3 mt-5">
-    <h3 class="font-display font-bold text-sm text-slate-800 mb-3">📲 Pending Call Requests (from Tech Support)</h3>
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-            <th class="px-4 py-2 text-left">Customer</th>
-            <th class="px-4 py-2 text-left">Phone</th>
-            <th class="px-4 py-2 text-left">Reason</th>
-            <th class="px-4 py-2 text-left">Requested</th>
-            <th class="px-4 py-2 text-right">Action</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-50">
-          @forelse($callRequests as $request)
-          <tr>
-            <td class="px-4 py-2">{{ $request->name }}</td>
-            <td class="px-4 py-2 text-slate-500">{{ $request->phone ?: '—' }}</td>
-            <td class="px-4 py-2 text-slate-600">{{ $request->note }}</td>
-            <td class="px-4 py-2 text-xs text-slate-400">{{ $request->created_at->diffForHumans() }}</td>
-            <td class="px-4 py-2 text-right">
-              <form method="POST" action="{{ route('crm.website.call-requests.fulfill', $request) }}">
-                @csrf
-                <button type="submit" class="btn btn-primary text-xs py-1 px-2.5">Mark Called</button>
-              </form>
-            </td>
-          </tr>
-          @empty
-          <tr><td colspan="5" class="text-center text-slate-400 py-6 text-sm">No pending requests</td></tr>
-          @endforelse
-        </tbody>
-      </table>
-    </div>
   </div>
 
 </div>

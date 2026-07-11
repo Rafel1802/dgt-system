@@ -61,6 +61,45 @@ class ShipmentCustomerProductsTest extends TestCase
         $this->assertEquals(2, $customer->products[1]->quantity);
     }
 
+    public function test_adding_a_customer_with_a_manually_typed_product_name_succeeds(): void
+    {
+        $shipment = Shipment::create(['status' => Shipment::STATUS_PENDING]);
+
+        $this->actingAs($this->user)->post(route('crm.logistics.shipments.customers.add', $shipment), [
+            'recipient_name'  => 'Manual Product Customer',
+            'shipping_address'=> 'Battambang',
+            'products'        => [
+                ['product_name' => 'Custom Hydraulic Hose', 'price' => 65, 'quantity' => 1],
+            ],
+        ]);
+
+        $customer = ShipmentCustomer::firstOrFail();
+        $this->assertCount(1, $customer->products);
+        $this->assertNull($customer->products[0]->product_id);
+        $this->assertEquals('Custom Hydraulic Hose', $customer->products[0]->product_name);
+        $this->assertEquals(65, $customer->products[0]->price);
+    }
+
+    public function test_updating_a_customer_with_a_manually_typed_product_name_succeeds(): void
+    {
+        $shipment = Shipment::create(['status' => Shipment::STATUS_PENDING]);
+        $customer = $shipment->shipmentCustomers()->create([
+            'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PENDING, 'shipping_address' => '',
+        ]);
+
+        $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment, $customer]), [
+            'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PENDING,
+            'products' => [
+                ['product_name' => 'One-off Spare Part', 'price' => 30, 'quantity' => 1],
+            ],
+        ]);
+
+        $customer->refresh();
+        $this->assertCount(1, $customer->products);
+        $this->assertNull($customer->products[0]->product_id);
+        $this->assertEquals('One-off Spare Part', $customer->products[0]->product_name);
+    }
+
     public function test_adding_a_customer_without_any_products_is_allowed(): void
     {
         $shipment = Shipment::create(['status' => Shipment::STATUS_PENDING]);

@@ -65,6 +65,7 @@
               <span class="text-sm text-slate-800">{{ $driver->name }}</span>
               <span class="text-xs text-slate-500 ml-2">{{ $driver->phone ?: '—' }}</span>
             </div>
+            @if(auth()->user()->canDeleteCrmRecords('logistic'))
             <button type="submit" form="delete-driver-{{ $driver->id }}-form" class="text-slate-300 hover:text-red-500" title="Remove driver">
               <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
@@ -72,6 +73,7 @@
                   onsubmit="return confirm('Remove this driver?')" class="hidden">
               @csrf @method('DELETE')
             </form>
+            @endif
           </div>
           @empty
           <p class="text-slate-400 text-sm">No drivers on file.</p>

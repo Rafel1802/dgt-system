@@ -132,7 +132,7 @@
         <thead>
             <tr>
                 @foreach($headers as $header)
-                    <th class="{{ $header === 'Value (AUD)' || $header === 'Budget (AUD)' || $header === 'Offer Amount (AUD)' || $header === 'Final Amount (AUD)' ? 'text-right' : '' }}">
+                    <th class="{{ $header === 'Value (USD)' || $header === 'Budget (USD)' || $header === 'Offer Amount (USD)' || $header === 'Final Amount (USD)' ? 'text-right' : '' }}">
                         {{ $header }}
                     </th>
                 @endforeach

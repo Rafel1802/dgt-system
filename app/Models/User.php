@@ -264,17 +264,47 @@ SVG;
         if ($this->hasAnyRole(['super-admin', 'boss'])) {
             return 'Boss';
         }
-        if ($this->hasRole('admin-crm')) {
+        if ($this->isCrmSupervisor()) {
             return 'CRM Supervisor';
         }
         if ($this->hasRole('sales-crm')) {
-            // crm_role column can further distinguish: 'supervisor' or 'member'
-            if ($this->crm_role === 'supervisor') {
-                return 'CRM Supervisor';
-            }
             return 'CRM Member';
         }
         return $this->role_display;
+    }
+
+    /**
+     * "CRM Supervisor" tier: either the admin-crm role, or a sales-crm user
+     * whose crm_role sub-flag is set to 'supervisor'. This is the same rule
+     * getCrmRoleDisplayAttribute() surfaces as a label — kept here as the
+     * single source of truth so authorization checks and the display label
+     * can never drift apart.
+     */
+    public function isCrmSupervisor(): bool
+    {
+        return $this->hasRole('admin-crm') || ($this->hasRole('sales-crm') && $this->crm_role === 'supervisor');
+    }
+
+    /**
+     * Whether this user may delete entity-level CRM records (Leads, Customers,
+     * Products, eBay records/stores/offers, Shipments, Trucking Companies) in
+     * the given domain. super-admin and boss can delete anywhere (top of the
+     * hierarchy); a CRM Supervisor can delete anywhere too; ebay-supervisor
+     * and logistic-supervisor are scoped to their own domain only. Routine
+     * in-page removals (e.g. removing one customer from a shipment) are NOT
+     * gated by this — only whole-record deletes.
+     */
+    public function canDeleteCrmRecords(string $domain = 'website'): bool
+    {
+        if ($this->hasAnyRole(['super-admin', 'boss']) || $this->isCrmSupervisor()) {
+            return true;
+        }
+
+        return match ($domain) {
+            'ebay'     => $this->hasRole('ebay-supervisor'),
+            'logistic' => $this->hasRole('logistic-supervisor'),
+            default    => false,
+        };
     }
 
     public function canCreateBoards(): bool

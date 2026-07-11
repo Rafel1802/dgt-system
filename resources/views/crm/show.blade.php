@@ -34,6 +34,17 @@
               ⚠ Logistic Issues
             </span>
           @endif
+          @if($customer->latestTechSupportCase)
+            @php $techColor = \App\Models\TechSupportCase::statusColor($customer->latestTechSupportCase->status); @endphp
+            <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $techColor }}22; color:{{ $techColor }}">
+              🛠 {{ \App\Models\TechSupportCase::statuses()[$customer->latestTechSupportCase->status] ?? $customer->latestTechSupportCase->status }}
+            </span>
+            @if($customer->latestTechSupportCase->occurrence_label)
+              <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">
+                🔁 {{ $customer->latestTechSupportCase->occurrence_label }}
+              </span>
+            @endif
+          @endif
         </div>
 
         {{-- Quick contact links --}}
@@ -107,7 +118,7 @@
         <div x-data="{open: false}">
           <button @click="open = !open" class="btn btn-secondary text-xs py-1.5 w-full">+ Record Purchase</button>
           <div x-show="open" x-cloak class="mt-3 space-y-2">
-            <input type="number" x-model="purchaseValue" step="0.01" class="form-input text-sm" placeholder="Amount (AUD)">
+            <input type="number" x-model="purchaseValue" step="0.01" class="form-input text-sm" placeholder="Amount (USD)">
             <button @click="recordPurchase()" class="btn btn-primary text-xs py-1.5 w-full">Save Purchase</button>
           </div>
         </div>
@@ -297,31 +308,6 @@
           @endforelse
         </div>
       </div>
-
-      {{-- Active Deals --}}
-      @if($customer->deals->isNotEmpty())
-      <div class="card">
-        <div class="flex items-center justify-between mb-4">
-          <h4 class="font-semibold text-slate-700 text-sm">Deals</h4>
-          <a href="{{ route('crm.pipeline.index') }}" class="text-xs text-indigo-600 hover:underline">View Pipeline →</a>
-        </div>
-        <div class="space-y-2">
-          @foreach($customer->deals->take(5) as $deal)
-          <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0"
-                  style="background:{{ $deal->stage?->color() }}22; color:{{ $deal->stage?->color() }}">
-              {{ $deal->stage?->label() }}
-            </span>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-slate-700 truncate">{{ $deal->title }}</p>
-              <p class="text-xs text-slate-400">{{ $deal->probability }}% · {{ $deal->expected_close_date?->format('d M Y') ?? 'No close date' }}</p>
-            </div>
-            <div class="text-sm font-bold text-slate-700">${{ number_format($deal->value, 0) }}</div>
-          </div>
-          @endforeach
-        </div>
-      </div>
-      @endif
 
     </div>
   </div>

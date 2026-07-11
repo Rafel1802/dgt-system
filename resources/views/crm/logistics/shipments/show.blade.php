@@ -176,13 +176,19 @@
                       <form method="POST" action="{{ route('crm.logistics.shipments.customers.update', [$shipment, $sc]) }}"
                             x-data="{
                               status: '{{ $sc->status }}',
-                              lines: {{ $sc->products->isNotEmpty() ? Js::from($sc->products->map(fn($p) => ['product_id' => $p->product_id, 'price' => $p->price, 'quantity' => $p->quantity])) : Js::from([['product_id' => '', 'price' => '', 'quantity' => 1]]) }},
+                              lines: {{ $sc->products->isNotEmpty() ? Js::from($sc->products->map(fn($p) => ['product_id' => $p->product_id, 'product_name' => $p->product_name, 'price' => $p->price, 'quantity' => $p->quantity])) : Js::from([['product_id' => null, 'product_name' => '', 'price' => '', 'quantity' => 1]]) }},
                               catalog: {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }},
-                              addLine() { this.lines.push({ product_id: '', price: '', quantity: 1 }); },
+                              addLine() { this.lines.push({ product_id: null, product_name: '', price: '', quantity: 1 }); },
                               removeLine(i) { if (this.lines.length > 1) this.lines.splice(i, 1); },
-                              applyProduct(i) {
-                                const p = this.catalog.find(c => c.id == this.lines[i].product_id);
-                                if (p && !this.lines[i].price) { this.lines[i].price = p.price; }
+                              matchCatalogProduct(line) {
+                                const typed = (line.product_name || '').trim().toLowerCase();
+                                const match = this.catalog.find(p => p.name.toLowerCase() === typed);
+                                if (match) {
+                                  line.product_id = match.id;
+                                  if (!line.price) line.price = match.price;
+                                } else {
+                                  line.product_id = null;
+                                }
                               },
                             }" class="flex flex-col min-h-0">
                         @csrf @method('PUT')
@@ -232,12 +238,9 @@
                             <div class="space-y-2">
                               <template x-for="(line, i) in lines" :key="i">
                                 <div class="flex gap-2 items-start">
-                                  <select :name="`products[${i}][product_id]`" x-model.number="line.product_id" @change="applyProduct(i)" class="form-input flex-1">
-                                    <option value="">— Select Product —</option>
-                                    <template x-for="p in catalog" :key="p.id">
-                                      <option :value="p.id" x-text="p.name + (p.sku ? ' (' + p.sku + ')' : '')"></option>
-                                    </template>
-                                  </select>
+                                  <input type="text" list="shipment-catalog-products" :name="`products[${i}][product_name]`" x-model="line.product_name" @input="matchCatalogProduct(line)"
+                                         placeholder="Search or type a product" class="form-input flex-1">
+                                  <input type="hidden" :name="`products[${i}][product_id]`" :value="line.product_id">
                                   <input type="number" step="0.01" min="0" :name="`products[${i}][price]`" x-model="line.price" placeholder="Price" class="form-input w-24">
                                   <input type="number" min="1" :name="`products[${i}][quantity]`" x-model.number="line.quantity" placeholder="Qty" class="form-input w-16">
                                   <button type="button" @click="removeLine(i)" x-show="lines.length > 1"
@@ -291,18 +294,30 @@
   </div>
 </div>
 
+<datalist id="shipment-catalog-products">
+  @foreach($catalogProducts as $p)
+  <option value="{{ $p->name }}">{{ $p->sku ? '('.$p->sku.')' : '' }} — ${{ number_format($p->price, 2) }}</option>
+  @endforeach
+</datalist>
+
 {{-- Add Customer Modal --}}
 <div id="addCustomerModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center p-4">
   <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col text-left">
     <form method="POST" action="{{ route('crm.logistics.shipments.customers.add', $shipment) }}"
           x-data="{
-            lines: [{ product_id: '', price: '', quantity: 1 }],
+            lines: [{ product_id: null, product_name: '', price: '', quantity: 1 }],
             catalog: {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }},
-            addLine() { this.lines.push({ product_id: '', price: '', quantity: 1 }); },
+            addLine() { this.lines.push({ product_id: null, product_name: '', price: '', quantity: 1 }); },
             removeLine(i) { if (this.lines.length > 1) this.lines.splice(i, 1); },
-            applyProduct(i) {
-              const p = this.catalog.find(c => c.id == this.lines[i].product_id);
-              if (p && !this.lines[i].price) { this.lines[i].price = p.price; }
+            matchCatalogProduct(line) {
+              const typed = (line.product_name || '').trim().toLowerCase();
+              const match = this.catalog.find(p => p.name.toLowerCase() === typed);
+              if (match) {
+                line.product_id = match.id;
+                if (!line.price) line.price = match.price;
+              } else {
+                line.product_id = null;
+              }
             },
           }" class="flex flex-col min-h-0">
       @csrf
@@ -351,12 +366,9 @@
           <div class="space-y-2">
             <template x-for="(line, i) in lines" :key="i">
               <div class="flex gap-2 items-start">
-                <select :name="`products[${i}][product_id]`" x-model.number="line.product_id" @change="applyProduct(i)" class="form-input flex-1">
-                  <option value="">— Select Product —</option>
-                  <template x-for="p in catalog" :key="p.id">
-                    <option :value="p.id" x-text="p.name + (p.sku ? ' (' + p.sku + ')' : '')"></option>
-                  </template>
-                </select>
+                <input type="text" list="shipment-catalog-products" :name="`products[${i}][product_name]`" x-model="line.product_name" @input="matchCatalogProduct(line)"
+                       placeholder="Search or type a product" class="form-input flex-1">
+                <input type="hidden" :name="`products[${i}][product_id]`" :value="line.product_id">
                 <input type="number" step="0.01" min="0" :name="`products[${i}][price]`" x-model="line.price" placeholder="Price" class="form-input w-24">
                 <input type="number" min="1" :name="`products[${i}][quantity]`" x-model.number="line.quantity" placeholder="Qty" class="form-input w-16">
                 <button type="button" @click="removeLine(i)" x-show="lines.length > 1"

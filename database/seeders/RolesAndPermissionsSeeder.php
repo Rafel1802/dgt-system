@@ -19,6 +19,8 @@ class RolesAndPermissionsSeeder extends Seeder
      *   5. sales-crm    — Full CRM access, sales pipeline
      *   6. digital-team — Kanban board access (video, graphic, eBay, website)
      *   7. boss         — Read-only reports + dashboard, email notifications
+     *   8. ebay-supervisor     — Can delete eBay records (offers, customer records, stores)
+     *   9. logistic-supervisor — Can delete Logistics records (shipments, trucking companies)
      */
     public function run(): void
     {
@@ -128,6 +130,22 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard.view',
             'crm.view',
             'tech-support.manage',
+        ]);
+
+        // eBay Supervisor — can delete eBay records (offers, customer records, stores);
+        // checked directly via hasRole() in CRM::canDeleteCrmRecords(), not permission-driven.
+        $ebaySupervisor = Role::firstOrCreate(['name' => 'ebay-supervisor', 'guard_name' => 'web']);
+        $ebaySupervisor->syncPermissions([
+            'dashboard.view',
+            'crm.view',
+        ]);
+
+        // Logistic Supervisor — can delete Logistics records (shipments, trucking companies);
+        // checked directly via hasRole() in CRM::canDeleteCrmRecords(), not permission-driven.
+        $logisticSupervisor = Role::firstOrCreate(['name' => 'logistic-supervisor', 'guard_name' => 'web']);
+        $logisticSupervisor->syncPermissions([
+            'dashboard.view',
+            'crm.view',
         ]);
 
         // 6. Digital Team

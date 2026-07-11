@@ -6,25 +6,25 @@
 <div class="animate-fade-in">
 
   {{-- ── KPI tiles ───────────────────────────────────────────────────────── --}}
-  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
     <div class="card p-3 text-center">
-      <div class="text-2xl font-bold text-slate-700">{{ $stats['total'] }}</div>
+      <div class="text-xl font-bold text-slate-700">{{ $stats['total'] }}</div>
       <div class="text-xs text-slate-500 mt-0.5">Total Cases</div>
     </div>
     <div class="card p-3 text-center">
-      <div class="text-2xl font-bold text-indigo-600">{{ $stats['new'] }}</div>
+      <div class="text-xl font-bold text-indigo-600">{{ $stats['new'] }}</div>
       <div class="text-xs text-slate-500 mt-0.5">New Cases</div>
     </div>
     <div class="card p-3 text-center">
-      <div class="text-2xl font-bold text-amber-600">{{ $stats['in_progress'] }}</div>
+      <div class="text-xl font-bold text-amber-600">{{ $stats['in_progress'] }}</div>
       <div class="text-xs text-slate-500 mt-0.5">In Progress</div>
     </div>
     <div class="card p-3 text-center {{ $stats['red'] > 0 ? 'border-2 border-red-400 bg-red-50/60 animate-pulse' : '' }}">
-      <div class="text-2xl font-bold text-red-600">{{ $stats['red'] }}</div>
+      <div class="text-xl font-bold text-red-600">{{ $stats['red'] }}</div>
       <div class="text-xs text-slate-500 mt-0.5">Red Cases</div>
     </div>
     <div class="card p-3 text-center">
-      <div class="text-2xl font-bold text-emerald-600">{{ $stats['resolved'] }}</div>
+      <div class="text-xl font-bold text-emerald-600">{{ $stats['resolved'] }}</div>
       <div class="text-xs text-slate-500 mt-0.5">Resolved</div>
     </div>
   </div>
@@ -103,6 +103,28 @@
               <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $color }}22; color:{{ $color }}">
                 {{ $statuses[$case->status] ?? $case->status }}
               </span>
+              @if($case->occurrence_label)
+                <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full block mt-1 w-fit bg-amber-50 text-amber-700" title="Repeat technical issue">
+                  🔁 {{ $case->occurrence_label }}
+                </span>
+              @endif
+              @if($case->latest_call_request)
+                @if($case->latest_call_request->fulfilled)
+                  @if(in_array($case->id, $unreadCallCompletedCaseIds))
+                  <span class="badge text-xs font-bold px-2 py-0.5 rounded-full block mt-1 w-fit bg-rose-100 text-rose-700 ring-1 ring-rose-300 animate-pulse" title="Call completed — outcome not viewed yet">
+                    📞 Call Completed <span class="ml-0.5">●&nbsp;New</span>
+                  </span>
+                  @else
+                  <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full block mt-1 w-fit bg-emerald-50 text-emerald-700" title="Call completed — outcome already viewed">
+                    📞 Call Completed
+                  </span>
+                  @endif
+                @else
+                <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full block mt-1 w-fit bg-amber-50 text-amber-700" title="Call requested, not yet completed">
+                  📞 Call Requested
+                </span>
+                @endif
+              @endif
             </td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ $case->assignee?->name ?: 'Unassigned' }}</td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ $case->created_at->format('d M Y, g:ia') }}</td>

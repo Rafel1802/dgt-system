@@ -16,7 +16,6 @@ use App\Http\Controllers\Kanban\CardCommentController;
 use App\Http\Controllers\Kanban\CardChecklistController;
 use App\Http\Controllers\Kanban\CardFileController;
 use App\Http\Controllers\CRM\CustomerController;
-use App\Http\Controllers\CRM\PipelineController;
 use App\Http\Controllers\CRM\CrmDashboardController;
 use App\Http\Controllers\CRM\WebsiteCrmController;
 use App\Http\Controllers\CRM\EbayCrmController;
@@ -49,7 +48,11 @@ use Illuminate\Support\Facades\Route;
 */
 
 // ── Auth Routes ────────────────────────────────────────────────────────────
-Route::get('/seed-automations', function () {
+// These two utility routes were previously public with no auth check at all
+// — /debug-log dumped raw application log contents to anyone, and
+// /seed-automations let anyone mutate Board automation data with a GET
+// request. Both are now restricted to logged-in super-admins only.
+Route::middleware(['auth', 'ensure.active', 'role:super-admin'])->get('/seed-automations', function () {
     $boards = \App\Models\Board::all();
     $count = 0;
     foreach ($boards as $board) {
@@ -116,7 +119,7 @@ Route::get('/seed-automations', function () {
     return "Seeded $count automations for existing boards!";
 });
 
-Route::get('/debug-log', function() {
+Route::middleware(['auth', 'ensure.active', 'role:super-admin'])->get('/debug-log', function() {
     $logPath = storage_path('logs/laravel.log');
     if (!file_exists($logPath)) return "No log file.";
     $lines = array_slice(file($logPath), -200);
@@ -130,6 +133,11 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login'])->name('login.submit');
     });
+
+    // Public share links — no login required; access is gated by the
+    // unguessable token itself, not by auth middleware.
+    Route::get('/share/call-reports/{token}', [\App\Http\Controllers\Public\CallReportShareController::class, 'show'])
+        ->name('public.call-reports.show');
 
     // Authenticated routes
     Route::middleware(['auth', 'ensure.active', 'log.activity'])->group(function () {
@@ -418,7 +426,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             });
 
         // ── CRM — Phase 4 ─────────────────────────────────────────────────
-        Route::middleware(['role:super-admin|admin-crm|sales-crm|boss|tech-support', 'maintenance:crm'])
+        Route::middleware(['role:super-admin|admin-crm|sales-crm|boss|tech-support|ebay-supervisor|logistic-supervisor', 'maintenance:crm'])
             ->prefix('crm')
             ->name('crm.')
             ->group(function () {
@@ -438,12 +446,6 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::patch('/customers/{customer}/stage', [CustomerController::class, 'updateStage'])->name('customers.stage');
                 Route::post('/customers/{customer}/attachments', [CustomerController::class, 'uploadAttachment'])->name('customers.attachments.upload');
 
-                // Sales pipeline
-                Route::get('/pipeline', [PipelineController::class, 'index'])->name('pipeline.index');
-                Route::post('/pipeline/deals', [PipelineController::class, 'storeDeal'])->name('pipeline.deals.store');
-                Route::patch('/pipeline/deals/{deal}/move', [PipelineController::class, 'moveDeal'])->name('pipeline.deals.move');
-                Route::put('/pipeline/deals/{deal}', [PipelineController::class, 'updateDeal'])->name('pipeline.deals.update');
-                Route::delete('/pipeline/deals/{deal}', [PipelineController::class, 'destroyDeal'])->name('pipeline.deals.destroy');
                 // ── CRM Dashboard (3-panel) ───────────────────────────────
                 Route::get('/dashboard', [CrmDashboardController::class, 'index'])->name('dashboard');
                 Route::get('/export/{type}', [CrmReportController::class, 'export'])->name('export');
@@ -455,13 +457,18 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::post('/', [WebsiteCrmController::class, 'store'])->name('store');
                     Route::get('/call-reports', [WebsiteCrmController::class, 'callReportsIndex'])->name('call-reports.index');
                     Route::post('/call-reports', [WebsiteCrmController::class, 'storeCallReport'])->name('call-reports.store');
+                    Route::post('/call-reports/export', [WebsiteCrmController::class, 'exportCallReports'])->name('call-reports.export');
+                    Route::post('/call-reports/share', [WebsiteCrmController::class, 'shareCallReports'])->name('call-reports.share');
+                    Route::get('/call-requests', [WebsiteCrmController::class, 'callRequestsIndex'])->name('call-requests.index');
                     Route::post('/call-requests/{callRequest}/fulfill', [WebsiteCrmController::class, 'fulfillCallRequest'])->name('call-requests.fulfill');
                     Route::get('/{lead}', [WebsiteCrmController::class, 'show'])->name('show');
                     Route::get('/{lead}/edit', [WebsiteCrmController::class, 'edit'])->name('edit');
                     Route::put('/{lead}', [WebsiteCrmController::class, 'update'])->name('update');
                     Route::delete('/{lead}', [WebsiteCrmController::class, 'destroy'])->name('destroy');
                     Route::post('/{lead}/follow-up', [WebsiteCrmController::class, 'logFollowUp'])->name('follow-up');
+                    Route::delete('/{lead}/follow-up/{followUp}', [WebsiteCrmController::class, 'destroyFollowUp'])->name('follow-up.destroy');
                     Route::patch('/{lead}/status', [WebsiteCrmController::class, 'updateStatus'])->name('status');
+                    Route::post('/{lead}/orders', [WebsiteCrmController::class, 'storeOrder'])->name('orders.store');
                 });
 
                 // ── eBay CRM ──────────────────────────────────────────────
@@ -482,6 +489,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     });
 
                     Route::get('/report', [EbayReportController::class, 'index'])->name('report');
+                    Route::get('/report/export/pdf', [EbayReportController::class, 'exportPdf'])->name('report.export.pdf');
+                    Route::get('/report/export/csv', [EbayReportController::class, 'exportCsv'])->name('report.export.csv');
 
                     // eBay Manage Customer — one combined list and one combined form;
                     // Category is a form field / filter, not a URL segment.
@@ -489,13 +498,17 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::get('/', [EbayCustomerController::class, 'index'])->name('index');
                         Route::get('/create', [EbayCustomerController::class, 'create'])->name('create');
                         Route::post('/', [EbayCustomerController::class, 'store'])->name('store');
+                        // Must stay above the /{record} catch-all below.
+                        Route::get('/handler-history', [EbayCustomerController::class, 'handlerHistory'])->name('handler-history.index');
                         Route::get('/{record}/edit', [EbayCustomerController::class, 'edit'])->name('edit');
                         Route::get('/{record}', [EbayCustomerController::class, 'show'])->name('show');
                         Route::put('/{record}', [EbayCustomerController::class, 'update'])->name('update');
                         Route::delete('/{record}', [EbayCustomerController::class, 'destroy'])->name('destroy');
                         Route::post('/{record}/switch-handler', [EbayCustomerController::class, 'switchHandler'])->name('switch-handler');
                         Route::post('/{record}/follow-up', [EbayCustomerController::class, 'logFollowUp'])->name('follow-up');
+                        Route::delete('/{record}/follow-up/{followUp}', [EbayCustomerController::class, 'destroyFollowUp'])->name('follow-up.destroy');
                         Route::post('/{record}/orders', [EbayCustomerController::class, 'storeOrder'])->name('orders.store');
+                        Route::post('/handler-history/{entry}/confirm', [EbayCustomerController::class, 'confirmHandler'])->name('handler-history.confirm');
                     });
 
                     Route::get('/{offer}', [EbayCrmController::class, 'show'])->name('show');
@@ -516,6 +529,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::get('/search/products', [LogisticCrmController::class, 'searchProducts'])->name('search.products');
                     Route::post('/quick/customer', [LogisticCrmController::class, 'quickCreateCustomer'])->name('quick.customer');
                     Route::post('/quick/product', [LogisticCrmController::class, 'quickCreateProduct'])->name('quick.product');
+                    // Logistic Issues — every customer currently flagged with a shipment problem
+                    Route::get('/issues', [ShipmentController::class, 'issues'])->name('issues.index');
+
                     // Trucking Company Management
                     Route::prefix('trucking')->name('trucking.')->group(function () {
                         Route::get('/', [TruckingCompanyController::class, 'index'])->name('index');
@@ -590,8 +606,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::patch('/{case}/status', [TechSupportController::class, 'updateStatus'])->name('status');
                         Route::post('/{case}/assign', [TechSupportController::class, 'assign'])->name('assign');
                         Route::post('/{case}/follow-up', [TechSupportController::class, 'storeFollowUp'])->name('follow-up');
+                        Route::delete('/{case}/follow-up/{log}', [TechSupportController::class, 'destroyFollowUp'])->name('follow-up.destroy');
                         Route::post('/{case}/request-call', [TechSupportController::class, 'requestCall'])->name('request-call');
-                        Route::post('/{case}/call-requests/{callRequest}/complete', [TechSupportController::class, 'completeCall'])->name('complete-call');
                     });
                 });
 
@@ -602,6 +618,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 // ── Staff Performance / Team Reports ────────────────────────
                 Route::prefix('reports')->name('reports.')->group(function () {
                     Route::get('/', [CrmStaffReportController::class, 'index'])->name('index');
+                    Route::get('/export/pdf', [CrmStaffReportController::class, 'exportTeamPdf'])->name('export.pdf');
+                    Route::get('/export/csv', [CrmStaffReportController::class, 'exportTeamCsv'])->name('export.csv');
+                    Route::get('/staff', [CrmStaffReportController::class, 'staff'])->name('staff');
                     Route::get('/{user}', [CrmStaffReportController::class, 'show'])->name('show');
                     Route::get('/{user}/export', [CrmStaffReportController::class, 'export'])->name('export');
                 });

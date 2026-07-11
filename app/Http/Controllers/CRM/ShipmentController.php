@@ -45,6 +45,16 @@ class ShipmentController extends Controller
         return view('crm.logistics.shipments.index', compact('shipments', 'statuses'));
     }
 
+    /** Every customer currently flagged with a logistics/shipment issue, across all sources. */
+    public function issues(Request $request): View
+    {
+        $customers = $this->matcher->buildUnifiedDirectory(['search' => $request->get('search')])
+            ->filter(fn ($c) => $c['category'] === 'shipment_delay')
+            ->values();
+
+        return view('crm.logistics.issues', compact('customers'));
+    }
+
     public function create(): View
     {
         return view('crm.logistics.shipments.create', [
@@ -120,6 +130,8 @@ class ShipmentController extends Controller
 
     public function destroy(Shipment $shipment): RedirectResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, CRM Supervisor, or Boss can delete shipments.');
+
         $shipment->delete();
         return redirect()->route('crm.logistics.shipments.index')
             ->with('success', 'Shipment deleted.');
@@ -138,10 +150,11 @@ class ShipmentController extends Controller
             'shipping_address'  => ['nullable', 'string'],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
-            'products'              => ['nullable', 'array'],
-            'products.*.product_id' => ['nullable', 'exists:products,id'],
-            'products.*.price'      => ['nullable', 'numeric', 'min:0'],
-            'products.*.quantity'   => ['nullable', 'integer', 'min:1'],
+            'products'                 => ['nullable', 'array'],
+            'products.*.product_id'    => ['nullable', 'exists:products,id'],
+            'products.*.product_name'  => ['nullable', 'string', 'max:255'],
+            'products.*.price'         => ['nullable', 'numeric', 'min:0'],
+            'products.*.quantity'      => ['nullable', 'integer', 'min:1'],
         ]);
 
         $productRows = $validated['products'] ?? [];
@@ -195,10 +208,11 @@ class ShipmentController extends Controller
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
             'tracking_number'   => ['nullable', 'string', 'max:150'],
-            'products'              => ['nullable', 'array'],
-            'products.*.product_id' => ['nullable', 'exists:products,id'],
-            'products.*.price'      => ['nullable', 'numeric', 'min:0'],
-            'products.*.quantity'   => ['nullable', 'integer', 'min:1'],
+            'products'                 => ['nullable', 'array'],
+            'products.*.product_id'    => ['nullable', 'exists:products,id'],
+            'products.*.product_name'  => ['nullable', 'string', 'max:255'],
+            'products.*.price'         => ['nullable', 'numeric', 'min:0'],
+            'products.*.quantity'      => ['nullable', 'integer', 'min:1'],
         ]);
 
         $productRows = $validated['products'] ?? [];
@@ -238,14 +252,14 @@ class ShipmentController extends Controller
 
         $this->syncShipmentCustomerProducts($customer, $productRows);
 
-        // Re-run on every save while status is Problem (not just the
-        // transition into it) — propagation is internally idempotent, and
-        // this lets a corrected customer_id link (or contact info) get
-        // picked up on a later save even if an earlier save already set the
-        // status but matched the wrong (or no) record.
-        if ($customer->status === ShipmentCustomer::STATUS_PROBLEM) {
-            $this->matcher->propagateShipmentProblem($customer);
-        }
+        // Re-run on every save regardless of the new status (not just when
+        // it's Problem) — the sync is internally idempotent and re-evaluates
+        // ALL of this customer's shipment-customer records, so resolving the
+        // last remaining Problem (e.g. moving this one to Delivered) clears
+        // the Logistic Issues flag everywhere, while a customer with another
+        // still-active Problem shipment correctly keeps the flag set.
+        $this->matcher->syncShipmentDelayFlags($customer);
+        $this->matcher->syncDeliveryStatus($customer);
 
         $this->syncShipmentCompletionStatus($shipment);
 
@@ -264,24 +278,32 @@ class ShipmentController extends Controller
             ->with('success', 'Customer removed from shipment.');
     }
 
-    /** Replace a shipment customer's recorded product line items with the given rows (each requires a product_id). */
+    /**
+     * Replace a shipment customer's recorded product line items with the
+     * given rows — each row needs either a catalog product_id (matched via
+     * the search datalist on the form) or a manually-typed product_name.
+     */
     private function syncShipmentCustomerProducts(ShipmentCustomer $shipmentCustomer, array $rows): void
     {
-        $rows = collect($rows)->filter(fn ($row) => ! empty($row['product_id']))->values();
+        $rows = collect($rows)
+            ->filter(fn ($row) => ! empty($row['product_id']) || trim($row['product_name'] ?? '') !== '')
+            ->values();
 
         $shipmentCustomer->products()->delete();
 
         foreach ($rows as $row) {
-            $product = Product::find($row['product_id']);
-            if (! $product) {
+            $product = ! empty($row['product_id']) ? Product::find($row['product_id']) : null;
+            $name = $product?->name ?? trim($row['product_name'] ?? '');
+
+            if ($name === '') {
                 continue;
             }
 
             $shipmentCustomer->products()->create([
-                'product_id'   => $product->id,
-                'product_name' => $product->name,
-                'sku'          => $product->sku,
-                'price'        => $row['price'] ?? $product->price,
+                'product_id'   => $product?->id,
+                'product_name' => $name,
+                'sku'          => $product?->sku,
+                'price'        => $row['price'] ?? $product?->price,
                 'quantity'     => $row['quantity'] ?? 1,
             ]);
         }

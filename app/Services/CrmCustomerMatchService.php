@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
 /**
  * Cross-source customer matching, delay-propagation, and dedup for the CRM module.
  *
- * Mirrors the demo's matchByContact()/propagateShipmentProblem()/buildUnifiedCustomers()
+ * Mirrors the demo's matchByContact()/syncShipmentDelayFlags()/buildUnifiedCustomers()
  * behaviour, but writes through real Eloquent models instead of an in-memory store.
  */
 class CrmCustomerMatchService
@@ -95,14 +95,19 @@ class CrmCustomerMatchService
     }
 
     /**
-     * When a shipment customer is marked "Problem", flip the matching CRM lead
-     * to Logistic Issues, the matching eBay record's shipment_delay flag, and
-     * the base Customer record's own shipment_delay flag (so the flag shows up
-     * everywhere that customer appears — their own profile page included, not
-     * just the unified directory), recording the transition where each source
-     * keeps its own history trail.
+     * Keep the matching CRM lead's status, the matching eBay record's
+     * shipment_delay flag, and the base Customer record's own shipment_delay
+     * flag in sync with whether this customer currently has ANY shipment
+     * customer record in "Problem" status — a customer can appear on
+     * multiple shipments (or the same shipment more than once), so a single
+     * row being resolved back to Delivered must not clear the flag while
+     * another one of their shipments is still a Problem. Call this on every
+     * shipment-customer save, not just transitions into Problem, so a save
+     * that resolves the last remaining Problem correctly clears the flag
+     * everywhere that customer appears (their own profile page and eBay
+     * record included, not just the unified directory).
      */
-    public function propagateShipmentProblem(ShipmentCustomer $shipmentCustomer): void
+    public function syncShipmentDelayFlags(ShipmentCustomer $shipmentCustomer): void
     {
         $email = $shipmentCustomer->recipient_email;
         $phone = $shipmentCustomer->recipient_phone;
@@ -115,30 +120,108 @@ class CrmCustomerMatchService
         // which case contact matching alone would silently miss the real match.
         $lead = ($customerId ? Lead::where('customer_id', $customerId)->first() : null)
             ?? $this->findLeadByContact($email, $phone);
-        if ($lead && $lead->status !== WebsiteLeadStatus::DelayedShipment) {
-            $lead->update(['status' => WebsiteLeadStatus::DelayedShipment]);
-            LeadFollowUp::create([
-                'lead_id'           => $lead->id,
-                'user_id'           => auth()->id(),
-                'notes'             => 'Shipment marked as Problem — auto-flagged as Logistic Issues.',
-                'status_changed_to' => WebsiteLeadStatus::DelayedShipment,
-                'contacted_at'      => now(),
-            ]);
-        }
 
         $ebayRecord = ($customerId ? EbayCustomerRecord::where('customer_id', $customerId)->first() : null)
             ?? $this->findEbayRecordByContact($email, $phone);
-        if ($ebayRecord && ! $ebayRecord->shipment_delay) {
-            $ebayRecord->update(['shipment_delay' => true]);
-        }
 
         $customer = $customerId
             ? $shipmentCustomer->customer
             : $this->findCustomerByContact($email, $phone);
 
-        if ($customer && ! $customer->shipment_delay) {
-            $customer->update(['shipment_delay' => true]);
+        $hasActiveProblem = $this->customerHasActiveProblemShipment($customerId, $email, $phone);
+
+        if ($lead) {
+            if ($hasActiveProblem && $lead->status !== WebsiteLeadStatus::DelayedShipment) {
+                $lead->update(['status' => WebsiteLeadStatus::DelayedShipment]);
+                LeadFollowUp::create([
+                    'lead_id'           => $lead->id,
+                    'user_id'           => auth()->id(),
+                    'notes'             => 'Shipment marked as Problem — auto-flagged as Logistic Issues.',
+                    'status_changed_to' => WebsiteLeadStatus::DelayedShipment,
+                    'contacted_at'      => now(),
+                ]);
+            } elseif (! $hasActiveProblem && $lead->status === WebsiteLeadStatus::DelayedShipment) {
+                $lead->update(['status' => WebsiteLeadStatus::InDelivery]);
+                LeadFollowUp::create([
+                    'lead_id'           => $lead->id,
+                    'user_id'           => auth()->id(),
+                    'notes'             => 'All linked shipments resolved — auto-cleared Logistic Issues.',
+                    'status_changed_to' => WebsiteLeadStatus::InDelivery,
+                    'contacted_at'      => now(),
+                ]);
+            }
         }
+
+        if ($ebayRecord && $ebayRecord->shipment_delay !== $hasActiveProblem) {
+            $ebayRecord->update(['shipment_delay' => $hasActiveProblem]);
+        }
+
+        if ($customer && $customer->shipment_delay !== $hasActiveProblem) {
+            $customer->update(['shipment_delay' => $hasActiveProblem]);
+        }
+    }
+
+    /**
+     * When a shipment-customer is marked Delivered, flip the matched
+     * Lead's status to Delivered too. WebsiteLeadStatus::Delivered already
+     * existed as a terminal status (excluded from the Active/Follow-Up-Due
+     * scopes) but nothing ever actually set it — a lead stayed on whatever
+     * status it had before the shipment finished (e.g. "In Delivery"), so
+     * the Customer Database page kept showing a stale status even after
+     * the delivery was complete. Skips a lead that's already terminal
+     * (Delivered/Lost) so this can't resurrect a lead a staff member
+     * deliberately marked Lost.
+     */
+    public function syncDeliveryStatus(ShipmentCustomer $shipmentCustomer): void
+    {
+        if ($shipmentCustomer->status !== ShipmentCustomer::STATUS_DELIVERED) {
+            return;
+        }
+
+        $customerId = $shipmentCustomer->customer_id;
+        $lead = ($customerId ? Lead::where('customer_id', $customerId)->first() : null)
+            ?? $this->findLeadByContact($shipmentCustomer->recipient_email, $shipmentCustomer->recipient_phone);
+
+        if (! $lead || in_array($lead->status, [WebsiteLeadStatus::Delivered, WebsiteLeadStatus::Lost], true)) {
+            return;
+        }
+
+        $lead->update(['status' => WebsiteLeadStatus::Delivered]);
+        LeadFollowUp::create([
+            'lead_id'           => $lead->id,
+            'user_id'           => auth()->id(),
+            'notes'             => 'Shipment marked as Delivered.',
+            'status_changed_to' => WebsiteLeadStatus::Delivered,
+            'contacted_at'      => now(),
+        ]);
+    }
+
+    /**
+     * Whether this customer (resolved via customer_id and/or contact info)
+     * has any shipment-customer record — on any shipment — still in Problem
+     * status. Matches on all known signals (not just customer_id) since some
+     * shipment rows for the same real customer may predate the customer_id
+     * link and only be identifiable by contact info.
+     */
+    private function customerHasActiveProblemShipment(?int $customerId, ?string $email, ?string $phone): bool
+    {
+        if (! $customerId && ! $email && ! $phone) {
+            return false;
+        }
+
+        return ShipmentCustomer::where('status', ShipmentCustomer::STATUS_PROBLEM)
+            ->where(function ($q) use ($customerId, $email, $phone) {
+                if ($customerId) {
+                    $q->orWhere('customer_id', $customerId);
+                }
+                if ($email) {
+                    $q->orWhere('recipient_email', $email);
+                }
+                if ($phone) {
+                    $q->orWhere('recipient_phone', $phone);
+                }
+            })
+            ->exists();
     }
 
     /**
@@ -193,7 +276,7 @@ class CrmCustomerMatchService
             }
         };
 
-        Lead::with('handler')->get()->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
+        Lead::with('handler', 'techSupportCase')->get()->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
             $k = $keysFor($lead->client_email, $lead->client_phone, 'lead-' . $lead->id, $lead->customer_id);
             if ($anySeen($k)) {
                 return;
@@ -207,19 +290,20 @@ class CrmCustomerMatchService
                 'name'        => $lead->client_name,
                 'email'       => $lead->client_email,
                 'phone'       => $lead->client_phone,
-                'status_label'=> $lead->status->label(),
-                'status_color'=> $lead->status->color(),
+                'status_label'=> $lead->status?->label() ?? '',
+                'status_color'=> $lead->status?->color() ?? '#94a3b8',
+                'occurrence_label' => $lead->techSupportCase?->occurrence_label,
                 'handler'     => $lead->handler?->name,
                 'link'        => route('crm.website.show', $lead),
                 'category'    => match (true) {
-                    $lead->status === WebsiteLeadStatus::TechnicalSupport   => 'technical',
-                    $lead->status === WebsiteLeadStatus::DelayedShipment    => 'shipment_delay',
+                    $lead->status === WebsiteLeadStatus::TechnicalSupport => 'technical',
+                    $lead->status === WebsiteLeadStatus::DelayedShipment  => 'shipment_delay',
                     default => null,
                 },
             ]);
         });
 
-        EbayCustomerRecord::with('handlerHistory.user')->get()->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
+        EbayCustomerRecord::with('handlerHistory.user', 'techSupportCase')->get()->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
             $k = $keysFor($record->email, $record->phone, 'ebay-' . $record->id, $record->customer_id);
             if ($anySeen($k)) {
                 return;
@@ -235,8 +319,9 @@ class CrmCustomerMatchService
                 'phone'       => $record->phone,
                 'status_label'=> $record->shipment_delay ? 'Logistic issues' : (EbayCustomerRecord::tabs()[$record->tab_type] ?? $record->tab_type),
                 'status_color'=> $record->shipment_delay ? EbayCustomerRecord::LOGISTIC_ISSUES_COLOR : EbayCustomerRecord::tabColor($record->tab_type),
+                'occurrence_label' => $record->techSupportCase?->occurrence_label,
                 'handler'     => $record->current_handler?->name,
-                'link'        => route('crm.ebay.customers.edit', $record),
+                'link'        => route('crm.ebay.customers.show', $record),
                 'category'    => match (true) {
                     $record->tab_type === EbayCustomerRecord::TAB_TECHNICAL => 'technical',
                     $record->shipment_delay => 'shipment_delay',
@@ -266,12 +351,19 @@ class CrmCustomerMatchService
                     'status_label'=> 'Logistic issues',
                     'status_color'=> EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
                     'handler'     => null,
-                    'link'        => route('crm.logistics.shipments.show', $sc->shipment_id),
+                    // Prefer the actual customer's own profile over the shipment
+                    // page — a customer can have several shipments (some fine,
+                    // some not), so landing on one specific delivery is less
+                    // useful than landing on the person. Falls back to the
+                    // shipment only when there's no linked Customer to send them to.
+                    'link'        => $sc->customer_id
+                        ? route('crm.customers.show', $sc->customer_id)
+                        : route('crm.logistics.shipments.show', $sc->shipment_id),
                     'category'    => 'shipment_delay',
                 ]);
             });
 
-        Customer::with('assignee')->get()->each(function (Customer $customer) use (&$out, $keysFor, $anySeen, $reserve) {
+        Customer::with('assignee', 'latestTechSupportCase')->get()->each(function (Customer $customer) use (&$out, $keysFor, $anySeen, $reserve) {
             // Reserving/checking its own id alongside email+phone means this
             // correctly cross-matches an earlier row whether that row was
             // linked via customer_id or only matched by contact info.
@@ -296,6 +388,7 @@ class CrmCustomerMatchService
                 'phone'       => $customer->phone,
                 'status_label'=> $customer->shipment_delay ? 'Logistic issues' : ($customer->status?->label() ?? $customer->status),
                 'status_color'=> $customer->shipment_delay ? EbayCustomerRecord::LOGISTIC_ISSUES_COLOR : ($customer->status?->color() ?? '#94a3b8'),
+                'occurrence_label' => $customer->latestTechSupportCase?->occurrence_label,
                 'handler'     => $customer->assignee?->name,
                 'link'        => route('crm.customers.show', $customer),
                 'category'    => $customer->shipment_delay ? 'shipment_delay' : null,

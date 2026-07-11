@@ -62,7 +62,7 @@ class WebsiteLeadProductsTest extends TestCase
         $this->assertNotEquals(WebsiteLeadStatus::Successful, $lead->fresh()->status);
     }
 
-    public function test_marking_successful_via_quick_status_with_products_succeeds(): void
+    public function test_marking_successful_via_quick_status_with_a_catalog_product_succeeds(): void
     {
         $lead = $this->makeLead();
         $product = $this->makeProduct('Excavator X1', 'SKU-X1', 15000);
@@ -77,46 +77,30 @@ class WebsiteLeadProductsTest extends TestCase
         $response->assertOk();
         $lead->refresh();
         $this->assertEquals(WebsiteLeadStatus::Successful, $lead->status);
+        $this->assertCount(1, $lead->orders);
         $this->assertCount(1, $lead->products);
         $this->assertEquals('Excavator X1', $lead->products[0]->product_name);
         $this->assertEquals('SKU-X1', $lead->products[0]->sku);
         $this->assertEquals(14500, $lead->products[0]->price);
     }
 
-    public function test_marking_successful_via_edit_form_without_products_fails(): void
+    public function test_marking_successful_with_a_manually_typed_product_name_succeeds(): void
     {
         $lead = $this->makeLead();
 
-        $response = $this->actingAs($this->user)->put(route('crm.website.update', $lead), [
-            'client_name' => 'Test Client',
-            'source'      => InquirySource::Website->value,
-            'status'      => WebsiteLeadStatus::Successful->value,
-        ]);
-
-        $response->assertRedirect(route('crm.website.edit', $lead));
-        $response->assertSessionHasErrors('products');
-        $this->assertNotEquals(WebsiteLeadStatus::Successful, $lead->fresh()->status);
-    }
-
-    public function test_marking_successful_via_edit_form_with_products_succeeds(): void
-    {
-        $lead = $this->makeLead();
-        $product = $this->makeProduct('Forklift F2', 'SKU-F2', 8000);
-
-        $response = $this->actingAs($this->user)->put(route('crm.website.update', $lead), [
-            'client_name' => 'Test Client',
-            'source'      => InquirySource::Website->value,
-            'status'      => WebsiteLeadStatus::Successful->value,
-            'products'    => [
-                ['product_id' => $product->id, 'price' => 7800, 'quantity' => 2],
+        $response = $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
+            'status'   => WebsiteLeadStatus::Successful->value,
+            'products' => [
+                ['product_name' => 'Custom Bucket Attachment', 'price' => 300, 'quantity' => 1],
             ],
         ]);
 
-        $response->assertRedirect(route('crm.website.show', $lead));
+        $response->assertOk();
         $lead->refresh();
         $this->assertEquals(WebsiteLeadStatus::Successful, $lead->status);
         $this->assertCount(1, $lead->products);
-        $this->assertEquals(2, $lead->products[0]->quantity);
+        $this->assertNull($lead->products[0]->product_id);
+        $this->assertEquals('Custom Bucket Attachment', $lead->products[0]->product_name);
     }
 
     public function test_non_successful_status_changes_never_require_products(): void
@@ -131,44 +115,120 @@ class WebsiteLeadProductsTest extends TestCase
         $this->assertEquals(WebsiteLeadStatus::Contacted, $lead->fresh()->status);
     }
 
-    public function test_editing_an_already_successful_lead_replaces_its_product_line_items(): void
+    public function test_marking_successful_again_on_an_already_successful_lead_adds_a_new_order_instead_of_replacing(): void
     {
         $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
-        $oldProduct = $this->makeProduct('Old Product', 'OLD-1');
-        $lead->products()->create([
-            'product_id' => $oldProduct->id, 'product_name' => 'Old Product', 'sku' => 'OLD-1',
-            'price' => 100, 'quantity' => 1,
+
+        $firstProduct = $this->makeProduct('First Sale', 'F-1', 100);
+        $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
+            'status'   => WebsiteLeadStatus::Successful->value,
+            'products' => [['product_id' => $firstProduct->id, 'price' => 100, 'quantity' => 1]],
+        ])->assertOk();
+
+        $secondProduct = $this->makeProduct('Second Sale', 'S-1', 200);
+        $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
+            'status'   => WebsiteLeadStatus::Successful->value,
+            'products' => [['product_id' => $secondProduct->id, 'price' => 200, 'quantity' => 1]],
+        ])->assertOk();
+
+        $lead->refresh();
+        $this->assertCount(2, $lead->orders);
+        $this->assertCount(2, $lead->products);
+        $this->assertEqualsCanonicalizing(['First Sale', 'Second Sale'], $lead->products->pluck('product_name')->all());
+    }
+
+    public function test_store_order_logs_a_new_order_on_an_existing_lead(): void
+    {
+        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+        $product = $this->makeProduct('Repeat Purchase', 'RP-1', 750);
+
+        $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'products' => [['product_id' => $product->id, 'price' => 700, 'quantity' => 1]],
         ]);
 
-        $newProduct = $this->makeProduct('New Product', 'NEW-1', 500);
+        $response->assertOk();
+        $lead->refresh();
+        $this->assertCount(1, $lead->orders);
+        $this->assertEquals(700, $lead->products[0]->price);
+    }
 
-        $this->actingAs($this->user)->put(route('crm.website.update', $lead), [
+    public function test_store_order_allows_a_manually_typed_product_with_no_catalog_match(): void
+    {
+        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+
+        $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'products' => [['product_name' => 'One-off Custom Part', 'price' => 45]],
+        ]);
+
+        $response->assertOk();
+        $lead->refresh();
+        $this->assertCount(1, $lead->products);
+        $this->assertNull($lead->products[0]->product_id);
+        $this->assertEquals('One-off Custom Part', $lead->products[0]->product_name);
+    }
+
+    public function test_store_order_requires_at_least_one_product(): void
+    {
+        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+
+        $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'products' => [],
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_store_order_does_not_delete_previous_orders(): void
+    {
+        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+        $productA = $this->makeProduct('Order A Item');
+        $productB = $this->makeProduct('Order B Item');
+
+        $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'products' => [['product_id' => $productA->id, 'price' => 100]],
+        ])->assertOk();
+        $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'products' => [['product_id' => $productB->id, 'price' => 200]],
+        ])->assertOk();
+
+        $lead->refresh();
+        $this->assertCount(2, $lead->orders);
+        $this->assertCount(2, $lead->products);
+    }
+
+    /**
+     * The Edit Lead form used to embed a "Products Sold" fieldset that
+     * re-synced products on every save (wipe-and-replace). Under the
+     * additive order-history model that would silently create a duplicate
+     * order on every unrelated field edit, so it was removed — editing a
+     * lead's own fields no longer touches products at all.
+     */
+    public function test_editing_lead_details_no_longer_touches_products(): void
+    {
+        $lead = $this->makeLead();
+
+        $response = $this->actingAs($this->user)->put(route('crm.website.update', $lead), [
             'client_name' => 'Test Client',
             'source'      => InquirySource::Website->value,
             'status'      => WebsiteLeadStatus::Successful->value,
-            'products'    => [
-                ['product_id' => $newProduct->id, 'price' => 500, 'quantity' => 1],
-            ],
         ]);
 
+        $response->assertRedirect(route('crm.website.show', $lead));
         $lead->refresh();
-        $this->assertCount(1, $lead->products);
-        $this->assertEquals('New Product', $lead->products[0]->product_name);
+        $this->assertEquals(WebsiteLeadStatus::Successful, $lead->status);
+        $this->assertCount(0, $lead->products);
     }
 
-    public function test_edit_and_show_pages_render_with_products_present(): void
+    public function test_show_page_renders_order_history_when_orders_exist(): void
     {
-        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+        $lead = $this->makeLead();
         $product = $this->makeProduct('Excavator X1', 'SKU-X1', 15000);
-        $lead->products()->create([
-            'product_id' => $product->id, 'product_name' => 'Excavator X1', 'sku' => 'SKU-X1',
-            'price' => 14500, 'quantity' => 1,
-        ]);
-
-        $this->actingAs($this->user)->get(route('crm.website.edit', $lead))
-            ->assertOk()->assertSee('Excavator X1');
+        $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
+            'status'   => WebsiteLeadStatus::Successful->value,
+            'products' => [['product_id' => $product->id, 'price' => 14500, 'quantity' => 1]],
+        ])->assertOk();
 
         $this->actingAs($this->user)->get(route('crm.website.show', $lead))
-            ->assertOk()->assertSee('Products Sold');
+            ->assertOk()->assertSee('Order History')->assertSee('Excavator X1');
     }
 }

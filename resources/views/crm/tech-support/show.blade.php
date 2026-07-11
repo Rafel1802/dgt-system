@@ -9,8 +9,8 @@
   followUpLoading: false,
   requestCallLoading: false,
   showFollowUp: false,
-  showCompleteCall: null,
-  completeCallLoading: false,
+  showRequestCall: false,
+  requestCallNote: '',
 
   async changeStatus(newStatus) {
     this.statusLoading = true;
@@ -56,30 +56,18 @@
   },
 
   async requestCall() {
+    if (!this.requestCallNote.trim()) {
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A note is required so CRM Website knows why to call.', type: 'error' } }));
+      return;
+    }
     this.requestCallLoading = true;
     try {
-      await window.api('{{ route('crm.tech-support.request-call', $case) }}', { method: 'POST' });
+      await window.api('{{ route('crm.tech-support.request-call', $case) }}', { method: 'POST', body: JSON.stringify({ note: this.requestCallNote }) });
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Call requested!', type: 'success' } }));
       setTimeout(() => location.reload(), 700);
     } catch (err) {
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
     } finally { this.requestCallLoading = false; }
-  },
-
-  async completeCall(event, callRequestId) {
-    this.completeCallLoading = true;
-    try {
-      const fd = new FormData(event.target);
-      const url = '{{ route('crm.tech-support.complete-call', [$case, '__CALL_REQUEST_ID__']) }}'.replace('__CALL_REQUEST_ID__', callRequestId);
-      await window.api(url, {
-        method: 'POST',
-        body: JSON.stringify({ summary: fd.get('summary'), status: fd.get('status') || null }),
-      });
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Call completed!', type: 'success' } }));
-      setTimeout(() => location.reload(), 700);
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
-    } finally { this.completeCallLoading = false; }
   },
 }">
 
@@ -104,6 +92,9 @@
           <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full inline-block mt-1" style="background:{{ $color }}22; color:{{ $color }}">
             {{ $statuses[$case->status] ?? $case->status }}
           </span>
+          @if($case->occurrence_label)
+          <p class="text-xs text-amber-600 font-semibold mt-2">🔁 {{ \App\Models\TechSupportCase::ordinal($case->occurrence_count) }} technical issue reported for this customer</p>
+          @endif
         </div>
 
         <div class="mt-4 space-y-2.5 border-t border-slate-100 pt-4">
@@ -165,7 +156,7 @@
 
         {{-- Request Call --}}
         <div class="mt-4 pt-4 border-t border-slate-100">
-          <button @click="requestCall()" :disabled="requestCallLoading" class="btn btn-primary text-sm w-full">📞 Request Call</button>
+          <button @click="showRequestCall = true" class="btn btn-primary text-sm w-full">📞 Request Call</button>
         </div>
       </div>
 
@@ -200,37 +191,16 @@
         @endif
       </div>
 
-      {{-- Pending Call Requests --}}
-      @if($case->callRequests->where('fulfilled', false)->count())
+      {{-- Call Requests — only the still-pending ones; once called, the outcome is logged on the Follow-Up Log instead (see logCallCompletedOnCase()) so it isn't shown twice. --}}
+      @php $pendingCallRequests = $case->callRequests->where('fulfilled', false); @endphp
+      @if($pendingCallRequests->count())
       <div class="card">
-        <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Pending Call Requests</h4>
-        @foreach($case->callRequests->where('fulfilled', false) as $cr)
+        <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Call Requests</h4>
+        @foreach($pendingCallRequests as $cr)
         <div class="border border-amber-200 bg-amber-50 rounded-xl p-3 mb-2">
+          <p class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Awaiting CRM Website Callback</p>
           <p class="text-sm text-slate-700">{{ $cr->note }}</p>
           <p class="text-xs text-slate-400 mt-1">Requested {{ $cr->created_at->format('d M Y, g:ia') }}</p>
-          <button @click="showCompleteCall = {{ $cr->id }}" class="btn btn-primary text-xs mt-2 w-full">Complete Call</button>
-
-          <div x-show="showCompleteCall === {{ $cr->id }}" x-cloak class="mt-3 pt-3 border-t border-amber-200 space-y-2">
-            <form @submit.prevent="completeCall($event, {{ $cr->id }})" class="space-y-2">
-              <div>
-                <label class="form-label text-xs">Call Summary <span class="text-red-500">*</span></label>
-                <textarea name="summary" rows="3" class="form-input text-sm" required></textarea>
-              </div>
-              <div>
-                <label class="form-label text-xs">Update Status (optional)</label>
-                <select name="status" class="form-input text-sm">
-                  <option value="">No change</option>
-                  @foreach($statuses as $key => $label)
-                  <option value="{{ $key }}">{{ $label }}</option>
-                  @endforeach
-                </select>
-              </div>
-              <div class="flex gap-2">
-                <button type="button" @click="showCompleteCall = null" class="btn btn-secondary text-xs flex-1">Cancel</button>
-                <button type="submit" :disabled="completeCallLoading" class="btn btn-primary text-xs flex-1">Save</button>
-              </div>
-            </form>
-          </div>
         </div>
         @endforeach
       </div>
@@ -251,12 +221,12 @@
           @forelse($case->logs as $log)
           <div class="border border-slate-100 rounded-xl p-3">
             <div class="flex items-center gap-2 mb-1 flex-wrap">
-              <span class="badge text-xs px-2 py-0.5 rounded-full {{ $log->type === 'call_completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">
-                {{ $log->type === 'call_completed' ? '📞 Call Completed' : '📝 Follow-Up' }}
+              <span class="badge text-xs px-2 py-0.5 rounded-full {{ match($log->type) { 'call_completed' => 'bg-emerald-50 text-emerald-700', 'reopened' => 'bg-amber-50 text-amber-700', default => 'bg-slate-100 text-slate-600' } }}">
+                {{ match($log->type) { 'call_completed' => '📞 Call Completed', 'reopened' => '🔁 New Issue Reported', default => '📝 Follow-Up' } }}
               </span>
               <span class="text-xs text-slate-400 ml-auto">{{ $log->created_at->format('d M Y, g:ia') }}</span>
             </div>
-            <p class="text-sm text-slate-700">{{ $log->note }}</p>
+            <p class="text-sm text-slate-700 whitespace-pre-wrap">{{ $log->note }}</p>
             @if($log->attachments->count())
             <div class="flex flex-wrap gap-2 mt-2">
               @foreach($log->attachments as $att)
@@ -269,6 +239,16 @@
             <div class="flex items-center gap-1 mt-2">
               <img src="{{ $log->user?->avatar_url }}" class="w-4 h-4 rounded-full">
               <span class="text-xs text-slate-400">{{ $log->user?->name }}</span>
+              @if($log->user_id === auth()->id())
+              <form method="POST" action="{{ route('crm.tech-support.follow-up.destroy', [$case, $log]) }}" class="ml-auto"
+                    data-confirm-title="Delete this log entry?"
+                    data-confirm="This will permanently remove this entry from the Follow-Up Logs."
+                    data-confirm-text="Delete"
+                    data-confirm-tone="danger">
+                @csrf @method('DELETE')
+                <button type="submit" class="text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
+              </form>
+              @endif
             </div>
           </div>
           @empty
@@ -301,6 +281,32 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  {{-- Request Call Modal --}}
+  <div x-show="showRequestCall" x-cloak class="modal-overlay" @keydown.escape.window="showRequestCall = false">
+    <div class="modal-box max-w-lg" @click.stop>
+      <div class="modal-header">
+        <h3 class="font-display font-bold text-slate-800">Request Call</h3>
+        <button @click="showRequestCall = false" class="btn btn-secondary btn-icon ml-auto">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="form-label">Note <span class="text-red-500">*</span></label>
+          <textarea x-model="requestCallNote" rows="3" class="form-input" placeholder="Why does CRM Website need to call this customer?"></textarea>
+          <p class="text-xs text-slate-400 mt-1">Required — this is what the CRM Website team will see when they make the call.</p>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button @click="showRequestCall = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="requestCall()" :disabled="requestCallLoading" class="btn btn-primary flex-1">
+            <span x-show="!requestCallLoading">Send Request</span>
+            <span x-show="requestCallLoading" x-cloak>Sending…</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

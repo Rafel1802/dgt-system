@@ -12,8 +12,11 @@ use App\Models\EbayCustomerOrder;
 use App\Models\EbayCustomerRecord;
 use App\Models\EbayCustomerStatusHistory;
 use App\Models\EbayStore;
+use App\Models\TechSupportCase;
 use App\Models\User;
 use App\Services\CrmCustomerMatchService;
+use App\Services\CrmService;
+use App\Services\TechSupportCaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,14 +25,16 @@ use Illuminate\View\View;
 
 class EbayCustomerController extends Controller
 {
-    public function __construct(private readonly CrmCustomerMatchService $matcher)
-    {
-    }
+    public function __construct(
+        private readonly CrmCustomerMatchService $matcher,
+        private readonly CrmService $crmService,
+        private readonly TechSupportCaseService $techSupportCases,
+    ) {}
 
     /** One combined list across all 6 statuses; status is a filter, not a URL segment */
     public function index(Request $request): View
     {
-        $query = EbayCustomerRecord::with(['store', 'creator']);
+        $query = EbayCustomerRecord::with(['store', 'creator', 'customer', 'techSupportCase']);
 
         $tabType = $request->get('tab_type');
         if ($tabType && array_key_exists($tabType, EbayCustomerRecord::tabs())) {
@@ -121,8 +126,18 @@ class EbayCustomerController extends Controller
             'statusHistory.changedBy',
             'followUps.user',
             'orders' => fn ($q) => $q->with(['items', 'store']),
-            'store', 'customer',
+            'store', 'customer', 'techSupportCase',
         ]);
+
+        // Viewing this customer's eBay record counts as viewing the outcome
+        // of any of their technical support cases (not just the one sourced
+        // from this record — a customer can also have a case via a Website
+        // lead), same as opening the customer's own profile.
+        $this->techSupportCases->markCallCompletedNotificationsRead(
+            $record->customer_id
+                ? TechSupportCase::where('customer_id', $record->customer_id)->pluck('id')->all()
+                : []
+        );
 
         return view('crm.ebay.customers.show', [
             'record'   => $record,
@@ -179,16 +194,41 @@ class EbayCustomerController extends Controller
             ->with('success', 'Record updated.');
     }
 
+    /**
+     * Deleting an eBay customer record that's linked to a Customer
+     * permanently deletes that customer too, cascading everything tied to
+     * them across every CRM domain (leads, other eBay records, shipments,
+     * tech support cases) — same as deleting from the Customer Database
+     * page directly, and the same rule Lead deletion already follows.
+     * Otherwise the customer row (and their data) would be left behind and
+     * keep showing up on the Customer Database page.
+     */
     public function destroy(EbayCustomerRecord $record): RedirectResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, CRM Supervisor, or Boss can delete eBay records.');
+
         $tabType = $record->tab_type;
+
+        if ($record->customer) {
+            $customerName = $record->customer->name;
+            $this->crmService->deleteCascading($record->customer);
+
+            return redirect()->route('crm.ebay.customers.index', ['tab_type' => $tabType])
+                ->with('success', "Record deleted — \"{$customerName}\" and all their related data have been permanently removed too.");
+        }
+
         $record->delete();
 
         return redirect()->route('crm.ebay.customers.index', ['tab_type' => $tabType])
             ->with('success', 'Record deleted.');
     }
 
-    /** Close the current handler-history entry and open a new one for the selected staff member */
+    /**
+     * Close the current handler-history entry and open a new one for the
+     * selected staff member. The new assignment starts unconfirmed —
+     * surfaced in the assignee's profile dropdown (not the notification
+     * bell) with a Confirm action, see confirmHandler() below.
+     */
     public function switchHandler(Request $request, EbayCustomerRecord $record): JsonResponse
     {
         $validated = $request->validate(['user_id' => ['required', 'exists:users,id']]);
@@ -208,6 +248,33 @@ class EbayCustomerController extends Controller
         ]);
     }
 
+    /** The assigned handler confirms they've seen/accepted this assignment. */
+    public function confirmHandler(EbayCustomerHandlerHistory $entry): RedirectResponse
+    {
+        abort_unless($entry->user_id === auth()->id(), 403, 'Only the assigned handler can confirm this assignment.');
+
+        $entry->update(['confirmed_at' => now()]);
+
+        return redirect()->route('crm.ebay.customers.show', $entry->ebay_customer_record_id)
+            ->with('success', 'Assignment confirmed.');
+    }
+
+    /**
+     * A staff member's full handler-assignment history — every switch-handler
+     * event that ever put a customer record in their hands, not just the
+     * still-pending confirmations shown in the profile dropdown. Own history
+     * only; there's no cross-staff view here.
+     */
+    public function handlerHistory(): View
+    {
+        $entries = EbayCustomerHandlerHistory::where('user_id', auth()->id())
+            ->with('record')
+            ->latest('started_at')
+            ->paginate(30);
+
+        return view('crm.ebay.customers.handler-history', compact('entries'));
+    }
+
     /** Log a follow-up note against this customer record */
     public function logFollowUp(Request $request, EbayCustomerRecord $record): JsonResponse
     {
@@ -224,6 +291,17 @@ class EbayCustomerController extends Controller
             'message'   => 'Follow-up logged.',
             'follow_up' => $followUp->load('user'),
         ]);
+    }
+
+    /** A staff member can delete their own follow-up entries — not anyone else's, so the notes log stays an honest record of who said what. */
+    public function destroyFollowUp(EbayCustomerRecord $record, EbayCustomerFollowUp $followUp): RedirectResponse
+    {
+        abort_unless($followUp->ebay_customer_record_id === $record->id, 404);
+        abort_unless($followUp->user_id === auth()->id(), 403, 'You can only delete your own follow-up entries.');
+
+        $followUp->delete();
+
+        return redirect()->route('crm.ebay.customers.show', $record)->with('success', 'Follow-up entry deleted.');
     }
 
     /** Log another purchased order for an existing customer, from the record's Purchase History */

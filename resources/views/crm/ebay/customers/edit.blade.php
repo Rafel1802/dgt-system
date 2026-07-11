@@ -177,7 +177,11 @@
       </div>
 
       <div class="px-6 py-4 flex items-center justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('ebay'))
         <button type="submit" form="delete-ebay-record-form" class="btn btn-secondary text-red-500 hover:text-red-600 text-sm">Delete</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.ebay.customers.index', ['tab_type' => $record->tab_type]) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -185,10 +189,17 @@
       </div>
     </form>
 
+    @php
+      $ebayDeleteConfirmMsg = $record->customer
+          ? 'This record is linked to "' . $record->customer->name . '" — deleting it will PERMANENTLY delete that customer and everything tied to them across every CRM domain (leads, other eBay records, shipments, tech support cases). This cannot be undone.'
+          : 'Delete this record?';
+    @endphp
+    @if(auth()->user()->canDeleteCrmRecords('ebay'))
     <form id="delete-ebay-record-form" method="POST" action="{{ route('crm.ebay.customers.destroy', $record) }}"
-          onsubmit="return confirm('Delete this record?')" class="hidden">
+          onsubmit="return confirm({{ \Illuminate\Support\Js::from($ebayDeleteConfirmMsg) }})" class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection
