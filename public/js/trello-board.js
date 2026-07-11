@@ -9,7 +9,7 @@
 // Safe guard flag to prevent live production board from flickering/auto-refreshing
 const ENABLE_BOARD_REALTIME_SYNC = false;
 
-function trelloBoard(config) {
+window.trelloBoard = function(config) {
   return {
     // ── State ────────────────────────────────────────────────────────────────
     board:      config.board || { id: config.boardId, name: '', slug: config.boardSlug, is_starred: false },

@@ -62,8 +62,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         import * as Turbo from "https://unpkg.com/@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js";
         Turbo.setProgressBarDelay(0);
     </script>
-    <script src="https://instant.page/5.2.0" type="module" integrity="sha384-jnZyxPjiipYXnSU0ygqeac2q7CVYMbh84q0uHVRRxm3jF-bsaH022026/GkU-A6J"></script>
-
+    <script src="{{ asset('js/workspace-alpine.js') }}?v={{ time() }}" data-turbo-track="reload"></script>
     <!-- Vite assets (Tailwind CSS + Alpine.js) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
