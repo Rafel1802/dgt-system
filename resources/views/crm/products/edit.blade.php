@@ -71,7 +71,7 @@
           <div>
             <label class="form-label">Currency</label>
             <select name="currency" class="form-input">
-              @foreach(['AUD','USD','EUR','GBP','SGD'] as $cur)
+              @foreach(['USD','AUD','EUR','GBP','SGD'] as $cur)
               <option value="{{ $cur }}" {{ old('currency', $product->currency) === $cur ? 'selected' : '' }}>{{ $cur }}</option>
               @endforeach
             </select>
@@ -107,19 +107,25 @@
       </div>
 
       <div class="px-6 py-4 flex items-center justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('website'))
         <button type="submit" form="delete-product-form" class="btn btn-secondary text-red-500 hover:text-red-600 text-sm">
           Delete Product
         </button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.products.index') }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" form="update-product-form" class="btn btn-primary">Save Changes</button>
         </div>
       </div>
     </form>
-    
+
+    @if(auth()->user()->canDeleteCrmRecords('website'))
     <form id="delete-product-form" method="POST" action="{{ route('crm.products.destroy', $product) }}" data-confirm="Delete this product?">
         @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

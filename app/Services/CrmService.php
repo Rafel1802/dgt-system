@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Enums\CustomerStatus;
 use App\Enums\DealStage;
+use App\Enums\WebsiteLeadStatus;
 use App\Models\Customer;
 use App\Models\CustomerInteraction;
-use App\Models\Deal;
+use App\Models\EbayCustomerOrderItem;
+use App\Models\LeadProduct;
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,7 @@ class CrmService
     public function searchCustomers(array $filters, User $user): LengthAwarePaginator
     {
         $query = Customer::with(['assignee:id,name,avatar', 'creator:id,name'])
-            ->withCount(['interactions', 'deals']);
+            ->withCount('interactions');
 
         // Role-based visibility: sales-crm only sees their assigned customers
         if ($user->hasRole('sales-crm') && ! $user->hasAnyRole(['admin', 'supervisor', 'super-admin'])) {
@@ -160,33 +162,45 @@ class CrmService
     }
 
     /**
-     * Get pipeline data grouped by deal stage.
+     * Permanently delete a customer and everything linked to them across
+     * every CRM domain — interactions, leads, eBay records/orders, shipment
+     * links, tech support cases, logistics, and their own children — via
+     * the customer_id foreign keys, which are all ON DELETE CASCADE.
+     *
+     * The polymorphic attachment/call-request tables have no real foreign
+     * key (attachable_type/id, source_type/id), so DB cascades can't reach
+     * them — they're cleaned up explicitly here before the hard delete.
      */
-    public function getPipelineData(User $user): array
+    public function deleteCascading(Customer $customer): void
     {
-        $query = Deal::with([
-            'customer:id,name,email,company,avatar',
-            'assignee:id,name,avatar',
-        ])->whereNotNull('id')->orderBy('position');
+        DB::transaction(function () use ($customer) {
+            $customer->attachments()->delete();
 
-        if ($user->hasRole('sales-crm') && ! $user->hasAnyRole(['admin', 'supervisor', 'super-admin'])) {
-            $query->where('assigned_to', $user->id);
-        }
+            foreach ($customer->leads as $lead) {
+                $lead->attachments()->delete();
+            }
 
-        $deals = $query->get();
+            foreach ($customer->ebayCustomerRecords as $record) {
+                $record->attachments()->delete();
+            }
 
-        $pipeline = [];
-        foreach (DealStage::pipelineColumns() as $stage) {
-            $stageDeals = $deals->where('stage', $stage);
-            $pipeline[$stage->value] = [
-                'stage'        => $stage,
-                'deals'        => $stageDeals->values(),
-                'total_value'  => $stageDeals->sum('value'),
-                'count'        => $stageDeals->count(),
-            ];
-        }
+            foreach ($customer->ebayOffers as $offer) {
+                $offer->attachments()->delete();
+            }
 
-        return $pipeline;
+            foreach ($customer->logistics as $logistic) {
+                $logistic->attachments()->delete();
+            }
+
+            foreach ($customer->techSupportCases as $case) {
+                foreach ($case->logs as $log) {
+                    $log->attachments()->delete();
+                }
+                $case->callRequests()->delete();
+            }
+
+            $customer->forceDelete();
+        });
     }
 
     /**
@@ -199,9 +213,23 @@ class CrmService
             'leads'         => Customer::byStatus('lead')->count(),
             'active'        => Customer::byStatus('active')->count(),
             'purchased'     => Customer::purchased()->count(),
-            'total_value'   => Customer::sum('lifetime_value'),
-            'pipeline_value' => Deal::where('stage', '!=', DealStage::Lost->value)->sum('value'),
-            'deals_won'     => Deal::where('stage', DealStage::Won->value)->count(),
+            'total_value'   => $this->totalSales(),
         ];
+    }
+
+    /**
+     * Real total revenue: eBay + Website sales (order-item prices), not the
+     * unmaintained Customer.lifetime_value field — mirrors the "Total Sales"
+     * calculation used on the Team Report page.
+     */
+    private function totalSales(): float
+    {
+        $ebaySales = (float) EbayCustomerOrderItem::sum('price');
+
+        $websiteSales = (float) LeadProduct::whereHas('lead', fn ($q) => $q->where('status', WebsiteLeadStatus::Successful))
+            ->get()
+            ->sum(fn ($p) => $p->price * $p->quantity);
+
+        return $ebaySales + $websiteSales;
     }
 }

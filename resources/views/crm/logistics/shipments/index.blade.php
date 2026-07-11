@@ -7,7 +7,7 @@
   {{-- ── Toolbar ──────────────────────────────────────────────────────────── --}}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <div class="flex gap-2 flex-wrap">
-      @foreach(['' => 'Active', 'all' => 'All', 'completed' => 'Completed'] as $val => $lbl)
+      @foreach(['' => 'Active', 'all' => 'All', 'complete' => 'Complete', 'problem' => 'Problem'] as $val => $lbl)
       <a href="{{ route('crm.logistics.shipments.index', array_merge(request()->query(), ['status' => $val])) }}"
          class="btn text-xs py-1.5 px-3 {{ request('status', '') === $val ? 'btn-primary' : 'btn-secondary' }}">
         {{ $lbl }}
@@ -69,16 +69,28 @@
             </td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-1">
-                <span class="badge bg-slate-100 text-slate-600">{{ $shipment->customers_count }} customers</span>
+                <span class="badge bg-slate-100 text-slate-600">{{ $shipment->shipment_customers_count }} customers</span>
               </div>
             </td>
             <td class="px-4 py-3">
-              <span class="badge text-xs px-2 py-0.5 rounded-full {{ $shipment->status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
-                {{ ucfirst($shipment->status) }}
+              @php $statusCounts = $shipment->customerStatusCounts(); @endphp
+              @if(count($statusCounts) > 1)
+              <div class="flex flex-wrap gap-1">
+                @foreach($statusCounts as $status => $count)
+                @php $color = \App\Models\ShipmentCustomer::colorForStatus($status); @endphp
+                <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $color }}22; color:{{ $color }}">
+                  {{ $count }} {{ \App\Models\ShipmentCustomer::statuses()[$status] ?? $status }}
+                </span>
+                @endforeach
+              </div>
+              @else
+              <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $shipment->statusColor() }}22; color:{{ $shipment->statusColor() }}">
+                {{ $shipment->statusLabel() }}
               </span>
+              @endif
             </td>
             <td class="px-4 py-3 text-slate-500 text-xs">
-              {{ $shipment->handler?->name ?? 'Unassigned' }}
+              {{ $shipment->assignee?->name ?? 'Unassigned' }}
             </td>
             <td class="px-4 py-3">
               <div class="flex justify-end gap-1">

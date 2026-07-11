@@ -44,7 +44,7 @@ class CrmReportController extends Controller
                 if ($memberId !== 'All') $query->where('assigned_to', $memberId);
                 $data = $query->latest()->get();
                 $title = 'CRM Customer Report';
-                $headers = ['#', 'Name', 'Email', 'Phone', 'Company', 'Status', 'Source', 'Pipeline Stage', 'Value (AUD)', 'Assigned To', 'Date Added'];
+                $headers = ['#', 'Name', 'Email', 'Phone', 'Company', 'Status', 'Source', 'Pipeline Stage', 'Value (USD)', 'Assigned To', 'Date Added'];
                 break;
 
             case 'logistics':
@@ -54,7 +54,7 @@ class CrmReportController extends Controller
                 if ($memberId !== 'All') $query->where('assigned_to', $memberId);
                 $data = $query->latest()->get();
                 $title = 'Logistics CRM Shipment Report';
-                $headers = ['#', 'Order ID', 'Customer', 'Product', 'Recipient', 'Address', 'Budget (AUD)', 'Status', 'Pickup Time'];
+                $headers = ['#', 'Order ID', 'Customer', 'Product', 'Recipient', 'Address', 'Budget (USD)', 'Status', 'Pickup Time'];
                 break;
 
             case 'website':
@@ -74,7 +74,7 @@ class CrmReportController extends Controller
                 if ($memberId !== 'All') $query->where('handled_by', $memberId);
                 $data = $query->latest('received_at')->get();
                 $title = 'eBay CRM Offers Report';
-                $headers = ['#', 'Store', 'Customer Name', 'eBay Username', 'Product', 'Offer Amount (AUD)', 'Final Amount (AUD)', 'Status', 'Received At'];
+                $headers = ['#', 'Store', 'Customer Name', 'eBay Username', 'Product', 'Offer Amount (USD)', 'Final Amount (USD)', 'Status', 'Received At'];
                 break;
 
             default:

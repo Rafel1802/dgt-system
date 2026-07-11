@@ -26,7 +26,6 @@ class ReportController extends Controller
         $tasksByStatus      = $this->reportService->getTasksByStatus($dateFrom, $dateTo);
         $staffPerformance   = $this->reportService->getStaffPerformance($dateFrom, $dateTo);
         $customersBySource  = $this->reportService->getCustomersBySource($dateFrom, $dateTo);
-        $dealsByStage       = $this->reportService->getDealsByStage($dateFrom, $dateTo);
         $customersByStatus  = $this->reportService->getCustomersByStatus($dateFrom, $dateTo);
         $salesByStaff       = $this->reportService->getSalesByStaff($dateFrom, $dateTo);
         $salesByProductType = $this->reportService->getSalesByProductType($dateFrom, $dateTo);
@@ -42,7 +41,7 @@ class ReportController extends Controller
         return view('reports.index', compact(
             'range', 'dateFrom', 'dateTo', 'kpis',
             'revenueOverTime', 'tasksByLabel', 'tasksByStatus',
-            'staffPerformance', 'customersBySource', 'dealsByStage',
+            'staffPerformance', 'customersBySource',
             'customersByStatus', 'salesByStaff', 'salesByProductType',
             'salesBySource', 'salesByProduct', 'leadFunnel',
             'staffCrmPerf', 'ebayAuthStats', 'logisticsCost', 'logisticsByStatus',

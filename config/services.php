@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'google' => [
+        // Path to a Google Cloud service-account JSON key with the Sheets
+        // and Drive APIs enabled — used to export Call Reports as a live
+        // Google Sheet. See GoogleSheetsExportService for details.
+        'service_account_path' => env('GOOGLE_SERVICE_ACCOUNT_PATH'),
+    ],
+
 ];

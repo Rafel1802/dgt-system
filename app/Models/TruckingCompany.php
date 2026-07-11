@@ -38,6 +38,11 @@ class TruckingCompany extends Model
         return $this->hasMany(Shipment::class);
     }
 
+    public function drivers(): HasMany
+    {
+        return $this->hasMany(TruckingCompanyDriver::class);
+    }
+
     // ── Scopes ──────────────────────────────────────────────────────────────
 
     public function scopeActive($query): mixed

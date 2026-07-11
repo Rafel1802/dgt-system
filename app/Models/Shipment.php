@@ -14,7 +14,7 @@ class Shipment extends Model
 
     protected $fillable = [
         'shipment_code', 'status',
-        'trucking_company_id', 'created_by', 'assigned_to',
+        'trucking_company_id', 'driver_id', 'created_by', 'assigned_to',
         'estimated_arrival', 'actual_arrival', 'notes',
     ];
 
@@ -26,7 +26,7 @@ class Shipment extends Model
     // Possible statuses
     const STATUS_PENDING     = 'pending';
     const STATUS_IN_PROGRESS = 'in_progress';
-    const STATUS_DELIVERED   = 'delivered';
+    const STATUS_COMPLETE    = 'complete';
     const STATUS_PROBLEM     = 'problem';
 
     public static function statuses(): array
@@ -34,7 +34,7 @@ class Shipment extends Model
         return [
             self::STATUS_PENDING     => 'Pending',
             self::STATUS_IN_PROGRESS => 'In Progress',
-            self::STATUS_DELIVERED   => 'Delivered',
+            self::STATUS_COMPLETE    => 'Complete',
             self::STATUS_PROBLEM     => 'Problem / Delay',
         ];
     }
@@ -49,7 +49,7 @@ class Shipment extends Model
         return match($this->status) {
             self::STATUS_PENDING     => '#94a3b8',
             self::STATUS_IN_PROGRESS => '#3b82f6',
-            self::STATUS_DELIVERED   => '#22c55e',
+            self::STATUS_COMPLETE    => '#22c55e',
             self::STATUS_PROBLEM     => '#ef4444',
             default                  => '#94a3b8',
         };
@@ -60,6 +60,11 @@ class Shipment extends Model
     public function truckingCompany(): BelongsTo
     {
         return $this->belongsTo(TruckingCompany::class)->withTrashed();
+    }
+
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(TruckingCompanyDriver::class, 'driver_id');
     }
 
     public function creator(): BelongsTo
@@ -75,6 +80,16 @@ class Shipment extends Model
     public function shipmentCustomers(): HasMany
     {
         return $this->hasMany(ShipmentCustomer::class);
+    }
+
+    /** Per-status customer counts, e.g. ['delivered' => 1, 'problem' => 2] — only non-empty statuses included. */
+    public function customerStatusCounts(): array
+    {
+        return $this->shipmentCustomers()
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status')
+            ->toArray();
     }
 
     // ── Scopes ──────────────────────────────────────────────────────────────

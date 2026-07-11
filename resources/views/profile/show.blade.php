@@ -83,6 +83,14 @@
           <p class="text-xs font-black uppercase tracking-wider text-blue-100">Status</p>
           <p class="mt-1 font-bold">{{ $user->is_active ? 'Active account' : 'Inactive account' }}</p>
         </div>
+        @if($user->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm', 'boss', 'tech-support']))
+        <div class="rounded-2xl border border-white/15 bg-white/12 p-4 backdrop-blur sm:col-span-2">
+          <a href="{{ route('crm.reports.show', $user) }}" class="flex items-center justify-between font-bold hover:underline">
+            📊 My Report
+            <span aria-hidden="true">→</span>
+          </a>
+        </div>
+        @endif
       </div>
     </div>
   </div>

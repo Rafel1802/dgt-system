@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ShipmentCustomer extends Model
 {
@@ -12,8 +13,8 @@ class ShipmentCustomer extends Model
 
     protected $fillable = [
         'shipment_id', 'customer_id',
-        'recipient_name', 'recipient_phone', 'shipping_address',
-        'status', 'handled_by', 'notes', 'product_description',
+        'recipient_name', 'recipient_phone', 'recipient_email', 'shipping_address',
+        'status', 'handled_by', 'notes', 'tracking_number',
     ];
 
     const STATUS_PENDING    = 'pending';
@@ -38,7 +39,12 @@ class ShipmentCustomer extends Model
 
     public function statusColor(): string
     {
-        return match($this->status) {
+        return self::colorForStatus($this->status);
+    }
+
+    public static function colorForStatus(string $status): string
+    {
+        return match($status) {
             self::STATUS_PENDING    => '#94a3b8',
             self::STATUS_IN_TRANSIT => '#3b82f6',
             self::STATUS_DELIVERED  => '#22c55e',
@@ -62,5 +68,10 @@ class ShipmentCustomer extends Model
     public function handler(): BelongsTo
     {
         return $this->belongsTo(User::class, 'handled_by')->withTrashed();
+    }
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(ShipmentCustomerProduct::class);
     }
 }

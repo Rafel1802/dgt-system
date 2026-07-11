@@ -16,6 +16,10 @@
       @endforeach
     </div>
     <div class="flex gap-2">
+      <a href="{{ route('crm.ebay.report') }}" class="btn btn-secondary text-sm" id="btn-ebay-report">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+        General Report
+      </a>
       <a href="{{ route('crm.ebay.index') }}" class="btn btn-secondary text-sm" id="btn-ebay-offers">
         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
         All Offers
@@ -73,7 +77,7 @@
           <div>
             <h3 class="font-semibold text-slate-800 text-base">{{ $store->store_name }}</h3>
             @if($store->ebay_username)
-              <p class="text-xs text-slate-400 mt-0.5">@{{ $store->ebay_username }}</p>
+              <p class="text-xs text-slate-400 mt-0.5">{{ '@' . $store->ebay_username }}</p>
             @endif
           </div>
         </div>
@@ -97,9 +101,17 @@
         @endif
       </div>
 
+      <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+        <span>{{ $store->customer_records_count }} customer(s)</span>
+        <span class="font-semibold text-slate-700">${{ number_format($salesByStore[$store->id] ?? 0, 2) }}</span>
+      </div>
+
       <div class="mt-auto flex gap-2 pt-2 border-t border-slate-100">
         <a href="{{ route('crm.ebay.stores.show', $store) }}" class="btn btn-secondary btn-sm flex-1 text-center text-xs" id="btn-store-view-{{ $store->id }}">
           View Customers
+        </a>
+        <a href="{{ route('crm.ebay.stores.export', $store) }}" class="btn btn-secondary btn-icon" style="width:32px;height:32px;" title="Export CSV">
+          <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
         </a>
         <a href="{{ route('crm.ebay.stores.edit', $store) }}" class="btn btn-secondary btn-icon" style="width:32px;height:32px;" title="Edit">
           <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>

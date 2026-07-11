@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Customer extends Model
@@ -18,7 +19,7 @@ class Customer extends Model
     protected $fillable = [
         'name', 'email', 'phone', 'company', 'job_title', 'website',
         'country', 'state', 'city', 'address', 'postcode',
-        'status', 'source', 'pipeline_stage',
+        'status', 'source', 'pipeline_stage', 'shipment_delay',
         'product_interests', 'tags',
         'lifetime_value', 'currency',
         'has_purchased', 'first_purchase_date', 'last_purchase_date', 'total_orders',
@@ -29,6 +30,7 @@ class Customer extends Model
     protected $casts = [
         'status'              => CustomerStatus::class,
         'pipeline_stage'      => DealStage::class,
+        'shipment_delay'      => 'boolean',
         'product_interests'   => 'array',
         'tags'                => 'array',
         'has_purchased'       => 'boolean',
@@ -54,14 +56,40 @@ class Customer extends Model
         return $this->hasMany(CustomerInteraction::class)->orderByDesc('interacted_at');
     }
 
-    public function deals(): HasMany
-    {
-        return $this->hasMany(Deal::class)->orderByDesc('created_at');
-    }
-
     public function attachments(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
         return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    public function leads(): HasMany
+    {
+        return $this->hasMany(Lead::class);
+    }
+
+    public function ebayCustomerRecords(): HasMany
+    {
+        return $this->hasMany(EbayCustomerRecord::class);
+    }
+
+    public function ebayOffers(): HasMany
+    {
+        return $this->hasMany(EbayOffer::class);
+    }
+
+    public function logistics(): HasMany
+    {
+        return $this->hasMany(Logistic::class);
+    }
+
+    public function techSupportCases(): HasMany
+    {
+        return $this->hasMany(TechSupportCase::class);
+    }
+
+    /** Most recent technical support case across ALL of this customer's sources (Website leads + eBay records) — drives the "Resolved"/"(2nd)" badge on the customer profile page. */
+    public function latestTechSupportCase(): HasOne
+    {
+        return $this->hasOne(TechSupportCase::class)->latestOfMany();
     }
 
     // ─── Accessors ─────────────────────────────────────────────────────────

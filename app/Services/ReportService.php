@@ -4,14 +4,12 @@ namespace App\Services;
 
 use App\Enums\CustomerSource;
 use App\Enums\CustomerStatus;
-use App\Enums\DealStage;
 use App\Enums\InquirySource;
 use App\Enums\LogisticStatus;
 use App\Enums\ProductCategory;
 use App\Enums\WebsiteLeadStatus;
 use App\Models\Card;
 use App\Models\Customer;
-use App\Models\Deal;
 use App\Models\EbayOffer;
 use App\Models\EbayOrder;
 use App\Models\Lead;
@@ -76,18 +74,12 @@ class ReportService
         $tasksCompleted = Card::where('status', 'done')->whereBetween('updated_at', [$from, $to])->count();
         $tasksCreated   = Card::whereBetween('created_at', [$from, $to])->count();
 
-        // Old deals
-        $dealsWon            = Deal::whereBetween('closed_at', [$from, $to])->where('stage', DealStage::Won->value)->count();
-        $dealsPipelineValue  = Deal::whereNotIn('stage', [DealStage::Won->value, DealStage::Lost->value])
-            ->whereBetween('created_at', [$from, $to])->sum('value') ?? 0;
-
         return compact(
             'websiteRevenue', 'ebayRevenue',
             'newLeads', 'convertedLeads', 'hotLeads',
             'ebayOffers', 'ebayAuthorized', 'ebayOrders',
             'shipmentsActive', 'shipmentsDelivered', 'logisticCostTotal',
-            'tasksCompleted', 'tasksCreated',
-            'dealsWon', 'dealsPipelineValue'
+            'tasksCompleted', 'tasksCreated'
         );
     }
 
@@ -396,23 +388,6 @@ class ReportService
         return [
             'labels' => $rows->map(fn($r) => CustomerSource::tryFrom($r->source ?? '')?->label() ?? $r->source)->toArray(),
             'values' => $rows->pluck('total')->toArray(),
-        ];
-    }
-
-    public function getDealsByStage(Carbon $from, Carbon $to): array
-    {
-        $rows = Deal::whereBetween('created_at', [$from, $to])
-            ->selectRaw('stage, COUNT(*) as count, SUM(value) as total_value')
-            ->groupBy('stage')->get()
-            ->mapWithKeys(fn($r) => [
-                ($r->stage instanceof \BackedEnum ? $r->stage->value : $r->stage) => $r
-            ]);
-        $stages = DealStage::pipelineColumns();
-        return [
-            'labels' => array_map(fn($s) => $s->label(), $stages),
-            'counts' => array_map(fn($s) => $rows[$s->value]->count ?? 0, $stages),
-            'values' => array_map(fn($s) => round($rows[$s->value]->total_value ?? 0, 2), $stages),
-            'colors' => array_map(fn($s) => $s->color(), $stages),
         ];
     }
 

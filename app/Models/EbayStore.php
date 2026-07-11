@@ -14,11 +14,12 @@ class EbayStore extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'store_name', 'logo_url', 'store_url', 'ebay_username', 'handled_by', 'notes', 'is_active',
+        'store_name', 'logo_url', 'store_url', 'ebay_username', 'handled_by', 'notes', 'is_active', 'total_sales',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'   => 'boolean',
+        'total_sales' => 'decimal:2',
     ];
 
     // ── Relationships ───────────────────────────────────────────────────────
@@ -36,6 +37,11 @@ class EbayStore extends Model
     public function orders(): HasManyThrough
     {
         return $this->hasManyThrough(EbayOrder::class, EbayOffer::class, 'store_id', 'ebay_offer_id');
+    }
+
+    public function customerRecords(): HasMany
+    {
+        return $this->hasMany(EbayCustomerRecord::class, 'ebay_store_id');
     }
 
     // ── Scopes ──────────────────────────────────────────────────────────────

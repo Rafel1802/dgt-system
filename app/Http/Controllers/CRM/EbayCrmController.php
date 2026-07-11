@@ -182,6 +182,8 @@ class EbayCrmController extends Controller
 
     public function destroy(EbayOffer $offer): RedirectResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, CRM Supervisor, or Boss can delete eBay records.');
+
         $offer->delete();
         return redirect()->route('crm.ebay.index')->with('success', 'Offer deleted.');
     }
