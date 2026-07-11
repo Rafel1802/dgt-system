@@ -5,16 +5,43 @@ namespace App\Models;
 use App\Enums\InquirySource;
 use App\Enums\LeadTemperature;
 use App\Enums\WebsiteLeadStatus;
+use App\Services\TechSupportCaseService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Lead extends Model
 {
     use HasFactory, SoftDeletes;
+
+    /**
+     * Transient (non-persisted) holder for the staff-typed note when moving
+     * a lead into Technical Support — set by WebsiteCrmController::updateStatus()
+     * just before save() so the booted() hook below can carry it through to
+     * the case's own timeline instead of falling back to generic text.
+     * A real declared property, not a magic Eloquent attribute, so it's
+     * never written to the database.
+     */
+    public ?string $pendingTechNote = null;
+
+    protected static function booted(): void
+    {
+        static::created(function (self $lead) {
+            if ($lead->status === WebsiteLeadStatus::TechnicalSupport) {
+                app(TechSupportCaseService::class)->createCaseFor($lead, $lead->pendingTechNote);
+            }
+        });
+
+        static::updated(function (self $lead) {
+            if ($lead->wasChanged('status') && $lead->status === WebsiteLeadStatus::TechnicalSupport) {
+                app(TechSupportCaseService::class)->createCaseFor($lead, $lead->pendingTechNote);
+            }
+        });
+    }
 
     protected $fillable = [
         'customer_id', 'handled_by', 'assigned_to',
@@ -23,6 +50,7 @@ class Lead extends Model
         'status', 'temperature',
         'follow_up_notes', 'follow_up_date', 'next_action',
         'converted', 'converted_at', 'lost_reason',
+        'tech_resolved', 'tech_resolved_at',
     ];
 
     protected $casts = [
@@ -33,6 +61,8 @@ class Lead extends Model
         'converted_at' => 'datetime',
         'follow_up_date'=> 'date',
         'converted'    => 'boolean',
+        'tech_resolved'    => 'boolean',
+        'tech_resolved_at' => 'date',
     ];
 
     // ── Relationships ───────────────────────────────────────────────────────
@@ -62,6 +92,16 @@ class Lead extends Model
         return $this->hasMany(LeadFollowUp::class)->orderByDesc('contacted_at');
     }
 
+    public function products(): HasMany
+    {
+        return $this->hasMany(LeadProduct::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(LeadOrder::class)->orderByDesc('order_date');
+    }
+
     public function logistic(): HasMany
     {
         return $this->hasMany(Logistic::class);
@@ -70,6 +110,12 @@ class Lead extends Model
     public function attachments(): MorphMany
     {
         return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    /** The (at most one) technical support case tracking this lead's Technical Support occurrences — see TechSupportCaseService::createCaseFor(). */
+    public function techSupportCase(): MorphOne
+    {
+        return $this->morphOne(TechSupportCase::class, 'source')->latestOfMany();
     }
 
     // ── Scopes ──────────────────────────────────────────────────────────────
@@ -108,6 +154,11 @@ class Lead extends Model
               ->orWhere('client_phone', 'like', "%{$term}%")
               ->orWhere('client_email', 'like', "%{$term}%");
         });
+    }
+
+    public function scopeTechnicalIssuesOpen($query): mixed
+    {
+        return $query->where('status', WebsiteLeadStatus::TechnicalSupport->value);
     }
 
     // ── Accessors ────────────────────────────────────────────────────────────

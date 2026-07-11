@@ -116,6 +116,8 @@ class ProductController extends Controller
 
     public function destroy(Product $product): RedirectResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can delete products.');
+
         $product->forceDelete();
         return redirect()->route('crm.products.index')
             ->with('success', 'Product deleted permanently.');
@@ -187,6 +189,8 @@ class ProductController extends Controller
 
     public function destroyCategory(ProductCategory $category): RedirectResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can delete categories.');
+
         $name = $category->name;
         $category->delete();
         return back()->with('success', "Category '{$name}' deleted. Products in this category were kept.");

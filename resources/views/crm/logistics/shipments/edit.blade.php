@@ -25,10 +25,9 @@
           <div>
             <label class="form-label">Status <span class="text-red-500">*</span></label>
             <select name="status" class="form-input" required>
-              <option value="pending" {{ old('status', $shipment->status) === 'pending' ? 'selected' : '' }}>Pending</option>
-              <option value="in_transit" {{ old('status', $shipment->status) === 'in_transit' ? 'selected' : '' }}>In Transit</option>
-              <option value="completed" {{ old('status', $shipment->status) === 'completed' ? 'selected' : '' }}>Completed</option>
-              <option value="cancelled" {{ old('status', $shipment->status) === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+              @foreach($statuses as $value => $label)
+              <option value="{{ $value }}" {{ old('status', $shipment->status) === $value ? 'selected' : '' }}>{{ $label }}</option>
+              @endforeach
             </select>
           </div>
         </div>
@@ -54,6 +53,25 @@
         </div>
 
         <div>
+          <label class="form-label">Driver</label>
+          <select name="driver_id" class="form-input @error('driver_id') error @enderror">
+            <option value="">— Select Driver —</option>
+            @foreach($truckingCompanies as $tc)
+              @if($tc->drivers->isNotEmpty())
+              <optgroup label="{{ $tc->company_name }}">
+                @foreach($tc->drivers as $driver)
+                <option value="{{ $driver->id }}" {{ (string) old('driver_id', $shipment->driver_id) === (string) $driver->id ? 'selected' : '' }}>
+                  {{ $driver->name }}{{ $driver->phone ? ' — '.$driver->phone : '' }}
+                </option>
+                @endforeach
+              </optgroup>
+              @endif
+            @endforeach
+          </select>
+          @error('driver_id')<p class="form-error">{{ $message }}</p>@enderror
+        </div>
+
+        <div>
           <label class="form-label">Handled By (CRM Member)</label>
           @include('crm.partials.member-searchable-select', [
             'name'     => 'assigned_to',
@@ -69,7 +87,11 @@
       </div>
 
       <div class="px-6 py-4 flex gap-3 justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('logistic'))
         <button type="submit" form="delete-shipment-form" class="btn btn-danger text-sm">Delete</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.logistics.shipments.show', $shipment) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -77,6 +99,7 @@
       </div>
     </form>
 
+    @if(auth()->user()->canDeleteCrmRecords('logistic'))
     <form id="delete-shipment-form"
           method="POST"
           action="{{ route('crm.logistics.shipments.destroy', $shipment) }}"
@@ -87,6 +110,7 @@
           class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

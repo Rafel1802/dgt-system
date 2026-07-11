@@ -183,7 +183,7 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
                    class="form-input" placeholder="+61 4xx xxx xxx" id="field-driver-phone">
           </div>
           <div>
-            <label class="form-label">Shipping Budget (AUD)</label>
+            <label class="form-label">Shipping Budget (USD)</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
               <input type="number" name="shipping_budget" value="{{ old('shipping_budget') }}"

@@ -88,14 +88,14 @@
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="form-label">Offer Amount (AUD)</label>
+            <label class="form-label">Offer Amount (USD)</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
               <input type="number" name="offer_amount" value="{{ old('offer_amount', $offer->offer_amount) }}" class="form-input pl-7" step="0.01">
             </div>
           </div>
           <div>
-            <label class="form-label">Final Amount (AUD)</label>
+            <label class="form-label">Final Amount (USD)</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
               <input type="number" name="final_amount" value="{{ old('final_amount', $offer->final_amount) }}" class="form-input pl-7" step="0.01">
@@ -123,7 +123,11 @@
       </div>
 
       <div class="px-6 py-4 flex gap-3 justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('ebay'))
         <button type="submit" form="delete-ebay-offer-form" class="btn btn-danger text-sm">Delete</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.ebay.show', $offer) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -131,6 +135,7 @@
       </div>
     </form>
 
+    @if(auth()->user()->canDeleteCrmRecords('ebay'))
     <form id="delete-ebay-offer-form"
           method="POST"
           action="{{ route('crm.ebay.destroy', $offer) }}"
@@ -141,6 +146,7 @@
           class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

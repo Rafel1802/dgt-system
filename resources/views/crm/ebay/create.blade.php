@@ -110,7 +110,7 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="form-label">Offer Amount (AUD)</label>
+            <label class="form-label">Offer Amount (USD)</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
               <input type="number" name="offer_amount" value="{{ old('offer_amount') }}"

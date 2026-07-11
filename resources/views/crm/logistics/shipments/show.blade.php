@@ -9,15 +9,40 @@
     <a href="{{ route('crm.logistics.shipments.edit', $shipment) }}" class="btn btn-secondary text-sm">Edit Shipment</a>
   </div>
 
+  @if(session('success'))
+  <div class="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm font-medium">
+    {{ session('success') }}
+  </div>
+  @endif
+  @if($errors->any())
+  <div class="mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 text-sm font-medium">
+    <ul class="space-y-1">
+      @foreach($errors->all() as $error)<li>• {{ $error }}</li>@endforeach
+    </ul>
+  </div>
+  @endif
+
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {{-- Left Col: Details --}}
     <div class="lg:col-span-1 space-y-6">
       <div class="card p-6">
-        <div class="flex justify-between items-start mb-4">
+        <div class="flex justify-between items-start mb-4 gap-3">
           <h2 class="font-display font-bold text-slate-800 text-xl">{{ $shipment->shipment_code }}</h2>
-          <span class="badge {{ $shipment->status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
-            {{ ucfirst($shipment->status) }}
+          @php $statusCounts = $shipment->customerStatusCounts(); @endphp
+          @if(count($statusCounts) > 1)
+          <div class="flex flex-wrap gap-1 justify-end">
+            @foreach($statusCounts as $status => $count)
+            @php $color = \App\Models\ShipmentCustomer::colorForStatus($status); @endphp
+            <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $color }}22; color:{{ $color }}">
+              {{ $count }} {{ \App\Models\ShipmentCustomer::statuses()[$status] ?? $status }}
+            </span>
+            @endforeach
+          </div>
+          @else
+          <span class="badge" style="background:{{ $shipment->statusColor() }}22; color:{{ $shipment->statusColor() }}">
+            {{ $shipment->statusLabel() }}
           </span>
+          @endif
         </div>
 
         <div class="space-y-4">
@@ -57,6 +82,16 @@
             @endif
           </div>
 
+          <div>
+            <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Driver</span>
+            @if($shipment->driver)
+              <p class="text-sm text-slate-800">{{ $shipment->driver->name }}</p>
+              @if($shipment->driver->phone)<p class="text-xs text-slate-500">{{ $shipment->driver->phone }}</p>@endif
+            @else
+              <p class="text-sm text-slate-500">Unassigned</p>
+            @endif
+          </div>
+
           @if($shipment->notes)
           <div>
             <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Notes</span>
@@ -82,7 +117,7 @@
             <thead>
               <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                 <th class="px-5 py-3 text-left">Customer</th>
-                <th class="px-4 py-3 text-left">Product Description</th>
+                <th class="px-4 py-3 text-left">Products</th>
                 <th class="px-4 py-3 text-left">Shipping Address</th>
                 <th class="px-4 py-3 text-left">Status</th>
                 <th class="px-4 py-3 text-right">Actions</th>
@@ -100,16 +135,26 @@
                     <p class="text-xs text-slate-400">Phone: {{ $sc->recipient_phone }}</p>
                   @endif
                 </td>
-                <td class="px-4 py-3 text-slate-600">
-                  {{ $sc->product_description ?? '—' }}
+                <td class="px-4 py-3 text-slate-600 text-xs">
+                  @forelse($sc->products as $p)
+                    <p>{{ $p->product_name }}{{ $p->sku ? ' (' . $p->sku . ')' : '' }} × {{ $p->quantity }}</p>
+                  @empty
+                    <p>—</p>
+                  @endforelse
                 </td>
                 <td class="px-4 py-3 text-xs text-slate-600 max-w-xs truncate" title="{{ $sc->shipping_address }}">
                   {{ $sc->shipping_address ?? '—' }}
                 </td>
                 <td class="px-4 py-3">
-                  <span class="badge text-xs px-2 py-0.5 rounded-full {{ $sc->status === 'delivered' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
-                    {{ ucfirst($sc->status) }}
+                  <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $sc->statusColor() }}22; color:{{ $sc->statusColor() }}">
+                    {{ $sc->statusLabel() }}
                   </span>
+                  @if($sc->status === \App\Models\ShipmentCustomer::STATUS_PROBLEM && $sc->notes)
+                    <p class="text-xs text-red-500 mt-1">{{ $sc->notes }}</p>
+                  @endif
+                  @if($sc->tracking_number)
+                    <p class="text-xs text-slate-500 mt-1">📦 {{ $sc->tracking_number }}</p>
+                  @endif
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex justify-end gap-1">
@@ -126,17 +171,34 @@
                   </div>
                   
                   {{-- Edit Modal --}}
-                  <div id="editCustomerModal{{ $sc->id }}" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center">
-                    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 text-left">
-                      <form method="POST" action="{{ route('crm.logistics.shipments.customers.update', [$shipment, $sc]) }}">
+                  <div id="editCustomerModal{{ $sc->id }}" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center p-4">
+                    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col text-left">
+                      <form method="POST" action="{{ route('crm.logistics.shipments.customers.update', [$shipment, $sc]) }}"
+                            x-data="{
+                              status: '{{ $sc->status }}',
+                              lines: {{ $sc->products->isNotEmpty() ? Js::from($sc->products->map(fn($p) => ['product_id' => $p->product_id, 'product_name' => $p->product_name, 'price' => $p->price, 'quantity' => $p->quantity])) : Js::from([['product_id' => null, 'product_name' => '', 'price' => '', 'quantity' => 1]]) }},
+                              catalog: {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }},
+                              addLine() { this.lines.push({ product_id: null, product_name: '', price: '', quantity: 1 }); },
+                              removeLine(i) { if (this.lines.length > 1) this.lines.splice(i, 1); },
+                              matchCatalogProduct(line) {
+                                const typed = (line.product_name || '').trim().toLowerCase();
+                                const match = this.catalog.find(p => p.name.toLowerCase() === typed);
+                                if (match) {
+                                  line.product_id = match.id;
+                                  if (!line.price) line.price = match.price;
+                                } else {
+                                  line.product_id = null;
+                                }
+                              },
+                            }" class="flex flex-col min-h-0">
                         @csrf @method('PUT')
-                        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
                           <h3 class="font-display font-bold text-lg text-slate-800">Edit Shipment Customer</h3>
                           <button type="button" onclick="document.getElementById('editCustomerModal{{ $sc->id }}').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
                             <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                           </button>
                         </div>
-                        <div class="p-6 space-y-4">
+                        <div class="p-6 space-y-4 overflow-y-auto min-h-0">
                           <div>
                             <label class="form-label">Customer</label>
                             @include('crm.partials.customer_combobox', [
@@ -164,24 +226,51 @@
                             </div>
                           </div>
                           <div>
+                            <label class="form-label">Recipient Email</label>
+                            <input type="email" name="recipient_email" value="{{ $sc->recipient_email }}" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
+                          </div>
+                          <div>
                             <label class="form-label">Shipping Address</label>
                             <textarea id="edit-shipping-address-{{ $sc->id }}" name="shipping_address" rows="2" class="form-input">{{ $sc->shipping_address }}</textarea>
                           </div>
                           <div>
-                            <label class="form-label">Product Description</label>
-                            <input type="text" name="product_description" value="{{ $sc->product_description }}" class="form-input">
+                            <label class="form-label">Products</label>
+                            <div class="space-y-2">
+                              <template x-for="(line, i) in lines" :key="i">
+                                <div class="flex gap-2 items-start">
+                                  <input type="text" list="shipment-catalog-products" :name="`products[${i}][product_name]`" x-model="line.product_name" @input="matchCatalogProduct(line)"
+                                         placeholder="Search or type a product" class="form-input flex-1">
+                                  <input type="hidden" :name="`products[${i}][product_id]`" :value="line.product_id">
+                                  <input type="number" step="0.01" min="0" :name="`products[${i}][price]`" x-model="line.price" placeholder="Price" class="form-input w-24">
+                                  <input type="number" min="1" :name="`products[${i}][quantity]`" x-model.number="line.quantity" placeholder="Qty" class="form-input w-16">
+                                  <button type="button" @click="removeLine(i)" x-show="lines.length > 1"
+                                          class="btn btn-secondary btn-icon text-red-400 hover:text-red-600 shrink-0" style="width:38px;height:38px;">
+                                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                  </button>
+                                </div>
+                              </template>
+                            </div>
+                            <button type="button" @click="addLine()" class="btn btn-secondary text-xs mt-2">+ Add Another Product</button>
                           </div>
                           <div>
                             <label class="form-label">Status</label>
-                            <select name="status" class="form-input">
-                              <option value="pending" {{ $sc->status === 'pending' ? 'selected' : '' }}>Pending</option>
-                              <option value="in_transit" {{ $sc->status === 'in_transit' ? 'selected' : '' }}>In Transit</option>
-                              <option value="delivered" {{ $sc->status === 'delivered' ? 'selected' : '' }}>Delivered</option>
-                              <option value="problem" {{ $sc->status === 'problem' ? 'selected' : '' }}>Problem</option>
+                            <select name="status" class="form-input" x-model="status">
+                              @foreach($custStatuses as $value => $label)
+                              <option value="{{ $value }}" {{ $sc->status === $value ? 'selected' : '' }}>{{ $label }}</option>
+                              @endforeach
                             </select>
                           </div>
+                          <div x-show="status === 'delivered'" x-cloak>
+                            <label class="form-label">Tracking Number <span class="text-slate-400 normal-case font-normal">(optional)</span></label>
+                            <input type="text" name="tracking_number" value="{{ $sc->tracking_number }}" class="form-input" placeholder="Leave blank if not available">
+                          </div>
+                          <div>
+                            <label class="form-label">Note <span class="text-red-500" x-show="status === 'problem'" x-cloak>*</span></label>
+                            <textarea name="notes" rows="2" class="form-input">{{ $sc->notes }}</textarea>
+                            <p class="text-xs text-slate-400 mt-1" x-show="status === 'problem'" x-cloak>Required for Logistic issues (Problem status).</p>
+                          </div>
                         </div>
-                        <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl">
+                        <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl shrink-0">
                           <button type="button" onclick="document.getElementById('editCustomerModal{{ $sc->id }}').classList.add('hidden')" class="btn btn-secondary text-sm">Cancel</button>
                           <button type="submit" class="btn btn-primary text-sm">Save Changes</button>
                         </div>
@@ -205,18 +294,40 @@
   </div>
 </div>
 
+<datalist id="shipment-catalog-products">
+  @foreach($catalogProducts as $p)
+  <option value="{{ $p->name }}">{{ $p->sku ? '('.$p->sku.')' : '' }} — ${{ number_format($p->price, 2) }}</option>
+  @endforeach
+</datalist>
+
 {{-- Add Customer Modal --}}
-<div id="addCustomerModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center">
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 text-left">
-    <form method="POST" action="{{ route('crm.logistics.shipments.customers.add', $shipment) }}">
+<div id="addCustomerModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col text-left">
+    <form method="POST" action="{{ route('crm.logistics.shipments.customers.add', $shipment) }}"
+          x-data="{
+            lines: [{ product_id: null, product_name: '', price: '', quantity: 1 }],
+            catalog: {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }},
+            addLine() { this.lines.push({ product_id: null, product_name: '', price: '', quantity: 1 }); },
+            removeLine(i) { if (this.lines.length > 1) this.lines.splice(i, 1); },
+            matchCatalogProduct(line) {
+              const typed = (line.product_name || '').trim().toLowerCase();
+              const match = this.catalog.find(p => p.name.toLowerCase() === typed);
+              if (match) {
+                line.product_id = match.id;
+                if (!line.price) line.price = match.price;
+              } else {
+                line.product_id = null;
+              }
+            },
+          }" class="flex flex-col min-h-0">
       @csrf
-      <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+      <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
         <h3 class="font-display font-bold text-lg text-slate-800">Add Customer to Shipment</h3>
         <button type="button" onclick="document.getElementById('addCustomerModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
           <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="p-6 space-y-4">
+      <div class="p-6 space-y-4 overflow-y-auto min-h-0">
         <div>
           <label class="form-label">Customer <span class="text-red-500">*</span></label>
           @include('crm.partials.customer_combobox', [
@@ -243,15 +354,34 @@
           </div>
         </div>
         <div>
+          <label class="form-label">Recipient Email</label>
+          <input type="email" name="recipient_email" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
+        </div>
+        <div>
           <label class="form-label">Shipping Address</label>
           <textarea id="add-shipping-address" name="shipping_address" rows="2" class="form-input" placeholder="Leave blank if same as customer"></textarea>
         </div>
         <div>
-          <label class="form-label">Product Description</label>
-          <input type="text" name="product_description" class="form-input" placeholder="Item or Machine details...">
+          <label class="form-label">Products</label>
+          <div class="space-y-2">
+            <template x-for="(line, i) in lines" :key="i">
+              <div class="flex gap-2 items-start">
+                <input type="text" list="shipment-catalog-products" :name="`products[${i}][product_name]`" x-model="line.product_name" @input="matchCatalogProduct(line)"
+                       placeholder="Search or type a product" class="form-input flex-1">
+                <input type="hidden" :name="`products[${i}][product_id]`" :value="line.product_id">
+                <input type="number" step="0.01" min="0" :name="`products[${i}][price]`" x-model="line.price" placeholder="Price" class="form-input w-24">
+                <input type="number" min="1" :name="`products[${i}][quantity]`" x-model.number="line.quantity" placeholder="Qty" class="form-input w-16">
+                <button type="button" @click="removeLine(i)" x-show="lines.length > 1"
+                        class="btn btn-secondary btn-icon text-red-400 hover:text-red-600 shrink-0" style="width:38px;height:38px;">
+                  <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </template>
+          </div>
+          <button type="button" @click="addLine()" class="btn btn-secondary text-xs mt-2">+ Add Another Product</button>
         </div>
       </div>
-      <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl">
+      <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl shrink-0">
         <button type="button" onclick="document.getElementById('addCustomerModal').classList.add('hidden')" class="btn btn-secondary text-sm">Cancel</button>
         <button type="submit" class="btn btn-primary text-sm">Add Customer</button>
       </div>

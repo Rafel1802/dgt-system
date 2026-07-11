@@ -23,7 +23,9 @@
       </div>
     </div>
 
-    <form method="POST" action="{{ route('crm.website.update', $lead) }}" class="divide-y divide-slate-100">
+    <form method="POST" action="{{ route('crm.website.update', $lead) }}" class="divide-y divide-slate-100" x-data="{
+      status: '{{ old('status', $lead->status?->value) }}',
+    }">
       @csrf @method('PUT')
 
       {{-- Client Information --}}
@@ -92,7 +94,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="form-label">Pipeline Status</label>
-            <select name="status" class="form-input">
+            <select name="status" class="form-input" x-model="status">
               @foreach($statuses as $s)
               <option value="{{ $s->value }}" {{ old('status', $lead->status?->value) === $s->value ? 'selected' : '' }}>
                 {{ $s->label() }}
@@ -133,6 +135,8 @@
         </div>
       </div>
 
+      {{-- Products are logged separately via "Mark Successful" or "+ Add New Order" on the Lead Profile page, not here — editing lead details shouldn't silently create a new order. --}}
+
       {{-- Lost Reason --}}
       @if($lead->status?->value === 'lost' || request('show_lost'))
       <div class="px-6 py-5">
@@ -142,7 +146,11 @@
       @endif
 
       <div class="px-6 py-4 flex gap-3 justify-between bg-slate-50">
+        @if(auth()->user()->canDeleteCrmRecords('website'))
         <button type="submit" form="delete-website-lead-form" class="btn btn-danger text-sm">Delete Lead</button>
+        @else
+        <div></div>
+        @endif
         <div class="flex gap-3">
           <a href="{{ route('crm.website.show', $lead) }}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -150,16 +158,20 @@
       </div>
     </form>
 
+    @if(auth()->user()->canDeleteCrmRecords('website'))
     <form id="delete-website-lead-form"
           method="POST"
           action="{{ route('crm.website.destroy', $lead) }}"
-          data-confirm-title="Delete lead?"
-          data-confirm="Delete this lead? All follow-ups will be removed."
-          data-confirm-text="Delete lead"
+          data-confirm-title="{{ $lead->customer ? 'Delete lead and customer?' : 'Delete lead?' }}"
+          data-confirm="{{ $lead->customer
+              ? 'This lead is linked to "' . $lead->customer->name . '" — deleting it will PERMANENTLY delete that customer and everything tied to them across every CRM domain (other leads, eBay records, shipments, tech support cases). This cannot be undone.'
+              : 'Delete this lead? All follow-ups will be removed.' }}"
+          data-confirm-text="{{ $lead->customer ? 'Delete lead & customer' : 'Delete lead' }}"
           data-confirm-tone="danger"
           class="hidden">
       @csrf @method('DELETE')
     </form>
+    @endif
   </div>
 </div>
 @endsection

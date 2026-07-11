@@ -27,7 +27,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="form-label">Contact Person</label>
-            <input type="text" name="contact_person" value="{{ old('contact_person') }}" class="form-input">
+            <input type="text" name="pic_name" value="{{ old('pic_name') }}" class="form-input">
           </div>
           <div>
             <label class="form-label">Phone</label>

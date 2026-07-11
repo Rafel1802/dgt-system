@@ -38,7 +38,7 @@ class CustomerPolicy
 
     public function delete(User $user, Customer $customer): bool
     {
-        return $user->hasAnyRole(['admin', 'super-admin']);
+        return $user->canDeleteCrmRecords('website');
     }
 
     public function addInteraction(User $user, Customer $customer): bool

@@ -6,7 +6,6 @@ use App\Enums\CustomerSource;
 use App\Enums\CustomerStatus;
 use App\Enums\DealStage;
 use App\Models\Customer;
-use App\Models\Deal;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -93,23 +92,6 @@ class CrmSeeder extends Seeder
                 ]
             );
 
-            // Add a deal for active pipeline stages
-            if (! in_array($data['pipeline_stage'], [DealStage::Won->value, DealStage::Lost->value])) {
-                Deal::firstOrCreate(
-                    ['customer_id' => $customer->id, 'title' => "Package Deal — {$customer->name}"],
-                    [
-                        'customer_id'         => $customer->id,
-                        'assigned_to'         => $staff->id,
-                        'created_by'          => $staff->id,
-                        'stage'               => $data['pipeline_stage'],
-                        'value'               => rand(1000, 15000),
-                        'probability'         => DealStage::from($data['pipeline_stage'])->defaultProbability(),
-                        'expected_close_date' => now()->addDays(rand(7, 60)),
-                        'product_interests'   => $data['product_interests'] ?? [],
-                        'position'            => 0,
-                    ]
-                );
-            }
         }
 
         // --- Seed eBay Stores ---
