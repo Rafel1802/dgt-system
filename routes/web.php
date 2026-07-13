@@ -636,7 +636,6 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
         // ── Profile & Settings ────────────────────────────────────────────
         Route::get('/emails/poll', [App\Http\Controllers\Admin\EmailController::class, 'pollNewEmails'])->name('admin.emails.poll');
-        Route::get('/emails/{email}', [App\Http\Controllers\Admin\EmailController::class, 'show'])->name('admin.emails.show');
         Route::get('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'show'])->name('profile.show');
         Route::put('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'update'])->name('profile.update');
         Route::post('/profile/sound', [App\Http\Controllers\Auth\ProfileController::class, 'uploadSound'])->name('profile.sound.upload');

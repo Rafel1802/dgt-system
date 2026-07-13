@@ -276,33 +276,13 @@ class CrmCustomerMatchService
             }
         };
 
-        Lead::with('handler', 'techSupportCase')->get()->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
-            $k = $keysFor($lead->client_email, $lead->client_phone, 'lead-' . $lead->id, $lead->customer_id);
-            if ($anySeen($k)) {
-                return;
-            }
-            $reserve($k);
-            $out->push([
-                'source'      => $lead->source?->label() ?? 'Website',
-                'source_icon' => $lead->source?->icon() ?? '🌐',
-                'source_color'=> $lead->source?->color() ?? '#8b5cf6',
-                'id'          => $lead->id,
-                'name'        => $lead->client_name,
-                'email'       => $lead->client_email,
-                'phone'       => $lead->client_phone,
-                'status_label'=> $lead->status?->label() ?? '',
-                'status_color'=> $lead->status?->color() ?? '#94a3b8',
-                'occurrence_label' => $lead->techSupportCase?->occurrence_label,
-                'handler'     => $lead->handler?->name,
-                'link'        => route('crm.website.show', $lead),
-                'category'    => match (true) {
-                    $lead->status === WebsiteLeadStatus::TechnicalSupport => 'technical',
-                    $lead->status === WebsiteLeadStatus::DelayedShipment  => 'shipment_delay',
-                    default => null,
-                },
-            ]);
-        });
-
+        // eBay is processed before Leads: when the same person has both (e.g. a
+        // logged phone/facebook/etc. inquiry *and* an eBay purchase record), their
+        // eBay record should win the identity match and represent them everywhere
+        // (All Customers, the Website CRM "customers with no lead" section) — not
+        // get silently hidden behind a Lead and miscategorized as "Website". Their
+        // Lead itself is untouched and still shows on its own Website CRM leads
+        // table either way, since that page queries Lead directly, not this method.
         EbayCustomerRecord::with('handlerHistory.user', 'techSupportCase')->get()->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
             $k = $keysFor($record->email, $record->phone, 'ebay-' . $record->id, $record->customer_id);
             if ($anySeen($k)) {
@@ -326,6 +306,33 @@ class CrmCustomerMatchService
                     $record->tab_type === EbayCustomerRecord::TAB_TECHNICAL => 'technical',
                     $record->shipment_delay => 'shipment_delay',
                     in_array($record->tab_type, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES]) => 'negative_feedback',
+                    default => null,
+                },
+            ]);
+        });
+
+        Lead::with('handler', 'techSupportCase')->get()->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
+            $k = $keysFor($lead->client_email, $lead->client_phone, 'lead-' . $lead->id, $lead->customer_id);
+            if ($anySeen($k)) {
+                return;
+            }
+            $reserve($k);
+            $out->push([
+                'source'      => $lead->source?->label() ?? 'Website',
+                'source_icon' => $lead->source?->icon() ?? '🌐',
+                'source_color'=> $lead->source?->color() ?? '#8b5cf6',
+                'id'          => $lead->id,
+                'name'        => $lead->client_name,
+                'email'       => $lead->client_email,
+                'phone'       => $lead->client_phone,
+                'status_label'=> $lead->status?->label() ?? '',
+                'status_color'=> $lead->status?->color() ?? '#94a3b8',
+                'occurrence_label' => $lead->techSupportCase?->occurrence_label,
+                'handler'     => $lead->handler?->name,
+                'link'        => route('crm.website.show', $lead),
+                'category'    => match (true) {
+                    $lead->status === WebsiteLeadStatus::TechnicalSupport => 'technical',
+                    $lead->status === WebsiteLeadStatus::DelayedShipment  => 'shipment_delay',
                     default => null,
                 },
             ]);
