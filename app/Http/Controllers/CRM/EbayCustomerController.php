@@ -12,6 +12,7 @@ use App\Models\EbayCustomerOrder;
 use App\Models\EbayCustomerRecord;
 use App\Models\EbayCustomerStatusHistory;
 use App\Models\EbayStore;
+use App\Models\Product;
 use App\Models\TechSupportCase;
 use App\Models\User;
 use App\Services\CrmCustomerMatchService;
@@ -64,6 +65,7 @@ class EbayCustomerController extends Controller
             'stores'         => EbayStore::active()->orderBy('store_name')->get(),
             'customers'      => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
             'negativeCauses' => EbayCustomerRecord::NEGATIVE_FEEDBACK_CAUSES,
+            'catalogProducts'=> Product::active()->orderBy('name')->get(['id', 'name', 'sku']),
         ]);
     }
 
@@ -140,10 +142,11 @@ class EbayCustomerController extends Controller
         );
 
         return view('crm.ebay.customers.show', [
-            'record'   => $record,
-            'tabs'     => EbayCustomerRecord::tabs(),
-            'stores'   => EbayStore::active()->orderBy('store_name')->get(),
-            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
+            'record'         => $record,
+            'tabs'           => EbayCustomerRecord::tabs(),
+            'stores'         => EbayStore::active()->orderBy('store_name')->get(),
+            'crmUsers'       => User::crmMembers()->orderBy('name')->get(),
+            'catalogProducts'=> Product::active()->orderBy('name')->get(['id', 'name', 'sku']),
         ]);
     }
 
@@ -155,6 +158,7 @@ class EbayCustomerController extends Controller
             'stores'         => EbayStore::active()->orderBy('store_name')->get(),
             'customers'      => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
             'negativeCauses' => EbayCustomerRecord::NEGATIVE_FEEDBACK_CAUSES,
+            'catalogProducts'=> Product::active()->orderBy('name')->get(['id', 'name', 'sku']),
         ]);
     }
 

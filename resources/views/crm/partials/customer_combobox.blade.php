@@ -16,15 +16,34 @@
   $autofillEmailId = $autofillEmailId ?? '';
   $autofillAddressId = $autofillAddressId ?? '';
   $autofillUsernameId = $autofillUsernameId ?? '';
+  // Leads (people who haven't become a full Customer record yet) can optionally be searched
+  // alongside customers — used by the shipment "Add Customer" picker. Off by default so the
+  // many other forms using this partial are unaffected.
+  $leads = $leads ?? collect();
+  $includeLatestOrder = $includeLatestOrder ?? false;
 
   $customerJson = $customers->map(fn($c) => [
       'id'      => $c->id,
+      'type'    => 'customer',
       'name'    => $c->name,
       'company' => $c->company ?? '',
       'phone'   => $c->phone ?? '',
       'email'   => $c->email ?? '',
       'address' => $c->address ?? '',
       'label'   => $c->name . ($c->company ? ' — '.$c->company : '') . ($c->phone ? ' · '.$c->phone : ''),
+      'latest_order_product' => $includeLatestOrder ? ($c->latest_order_product ?? null) : null,
+  ])->values()->toJson();
+
+  $leadJson = $leads->map(fn($l) => [
+      'id'      => $l->id,
+      'type'    => 'lead',
+      'name'    => $l->client_name,
+      'company' => '',
+      'phone'   => $l->client_phone ?? '',
+      'email'   => $l->client_email ?? '',
+      'address' => '',
+      'label'   => $l->client_name . ' — Lead' . ($l->client_phone ? ' · '.$l->client_phone : ''),
+      'latest_order_product' => $includeLatestOrder ? ($l->latest_order_product ?? null) : null,
   ])->values()->toJson();
 
   $oldLabel = '';
@@ -49,8 +68,13 @@
   data-allow-create="{{ $allowCreate ? 'true' : 'false' }}"
   data-quick-create-url="{{ $quickCreateUrl }}"
   data-quick-create-source="{{ $quickCreateSource }}"
+  data-include-leads="{{ $leads->isNotEmpty() ? 'true' : 'false' }}"
+  data-include-latest-order="{{ $includeLatestOrder ? 'true' : 'false' }}"
 >
   <script type="application/json" id="{{ $fieldId }}-data">{!! $customerJson !!}</script>
+  @if($leads->isNotEmpty())
+    <script type="application/json" id="{{ $fieldId }}-leads-data">{!! $leadJson !!}</script>
+  @endif
 
   <input type="hidden"
          name="{{ $fieldName }}"
@@ -97,7 +121,7 @@
         <input type="text"
                id="{{ $fieldId }}-search"
                class="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 bg-slate-50"
-               placeholder="Type to filter customers..."
+               placeholder="{{ $leads->isNotEmpty() ? 'Type to filter customers or leads...' : 'Type to filter customers...' }}"
                autocomplete="off">
       </div>
     </div>
@@ -105,7 +129,7 @@
     <ul id="{{ $fieldId }}-list" class="max-h-52 overflow-y-auto py-1" role="listbox"></ul>
 
     <p id="{{ $fieldId }}-empty" class="hidden px-4 py-3 text-sm text-slate-400 italic text-center">
-      No customers match your search.
+      {{ $leads->isNotEmpty() ? 'No customers or leads match your search.' : 'No customers match your search.' }}
     </p>
 
     @if($allowCreate)
@@ -183,12 +207,14 @@
 
     return {
       id: String(c.id),
+      type: c.type === 'lead' ? 'lead' : 'customer',
       name: c.name || label || 'Customer',
       company: c.company || '',
       phone: c.phone || '',
       email: c.email || '',
       address: c.address || '',
       label,
+      latestOrderProduct: c.latest_order_product || '',
     };
   }
 
@@ -211,14 +237,24 @@
   }
 
   function initCombobox(wrap) {
+    if (wrap.dataset.comboboxInit === 'true') return;
+    wrap.dataset.comboboxInit = 'true';
+
     const id = wrap.id.replace('-wrap', '');
     const dataNode = document.getElementById(id + '-data');
+    const leadsDataNode = document.getElementById(id + '-leads-data');
     let customerData = [];
 
     try {
       customerData = JSON.parse(dataNode?.textContent || '[]').map(normalizeCustomer);
     } catch (_) {
       customerData = [];
+    }
+
+    if (leadsDataNode) {
+      try {
+        customerData = customerData.concat(JSON.parse(leadsDataNode.textContent || '[]').map(normalizeCustomer));
+      } catch (_) { /* ignore malformed lead data */ }
     }
 
     const hidden = document.getElementById(id + '-hidden');
@@ -280,12 +316,19 @@
         const li = document.createElement('li');
         li.setAttribute('role', 'option');
         li.dataset.id = c.id;
+        li.dataset.type = c.type;
         li.className = 'px-4 py-2.5 cursor-pointer text-sm transition-colors hover:bg-indigo-50 hover:text-indigo-700 flex flex-col';
-        if (hidden.value === c.id) li.classList.add('bg-indigo-50', 'text-indigo-700', 'font-semibold');
+        if (hidden.value === c.id && wrap.dataset.selectedType === c.type) li.classList.add('bg-indigo-50', 'text-indigo-700', 'font-semibold');
 
         const name = document.createElement('span');
         name.className = 'font-medium';
         name.textContent = c.name;
+        if (c.type === 'lead') {
+          const badge = document.createElement('span');
+          badge.className = 'ml-1.5 inline-block rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 align-middle';
+          badge.textContent = 'Lead';
+          name.appendChild(badge);
+        }
 
         const metaText = [c.company, c.phone, c.email].filter(Boolean).join(' · ');
         li.appendChild(name);
@@ -324,7 +367,11 @@
     }
 
     function selectCustomer(c) {
-      hidden.value = c.id;
+      // Leads aren't Customer records — the hidden field is an FK to `customers`,
+      // so a lead selection is used purely as a data source for autofill below,
+      // never submitted as customer_id.
+      hidden.value = c.type === 'lead' ? '' : c.id;
+      wrap.dataset.selectedType = c.type;
       input.value = c.label;
       clearBtn.classList.remove('hidden');
       chevron.classList.add('hidden');
@@ -336,6 +383,13 @@
         setIfEmpty(wrap.dataset.autofillEmailId, c.email);
         setIfEmpty(wrap.dataset.autofillAddressId, c.address);
         setIfEmpty(wrap.dataset.autofillUsernameId, c.name);
+      }
+
+      if (wrap.dataset.includeLatestOrder === 'true') {
+        wrap.dispatchEvent(new CustomEvent('dgt:latest-order-product', {
+          bubbles: true,
+          detail: { fieldId: id, productName: c.latestOrderProduct || '' },
+        }));
       }
     }
 
@@ -411,6 +465,7 @@
       e.stopPropagation();
       hidden.value = '';
       input.value = '';
+      delete wrap.dataset.selectedType;
       clearBtn.classList.add('hidden');
       chevron.classList.remove('hidden');
     });
@@ -455,9 +510,12 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
+  function initAllCombobox() {
     document.querySelectorAll('[data-combobox]').forEach(initCombobox);
-  });
+  }
+
+  document.addEventListener('DOMContentLoaded', initAllCombobox);
+  document.addEventListener('turbo:load', initAllCombobox);
 })();
 </script>
 @endpush

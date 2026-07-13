@@ -113,8 +113,8 @@
             <div class="space-y-2">
               <template x-for="(product, i) in products" :key="i">
                 <div class="flex gap-2 items-start">
-                  <input type="text" :name="`products[${i}][name]`" x-model="product.name"
-                         placeholder="Product SKU or Name" class="form-input flex-1" x-bind:required="status === 'new_order'">
+                  <input type="text" :name="`products[${i}][name]`" x-model="product.name" list="ebay-catalog-products"
+                         placeholder="Search or type a product" class="form-input flex-1" x-bind:required="status === 'new_order'">
                   <input type="number" step="0.01" min="0" :name="`products[${i}][price]`" x-model="product.price"
                          placeholder="Price" class="form-input w-28" x-bind:required="status === 'new_order'">
                   <button type="button" @click="removeProduct(i)" x-show="products.length > 1"
@@ -164,5 +164,11 @@
       </div>
     </form>
   </div>
+
+  <datalist id="ebay-catalog-products">
+    @foreach($catalogProducts as $p)
+    <option value="{{ $p->name }}">{{ $p->sku }}</option>
+    @endforeach
+  </datalist>
 </div>
 @endsection

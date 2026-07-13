@@ -190,7 +190,19 @@
                                   line.product_id = null;
                                 }
                               },
-                            }" class="flex flex-col min-h-0">
+                              fillLatestOrderProduct(name) {
+                                // Product name only, from the newly-picked customer/lead's most recent
+                                // order — deliberately skips matchCatalogProduct() so price never carries over.
+                                // Only runs when staff actively re-picks someone in the combobox below, so
+                                // it never silently overwrites this row's already-saved product on open.
+                                if (!name) return;
+                                this.lines[0].product_name = name;
+                                this.lines[0].product_id = null;
+                                this.lines[0].price = '';
+                              },
+                            }"
+                            x-on:dgt:latest-order-product="if ($event.detail.fieldId === 'shipment-customer-{{ $sc->id }}') fillLatestOrderProduct($event.detail.productName)"
+                            class="flex flex-col min-h-0">
                         @csrf @method('PUT')
                         <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
                           <h3 class="font-display font-bold text-lg text-slate-800">Edit Shipment Customer</h3>
@@ -203,10 +215,11 @@
                             <label class="form-label">Customer</label>
                             @include('crm.partials.customer_combobox', [
                               'customers' => $customers,
+                              'leads' => $leads,
+                              'includeLatestOrder' => true,
                               'fieldId' => 'shipment-customer-'.$sc->id,
                               'fieldName' => 'customer_id',
                               'selected' => $sc->customer_id,
-                              'required' => true,
                               'autofill' => true,
                               'allowCreate' => true,
                               'quickCreateSource' => \App\Enums\CustomerSource::Logistic->value,
@@ -319,7 +332,17 @@
                 line.product_id = null;
               }
             },
-          }" class="flex flex-col min-h-0">
+            fillLatestOrderProduct(name) {
+              // Product name only, from the selected customer/lead's most recent order —
+              // deliberately skips matchCatalogProduct() so no price ever gets carried over.
+              if (!name) return;
+              this.lines[0].product_name = name;
+              this.lines[0].product_id = null;
+              this.lines[0].price = '';
+            },
+          }"
+          x-on:dgt:latest-order-product="if ($event.detail.fieldId === 'shipment-add-customer') fillLatestOrderProduct($event.detail.productName)"
+          class="flex flex-col min-h-0">
       @csrf
       <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
         <h3 class="font-display font-bold text-lg text-slate-800">Add Customer to Shipment</h3>
@@ -332,9 +355,10 @@
           <label class="form-label">Customer <span class="text-red-500">*</span></label>
           @include('crm.partials.customer_combobox', [
             'customers' => $customers,
+            'leads' => $leads,
+            'includeLatestOrder' => true,
             'fieldId' => 'shipment-add-customer',
             'fieldName' => 'customer_id',
-            'required' => true,
             'autofill' => true,
             'allowCreate' => true,
             'quickCreateSource' => \App\Enums\CustomerSource::Logistic->value,
@@ -342,6 +366,7 @@
             'autofillPhoneId' => 'add-recipient-phone',
             'autofillAddressId' => 'add-shipping-address',
           ])
+          <p class="mt-1 text-xs text-slate-400">Pick an existing customer, or a lead who hasn't been converted yet — either way their info and most recent order's product autofill below.</p>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>

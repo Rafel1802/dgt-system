@@ -4,12 +4,14 @@ namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\Lead;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\ShipmentCustomer;
 use App\Models\TruckingCompany;
 use App\Models\User;
 use App\Services\CrmCustomerMatchService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -65,6 +67,100 @@ class ShipmentController extends Controller
         ]);
     }
 
+    /**
+     * Customers for the shipment "Add Customer" picker, each carrying the
+     * product from their most recent order (name only — no price) so
+     * selecting a customer can auto-fill the product line without staff
+     * re-typing what they already ordered. "Most recent order" checks this
+     * customer's order history across all three CRM channels — Logistic
+     * (shipping), eBay, and Website (leads) — since a given customer's real
+     * order might live in any one of them, and uses whichever actually
+     * happened most recently.
+     */
+    private function customersForPicker(): Collection
+    {
+        return Customer::orderBy('name')
+            ->with([
+                'latestLogistic.product',
+                'ebayCustomerRecords.orders' => fn ($q) => $q->with('items'),
+                'leads' => fn ($q) => $q->orderByDesc('received_at'),
+                'leads.orders.items',
+                'leads.product',
+            ])
+            ->get(['id', 'name', 'email', 'phone', 'company', 'address'])
+            ->map(function (Customer $customer) {
+                $customer->latest_order_product = $this->latestOrderProductFor($customer);
+
+                return $customer;
+            });
+    }
+
+    /** Compares a customer's latest order across Logistic, eBay, and Website (lead) channels and returns whichever is most recent, product name(s) only — falling back to an unstamped signal only if none of the three have a dated order on file. */
+    private function latestOrderProductFor(Customer $customer): ?string
+    {
+        $logistic = $customer->latestLogistic;
+        $candidates = collect([
+            [
+                'date'    => $logistic?->created_at,
+                'product' => $logistic ? ($logistic->product->name ?? $logistic->product_description) : null,
+            ],
+        ]);
+
+        $latestEbayOrder = $customer->ebayCustomerRecords
+            ->flatMap(fn ($record) => $record->orders)
+            ->sortByDesc('ordered_at')
+            ->first();
+        $candidates->push([
+            'date'    => $latestEbayOrder?->ordered_at,
+            'product' => $latestEbayOrder ? $latestEbayOrder->items->pluck('product_name')->filter()->implode(', ') : null,
+        ]);
+
+        $latestLeadOrder = $customer->leads
+            ->flatMap(fn ($lead) => $lead->orders)
+            ->sortByDesc('order_date')
+            ->first();
+        $candidates->push([
+            'date'    => $latestLeadOrder?->order_date,
+            'product' => $latestLeadOrder ? $latestLeadOrder->items->pluck('product_name')->filter()->implode(', ') : null,
+        ]);
+
+        $best = $candidates
+            ->filter(fn ($c) => $c['date'] && filled($c['product']))
+            ->sortByDesc('date')
+            ->first();
+
+        if ($best) {
+            return $best['product'];
+        }
+
+        // No dated order anywhere — last resort: the single-product-interest field on
+        // this customer's most recently received lead (same fallback used for leads
+        // who haven't been converted to a customer yet), if there's nothing better.
+        $mostRecentLead = $customer->leads->first();
+
+        return $mostRecentLead ? ($mostRecentLead->product->name ?? $mostRecentLead->product_interested) : null;
+    }
+
+    /**
+     * Leads for the shipment "Add Customer" picker (for orders placed before
+     * a formal Customer record exists). Product comes from the lead's most
+     * recent LeadOrder, falling back to the single product_interested field
+     * recorded on the inquiry itself when no formal order is on file.
+     */
+    private function leadsForPicker(): Collection
+    {
+        return Lead::whereNull('customer_id') // already-converted leads have a fuller Customer record — pick that instead
+            ->orderBy('client_name')
+            ->with(['latestOrder.items', 'product'])
+            ->get(['id', 'customer_id', 'client_name', 'client_phone', 'client_email', 'product_interested', 'product_id'])
+            ->map(function (Lead $lead) {
+                $orderProduct = $lead->latestOrder?->items->pluck('product_name')->filter()->implode(', ');
+                $lead->latest_order_product = $orderProduct ?: ($lead->product->name ?? $lead->product_interested);
+
+                return $lead;
+            });
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -95,7 +191,8 @@ class ShipmentController extends Controller
             'statuses'        => Shipment::statuses(),
             'custStatuses'    => ShipmentCustomer::statuses(),
             'catalogProducts' => Product::active()->orderBy('name')->get(['id', 'name', 'sku', 'price']),
-            'customers'       => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
+            'customers'       => $this->customersForPicker(),
+            'leads'           => $this->leadsForPicker(),
         ]);
     }
 

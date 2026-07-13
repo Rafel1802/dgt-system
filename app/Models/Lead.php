@@ -102,6 +102,12 @@ class Lead extends Model
         return $this->hasMany(LeadOrder::class)->orderByDesc('order_date');
     }
 
+    /** This lead's most recent order — drives the "most recent order" product autofill when adding them to a shipment. */
+    public function latestOrder(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(LeadOrder::class)->latestOfMany('order_date');
+    }
+
     public function logistic(): HasMany
     {
         return $this->hasMany(Logistic::class);
