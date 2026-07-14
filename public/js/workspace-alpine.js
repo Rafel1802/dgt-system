@@ -101,9 +101,9 @@ window.boardQuickAction = async function(action, slug, name) {
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
       });
       if (!res.ok) throw new Error('Failed');
-      Alpine.store?.('toast')?.show?.('Board hidden successfully');
+      if (window.showToast) window.showToast('Board hidden successfully');
       typeof Turbo !== 'undefined' ? Turbo.visit(window.location.href, { action: 'replace' }) : window.location.reload();
-    } catch { Alpine.store?.('toast')?.show?.('Error hiding board', 'error'); }
+    } catch { if (window.showToast) window.showToast('Error hiding board', 'error'); }
   } else if (action === 'delete') {
     const ok = await window.confirmModal?.(`Delete board "${name}"? It will be moved to Trash.`) ?? confirm(`Delete board "${name}"?`);
     if (!ok) return;
@@ -113,9 +113,9 @@ window.boardQuickAction = async function(action, slug, name) {
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
       });
       if (!res.ok) throw new Error('Failed');
-      Alpine.store?.('toast')?.show?.('Board deleted (moved to trash)');
+      if (window.showToast) window.showToast('Board deleted (moved to trash)');
       typeof Turbo !== 'undefined' ? Turbo.visit(window.location.href, { action: 'replace' }) : window.location.reload();
-    } catch { Alpine.store?.('toast')?.show?.('Error deleting board', 'error'); }
+    } catch { if (window.showToast) window.showToast('Error deleting board', 'error'); }
   }
 }
 
@@ -215,10 +215,10 @@ window.addWorkspaceMember = async function(workspaceId, userId, btn) {
     
     // Switch to Remove button visually
     btn.outerHTML = `<button onclick="removeWorkspaceMember(${workspaceId}, ${userId}, this)" class="text-[10px] text-rose-500 font-bold px-2.5 py-1 rounded-md hover:bg-rose-500 hover:text-white transition-colors">Remove</button>`;
-    Alpine.store('toast').show('Member added to workspace');
+    if (window.showToast) window.showToast('Member added to workspace');
   } catch (err) {
     console.error(err);
-    Alpine.store('toast').show('Error adding member', 'error');
+    if (window.showToast) window.showToast('Error adding member', 'error');
     btn.disabled = false;
     btn.textContent = 'Add';
   }
@@ -240,10 +240,10 @@ window.removeWorkspaceMember = async function(workspaceId, userId, btn) {
     
     // Switch to Add button visually
     btn.outerHTML = `<button onclick="addWorkspaceMember(${workspaceId}, ${userId}, this)" class="text-[10px] text-indigo-600 font-bold px-2.5 py-1 rounded-md hover:bg-indigo-600 hover:text-white transition-colors">Add</button>`;
-    Alpine.store('toast').show('Member removed from workspace');
+    if (window.showToast) window.showToast('Member removed from workspace');
   } catch (err) {
     console.error(err);
-    Alpine.store('toast').show('Error removing member', 'error');
+    if (window.showToast) window.showToast('Error removing member', 'error');
     btn.disabled = false;
     btn.textContent = 'Add';
   }
@@ -263,12 +263,12 @@ window.unhideBoard = async function(boardSlug, btn) {
     });
     if (!res.ok) throw new Error('Failed to unhide board');
     
-    Alpine.store('toast').show('Board unhidden successfully!');
+    if (window.showToast) window.showToast('Board unhidden successfully!');
     btn.closest('.hidden-board-item').remove();
     typeof Turbo !== 'undefined' ? Turbo.visit(window.location.href, { action: 'replace' }) : window.location.reload();
   } catch (err) {
     console.error(err);
-    Alpine.store('toast').show('Error unhiding board', 'error');
+    if (window.showToast) window.showToast('Error unhiding board', 'error');
     btn.disabled = false;
     btn.textContent = 'Unhide';
   }

@@ -12,6 +12,7 @@ echo "[1/3] Uploading files (Relative paths)..."
 rsync -avzR -e "ssh -p 65002" \
   app/Notifications/BoardActivityNotification.php \
   public/js/trello-board.js \
+  public/js/workspace-alpine.js \
   public/build/manifest.json \
   public/build/assets/ \
   public/debug_path.php \
@@ -21,6 +22,7 @@ rsync -avzR -e "ssh -p 65002" \
 echo "Uploading assets directly to public_html/ folder structure..."
 rsync -avz -e "ssh -p 65002" \
   public/js/trello-board.js \
+  public/js/workspace-alpine.js \
   u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/js/
 
 rsync -avz -e "ssh -p 65002" \
