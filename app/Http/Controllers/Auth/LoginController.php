@@ -41,12 +41,6 @@ class LoginController extends Controller
                 ->withErrors(['email' => $result['message']]);
         }
 
-        // If 2FA is enabled, redirect to 2FA challenge
-        if ($result['user']->two_factor_enabled) {
-            session(['2fa_user_id' => $result['user']->id]);
-            Auth::logout();
-            return redirect()->route('2fa.challenge');
-        }
 
         return redirect()->intended(route('dashboard'))
             ->with('success', 'Welcome back, ' . $result['user']->name . '!');

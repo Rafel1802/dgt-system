@@ -539,3 +539,26 @@ Alpine.data('kanbanBoard', (config = {}) => ({
 // ── Start Alpine ─────────────────────────────────────────────────────────
 window.Alpine = Alpine;
 Alpine.start();
+
+// ── Turbo Sidebar Scroll Persistence ──────────────────────────────────────
+document.addEventListener('turbo:before-render', (event) => {
+    const currentSidebar = document.getElementById('sidebar');
+    if (currentSidebar) {
+        event.detail.newBody.setAttribute('data-sidebar-scroll', currentSidebar.scrollTop);
+    }
+});
+
+document.addEventListener('turbo:render', () => {
+    const sidebar = document.getElementById('sidebar');
+    const scrollPos = document.body.getAttribute('data-sidebar-scroll');
+    
+    if (sidebar && scrollPos) {
+        const originalBehavior = sidebar.style.scrollBehavior;
+        sidebar.style.scrollBehavior = 'auto'; // Disable smooth scrolling temporarily
+        sidebar.scrollTop = Number(scrollPos);
+        
+        requestAnimationFrame(() => {
+            sidebar.style.scrollBehavior = originalBehavior;
+        });
+    }
+});
