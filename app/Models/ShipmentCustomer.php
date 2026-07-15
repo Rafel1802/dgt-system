@@ -74,4 +74,16 @@ class ShipmentCustomer extends Model
     {
         return $this->hasMany(ShipmentCustomerProduct::class);
     }
+
+    // ── Scopes ──────────────────────────────────────────────────────────────
+
+    public function scopeSearch($query, string $term): mixed
+    {
+        return $query->where(function ($q) use ($term) {
+            $q->where('recipient_name', 'like', "%{$term}%")
+              ->orWhere('recipient_phone', 'like', "%{$term}%")
+              ->orWhere('tracking_number', 'like', "%{$term}%")
+              ->orWhereHas('shipment', fn ($sq) => $sq->where('shipment_code', 'like', "%{$term}%"));
+        });
+    }
 }

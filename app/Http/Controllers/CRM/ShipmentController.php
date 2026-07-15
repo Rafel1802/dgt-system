@@ -11,11 +11,13 @@ use App\Models\ShipmentCustomer;
 use App\Models\TruckingCompany;
 use App\Models\User;
 use App\Services\CrmCustomerMatchService;
+use App\Services\SimpleXlsxReader;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ShipmentController extends Controller
 {
@@ -25,13 +27,39 @@ class ShipmentController extends Controller
 
     public function index(Request $request): View
     {
+        $status = $request->get('status');
+
+        // "Process Trucking" and "Loaded" are customer-grain views (every
+        // ShipmentCustomer row still Pending / already In Transit, across
+        // every shipment) rather than the shipment-grain list below — this
+        // is what powers bulk-selecting several customers (possibly from
+        // different shipments) and moving them all to the next status at
+        // once, which doesn't map onto a single shipment's own status.
+        if (in_array($status, ['processing', 'loaded'], true)) {
+            $customerStatus = $status === 'processing' ? ShipmentCustomer::STATUS_PENDING : ShipmentCustomer::STATUS_IN_TRANSIT;
+
+            $customerQuery = ShipmentCustomer::with(['shipment', 'handler', 'products'])
+                ->where('status', $customerStatus);
+
+            if ($s = $request->get('search')) {
+                $customerQuery->search($s);
+            }
+
+            $shipmentCustomers = $customerQuery->latest()->paginate(20)->withQueryString();
+
+            return view('crm.logistics.shipments.index', [
+                'viewMode'          => 'customers',
+                'shipmentCustomers' => $shipmentCustomers,
+                'statuses'          => Shipment::statuses(),
+            ]);
+        }
+
         $query = Shipment::with(['truckingCompany', 'assignee'])->withCount('shipmentCustomers');
 
         if ($s = $request->get('search')) {
             $query->search($s);
         }
 
-        $status = $request->get('status');
         if ($status === 'all') {
             // no status filter — show every shipment regardless of status
         } elseif ($status) {
@@ -44,7 +72,7 @@ class ShipmentController extends Controller
         $shipments  = $query->latest()->paginate(20)->withQueryString();
         $statuses   = Shipment::statuses();
 
-        return view('crm.logistics.shipments.index', compact('shipments', 'statuses'));
+        return view('crm.logistics.shipments.index', ['viewMode' => 'shipments'] + compact('shipments', 'statuses'));
     }
 
     /** Every customer currently flagged with a logistics/shipment issue, across all sources. */
@@ -175,11 +203,24 @@ class ShipmentController extends Controller
 
         $shipment = Shipment::create([
             ...$validated,
-            'created_by' => auth()->id(),
+            'shipment_code' => $validated['shipment_code'] ?: $this->generateShipmentCode(),
+            'created_by'    => auth()->id(),
         ]);
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Shipment #' . ($shipment->shipment_code ?? $shipment->id) . ' created.');
+    }
+
+    /**
+     * "DDMM-YYYY-N", N being how many shipments have already been created
+     * today (so it resets daily rather than growing forever) — e.g.
+     * "1507-2026-1", then "1507-2026-2" for the next one created the same day.
+     */
+    private function generateShipmentCode(): string
+    {
+        $createdToday = Shipment::whereDate('created_at', now()->toDateString())->count();
+
+        return now()->format('dm') . '-' . now()->format('Y') . '-' . ($createdToday + 1);
     }
 
     public function show(Shipment $shipment, Request $request): View
@@ -374,6 +415,453 @@ class ShipmentController extends Controller
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Customer removed from shipment.');
+    }
+
+    /**
+     * Delete a customer directly from the Process Trucking / Loaded tabs —
+     * not nested under a {shipment} route since these records often aren't
+     * assigned to one yet. Still syncs the parent shipment's own status if
+     * this customer happened to already belong to one.
+     */
+    public function destroyCustomer(Request $request, ShipmentCustomer $customer): RedirectResponse
+    {
+        $shipment = $customer->shipment;
+
+        $customer->delete();
+
+        if ($shipment) {
+            $this->syncShipmentCompletionStatus($shipment);
+        }
+
+        return redirect()->route('crm.logistics.shipments.index', ['status' => $request->get('redirect_status', 'processing')])
+            ->with('success', 'Customer deleted.');
+    }
+
+    /**
+     * Bulk status change across several ShipmentCustomer rows at once —
+     * possibly spanning multiple shipments, which is why this isn't nested
+     * under a single {shipment}. Powers the Process Trucking / Loaded tabs:
+     * select several customers still Pending and mark them all Loaded (In
+     * Transit) together, instead of opening each shipment individually.
+     */
+    public function bulkUpdateCustomerStatus(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'customer_ids'   => ['required', 'array', 'min:1'],
+            'customer_ids.*' => ['integer', 'exists:shipment_customers,id'],
+            'status'         => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
+            'notes'          => ['nullable', 'string'],
+            'redirect_status'=> ['nullable', 'string'],
+        ]);
+
+        // Same rule as the single-customer update: Problem needs a note
+        // explaining the issue, applied to every selected customer.
+        if ($validated['status'] === ShipmentCustomer::STATUS_PROBLEM && empty($validated['notes'])) {
+            return back()->withErrors(['notes' => 'A note is required for Logistic issues (Problem status).']);
+        }
+
+        $customers = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->get();
+
+        foreach ($customers as $customer) {
+            $customer->update(array_filter([
+                'status' => $validated['status'],
+                'notes'  => $validated['notes'] ?? null,
+            ], fn ($v) => $v !== null));
+
+            $this->matcher->syncShipmentDelayFlags($customer);
+            $this->matcher->syncDeliveryStatus($customer);
+        }
+
+        foreach ($customers->pluck('shipment_id')->unique() as $shipmentId) {
+            $shipment = Shipment::find($shipmentId);
+            if ($shipment) {
+                $this->syncShipmentCompletionStatus($shipment);
+            }
+        }
+
+        $label = ShipmentCustomer::statuses()[$validated['status']] ?? $validated['status'];
+
+        return redirect()->route('crm.logistics.shipments.index', ['status' => $validated['redirect_status'] ?? 'processing'])
+            ->with('success', $customers->count() . ' customer(s) marked as ' . $label . '.');
+    }
+
+    /** Column header aliases the importer recognizes, matched case-insensitively (used only for the multi-column template path). */
+    private const IMPORT_COLUMN_ALIASES = [
+        'recipient_name'   => ['recipient name', 'name'],
+        'address_line'     => ['address line', 'address'],
+        'city'              => ['city'],
+        'state'             => ['state'],
+        'zip'               => ['zip', 'zip code', 'postal code'],
+        'country'           => ['country'],
+        'phone'             => ['phone'],
+        'email'             => ['email'],
+        'product_name'      => ['product name', 'product'],
+        'sku'               => ['sku'],
+        'quantity'          => ['quantity', 'qty'],
+        'tracking_number'   => ['tracking number', 'tracking', 'order reference', 'order id', 'reference'],
+        'notes'             => ['notes', 'note'],
+    ];
+
+    /** Download the blank CSV template for the Process Trucking import (opens fine in Excel/Sheets). */
+    public function downloadImportTemplate(): StreamedResponse
+    {
+        $headers = ['Recipient Name', 'Address Line', 'City', 'State', 'Zip', 'Country', 'Phone', 'Email', 'Product Name', 'SKU', 'Quantity', 'Tracking Number', 'Notes'];
+        $example = ['David Mileski', '14 Rons Way', 'Pittston', 'ME', '04345-5996', 'United States', '+1 207-213-9077', '', 'Tool Box', 'TYPH-1901', 1, '2026071407TYPH', ''];
+
+        return response()->streamDownload(function () use ($headers, $example) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            fputcsv($out, $example);
+            fclose($out);
+        }, 'process-trucking-import-template.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /**
+     * Parse an uploaded .xlsx/.csv file into an editable preview held in the
+     * session (not written to the DB yet) and send staff to the preview
+     * page — nothing is imported until they review/edit and confirm there.
+     * Accepts two shapes: a raw single-column export (one shipping-label
+     * block per recipient, separated by blank rows — the same layout as the
+     * files this team already works with) or the multi-column template with
+     * a header row. Detected automatically by how many columns row 1 has.
+     * Imported rows are NOT tied to any Shipment — they land as standalone
+     * Process Trucking records; grouping them into an actual shipment is a
+     * separate, later step, not something the import decides for you.
+     */
+    public function previewImport(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,csv,txt', 'max:5120'],
+        ]);
+
+        $extension = strtolower($validated['file']->getClientOriginalExtension());
+
+        try {
+            $rows = $extension === 'xlsx'
+                ? SimpleXlsxReader::read($validated['file']->getRealPath())
+                : $this->readCsvFile($validated['file']->getRealPath());
+        } catch (\Throwable $e) {
+            return back()->withErrors(['file' => 'Could not read the file: ' . $e->getMessage()]);
+        }
+
+        if (empty($rows)) {
+            return back()->withErrors(['file' => 'The file appears to be empty.']);
+        }
+
+        $firstRowFilled = count(array_filter($rows[0] ?? [], fn ($v) => trim((string) ($v ?? '')) !== ''));
+
+        $previewRows = $firstRowFilled > 1
+            ? $this->parseColumnFormat($rows)
+            : $this->parseBlockFormat($rows);
+
+        if ($previewRows === null) {
+            return back()->withErrors(['file' => 'Could not find a "Recipient Name" column — please use the provided template, or upload a raw shipping-label export.']);
+        }
+
+        if (empty($previewRows)) {
+            return back()->withErrors(['file' => 'No data rows found in the file.']);
+        }
+
+        session(['shipment_import_preview' => ['rows' => $previewRows]]);
+
+        return redirect()->route('crm.logistics.shipments.customers.import.preview');
+    }
+
+    /** Multi-column template path: a header row plus one row per shipment customer. Returns null if no Recipient Name column is found. */
+    private function parseColumnFormat(array $rows): ?array
+    {
+        $columnMap = $this->mapImportColumns(array_shift($rows));
+
+        if (! isset($columnMap['recipient_name'])) {
+            return null;
+        }
+
+        $previewRows = [];
+        foreach ($rows as $row) {
+            if (empty(array_filter($row, fn ($v) => trim((string) $v) !== ''))) {
+                continue; // fully blank row (e.g. a spacer) — skip silently
+            }
+
+            $data = [];
+            foreach (self::IMPORT_COLUMN_ALIASES as $field => $labels) {
+                $data[$field] = isset($columnMap[$field], $row[$columnMap[$field]]) ? trim((string) $row[$columnMap[$field]]) : '';
+            }
+            $data['quantity'] = $data['quantity'] !== '' ? $data['quantity'] : '1';
+            $data['country'] = $data['country'] !== '' ? $data['country'] : 'United States';
+
+            $previewRows[] = $data;
+        }
+
+        return $previewRows;
+    }
+
+    /**
+     * Raw single-column export: one shipping-label block per recipient,
+     * blocks separated by one or more blank rows. Line 1 of a block is
+     * always the name and line 2 the street address; every other line is
+     * classified by pattern (phone, email, "City, ST ZIP", country,
+     * tracking number, SKU) since block shape varies — e.g. Walmart-relay
+     * blocks skip the country line and use a relay email instead of a
+     * separate phone+country pair; some blocks omit the product name line
+     * entirely. Whatever doesn't match a known pattern becomes the product
+     * name (first unmatched line) or notes (any unmatched line after that).
+     * This is a best-effort heuristic — staff review/correct it on the
+     * preview page before anything is saved, so an occasional misparse
+     * isn't destructive.
+     */
+    private function parseBlockFormat(array $rows): array
+    {
+        $lines = array_map(function ($row) {
+            $value = $row[0] ?? null;
+            return $value === null ? '' : trim((string) $value);
+        }, $rows);
+
+        $blocks = [];
+        $current = [];
+        foreach ($lines as $line) {
+            if ($line === '') {
+                if (! empty($current)) {
+                    $blocks[] = $current;
+                    $current = [];
+                }
+                continue;
+            }
+            $current[] = $line;
+        }
+        if (! empty($current)) {
+            $blocks[] = $current;
+        }
+
+        return array_map(fn ($block) => $this->classifyBlockLines($block), $blocks);
+    }
+
+    /** @return array<string,string> one parsed shipment-customer row */
+    private function classifyBlockLines(array $lines): array
+    {
+        $data = [
+            'recipient_name' => '', 'address_line' => '', 'city' => '', 'state' => '', 'zip' => '',
+            'country' => '', 'phone' => '', 'email' => '', 'product_name' => '', 'sku' => '',
+            'quantity' => '1', 'tracking_number' => '', 'notes' => '',
+        ];
+
+        if (empty($lines)) {
+            return $data;
+        }
+
+        $data['recipient_name'] = array_shift($lines);
+
+        $notesParts = [];
+
+        foreach ($lines as $i => $rawLine) {
+            // Strip non-breaking spaces (\xc2\xa0), which show up in some
+            // "Phone: <nbsp><number>" exports and would otherwise defeat
+            // the phone-pattern check below.
+            $clean = trim(str_replace("\xc2\xa0", ' ', $rawLine));
+
+            if ($i === 0) {
+                $data['address_line'] = $clean;
+                continue;
+            }
+
+            if (str_contains($clean, '@')) {
+                $data['email'] = $clean;
+                continue;
+            }
+
+            if (preg_match('/^united states$/i', $clean)) {
+                $data['country'] = 'United States';
+                continue;
+            }
+
+            // "City, State Zip" — has a comma and ends with zip-like digits.
+            if (empty($data['city']) && str_contains($clean, ',') && preg_match('/\d{4,}/', $clean)) {
+                $parts = array_map('trim', explode(',', $clean));
+                $data['city'] = $parts[0] ?? '';
+                $stateZip = trim($parts[1] ?? '');
+                if (preg_match('/^([A-Za-z\.]+)\s+([\d\-]{4,})$/', $stateZip, $m)) {
+                    $data['state'] = $m[1];
+                    $data['zip'] = $m[2];
+                } elseif (isset($parts[2])) {
+                    $data['state'] = $stateZip;
+                    $data['zip'] = trim($parts[2]);
+                } else {
+                    $data['state'] = $stateZip;
+                }
+                continue;
+            }
+
+            $phoneCandidate = rtrim(preg_replace('/^phone:\s*/i', '', $clean), '*');
+            $digitCount = strlen(preg_replace('/\D/', '', $phoneCandidate));
+            if (empty($data['phone']) && $digitCount >= 7 && preg_match('/^[\d\s\+\-\(\)\.]+$/', $phoneCandidate)) {
+                $data['phone'] = trim($phoneCandidate);
+                continue;
+            }
+
+            // Tracking number: long, mostly-digit, optional short letter suffix (e.g. "2026071407TYPH").
+            if (empty($data['tracking_number']) && preg_match('/^\d{8,}[A-Za-z]{0,8}$/', $clean)) {
+                $data['tracking_number'] = $clean;
+                continue;
+            }
+
+            // SKU: hyphenated code, letters+digits, reasonably short (e.g. "TYPH-1901 PRO").
+            // The SKU is what identifies the actual product ordered — a
+            // generic accessory line like "Tool Box" that ships alongside
+            // it is NOT the product, so it isn't auto-assigned as one; it
+            // falls through to notes below, where staff can see it as-is
+            // without it mislabeling what was actually ordered.
+            if (empty($data['sku']) && strlen($clean) <= 30 && preg_match('/^[A-Za-z0-9]+-[A-Za-z0-9 ]+$/', $clean)) {
+                $data['sku'] = $clean;
+                continue;
+            }
+
+            $notesParts[] = $clean;
+        }
+
+        // Country is essentially always "United States" for this team's
+        // orders, and several export formats (e.g. Walmart relay) never
+        // include an explicit country line at all — default it instead of
+        // leaving it blank for staff to fill in on every single row.
+        if ($data['country'] === '') {
+            $data['country'] = 'United States';
+        }
+
+        $data['notes'] = implode(' — ', $notesParts);
+
+        return $data;
+    }
+
+    /** Editable review page for a pending import — nothing in the DB yet. */
+    public function showImportPreview(): View|RedirectResponse
+    {
+        $preview = session('shipment_import_preview');
+
+        if (empty($preview['rows'])) {
+            return redirect()->route('crm.logistics.shipments.index', ['status' => 'processing'])
+                ->withErrors(['file' => 'No import in progress — please upload a file first.']);
+        }
+
+        return view('crm.logistics.shipments.import-preview', [
+            'rows' => $preview['rows'],
+        ]);
+    }
+
+    /**
+     * Actually create the Process Trucking customer records from the
+     * (possibly staff-edited) preview data. Rows the staff removed from the
+     * preview page simply never arrive here, since their form fields left
+     * the DOM. Deliberately does NOT create or assign a Shipment — these
+     * land as standalone Pending records; grouping them into an actual
+     * shipment is a separate, later, manual step.
+     */
+    public function confirmImport(Request $request): RedirectResponse
+    {
+        if (empty(session('shipment_import_preview.rows'))) {
+            return redirect()->route('crm.logistics.shipments.index', ['status' => 'processing'])
+                ->withErrors(['file' => 'No import in progress — please upload a file first.']);
+        }
+
+        $validated = $request->validate([
+            'rows'                    => ['required', 'array', 'min:1'],
+            'rows.*.recipient_name'   => ['nullable', 'string', 'max:255'],
+            'rows.*.address_line'     => ['nullable', 'string', 'max:255'],
+            'rows.*.city'             => ['nullable', 'string', 'max:255'],
+            'rows.*.state'            => ['nullable', 'string', 'max:255'],
+            'rows.*.zip'              => ['nullable', 'string', 'max:50'],
+            'rows.*.country'          => ['nullable', 'string', 'max:255'],
+            'rows.*.phone'            => ['nullable', 'string', 'max:50'],
+            'rows.*.email'            => ['nullable', 'string', 'max:255'],
+            'rows.*.product_name'     => ['nullable', 'string', 'max:255'],
+            'rows.*.sku'              => ['nullable', 'string', 'max:100'],
+            'rows.*.quantity'         => ['nullable', 'integer', 'min:1'],
+            'rows.*.tracking_number'  => ['nullable', 'string', 'max:150'],
+            'rows.*.notes'            => ['nullable', 'string'],
+        ]);
+
+        $imported = 0;
+        $skipped = [];
+
+        foreach ($validated['rows'] as $i => $data) {
+            if (empty($data['recipient_name'])) {
+                $skipped[] = 'Row ' . ($i + 1) . ': missing Recipient Name.';
+                continue;
+            }
+
+            $address = implode(', ', array_filter([
+                $data['address_line'] ?? null,
+                $data['city'] ?? null,
+                $data['state'] ?? null,
+                $data['zip'] ?? null,
+                $data['country'] ?? null,
+            ]));
+
+            $shipmentCustomer = ShipmentCustomer::create([
+                'shipment_id'      => null,
+                'recipient_name'   => $data['recipient_name'],
+                'recipient_phone'  => $data['phone'] ?? null,
+                'recipient_email'  => $data['email'] ?? null,
+                'shipping_address' => $address,
+                'status'           => ShipmentCustomer::STATUS_PENDING,
+                'handled_by'       => auth()->id(),
+                'tracking_number'  => $data['tracking_number'] ?? null,
+                'notes'            => ! empty($data['notes']) ? $data['notes'] : null,
+            ]);
+
+            if (! empty($data['product_name']) || ! empty($data['sku'])) {
+                $product = ! empty($data['sku']) ? Product::where('sku', $data['sku'])->first() : null;
+
+                $shipmentCustomer->products()->create([
+                    'product_id'   => $product?->id,
+                    'product_name' => $product->name ?? ($data['product_name'] ?: $data['sku']),
+                    'sku'          => $data['sku'] ?? $product?->sku,
+                    'quantity'     => $data['quantity'] ?: 1,
+                ]);
+            }
+
+            $imported++;
+        }
+
+        session()->forget('shipment_import_preview');
+
+        $message = "{$imported} customer(s) imported into Process Trucking.";
+        if (! empty($skipped)) {
+            $shown = array_slice($skipped, 0, 5);
+            $message .= ' ' . count($skipped) . ' row(s) skipped: ' . implode(' ', $shown) . (count($skipped) > 5 ? ' …' : '');
+        }
+
+        return redirect()->route('crm.logistics.shipments.index', ['status' => 'processing'])
+            ->with($imported > 0 ? 'success' : 'error', $message);
+    }
+
+    /** @return array<string,int> import field key => source column index, matched against IMPORT_COLUMN_ALIASES */
+    private function mapImportColumns(array $header): array
+    {
+        $normalized = array_map(fn ($h) => strtolower(trim((string) $h)), $header);
+        $map = [];
+
+        foreach (self::IMPORT_COLUMN_ALIASES as $field => $labels) {
+            foreach ($normalized as $index => $label) {
+                if (in_array($label, $labels, true)) {
+                    $map[$field] = $index;
+                    break;
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    /** @return array<int, array<int, string|null>> */
+    private function readCsvFile(string $path): array
+    {
+        $rows = [];
+        if (($handle = fopen($path, 'r')) !== false) {
+            while (($row = fgetcsv($handle)) !== false) {
+                $rows[] = $row;
+            }
+            fclose($handle);
+        }
+
+        return $rows;
     }
 
     /**

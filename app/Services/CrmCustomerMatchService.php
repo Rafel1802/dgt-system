@@ -401,10 +401,14 @@ class CrmCustomerMatchService
                     // page — a customer can have several shipments (some fine,
                     // some not), so landing on one specific delivery is less
                     // useful than landing on the person. Falls back to the
-                    // shipment only when there's no linked Customer to send them to.
-                    'link'        => $sc->customer_id
-                        ? route('crm.customers.show', $sc->customer_id)
-                        : route('crm.logistics.shipments.show', $sc->shipment_id),
+                    // shipment page, or — for a Process Trucking import not yet
+                    // assigned to any shipment — the Process Trucking tab itself,
+                    // since shipment_id can be null there.
+                    'link'        => match (true) {
+                        (bool) $sc->customer_id => route('crm.customers.show', $sc->customer_id),
+                        (bool) $sc->shipment_id  => route('crm.logistics.shipments.show', $sc->shipment_id),
+                        default                  => route('crm.logistics.shipments.index', ['status' => 'processing']),
+                    },
                     'category'    => 'shipment_delay',
                 ]);
             });

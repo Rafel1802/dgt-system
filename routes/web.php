@@ -565,6 +565,18 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::post('/{shipment}/customers', [ShipmentController::class, 'addCustomer'])->name('customers.add');
                         Route::put('/{shipment}/customers/{customer}', [ShipmentController::class, 'updateCustomer'])->name('customers.update');
                         Route::delete('/{shipment}/customers/{customer}', [ShipmentController::class, 'removeCustomer'])->name('customers.remove');
+                        // Bulk status change across multiple customers, spanning shipments — powers
+                        // the Process Trucking / Loaded tabs on the shipments index.
+                        Route::post('/customers/bulk-status', [ShipmentController::class, 'bulkUpdateCustomerStatus'])->name('customers.bulkStatus');
+                        // Direct delete from the Process Trucking / Loaded tabs — not nested under
+                        // {shipment} since these customers often aren't assigned to one yet.
+                        Route::delete('/customers/{customer}', [ShipmentController::class, 'destroyCustomer'])->name('customers.destroy');
+                        // Process Trucking import — template download, then a preview/edit
+                        // step (session-held, nothing written to the DB) before confirming.
+                        Route::get('/customers/import/template', [ShipmentController::class, 'downloadImportTemplate'])->name('customers.import.template');
+                        Route::post('/customers/import/preview', [ShipmentController::class, 'previewImport'])->name('customers.import.preview.store');
+                        Route::get('/customers/import/preview', [ShipmentController::class, 'showImportPreview'])->name('customers.import.preview');
+                        Route::post('/customers/import/confirm', [ShipmentController::class, 'confirmImport'])->name('customers.import.confirm');
                     });
 
                     Route::get('/{logistic}', [LogisticCrmController::class, 'show'])->name('show');
