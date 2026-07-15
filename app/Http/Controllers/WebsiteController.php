@@ -857,7 +857,7 @@ class WebsiteController extends Controller
         $callback = function () use ($followUps) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, [
-                'Website', 'Class', 'Type', 'Page Title', 'URL', 'Assignee', 'Status',
+                'Website', 'Class', 'Type', 'URL', 'Handle by', 'Status',
                 'Note', 'Created At', 'QC Status', 'QC Checker', 'QC Note', 'QC Checked At'
             ]);
 
@@ -866,7 +866,6 @@ class WebsiteController extends Controller
                     $fu->website->name ?? 'Unknown',
                     $fu->website->category ?? 'Uncategorized',
                     $fu->getTypeLabel(),
-                    $fu->title ?? '',
                     $fu->url ?? '',
                     $fu->assignee?->name ?? 'Unassigned',
                     $fu->status,

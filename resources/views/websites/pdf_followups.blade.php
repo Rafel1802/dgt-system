@@ -185,9 +185,8 @@
             <tr>
                 <th width="18%">Website</th>
                 <th width="12%">Type</th>
-                <th width="28%">Title / URL</th>
-                <th width="10%">Google Indexed</th>
-                <th width="12%">Assigned Member</th>
+                <th width="28%">URL</th>
+                <th width="12%">Handle by</th>
                 <th width="10%">QC Status</th>
                 <th width="10%">Date</th>
             </tr>
@@ -207,9 +206,6 @@
                     </span>
                 </td>
                 <td>
-                    @if($fu->title)
-                        <div style="font-weight: 500; margin-bottom: 2px; color: #0f172a;">{{ $fu->title }}</div>
-                    @endif
                     @if($fu->url)
                         <div style="margin-bottom: 4px;"><a href="{{ $fu->url }}" class="text-link" target="_blank">{{ Str::limit($fu->url, 50) }}</a></div>
                     @endif
@@ -218,11 +214,6 @@
                             {{ $fu->note }}
                         </div>
                     @endif
-                </td>
-                <td>
-                    <span class="badge badge-{{ $fu->google_indexed }}">
-                        {{ ucfirst($fu->google_indexed) }}
-                    </span>
                 </td>
                 <td>
                     <div style="font-weight: 500;">{{ $fu->assignee?->name ?? 'Unassigned' }}</div>

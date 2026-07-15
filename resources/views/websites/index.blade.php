@@ -1337,10 +1337,9 @@
                         <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                             <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Website</th>
                             <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Title / URL</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Google</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">URL</th>
                             <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">QC By</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Assigned</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Handle by</th>
                             <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
                             <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
                         </tr>
@@ -1361,13 +1360,8 @@
                                 <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $typeColors[$fu->type] ?? 'bg-slate-100 text-slate-600' }}">{{ $fu->getTypeLabel() }}</span>
                             </td>
                             <td class="px-4 py-3 max-w-xs">
-                                @if($fu->title) <div class="font-medium text-slate-700 dark:text-slate-200 truncate text-xs">{{ $fu->title }}</div> @endif
                                 @if($fu->url) <a href="{{ $fu->url }}" target="_blank" class="text-indigo-500 hover:text-indigo-700 text-xs truncate block">{{ Str::limit($fu->url, 40) }}</a> @endif
                                 @if($fu->note) <p class="text-xs text-slate-400 mt-0.5">{{ Str::limit($fu->note, 60) }}</p> @endif
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                @php $googleColors = ['yes' => 'bg-emerald-100 text-emerald-700', 'no' => 'bg-rose-100 text-rose-700', 'pending' => 'bg-amber-100 text-amber-700']; @endphp
-                                <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $googleColors[$fu->google_indexed] ?? 'bg-slate-100 text-slate-600' }}">{{ ucfirst($fu->google_indexed) }}</span>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <div class="flex flex-col items-start gap-1">
@@ -1396,9 +1390,7 @@
                                             @click="openEditFollowUpModal({{ $fu->id }}, {{ json_encode([
                                                 'website_id' => $fu->website_id,
                                                 'type' => $fu->type,
-                                                'title' => $fu->title,
                                                 'url' => $fu->url,
-                                                'google_indexed' => $fu->google_indexed,
                                                 'assigned_to' => $fu->assigned_to,
                                                 'note' => $fu->note,
                                                 'created_at' => $fu->created_at->format('Y-m-d')
@@ -2125,12 +2117,25 @@
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Website *</label>
-                    <select name="website_id" required class="form-select w-full rounded-xl text-sm">
-                        <option value="">Select website...</option>
-                        @foreach($allWebsites as $ws)<option value="{{ $ws->id }}">{{ $ws->name }}</option>@endforeach
-                    </select>
+                    <div x-data="{ open: false, search: '', selectedId: '', selectedName: 'Select website...' }" class="relative">
+                        <input type="hidden" name="website_id" x-model="selectedId" required>
+                        <button type="button" @click="open = !open" @click.outside="open = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
+                            <span x-text="selectedName" :class="{ 'text-slate-400': !selectedId }"></span>
+                        </button>
+                        <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
+                            <div class="p-2 sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 z-10">
+                                <input type="text" x-model="search" placeholder="Search websites..." class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-900">
+                            </div>
+                            <ul class="py-1">
+                                <li class="px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer" @click="selectedId = ''; selectedName = 'Select website...'; open = false">Select website...</li>
+                                @foreach($allWebsites as $ws)
+                                <li x-show="search === '' || '{{ strtolower(addslashes($ws->name)) }}'.includes(search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 cursor-pointer" @click="selectedId = '{{ $ws->id }}'; selectedName = '{{ addslashes($ws->name) }}'; open = false">{{ $ws->name }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
                 </div>
-                <div x-data="{ selectedType: 'blog_post' }">
+                <div x-data="{ selectedType: 'blog_post' }" class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Type *</label>
                     <select name="type" required x-model="selectedType" class="form-select w-full rounded-xl text-sm">
                         @foreach(\App\Models\WebsiteFollowUp::TYPES as $key => $label)
@@ -2139,24 +2144,12 @@
                     </select>
                     <input type="text" name="custom_type" x-show="selectedType === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="selectedType === 'other'">
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Google Indexed</label>
-                    <select name="google_indexed" class="form-select w-full rounded-xl text-sm">
-                        @foreach(\App\Models\WebsiteFollowUp::INDEXED_OPTIONS as $key => $label)
-                        <option value="{{ $key }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Page Title</label>
-                    <input type="text" name="title" class="form-input w-full rounded-xl text-sm" placeholder="Page or blog title...">
-                </div>
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Page URL</label>
                     <input type="url" name="url" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Assigned To</label>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Handle by</label>
                     <select name="assigned_to" class="form-select w-full rounded-xl text-sm">
                         <option value="">None</option>
                         @foreach($websiteTeamMembers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
@@ -2194,12 +2187,30 @@
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Website *</label>
-                    <select name="website_id" required x-model="editFollowUpForm.website_id" class="form-select w-full rounded-xl text-sm">
-                        <option value="">Select website...</option>
-                        @foreach($allWebsites as $ws)<option value="{{ $ws->id }}">{{ $ws->name }}</option>@endforeach
-                    </select>
+                    <div x-data="{ open: false, search: '', 
+                        get selectedName() {
+                            let option = this.$el.closest('.relative').querySelector(`li[data-id='${editFollowUpForm.website_id}']`);
+                            return option ? option.innerText : 'Select website...';
+                        }
+                    }" class="relative">
+                        <input type="hidden" name="website_id" x-model="editFollowUpForm.website_id" required>
+                        <button type="button" @click="open = !open" @click.outside="open = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
+                            <span x-text="selectedName" :class="{ 'text-slate-400': !editFollowUpForm.website_id }"></span>
+                        </button>
+                        <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
+                            <div class="p-2 sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 z-10">
+                                <input type="text" x-model="search" placeholder="Search websites..." class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-900">
+                            </div>
+                            <ul class="py-1">
+                                <li class="px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer" @click="editFollowUpForm.website_id = ''; open = false">Select website...</li>
+                                @foreach($allWebsites as $ws)
+                                <li data-id="{{ $ws->id }}" x-show="search === '' || '{{ strtolower(addslashes($ws->name)) }}'.includes(search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 cursor-pointer" @click="editFollowUpForm.website_id = '{{ $ws->id }}'; open = false">{{ $ws->name }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
                 </div>
-                <div>
+                <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Type *</label>
                     <select name="type" required x-model="editFollowUpForm.type" class="form-select w-full rounded-xl text-sm">
                         @foreach(\App\Models\WebsiteFollowUp::TYPES as $key => $label)
@@ -2208,24 +2219,12 @@
                     </select>
                     <input type="text" name="custom_type" x-model="editFollowUpForm.custom_type" x-show="editFollowUpForm.type === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="editFollowUpForm.type === 'other'">
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Google Indexed</label>
-                    <select name="google_indexed" x-model="editFollowUpForm.google_indexed" class="form-select w-full rounded-xl text-sm">
-                        @foreach(\App\Models\WebsiteFollowUp::INDEXED_OPTIONS as $key => $label)
-                        <option value="{{ $key }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Page Title</label>
-                    <input type="text" name="title" x-model="editFollowUpForm.title" class="form-input w-full rounded-xl text-sm" placeholder="Page or blog title...">
-                </div>
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Page URL</label>
                     <input type="url" name="url" x-model="editFollowUpForm.url" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Assigned To</label>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Handle by</label>
                     <select name="assigned_to" x-model="editFollowUpForm.assigned_to" class="form-select w-full rounded-xl text-sm">
                         <option value="">None</option>
                         @foreach($websiteTeamMembers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
@@ -2636,9 +2635,7 @@ function websitesApp() {
                 website_id: data.website_id || '',
                 type: formType,
                 custom_type: customType,
-                title: data.title || '',
                 url: data.url || '',
-                google_indexed: data.google_indexed || 'pending',
                 assigned_to: data.assigned_to || '',
                 note: data.note || '',
                 created_at: data.created_at || ''

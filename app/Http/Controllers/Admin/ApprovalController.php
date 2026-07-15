@@ -109,8 +109,15 @@ class ApprovalController extends Controller
         };
 
         // ── Pipeline stage breakdown (by list name keyword) ───────────────────
-        $getBreakdown = function($keyword) use ($activeCards, $getBreakdownForCards) {
-            $cards = $activeCards->filter(fn($c) => stripos($c->boardList?->name ?? '', $keyword) !== false);
+        $getBreakdown = function($keywords) use ($activeCards, $getBreakdownForCards) {
+            $keywords = (array) $keywords;
+            $cards = $activeCards->filter(function($c) use ($keywords) {
+                $listName = $c->boardList?->name ?? '';
+                foreach ($keywords as $kw) {
+                    if (stripos($listName, $kw) !== false) return true;
+                }
+                return false;
+            });
             return $getBreakdownForCards($cards);
         };
 
@@ -161,10 +168,10 @@ class ApprovalController extends Controller
         $allTimeCards = $queryApproved(); // no date filter
 
         $stats = [
-            'drafting'          => $getBreakdown('Drafting'),
-            'head_review'       => $getBreakdown('Head Review'),
-            'qc_review'         => $getBreakdown('QC'),
-            'supervisor_review' => $getBreakdown('Supervisor Review'),
+            'drafting'          => $getBreakdown(['Drafting', 'Draft', 'To do', 'Todo']),
+            'head_review'       => $getBreakdown(['Head Review']),
+            'qc_review'         => $getBreakdown(['QC', 'Text Review']),
+            'supervisor_review' => $getBreakdown(['Supervisor Review', 'Supervisor']),
             'urgent'            => $urgent,
             'overdue'           => $overdue,
             // period-selected
