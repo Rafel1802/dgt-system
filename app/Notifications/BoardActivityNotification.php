@@ -62,6 +62,7 @@ class BoardActivityNotification extends Notification
         if (!$actor) return;
 
         $payload = [
+            'module'       => 'digital',
             'actor_id'     => $actor->id,
             'actor_name'   => $actor->name,
             'actor_avatar' => $actor->avatar_url,

@@ -227,7 +227,7 @@ class ShipmentController extends Controller
 
     public function destroy(Shipment $shipment): RedirectResponse
     {
-        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, CRM Supervisor, or Boss can delete shipments.');
+        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, eBay Supervisor, CRM Supervisor, or Boss can delete shipments.');
 
         $shipment->delete();
         return redirect()->route('crm.logistics.shipments.index')
@@ -247,6 +247,7 @@ class ShipmentController extends Controller
             'shipping_address'  => ['nullable', 'string'],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
+            'tracking_number'   => ['nullable', 'string', 'max:150'],
             'products'                 => ['nullable', 'array'],
             'products.*.product_id'    => ['nullable', 'exists:products,id'],
             'products.*.product_name'  => ['nullable', 'string', 'max:255'],

@@ -5,12 +5,12 @@ namespace App\Notifications;
 use App\Models\Card;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class TaskRejectedNotification extends Notification implements ShouldQueue
+/** Deliberately NOT ShouldQueue — see TaskApprovedNotification for why. */
+class TaskRejectedNotification extends Notification
 {
     use Queueable;
 
@@ -22,7 +22,9 @@ class TaskRejectedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database', 'broadcast'];
+        // See TaskApprovedNotification::via() — database/broadcast must not
+        // depend on the (separately broken) mail channel succeeding.
+        return ['database', 'broadcast', 'mail'];
     }
 
     /**
@@ -46,6 +48,7 @@ class TaskRejectedNotification extends Notification implements ShouldQueue
     public function toArray(object $notifiable): array
     {
         return [
+            'module'      => 'digital',
             'card_id'     => $this->card->id,
             'card_title'  => $this->card->title,
             'rejected_by' => $this->rejectedBy->name,

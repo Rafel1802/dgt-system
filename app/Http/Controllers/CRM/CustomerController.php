@@ -79,7 +79,10 @@ class CustomerController extends Controller
 
         $validated = $request->validate([
             'name'              => ['required', 'string', 'max:255'],
-            'email'             => ['nullable', 'email', 'unique:customers,email', 'max:255'],
+            // No blanket email uniqueness here — a duplicate is specifically a
+            // name+email match together (see findDuplicateCustomer() below);
+            // the same email under a different name is a different person.
+            'email'             => ['nullable', 'email', 'max:255'],
             'phone'             => ['nullable', 'string', 'max:30'],
             'company'           => ['nullable', 'string', 'max:255'],
             'job_title'         => ['nullable', 'string', 'max:100'],
@@ -104,6 +107,12 @@ class CustomerController extends Controller
             $validated['tags'] = array_map('trim', explode(',', $validated['tags']));
         }
 
+        $duplicate = $this->matcher->findDuplicateCustomer($validated['name'], $validated['email'] ?? null);
+        if ($duplicate) {
+            return redirect()->route('crm.customers.show', $duplicate)
+                ->with('error', "A customer named \"{$duplicate->name}\" with this exact email already exists — opened their profile instead of creating a duplicate.");
+        }
+
         $customer = $this->crmService->createCustomer($validated, auth()->user());
 
         return redirect()->route('crm.customers.show', $customer)
@@ -125,7 +134,7 @@ class CustomerController extends Controller
         $source = $validated['source'] ?? CustomerSource::Website->value;
         unset($validated['source']);
 
-        $customer = $this->matcher->findCustomerByContact($validated['email'] ?? null, $validated['phone'] ?? null);
+        $customer = $this->matcher->findDuplicateCustomer($validated['name'], $validated['email'] ?? null);
 
         if (! $customer) {
             $customer = Customer::create([

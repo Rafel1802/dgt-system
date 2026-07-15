@@ -11,6 +11,7 @@ use App\Jobs\SendTaskRejectionEmailJob;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class KanbanService
@@ -143,7 +144,7 @@ class KanbanService
      */
     public function approveCard(Card $card, User $supervisor): Card
     {
-        return DB::transaction(function () use ($card, $supervisor) {
+        $card = DB::transaction(function () use ($card, $supervisor) {
             $card->update([
                 'status'      => CardStatus::Approved->value,
                 'approved_by' => $supervisor->id,
@@ -154,12 +155,20 @@ class KanbanService
 
             $this->addSystemComment($card, $supervisor, "✅ Task **approved** by {$supervisor->name}.");
 
-            // Dispatch a queued job to email Boss users + creator
-            SendTaskApprovalEmailJob::dispatch($card, $supervisor)
-                ->onQueue('emails');
-
             return $card;
         });
+
+        // Run synchronously (not ::dispatch()) — this app has no queue worker
+        // running, so a queued job would just sit unprocessed forever. Run
+        // after the transaction commits and behind a try/catch so a mail
+        // hiccup can't roll back the approval that already succeeded.
+        try {
+            SendTaskApprovalEmailJob::dispatchSync($card, $supervisor);
+        } catch (\Throwable $e) {
+            Log::error("SendTaskApprovalEmailJob failed synchronously for card #{$card->id}: {$e->getMessage()}");
+        }
+
+        return $card;
     }
 
     /**
@@ -167,7 +176,7 @@ class KanbanService
      */
     public function rejectCard(Card $card, User $supervisor, string $reason): Card
     {
-        return DB::transaction(function () use ($card, $supervisor, $reason) {
+        $card = DB::transaction(function () use ($card, $supervisor, $reason) {
             $card->update([
                 'status'           => CardStatus::Rejected->value,
                 'rejection_reason' => $reason,
@@ -181,12 +190,17 @@ class KanbanService
                 "❌ Task **rejected** by {$supervisor->name}. Reason: {$reason}"
             );
 
-            // Dispatch queued job to notify creator
-            SendTaskRejectionEmailJob::dispatch($card, $supervisor, $reason)
-                ->onQueue('emails');
-
             return $card;
         });
+
+        // See approveCard() — run synchronously, after commit, failure-isolated.
+        try {
+            SendTaskRejectionEmailJob::dispatchSync($card, $supervisor, $reason);
+        } catch (\Throwable $e) {
+            Log::error("SendTaskRejectionEmailJob failed synchronously for card #{$card->id}: {$e->getMessage()}");
+        }
+
+        return $card;
     }
 
     /**

@@ -185,6 +185,7 @@ class CardController extends Controller
                         'actor_id'     => auth()->id(),
                         'actor_name'   => auth()->user()->name,
                         'actor_avatar' => auth()->user()->avatar_url,
+                        'module'       => 'digital',
                         'message'      => auth()->user()->name . " updated the due date on card '{$card->title}'",
                         'link'         => route('boards.show', $card->board->slug),
                     ]));
@@ -368,6 +369,7 @@ class CardController extends Controller
                     'actor_id'     => auth()->id(),
                     'actor_name'   => auth()->user()->name,
                     'actor_avatar' => auth()->user()->avatar_url,
+                    'module'       => 'digital',
                     'message'      => auth()->user()->name . " assigned you to card '{$card->title}'",
                     'link'         => route('boards.show', $card->board->slug)
                 ]));
@@ -693,6 +695,7 @@ class CardController extends Controller
                     'actor_id'     => auth()->id(),
                     'actor_name'   => auth()->user()->name,
                     'actor_avatar' => auth()->user()->avatar_url,
+                    'module'       => 'digital',
                     'message'      => auth()->user()->name . " commented on card '{$card->title}'",
                     'link'         => route('boards.show', $card->board->slug)
                 ]));
@@ -751,6 +754,7 @@ class CardController extends Controller
                         'actor_id'     => auth()->id(),
                         'actor_name'   => auth()->user()->name,
                         'actor_avatar' => auth()->user()->avatar_url,
+                        'module'       => 'digital',
                         'message'      => auth()->user()->name . " edited a comment on card '{$card->title}'",
                         'link'         => route('boards.show', $card->board->slug) . "?card={$card->id}",
                     ]));
@@ -798,6 +802,7 @@ class CardController extends Controller
                     'actor_id'     => auth()->id(),
                     'actor_name'   => auth()->user()->name,
                     'actor_avatar' => auth()->user()->avatar_url,
+                    'module'       => 'digital',
                     'message'      => auth()->user()->name . " deleted a comment on card '{$card->title}'",
                     'link'         => route('boards.show', $card->board->slug) . "?card={$card->id}",
                 ]));
@@ -873,6 +878,7 @@ class CardController extends Controller
                         'actor_id'     => auth()->id(),
                         'actor_name'   => auth()->user()->name,
                         'actor_avatar' => auth()->user()->avatar_url,
+                        'module'       => 'digital',
                         'message'      => auth()->user()->name . " attached a file to card '{$card->title}'",
                         'link'         => route('boards.show', $card->board->slug),
                     ]));
@@ -905,6 +911,7 @@ class CardController extends Controller
                         'actor_id'     => auth()->id(),
                         'actor_name'   => auth()->user()->name,
                         'actor_avatar' => auth()->user()->avatar_url,
+                        'module'       => 'digital',
                         'message'      => auth()->user()->name . " added a link to card '{$card->title}'",
                         'link'         => route('boards.show', $card->board->slug),
                     ]));

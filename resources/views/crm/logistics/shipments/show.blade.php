@@ -387,6 +387,10 @@
           <textarea id="add-shipping-address" name="shipping_address" rows="2" class="form-input" placeholder="Leave blank if same as customer"></textarea>
         </div>
         <div>
+          <label class="form-label">Tracking Number (optional)</label>
+          <input type="text" name="tracking_number" class="form-input" placeholder="Leave blank if not available yet">
+        </div>
+        <div>
           <label class="form-label">Products</label>
           <div class="space-y-2">
             <template x-for="(line, i) in lines" :key="i">

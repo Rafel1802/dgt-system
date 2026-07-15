@@ -674,7 +674,7 @@ function dashboardAppearance(initial) {
     };
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function initDashboardCharts() {
     if (!window.Chart) return;
 
     Chart.defaults.font.family = "'Inter', sans-serif";
@@ -682,6 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const userChart = document.getElementById('dashboardUserChart');
     if (userChart) {
+        Chart.getChart(userChart)?.destroy();
         new Chart(userChart, {
             type: 'doughnut',
             data: {
@@ -709,6 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const activityChart = document.getElementById('dashboardActivityChart');
     if (activityChart) {
+        Chart.getChart(activityChart)?.destroy();
         new Chart(activityChart, {
             type: 'bar',
             data: {
@@ -734,6 +736,9 @@ document.addEventListener('DOMContentLoaded', () => {
             },
         });
     }
-});
+}
+
+document.addEventListener('DOMContentLoaded', initDashboardCharts);
+document.addEventListener('turbo:load', initDashboardCharts);
 </script>
 @endpush

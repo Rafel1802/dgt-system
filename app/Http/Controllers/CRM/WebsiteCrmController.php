@@ -121,7 +121,6 @@ class WebsiteCrmController extends Controller
             'statuses'  => WebsiteLeadStatus::cases(),
             'sources'   => InquirySource::cases(),
             'products'  => \App\Models\Product::active()->orderBy('name')->get(),
-            'crmUsers'  => \App\Models\User::crmMembers()->orderBy('name')->get(),
             'customers' => \App\Models\Customer::orderBy('name')->get(['id','name','email','phone','company','address']),
         ]);
     }
@@ -215,9 +214,16 @@ class WebsiteCrmController extends Controller
             'follow_up_notes'   => ['nullable', 'string'],
             'follow_up_date'    => ['nullable', 'date'],
             'next_action'       => ['nullable', 'string'],
-            'assigned_to'       => ['nullable', 'exists:users,id'],
+            'handled_by'        => ['nullable', 'exists:users,id'],
             'lost_reason'       => ['nullable', 'string'],
         ]);
+
+        // Reassigning the handler is a supervisor-tier action — everyone else
+        // can still edit every other field on the lead, so silently drop the
+        // submitted value rather than rejecting the whole update.
+        if (! auth()->user()->canDeleteCrmRecords('website')) {
+            unset($validated['handled_by']);
+        }
 
         $lead->update($validated);
 
@@ -417,7 +423,7 @@ class WebsiteCrmController extends Controller
      */
     public function destroy(Lead $lead): RedirectResponse
     {
-        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can delete leads.');
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor, eBay Supervisor, Logistic Supervisor, or Boss can delete leads.');
 
         if ($lead->customer) {
             $customerName = $lead->customer->name;

@@ -176,6 +176,18 @@ class EbayCustomerController extends Controller
         $statusChanged = $validated['tab_type'] !== $record->tab_type;
         $becomingNewOrder = $statusChanged && $validated['tab_type'] === EbayCustomerRecord::TAB_NEW_ORDER;
 
+        // Marking the whole record Resolved should also resolve any negative
+        // feedback still tracked on it — negative_feedback_resolved is a
+        // separate flag that's only ever included above while the record
+        // sits in one of the negative-feedback categories, so moving it
+        // straight to Resolved from there left that flag stuck on
+        // "Unresolved" forever, contradicting the record's own status badge.
+        if ($statusChanged && $validated['tab_type'] === EbayCustomerRecord::TAB_RESOLVED
+            && $record->negative_feedback_causes && ! $record->negative_feedback_resolved) {
+            $validated['negative_feedback_resolved'] = true;
+            $validated['negative_feedback_resolved_at'] = now()->toDateString();
+        }
+
         // Switching status to New Order requires the same order/product details as creating one
         $orderData = $becomingNewOrder ? $request->validate($this->orderFieldRules()) : null;
 
@@ -209,7 +221,7 @@ class EbayCustomerController extends Controller
      */
     public function destroy(EbayCustomerRecord $record): RedirectResponse
     {
-        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, CRM Supervisor, or Boss can delete eBay records.');
+        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, Logistic Supervisor, CRM Supervisor, or Boss can delete eBay records.');
 
         $tabType = $record->tab_type;
 
@@ -436,13 +448,15 @@ class EbayCustomerController extends Controller
             return $record->customer_id;
         }
 
-        $existing = $this->matcher->findCustomerByContact($validated['email'] ?? null, $validated['phone'] ?? null);
+        $name = ($validated['buyer_name'] ?? null) ?: $validated['username'];
+
+        $existing = $this->matcher->findDuplicateCustomer($name, $validated['email'] ?? null);
         if ($existing) {
             return $existing->id;
         }
 
         $customer = Customer::create([
-            'name'       => ($validated['buyer_name'] ?? null) ?: $validated['username'],
+            'name'       => $name,
             'email'      => $validated['email'] ?? null,
             'phone'      => $validated['phone'] ?? null,
             'status'     => CustomerStatus::Lead->value,

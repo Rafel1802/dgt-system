@@ -114,11 +114,16 @@
           </div>
           <div>
             <label class="form-label">Handled By (CRM Member)</label>
+            @if(auth()->user()->canDeleteCrmRecords('website'))
             @include('crm.partials.member-searchable-select', [
-              'name'     => 'assigned_to',
-              'selected' => old('assigned_to', $lead->assigned_to),
+              'name'     => 'handled_by',
+              'selected' => old('handled_by', $lead->handled_by),
               'members'  => $crmUsers
             ])
+            @else
+            <input type="text" class="form-input bg-slate-50 text-slate-500" value="{{ $lead->handler?->name ?? '— Unassigned —' }}" disabled>
+            <p class="text-xs text-slate-400 mt-1">Only a Supervisor or Boss can reassign the handler.</p>
+            @endif
           </div>
           <div>
             <label class="form-label">Follow-Up Date</label>

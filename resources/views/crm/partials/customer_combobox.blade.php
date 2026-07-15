@@ -353,6 +353,7 @@
       panel.classList.remove('hidden');
       chevron.classList.add('rotate-180');
       input.removeAttribute('readonly');
+      highlighted = -1;
       renderList(filterCustomers(search.value));
       setTimeout(() => search.focus(), 50);
     }
@@ -470,16 +471,49 @@
       chevron.classList.remove('hidden');
     });
 
+    // Enter only ever selects a name-searched match when the user has actually
+    // arrow-key-highlighted it first — never the "first result" just because
+    // they typed a name and hit Enter out of habit. Names alone are ambiguous
+    // (two real, different customers can share a name), so a blind Enter used
+    // to silently link whatever record was on top — including someone
+    // unrelated to what was actually typed. Enter with zero results (safe,
+    // unambiguous) still opens the create-new shortcut.
+    let highlighted = -1;
+
+    function applyHighlight() {
+      const items = list.querySelectorAll('li');
+      items.forEach((li, i) => li.classList.toggle('bg-indigo-50', i === highlighted));
+    }
+
     input.addEventListener('click', () => { open ? closePanel() : openPanel(); });
-    search.addEventListener('input', () => renderList(filterCustomers(search.value)));
+    search.addEventListener('input', () => {
+      highlighted = -1;
+      renderList(filterCustomers(search.value));
+    });
     search.addEventListener('keydown', e => {
+      const items = list.querySelectorAll('li');
+
       if (e.key === 'Escape') closePanel();
+
+      if (e.key === 'ArrowDown') {
+        if (items.length) highlighted = (highlighted + 1) % items.length;
+        applyHighlight();
+        e.preventDefault();
+      }
+
+      if (e.key === 'ArrowUp') {
+        if (items.length) highlighted = (highlighted - 1 + items.length) % items.length;
+        applyHighlight();
+        e.preventDefault();
+      }
+
       if (e.key === 'Enter') {
-        const first = list.querySelector('li');
-        if (first) {
-          const c = customerData.find(item => item.id === first.dataset.id);
+        if (items.length && highlighted >= 0 && highlighted < items.length) {
+          const id = items[highlighted].dataset.id;
+          const type = items[highlighted].dataset.type;
+          const c = customerData.find(item => item.id === id && item.type === type);
           if (c) selectCustomer(c);
-        } else if (newBtn) {
+        } else if (items.length === 0 && newBtn) {
           openCreateModal();
         }
         e.preventDefault();

@@ -46,7 +46,7 @@ class EbayCustomerRecord extends Model
         'ebay_store_id', 'order_id', 'summary', 'sku_number',
         'date', 'order_date',
         'attention_required', 'required_attentions', 'updates',
-        'status', 'shipment_delay',
+        'status', 'shipment_delay', 'shipment_delivered',
         'negative_feedback_causes', 'negative_feedback_resolved', 'negative_feedback_resolved_at',
         'tech_resolved', 'tech_resolved_at',
         'created_by', 'updated_by',
@@ -56,6 +56,7 @@ class EbayCustomerRecord extends Model
         'date'                          => 'date',
         'order_date'                    => 'date',
         'shipment_delay'                => 'boolean',
+        'shipment_delivered'            => 'boolean',
         'negative_feedback_causes'      => 'array',
         'negative_feedback_resolved'    => 'boolean',
         'negative_feedback_resolved_at' => 'date',
@@ -67,6 +68,9 @@ class EbayCustomerRecord extends Model
 
     /** Logistic-issues color, shared with the shipment_delay flag badge and the "Logistic issues" cause. */
     const LOGISTIC_ISSUES_COLOR = '#f97316';
+
+    /** Delivered color, shared with the shipment_delivered flag badge — matches ShipmentCustomer::colorForStatus('delivered'). */
+    const DELIVERED_COLOR = '#22c55e';
 
     // ── Tab definitions ───────────────────────────────────────────────────────
 

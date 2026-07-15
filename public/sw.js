@@ -1,6 +1,8 @@
-const CACHE_NAME = 'kiuq-system-cache-v1';
+// Bumped to v2: the old v1 cache may hold personalized HTML pages cached
+// under the previous (unsafe) strategy — this forces every client to drop
+// it on next activation (see the activate handler below).
+const CACHE_NAME = 'kiuq-system-cache-v2';
 const PRE_CACHE_ASSETS = [
-  '/',
   '/favicon.ico',
   '/manifest.json'
 ];
@@ -18,14 +20,20 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+      const staleKeys = keys.filter(key => key !== CACHE_NAME);
+      return Promise.all(staleKeys.map(key => caches.delete(key))).then(() => staleKeys.length > 0);
+    }).then(hadStaleCache => {
+      return self.clients.claim().then(() => {
+        // Only force a reload of already-open tabs when we actually cleared
+        // an old (potentially cross-user-poisoned) cache — not on a brand
+        // new install where there's nothing to fix. This is what makes the
+        // fix take effect without staff needing to know to hard-refresh.
+        if (!hadStaleCache) return;
+        return self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(client => client.navigate(client.url));
+        });
+      });
+    })
   );
 });
 
@@ -86,34 +94,15 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // For HTML pages: Network-First strategy with a quick timeout fallback to Cache
-  // This ensures freshness but falls back instantly (0ms load) if network is slow/offline.
-  event.respondWith(
-    caches.open(CACHE_NAME).then(cache => {
-      const fetchPromise = fetch(request).then(networkResponse => {
-        if (networkResponse.status === 200) {
-          cache.put(request, networkResponse.clone());
-        }
-        return networkResponse;
-      });
-
-      // Create a promise that rejects after 200ms
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout')), 200);
-      });
-
-      // Race the network fetch against the 200ms timeout
-      return Promise.race([fetchPromise, timeoutPromise])
-        .catch(() => {
-          // If network fails, errors, or timeouts (takes >200ms), return cached version instantly
-          return cache.match(request).then(cachedResponse => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // If nothing in cache, fall back to the raw fetch promise
-            return fetchPromise;
-          });
-        });
-    })
-  );
+  // HTML pages are intentionally NEVER cached-and-replayed: every page in
+  // this app is personalized/authenticated (user name, role, CSRF token,
+  // and — critically — the per-user meta tag the notification bell's
+  // Pusher client reads to pick which private channel to subscribe to).
+  // The previous Network-First-with-cache-fallback strategy cached these
+  // by URL only, with no per-session/per-user variance, so on a shared
+  // device a slow (>200ms) page load could silently serve a DIFFERENT
+  // staff member's cached HTML — including their user ID — causing this
+  // browser to subscribe to that other user's live notification channel.
+  // Always hit the network for HTML; let the browser's own default
+  // handling take over instead of intercepting.
 });

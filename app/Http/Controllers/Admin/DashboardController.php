@@ -22,14 +22,23 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
+        $activityQuery = ActivityLog::with('user')->latest('id');
+
+        // admin-crm is scoped to CRM work only — the activity feed (and the
+        // module-breakdown/6-day chart the view derives from it) shouldn't
+        // surface Digital Team activity (Boards/Kanban, Social Media,
+        // Websites) that's none of their concern. Anyone who's also
+        // super-admin or admin-digital still sees everything.
+        $digitalOnlyModules = ['boards', 'kanban', 'social-media', 'websites'];
+        if ($user->hasRole('admin-crm') && ! $user->hasAnyRole(['super-admin', 'admin-digital'])) {
+            $activityQuery->whereNotIn('module', $digitalOnlyModules);
+        }
+
         // Stats - will expand in later phases with real data
         $stats = [
             'total_users' => User::active()->count(),
             'online_users' => User::where('last_login_at', '>=', now()->subMinutes(30))->count(),
-            'recent_activities' => ActivityLog::with('user')
-                ->latest('id')
-                ->limit(50)
-                ->get(),
+            'recent_activities' => $activityQuery->limit(50)->get(),
         ];
 
         $appearance = $this->dashboardAppearance($user);
