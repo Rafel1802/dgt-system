@@ -20,6 +20,11 @@ class CallReport extends Model
         'occurred_at' => 'datetime',
     ];
 
+    public function setPhoneAttribute(?string $value): void
+    {
+        $this->attributes['phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     public function answeredBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'answered_by')->withTrashed();

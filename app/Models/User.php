@@ -76,6 +76,11 @@ class User extends Authenticatable
         ];
     }
 
+    public function setPhoneAttribute(?string $value): void
+    {
+        $this->attributes['phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     // ─── Relationships ────────────────────────────────────────────────────────
 
     public function loginAttempts(): HasMany

@@ -21,6 +21,11 @@ class TruckingCompany extends Model
         'is_active' => 'boolean',
     ];
 
+    public function setPhoneAttribute(?string $value): void
+    {
+        $this->attributes['phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     // ── Relationships ───────────────────────────────────────────────────────
 
     public function handler(): BelongsTo

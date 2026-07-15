@@ -21,6 +21,11 @@ class CallRequest extends Model
         'fulfilled_at' => 'datetime',
     ];
 
+    public function setPhoneAttribute(?string $value): void
+    {
+        $this->attributes['phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     public function source(): MorphTo
     {
         return $this->morphTo('source', 'source_type', 'source_id');

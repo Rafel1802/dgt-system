@@ -101,6 +101,11 @@ class Customer extends Model
 
     // ─── Accessors ─────────────────────────────────────────────────────────
 
+    public function setPhoneAttribute(?string $value): void
+    {
+        $this->attributes['phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     public function getAvatarUrlAttribute(): string
     {
         if ($this->avatar) {

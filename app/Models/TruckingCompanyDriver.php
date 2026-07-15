@@ -11,6 +11,11 @@ class TruckingCompanyDriver extends Model
         'trucking_company_id', 'name', 'phone',
     ];
 
+    public function setPhoneAttribute(?string $value): void
+    {
+        $this->attributes['phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     public function truckingCompany(): BelongsTo
     {
         return $this->belongsTo(TruckingCompany::class);

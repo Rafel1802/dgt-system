@@ -955,6 +955,12 @@ class ShipmentController extends Controller
                 ]);
             }
 
+            // If this recipient's phone or email matches an existing
+            // Customer, link the two and refresh their info/status —
+            // covers the common case of a repeat customer placing another
+            // order under a fresh shipping-label export.
+            $this->matcher->linkImportedCustomer($shipmentCustomer);
+
             $imported++;
         }
 

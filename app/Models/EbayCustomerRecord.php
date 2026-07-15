@@ -138,6 +138,11 @@ class EbayCustomerRecord extends Model
         };
     }
 
+    public function setPhoneAttribute(?string $value): void
+    {
+        $this->attributes['phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     // ── Relationships ─────────────────────────────────────────────────────────
 
     public function store(): BelongsTo

@@ -53,6 +53,11 @@ class ShipmentCustomer extends Model
         };
     }
 
+    public function setRecipientPhoneAttribute(?string $value): void
+    {
+        $this->attributes['recipient_phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     // ── Relationships ───────────────────────────────────────────────────────
 
     public function shipment(): BelongsTo

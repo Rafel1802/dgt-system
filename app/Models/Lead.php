@@ -65,6 +65,11 @@ class Lead extends Model
         'tech_resolved_at' => 'date',
     ];
 
+    public function setClientPhoneAttribute(?string $value): void
+    {
+        $this->attributes['client_phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     // ── Relationships ───────────────────────────────────────────────────────
 
     public function customer(): BelongsTo

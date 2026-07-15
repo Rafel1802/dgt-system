@@ -35,6 +35,16 @@ class Logistic extends Model
         'actual_arrival'    => 'date',
     ];
 
+    public function setRecipientPhoneAttribute(?string $value): void
+    {
+        $this->attributes['recipient_phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
+    public function setDriverPhoneAttribute(?string $value): void
+    {
+        $this->attributes['driver_phone'] = \App\Support\PhoneNumberFormatter::format($value);
+    }
+
     // ── Relationships ───────────────────────────────────────────────────────
 
     public function customer(): BelongsTo

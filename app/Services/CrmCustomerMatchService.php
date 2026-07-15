@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\CustomerStatus;
 use App\Enums\WebsiteLeadStatus;
 use App\Models\Customer;
 use App\Models\EbayCustomerRecord;
@@ -231,6 +232,69 @@ class CrmCustomerMatchService
         $customer = $customerId ? $shipmentCustomer->customer : $this->findCustomerByContact($email, $phone);
         if ($customer && ! $customer->shipment_delivered) {
             $customer->update(['shipment_delivered' => true]);
+        }
+    }
+
+    /**
+     * Called once per row right after a Process Trucking import creates a
+     * ShipmentCustomer. If the recipient's phone or email matches an
+     * existing Customer, this is the same person ordering again — link the
+     * new shipment record to them (customer_id), refresh their stored
+     * contact/address info from the import (which is often more current
+     * than whatever's on file), and move them forward in the pipeline since
+     * a new shipment just started for them. Never touches a customer the
+     * import doesn't actually match — this only runs when a match is found.
+     */
+    public function linkImportedCustomer(ShipmentCustomer $shipmentCustomer): void
+    {
+        $email = $shipmentCustomer->recipient_email;
+        $phone = $shipmentCustomer->recipient_phone;
+
+        $customer = $this->findCustomerByContact($email, $phone);
+        if (! $customer) {
+            return;
+        }
+
+        if ($shipmentCustomer->customer_id !== $customer->id) {
+            $shipmentCustomer->update(['customer_id' => $customer->id]);
+        }
+
+        // Only overwrite fields the import actually supplied a value for —
+        // a label that omitted, say, an email address must never blank out
+        // an email already on file.
+        $updates = array_filter([
+            'name'    => $shipmentCustomer->recipient_name,
+            'email'   => $email,
+            'phone'   => $phone,
+            'address' => $shipmentCustomer->shipping_address,
+        ], fn ($v) => ! empty($v));
+        if (! empty($updates)) {
+            $customer->update($updates);
+        }
+
+        // A new shipment is now active for this customer — move them
+        // forward to Active (never resurrect a deliberately Lost customer).
+        if ($customer->status !== CustomerStatus::Lost && $customer->status !== CustomerStatus::Active) {
+            $customer->update(['status' => CustomerStatus::Active]);
+        }
+
+        $lead = Lead::where('customer_id', $customer->id)->first()
+            ?? $this->findLeadByContact($email, $phone);
+
+        // Same reasoning as the delivery/delay syncs above: never resurrect
+        // a lead a staff member deliberately marked Lost, but a genuinely
+        // new shipment IS reason enough to move a lead back to In Delivery
+        // even if their last one already finished (Delivered) — this is a
+        // new order, not a status correction on the old one.
+        if ($lead && $lead->status !== WebsiteLeadStatus::Lost && $lead->status !== WebsiteLeadStatus::InDelivery) {
+            $lead->update(['status' => WebsiteLeadStatus::InDelivery]);
+            LeadFollowUp::create([
+                'lead_id'           => $lead->id,
+                'user_id'           => auth()->id(),
+                'notes'             => 'New shipment imported via Process Trucking — auto-advanced to In Delivery.',
+                'status_changed_to' => WebsiteLeadStatus::InDelivery,
+                'contacted_at'      => now(),
+            ]);
         }
     }
 
