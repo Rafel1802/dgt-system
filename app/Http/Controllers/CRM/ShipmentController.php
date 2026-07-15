@@ -620,8 +620,8 @@ class ShipmentController extends Controller
 
         return response()->streamDownload(function () use ($headers, $example) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, $headers);
-            fputcsv($out, $example);
+            fputcsv($out, $headers, ',', '"', '\\');
+            fputcsv($out, $example, ',', '"', '\\');
             fclose($out);
         }, 'process-trucking-import-template.csv', ['Content-Type' => 'text/csv']);
     }
@@ -658,15 +658,12 @@ class ShipmentController extends Controller
             return back()->withErrors(['file' => 'The file appears to be empty.']);
         }
 
-        $firstRowFilled = count(array_filter($rows[0] ?? [], fn ($v) => trim((string) ($v ?? '')) !== ''));
-
-        $previewRows = $firstRowFilled > 1
-            ? $this->parseColumnFormat($rows)
-            : $this->parseBlockFormat($rows);
-
-        if ($previewRows === null) {
-            return back()->withErrors(['file' => 'Could not find a "Recipient Name" column — please use the provided template, or upload a raw shipping-label export.']);
-        }
+        // Try the labeled-header template first; only a real "Recipient Name"
+        // column match counts as that format. Anything else — including a
+        // raw export whose first row just happens to have multiple filled
+        // cells (e.g. two shipping labels side by side) — falls back to the
+        // block parser instead of failing outright.
+        $previewRows = $this->parseColumnFormat($rows) ?? $this->parseBlockFormat($rows);
 
         if (empty($previewRows)) {
             return back()->withErrors(['file' => 'No data rows found in the file.']);
@@ -706,43 +703,74 @@ class ShipmentController extends Controller
     }
 
     /**
-     * Raw single-column export: one shipping-label block per recipient,
-     * blocks separated by one or more blank rows. Line 1 of a block is
-     * always the name and line 2 the street address; every other line is
-     * classified by pattern (phone, email, "City, ST ZIP", country,
-     * tracking number, SKU) since block shape varies — e.g. Walmart-relay
-     * blocks skip the country line and use a relay email instead of a
-     * separate phone+country pair; some blocks omit the product name line
-     * entirely. Whatever doesn't match a known pattern becomes the product
-     * name (first unmatched line) or notes (any unmatched line after that).
-     * This is a best-effort heuristic — staff review/correct it on the
-     * preview page before anything is saved, so an occasional misparse
-     * isn't destructive.
+     * Raw shipping-label export: one recipient block per column, blocks
+     * within a column separated by that column's own blank cells. Usually
+     * there's just one data-bearing column (a plain single-column export),
+     * but some exports lay two labels side by side per printed page —
+     * recipient A in column 0, recipient B in column 7, for example — so
+     * every column that has data anywhere in the file is walked as its own
+     * independent recipient stream. Each column's blank/non-blank pattern is
+     * used on its own, NOT a shared "this row is blank across every column"
+     * check — side-by-side labels are commonly offset by a row or more from
+     * their neighbor (one label a line shorter than the one beside it), so
+     * there's often no row that's blank in every column at once between two
+     * blocks in different columns.
+     *
+     * Within a block, line 1 is always the name and line 2 the street
+     * address; every other line is classified by pattern (phone, email,
+     * "City, ST ZIP", country, tracking number, SKU) since block shape
+     * varies — e.g. Walmart-relay blocks skip the country line and use a
+     * relay email instead of a separate phone+country pair; some blocks
+     * omit the product name line entirely. Whatever doesn't match a known
+     * pattern becomes notes. This is a best-effort heuristic — staff
+     * review/correct it on the preview page before anything is saved, so an
+     * occasional misparse isn't destructive.
      */
     private function parseBlockFormat(array $rows): array
     {
-        $lines = array_map(function ($row) {
-            $value = $row[0] ?? null;
-            return $value === null ? '' : trim((string) $value);
-        }, $rows);
-
-        $blocks = [];
-        $current = [];
-        foreach ($lines as $line) {
-            if ($line === '') {
-                if (! empty($current)) {
-                    $blocks[] = $current;
-                    $current = [];
+        $dataColumns = [];
+        foreach ($rows as $row) {
+            foreach ($row as $idx => $value) {
+                if (trim((string) $value) !== '') {
+                    $dataColumns[$idx] = true;
                 }
-                continue;
             }
-            $current[] = $line;
         }
-        if (! empty($current)) {
-            $blocks[] = $current;
+        $dataColumns = array_keys($dataColumns);
+        sort($dataColumns);
+
+        $previewRows = [];
+        foreach ($dataColumns as $col) {
+            $lines = array_map(function ($row) use ($col) {
+                $value = $row[$col] ?? null;
+                return $value === null ? '' : trim((string) $value);
+            }, $rows);
+
+            $blocks = [];
+            $current = [];
+            foreach ($lines as $line) {
+                if ($line === '') {
+                    if (! empty($current)) {
+                        $blocks[] = $current;
+                        $current = [];
+                    }
+                    continue;
+                }
+                $current[] = $line;
+            }
+            if (! empty($current)) {
+                $blocks[] = $current;
+            }
+
+            foreach ($blocks as $block) {
+                if (count($block) < 2) {
+                    continue; // not enough data to be a real recipient (e.g. a stray note cell)
+                }
+                $previewRows[] = $this->classifyBlockLines($block);
+            }
         }
 
-        return array_map(fn ($block) => $this->classifyBlockLines($block), $blocks);
+        return $previewRows;
     }
 
     /** @return array<string,string> one parsed shipment-customer row */
@@ -965,7 +993,7 @@ class ShipmentController extends Controller
     {
         $rows = [];
         if (($handle = fopen($path, 'r')) !== false) {
-            while (($row = fgetcsv($handle)) !== false) {
+            while (($row = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
                 $rows[] = $row;
             }
             fclose($handle);
