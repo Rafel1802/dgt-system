@@ -6,6 +6,7 @@ use App\Enums\CardStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Board;
 use App\Models\Card;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Customer;
 use App\Models\EbayOffer;
 use App\Models\Lead;
@@ -27,6 +28,26 @@ class DashboardController extends Controller
             ->where('is_archived', false)
             ->whereHas('assignees', fn ($query) => $query->where('users.id', $user->id));
 
+        $stats = Cache::remember('api_dashboard_stats', 300, function () use ($user) {
+            return [
+                'active_members' => User::active()->count(),
+                'boards' => Board::where('is_archived', false)->count(),
+                'open_cards' => Card::where('is_archived', false)->whereNotIn('status', [CardStatus::Done->value, CardStatus::Approved->value])->count(),
+                'websites' => Website::where('is_archived', false)->count(),
+                'crm_customers' => Customer::count(),
+                'logistics' => Logistic::count(),
+                'shipments' => Shipment::count(),
+                'ebay_offers' => EbayOffer::count(),
+                'website_leads' => Lead::active()->count(),
+            ];
+        });
+        
+        // Add user-specific counts
+        $stats['my_cards'] = (clone $myCards)->count();
+        $stats['notes'] = Note::where(function ($query) use ($user) {
+            $query->where('user_id', $user->id)->orWhere('type', 'team');
+        })->count();
+
         return response()->json([
             'hero' => [
                 'title' => 'DGT System',
@@ -34,21 +55,7 @@ class DashboardController extends Controller
                 'user_name' => $user->name,
                 'unread_notifications' => $user->unreadNotifications()->count(),
             ],
-            'stats' => [
-                'active_members' => User::active()->count(),
-                'boards' => Board::where('is_archived', false)->count(),
-                'open_cards' => Card::where('is_archived', false)->whereNotIn('status', [CardStatus::Done->value, CardStatus::Approved->value])->count(),
-                'my_cards' => (clone $myCards)->count(),
-                'websites' => Website::where('is_archived', false)->count(),
-                'crm_customers' => Customer::count(),
-                'logistics' => Logistic::count(),
-                'shipments' => Shipment::count(),
-                'ebay_offers' => EbayOffer::count(),
-                'website_leads' => Lead::active()->count(),
-                'notes' => Note::where(function ($query) use ($user) {
-                    $query->where('user_id', $user->id)->orWhere('type', 'team');
-                })->count(),
-            ],
+            'stats' => $stats,
             'my_cards' => (clone $myCards)
                 ->with(['board:id,name,slug', 'boardList:id,name', 'assignees:id,name,avatar'])
                 ->latest('updated_at')

@@ -43,6 +43,7 @@ if __name__ == "__main__":
         "--exclude", "node_modules/",
         "--exclude", ".env",
         "--exclude", ".DS_Store",
+        "--exclude", "bootstrap/cache/",
         "--exclude", "backups/",
         "--exclude", "*.sql",
         "--exclude", "/*.php",   # leading "/" = project root only, not app/ etc.
@@ -88,9 +89,12 @@ if __name__ == "__main__":
         "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
         (
             "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
+            "mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions && "
+            "chmod -R 775 storage bootstrap/cache && "
             "rm -f public/hot && "
-            f"{PHP} artisan migrate --force && "
+            "rm -f bootstrap/cache/*.php && "
             f"{PHP} artisan optimize:clear && "
+            f"{PHP} artisan migrate --force && "
             f"{PHP} artisan optimize && "
             f"{PHP} artisan view:cache"
         )

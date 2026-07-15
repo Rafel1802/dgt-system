@@ -86,53 +86,6 @@ class ApprovalController extends Controller
         ->orderBy('created_at')
         ->get();
 
-        // ── All active cards in selected boards (for pipeline stats) ──────────
-        // Requires board_id NOT NULL and board still exists (not soft-deleted)
-        $activeCards = Card::with(['boardList', 'labels'])
-            ->whereIn('board_id', $selectedBoardIds)
-            ->whereNotNull('board_id')
-            ->whereHas('board')  // exclude orphaned cards whose board was deleted
-            ->where('is_archived', false)
-            ->get();
-
-        // ── Helper: breakdown by team (checks card->label field first) ────────
-        $getBreakdownForCards = function($cards) {
-            return [
-                'total'   => $cards->count(),
-                'graphic' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count(),
-                'video'   => $cards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count(),
-                'listing' => $cards->filter(fn($c) =>
-                    $this->matchesTeam($c, 'Listing') || $this->matchesTeam($c, 'SM')
-                )->count(),
-                'content' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count(),
-                'qc'      => $cards->filter(fn($c) =>
-                    $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
-                )->count(),
-            ];
-        };
-
-        // ── Pipeline stage breakdown (by list name keyword) ───────────────────
-        $getBreakdown = function($keywords) use ($activeCards, $getBreakdownForCards) {
-            $keywords = (array) $keywords;
-            $cards = $activeCards->filter(function($c) use ($keywords) {
-                $listName = $c->boardList?->name ?? '';
-                foreach ($keywords as $kw) {
-                    if (stripos($listName, $kw) !== false) return true;
-                }
-                return false;
-            });
-            return $getBreakdownForCards($cards);
-        };
-
-        // ── Urgent: ONLY cards physically in a list named "Urgent" ────────────
-        // Do NOT use priority field — priority is a display badge, not a pipeline stage.
-        // A card with priority='urgent' sitting in 'Drafting' is NOT an urgent pipeline item.
-        $urgentCards = $activeCards->filter(fn($c) =>
-            stripos($c->boardList?->name ?? '', 'Urgent') !== false
-        );
-        $urgent  = $getBreakdownForCards($urgentCards);
-        $overdue = $activeCards->filter(fn($c) => $c->isOverdue())->count();
-
         // ── Date window for selected period ───────────────────────────────────
         [$rangeStart, $rangeEnd] = match($period) {
             'week'  => [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()],
@@ -140,51 +93,90 @@ class ApprovalController extends Controller
             default => [Carbon::now()->startOfDay(), Carbon::now()->endOfDay()],
         };
 
-        // ── Helper: query approved cards for a given date window ──────────────
-        $queryApproved = function(?Carbon $start = null, ?Carbon $end = null) use ($selectedBoardIds) {
-            $q = Card::with(['boardList', 'labels'])
+        $cacheKey = 'approval_stats_' . md5(json_encode($selectedBoardIds)) . '_' . $period;
+        
+        $stats = \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function() use ($selectedBoardIds, $period, $rangeStart, $rangeEnd) {
+            // ── All active cards in selected boards (for pipeline stats) ──────────
+            $activeCards = Card::with(['boardList', 'labels'])
                 ->whereIn('board_id', $selectedBoardIds)
-                ->whereHas('boardList', fn($bl) => $bl->where('name', 'like', '%Approved%'));
+                ->whereNotNull('board_id')
+                ->whereHas('board')
+                ->where('is_archived', false)
+                ->get();
 
-            if ($start && $end) {
-                // Cards physically sitting in "Approved" list, updated/approved in window
-                $q->where(function($sub) use ($start, $end) {
-                    $sub->whereBetween('approved_at', [$start, $end])
-                        ->orWhereBetween('updated_at', [$start, $end]);
+            // ── Helper: breakdown by team (checks card->label field first) ────────
+            $getBreakdownForCards = function($cards) {
+                return [
+                    'total'   => $cards->count(),
+                    'graphic' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count(),
+                    'video'   => $cards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count(),
+                    'listing' => $cards->filter(fn($c) =>
+                        $this->matchesTeam($c, 'Listing') || $this->matchesTeam($c, 'SM')
+                    )->count(),
+                    'content' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count(),
+                    'qc'      => $cards->filter(fn($c) =>
+                        $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
+                    )->count(),
+                ];
+            };
+
+            // ── Pipeline stage breakdown (by list name keyword) ───────────────────
+            $getBreakdown = function($keywords) use ($activeCards, $getBreakdownForCards) {
+                $keywords = (array) $keywords;
+                $cards = $activeCards->filter(function($c) use ($keywords) {
+                    $listName = $c->boardList?->name ?? '';
+                    foreach ($keywords as $kw) {
+                        if (stripos($listName, $kw) !== false) return true;
+                    }
+                    return false;
                 });
-            }
-            return $q->get();
-        };
+                return $getBreakdownForCards($cards);
+            };
 
-        // ── Completed tasks for selected period ───────────────────────────────
-        $approvedCards = $queryApproved($rangeStart, $rangeEnd);
+            $urgentCards = $activeCards->filter(fn($c) =>
+                stripos($c->boardList?->name ?? '', 'Urgent') !== false
+            );
+            $urgent  = $getBreakdownForCards($urgentCards);
+            $overdue = $activeCards->filter(fn($c) => $c->isOverdue())->count();
 
-        // ── Preset quick-comparison tabs ──────────────────────────────────────
-        $todayStart = Carbon::now()->startOfDay();
-        $todayEnd   = Carbon::now()->endOfDay();
-        $todayCards = $queryApproved($todayStart, $todayEnd);
+            // ── Helper: query approved cards for a given date window ──────────────
+            $queryApproved = function(?Carbon $start = null, ?Carbon $end = null) use ($selectedBoardIds) {
+                $q = Card::with(['boardList', 'labels'])
+                    ->whereIn('board_id', $selectedBoardIds)
+                    ->whereHas('boardList', fn($bl) => $bl->where('name', 'like', '%Approved%'));
 
-        $weekCards = $queryApproved(Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek());
-        $monthCards = $queryApproved(Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth());
+                if ($start && $end) {
+                    $q->where(function($sub) use ($start, $end) {
+                        $sub->whereBetween('approved_at', [$start, $end])
+                            ->orWhereBetween('updated_at', [$start, $end]);
+                    });
+                }
+                return $q->get();
+            };
 
-        // Total ever completed (all time) for reference
-        $allTimeCards = $queryApproved(); // no date filter
+            $approvedCards = $queryApproved($rangeStart, $rangeEnd);
+            
+            $todayStart = Carbon::now()->startOfDay();
+            $todayEnd   = Carbon::now()->endOfDay();
+            $todayCards = $queryApproved($todayStart, $todayEnd);
+            $weekCards = $queryApproved(Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek());
+            $monthCards = $queryApproved(Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth());
+            $allTimeCards = $queryApproved(); // heavy, but now cached
 
-        $stats = [
-            'drafting'          => $getBreakdown(['Drafting', 'Draft', 'To do', 'Todo']),
-            'head_review'       => $getBreakdown(['Head Review']),
-            'qc_review'         => $getBreakdown(['QC', 'Text Review']),
-            'supervisor_review' => $getBreakdown(['Supervisor Review', 'Supervisor']),
-            'urgent'            => $urgent,
-            'overdue'           => $overdue,
-            // period-selected
-            'approved'          => $getBreakdownForCards($approvedCards),
-            // preset tab totals
-            'approved_today'    => $getBreakdownForCards($todayCards),
-            'approved_week'     => $getBreakdownForCards($weekCards),
-            'approved_month'    => $getBreakdownForCards($monthCards),
-            'approved_all'      => $getBreakdownForCards($allTimeCards),
-        ];
+            return [
+                'drafting'          => $getBreakdown(['Drafting', 'Draft', 'To do', 'Todo']),
+                'head_review'       => $getBreakdown(['Head Review']),
+                'qc_review'         => $getBreakdown(['QC', 'Text Review']),
+                'supervisor_review' => $getBreakdown(['Supervisor Review', 'Supervisor']),
+                'urgent'            => $urgent,
+                'overdue'           => $overdue,
+                'approved'          => $getBreakdownForCards($approvedCards),
+                'approved_today'    => $getBreakdownForCards($todayCards),
+                'approved_week'     => $getBreakdownForCards($weekCards),
+                'approved_month'    => $getBreakdownForCards($monthCards),
+                'approved_all'      => $getBreakdownForCards($allTimeCards),
+            ];
+        });
 
         return view('supervisor.approvals', compact(
             'pendingCards', 'stats', 'period', 'availableBoards', 'selectedBoardIds'

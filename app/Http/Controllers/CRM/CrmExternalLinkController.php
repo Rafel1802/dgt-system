@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CrmExternalLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class CrmExternalLinkController extends Controller
@@ -35,6 +36,7 @@ class CrmExternalLinkController extends Controller
         $validated['created_by'] = auth()->id();
 
         CrmExternalLink::create($validated);
+        Cache::forget('crm_sidebar_links');
 
         return back()->with('success', "Link '{$validated['name']}' added.");
     }
@@ -55,6 +57,7 @@ class CrmExternalLinkController extends Controller
 
         $validated['is_active'] = $request->boolean('is_active', true);
         $link->update($validated);
+        Cache::forget('crm_sidebar_links');
 
         return back()->with('success', "Link '{$link->name}' updated.");
     }
@@ -85,6 +88,8 @@ class CrmExternalLinkController extends Controller
                 ]);
             }
         }
+        
+        Cache::forget('crm_sidebar_links');
 
         return back()->with('success', 'CRM External Links updated successfully.');
     }
@@ -93,6 +98,7 @@ class CrmExternalLinkController extends Controller
     {
         $this->authorizeAdmin();
         $link->delete();
+        Cache::forget('crm_sidebar_links');
         return back()->with('success', 'Link deleted.');
     }
 

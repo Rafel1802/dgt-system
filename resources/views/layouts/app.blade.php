@@ -840,8 +840,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </svg>
                     Tech Support
                     @php
-                        $newTechCaseCount = \App\Models\TechSupportCase::status(\App\Models\TechSupportCase::STATUS_NEW)->count();
-                        $unreadCallCompletedCount = auth()->user()->unreadNotifications()->where('data->type', 'tech_case_call_completed')->count();
+                        $newTechCaseCount = \Illuminate\Support\Facades\Cache::remember('tech_case_count_new', 300, function () {
+                            return \App\Models\TechSupportCase::status(\App\Models\TechSupportCase::STATUS_NEW)->count();
+                        });
+                        $unreadCallCompletedCount = \Illuminate\Support\Facades\Cache::remember('unread_call_completed_' . auth()->id(), 300, function () {
+                            return auth()->user()->unreadNotifications()->where('data->type', 'tech_case_call_completed')->count();
+                        });
                         $techSidebarBadgeCount = $newTechCaseCount + $unreadCallCompletedCount;
                     @endphp
                     @if($techSidebarBadgeCount > 0)
@@ -861,7 +865,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 <?php
                     // Fetch CRM External Links for sidebar
-                    $crmSidebarLinks = \App\Models\CrmExternalLink::where('is_active', true)->orderBy('sort_order')->get();
+                    $crmSidebarLinks = \Illuminate\Support\Facades\Cache::rememberForever('crm_sidebar_links', function () {
+                        return \App\Models\CrmExternalLink::where('is_active', true)->orderBy('sort_order')->get();
+                    });
                 ?>
                 @if($crmSidebarLinks->count() > 0)
                     <div class="sidebar-tool-group sidebar-tool-group-system">
