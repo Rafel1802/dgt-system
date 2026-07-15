@@ -46,6 +46,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
     <!-- Turbo 8 for ultra-fast SPA navigation & Instant Visual Feedback -->
     <meta name="turbo-prefetch" content="true">
+    <meta name="turbo-cache-control" content="no-cache">
     <style>
         .turbo-progress-bar {
             height: 3px;
@@ -105,6 +106,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             document.addEventListener('DOMContentLoaded', prefetchVisibleLinks);
             document.addEventListener('turbo:load', prefetchVisibleLinks);
+
+            document.addEventListener('turbo:before-render', (event) => {
+                const currentSidebar = document.getElementById('sidebar');
+                const newSidebar = event.detail.newBody.querySelector('#sidebar');
+                if (currentSidebar && newSidebar) {
+                    newSidebar.scrollTop = currentSidebar.scrollTop;
+                }
+            });
 
             const handleTrigger = (e) => {
                 const a = e.target.closest('a');
@@ -844,7 +853,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             return \App\Models\TechSupportCase::status(\App\Models\TechSupportCase::STATUS_NEW)->count();
                         });
                         $unreadCallCompletedCount = \Illuminate\Support\Facades\Cache::remember('unread_call_completed_' . auth()->id(), 300, function () {
-                            return auth()->user()->unreadNotifications()->where('data->type', 'tech_case_call_completed')->count();
+                            return auth()->user()->unreadNotifications()->where('data', 'like', '%tech_case_call_completed%')->count();
                         });
                         $techSidebarBadgeCount = $newTechCaseCount + $unreadCallCompletedCount;
                     @endphp

@@ -55,7 +55,7 @@ class TechSupportController extends Controller
         // opened yet — drives the "new" (unviewed) styling on the row badge,
         // separate from a call that's completed but already been looked at.
         $unreadCallCompletedCaseIds = auth()->user()->unreadNotifications()
-            ->where('data->type', 'tech_case_call_completed')
+            ->where('data', 'like', '%tech_case_call_completed%')
             ->get()
             ->pluck('data.case_id')
             ->unique()

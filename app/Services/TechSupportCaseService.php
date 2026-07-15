@@ -143,7 +143,7 @@ class TechSupportCaseService
         }
 
         auth()->user()->unreadNotifications()
-            ->where('data->type', 'tech_case_call_completed')
+            ->where('data', 'like', '%tech_case_call_completed%')
             ->get()
             ->filter(fn (DatabaseNotification $n) => in_array($n->data['case_id'] ?? null, $caseIds))
             ->each->markAsRead();
@@ -185,8 +185,8 @@ class TechSupportCaseService
         if ($newStatus === TechSupportCase::STATUS_IN_PROGRESS && ! $case->acknowledged_at) {
             $case->acknowledged_at = now();
 
-            DatabaseNotification::where('data->case_id', $case->id)
-                ->where('data->type', 'tech_case_new')
+            DatabaseNotification::where('data', 'like', '%"case_id":' . $case->id . '%')
+                ->where('data', 'like', '%tech_case_new%')
                 ->whereNull('read_at')
                 ->update(['read_at' => now()]);
         }

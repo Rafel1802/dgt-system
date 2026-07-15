@@ -1,7 +1,7 @@
 // Bumped to v2: the old v1 cache may hold personalized HTML pages cached
 // under the previous (unsafe) strategy — this forces every client to drop
 // it on next activation (see the activate handler below).
-const CACHE_NAME = 'kiuq-system-cache-v2';
+const CACHE_NAME = 'kiuq-system-cache-v3';
 const PRE_CACHE_ASSETS = [
   '/favicon.ico',
   '/manifest.json'

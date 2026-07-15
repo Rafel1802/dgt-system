@@ -160,8 +160,17 @@ Alpine.data('sidebar', () => ({
         const savedScrollTop = Number(localStorage.getItem(this.scrollStorageKey) || 0);
 
         if (sidebar.dataset.scrollRestored !== 'true' && savedScrollTop > 0) {
+            // Temporarily disable smooth scroll to prevent animated jump
+            const originalBehavior = sidebar.style.scrollBehavior;
+            sidebar.style.scrollBehavior = 'auto';
+            
             sidebar.scrollTop = savedScrollTop;
             sidebar.dataset.scrollRestored = 'true';
+
+            // Restore after the frame paints
+            requestAnimationFrame(() => {
+                sidebar.style.scrollBehavior = originalBehavior;
+            });
         }
 
         const saveScrollTop = () => {
