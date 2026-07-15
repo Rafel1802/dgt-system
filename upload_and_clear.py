@@ -56,6 +56,21 @@ if __name__ == "__main__":
     ]
     run_cmd(rsync_cmd)
 
+    # 1b. Upload assets directly to public_html/js/ (without public/ prefix) just in case public_html is the document root
+    rsync_workspace_alpine_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "public/js/workspace-alpine.js",
+        "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/js/"
+    ]
+    run_cmd(rsync_workspace_alpine_cmd)
+
+    rsync_trello_board_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "public/js/trello-board.js",
+        "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/js/"
+    ]
+    run_cmd(rsync_trello_board_cmd)
+
     # 2. Run migrations on server + remove hot file + optimize caching
     # NOTE: the server's default `php` on PATH is 8.2 (Composer requires >=8.4.1),
     # so every artisan call below silently no-ops on the platform check unless we

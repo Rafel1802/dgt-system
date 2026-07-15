@@ -153,7 +153,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::view('/mac-app', 'downloads.mac-app')->name('downloads.mac-app');
         Route::get('/mac-app/download', function () {
-            $version = '1.0.5';
+            $version = '1.0.1';
 
             return redirect(asset("downloads/KIUQ-SYSTEM-{$version}.dmg"));
         })->name('downloads.mac-app.file');
