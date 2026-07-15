@@ -26,3 +26,9 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 *.sql
+
+# Sample/customer-data spreadsheets belong outside the repo, not committed —
+# see upload_and_clear.py for why (one briefly leaked to production this way).
+/*.xlsx
+/*.xls
+/*.csv

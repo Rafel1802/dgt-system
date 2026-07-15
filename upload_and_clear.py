@@ -50,6 +50,14 @@ if __name__ == "__main__":
         "--exclude", "/*.sh",
         "--exclude", "/*.exp",
         "--exclude", "/*.md",
+        # A sample customer-data spreadsheet dropped at the project root (for
+        # designing the Process Trucking import template) got deployed to the
+        # live document root this way and was briefly publicly downloadable —
+        # same class of leak as the *.php/*.py exclusions above, just for
+        # spreadsheets instead of scripts.
+        "--exclude", "/*.xlsx",
+        "--exclude", "/*.xls",
+        "--exclude", "/*.csv",
         "--exclude", ".phpunit.result.cache",
         "./",
         "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"

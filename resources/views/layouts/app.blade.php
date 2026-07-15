@@ -2058,9 +2058,18 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 this.unreadCount++;
                 window.dispatchEvent(new CustomEvent('kiuq:realtime-notification', { detail: notifItem }));
 
-                // Trigger animations and toasts
+                // Trigger animations and toasts. Board/Kanban payloads carry
+                // actor_name and get the rich card toast; CRM payloads (call
+                // requests, tech support cases) never set actor_name — they
+                // used to arrive here silently (badge count only, no popup)
+                // even though fetchData()'s polling fallback already showed
+                // a plain toast + browser notification for the same case.
+                // Mirrored here so real-time delivery matches that behavior.
                 if (notifItem.data && notifItem.data.actor_name) {
                     window.showRichNotificationToast(notifItem.data);
+                } else {
+                    window.showToast(notifItem.data.message || "New update received");
+                    window.sendBrowserNotification("KIUQ SYSTEM Update", notifItem.data.message || "New update");
                 }
             },
 
