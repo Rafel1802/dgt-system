@@ -76,7 +76,10 @@ class ApprovalController extends Controller
         ])
         ->whereIn('board_id', $selectedBoardIds)
         ->whereHas('board')
-        ->where('status', CardStatus::Review->value)
+        ->whereHas('boardList', function($q) {
+            $q->where('name', 'like', '%Supervisor Review%')
+              ->orWhere('name', 'like', '%Supervisor%');
+        })
         ->where('is_archived', false)
         ->orderByRaw("FIELD(priority, 'urgent','high','medium','low')")
         ->orderBy('deadline')
