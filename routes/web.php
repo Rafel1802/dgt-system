@@ -465,6 +465,11 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::post('/quick/product', [LogisticCrmController::class, 'quickCreateProduct'])->name('quick.product');
                     // Logistic Issues — every customer currently flagged with a shipment problem
                     Route::get('/issues', [ShipmentController::class, 'issues'])->name('issues.index');
+                    // Process Trucking / Loaded — separate pages from Shipment Management,
+                    // customer-grain queues (every ShipmentCustomer still Pending / already
+                    // In Transit, across all shipments, including unassigned ones).
+                    Route::get('/process-trucking', [ShipmentController::class, 'processTrucking'])->name('processTrucking');
+                    Route::get('/loaded', [ShipmentController::class, 'loaded'])->name('loaded');
 
                     // Trucking Company Management
                     Route::prefix('trucking')->name('trucking.')->group(function () {
@@ -498,6 +503,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         // Direct delete from the Process Trucking / Loaded tabs — not nested under
                         // {shipment} since these customers often aren't assigned to one yet.
                         Route::delete('/customers/{customer}', [ShipmentController::class, 'destroyCustomer'])->name('customers.destroy');
+                        // Bulk delete + bulk assign-to-shipment — same "spans shipments,
+                        // possibly unassigned" reasoning as the bulk status route above.
+                        Route::post('/customers/bulk-delete', [ShipmentController::class, 'bulkDeleteCustomers'])->name('customers.bulkDelete');
+                        Route::post('/customers/assign', [ShipmentController::class, 'assignCustomersToShipment'])->name('customers.assign');
                         // Process Trucking import — template download, then a preview/edit
                         // step (session-held, nothing written to the DB) before confirming.
                         Route::get('/customers/import/template', [ShipmentController::class, 'downloadImportTemplate'])->name('customers.import.template');

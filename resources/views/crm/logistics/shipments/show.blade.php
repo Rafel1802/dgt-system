@@ -106,16 +106,32 @@
     <div class="lg:col-span-2">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h3 class="font-display font-bold text-slate-800 text-lg">Customers in Shipment</h3>
-        <button onclick="document.getElementById('addCustomerModal').classList.remove('hidden')" class="btn btn-primary text-sm">
-          + Add Customer
-        </button>
+        <div class="flex gap-2">
+          <button onclick="document.getElementById('addFromProcessTruckingModal').classList.remove('hidden')" class="btn btn-secondary text-sm">
+            + From Process Trucking
+          </button>
+          <button onclick="document.getElementById('addCustomerModal').classList.remove('hidden')" class="btn btn-primary text-sm">
+            + Add Customer
+          </button>
+        </div>
       </div>
 
-      <div class="card p-0 overflow-hidden">
+      <div class="card p-0 overflow-hidden" x-data="{
+        selected: [],
+        bulkStatus: '{{ \App\Models\ShipmentCustomer::STATUS_IN_TRANSIT }}',
+        bulkNotes: '',
+        statusLabels: {{ Js::from(\App\Models\ShipmentCustomer::statuses()) }},
+        get allChecked() { return {{ $shipment->shipmentCustomers->count() }} > 0 && this.selected.length === {{ $shipment->shipmentCustomers->count() }}; },
+        get actionLabel() { return 'Mark as ' + (this.statusLabels[this.bulkStatus] || this.bulkStatus); },
+        toggleAll(e) { this.selected = e.target.checked ? {{ Js::from($shipment->shipmentCustomers->pluck('id')) }} : []; },
+      }">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                <th class="px-5 py-3 w-10">
+                  <input type="checkbox" class="accent-indigo-600 w-4 h-4" :checked="allChecked" @change="toggleAll($event)">
+                </th>
                 <th class="px-5 py-3 text-left">Customer</th>
                 <th class="px-4 py-3 text-left">Products</th>
                 <th class="px-4 py-3 text-left">Shipping Address</th>
@@ -126,6 +142,9 @@
             <tbody class="divide-y divide-slate-50">
               @forelse($shipment->shipmentCustomers as $sc)
               <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="px-5 py-3">
+                  <input type="checkbox" class="accent-indigo-600 w-4 h-4" value="{{ $sc->id }}" x-model="selected">
+                </td>
                 <td class="px-5 py-3">
                   <p class="font-semibold text-slate-800">{{ $sc->customer?->name ?? '—' }}</p>
                   @if($sc->recipient_name)
@@ -294,13 +313,50 @@
               </tr>
               @empty
               <tr>
-                <td colspan="5" class="text-center py-10">
+                <td colspan="6" class="text-center py-10">
                   <p class="text-slate-500 font-medium">No customers added to this shipment yet</p>
                 </td>
               </tr>
               @endforelse
             </tbody>
           </table>
+        </div>
+
+        {{-- ── Sticky bulk-action bar ─────────────────────────────────────── --}}
+        <div x-show="selected.length > 0" x-cloak x-transition
+             class="sticky bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur px-5 py-3 space-y-2">
+          <span class="text-xs font-semibold text-slate-600" x-text="selected.length + ' selected'"></span>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <form method="POST" action="{{ route('crm.logistics.shipments.customers.bulkStatus') }}" class="flex flex-wrap items-center gap-2"
+                  @submit="if (bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}' && !bulkNotes.trim()) { $event.preventDefault(); alert('A note is required for Logistic issues (Problem status).'); }">
+              @csrf
+              <template x-for="id in selected" :key="id">
+                <input type="hidden" name="customer_ids[]" :value="id">
+              </template>
+              <input type="hidden" name="redirect_shipment_id" value="{{ $shipment->id }}">
+              <select name="status" x-model="bulkStatus" class="form-input py-1.5 text-sm w-auto">
+                @foreach($custStatuses as $val => $lbl)
+                <option value="{{ $val }}">{{ $lbl }}</option>
+                @endforeach
+              </select>
+              <input type="text" name="notes" x-model="bulkNotes" x-show="bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}'"
+                     placeholder="Note explaining the issue (required)" class="form-input py-1.5 text-sm w-48">
+              <button type="submit" class="btn btn-primary text-sm py-1.5" x-text="actionLabel"></button>
+            </form>
+
+            <div class="w-px h-6 bg-slate-200"></div>
+
+            <form method="POST" action="{{ route('crm.logistics.shipments.customers.bulkDelete') }}"
+                  data-confirm="Delete the selected customer(s)? This cannot be undone." data-confirm-tone="danger">
+              @csrf
+              <template x-for="id in selected" :key="id">
+                <input type="hidden" name="customer_ids[]" :value="id">
+              </template>
+              <input type="hidden" name="redirect_shipment_id" value="{{ $shipment->id }}">
+              <button type="submit" class="btn btn-danger text-sm py-1.5">Delete Selected</button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
@@ -312,6 +368,65 @@
   <option value="{{ $p->name }}">{{ $p->sku ? '('.$p->sku.')' : '' }} — ${{ number_format($p->price, 2) }}</option>
   @endforeach
 </datalist>
+
+{{-- Add from Process Trucking Modal — search + multi-select unassigned records, assign to this shipment --}}
+<div id="addFromProcessTruckingModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col text-left"
+       x-data="{
+         search: '',
+         selected: [],
+         records: {{ Js::from($unassignedCustomers->map(fn ($sc) => [
+             'id' => $sc->id,
+             'name' => $sc->recipient_name,
+             'phone' => $sc->recipient_phone,
+             'product' => $sc->products->pluck('product_name')->filter()->implode(', '),
+         ])) }},
+         get filtered() {
+           if (!this.search) return this.records;
+           const q = this.search.toLowerCase();
+           return this.records.filter(r => (r.name + ' ' + (r.phone||'') + ' ' + (r.product||'')).toLowerCase().includes(q));
+         },
+         toggle(id) {
+           this.selected = this.selected.includes(id) ? this.selected.filter(x => x !== id) : [...this.selected, id];
+         },
+       }">
+    <form method="POST" action="{{ route('crm.logistics.shipments.customers.assign') }}" class="flex flex-col min-h-0"
+          @submit="if (selected.length === 0) { $event.preventDefault(); alert('Pick at least one customer.'); }">
+      @csrf
+      <input type="hidden" name="shipment_id" value="{{ $shipment->id }}">
+      <input type="hidden" name="redirect_shipment_id" value="{{ $shipment->id }}">
+      <template x-for="id in selected" :key="id">
+        <input type="hidden" name="customer_ids[]" :value="id">
+      </template>
+      <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+        <h3 class="font-display font-bold text-lg text-slate-800">Add from Process Trucking</h3>
+        <button type="button" onclick="document.getElementById('addFromProcessTruckingModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-3 overflow-y-auto min-h-0">
+        <input type="search" x-model="search" placeholder="Search name, phone, product…" class="form-input">
+        <div class="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-72 overflow-y-auto">
+          <template x-for="r in filtered" :key="r.id">
+            <label class="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+              <input type="checkbox" class="accent-indigo-600 w-4 h-4" :checked="selected.includes(r.id)" @change="toggle(r.id)">
+              <span class="flex-1 min-w-0">
+                <span class="block text-sm font-semibold text-slate-800" x-text="r.name"></span>
+                <span class="block text-xs text-slate-400" x-text="[r.phone, r.product].filter(Boolean).join(' — ')"></span>
+              </span>
+            </label>
+          </template>
+          <div x-show="filtered.length === 0" class="px-3 py-6 text-sm text-slate-400 text-center">No unassigned Process Trucking customers found</div>
+        </div>
+        <p class="text-xs text-slate-400" x-text="selected.length + ' selected'"></p>
+      </div>
+      <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl shrink-0">
+        <button type="button" onclick="document.getElementById('addFromProcessTruckingModal').classList.add('hidden')" class="btn btn-secondary text-sm">Cancel</button>
+        <button type="submit" class="btn btn-primary text-sm">Add Selected</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 {{-- Add Customer Modal --}}
 <div id="addCustomerModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center p-4">

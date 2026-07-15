@@ -28,32 +28,6 @@ class ShipmentController extends Controller
     public function index(Request $request): View
     {
         $status = $request->get('status');
-
-        // "Process Trucking" and "Loaded" are customer-grain views (every
-        // ShipmentCustomer row still Pending / already In Transit, across
-        // every shipment) rather than the shipment-grain list below — this
-        // is what powers bulk-selecting several customers (possibly from
-        // different shipments) and moving them all to the next status at
-        // once, which doesn't map onto a single shipment's own status.
-        if (in_array($status, ['processing', 'loaded'], true)) {
-            $customerStatus = $status === 'processing' ? ShipmentCustomer::STATUS_PENDING : ShipmentCustomer::STATUS_IN_TRANSIT;
-
-            $customerQuery = ShipmentCustomer::with(['shipment', 'handler', 'products'])
-                ->where('status', $customerStatus);
-
-            if ($s = $request->get('search')) {
-                $customerQuery->search($s);
-            }
-
-            $shipmentCustomers = $customerQuery->latest()->paginate(20)->withQueryString();
-
-            return view('crm.logistics.shipments.index', [
-                'viewMode'          => 'customers',
-                'shipmentCustomers' => $shipmentCustomers,
-                'statuses'          => Shipment::statuses(),
-            ]);
-        }
-
         $query = Shipment::with(['truckingCompany', 'assignee'])->withCount('shipmentCustomers');
 
         if ($s = $request->get('search')) {
@@ -72,7 +46,47 @@ class ShipmentController extends Controller
         $shipments  = $query->latest()->paginate(20)->withQueryString();
         $statuses   = Shipment::statuses();
 
-        return view('crm.logistics.shipments.index', ['viewMode' => 'shipments'] + compact('shipments', 'statuses'));
+        return view('crm.logistics.shipments.index', compact('shipments', 'statuses'));
+    }
+
+    /** Process Trucking — every ShipmentCustomer still Pending, across all shipments (including unassigned). */
+    public function processTrucking(Request $request): View
+    {
+        return $this->truckingQueue($request, ShipmentCustomer::STATUS_PENDING, true);
+    }
+
+    /** Loaded — every ShipmentCustomer already In Transit, across all shipments. */
+    public function loaded(Request $request): View
+    {
+        return $this->truckingQueue($request, ShipmentCustomer::STATUS_IN_TRANSIT, false);
+    }
+
+    /**
+     * Shared customer-grain queue behind Process Trucking / Loaded — this is
+     * what powers bulk-selecting several customers (possibly from different
+     * shipments, or none yet) and moving them all to the next status, a
+     * shipment, or deleting them at once, none of which map onto a single
+     * shipment's own status the way the shipment-grain list above does.
+     */
+    private function truckingQueue(Request $request, string $customerStatus, bool $isProcessing): View
+    {
+        $customerQuery = ShipmentCustomer::with(['shipment', 'handler', 'products'])
+            ->where('status', $customerStatus);
+
+        if ($s = $request->get('search')) {
+            $customerQuery->search($s);
+        }
+
+        $shipmentCustomers = $customerQuery->latest()->paginate(20)->withQueryString();
+
+        return view('crm.logistics.trucking-queue', [
+            'isProcessing'      => $isProcessing,
+            'shipmentCustomers' => $shipmentCustomers,
+            // For the bulk "Add to Shipment" picker — active shipments only,
+            // since assigning into an already-Complete one isn't useful.
+            'assignableShipments' => Shipment::where('status', '!=', Shipment::STATUS_COMPLETE)
+                ->latest()->limit(100)->get(['id', 'shipment_code']),
+        ]);
     }
 
     /** Every customer currently flagged with a logistics/shipment issue, across all sources. */
@@ -234,6 +248,11 @@ class ShipmentController extends Controller
             'catalogProducts' => Product::active()->orderBy('name')->get(['id', 'name', 'sku', 'price']),
             'customers'       => $this->customersForPicker(),
             'leads'           => $this->leadsForPicker(),
+            // For "Add from Process Trucking" — unassigned records, searchable
+            // client-side; capped since this is a live-typed search, not a full list.
+            'unassignedCustomers' => ShipmentCustomer::whereNull('shipment_id')
+                ->with('products')
+                ->latest()->limit(300)->get(),
         ]);
     }
 
@@ -433,7 +452,7 @@ class ShipmentController extends Controller
             $this->syncShipmentCompletionStatus($shipment);
         }
 
-        return redirect()->route('crm.logistics.shipments.index', ['status' => $request->get('redirect_status', 'processing')])
+        return $this->redirectAfterBulkAction(null, $request->get('redirect_status', 'processing'))
             ->with('success', 'Customer deleted.');
     }
 
@@ -447,11 +466,12 @@ class ShipmentController extends Controller
     public function bulkUpdateCustomerStatus(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'customer_ids'   => ['required', 'array', 'min:1'],
-            'customer_ids.*' => ['integer', 'exists:shipment_customers,id'],
-            'status'         => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
-            'notes'          => ['nullable', 'string'],
-            'redirect_status'=> ['nullable', 'string'],
+            'customer_ids'        => ['required', 'array', 'min:1'],
+            'customer_ids.*'      => ['integer', 'exists:shipment_customers,id'],
+            'status'              => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
+            'notes'               => ['nullable', 'string'],
+            'redirect_status'     => ['nullable', 'string'],
+            'redirect_shipment_id'=> ['nullable', 'exists:shipments,id'],
         ]);
 
         // Same rule as the single-customer update: Problem needs a note
@@ -472,7 +492,7 @@ class ShipmentController extends Controller
             $this->matcher->syncDeliveryStatus($customer);
         }
 
-        foreach ($customers->pluck('shipment_id')->unique() as $shipmentId) {
+        foreach ($customers->pluck('shipment_id')->filter()->unique() as $shipmentId) {
             $shipment = Shipment::find($shipmentId);
             if ($shipment) {
                 $this->syncShipmentCompletionStatus($shipment);
@@ -481,8 +501,98 @@ class ShipmentController extends Controller
 
         $label = ShipmentCustomer::statuses()[$validated['status']] ?? $validated['status'];
 
-        return redirect()->route('crm.logistics.shipments.index', ['status' => $validated['redirect_status'] ?? 'processing'])
+        return $this->redirectAfterBulkAction($validated['redirect_shipment_id'] ?? null, $validated['redirect_status'] ?? 'processing')
             ->with('success', $customers->count() . ' customer(s) marked as ' . $label . '.');
+    }
+
+    /**
+     * Bulk-delete several ShipmentCustomer rows at once — from either the
+     * Process Trucking / Loaded tabs (spanning shipments, possibly
+     * unassigned) or a single shipment's own customer list.
+     */
+    public function bulkDeleteCustomers(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'customer_ids'        => ['required', 'array', 'min:1'],
+            'customer_ids.*'      => ['integer', 'exists:shipment_customers,id'],
+            'redirect_status'     => ['nullable', 'string'],
+            'redirect_shipment_id'=> ['nullable', 'exists:shipments,id'],
+        ]);
+
+        $customers = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->get();
+        $affectedShipmentIds = $customers->pluck('shipment_id')->filter()->unique();
+        $count = $customers->count();
+
+        ShipmentCustomer::whereIn('id', $validated['customer_ids'])->delete();
+
+        foreach ($affectedShipmentIds as $shipmentId) {
+            $shipment = Shipment::find($shipmentId);
+            if ($shipment) {
+                $this->syncShipmentCompletionStatus($shipment);
+            }
+        }
+
+        return $this->redirectAfterBulkAction($validated['redirect_shipment_id'] ?? null, $validated['redirect_status'] ?? 'processing')
+            ->with('success', $count . ' customer(s) deleted.');
+    }
+
+    /**
+     * Assign several existing ShipmentCustomer rows (typically unassigned
+     * Process Trucking records) to a shipment at once — used both by the
+     * Process Trucking bulk bar ("Add to Shipment") and by the "Add from
+     * Process Trucking" search on a shipment's own page.
+     */
+    /**
+     * Assign selected customers to a shipment — either an existing active
+     * one, or a brand new one created on the spot (shipment_id left blank).
+     * Used both by the Process Trucking / Loaded bulk bar ("Add to
+     * Shipment") and by the "Add from Process Trucking" search on a
+     * shipment's own page.
+     */
+    public function assignCustomersToShipment(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'customer_ids'        => ['required', 'array', 'min:1'],
+            'customer_ids.*'      => ['integer', 'exists:shipment_customers,id'],
+            'shipment_id'         => ['nullable', 'exists:shipments,id'],
+            'new_shipment_code'   => ['nullable', 'string', 'max:100'],
+            'redirect_status'     => ['nullable', 'string'],
+            'redirect_shipment_id'=> ['nullable', 'exists:shipments,id'],
+        ]);
+
+        $shipment = ! empty($validated['shipment_id'])
+            ? Shipment::find($validated['shipment_id'])
+            : Shipment::create([
+                'shipment_code' => ($validated['new_shipment_code'] ?? null) ?: $this->generateShipmentCode(),
+                'status'        => Shipment::STATUS_PENDING,
+                'created_by'    => auth()->id(),
+            ]);
+
+        $count = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->count();
+
+        ShipmentCustomer::whereIn('id', $validated['customer_ids'])
+            ->update(['shipment_id' => $shipment->id]);
+
+        $this->syncShipmentCompletionStatus($shipment);
+
+        return $this->redirectAfterBulkAction($validated['redirect_shipment_id'] ?? null, $validated['redirect_status'] ?? 'processing')
+            ->with('success', $count . ' customer(s) assigned to shipment ' . ($shipment->shipment_code ?? "#{$shipment->id}") . '.');
+    }
+
+    /** Shared redirect target for the bulk customer actions above. */
+    private function redirectAfterBulkAction(?int $redirectShipmentId, string $redirectStatus): RedirectResponse
+    {
+        if ($redirectShipmentId) {
+            $shipment = Shipment::find($redirectShipmentId);
+            if ($shipment) {
+                return redirect()->route('crm.logistics.shipments.show', $shipment);
+            }
+        }
+
+        return match ($redirectStatus) {
+            'loaded' => redirect()->route('crm.logistics.loaded'),
+            default  => redirect()->route('crm.logistics.processTrucking'),
+        };
     }
 
     /** Column header aliases the importer recognizes, matched case-insensitively (used only for the multi-column template path). */
@@ -736,7 +846,7 @@ class ShipmentController extends Controller
         $preview = session('shipment_import_preview');
 
         if (empty($preview['rows'])) {
-            return redirect()->route('crm.logistics.shipments.index', ['status' => 'processing'])
+            return redirect()->route('crm.logistics.processTrucking')
                 ->withErrors(['file' => 'No import in progress — please upload a file first.']);
         }
 
@@ -756,7 +866,7 @@ class ShipmentController extends Controller
     public function confirmImport(Request $request): RedirectResponse
     {
         if (empty(session('shipment_import_preview.rows'))) {
-            return redirect()->route('crm.logistics.shipments.index', ['status' => 'processing'])
+            return redirect()->route('crm.logistics.processTrucking')
                 ->withErrors(['file' => 'No import in progress — please upload a file first.']);
         }
 
@@ -828,7 +938,7 @@ class ShipmentController extends Controller
             $message .= ' ' . count($skipped) . ' row(s) skipped: ' . implode(' ', $shown) . (count($skipped) > 5 ? ' …' : '');
         }
 
-        return redirect()->route('crm.logistics.shipments.index', ['status' => 'processing'])
+        return redirect()->route('crm.logistics.processTrucking')
             ->with($imported > 0 ? 'success' : 'error', $message);
     }
 

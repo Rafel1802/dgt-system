@@ -8,7 +8,7 @@
   removeRow(key) { this.rows = this.rows.filter(r => r._key !== key); },
 }">
   <div class="mb-5">
-    <a href="{{ route('crm.logistics.shipments.index', ['status' => 'processing']) }}" class="text-sm text-slate-400 hover:text-indigo-600">← Cancel and back to Process Trucking</a>
+    <a href="{{ route('crm.logistics.processTrucking') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Cancel and back to Process Trucking</a>
   </div>
 
   <div class="card p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
@@ -108,7 +108,7 @@
     </div>
 
     <div class="flex justify-end gap-3 mt-6">
-      <a href="{{ route('crm.logistics.shipments.index', ['status' => 'processing']) }}" class="btn btn-secondary text-sm">Cancel</a>
+      <a href="{{ route('crm.logistics.processTrucking') }}" class="btn btn-secondary text-sm">Cancel</a>
       <button type="submit" class="btn btn-primary text-sm" :disabled="rows.length === 0" x-text="'Confirm Import (' + rows.length + ')'"></button>
     </div>
   </form>
