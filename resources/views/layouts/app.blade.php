@@ -873,10 +873,26 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
 
                 <?php
-                    // Fetch CRM External Links for sidebar
-                    $crmSidebarLinks = \Illuminate\Support\Facades\Cache::rememberForever('crm_sidebar_links', function () {
-                        return \App\Models\CrmExternalLink::where('is_active', true)->orderBy('sort_order')->get();
-                    });
+                    // Fetch CRM External Links for sidebar.
+                    // A corrupted file-cache entry here previously took down every
+                    // authenticated page: unserialize() doesn't throw when it can't
+                    // rebuild a class, it silently returns a __PHP_Incomplete_Class
+                    // object, and the fatal only surfaces later on first method call
+                    // (e.g. ->count() below). So a try/catch around the cache read
+                    // alone isn't enough — the result must be type-checked before use.
+                    // Bounded TTL (not rememberForever) so any future corruption
+                    // self-heals within an hour instead of needing a manual cache:clear.
+                    try {
+                        $crmSidebarLinks = \Illuminate\Support\Facades\Cache::remember('crm_sidebar_links', 3600, function () {
+                            return \App\Models\CrmExternalLink::where('is_active', true)->orderBy('sort_order')->get();
+                        });
+                        if (!($crmSidebarLinks instanceof \Illuminate\Support\Collection)) {
+                            throw new \RuntimeException('crm_sidebar_links cache returned a non-Collection value');
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Cache::forget('crm_sidebar_links');
+                        $crmSidebarLinks = \App\Models\CrmExternalLink::where('is_active', true)->orderBy('sort_order')->get();
+                    }
                 ?>
                 @if($crmSidebarLinks->count() > 0)
                     <div class="sidebar-tool-group sidebar-tool-group-system">
