@@ -65,6 +65,7 @@ class SocialMediaClassController extends Controller
                 ['name' => 'Pinterest', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/0/08/Pinterest-logo.png'],
                 ['name' => 'YouTube', 'icon' => 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg'],
                 ['name' => 'TikTok', 'icon' => 'https://sf-static.tiktokcdn.com/obj/eden-sg/uhtyvueh7nulogpoguhm/tiktok-icon2.png'],
+                ['name' => 'Tumblr', 'icon' => 'https://cdn-icons-png.flaticon.com/512/1409/1409942.png'],
             ];
 
             $order = 0;

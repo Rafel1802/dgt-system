@@ -365,7 +365,7 @@
                                 <label class="form-label">Initial Setup</label>
                                 <select name="use_template" class="form-select w-full mt-1 text-sm">
                                     <option value="0">None (Empty)</option>
-                                    <option value="1" selected>Template (6 default platforms)</option>
+                                    <option value="1" selected>Template (7 default platforms)</option>
                                 </select>
                             </div>
                         </div>

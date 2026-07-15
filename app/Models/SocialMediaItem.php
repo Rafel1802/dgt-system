@@ -70,6 +70,7 @@ class SocialMediaItem extends Model
             'tik tok'   => '🎵',
             'youtube'   => '▶️',
             'yt'        => '▶️',
+            'tumblr'    => '📝',
             'linkedin'  => '💼',
             'x'         => '𝕏',
             'twitter'   => '🐦',

@@ -50,6 +50,7 @@ class SocialMediaItemController extends Controller
             ['name' => 'Pinterest', 'icon' => '/images/social/pinterest.png'],
             ['name' => 'YouTube', 'icon' => '/images/social/youtube.svg'],
             ['name' => 'TikTok', 'icon' => '/images/social/tiktok.png'],
+            ['name' => 'Tumblr', 'icon' => 'https://cdn-icons-png.flaticon.com/512/1409/1409942.png'],
         ];
 
         $maxOrder = $class->items()->max('sort_order') ?? 0;
