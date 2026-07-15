@@ -127,7 +127,7 @@ class EbayStoreController extends Controller
 
     public function destroy(EbayStore $store): RedirectResponse
     {
-        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, CRM Supervisor, or Boss can delete eBay records.');
+        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, Logistic Supervisor, CRM Supervisor, or Boss can delete eBay records.');
 
         $store->delete();
         return redirect()->route('crm.ebay.stores.index')

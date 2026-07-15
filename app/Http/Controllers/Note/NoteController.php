@@ -27,7 +27,7 @@ class NoteController extends Controller
 
         return match ($team) {
             'digital' => $user->hasAnyRole(['admin-digital', 'digital-team']),
-            'crm' => $user->hasAnyRole(['admin-crm', 'sales-crm']),
+            'crm' => $user->hasAnyRole(\App\Models\User::CRM_ROLES),
             default => false,
         };
     }
@@ -162,7 +162,7 @@ class NoteController extends Controller
             $accessibleTeams = ['digital', 'crm'];
         } else {
             if ($user->hasAnyRole(['admin-digital', 'digital-team'])) $accessibleTeams[] = 'digital';
-            if ($user->hasAnyRole(['admin-crm', 'sales-crm'])) $accessibleTeams[] = 'crm';
+            if ($user->hasAnyRole(\App\Models\User::CRM_ROLES)) $accessibleTeams[] = 'crm';
         }
 
         // Determine current selected team

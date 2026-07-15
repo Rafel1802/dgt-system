@@ -85,19 +85,6 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
         </div>
       </div>
 
-      {{-- Lead Handling --}}
-      <div class="px-6 py-5 space-y-4">
-        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Handling</h3>
-        <div>
-          <label class="form-label">Handled By (CRM Member)</label>
-          @include('crm.partials.member-searchable-select', [
-            'name'     => 'assigned_to',
-            'selected' => old('assigned_to'),
-            'members'  => $crmUsers
-          ])
-        </div>
-      </div>
-
       {{-- Follow-Up --}}
       <div class="px-6 py-5 space-y-4">
         <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Follow-Up Plan</h3>

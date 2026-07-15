@@ -179,7 +179,7 @@ class LogisticCrmController extends Controller
 
     public function destroy(Logistic $logistic): RedirectResponse
     {
-        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, CRM Supervisor, or Boss can delete shipments.');
+        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, eBay Supervisor, CRM Supervisor, or Boss can delete shipments.');
 
         $logistic->delete();
         return redirect()->route('crm.logistics.index')->with('success', 'Shipment deleted.');
@@ -234,7 +234,7 @@ class LogisticCrmController extends Controller
             'company' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $customer = $this->matcher->findCustomerByContact($validated['email'] ?? null, $validated['phone'] ?? null);
+        $customer = $this->matcher->findDuplicateCustomer($validated['name'], $validated['email'] ?? null);
 
         if (! $customer) {
             $customer = Customer::create([

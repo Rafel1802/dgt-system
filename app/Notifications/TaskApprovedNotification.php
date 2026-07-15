@@ -5,12 +5,20 @@ namespace App\Notifications;
 use App\Models\Card;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
-class TaskApprovedNotification extends Notification implements ShouldQueue
+/**
+ * Deliberately NOT ShouldQueue — this app has no queue worker running
+ * (deployed on shared hosting with QUEUE_CONNECTION=database and nothing
+ * ever processing it), so a queued notification would just sit in the
+ * `jobs` table forever and never reach the bell/email. Dispatched via
+ * KanbanService::approveCard(), which calls the wrapping job synchronously
+ * (dispatchSync) after the DB transaction commits, so a mail hiccup here
+ * can't roll back the approval itself.
+ */
+class TaskApprovedNotification extends Notification
 {
     use Queueable;
 
@@ -21,7 +29,11 @@ class TaskApprovedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database', 'broadcast'];
+        // database/broadcast first: if the mail channel throws (e.g. bad
+        // SMTP config), Laravel aborts the remaining channels in the same
+        // notify() call — the in-app bell shouldn't go dark just because
+        // outbound email is broken.
+        return ['database', 'broadcast', 'mail'];
     }
 
     /**
@@ -48,6 +60,7 @@ class TaskApprovedNotification extends Notification implements ShouldQueue
     public function toArray(object $notifiable): array
     {
         return [
+            'module'      => 'digital',
             'card_id'     => $this->card->id,
             'card_title'  => $this->card->title,
             'approved_by' => $this->approvedBy->name,

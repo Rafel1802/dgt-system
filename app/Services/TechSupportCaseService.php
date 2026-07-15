@@ -159,6 +159,7 @@ class TechSupportCaseService
 
         foreach ($recipients as $recipient) {
             $recipient->notify(new GenericDatabaseNotification([
+                'module'  => 'crm',
                 'type'    => $type,
                 'case_id' => $case->id,
                 'message' => $message,
@@ -265,6 +266,7 @@ class TechSupportCaseService
 
         if ($case->assigned_to) {
             $case->assignee?->notify(new GenericDatabaseNotification([
+                'module'        => 'crm',
                 'type'          => 'tech_case_call_request',
                 'case_id'       => $case->id,
                 'message'       => "Call requested for {$customerName}" . ($case->order_id ? " (Order #{$case->order_id})" : '') . '.',
@@ -277,9 +279,19 @@ class TechSupportCaseService
 
         // Website CRM is the team that actually makes the call — notify them
         // too so a new call request shows up on their sidebar bell, not just
-        // logged on a page they'd have to remember to check.
-        foreach (User::role('sales-crm')->where('is_active', true)->get() as $recipient) {
+        // logged on a page they'd have to remember to check. Also notify the
+        // supervisor tier (CRM/eBay/Logistic Supervisor, boss, super-admin —
+        // same set as User::canDeleteCrmRecords()) so they have the same
+        // visibility into CRM staff activity as sales-crm reps, not just
+        // access to the pages. unique('id') avoids double-notifying anyone
+        // who qualifies under both loops (e.g. a sales-crm CRM Supervisor).
+        $recipients = User::where('is_active', true)->get()
+            ->filter(fn (User $u) => $u->hasRole('sales-crm') || $u->canDeleteCrmRecords('website'))
+            ->unique('id');
+
+        foreach ($recipients as $recipient) {
             $recipient->notify(new GenericDatabaseNotification([
+                'module'        => 'crm',
                 'type'          => 'call_request_new',
                 'call_request_id' => $callRequest->id,
                 'message'       => "New call request for {$customerName}: {$note}",
@@ -324,6 +336,7 @@ class TechSupportCaseService
 
         if ($case->assigned_to) {
             $case->assignee?->notify(new GenericDatabaseNotification([
+                'module'  => 'crm',
                 'type'    => 'tech_case_call_completed',
                 'case_id' => $case->id,
                 'message' => $message,

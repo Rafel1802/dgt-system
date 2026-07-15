@@ -101,7 +101,7 @@ class TruckingCompanyController extends Controller
 
     public function destroy(TruckingCompany $truckingCompany): RedirectResponse
     {
-        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, CRM Supervisor, or Boss can delete trucking companies.');
+        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, eBay Supervisor, CRM Supervisor, or Boss can delete trucking companies.');
 
         $truckingCompany->delete();
         return redirect()->route('crm.logistics.trucking.index')
@@ -126,7 +126,7 @@ class TruckingCompanyController extends Controller
     public function destroyDriver(TruckingCompany $truckingCompany, TruckingCompanyDriver $driver): RedirectResponse
     {
         abort_unless($driver->trucking_company_id === $truckingCompany->id, 404);
-        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, CRM Supervisor, or Boss can delete drivers.');
+        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, eBay Supervisor, CRM Supervisor, or Boss can delete drivers.');
 
         $driver->delete();
 

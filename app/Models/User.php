@@ -236,14 +236,21 @@ SVG;
     }
 
     /**
+     * Every CRM-facing role — anyone staffing the Website/eBay/Logistic/Tech
+     * Support pipelines, not just the general sales-crm tier. Kept as one
+     * constant so this scope, isCrmMember(), and the crm.* route middleware
+     * (routes/web.php) can't drift apart on who counts as "CRM staff".
+     */
+    public const CRM_ROLES = ['super-admin', 'admin-crm', 'sales-crm', 'boss', 'tech-support', 'ebay-supervisor', 'logistic-supervisor', 'ebay-team', 'logistic-team'];
+
+    /**
      * Scope: only users who belong to the CRM team.
-     * Includes admin-crm, sales-crm, boss, and super-admin.
      * Excludes digital-team, admin-digital, social_admin, social_qc.
      */
     public function scopeCrmMembers($query): mixed
     {
         return $query->whereHas('roles', function ($q) {
-            $q->whereIn('name', ['super-admin', 'admin-crm', 'sales-crm', 'boss']);
+            $q->whereIn('name', self::CRM_ROLES);
         })->where('is_active', true);
     }
 
@@ -252,7 +259,7 @@ SVG;
      */
     public function isCrmMember(): bool
     {
-        return $this->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm', 'boss']);
+        return $this->hasAnyRole(self::CRM_ROLES);
     }
 
     /**
@@ -288,23 +295,15 @@ SVG;
     /**
      * Whether this user may delete entity-level CRM records (Leads, Customers,
      * Products, eBay records/stores/offers, Shipments, Trucking Companies) in
-     * the given domain. super-admin and boss can delete anywhere (top of the
-     * hierarchy); a CRM Supervisor can delete anywhere too; ebay-supervisor
-     * and logistic-supervisor are scoped to their own domain only. Routine
-     * in-page removals (e.g. removing one customer from a shipment) are NOT
-     * gated by this — only whole-record deletes.
+     * the given domain. super-admin, boss, a CRM Supervisor, ebay-supervisor,
+     * and logistic-supervisor can all delete anywhere — same tier as the CRM
+     * admin, not scoped to their own domain. Routine in-page removals (e.g.
+     * removing one customer from a shipment) are NOT gated by this — only
+     * whole-record deletes.
      */
     public function canDeleteCrmRecords(string $domain = 'website'): bool
     {
-        if ($this->hasAnyRole(['super-admin', 'boss']) || $this->isCrmSupervisor()) {
-            return true;
-        }
-
-        return match ($domain) {
-            'ebay'     => $this->hasRole('ebay-supervisor'),
-            'logistic' => $this->hasRole('logistic-supervisor'),
-            default    => false,
-        };
+        return $this->hasAnyRole(['super-admin', 'boss', 'ebay-supervisor', 'logistic-supervisor']) || $this->isCrmSupervisor();
     }
 
     public function canCreateBoards(): bool
@@ -395,6 +394,32 @@ SVG;
         return $this->isQc() || $this->isSupervisorRole();
     }
 
+
+    /**
+     * Which notification "modules" this user should see in their bell —
+     * CRM board notifications shouldn't leak to digital/board staff and
+     * vice versa, since the two are otherwise-disjoint teams sharing one
+     * notifications table with no built-in module scoping. super-admin and
+     * boss span both worlds and see everything. A user matching neither
+     * bucket (e.g. a role added later that isn't listed here yet) also
+     * sees everything, rather than silently going notification-blind.
+     */
+    public function notificationModules(): array
+    {
+        if ($this->hasAnyRole(['super-admin', 'boss'])) {
+            return ['crm', 'digital'];
+        }
+
+        $modules = [];
+        if ($this->hasAnyRole(['admin-crm', 'sales-crm', 'tech-support', 'ebay-supervisor', 'logistic-supervisor', 'ebay-team', 'logistic-team'])) {
+            $modules[] = 'crm';
+        }
+        if ($this->hasAnyRole(['admin-digital', 'digital-team', 'social_admin', 'social_qc'])) {
+            $modules[] = 'digital';
+        }
+
+        return $modules ?: ['crm', 'digital'];
+    }
 
     /**
      * Convert the model instance to an array for serialization.

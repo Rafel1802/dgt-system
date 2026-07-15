@@ -138,6 +138,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
     // unguessable token itself, not by auth middleware.
     Route::get('/share/call-reports/{token}', [\App\Http\Controllers\Public\CallReportShareController::class, 'show'])
         ->name('public.call-reports.show');
+    Route::get('/share/staff-report/{token}', [\App\Http\Controllers\Public\ReportShareController::class, 'showStaff'])
+        ->name('public.staff-report.show');
+    Route::get('/share/team-report/{token}', [\App\Http\Controllers\Public\ReportShareController::class, 'showTeam'])
+        ->name('public.team-report.show');
 
     // Authenticated routes
     Route::middleware(['auth', 'ensure.active', 'log.activity'])->group(function () {
@@ -208,10 +212,13 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
         Route::put('/dashboard/appearance', [DashboardController::class, 'updateAppearance'])->name('dashboard.appearance.update');
 
-        // Notifications
-        Route::get('/notifications', [\App\Http\Controllers\Board\NotificationController::class, 'index'])->name('notifications.index');
-        Route::post('/notifications/{id}/read', [\App\Http\Controllers\Board\NotificationController::class, 'markAsRead'])->name('notifications.read');
-        Route::post('/notifications/read-all', [\App\Http\Controllers\Board\NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
+        // Notifications: the real /notifications routes live further down,
+        // registered against Admin\NotificationController (see "Notifications"
+        // section near Profile & Settings) — that registration wins for the
+        // actual GET /notifications dispatch since Laravel's route collection
+        // keys routes by method+URI, so a second registration of the exact
+        // same URI silently overwrites this one. Do not re-add a duplicate
+        // registration here; it will be dead code again.
 
         // ── Workspaces & Trello-style Boards (Phase Board-1) ─────────────────
         Route::prefix('boards')->name('boards.')->middleware('maintenance:boards')->group(function () {
@@ -426,7 +433,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             });
 
         // ── CRM — Phase 4 ─────────────────────────────────────────────────
-        Route::middleware(['role:super-admin|admin-crm|sales-crm|boss|tech-support|ebay-supervisor|logistic-supervisor', 'maintenance:crm'])
+        Route::middleware(['role:super-admin|admin-crm|sales-crm|boss|tech-support|ebay-supervisor|logistic-supervisor|ebay-team|logistic-team', 'maintenance:crm'])
             ->prefix('crm')
             ->name('crm.')
             ->group(function () {
@@ -620,9 +627,12 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::get('/', [CrmStaffReportController::class, 'index'])->name('index');
                     Route::get('/export/pdf', [CrmStaffReportController::class, 'exportTeamPdf'])->name('export.pdf');
                     Route::get('/export/csv', [CrmStaffReportController::class, 'exportTeamCsv'])->name('export.csv');
+                    Route::post('/share', [CrmStaffReportController::class, 'shareTeam'])->name('share');
                     Route::get('/staff', [CrmStaffReportController::class, 'staff'])->name('staff');
                     Route::get('/{user}', [CrmStaffReportController::class, 'show'])->name('show');
                     Route::get('/{user}/export', [CrmStaffReportController::class, 'export'])->name('export');
+                    Route::get('/{user}/export-pdf', [CrmStaffReportController::class, 'exportPdf'])->name('show.export.pdf');
+                    Route::post('/{user}/share', [CrmStaffReportController::class, 'shareStaff'])->name('staff.share');
                 });
             });
 

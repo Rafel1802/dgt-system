@@ -94,6 +94,11 @@
                   style="background:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}22; color:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}">
               ⚠ Logistic Issues
             </span>
+            @elseif($record->shipment_delivered)
+            <span class="badge text-xs px-2 py-0.5 rounded-full"
+                  style="background:{{ \App\Models\EbayCustomerRecord::DELIVERED_COLOR }}22; color:{{ \App\Models\EbayCustomerRecord::DELIVERED_COLOR }}">
+              ✅ Delivered
+            </span>
             @endif
           </div>
         </div>
@@ -102,7 +107,7 @@
           @if($record->username)
           <div class="flex items-center gap-2 text-sm">
             <span class="text-slate-400 w-5">🛒</span>
-            <span class="text-slate-700">@{{ $record->username }}</span>
+            <span class="text-slate-700">{{ $record->username }}</span>
           </div>
           @endif
           @if($record->email)

@@ -21,6 +21,8 @@ class RolesAndPermissionsSeeder extends Seeder
      *   7. boss         — Read-only reports + dashboard, email notifications
      *   8. ebay-supervisor     — Can delete eBay records (offers, customer records, stores)
      *   9. logistic-supervisor — Can delete Logistics records (shipments, trucking companies)
+     *  10. ebay-team           — Same access as sales-crm (full CRM access, sales pipeline)
+     *  11. logistic-team       — Same access as sales-crm (full CRM access, sales pipeline)
      */
     public function run(): void
     {
@@ -101,6 +103,7 @@ class RolesAndPermissionsSeeder extends Seeder
         // 3. Admin CRM
         $adminCrm = Role::firstOrCreate(['name' => 'admin-crm', 'guard_name' => 'web']);
         $adminCrm->syncPermissions([
+            'dashboard.view',
             'users.view', 'users.create', 'users.edit', 'users.delete',
             'roles.view', 'roles.manage',
             'crm.view', 'crm.create', 'crm.edit', 'crm.delete', 'crm.export',
@@ -128,7 +131,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $techSupport = Role::firstOrCreate(['name' => 'tech-support', 'guard_name' => 'web']);
         $techSupport->syncPermissions([
             'dashboard.view',
-            'crm.view',
+            'crm.view', 'crm.create',
             'tech-support.manage',
         ]);
 
@@ -137,7 +140,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $ebaySupervisor = Role::firstOrCreate(['name' => 'ebay-supervisor', 'guard_name' => 'web']);
         $ebaySupervisor->syncPermissions([
             'dashboard.view',
-            'crm.view',
+            'crm.view', 'crm.create',
         ]);
 
         // Logistic Supervisor — can delete Logistics records (shipments, trucking companies);
@@ -145,7 +148,27 @@ class RolesAndPermissionsSeeder extends Seeder
         $logisticSupervisor = Role::firstOrCreate(['name' => 'logistic-supervisor', 'guard_name' => 'web']);
         $logisticSupervisor->syncPermissions([
             'dashboard.view',
-            'crm.view',
+            'crm.view', 'crm.create',
+        ]);
+
+        // eBay Team — same permission set as Sales/CRM (full CRM access, sales pipeline),
+        // distinct from ebay-supervisor which only has view access plus delete rights.
+        $ebayTeam = Role::firstOrCreate(['name' => 'ebay-team', 'guard_name' => 'web']);
+        $ebayTeam->syncPermissions([
+            'dashboard.view',
+            'crm.view', 'crm.create', 'crm.edit', 'crm.delete',
+            'sales.view', 'sales.manage',
+            'reports.view',
+        ]);
+
+        // Logistic Team — same permission set as Sales/CRM (full CRM access, sales pipeline),
+        // distinct from logistic-supervisor which only has view access plus delete rights.
+        $logisticTeam = Role::firstOrCreate(['name' => 'logistic-team', 'guard_name' => 'web']);
+        $logisticTeam->syncPermissions([
+            'dashboard.view',
+            'crm.view', 'crm.create', 'crm.edit', 'crm.delete',
+            'sales.view', 'sales.manage',
+            'reports.view',
         ]);
 
         // 6. Digital Team
@@ -156,13 +179,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'social-media.view', 'social-media.submit',
         ]);
 
-        // 7. Boss — read-only oversight
+        // 7. Boss — read-only oversight everywhere else, but can create CRM
+        // customers directly (explicit exception, not a general edit/delete grant).
         $boss = Role::firstOrCreate(['name' => 'boss', 'guard_name' => 'web']);
         $boss->syncPermissions([
             'dashboard.view',
             'reports.view',
             'kanban.view', 'kanban.approve',
-            'crm.view',
+            'crm.view', 'crm.create',
             'sales.view',
             'authorize-ebay-offers', // Boss can authorize eBay offers
             'social-media.view',

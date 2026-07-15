@@ -129,6 +129,11 @@
                       style="background:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}22; color:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}">
                   ⚠ Logistic Issues
                 </span>
+              @elseif($record->shipment_delivered)
+                <span class="badge text-xs px-2 py-0.5 rounded-full block mt-1 w-fit"
+                      style="background:{{ \App\Models\EbayCustomerRecord::DELIVERED_COLOR }}22; color:{{ \App\Models\EbayCustomerRecord::DELIVERED_COLOR }}">
+                  ✅ Delivered
+                </span>
               @endif
             </td>
             <td class="px-4 py-3">

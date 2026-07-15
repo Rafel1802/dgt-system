@@ -258,11 +258,12 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+function initCrmDashboardCharts() {
     if (!window.Chart) return;
 
     const statusChartEl = document.getElementById('crmStatusChart');
     if (statusChartEl) {
+        Chart.getChart(statusChartEl)?.destroy();
         new Chart(statusChartEl, {
             type: 'bar',
             data: {
@@ -278,6 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const shipmentChartEl = document.getElementById('crmShipmentChart');
     if (shipmentChartEl) {
+        Chart.getChart(shipmentChartEl)?.destroy();
         new Chart(shipmentChartEl, {
             type: 'doughnut',
             data: {
@@ -286,6 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
             },
         });
     }
-});
+}
+
+document.addEventListener('DOMContentLoaded', initCrmDashboardCharts);
+document.addEventListener('turbo:load', initCrmDashboardCharts);
 </script>
 @endpush
