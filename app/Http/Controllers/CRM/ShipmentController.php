@@ -917,11 +917,31 @@ class ShipmentController extends Controller
 
         $imported = 0;
         $skipped = [];
+        $seenTrackingNumbers = [];
 
         foreach ($validated['rows'] as $i => $data) {
             if (empty($data['recipient_name'])) {
                 $skipped[] = 'Row ' . ($i + 1) . ': missing Recipient Name.';
                 continue;
+            }
+
+            // A tracking number is the one field that uniquely identifies a
+            // real-world shipping label — re-uploading the same export (or a
+            // file with an accidentally duplicated block) must not create a
+            // second record for the same label. Checked both within this
+            // batch and against everything ever imported before, since a
+            // duplicate could span two separate import sessions just as
+            // easily as one file. Rows with no detected tracking number
+            // skip this check entirely — there's no reliable key to dedupe
+            // on, and blocking on name/phone alone would wrongly reject a
+            // legitimate repeat order from a returning customer.
+            $trackingNumber = $data['tracking_number'] ?? null;
+            if (! empty($trackingNumber)) {
+                if (isset($seenTrackingNumbers[$trackingNumber]) || ShipmentCustomer::where('tracking_number', $trackingNumber)->exists()) {
+                    $skipped[] = 'Row ' . ($i + 1) . ": tracking number {$trackingNumber} already imported — skipped as duplicate.";
+                    continue;
+                }
+                $seenTrackingNumbers[$trackingNumber] = true;
             }
 
             $address = implode(', ', array_filter([
@@ -955,11 +975,13 @@ class ShipmentController extends Controller
                 ]);
             }
 
-            // If this recipient's phone or email matches an existing
-            // Customer, link the two and refresh their info/status —
-            // covers the common case of a repeat customer placing another
-            // order under a fresh shipping-label export.
-            $this->matcher->linkImportedCustomer($shipmentCustomer);
+            // Every imported recipient lands in the Customer database: if
+            // their phone or email matches an existing Customer, link the
+            // two and refresh their info/status; otherwise create a new
+            // Customer record for them (source: Logistic) so Process
+            // Trucking imports aren't a data dead-end for people who've
+            // never come through the website or eBay.
+            $this->matcher->syncImportedCustomer($shipmentCustomer);
 
             $imported++;
         }

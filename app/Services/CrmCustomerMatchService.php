@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\CustomerSource;
 use App\Enums\CustomerStatus;
 use App\Enums\WebsiteLeadStatus;
 use App\Models\Customer;
@@ -44,8 +45,12 @@ class CrmCustomerMatchService
         }
 
         return Customer::where(function ($q) use ($email, $phone) {
+            // Case-insensitive on email — customers.email is unique, so a
+            // case-only mismatch here (e.g. an import capitalizing what's
+            // already on file) would otherwise miss the match and attempt
+            // to insert a second row that collides with the DB constraint.
             if ($email) {
-                $q->orWhere('email', $email);
+                $q->orWhereRaw('LOWER(email) = ?', [strtolower(trim($email))]);
             }
             if ($phone) {
                 $q->orWhere('phone', $phone);
@@ -237,45 +242,76 @@ class CrmCustomerMatchService
 
     /**
      * Called once per row right after a Process Trucking import creates a
-     * ShipmentCustomer. If the recipient's phone or email matches an
+     * ShipmentCustomer. Every imported recipient ends up in the Customer
+     * database, one way or another: if their phone or email matches an
      * existing Customer, this is the same person ordering again — link the
      * new shipment record to them (customer_id), refresh their stored
      * contact/address info from the import (which is often more current
      * than whatever's on file), and move them forward in the pipeline since
-     * a new shipment just started for them. Never touches a customer the
-     * import doesn't actually match — this only runs when a match is found.
+     * a new shipment just started for them. If there's no match, a brand
+     * new Customer is created from the import data (source: Logistic) so
+     * Process Trucking imports aren't a data dead-end for people who've
+     * never come through the website or eBay — the whole point of matching
+     * on phone/email in the first place is to avoid inserting a second row
+     * for someone already on file, not to skip people who aren't.
      */
-    public function linkImportedCustomer(ShipmentCustomer $shipmentCustomer): void
+    public function syncImportedCustomer(ShipmentCustomer $shipmentCustomer): Customer
     {
-        $email = $shipmentCustomer->recipient_email;
-        $phone = $shipmentCustomer->recipient_phone;
+        // customers.email is unique but nullable — an empty string is a
+        // real, non-null value as far as that constraint is concerned, so
+        // a second customer with no email would collide with the first
+        // unless blanks are normalized to null here.
+        $email = $shipmentCustomer->recipient_email ?: null;
+        $phone = $shipmentCustomer->recipient_phone ?: null;
 
         $customer = $this->findCustomerByContact($email, $phone);
-        if (! $customer) {
-            return;
-        }
 
-        if ($shipmentCustomer->customer_id !== $customer->id) {
+        if ($customer) {
+            if ($shipmentCustomer->customer_id !== $customer->id) {
+                $shipmentCustomer->update(['customer_id' => $customer->id]);
+            }
+
+            // Only overwrite fields the import actually supplied a value
+            // for — a label that omitted, say, an email address must never
+            // blank out an email already on file.
+            $updates = array_filter([
+                'name'    => $shipmentCustomer->recipient_name,
+                'email'   => $email,
+                'phone'   => $phone,
+                'address' => $shipmentCustomer->shipping_address,
+            ], fn ($v) => ! empty($v));
+            if (! empty($updates)) {
+                $customer->update($updates);
+            }
+
+            // A new shipment is now active for this customer — move them
+            // forward to Active (never resurrect a deliberately Lost customer).
+            if ($customer->status !== CustomerStatus::Lost && $customer->status !== CustomerStatus::Active) {
+                $customer->update(['status' => CustomerStatus::Active]);
+            }
+        } else {
+            try {
+                $customer = Customer::create([
+                    'name'       => $shipmentCustomer->recipient_name,
+                    'email'      => $email,
+                    'phone'      => $phone,
+                    'address'    => $shipmentCustomer->shipping_address,
+                    'status'     => CustomerStatus::Active,
+                    'source'     => CustomerSource::Logistic,
+                    'created_by' => auth()->id(),
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Email is unique on customers; a race (or a case/whitespace
+                // variant findCustomerByContact() didn't catch) can still
+                // collide here. Fall back to whoever actually holds that
+                // email rather than failing the whole import row.
+                $customer = $email ? Customer::whereRaw('LOWER(email) = ?', [strtolower(trim($email))])->first() : null;
+                if (! $customer) {
+                    throw $e;
+                }
+            }
+
             $shipmentCustomer->update(['customer_id' => $customer->id]);
-        }
-
-        // Only overwrite fields the import actually supplied a value for —
-        // a label that omitted, say, an email address must never blank out
-        // an email already on file.
-        $updates = array_filter([
-            'name'    => $shipmentCustomer->recipient_name,
-            'email'   => $email,
-            'phone'   => $phone,
-            'address' => $shipmentCustomer->shipping_address,
-        ], fn ($v) => ! empty($v));
-        if (! empty($updates)) {
-            $customer->update($updates);
-        }
-
-        // A new shipment is now active for this customer — move them
-        // forward to Active (never resurrect a deliberately Lost customer).
-        if ($customer->status !== CustomerStatus::Lost && $customer->status !== CustomerStatus::Active) {
-            $customer->update(['status' => CustomerStatus::Active]);
         }
 
         $lead = Lead::where('customer_id', $customer->id)->first()
@@ -296,6 +332,8 @@ class CrmCustomerMatchService
                 'contacted_at'      => now(),
             ]);
         }
+
+        return $customer;
     }
 
     /**
