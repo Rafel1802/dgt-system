@@ -267,6 +267,20 @@ class CrmCustomerMatchService
 
         $customer = $this->findCustomerByContact($email, $phone);
 
+        // customers.email is unique regardless of soft-delete state — a
+        // customer soft-deleted by maybeDeleteOrphanedCustomer() (e.g. their
+        // only shipment record was removed) still occupies their email at
+        // the DB level even though findCustomerByContact() can't see them.
+        // Restore rather than attempting to create a second row for the
+        // same email and hitting the unique constraint.
+        if (! $customer && $email) {
+            $trashed = Customer::onlyTrashed()->whereRaw('LOWER(email) = ?', [strtolower(trim($email))])->first();
+            if ($trashed) {
+                $trashed->restore();
+                $customer = $trashed;
+            }
+        }
+
         if ($customer) {
             if ($shipmentCustomer->customer_id !== $customer->id) {
                 $shipmentCustomer->update(['customer_id' => $customer->id]);
@@ -305,10 +319,14 @@ class CrmCustomerMatchService
                 // Email is unique on customers; a race (or a case/whitespace
                 // variant findCustomerByContact() didn't catch) can still
                 // collide here. Fall back to whoever actually holds that
-                // email rather than failing the whole import row.
-                $customer = $email ? Customer::whereRaw('LOWER(email) = ?', [strtolower(trim($email))])->first() : null;
+                // email — including a trashed row, restoring it — rather
+                // than failing the whole import row.
+                $customer = $email ? Customer::withTrashed()->whereRaw('LOWER(email) = ?', [strtolower(trim($email))])->first() : null;
                 if (! $customer) {
                     throw $e;
+                }
+                if ($customer->trashed()) {
+                    $customer->restore();
                 }
             }
 
