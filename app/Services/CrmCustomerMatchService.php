@@ -524,16 +524,21 @@ class CrmCustomerMatchService
                 return;
             }
             $reserve($k);
-            // Every customer originates either from eBay or from a CRM Website
-            // inquiry channel — there is no separate Referral/Cold Call/Manual
-            // etc. source in this business, so a Customer row with no matching
-            // Lead/eBay record is just shown as "Website" (unless it was itself
-            // tagged eBay-sourced), rather than surfacing the raw CustomerSource value.
-            $isEbaySourced = $customer->source === \App\Enums\CustomerSource::Ebay->value;
+            // A Customer row with no matching Lead/eBay record falls back to
+            // this branch — shown as "eBay" or "Logistics" if the Customer
+            // itself is tagged that way (e.g. auto-created by a Process
+            // Trucking import), otherwise "Website", since those two plus a
+            // plain website inquiry cover every acquisition channel this
+            // business actually has today.
+            $sourceLabel = match ($customer->source) {
+                \App\Enums\CustomerSource::Ebay->value     => 'eBay',
+                \App\Enums\CustomerSource::Logistic->value => 'Logistics',
+                default                                     => 'Website',
+            };
             $out->push([
-                'source'      => $isEbaySourced ? 'eBay' : 'Website',
-                'source_icon' => $isEbaySourced ? '🛒' : '🌐',
-                'source_color'=> $isEbaySourced ? '#f59e0b' : '#8b5cf6',
+                'source'      => $sourceLabel,
+                'source_icon' => match ($sourceLabel) { 'eBay' => '🛒', 'Logistics' => '🚚', default => '🌐' },
+                'source_color'=> match ($sourceLabel) { 'eBay' => '#f59e0b', 'Logistics' => '#0ea5e9', default => '#8b5cf6' },
                 'id'          => $customer->id,
                 'name'        => $customer->name,
                 'email'       => $customer->email,

@@ -60,7 +60,7 @@
 
   <div class="flex items-center gap-2 mb-5">
     <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Source:</span>
-    @foreach(['All', 'eBay', 'Website'] as $val)
+    @foreach(['All', 'eBay', 'Logistics', 'Website'] as $val)
     <a href="{{ route('crm.customers.index', array_merge(request()->query(), ['source_filter' => $val])) }}"
        class="btn text-xs py-1.5 px-3 {{ $sourceFilter === $val ? 'btn-primary' : 'btn-secondary' }}">
       {{ $val }}

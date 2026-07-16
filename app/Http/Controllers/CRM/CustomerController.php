@@ -51,9 +51,10 @@ class CustomerController extends Controller
 
         $sourceFilter = $request->get('source_filter', 'All');
         $customers = match ($sourceFilter) {
-            'eBay'    => $customers->filter(fn ($c) => $c['source'] === 'eBay'),
-            'Website' => $customers->filter(fn ($c) => $c['source'] !== 'eBay'),
-            default   => $customers,
+            'eBay'      => $customers->filter(fn ($c) => $c['source'] === 'eBay'),
+            'Logistics' => $customers->filter(fn ($c) => $c['source'] === 'Logistics'),
+            'Website'   => $customers->filter(fn ($c) => ! in_array($c['source'], ['eBay', 'Logistics'], true)),
+            default     => $customers,
         };
 
         return view('crm.index', compact('stats', 'customers', 'statusFilter', 'sourceFilter', 'totalUnique'));
