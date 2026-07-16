@@ -419,6 +419,10 @@ class ShipmentController extends Controller
         $this->matcher->syncShipmentDelayFlags($customer);
         $this->matcher->syncDeliveryStatus($customer);
 
+        // Keep the linked Customer record's own contact/address info in
+        // sync with whatever staff just edited here.
+        $this->matcher->syncEditedShipmentCustomer($customer);
+
         $this->syncShipmentCompletionStatus($shipment);
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
@@ -428,7 +432,11 @@ class ShipmentController extends Controller
     /** Remove a customer from a shipment */
     public function removeCustomer(Shipment $shipment, ShipmentCustomer $customer): RedirectResponse
     {
+        $customerId = $customer->customer_id;
+
         $customer->delete();
+
+        $this->matcher->maybeDeleteOrphanedCustomer($customerId);
 
         $this->syncShipmentCompletionStatus($shipment);
 
@@ -445,8 +453,11 @@ class ShipmentController extends Controller
     public function destroyCustomer(Request $request, ShipmentCustomer $customer): RedirectResponse
     {
         $shipment = $customer->shipment;
+        $customerId = $customer->customer_id;
 
         $customer->delete();
+
+        $this->matcher->maybeDeleteOrphanedCustomer($customerId);
 
         if ($shipment) {
             $this->syncShipmentCompletionStatus($shipment);
@@ -521,9 +532,14 @@ class ShipmentController extends Controller
 
         $customers = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->get();
         $affectedShipmentIds = $customers->pluck('shipment_id')->filter()->unique();
+        $affectedCustomerIds = $customers->pluck('customer_id')->filter()->unique();
         $count = $customers->count();
 
         ShipmentCustomer::whereIn('id', $validated['customer_ids'])->delete();
+
+        foreach ($affectedCustomerIds as $customerId) {
+            $this->matcher->maybeDeleteOrphanedCustomer($customerId);
+        }
 
         foreach ($affectedShipmentIds as $shipmentId) {
             $shipment = Shipment::find($shipmentId);

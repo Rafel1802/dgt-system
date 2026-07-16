@@ -6,6 +6,7 @@ use App\Enums\CustomerSource;
 use App\Enums\CustomerStatus;
 use App\Enums\WebsiteLeadStatus;
 use App\Models\Customer;
+use App\Models\CustomerInteraction;
 use App\Models\EbayCustomerRecord;
 use App\Models\Lead;
 use App\Models\LeadFollowUp;
@@ -334,6 +335,76 @@ class CrmCustomerMatchService
         }
 
         return $customer;
+    }
+
+    /**
+     * Call after editing a ShipmentCustomer's own contact/address fields
+     * (not just its status) so a linked Customer stays in sync going
+     * forward, the same way syncImportedCustomer() keeps them in sync at
+     * import time. Only touches a Customer that's actually linked via
+     * customer_id — an edit to a shipment customer with no link doesn't
+     * attempt a fresh contact match here, to avoid silently attaching a
+     * shipment to the wrong person on a coincidental phone/email match
+     * made during a manual edit rather than a fresh import.
+     */
+    public function syncEditedShipmentCustomer(ShipmentCustomer $shipmentCustomer): void
+    {
+        if (! $shipmentCustomer->customer_id) {
+            return;
+        }
+
+        $customer = $shipmentCustomer->customer;
+        if (! $customer) {
+            return;
+        }
+
+        $updates = array_filter([
+            'name'    => $shipmentCustomer->recipient_name,
+            'email'   => $shipmentCustomer->recipient_email,
+            'phone'   => $shipmentCustomer->recipient_phone,
+            'address' => $shipmentCustomer->shipping_address,
+        ], fn ($v) => ! empty($v));
+
+        if (! empty($updates)) {
+            $customer->update($updates);
+        }
+    }
+
+    /**
+     * Call after deleting a ShipmentCustomer that was linked to a Customer.
+     * Deletes the Customer too, but only when this logistics workflow is
+     * entirely responsible for that Customer existing in the first place —
+     * source must be Logistic AND they must have no other activity left
+     * (no other shipment record, no Lead, no eBay record, no logged
+     * interaction). A customer with any other real history is never
+     * touched here, even though the shipment link that brought them up
+     * is gone — deleting one shipment record must not erase a person's
+     * whole CRM history just because it happened to be reachable through
+     * this particular row. Call this AFTER the ShipmentCustomer row is
+     * already deleted, so its own row doesn't count against itself in the
+     * "any other shipment record" check.
+     */
+    public function maybeDeleteOrphanedCustomer(?int $customerId): void
+    {
+        if (! $customerId) {
+            return;
+        }
+
+        $customer = Customer::find($customerId);
+        if (! $customer || $customer->source !== CustomerSource::Logistic->value) {
+            return;
+        }
+
+        $hasOtherActivity = ShipmentCustomer::where('customer_id', $customerId)->exists()
+            || Lead::where('customer_id', $customerId)->exists()
+            || EbayCustomerRecord::where('customer_id', $customerId)->exists()
+            || CustomerInteraction::where('customer_id', $customerId)->exists();
+
+        if ($hasOtherActivity) {
+            return;
+        }
+
+        $customer->delete();
     }
 
     /**
