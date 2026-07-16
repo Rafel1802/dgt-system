@@ -30,6 +30,17 @@ class ApprovalController extends Controller
             $card->labels->contains(fn($l) => stripos($l->name ?? '', $keyword) !== false)) {
             return true;
         }
+        // Tertiary: Board or Workspace name
+        if ($card->relationLoaded('board') && $card->board) {
+            if (stripos($card->board->name ?? '', $keyword) !== false) {
+                return true;
+            }
+            if ($card->board->relationLoaded('workspace') && $card->board->workspace) {
+                if (stripos($card->board->workspace->name ?? '', $keyword) !== false) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -97,7 +108,7 @@ class ApprovalController extends Controller
         
         $stats = \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function() use ($selectedBoardIds, $period, $rangeStart, $rangeEnd) {
             // ── All active cards in selected boards (for pipeline stats) ──────────
-            $activeCards = Card::with(['boardList', 'labels'])
+            $activeCards = Card::with(['boardList', 'labels', 'board.workspace'])
                 ->whereIn('board_id', $selectedBoardIds)
                 ->whereNotNull('board_id')
                 ->whereHas('board')
@@ -141,7 +152,7 @@ class ApprovalController extends Controller
 
             // ── Helper: query approved cards for a given date window ──────────────
             $queryApproved = function(?Carbon $start = null, ?Carbon $end = null) use ($selectedBoardIds) {
-                $q = Card::with(['boardList', 'labels'])
+                $q = Card::with(['boardList', 'labels', 'board.workspace'])
                     ->whereIn('board_id', $selectedBoardIds)
                     ->whereHas('boardList', fn($bl) => $bl->where('name', 'like', '%Approved%'));
 
@@ -212,7 +223,7 @@ class ApprovalController extends Controller
                 ->toArray();
         }
 
-        $approvedCards = Card::with(['boardList', 'labels'])
+        $approvedCards = Card::with(['boardList', 'labels', 'board.workspace'])
             ->whereIn('board_id', $boardIds)
             ->whereHas('boardList', fn($q) => $q->where('name', 'like', '%Approved%'))
             ->where(function($q) use ($start, $end) {
