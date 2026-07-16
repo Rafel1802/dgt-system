@@ -96,7 +96,8 @@ if __name__ == "__main__":
             f"{PHP} artisan optimize:clear && "
             f"{PHP} artisan migrate --force && "
             f"{PHP} artisan optimize && "
-            f"{PHP} artisan view:cache"
+            f"{PHP} artisan view:cache && "
+            f"{PHP} artisan storage:link"
         )
     ]
     run_cmd(ssh_cmd)

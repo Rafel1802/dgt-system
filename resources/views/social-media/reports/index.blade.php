@@ -101,7 +101,7 @@
         </div>
 
         {{-- Export Form --}}
-        <form method="POST" action="{{ route('social-media.reports.export.zip') }}" id="export-form">
+        <form method="POST" action="{{ route('social-media.reports.export.zip') }}" id="export-form" data-turbo="false">
             @csrf
             {{-- Carry current filters --}}
             <input type="hidden" name="date_from"   value="{{ $dateFrom }}">

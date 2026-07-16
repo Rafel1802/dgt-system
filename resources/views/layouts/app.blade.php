@@ -1875,7 +1875,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         if (data.link) {
             toast.addEventListener('click', (e) => {
                 if (!e.target.closest('.toast-close-btn')) {
-                    window.location.href = data.link;
+                    const targetUrl = new URL(data.link, window.location.origin);
+                    if (data.card_id && window.location.pathname === targetUrl.pathname) {
+                        window.dispatchEvent(new CustomEvent('kiuq:open-card', { detail: { cardId: data.card_id } }));
+                        toast.classList.add('translate-x-8', 'opacity-0');
+                        setTimeout(() => toast.remove(), 300);
+                    } else {
+                        window.location.href = data.link;
+                    }
                 }
             });
         }
@@ -2195,7 +2202,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     if (this.unreadCount > 0) this.unreadCount--;
 
                     if (notif.data.link) {
-                        window.location.href = notif.data.link;
+                        const targetUrl = new URL(notif.data.link, window.location.origin);
+                        if (notif.data.card_id && window.location.pathname === targetUrl.pathname) {
+                            window.dispatchEvent(new CustomEvent('kiuq:open-card', { detail: { cardId: notif.data.card_id } }));
+                            this.open = false; // close the dropdown
+                        } else {
+                            window.location.href = notif.data.link;
+                        }
                     }
                 } catch(e) {
                     console.error(e);

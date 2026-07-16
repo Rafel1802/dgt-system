@@ -30,17 +30,7 @@ class ApprovalController extends Controller
             $card->labels->contains(fn($l) => stripos($l->name ?? '', $keyword) !== false)) {
             return true;
         }
-        // Tertiary: Board or Workspace name
-        if ($card->relationLoaded('board') && $card->board) {
-            if (stripos($card->board->name ?? '', $keyword) !== false) {
-                return true;
-            }
-            if ($card->board->relationLoaded('workspace') && $card->board->workspace) {
-                if (stripos($card->board->workspace->name ?? '', $keyword) !== false) {
-                    return true;
-                }
-            }
-        }
+        
         return false;
     }
 
@@ -106,7 +96,7 @@ class ApprovalController extends Controller
 
         $cacheKey = 'approval_stats_' . md5(json_encode($selectedBoardIds)) . '_' . $period;
         
-        $stats = \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function() use ($selectedBoardIds, $period, $rangeStart, $rangeEnd) {
+        $stats = \Illuminate\Support\Facades\Cache::remember($cacheKey, 10, function() use ($selectedBoardIds, $period, $rangeStart, $rangeEnd) {
             // ── All active cards in selected boards (for pipeline stats) ──────────
             $activeCards = Card::with(['boardList', 'labels', 'board.workspace'])
                 ->whereIn('board_id', $selectedBoardIds)

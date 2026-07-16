@@ -674,3 +674,12 @@ Route::post('/webhook/google-script', [GoogleScriptWebhookController::class, 're
 Route::post('/webhook/google-script/sync-trash', [GoogleScriptWebhookController::class, 'syncTrash'])
     ->name('webhook.google-script.sync-trash')
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
+
+// ── Fallback route for storage files on shared hosting (symlink alternative) ──
+Route::get('storage/{path}', function (string $path) {
+    $fullPath = storage_path('app/public/' . $path);
+    if (! file_exists($fullPath)) {
+        abort(404);
+    }
+    return response()->file($fullPath);
+})->where('path', '.*');

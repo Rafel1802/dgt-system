@@ -310,6 +310,13 @@ window.trelloBoard = function(config) {
       
       this.bindRealtimeBoardUpdates();
 
+      // Listen for custom event to open a card without reloading the page
+      window.addEventListener('kiuq:open-card', (e) => {
+        if (e.detail && e.detail.cardId) {
+          this.openCard(e.detail.cardId);
+        }
+      });
+
       // Auto-open card if passed in query param
       const urlParams = new URLSearchParams(window.location.search);
       const cardId = urlParams.get('card');

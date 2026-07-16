@@ -657,23 +657,31 @@ class BoardController extends Controller
 
         if ($image) {
             $filename = \Illuminate\Support\Str::random(40) . '.webp';
-            $path = "board-backgrounds/{$filename}";
-            \Illuminate\Support\Facades\Storage::disk('public')->makeDirectory('board-backgrounds');
+            $dir = public_path('board-backgrounds');
+            if (!file_exists($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            $path = $dir . '/' . $filename;
             
             // For PNG/GIF transparency
             imagepalettetotruecolor($image);
             imagealphablending($image, true);
             imagesavealpha($image, true);
             
-            imagewebp($image, \Illuminate\Support\Facades\Storage::disk('public')->path($path), 85);
+            imagewebp($image, $path, 85);
             imagedestroy($image);
             
-            return \Illuminate\Support\Facades\Storage::url($path);
+            return '/public/board-backgrounds/' . $filename;
         }
 
         // Fallback if conversion fails
-        $path = $file->store("board-backgrounds", 'public');
-        return \Illuminate\Support\Facades\Storage::url($path);
+        $filename = \Illuminate\Support\Str::random(40) . '.' . $file->extension();
+        $dir = public_path('board-backgrounds');
+        if (!file_exists($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        $file->move($dir, $filename);
+        return '/public/board-backgrounds/' . $filename;
     }
 
     /** Basic update for board name and background from the workspaces view. */
@@ -731,12 +739,17 @@ class BoardController extends Controller
             'background_image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:8192'],
         ]);
 
-        $path = $validated['background_image']->store("board-backgrounds/{$board->id}", 'public');
+        $uploadedUrl = $this->handleBackgroundImageUpload($validated['background_image']);
+
+        if (!$uploadedUrl) {
+            return response()->json(['error' => 'Failed to process image.'], 422);
+        }
+
         $oldBackground = $board->background_value;
 
         $board->update([
             'background_type' => 'image',
-            'background_value' => Storage::url($path),
+            'background_value' => $uploadedUrl,
         ]);
 
         if ($oldBackground !== $board->cover_value) {
