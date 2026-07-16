@@ -17,7 +17,7 @@ class CallReport extends Model
     {
         return match ($type) {
             'Inquiry'         => 'badge-sky',
-            'Technical'       => 'badge-violet',
+            'Technical'       => 'badge-rose',
             'Wrong dial'      => 'badge-slate',
             'Delivery status' => 'badge-indigo',
             'Return missed'   => 'badge-rose',
