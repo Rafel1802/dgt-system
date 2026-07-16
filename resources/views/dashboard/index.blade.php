@@ -397,6 +397,13 @@
         </div>
 
         <aside class="space-y-6">
+            {{-- Quick actions is hidden for staff whose only module is CRM
+                 (a pure CRM role, not super-admin/boss who span both worlds
+                 and not digital-side staff, who keep seeing it) — none of
+                 these workflow shortcuts (boards, notes, CRM dashboard,
+                 settings) are relevant to day-to-day CRM work. --}}
+            @php $isPureCrmUser = in_array('crm', auth()->user()->notificationModules(), true) && ! in_array('digital', auth()->user()->notificationModules(), true); @endphp
+            @unless($isPureCrmUser)
             <div class="dash-glass rounded-[1.5rem] p-5">
                 <div class="flex items-center justify-between">
                     <div>
@@ -535,6 +542,7 @@
                     @endif
                 </div>
             </div>
+            @endunless
 
 
 
