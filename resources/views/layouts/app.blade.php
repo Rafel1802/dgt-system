@@ -667,17 +667,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 @can('crm.view')
 
-                @hasanyrole('super-admin|admin-crm|sales-crm|boss')
-                <a href="{{ route('admin.emails.index') }}"
-                   class="sidebar-item {{ request()->routeIs('admin.emails.*') ? 'active' : '' }}"
-                   aria-label="Manage Emails" title="Email Accounts" id="nav-crm-emails">
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                    </svg>
-                    <span>All Mails</span>
-                </a>
-                @endhasanyrole
-
                 {{-- ── 1. Website CRM (with accordion submenu) ────────────── --}}
                 @php $pendingCallRequestCount = \App\Models\CallRequest::pending()->count(); @endphp
                 <div x-data="{ open: {{ request()->routeIs('crm.website.*') ? 'true' : 'false' }} }" class="w-full">
@@ -1507,20 +1496,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
             @endif
 
-            <!-- All Mails (CRM + Boss) -->
-            @hasanyrole('super-admin|admin-crm|sales-crm|boss')
-            <a href="{{ route('admin.emails.index') }}"
-               class="mobile-nav-item {{ request()->routeIs('admin.emails.*') ? 'active' : '' }}"
-               aria-label="All Mails">
-                <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.909A2.25 2.25 0 0 1 2.25 6.993V6.75m19.5 0v.243m0 0a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.909A2.25 2.25 0 0 1 2.25 6.993" />
-                    </svg>
-                </span>
-                <span class="mobile-nav-label">All Mails</span>
-            </a>
-            @endhasanyrole
-
             <!-- Social Media (Boss, super-admin, Digital Team) -->
             @if(auth()->user()->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
             <a href="{{ route('social-media.dashboard') }}"
@@ -1580,7 +1555,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 <!-- More / Menu trigger -->@unless(auth()->user()->hasRole('super-admin'))
                 <button type="button"
-                        class="mobile-nav-item {{ (request()->routeIs('admin.*') && !request()->routeIs('admin.emails.*')) || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
+                        class="mobile-nav-item {{ request()->routeIs('admin.*') || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
                         x-data
                         @click="$dispatch('open-mobile-sidebar')"
                         aria-label="More">

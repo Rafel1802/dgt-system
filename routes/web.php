@@ -6,7 +6,6 @@ use App\Http\Controllers\Admin\ApprovalController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\LabelController;
 use App\Http\Controllers\Admin\ReportController;
-use App\Http\Controllers\Admin\EmailController;
 use App\Http\Controllers\Admin\GoogleScriptWebhookController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\MemberController;
@@ -337,19 +336,6 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::delete('/security/activity/clear', [SecurityController::class, 'clearActivity'])->name('security.activity.clear');
         });
 
-        // ── All Mails (Accessible to CRM roles) ───────────────────────────
-        Route::middleware(['role:super-admin|admin-crm|sales-crm|boss'])->prefix('admin')->name('admin.')->group(function () {
-            Route::get('/emails', [EmailController::class, 'index'])->name('emails.index');
-            Route::get('/emails/accounts', [EmailController::class, 'accounts'])->name('emails.accounts');
-            Route::post('/emails/accounts', [EmailController::class, 'storeAccount'])->name('emails.accounts.store');
-            Route::delete('/emails/accounts/{account}', [EmailController::class, 'destroyAccount'])->name('emails.accounts.destroy');
-            Route::get('/emails/{email}', [EmailController::class, 'show'])->name('emails.show');
-            Route::patch('/emails/{email}/toggle-read', [EmailController::class, 'toggleRead'])->name('emails.toggle-read');
-            Route::patch('/emails/{email}/toggle-star', [EmailController::class, 'toggleStar'])->name('emails.toggle-star');
-            Route::delete('/emails/bulk', [EmailController::class, 'bulkDestroy'])->name('emails.bulk-destroy');
-            Route::delete('/emails/{email}', [EmailController::class, 'destroy'])->name('emails.destroy');
-        });
-
         // ── Supervisor Approval Panel ─────────────────────────────────────
         Route::middleware(['role:super-admin|admin-digital|admin-crm|boss', 'maintenance:approvals'])
             ->prefix('approvals')
@@ -593,7 +579,6 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             });
 
         // ── Profile & Settings ────────────────────────────────────────────
-        Route::get('/emails/poll', [App\Http\Controllers\Admin\EmailController::class, 'pollNewEmails'])->name('admin.emails.poll');
         Route::get('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'show'])->name('profile.show');
         Route::put('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'update'])->name('profile.update');
         Route::post('/profile/sound', [App\Http\Controllers\Auth\ProfileController::class, 'uploadSound'])->name('profile.sound.upload');

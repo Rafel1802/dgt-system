@@ -86,24 +86,6 @@ class GoogleScriptWebhookController extends Controller
         // Update last synced timestamp
         $account->update(['last_synced_at' => now()]);
 
-        // ── 5. Notify CRM team ──────────────────────────────────────────────
-        $usersToNotify = \App\Models\User::role(['super-admin', 'admin-crm', 'sales-crm', 'boss'])->get();
-        $senderName = $fromName ?: $fromEmail;
-        foreach ($usersToNotify as $u) {
-            $u->notifications()->create([
-                'id' => \Illuminate\Support\Str::uuid(),
-                'type' => 'App\Notifications\NewEmailNotification',
-                'data' => [
-                    'actor_name' => $senderName,
-                    'actor_avatar' => 'https://ui-avatars.com/api/?name='.urlencode($senderName).'&color=fff&background=4f46e5',
-                    'message' => "New email: " . \Illuminate\Support\Str::limit($subject, 40),
-                    'board_name' => 'Inbox',
-                    'link' => route('admin.emails.index')
-                ],
-                'read_at' => null,
-            ]);
-        }
-
         return response()->json(['status' => 'ok', 'message' => 'Email saved']);
     }
 
