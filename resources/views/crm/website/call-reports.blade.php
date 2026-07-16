@@ -116,7 +116,7 @@
             <td class="px-5 py-3 font-semibold text-slate-800">{{ $report->name ?: '—' }}</td>
             <td class="px-4 py-3 text-slate-500">{{ $report->phone ?: '—' }}</td>
             <td class="px-4 py-3 text-slate-500">{{ $report->email ?: '—' }}</td>
-            <td class="px-4 py-3"><span class="badge text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{{ $report->inquiry_type }}</span></td>
+            <td class="px-4 py-3"><span class="badge text-xs px-2 py-0.5 rounded-full {{ \App\Models\CallReport::badgeClassForInquiryType($report->inquiry_type) }}">{{ $report->inquiry_type }}</span></td>
             <td class="px-4 py-3 text-xs text-slate-500 max-w-xs truncate" title="{{ $report->details }}">{{ $report->details ? \Illuminate\Support\Str::limit($report->details, 40) : '—' }}</td>
             <td class="px-4 py-3 text-slate-500">{{ $report->answeredBy?->name }}</td>
             <td class="px-4 py-3 text-xs text-slate-400">{{ $report->occurred_at?->format('d M Y, g:ia') }}</td>

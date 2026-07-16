@@ -81,9 +81,16 @@
             font-weight: 600;
             border-radius: 9999px;
             text-transform: uppercase;
-            background-color: #e0e7ff;
-            color: #4338ca;
         }
+        /* Same badge-* palette as the main app (resources/css/app.css) — kept
+           as plain hex here since this document renders standalone through
+           the PDF engine, which doesn't load the app's stylesheet. */
+        .badge-sky     { background-color: #e0f2fe; color: #0369a1; }
+        .badge-violet  { background-color: #ede9fe; color: #5b21b6; }
+        .badge-slate   { background-color: #f1f5f9; color: #475569; }
+        .badge-indigo  { background-color: #e0e7ff; color: #4338ca; }
+        .badge-rose    { background-color: #ffe4e6; color: #9f1239; }
+        .badge-emerald { background-color: #d1fae5; color: #065f46; }
         .font-semibold { font-weight: 600; }
         .footer {
             position: fixed;
@@ -136,7 +143,7 @@
                     <td class="font-semibold">{{ $row->name }}</td>
                     <td>{{ $row->phone ?? '—' }}</td>
                     <td>{{ $row->email ?? '—' }}</td>
-                    <td><span class="badge">{{ $row->inquiry_type }}</span></td>
+                    <td><span class="badge {{ \App\Models\CallReport::badgeClassForInquiryType($row->inquiry_type) }}">{{ $row->inquiry_type }}</span></td>
                     <td style="max-width: 180px;">{{ $row->details ?? '—' }}</td>
                     <td>{{ $row->answeredBy?->name ?? '—' }}</td>
                     <td>{{ $row->occurred_at?->format('d M Y, g:ia') ?? '—' }}</td>

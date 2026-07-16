@@ -12,6 +12,20 @@ class CallReport extends Model
 
     const INQUIRY_TYPES = ['Inquiry', 'Technical', 'Wrong dial', 'Delivery status', 'Return missed', 'Followed up'];
 
+    /** Distinct badge color per inquiry type, reusing the app's existing badge-* classes (each already has a dark-mode variant defined in app.css). */
+    public static function badgeClassForInquiryType(string $type): string
+    {
+        return match ($type) {
+            'Inquiry'         => 'badge-sky',
+            'Technical'       => 'badge-violet',
+            'Wrong dial'      => 'badge-slate',
+            'Delivery status' => 'badge-indigo',
+            'Return missed'   => 'badge-rose',
+            'Followed up'     => 'badge-emerald',
+            default           => 'badge-slate',
+        };
+    }
+
     protected $fillable = [
         'name', 'phone', 'email', 'inquiry_type', 'answered_by', 'occurred_at', 'details', 'created_by',
     ];
