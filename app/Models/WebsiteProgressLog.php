@@ -9,7 +9,7 @@ class WebsiteProgressLog extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['website_id', 'type', 'user_id', 'percent', 'note', 'created_at'];
+    protected $fillable = ['website_id', 'type', 'user_id', 'percent', 'note', 'created_at', 'attachment_path', 'attachment_name'];
 
     protected $casts = [
         'percent'    => 'integer',

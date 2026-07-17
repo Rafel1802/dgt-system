@@ -29,10 +29,14 @@ class WebsiteController extends Controller
         $tab = $request->get('tab', 'build');
 
         // Fetch all non-archived websites with relationships
-        $allWebsites = Website::with(['handler', 'progressLogs', 'maintenanceLogs', 'qcChecks', 'activityLogs'])
+        $allWebsites = Website::with([
+            'handler', 'progressLogs', 'maintenanceLogs', 'qcChecks',
+            'activityLogs', 'activityLogs.user',
+        ])
             ->where('is_archived', false)
             ->orderBy('name')
             ->get();
+
 
         // ── Build Website Tab ─────────────────────────────────────────────────
         $buildWebsites = $allWebsites->where('status', Website::STATUS_BUILD_WEBSITE)->values();
@@ -237,8 +241,7 @@ class WebsiteController extends Controller
             'updated_by' => auth()->id(),
         ]);
 
-        return redirect()->route('websites.index', ['tab' => request('return_tab', 'build')])
-            ->with('success', "Website \"{$website->name}\" updated.");
+        return back()->with('success', "Website \"{$website->name}\" updated.");
     }
 
     // ── UPDATE BUILD PROGRESS ─────────────────────────────────────────────────
@@ -358,9 +361,12 @@ class WebsiteController extends Controller
             'error_note' => 'required|string|min:5|max:2000',
             'error_link' => 'nullable|string|max:1000',
             'error_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'error_files' => 'nullable|array|max:8',
+            'error_files.*' => 'file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         ]);
         $errorLink = $validated['error_link'] ?? null;
-        $attachment = $this->storeErrorAttachment($request);
+        $attachments = $this->storeErrorAttachments($request);
+        $attachment = $attachments[0] ?? ['path' => null, 'name' => null];
 
         $oldStatus = $website->status;
         $isMaintenanceFlow = in_array($oldStatus, [
@@ -388,7 +394,9 @@ class WebsiteController extends Controller
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
             'percent'    => 0,
-            'note'       => "QC Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : '') . ($attachment['name'] ? " | File: {$attachment['name']}" : ''),
+            'note'       => "QC Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : ''),
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
             'created_at' => now(),
         ]);
 
@@ -396,11 +404,14 @@ class WebsiteController extends Controller
             'website_id'   => $website->id,
             'user_id'      => auth()->id(),
             'action'       => 'qc_error',
-            'note'         => "QC Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : '') . ($attachment['name'] ? " | File: {$attachment['name']}" : ''),
+            'note'         => "QC Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : ''),
             'old_status'   => $oldStatus,
             'new_status'   => $newStatus,
             'old_progress' => $website->progress_percent,
             'new_progress' => 0,
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
+            'attachments' => $attachments,
         ]);
 
         $this->logActivity('qc_error', "QC flagged error for \"{$website->name}\".");
@@ -418,9 +429,12 @@ class WebsiteController extends Controller
             'error_note' => 'required|string|min:5|max:2000',
             'error_link' => 'nullable|string|max:1000',
             'error_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'error_files' => 'nullable|array|max:8',
+            'error_files.*' => 'file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         ]);
         $errorLink = $validated['error_link'] ?? null;
-        $attachment = $this->storeErrorAttachment($request);
+        $attachments = $this->storeErrorAttachments($request);
+        $attachment = $attachments[0] ?? ['path' => null, 'name' => null];
 
         $oldStatus = $website->status;
         $isMaintenanceFlow = in_array($oldStatus, [
@@ -448,7 +462,9 @@ class WebsiteController extends Controller
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
             'percent'    => 0,
-            'note'       => "Supervisor Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : '') . ($attachment['name'] ? " | File: {$attachment['name']}" : ''),
+            'note'       => "Supervisor Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : ''),
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
             'created_at' => now(),
         ]);
 
@@ -456,11 +472,14 @@ class WebsiteController extends Controller
             'website_id'   => $website->id,
             'user_id'      => auth()->id(),
             'action'       => 'supervisor_error',
-            'note'         => "Supervisor Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : '') . ($attachment['name'] ? " | File: {$attachment['name']}" : ''),
+            'note'         => "Supervisor Error flagged: {$validated['error_note']}" . ($errorLink ? " | Link: {$errorLink}" : ''),
             'old_status'   => $oldStatus,
             'new_status'   => $newStatus,
             'old_progress' => $website->progress_percent,
             'new_progress' => 0,
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
+            'attachments' => $attachments,
         ]);
 
         $this->logActivity('supervisor_error', "Supervisor flagged error for \"{$website->name}\".");
@@ -513,8 +532,7 @@ class WebsiteController extends Controller
 
         $tab = in_array($oldStatus, [Website::STATUS_QC_ERROR, Website::STATUS_MAINTENANCE_QC_ERROR]) ? 'qc-error' : 'supervisor-error';
 
-        return redirect()->route('websites.index', ['tab' => $tab])
-            ->with('success', "Error fix progress updated to {$newPercent}% for \"{$website->name}\".");
+        return back()->with('success', "Error fix progress updated to {$newPercent}% for \"{$website->name}\".");
     }
 
     // ── COMPLETE QC ERROR (send back to QC Checking) ─────────────────────────────
@@ -764,8 +782,7 @@ class WebsiteController extends Controller
             ? "\"{$website->name}\" maintenance completed and is pending QC check."
             : "Maintenance progress updated to {$newPercent}% for \"{$website->name}\".";
 
-        return redirect()->route('websites.index', ['tab' => 'maintenance'])
-            ->with('success', $msg);
+        return back()->with('success', $msg);
     }
 
     // ── EXPORT REPORT ─────────────────────────────────────────────────────────
@@ -1045,29 +1062,180 @@ class WebsiteController extends Controller
 
         $website->delete();
 
-        return redirect()->route('websites.index')
-            ->with('success', 'Website removed successfully.');
+        return back()->with('success', 'Website removed successfully.');
     }
 
-    private function storeErrorAttachment(Request $request): array
+    public function viewErrorAttachment(Website $website)
     {
-        if (! $request->hasFile('error_file')) {
-            return ['path' => null, 'name' => null];
+        $this->authorizeWebsiteAttachmentAccess();
+
+        return $this->publicAttachmentResponse(
+            $website->error_attachment_path,
+            $website->error_attachment_name,
+            false
+        );
+    }
+
+    public function downloadErrorAttachment(Website $website)
+    {
+        $this->authorizeWebsiteAttachmentAccess();
+
+        return $this->publicAttachmentResponse(
+            $website->error_attachment_path,
+            $website->error_attachment_name,
+            true
+        );
+    }
+
+    public function viewHistoryAttachment(Request $request, $id)
+    {
+        $this->authorizeWebsiteAttachmentAccess();
+
+        $log = WebsiteMaintenanceLog::findOrFail($id);
+        $attachment = $this->resolveHistoryAttachment($log, $request->query('file'));
+
+        return $this->publicAttachmentResponse($attachment['path'] ?? null, $attachment['name'] ?? null, false);
+    }
+
+    public function downloadHistoryAttachment(Request $request, $id)
+    {
+        $this->authorizeWebsiteAttachmentAccess();
+
+        $log = WebsiteMaintenanceLog::findOrFail($id);
+        $attachment = $this->resolveHistoryAttachment($log, $request->query('file'));
+
+        return $this->publicAttachmentResponse($attachment['path'] ?? null, $attachment['name'] ?? null, true);
+    }
+
+    private function storeErrorAttachments(Request $request): array
+    {
+        $files = [];
+
+        if ($request->hasFile('error_files')) {
+            $files = $request->file('error_files');
+        } elseif ($request->hasFile('error_file')) {
+            $files = [$request->file('error_file')];
         }
 
-        $file = $request->file('error_file');
+        return collect($files)->filter()->map(fn ($file) => $this->storeHistoryAttachmentFile($file))->values()->all();
+    }
 
+    private function storeHistoryAttachmentFile($file): array
+    {
         return [
+            'id' => (string) \Illuminate\Support\Str::uuid(),
             'path' => $file->store('website-error-references', 'public'),
             'name' => $file->getClientOriginalName(),
+            'mime' => $file->getClientMimeType(),
+            'size' => $file->getSize(),
         ];
     }
 
     private function deleteErrorAttachment(Website $website): void
     {
-        if ($website->error_attachment_path && Storage::disk('public')->exists($website->error_attachment_path)) {
-            Storage::disk('public')->delete($website->error_attachment_path);
+        $this->deletePublicAttachmentIfUnreferenced($website->error_attachment_path, $website->id);
+    }
+
+    private function authorizeWebsiteAttachmentAccess(): void
+    {
+        abort_unless(auth()->user()?->hasWebsiteAccess(), 403);
+    }
+
+    private function authorizeWebsiteErrorHistoryManagement(WebsiteMaintenanceLog $log): void
+    {
+        $user = auth()->user();
+        $allowedAction = in_array($log->action, ['qc_error', 'supervisor_error'], true);
+
+        abort_unless(
+            $allowedAction && ($user?->canApproveWebsiteQc() || $user?->canApproveWebsiteSupervisor()),
+            403,
+            'Only QC, Supervisor, or super-admin can manage QC/Supervisor error history.'
+        );
+    }
+
+    private function resolveHistoryAttachment(WebsiteMaintenanceLog $log, ?string $fileId): ?array
+    {
+        $attachments = $this->normalizedHistoryAttachments($log);
+
+        if ($fileId) {
+            return collect($attachments)->firstWhere('id', $fileId);
         }
+
+        return $attachments[0] ?? null;
+    }
+
+    private function normalizedHistoryAttachments(WebsiteMaintenanceLog $log): array
+    {
+        $attachments = collect($log->attachments ?: [])
+            ->filter(fn ($file) => ! empty($file['path']))
+            ->values()
+            ->all();
+
+        if (empty($attachments) && $log->attachment_path) {
+            $attachments[] = [
+                'id' => 'legacy',
+                'path' => $log->attachment_path,
+                'name' => $log->attachment_name ?: basename($log->attachment_path),
+            ];
+        }
+
+        return $attachments;
+    }
+
+    private function publicAttachmentResponse(?string $path, ?string $name, bool $download)
+    {
+        abort_unless($path && Storage::disk('public')->exists($path), 404, 'Attached file not found.');
+
+        $filename = $this->safeAttachmentFilename($name ?: basename($path));
+
+        if ($download) {
+            return Storage::disk('public')->download($path, $filename);
+        }
+
+        return response()->file(Storage::disk('public')->path($path), [
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
+    }
+
+    private function safeAttachmentFilename(string $filename): string
+    {
+        $filename = str_replace(["\\", '"', "\r", "\n"], '', $filename);
+
+        return $filename !== '' ? $filename : 'attachment';
+    }
+
+    private function deletePublicAttachmentIfUnreferenced(?string $path, ?int $exceptWebsiteId = null, ?int $exceptMaintenanceLogId = null): void
+    {
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            return;
+        }
+
+        $websiteQuery = Website::where('error_attachment_path', $path);
+        if ($exceptWebsiteId) {
+            $websiteQuery->where('id', '!=', $exceptWebsiteId);
+        }
+
+        $logQuery = WebsiteMaintenanceLog::where('attachment_path', $path);
+        if ($exceptMaintenanceLogId) {
+            $logQuery->where('id', '!=', $exceptMaintenanceLogId);
+        }
+
+        if ($websiteQuery->exists() || $logQuery->exists()) {
+            return;
+        }
+
+        $referencedInAttachmentList = WebsiteMaintenanceLog::whereNotNull('attachments')
+            ->when($exceptMaintenanceLogId, fn ($query) => $query->where('id', '!=', $exceptMaintenanceLogId))
+            ->get(['attachments'])
+            ->contains(function (WebsiteMaintenanceLog $log) use ($path) {
+                return collect($log->attachments ?: [])->contains(fn ($file) => ($file['path'] ?? null) === $path);
+            });
+
+        if ($referencedInAttachmentList) {
+            return;
+        }
+
+        Storage::disk('public')->delete($path);
     }
 
     // ── CATEGORY ACTIONS ──────────────────────────────────────────────────────
@@ -1096,8 +1264,7 @@ class WebsiteController extends Controller
             }
         }
         
-        return redirect()->route('websites.index')
-            ->with('success', "Group renamed successfully.");
+        return back()->with('success', "Group renamed successfully.");
     }
     
     public function storeCategory(Request $request)
@@ -1114,8 +1281,7 @@ class WebsiteController extends Controller
             $setting->update(['value' => json_encode($orderArray)]);
         }
 
-        return redirect()->route('websites.index')
-            ->with('success', "Group '{$validated['name']}' created successfully.");
+        return back()->with('success', "Group '{$validated['name']}' created successfully.");
     }
 
     public function destroyCategory(Request $request)
@@ -1151,7 +1317,146 @@ class WebsiteController extends Controller
             $setting->update(['value' => json_encode($validated['categories'])]);
         }
 
-        return redirect()->route('websites.index')->with('success', 'Group reordered.');
+        return back()->with('success', 'Group reordered.');
+    }
+
+    // ── HISTORY LOGS ──────────────────────────────────────────────────────────
+
+    public function updateHistoryLog(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'note' => 'required|string|min:5|max:2000',
+            'remove_file_ids' => 'nullable|array',
+            'remove_file_ids.*' => 'string|max:100',
+            'attachments' => 'nullable|array|max:8',
+            'attachments.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+        ]);
+
+        $log = WebsiteMaintenanceLog::findOrFail($id);
+        $this->authorizeWebsiteErrorHistoryManagement($log);
+
+        $removeIds = collect($validated['remove_file_ids'] ?? []);
+        $removedPaths = [];
+        $attachments = collect($this->normalizedHistoryAttachments($log))
+            ->reject(function ($file) use ($removeIds, &$removedPaths) {
+                $remove = $removeIds->contains((string) ($file['id'] ?? ''))
+                    || $removeIds->contains((string) ($file['path'] ?? ''));
+                if ($remove && ! empty($file['path'])) {
+                    $removedPaths[] = $file['path'];
+                }
+                return $remove;
+            })
+            ->values()
+            ->all();
+
+        foreach ($request->file('attachments', []) as $file) {
+            $attachments[] = $this->storeHistoryAttachmentFile($file);
+        }
+
+        $log->update([
+            'note' => $validated['note'],
+            'attachments' => array_values($attachments),
+            'attachment_path' => $attachments[0]['path'] ?? null,
+            'attachment_name' => $attachments[0]['name'] ?? null,
+        ]);
+
+        foreach ($removedPaths as $path) {
+            $this->deletePublicAttachmentIfUnreferenced($path, null, $log->id);
+        }
+
+        return $request->filled('redirect_to')
+            ? redirect($request->input('redirect_to'))->with('success', 'History updated.')
+            : back()->with('success', 'History updated.');
+    }
+
+    public function addHistoryAttachments(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'attachments' => 'required|array|min:1|max:8',
+            'attachments.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+        ]);
+
+        $log = WebsiteMaintenanceLog::findOrFail($id);
+        $this->authorizeWebsiteErrorHistoryManagement($log);
+
+        $attachments = $this->normalizedHistoryAttachments($log);
+        foreach ($request->file('attachments', []) as $file) {
+            $attachments[] = $this->storeHistoryAttachmentFile($file);
+        }
+
+        $log->update([
+            'attachments' => array_values($attachments),
+            'attachment_path' => $attachments[0]['path'] ?? null,
+            'attachment_name' => $attachments[0]['name'] ?? null,
+        ]);
+
+        return $request->filled('redirect_to')
+            ? redirect($request->input('redirect_to'))->with('success', 'Attachment added.')
+            : back()->with('success', 'Attachment added.');
+    }
+
+    public function updateHistoryAttachment(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'attachment' => 'required|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+        ]);
+
+        $log = \App\Models\WebsiteMaintenanceLog::findOrFail($id);
+
+        $this->authorizeWebsiteErrorHistoryManagement($log);
+
+        $attachments = $this->normalizedHistoryAttachments($log);
+        $fileId = $request->input('file_id');
+        $index = $fileId
+            ? collect($attachments)->search(fn ($file) => ($file['id'] ?? null) === $fileId)
+            : 0;
+
+        abort_if($index === false || ! isset($attachments[$index]), 404, 'Attachment not found.');
+
+        $oldPath = $attachments[$index]['path'] ?? null;
+        $attachments[$index] = $this->storeHistoryAttachmentFile($request->file('attachment'));
+        $log->update([
+            'attachments' => array_values($attachments),
+            'attachment_path' => $attachments[0]['path'] ?? null,
+            'attachment_name' => $attachments[0]['name'] ?? null,
+        ]);
+
+        $this->deletePublicAttachmentIfUnreferenced($oldPath, null, $log->id);
+
+        if ($request->filled('redirect_to')) {
+            return redirect($request->input('redirect_to'))->with('success', 'Attachment updated successfully.');
+        }
+        return back()->with('success', 'Attachment updated successfully.');
+    }
+
+    public function destroyHistoryAttachment(Request $request, $id, ?string $fileId = null)
+    {
+        $log = \App\Models\WebsiteMaintenanceLog::findOrFail($id);
+
+        $this->authorizeWebsiteErrorHistoryManagement($log);
+
+        $fileId = $fileId ?: $request->input('file_id');
+        $attachments = $this->normalizedHistoryAttachments($log);
+        $index = $fileId
+            ? collect($attachments)->search(fn ($file) => ($file['id'] ?? null) === $fileId)
+            : 0;
+
+        abort_if($index === false || ! isset($attachments[$index]), 404, 'Attachment not found.');
+
+        $oldPath = $attachments[$index]['path'] ?? null;
+        array_splice($attachments, $index, 1);
+        $log->update([
+            'attachments' => array_values($attachments),
+            'attachment_path' => $attachments[0]['path'] ?? null,
+            'attachment_name' => $attachments[0]['name'] ?? null,
+        ]);
+
+        $this->deletePublicAttachmentIfUnreferenced($oldPath, null, $log->id);
+
+        if ($request->filled('redirect_to')) {
+            return redirect($request->input('redirect_to'))->with('success', 'Attachment removed from log.');
+        }
+        return back()->with('success', 'Attachment removed from log.');
     }
 
     // ── HELPERS ───────────────────────────────────────────────────────────────

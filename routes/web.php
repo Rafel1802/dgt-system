@@ -115,10 +115,20 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/websites/{website}/error-progress', [\App\Http\Controllers\WebsiteController::class, 'updateErrorProgress'])->name('websites.error.progress');
             Route::post('/websites/{website}/complete-qc-error', [\App\Http\Controllers\WebsiteController::class, 'completeQcError'])->name('websites.qc.error.complete');
             Route::post('/websites/{website}/complete-supervisor-error', [\App\Http\Controllers\WebsiteController::class, 'completeSupervisorError'])->name('websites.supervisor.error.complete');
+            Route::get('/websites/{website}/error-attachment/view', [\App\Http\Controllers\WebsiteController::class, 'viewErrorAttachment'])->name('websites.error-attachment.view');
+            Route::get('/websites/{website}/error-attachment/download', [\App\Http\Controllers\WebsiteController::class, 'downloadErrorAttachment'])->name('websites.error-attachment.download');
             Route::post('/websites/members', [\App\Http\Controllers\WebsiteController::class, 'storeMember'])->name('websites.members.store');
             Route::delete('/websites/members/{member}', [\App\Http\Controllers\WebsiteController::class, 'destroyMember'])->name('websites.members.destroy');
             Route::post('/websites/{website}/start-maintenance', [\App\Http\Controllers\WebsiteController::class, 'startMaintenance'])->name('websites.maintenance.start');
             Route::post('/websites/{website}/maintenance-progress', [\App\Http\Controllers\WebsiteController::class, 'updateMaintenanceProgress'])->name('websites.maintenance.update');
+
+            Route::get('/websites/history-logs/{id}/attachment/view', [\App\Http\Controllers\WebsiteController::class, 'viewHistoryAttachment'])->name('websites.history-logs.attachment.view');
+            Route::get('/websites/history-logs/{id}/attachment/download', [\App\Http\Controllers\WebsiteController::class, 'downloadHistoryAttachment'])->name('websites.history-logs.attachment.download');
+            Route::put('/websites/history-logs/{id}', [\App\Http\Controllers\WebsiteController::class, 'updateHistoryLog'])->name('websites.history-logs.update');
+            Route::post('/websites/history-logs/{id}/attachments', [\App\Http\Controllers\WebsiteController::class, 'addHistoryAttachments'])->name('websites.history-logs.attachments.store');
+            Route::delete('/websites/history-logs/{id}/attachments/{fileId}', [\App\Http\Controllers\WebsiteController::class, 'destroyHistoryAttachment'])->name('websites.history-logs.attachments.destroy');
+            Route::post('/websites/history-logs/{id}/attachment', [\App\Http\Controllers\WebsiteController::class, 'updateHistoryAttachment'])->name('websites.history-logs.attachment.update');
+            Route::delete('/websites/history-logs/{id}/attachment', [\App\Http\Controllers\WebsiteController::class, 'destroyHistoryAttachment'])->name('websites.history-logs.attachment.destroy');
 
             // Website CRUD resource
             Route::resource('websites', \App\Http\Controllers\WebsiteController::class)->except(['create', 'show', 'edit']);

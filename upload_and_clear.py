@@ -51,6 +51,9 @@ if __name__ == "__main__":
         "--exclude", "/*.sh",
         "--exclude", "/*.exp",
         "--exclude", "/*.md",
+        "--exclude", "public/debug_path.php",
+        "--exclude", "public/check_storage_link.php",
+        "--exclude", "public/log_viewer.php",
         # A sample customer-data spreadsheet dropped at the project root (for
         # designing the Process Trucking import template) got deployed to the
         # live document root this way and was briefly publicly downloadable —
@@ -64,6 +67,16 @@ if __name__ == "__main__":
         "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"
     ]
     run_cmd(rsync_cmd)
+
+    # 1c. Sync user-uploaded files (QC error images, avatars, attachments, etc.)
+    # These are stored in storage/app/public/ locally and served via storage symlink on server.
+    rsync_storage_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "--ignore-existing",  # Don't overwrite files that already exist on the server
+        "storage/app/public/",
+        "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/storage/app/public/"
+    ]
+    run_cmd(rsync_storage_cmd)
 
     # 1b. Upload assets directly to public_html/js/ (without public/ prefix) just in case public_html is the document root
     rsync_workspace_alpine_cmd = [
@@ -103,4 +116,3 @@ if __name__ == "__main__":
     run_cmd(ssh_cmd)
 
     print("Done! Migrations applied and server cache cleared.")
-

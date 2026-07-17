@@ -140,6 +140,40 @@ class Website extends Model
         return $this->hasMany(WebsiteMaintenanceLog::class)->orderByDesc('created_at');
     }
 
+    public function getSerializedLogsAttribute(): string
+    {
+        return json_encode($this->activityLogs->map(function ($log) {
+            $attachments = collect($log->attachments ?: [])
+                ->filter(fn ($file) => ! empty($file['path']))
+                ->values()
+                ->all();
+
+            if (empty($attachments) && $log->attachment_path) {
+                $attachments[] = [
+                    'id' => 'legacy',
+                    'path' => $log->attachment_path,
+                    'name' => $log->attachment_name ?: basename($log->attachment_path),
+                ];
+            }
+
+            $firstAttachment = $attachments[0] ?? null;
+
+            return [
+                'id' => $log->id,
+                'new_status' => $log->new_status,
+                'action' => $log->action,
+                'percent' => $log->percent ?? $log->new_progress ?? 0,
+                'created_at' => $log->created_at?->toIso8601String(),
+                'note' => $log->note,
+                'attachments' => $attachments,
+                'attachment_path' => $firstAttachment['path'] ?? null,
+                'attachment_name' => $firstAttachment['name'] ?? null,
+                'user' => $log->user ? ['name' => $log->user->name] : null,
+                'user_id' => $log->user_id,
+            ];
+        })->values()->all());
+    }
+
     public function qcChecks(): HasMany
     {
         return $this->hasMany(WebsiteQcCheck::class);

@@ -3,6 +3,77 @@
 @section('page_title', 'All Websites')
 
 @section('content')
+<style>
+    .image-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .85);
+        backdrop-filter: blur(8px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10040;
+        animation: fadeIn .2s ease;
+        touch-action: none;
+        overflow: hidden;
+    }
+
+    .image-modal img {
+        max-width: 90vw;
+        max-height: 90vh;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+        user-select: none;
+        -webkit-user-drag: none;
+        transform-origin: center center;
+        will-change: transform;
+        transition: transform .08s ease-out;
+    }
+
+    .close-image {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 44px;
+        height: 44px;
+        border: none;
+        border-radius: 50%;
+        background: #fff;
+        color: #000;
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, .3);
+        z-index: 10050;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform .15s ease;
+    }
+
+    .close-image:hover {
+        transform: scale(1.08);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @media (max-width: 768px) {
+        .image-modal img {
+            max-width: 95vw;
+            max-height: 80vh;
+        }
+
+        .close-image {
+            top: 12px;
+            right: 12px;
+        }
+    }
+</style>
 <div class="animate-fade-in w-full pb-28 md:pb-8" x-data="websitesApp()" x-init="init()">
 
 {{-- ── Flash Messages ──────────────────────────────────────────────────────── --}}
@@ -476,7 +547,7 @@
                     @endif
                     <button type="button"
                             @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'build', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->activityLogs }}"
+                            data-logs="{{ $website->serialized_logs }}"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -650,7 +721,7 @@
                     @endif
                     <button type="button"
                             @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->activityLogs }}"
+                            data-logs="{{ $website->serialized_logs }}"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -878,7 +949,7 @@
                     <div class="flex items-center gap-1.5 shrink-0">
                     <button type="button"
                             @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->activityLogs }}"
+                            data-logs="{{ $website->serialized_logs }}"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -978,10 +1049,13 @@
                     </a>
                     @endif
                     @if($website->error_attachment_path)
-                    <a href="{{ asset('storage/'.$website->error_attachment_path) }}" target="_blank" class="inline-flex items-center gap-1 mt-2 ml-2 text-[10px] font-semibold text-red-500 hover:text-red-700">
-                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25A2.25 2.25 0 0 0 6 4.5v15A2.25 2.25 0 0 0 8.25 21h7.5A2.25 2.25 0 0 0 18 18.75M15 2.25V6a2.25 2.25 0 0 0 2.25 2.25H21"/></svg>
-                        {{ Str::limit($website->error_attachment_name ?? 'Reference file', 22) }}
-                    </a>
+                    <div class="inline-flex items-center gap-2 mt-2 ml-2 align-middle">
+                        <button type="button" @click="openGenericAttachmentPreview(@js($website->error_attachment_name ?? 'Reference file'), @js(route('websites.error-attachment.view', $website)), @js(route('websites.error-attachment.download', $website)))" class="inline-flex items-center gap-1 text-[10px] font-semibold text-red-500 hover:text-red-700">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25A2.25 2.25 0 0 0 6 4.5v15A2.25 2.25 0 0 0 8.25 21h7.5A2.25 2.25 0 0 0 18 18.75M15 2.25V6a2.25 2.25 0 0 0 2.25 2.25H21"/></svg>
+                            {{ Str::limit($website->error_attachment_name ?? 'Reference file', 22) }}
+                        </button>
+                        <a href="{{ route('websites.error-attachment.download', $website) }}" class="text-[10px] font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700">Download</a>
+                    </div>
                     @endif
                     @if($website->error_flagged_at)
                     <p class="text-[10px] text-slate-400 mt-1">Flagged {{ $website->error_flagged_at->diffForHumans() }}</p>
@@ -1029,7 +1103,7 @@
                     
                     <button type="button"
                             @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR ? 'maintenance' : 'build' }}', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->activityLogs }}"
+                            data-logs="{{ $website->serialized_logs }}"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -1124,10 +1198,13 @@
                     </a>
                     @endif
                     @if($website->error_attachment_path)
-                    <a href="{{ asset('storage/'.$website->error_attachment_path) }}" target="_blank" class="inline-flex items-center gap-1 mt-2 ml-2 text-[10px] font-semibold text-orange-500 hover:text-orange-700">
-                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25A2.25 2.25 0 0 0 6 4.5v15A2.25 2.25 0 0 0 8.25 21h7.5A2.25 2.25 0 0 0 18 18.75M15 2.25V6a2.25 2.25 0 0 0 2.25 2.25H21"/></svg>
-                        {{ Str::limit($website->error_attachment_name ?? 'Reference file', 22) }}
-                    </a>
+                    <div class="inline-flex items-center gap-2 mt-2 ml-2 align-middle">
+                        <button type="button" @click="openGenericAttachmentPreview(@js($website->error_attachment_name ?? 'Reference file'), @js(route('websites.error-attachment.view', $website)), @js(route('websites.error-attachment.download', $website)))" class="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-500 hover:text-orange-700">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25A2.25 2.25 0 0 0 6 4.5v15A2.25 2.25 0 0 0 8.25 21h7.5A2.25 2.25 0 0 0 18 18.75M15 2.25V6a2.25 2.25 0 0 0 2.25 2.25H21"/></svg>
+                            {{ Str::limit($website->error_attachment_name ?? 'Reference file', 22) }}
+                        </button>
+                        <a href="{{ route('websites.error-attachment.download', $website) }}" class="text-[10px] font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700">Download</a>
+                    </div>
                     @endif
                     @if($website->error_flagged_at)
                     <p class="text-[10px] text-slate-400 mt-1">Flagged {{ $website->error_flagged_at->diffForHumans() }}</p>
@@ -1175,7 +1252,7 @@
                     
                     <button type="button"
                             @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR ? 'maintenance' : 'build' }}', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->activityLogs }}"
+                            data-logs="{{ $website->serialized_logs }}"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -1316,13 +1393,13 @@
     @php
         $fuGroups = [];
         foreach ($orderArray as $cat) {
-            $fuGroups[$cat] = $followUps->filter(fn($f) => $f->website->category === $cat);
+            $fuGroups[$cat] = $followUps->filter(fn($f) => $f->website && $f->website->category === $cat);
         }
-        $fuGroups['Uncategorized'] = $followUps->filter(fn($f) => empty($f->website->category));
+        $fuGroups['Uncategorized'] = $followUps->filter(fn($f) => !$f->website || empty($f->website->category));
     @endphp
     @foreach($fuGroups as $groupName => $groupFollowUps)
         @if($groupFollowUps->isNotEmpty())
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupFollowUps->map(fn($f) => ['name' => $f->website->name ?? '', 'url' => $f->website->url ?? '', 'handled_by' => $f->website->handled_by ?? null])->values()) }})">
+        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupFollowUps->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()) }})">
             <h3 @click="toggleGroup('followup-{{ addslashes($groupName) }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
                 <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('followup-{{ addslashes($groupName) }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -1346,7 +1423,7 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
                         @foreach($groupFollowUps as $fu)
-                        <tr x-show="matchesSearch('{{ addslashes($fu->website->name ?? '') }}', '{{ addslashes($fu->website->clean_domain ?? '') }}', '{{ $fu->website->handled_by ?? '' }}')" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}')" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                             <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
                                 <div>{{ $fu->website?->name ?? '–' }}</div>
                                 @if($fu->website)
@@ -1995,9 +2072,9 @@
             </div>
             <div>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                    Reference File <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional PDF or image)</span>
+                    Reference Files <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional PDFs or images)</span>
                 </label>
-                <input type="file" name="error_file" accept=".pdf,image/png,image/jpeg,image/webp"
+                <input type="file" name="error_files[]" accept=".pdf,image/png,image/jpeg,image/webp" multiple
                        class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 file:mr-3 file:rounded-lg file:border-0 file:bg-red-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-red-600">
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
@@ -2045,9 +2122,9 @@
             </div>
             <div>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                    Reference File <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional PDF or image)</span>
+                    Reference Files <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional PDFs or images)</span>
                 </label>
-                <input type="file" name="error_file" accept=".pdf,image/png,image/jpeg,image/webp"
+                <input type="file" name="error_files[]" accept=".pdf,image/png,image/jpeg,image/webp" multiple
                        class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 file:mr-3 file:rounded-lg file:border-0 file:bg-orange-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-orange-600">
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
@@ -2356,19 +2433,75 @@
                 <p class="text-center text-sm text-slate-500 py-4">No history records found.</p>
             </template>
             <template x-for="log in historyLogs" :key="log.id">
-                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm relative">
-                    <div class="flex items-center justify-between mb-2">
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                    <div class="flex items-start justify-between gap-3 mb-2">
                         <div class="flex items-center gap-2">
                             <template x-if="log.new_status">
                                 <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 rounded uppercase tracking-wider" x-text="formatStatusLabel(log.new_status)"></span>
                             </template>
                             <span class="text-xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-md" x-text="(log.percent !== undefined ? log.percent : (log.new_progress !== undefined ? log.new_progress : '0')) + '%'"></span>
                         </div>
-                        <span class="text-[10px] text-slate-400" x-text="new Date(log.created_at).toLocaleString()"></span>
+                        <span class="text-[10px] text-slate-400 shrink-0 pt-0.5" x-text="new Date(log.created_at).toLocaleString()"></span>
                     </div>
-                    <p class="text-sm text-slate-700 dark:text-slate-300 mb-2 leading-relaxed" x-text="log.note"></p>
-                    <div class="text-[11px] font-semibold text-slate-500">
-                        Updated by: <span x-text="log.user ? log.user.name : 'Unknown'"></span>
+                    <p class="text-sm text-slate-700 dark:text-slate-300 mb-2 leading-relaxed" x-html="formatNoteText(log.note)"></p>
+                    
+                    <!-- Show extracted link if note has | Link: -->
+                    <template x-if="extractLink(log.note)">
+                        <a :href="extractLink(log.note)" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 mb-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg px-3 py-1.5 transition-colors">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                            <span class="truncate max-w-[220px]" x-text="extractLink(log.note)"></span>
+                        </a>
+                    </template>
+                    <template x-if="log.attachments && log.attachments.length">
+                        <div class="mt-3 space-y-2">
+                            <template x-for="file in log.attachments" :key="file.id || file.path">
+                                <div class="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                                    <template x-if="isImageAttachment(file)">
+                                        <button type="button" @click="openAttachmentPreview(log, file)" class="block w-16 h-16 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600 shadow-sm hover:opacity-80 transition-opacity flex-shrink-0 bg-slate-100">
+                                            <img :src="getHistoryAttachmentUrl(log, 'view', file)" class="w-full h-full object-cover" x-on:error="$el.parentElement.style.opacity='0.5'">
+                                        </button>
+                                    </template>
+                                    <template x-if="!isImageAttachment(file)">
+                                        <button type="button" @click="openAttachmentPreview(log, file)" class="w-16 h-16 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 flex flex-col items-center justify-center flex-shrink-0 shadow-sm text-slate-400 gap-1">
+                                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25A2.25 2.25 0 0 0 6 4.5v15A2.25 2.25 0 0 0 8.25 21h7.5A2.25 2.25 0 0 0 18 18.75M15 2.25V6a2.25 2.25 0 0 0 2.25 2.25H21"/></svg>
+                                            <span class="text-[9px] uppercase tracking-wide font-bold" x-text="getAttachmentExtension(file)"></span>
+                                        </button>
+                                    </template>
+                                    <div class="min-w-0 flex-1 pt-0.5">
+                                        <span class="block text-xs font-bold text-slate-700 dark:text-slate-300 truncate" x-text="file.name || 'Attached File'" :title="file.name"></span>
+                                        <div class="flex items-center gap-2 mt-1 flex-wrap">
+                                            <button type="button" @click="openAttachmentPreview(log, file)" class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-bold bg-indigo-50 hover:bg-indigo-100 rounded-md px-2 py-1 transition-colors">
+                                                View
+                                            </button>
+                                            <a :href="getHistoryAttachmentUrl(log, 'download', file)" class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-600 hover:text-slate-800 font-bold bg-slate-100 hover:bg-slate-200 rounded-md px-2 py-1 transition-colors">
+                                                Download
+                                            </a>
+                                            <template x-if="canManageLog(log)">
+                                                <button type="button" @click="deleteHistoryAttachment(log, file)" class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-rose-600 hover:text-rose-800 font-bold bg-rose-50 hover:bg-rose-100 rounded-md px-2 py-1 transition-colors">
+                                                    Delete
+                                                </button>
+                                            </template>
+                                            <template x-if="canManageLog(log)">
+                                                <button type="button" @click="openHistoryEditModal(log)" class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-600 hover:text-amber-800 font-bold bg-amber-50 hover:bg-amber-100 rounded-md px-2 py-1 transition-colors">
+                                                    Edit
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <div class="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-700 pt-3">
+                        <div class="text-[11px] font-semibold text-slate-500">
+                            Updated by: <span x-text="log.user ? log.user.name : 'Unknown'"></span>
+                        </div>
+                        <template x-if="canManageLog(log) && (!log.attachments || !log.attachments.length)">
+                            <button type="button" @click="openHistoryEditModal(log)" class="text-[10px] uppercase tracking-wider font-bold text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md px-2 py-1 shrink-0">
+                                Edit
+                            </button>
+                        </template>
                     </div>
                 </div>
             </template>
@@ -2378,6 +2511,119 @@
         </div>
     </div>
 </div>
+
+<template x-teleport="body">
+    {{-- Attachment Preview Modal --}}
+    <div x-show="showAttachmentPreview && previewIsImage"
+         x-cloak
+         style="display:none"
+         class="image-modal"
+         aria-modal="true"
+         role="dialog"
+         @click.self="closeAttachmentPreview()"
+         @keydown.escape.window="closeAttachmentPreview()"
+         @wheel.prevent="handlePreviewWheel($event)"
+         @mousedown.prevent="startPreviewPan($event)"
+         @mousemove.window="movePreviewPan($event)"
+         @mouseup.window="endPreviewPan()"
+         @touchstart="handlePreviewTouchStart($event)"
+         @touchmove="handlePreviewTouchMove($event)"
+         @touchend="endPreviewPan()"
+         @dblclick="resetPreviewZoom()">
+        <button type="button" class="close-image" @click="closeAttachmentPreview()" aria-label="Close image preview">&times;</button>
+        <img :src="previewUrl"
+             :alt="previewFile?.name || 'Attachment Preview'"
+             :style="previewImageStyle()"
+             :class="previewZoom > 100 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'"
+             draggable="false"
+             @load="handlePreviewImageLoad($event)">
+        <div x-show="previewLoading" class="fixed inset-0 z-[10045] flex items-center justify-center pointer-events-none">
+            <div class="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white"></div>
+        </div>
+    </div>
+</template>
+
+<template x-teleport="body">
+    {{-- PDF / Document Preview Modal --}}
+    <div x-show="showAttachmentPreview && !previewIsImage" x-cloak style="display:none; z-index:10040" class="fixed inset-0 flex items-center justify-center p-4 sm:p-6" aria-modal="true" role="dialog" @keydown.escape.window="closeAttachmentPreview()">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="closeAttachmentPreview()"></div>
+        <div x-ref="previewPanel" class="relative flex h-[76vh] max-h-[760px] min-h-[420px] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-900 dark:ring-white/10">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+                <h3 class="truncate pr-4 text-sm font-black text-slate-800 dark:text-slate-100" x-text="previewFile?.name || 'Attachment Preview'"></h3>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a :href="previewDownloadUrl" class="rounded-lg bg-slate-200/70 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">Download</a>
+                    <button type="button" @click="closeAttachmentPreview()" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200/70 text-slate-500 transition hover:bg-slate-300 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" aria-label="Close preview">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="relative flex-1 overflow-hidden bg-slate-100 dark:bg-slate-800">
+                <div x-show="previewLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm dark:bg-slate-900/80">
+                    <div class="h-8 w-8 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600"></div>
+                    <p class="mt-3 text-xs font-bold text-slate-500">Loading preview...</p>
+                </div>
+                <iframe :src="previewUrl" class="h-full w-full border-0 bg-white" @load="previewLoading = false"></iframe>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template x-teleport="body">
+    {{-- History Edit Modal --}}
+    <div x-show="showHistoryEditModal" x-cloak style="display:none; z-index:10060" class="fixed inset-0 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" @keydown.escape.window="closeHistoryEditModal()" @click.self="closeHistoryEditModal()">
+        <div x-ref="historyEditPanel" tabindex="-1" class="card relative z-10 w-full max-w-lg border border-slate-200 shadow-2xl dark:border-slate-700" @click.stop>
+            <div class="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-700">
+                <div>
+                    <h3 class="font-bold text-slate-800 dark:text-slate-100">Edit Error History</h3>
+                    <p class="mt-0.5 text-xs text-slate-400">Update text, remove files, or replace/add more files.</p>
+                </div>
+                <button type="button" @click="closeHistoryEditModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="space-y-4 p-5">
+                <div>
+                    <label class="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Error Text</label>
+                    <textarea x-model="historyEditNote" rows="4" class="form-textarea w-full resize-none rounded-xl border border-slate-200 text-sm dark:border-slate-700 dark:bg-slate-800/50"></textarea>
+                </div>
+                <template x-if="visibleHistoryEditAttachments().length">
+                    <div>
+                        <p class="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Current Files</p>
+                        <div class="space-y-2">
+                            <template x-for="file in visibleHistoryEditAttachments()" :key="file.id || file.path">
+                                <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-800">
+                                    <span class="truncate font-bold text-slate-700 dark:text-slate-200" x-text="file.name || 'Attached File'"></span>
+                                    <button type="button" @click="removeHistoryEditFile(file)" class="shrink-0 rounded-md bg-rose-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-600 transition hover:bg-rose-100 hover:text-rose-800">
+                                        Remove
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                <div>
+                    <label class="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Replace / Add Files</label>
+                    <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" x-ref="historyEditFiles" @change="updateHistoryEditSelectedFiles()" class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
+                    <div class="mt-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-800/50">
+                        <template x-if="historyEditSelectedFileNames.length">
+                            <div>
+                                <p class="font-bold text-slate-600 dark:text-slate-300" x-text="historyEditSelectedFileNames.length + ' file(s) selected'"></p>
+                                <p class="mt-1 truncate" x-text="historyEditSelectedFileNames.join(', ')"></p>
+                            </div>
+                        </template>
+                        <template x-if="!historyEditSelectedFileNames.length">
+                            <p>Choose one or many image/PDF files to add.</p>
+                        </template>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" @click="closeHistoryEditModal()" class="btn btn-secondary text-sm">Cancel</button>
+                    <button type="button" @click="saveHistoryLogEdit()" class="btn text-sm bg-indigo-600 text-white hover:bg-indigo-700">Save Edit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
 
 </div>{{-- /x-data --}}
 
@@ -2464,6 +2710,31 @@ function websitesApp() {
         historyLogs: [],
         historyWebsiteName: '',
         historyType: '',
+        canManageErrorHistory: @json(auth()->user()?->canApproveWebsiteQc() || auth()->user()?->canApproveWebsiteSupervisor()),
+        showAttachmentPreview: false,
+        previewFile: null,
+        previewUrl: '',
+        previewDownloadUrl: '',
+        previewLoading: false,
+        previewIsImage: false,
+        previewZoom: 100,
+        previewFitNonce: 0,
+        previewImageNaturalWidth: 0,
+        previewImageNaturalHeight: 0,
+        previewTouchStartDistance: 0,
+        previewTouchStartZoom: 100,
+        previewPanX: 0,
+        previewPanY: 0,
+        previewPanStartX: 0,
+        previewPanStartY: 0,
+        previewPanOriginX: 0,
+        previewPanOriginY: 0,
+        previewIsPanning: false,
+        showHistoryEditModal: false,
+        historyEditLog: null,
+        historyEditNote: '',
+        historyEditRemoveIds: [],
+        historyEditSelectedFileNames: [],
 
         // Delete class modal
         showDeleteClassModal: false,
@@ -2537,6 +2808,20 @@ function websitesApp() {
                         this.isEditing = false;
                     }
                 }
+            });
+
+            // Restore scroll position after a reload (e.g. form submission)
+            const scrollPos = sessionStorage.getItem('websitesScrollPos');
+            if (scrollPos) {
+                setTimeout(() => {
+                    window.scrollTo({ top: parseInt(scrollPos), behavior: 'instant' });
+                }, 50);
+                sessionStorage.removeItem('websitesScrollPos');
+            }
+
+            // Save scroll position on any form submit to preserve it across the reload
+            document.addEventListener('submit', () => {
+                sessionStorage.setItem('websitesScrollPos', window.scrollY);
             });
         },
 
@@ -2647,10 +2932,348 @@ function websitesApp() {
             this.historyWebsiteName = websiteName;
             this.historyType = type;
             let parsedLogs = Array.isArray(logs) ? logs : (typeof logs === 'string' ? JSON.parse(logs) : []);
+            
+            // Retrofit old logs that stored files as text "| File: filename.ext"
+            parsedLogs = parsedLogs.map(log => {
+                if (!log.attachment_path && log.note && log.note.includes(' | File: ')) {
+                    const parts = log.note.split(' | File: ');
+                    log.note = parts[0];
+                    log.attachment_name = parts[1];
+                    log.attachment_path = 'website-error-references/' + parts[1];
+                }
+                if (!Array.isArray(log.attachments)) {
+                    log.attachments = [];
+                }
+                if (!log.attachments.length && log.attachment_path) {
+                    log.attachments = [{
+                        id: 'legacy',
+                        path: log.attachment_path,
+                        name: log.attachment_name || 'Attached File'
+                    }];
+                }
+                return log;
+            });
+
             // Sort logs by created_at descending just to be safe
             parsedLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             this.historyLogs = parsedLogs;
             this.showHistoryModal = true;
+        },
+
+        // Returns storage URL - works with both relative paths and full URLs
+        getStorageUrl(path) {
+            if (!path) return '';
+            if (path.startsWith('http://') || path.startsWith('https://')) return path;
+            return '/storage/' + path;
+        },
+
+        getHistoryAttachmentUrl(log, action = 'view', file = null) {
+            const target = file || (log?.attachments?.[0] ?? null);
+            if (!log || !target?.path) return '';
+            const fileQuery = target.id ? `?file=${encodeURIComponent(target.id)}` : '';
+            if (log.id) return `{{ url('/websites/history-logs') }}/${log.id}/attachment/${action}${fileQuery}`;
+            return this.getStorageUrl(target.path);
+        },
+
+        isImageAttachment(file) {
+            return !!((file?.name || file?.path || '').match(/\.(jpeg|jpg|gif|png|webp)$/i));
+        },
+
+        isPdfAttachment(file) {
+            return !!((file?.name || file?.path || '').match(/\.pdf$/i));
+        },
+
+        getAttachmentExtension(file) {
+            const name = file?.name || file?.path || '';
+            return name.includes('.') ? name.split('.').pop().toUpperCase() : 'FILE';
+        },
+
+        canManageLog(log) {
+            return this.canManageErrorHistory && ['qc_error', 'supervisor_error'].includes(log?.action);
+        },
+
+        openAttachmentPreview(log, file) {
+            this.previewFile = file;
+            this.previewUrl = this.getHistoryAttachmentUrl(log, 'view', file);
+            this.previewDownloadUrl = this.getHistoryAttachmentUrl(log, 'download', file);
+            this.previewIsImage = this.isImageAttachment(file);
+            this.previewZoom = 100;
+            this.previewImageNaturalWidth = 0;
+            this.previewImageNaturalHeight = 0;
+            this.resetPreviewPan();
+            this.previewLoading = true;
+            this.showAttachmentPreview = true;
+            this.$nextTick(() => this.refreshPreviewFit());
+        },
+
+        openGenericAttachmentPreview(name, viewUrl, downloadUrl) {
+            this.previewFile = { name };
+            this.previewUrl = viewUrl;
+            this.previewDownloadUrl = downloadUrl;
+            this.previewIsImage = !!((name || '').match(/\.(jpeg|jpg|gif|png|webp)$/i));
+            this.previewZoom = 100;
+            this.previewImageNaturalWidth = 0;
+            this.previewImageNaturalHeight = 0;
+            this.resetPreviewPan();
+            this.previewLoading = true;
+            this.showAttachmentPreview = true;
+            this.$nextTick(() => this.refreshPreviewFit());
+        },
+
+        closeAttachmentPreview() {
+            this.showAttachmentPreview = false;
+            this.previewFile = null;
+            this.previewUrl = '';
+            this.previewDownloadUrl = '';
+            this.previewLoading = false;
+            this.previewIsImage = false;
+            this.previewZoom = 100;
+            this.previewImageNaturalWidth = 0;
+            this.previewImageNaturalHeight = 0;
+            this.previewTouchStartDistance = 0;
+            this.resetPreviewPan();
+        },
+
+        setPreviewZoom(value) {
+            this.previewZoom = Math.min(400, Math.max(60, Math.round(value)));
+            if (this.previewZoom <= 100) {
+                this.resetPreviewPan();
+            }
+            this.refreshPreviewFit();
+        },
+
+        resetPreviewZoom() {
+            this.setPreviewZoom(100);
+            this.resetPreviewPan();
+        },
+
+        handlePreviewWheel(event) {
+            if (!this.previewIsImage) return;
+            this.setPreviewZoom(this.previewZoom + (event.deltaY < 0 ? 4 : -4));
+        },
+
+        handlePreviewImageLoad(event) {
+            this.previewImageNaturalWidth = event.target.naturalWidth || 0;
+            this.previewImageNaturalHeight = event.target.naturalHeight || 0;
+            this.previewLoading = false;
+            this.refreshPreviewFit();
+        },
+
+        previewTouchDistance(event) {
+            if (!event.touches || event.touches.length < 2) return 0;
+            const [first, second] = event.touches;
+            return Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
+        },
+
+        handlePreviewTouchStart(event) {
+            if (!this.previewIsImage) return;
+            if (event.touches.length >= 2) {
+                event.preventDefault();
+                this.previewTouchStartDistance = this.previewTouchDistance(event);
+                this.previewTouchStartZoom = this.previewZoom;
+                this.previewIsPanning = false;
+                return;
+            }
+
+            if (event.touches.length === 1 && this.previewZoom > 100) {
+                const touch = event.touches[0];
+                this.startPreviewPan(touch);
+            }
+        },
+
+        handlePreviewTouchMove(event) {
+            if (!this.previewIsImage) return;
+            if (event.touches.length >= 2 && this.previewTouchStartDistance) {
+                event.preventDefault();
+                const distance = this.previewTouchDistance(event);
+                this.setPreviewZoom(this.previewTouchStartZoom * (distance / this.previewTouchStartDistance));
+                return;
+            }
+
+            if (event.touches.length === 1 && this.previewIsPanning) {
+                event.preventDefault();
+                this.movePreviewPan(event.touches[0]);
+            }
+        },
+
+        resetPreviewPan() {
+            this.previewPanX = 0;
+            this.previewPanY = 0;
+            this.previewPanStartX = 0;
+            this.previewPanStartY = 0;
+            this.previewPanOriginX = 0;
+            this.previewPanOriginY = 0;
+            this.previewIsPanning = false;
+        },
+
+        startPreviewPan(event) {
+            if (!this.previewIsImage || this.previewZoom <= 100) return;
+            this.previewIsPanning = true;
+            this.previewPanStartX = event.clientX;
+            this.previewPanStartY = event.clientY;
+            this.previewPanOriginX = this.previewPanX;
+            this.previewPanOriginY = this.previewPanY;
+        },
+
+        movePreviewPan(event) {
+            if (!this.previewIsPanning || this.previewZoom <= 100) return;
+            this.previewPanX = this.previewPanOriginX + (event.clientX - this.previewPanStartX);
+            this.previewPanY = this.previewPanOriginY + (event.clientY - this.previewPanStartY);
+        },
+
+        endPreviewPan() {
+            this.previewIsPanning = false;
+        },
+
+        refreshPreviewFit() {
+            this.previewFitNonce += 1;
+        },
+
+        previewImageStyle() {
+            this.previewFitNonce;
+            const zoomScale = this.previewZoom / 100;
+
+            return [
+                `transform:translate3d(${this.previewPanX}px, ${this.previewPanY}px, 0) scale(${zoomScale})`,
+            ].join(';') + ';';
+        },
+
+        openHistoryEditModal(log) {
+            if (!this.canManageLog(log)) return;
+            this.historyEditLog = log;
+            this.historyEditNote = (log.note || '').replace(/\s*\|\s*Link:\s*https?:\/\/[^\s]*/gi, '').trim();
+            this.historyEditRemoveIds = [];
+            this.historyEditSelectedFileNames = [];
+            this.showHistoryEditModal = true;
+            this.$nextTick(() => {
+                if (this.$refs.historyEditFiles) {
+                    this.$refs.historyEditFiles.value = '';
+                }
+                this.$refs.historyEditPanel?.focus();
+            });
+        },
+
+        closeHistoryEditModal() {
+            this.showHistoryEditModal = false;
+            this.historyEditLog = null;
+            this.historyEditNote = '';
+            this.historyEditRemoveIds = [];
+            this.historyEditSelectedFileNames = [];
+            if (this.$refs.historyEditFiles) {
+                this.$refs.historyEditFiles.value = '';
+            }
+        },
+
+        historyEditFileKey(file) {
+            return file?.id || file?.path || 'legacy';
+        },
+
+        visibleHistoryEditAttachments() {
+            const files = this.historyEditLog?.attachments || [];
+            return files.filter((file) => !this.historyEditRemoveIds.includes(this.historyEditFileKey(file)));
+        },
+
+        removeHistoryEditFile(file) {
+            const key = this.historyEditFileKey(file);
+            if (!this.historyEditRemoveIds.includes(key)) {
+                this.historyEditRemoveIds = [...this.historyEditRemoveIds, key];
+            }
+        },
+
+        updateHistoryEditSelectedFiles() {
+            this.historyEditSelectedFileNames = [...(this.$refs.historyEditFiles?.files || [])].map((file) => file.name);
+        },
+
+        // Strip "| Link: URL" from note for clean display, return just the text
+        formatNoteText(note) {
+            if (!note) return '';
+            const cleaned = note.replace(/\s*\|\s*Link:\s*https?:\/\/[^\s]*/gi, '').trim();
+            return cleaned.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        },
+
+        // Extract URL from "| Link: URL" pattern in note
+        extractLink(note) {
+            if (!note) return null;
+            const match = note.match(/\|\s*Link:\s*(https?:\/\/[^\s]*)/i);
+            return match ? match[1] : null;
+        },
+        submitDynamicForm(action, method = 'POST', fields = {}, fileFields = {}) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = action;
+            form.enctype = 'multipart/form-data';
+
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = '_token';
+            csrf.value = '{{ csrf_token() }}';
+            form.appendChild(csrf);
+
+            if (method !== 'POST') {
+                const methodInput = document.createElement('input');
+                methodInput.type = 'hidden';
+                methodInput.name = '_method';
+                methodInput.value = method;
+                form.appendChild(methodInput);
+            }
+
+            Object.entries({ ...fields, redirect_to: window.location.href }).forEach(([name, value]) => {
+                const values = Array.isArray(value) ? value : [value];
+                values.forEach((item) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = name;
+                    input.value = item ?? '';
+                    form.appendChild(input);
+                });
+            });
+
+            Object.entries(fileFields).forEach(([name, files]) => {
+                [...files].forEach((file) => {
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.name = name;
+                    const transfer = new DataTransfer();
+                    transfer.items.add(file);
+                    fileInput.files = transfer.files;
+                    form.appendChild(fileInput);
+                });
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        },
+
+        saveHistoryLogEdit() {
+            const log = this.historyEditLog;
+            if (!this.canManageLog(log)) return;
+            const note = (this.historyEditNote || '').trim();
+            if (note.length < 5) {
+                alert('Please enter at least 5 characters.');
+                return;
+            }
+            this.submitDynamicForm(
+                `/websites/history-logs/${log.id}`,
+                'PUT',
+                {
+                    note,
+                    'remove_file_ids[]': this.historyEditRemoveIds,
+                },
+                { 'attachments[]': this.$refs.historyEditFiles?.files || [] }
+            );
+        },
+
+        async deleteHistoryAttachment(log, file) {
+            if (!this.canManageLog(log)) return;
+            const ok = await window.confirmModal({
+                title: 'Delete Attachment',
+                message: 'Are you sure you want to delete this attached file? The history text will remain untouched.',
+                confirmText: 'Delete Attachment',
+                tone: 'danger'
+            });
+            if (ok) {
+                this.submitDynamicForm(`/websites/history-logs/${log.id}/attachments/${encodeURIComponent(file?.id || 'legacy')}`, 'DELETE');
+            }
         },
         formatStatusLabel(status) {
             const map = {

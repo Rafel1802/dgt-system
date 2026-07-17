@@ -1595,8 +1595,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         return div.innerHTML;
     };
 
-    // Custom Confirmation Modal
+    // Custom Confirmation Modal — singleton (only one at a time)
+    let _confirmModalOpen = false;
     window.confirmModal = function(input) {
+        // If a modal is already open, reject immediately so we don't stack
+        if (_confirmModalOpen) return Promise.resolve(false);
+        _confirmModalOpen = true;
+
         return new Promise((resolve) => {
             const options = typeof input === 'object' && input !== null ? input : { message: input };
             const title = options.title || 'Confirm action';
@@ -1636,8 +1641,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </div>
                 <p class="relative text-sm text-slate-600 font-semibold mb-6 leading-relaxed" id="confirm-modal-msg"></p>
                 <div class="relative flex gap-3">
-                    <button id="btn-cancel" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-black text-slate-700 bg-white/80 border border-slate-200 hover:bg-slate-100 transition-colors">${cancelText}</button>
-                    <button id="btn-confirm" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-black text-white ${theme.button} shadow-lg transition-all">${confirmText}</button>
+                    <button type="button" id="btn-cancel" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-black text-slate-700 bg-white/80 border border-slate-200 hover:bg-slate-100 transition-colors">${cancelText}</button>
+                    <button type="button" id="btn-confirm" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-black text-white ${theme.button} shadow-lg transition-all">${confirmText}</button>
                 </div>
             `;
             
@@ -1657,13 +1662,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             const close = (result) => {
                 if (closed) return;
                 closed = true;
+                _confirmModalOpen = false;
                 document.removeEventListener('keydown', escapeHandler);
+                // Animate out
                 overlay.classList.add('opacity-0');
                 modal.classList.add('scale-95', 'opacity-0');
                 setTimeout(() => {
                     if (overlay.parentNode) document.body.removeChild(overlay);
                     resolve(result);
-                }, 200);
+                }, 150);
             };
             
             const escapeHandler = (event) => {
@@ -1698,8 +1705,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <span id="prompt-modal-error" class="mt-2 hidden text-xs font-bold text-rose-600"></span>
                 </label>
                 <div class="relative mt-6 flex gap-3">
-                    <button id="prompt-cancel" class="btn btn-secondary flex-1 py-2.5"></button>
-                    <button id="prompt-confirm" class="btn btn-primary flex-1 py-2.5"></button>
+                    <button type="button" id="prompt-cancel" class="btn btn-secondary flex-1 py-2.5"></button>
+                    <button type="button" id="prompt-confirm" class="btn btn-primary flex-1 py-2.5"></button>
                 </div>
             `;
 
@@ -1728,12 +1735,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 if (closed) return;
                 closed = true;
                 document.removeEventListener('keydown', keyHandler);
-                overlay.classList.add('opacity-0');
-                modal.classList.add('scale-95', 'opacity-0');
-                setTimeout(() => {
-                    overlay.remove();
-                    resolve(value);
-                }, 200);
+                if (overlay.parentNode) overlay.remove();
+                resolve(value);
             };
 
             const submit = () => {
@@ -1768,17 +1771,32 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         });
     };
 
+    // Singleton guard so the confirm modal never opens twice for one form
+    let _formConfirmInProgress = false;
     document.addEventListener('submit', async (event) => {
-        const form = event.target.closest('form[data-confirm]');
-        if (!form || form.dataset.confirmSubmitting === 'true') return;
+        const form = event.target;
+        if (!form || !form.matches('form[data-confirm]')) return;
+
+        // Block immediately — before any async work
+        if (_formConfirmInProgress || form.dataset.confirmSubmitting === 'true') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
 
         event.preventDefault();
+        event.stopImmediatePropagation();
+
+        _formConfirmInProgress = true;
+
         const ok = await window.confirmModal({
             title: form.dataset.confirmTitle || 'Confirm action',
             message: form.dataset.confirm || 'Are you sure?',
             confirmText: form.dataset.confirmText || 'Confirm',
             tone: form.dataset.confirmTone || 'danger',
         });
+
+        _formConfirmInProgress = false;
 
         if (ok) {
             form.dataset.confirmSubmitting = 'true';
