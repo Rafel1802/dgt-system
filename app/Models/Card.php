@@ -81,7 +81,7 @@ class Card extends Model
                         'title', 'description', 'label', 'sub_label', 'priority', 'status',
                         'deadline', 'due_at', 'start_date', 'due_time', 'reminder', 'recurring',
                         'cover_image', 'is_archived', 'approved_by', 'approved_at', 'rejection_reason',
-                        'reviewed_by', 'reviewed_at'
+                        'reviewed_by', 'reviewed_at', 'block_completed_by', 'block_completed_at'
                     ];
 
                     $toUpdate = [];
