@@ -38,7 +38,7 @@ class SocialMediaReportController extends Controller
         $classes = $classQuery->get();
 
         $users = $isQc 
-            ? User::role(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team'])->where('is_active', true)->orderBy('name')->get() 
+            ? User::role(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss'])->where('is_active', true)->orderBy('name')->get() 
             : collect([$user]);
 
         $summary = [
@@ -93,7 +93,9 @@ class SocialMediaReportController extends Controller
         ]);
 
         $user  = auth()->user();
-        $isQc  = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']);
+        $isQc  = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss']);
+        
+        abort_unless($isQc, 403, 'View-only users do not have permission to export reports.');
 
         $dateFrom   = $request->input('date_from', now()->startOfMonth()->toDateString());
         $dateTo     = $request->input('date_to', now()->toDateString());
@@ -212,7 +214,10 @@ class SocialMediaReportController extends Controller
     public function exportCsv(Request $request)
     {
         $user = auth()->user();
-        $isQc = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']);
+        $isQc = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss']);
+        
+        abort_unless($isQc, 403, 'View-only users do not have permission to export reports.');
+        
         $posts = $this->buildQuery(
             $user, $isQc,
             $request->input('date_from', now()->startOfMonth()->toDateString()),
@@ -228,7 +233,10 @@ class SocialMediaReportController extends Controller
     public function exportPdf(Request $request)
     {
         $user     = auth()->user();
-        $isQc     = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']);
+        $isQc     = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss']);
+        
+        abort_unless($isQc, 403, 'View-only users do not have permission to export reports.');
+
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
         $dateTo   = $request->input('date_to', now()->toDateString());
         $posts    = $this->buildQuery(

@@ -18,15 +18,15 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div>
                     <label class="form-label text-slate-500 font-semibold text-xs uppercase tracking-wider">Date From</label>
-                    <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-input rounded-xl" id="rep-date-from">
+                    <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-input w-full rounded-xl" id="rep-date-from">
                 </div>
                 <div>
                     <label class="form-label text-slate-500 font-semibold text-xs uppercase tracking-wider">Date To</label>
-                    <input type="date" name="date_to" value="{{ $dateTo }}" class="form-input rounded-xl" id="rep-date-to">
+                    <input type="date" name="date_to" value="{{ $dateTo }}" class="form-input w-full rounded-xl" id="rep-date-to">
                 </div>
                 <div>
                     <label class="form-label text-slate-500 font-semibold text-xs uppercase tracking-wider">Class</label>
-                    <select name="class_id" class="form-select rounded-xl" id="rep-class">
+                    <select name="class_id" class="form-select w-full rounded-xl" id="rep-class">
                         <option value="">All Classes</option>
                         @foreach($classes as $class)
                             <option value="{{ $class->id }}" {{ $classId == $class->id ? 'selected' : '' }}>{{ $class->name }}</option>
@@ -35,7 +35,7 @@
                 </div>
                 <div>
                     <label class="form-label text-slate-500 font-semibold text-xs uppercase tracking-wider">Member</label>
-                    <select name="user_id" class="form-select rounded-xl" id="rep-member">
+                    <select name="user_id" class="form-select w-full rounded-xl" id="rep-member">
                         @if($isQc)
                             <option value="">All Members</option>
                         @endif
@@ -46,7 +46,7 @@
                 </div>
                 <div>
                     <label class="form-label text-slate-500 font-semibold text-xs uppercase tracking-wider">QC Status</label>
-                    <select name="qc_status" class="form-select rounded-xl" id="rep-qc">
+                    <select name="qc_status" class="form-select w-full rounded-xl" id="rep-qc">
                         <option value="">All Statuses</option>
                         <option value="checked" {{ $qcStatus === 'checked' ? 'selected' : '' }}>Checked</option>
                         <option value="pending" {{ $qcStatus === 'pending' ? 'selected' : '' }}>Pending</option>
@@ -54,7 +54,7 @@
                 </div>
                 <div>
                     <label class="form-label text-slate-500 font-semibold text-xs uppercase tracking-wider">Post Status</label>
-                    <select name="post_status" class="form-select rounded-xl" id="rep-post-status">
+                    <select name="post_status" class="form-select w-full rounded-xl" id="rep-post-status">
                         <option value="">All Statuses</option>
                         <option value="posted" {{ $postStatus === 'posted' ? 'selected' : '' }}>Posted</option>
                         <option value="pending" {{ $postStatus === 'pending' ? 'selected' : '' }}>Pending</option>
@@ -65,6 +65,7 @@
                 <button type="submit" class="btn btn-primary text-sm flex-1 sm:flex-none justify-center" id="btn-apply-report">Apply</button>
                 <a href="{{ route('social-media.reports.index') }}" class="btn btn-secondary text-sm flex-1 sm:flex-none justify-center">Reset</a>
 
+                @if($isQc)
                 {{-- ── Export Button ── opens modal --}}
                 <button type="button" id="btn-open-export"
                     class="btn btn-secondary text-sm flex-1 sm:flex-none justify-center flex items-center gap-2"
@@ -77,6 +78,7 @@
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500 text-white">+Analytics</span>
                     @endif
                 </button>
+                @endif
             </div>
         </form>
     </div>
