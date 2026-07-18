@@ -376,10 +376,10 @@ class SocialMediaReportController extends Controller
 
     public function exportPersonalReport(Request $request)
     {
-        $user = auth()->user();
-        abort_unless($user->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
-        
-        $isQc = true; // They are QC or Supervisor
+        abort_unless(auth()->user()?->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
+
+        $format = $request->get('format', 'csv');
+        $userId = auth()->id(); // They are QC or Supervisor
 
         $dateFrom = now()->startOfMonth()->toDateString();
         $dateTo   = now()->toDateString();

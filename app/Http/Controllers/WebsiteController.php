@@ -867,7 +867,7 @@ class WebsiteController extends Controller
         abort_unless(auth()->user()?->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
 
         $format = $request->get('format', 'csv');
-        $userId = $request->get('user_id');
+        $userId = auth()->id();
 
         $dateFrom = now()->startOfMonth()->toDateString();
         $dateTo   = now()->toDateString();

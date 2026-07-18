@@ -15,7 +15,7 @@
 <div class="card mb-6">
     <div class="card-body">
         <form method="GET" action="{{ route('social-media.reports.index') }}" id="report-filter-form">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div>
                     <label class="form-label text-slate-500 font-semibold text-xs uppercase tracking-wider">Date From</label>
                     <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-input rounded-xl" id="rep-date-from">
@@ -30,6 +30,17 @@
                         <option value="">All Classes</option>
                         @foreach($classes as $class)
                             <option value="{{ $class->id }}" {{ $classId == $class->id ? 'selected' : '' }}>{{ $class->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label text-slate-500 font-semibold text-xs uppercase tracking-wider">Member</label>
+                    <select name="user_id" class="form-select rounded-xl" id="rep-member">
+                        @if($isQc)
+                            <option value="">All Members</option>
+                        @endif
+                        @foreach($users as $user)
+                            <option value="{{ $user->id }}" {{ $userId == $user->id ? 'selected' : '' }}>{{ $user->name }}</option>
                         @endforeach
                     </select>
                 </div>

@@ -77,19 +77,6 @@
                   @endunless
               </div>
 
-              {{-- Member Selection for non-kanban --}}
-              <div x-show="reportType !== 'kanban'" x-transition class="mb-6" x-cloak>
-                  <h2 class="text-lg font-bold text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                      <span>👤</span> Select Member
-                  </h2>
-                  <select name="user_id" class="w-full bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-600 dark:text-white focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-xl py-2 px-3 text-sm text-slate-700">
-                      <option value="">All Members</option>
-                      @foreach($users ?? [] as $user)
-                          <option value="{{ $user->id }}">{{ $user->name }} ({{ $user->email }})</option>
-                      @endforeach
-                  </select>
-              </div>
-
               {{-- Workspace & Boards Selection --}}
               <div x-show="reportType === 'kanban'" x-transition>
                   <h2 class="text-lg font-bold text-slate-700 dark:text-white mb-4 flex items-center gap-2">
