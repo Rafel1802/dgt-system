@@ -420,8 +420,8 @@
             <div class="value">{{ $pendingTasks }}</div>
         </div>
         <div class="stat-card overdue">
-            <div class="label">Overdue</div>
-            <div class="value">{{ $overdueTasks }}</div>
+            <div class="label">Errors / Overdue</div>
+            <div class="value">{{ $errorTasks ?? 0 }} / {{ $overdueTasks }}</div>
         </div>
     </div>
 
@@ -480,6 +480,11 @@
                         <div class="task-title">{{ $c->title }}</div>
                         @if($includeDesc && $c->description)
                             <div class="task-desc">{!! strip_tags($c->description) !!}</div>
+                        @endif
+                        @if(!empty($c->rejection_reason))
+                            <div style="margin-top: 6px; padding: 6px 10px; background-color: #fef2f2; border-radius: 6px; border-left: 3px solid #ef4444; font-size: 11px; color: #991b1b;">
+                                <strong>Error Reason:</strong> {{ $c->rejection_reason }}
+                            </div>
                         @endif
                         @if(($includeComments ?? false) && $c->comments->isNotEmpty())
                             <div class="task-comments">

@@ -264,7 +264,7 @@ class SocialMediaReportController extends Controller
             fputcsv($handle, ['QC Checked',  $posts->where('is_checked', true)->count()]);
             fputcsv($handle, ['QC Pending',  $posts->where('is_completed', true)->where('is_checked', false)->count()]);
             fputcsv($handle, []);
-            fputcsv($handle, ['Date', 'Class', 'Social Media', 'User', 'Post Link', 'Completed', 'Completed At', 'QC Status', 'Checked By', 'Checked At']);
+            fputcsv($handle, ['Date', 'Class', 'Social Media', 'User', 'Link Entered', 'Text/Content Entered', 'Completed', 'Completed At', 'QC Status', 'Checked By', 'Checked At']);
             foreach ($posts as $post) {
                 fputcsv($handle, [
                     $post->post_date->format('Y-m-d'),
@@ -272,6 +272,7 @@ class SocialMediaReportController extends Controller
                     $post->socialMediaItem->name ?? '',
                     $post->user->name ?? '',
                     $post->post_url ?? '',
+                    $post->optional_text ?? '',
                     $post->is_completed ? 'Yes' : 'No',
                     $post->completed_at?->format('Y-m-d H:i') ?? '',
                     $post->qc_status_label,
@@ -294,7 +295,7 @@ class SocialMediaReportController extends Controller
         fputcsv($handle, ['QC Checked',  $posts->where('is_checked', true)->count()]);
         fputcsv($handle, ['QC Pending',  $posts->where('is_completed', true)->where('is_checked', false)->count()]);
         fputcsv($handle, []);
-        fputcsv($handle, ['Date', 'Class', 'Social Media', 'User', 'Post Link', 'Completed', 'Completed At', 'QC Status', 'Checked By', 'Checked At']);
+        fputcsv($handle, ['Date', 'Class', 'Social Media', 'User', 'Link Entered', 'Text/Content Entered', 'Completed', 'Completed At', 'QC Status', 'Checked By', 'Checked At']);
         foreach ($posts as $post) {
             fputcsv($handle, [
                 $post->post_date->format('Y-m-d'),
@@ -302,6 +303,7 @@ class SocialMediaReportController extends Controller
                 $post->socialMediaItem->name ?? '',
                 $post->user->name ?? '',
                 $post->post_url ?? '',
+                $post->optional_text ?? '',
                 $post->is_completed ? 'Yes' : 'No',
                 $post->completed_at?->format('Y-m-d H:i') ?? '',
                 $post->qc_status_label,
@@ -353,12 +355,84 @@ class SocialMediaReportController extends Controller
 
         return $query
             ->when($classId,                fn ($q) => $q->where('social_media_class_id', $classId))
-            ->when($userId && $isQc,        fn ($q) => $q->where('user_id', $userId))
+            ->when($userId, function ($q) use ($userId, $isQc) {
+                 if ($isQc) {
+                     // For QC, if filtering by specific user, we want posts they created OR posts they checked (reviewed/approved)
+                     $q->where(function($q2) use ($userId) {
+                         $q2->where('user_id', $userId)
+                            ->orWhere('checked_by', $userId);
+                     });
+                 } else {
+                     $q->where('user_id', $userId);
+                 }
+            })
             ->when($qcStatus === 'checked', fn ($q) => $q->where('is_checked', true))
             ->when($qcStatus === 'pending', fn ($q) => $q->where('is_checked', false))
             ->when($postStatus === 'completed', fn ($q) => $q->where('is_completed', true))
             ->when($postStatus === 'pending',   fn ($q) => $q->where('is_completed', false))
             ->orderBy('post_date')
             ->orderBy('social_media_class_id');
+    }
+
+    public function exportPersonalReport(Request $request)
+    {
+        $user = auth()->user();
+        abort_unless($user->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
+        
+        $isQc = true; // They are QC or Supervisor
+
+        $dateFrom = now()->startOfMonth()->toDateString();
+        $dateTo   = now()->toDateString();
+
+        if ($request->filled('date_range') && $request->date_range !== 'all_time') {
+            switch ($request->date_range) {
+                case 'this_week':
+                    $dateFrom = now()->startOfWeek()->toDateString();
+                    $dateTo   = now()->endOfWeek()->toDateString();
+                    break;
+                case 'this_month':
+                    $dateFrom = now()->startOfMonth()->toDateString();
+                    $dateTo   = now()->endOfMonth()->toDateString();
+                    break;
+                case 'last_month':
+                    $dateFrom = now()->subMonth()->startOfMonth()->toDateString();
+                    $dateTo   = now()->subMonth()->endOfMonth()->toDateString();
+                    break;
+                case 'custom':
+                case 'custom_period':
+                    if ($request->filled('start_date')) $dateFrom = \Carbon\Carbon::parse($request->start_date)->toDateString();
+                    if ($request->filled('end_date'))   $dateTo   = \Carbon\Carbon::parse($request->end_date)->toDateString();
+                    break;
+            }
+        } else {
+            // all_time
+            $dateFrom = '2000-01-01';
+            $dateTo   = '2100-01-01';
+        }
+
+        $userId = $request->input('user_id'); // Optional specific member to filter
+
+        $posts = $this->buildQuery(
+            $user, $isQc, $dateFrom, $dateTo,
+            null, // no specific class
+            $userId, 
+            null, 
+            null
+        )->get();
+
+        $format = $request->input('format', 'csv');
+
+        if ($format === 'pdf') {
+            $summary = [
+                'total'     => $posts->count(),
+                'completed' => $posts->where('is_completed', true)->count(),
+                'pending'   => $posts->where('is_completed', false)->count(),
+                'checked'   => $posts->where('is_checked', true)->count(),
+                'qcPending' => $posts->where('is_completed', true)->where('is_checked', false)->count(),
+            ];
+            return $this->streamPdf($posts, $summary, $dateFrom, $dateTo, 'Personal Report (' . $user->name . ')');
+        }
+
+        return $this->streamCsv($posts);
     }
 }

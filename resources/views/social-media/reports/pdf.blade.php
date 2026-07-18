@@ -111,7 +111,8 @@
                 <th>Class</th>
                 <th>Social Media</th>
                 <th>Post Status</th>
-                <th>Post Link</th>
+                <th>Link Entered</th>
+                <th>Text/Content Entered</th>
                 <th>Submitted By</th>
                 <th>Submitted At</th>
                 <th>QC Status</th>
@@ -140,6 +141,15 @@
                         —
                     @endif
                 </td>
+                <td>
+                    @if($post->optional_text)
+                        <div style="max-height: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100px;">
+                            {{ $post->optional_text }}
+                        </div>
+                    @else
+                        —
+                    @endif
+                </td>
                 <td>{{ $post->user?->name ?? '—' }}</td>
                 <td style="white-space:nowrap">{{ $post->completed_at?->format('d M Y H:i') ?? '—' }}</td>
                 <td>
@@ -156,7 +166,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="11" style="text-align:center;padding:20px;color:#94a3b8;">No data found.</td>
+                <td colspan="12" style="text-align:center;padding:20px;color:#94a3b8;">No data found.</td>
             </tr>
             @endforelse
         </tbody>
