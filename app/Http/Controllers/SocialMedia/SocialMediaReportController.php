@@ -37,7 +37,9 @@ class SocialMediaReportController extends Controller
         }
         $classes = $classQuery->get();
 
-        $users   = $isQc ? User::where('is_active', true)->orderBy('name')->get() : collect([$user]);
+        $users = $isQc 
+            ? User::role(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team'])->where('is_active', true)->orderBy('name')->get() 
+            : collect([$user]);
 
         $summary = [
             'total'     => $posts->count(),
