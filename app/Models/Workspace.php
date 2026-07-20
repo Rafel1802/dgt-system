@@ -73,10 +73,19 @@ class Workspace extends Model
 
     public function hasMember(int $userId): bool
     {
-        $user = User::find($userId);
-        if (!$user) return false;
+        $currentUser = auth()->id() === $userId ? auth()->user() : null;
 
-        // Super Admin bypasses and has access to all workspaces
+        if ($currentUser?->hasRole('super-admin')) {
+            return true;
+        }
+
+        if ($this->relationLoaded('members')) {
+            return $this->owner_id === $userId || $this->members->contains('id', $userId);
+        }
+
+        $user = $currentUser ?: User::with('roles')->find($userId);
+        if (! $user) return false;
+
         if ($user->hasRole('super-admin')) {
             return true;
         }

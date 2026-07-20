@@ -163,7 +163,10 @@
 </div>
 
 <script>
-function initTeamTrendChart() {
+async function initTeamTrendChart() {
+    if (!window.Chart && window.loadChart) {
+        await window.loadChart();
+    }
     if (!window.Chart) return;
     const el = document.getElementById('teamTrendChart');
     if (el) {
@@ -246,7 +249,10 @@ function createDomainChart(domainKey, el) {
     });
 }
 
-function initDomainChart(domainKey) {
+async function initDomainChart(domainKey) {
+    if (!window.Chart && window.loadChart) {
+        await window.loadChart();
+    }
     if (!window.Chart) return;
     const el = document.getElementById('domainTrendChart-' + domainKey);
     if (!el) return;

@@ -93,7 +93,9 @@ if __name__ == "__main__":
     ]
     run_cmd(rsync_trello_board_cmd)
 
-    # 2. Run migrations on server + remove hot file + optimize caching
+    # 2. Remove hot file + optimize caching on server.
+    # Do not run migrations from this performance deploy: the optimization pass
+    # must not modify schema or data.
     # NOTE: the server's default `php` on PATH is 8.2 (Composer requires >=8.4.1),
     # so every artisan call below silently no-ops on the platform check unless we
     # point at the real PHP 8.4 binary explicitly.
@@ -107,7 +109,6 @@ if __name__ == "__main__":
             "rm -f public/hot && "
             "rm -f bootstrap/cache/*.php && "
             f"{PHP} artisan optimize:clear && "
-            f"{PHP} artisan migrate --force && "
             f"{PHP} artisan optimize && "
             f"{PHP} artisan view:cache && "
             f"{PHP} artisan storage:link"
@@ -115,4 +116,4 @@ if __name__ == "__main__":
     ]
     run_cmd(ssh_cmd)
 
-    print("Done! Migrations applied and server cache cleared.")
+    print("Done! Code uploaded and server cache cleared. Migrations were intentionally skipped.")

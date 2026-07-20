@@ -221,7 +221,10 @@
 
 @push('scripts')
 <script>
-function initStaffReportCharts() {
+async function initStaffReportCharts() {
+    if (!window.Chart && window.loadChart) {
+        await window.loadChart();
+    }
     if (!window.Chart) return;
 
     Chart.defaults.font.family = "'Inter', sans-serif";
@@ -283,7 +286,17 @@ function initStaffReportCharts() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', initStaffReportCharts);
-document.addEventListener('turbo:load', initStaffReportCharts);
+function scheduleStaffReportCharts() {
+    const run = () => initStaffReportCharts();
+
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(run, { timeout: 1200 });
+    } else {
+        setTimeout(run, 80);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', scheduleStaffReportCharts);
+document.addEventListener('turbo:load', scheduleStaffReportCharts);
 </script>
 @endpush

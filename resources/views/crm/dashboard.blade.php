@@ -258,7 +258,10 @@
 
 @push('scripts')
 <script>
-function initCrmDashboardCharts() {
+async function initCrmDashboardCharts() {
+    if (!window.Chart && window.loadChart) {
+        await window.loadChart();
+    }
     if (!window.Chart) return;
 
     const statusChartEl = document.getElementById('crmStatusChart');
@@ -290,7 +293,17 @@ function initCrmDashboardCharts() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', initCrmDashboardCharts);
-document.addEventListener('turbo:load', initCrmDashboardCharts);
+function scheduleCrmDashboardCharts() {
+    const run = () => initCrmDashboardCharts();
+
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(run, { timeout: 1200 });
+    } else {
+        setTimeout(run, 80);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', scheduleCrmDashboardCharts);
+document.addEventListener('turbo:load', scheduleCrmDashboardCharts);
 </script>
 @endpush

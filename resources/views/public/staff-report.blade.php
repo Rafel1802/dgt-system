@@ -107,7 +107,12 @@
 </div>
 
 <script>
-if (window.Chart) {
+async function initPublicStaffReportCharts() {
+    if (!window.Chart && window.loadChart) {
+        await window.loadChart();
+    }
+    if (!window.Chart) return;
+
     Chart.defaults.font.family = "'Inter', sans-serif";
     Chart.defaults.color = '#94a3b8';
 
@@ -163,6 +168,12 @@ if (window.Chart) {
             },
         });
     }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPublicStaffReportCharts, { once: true });
+} else {
+    initPublicStaffReportCharts();
 }
 </script>
 @endsection

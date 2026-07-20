@@ -35,6 +35,23 @@ class BoardController extends Controller
     {
         $user = auth()->user();
         $workspaces = $this->getAuthorizedWorkspaces($user);
+        $possibleWorkspaceMembers = User::active()
+            ->with('roles')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn ($member) => $member->hasAnyRole([
+                'digital-team',
+                'admin-digital',
+                'super-admin',
+                'Graphic Head',
+                'Video Head',
+                'QC',
+                'Listing Head',
+                'Graphic head',
+                'Video head',
+                'Listing head',
+            ]))
+            ->values();
         
         $hiddenBoards = collect();
         $trashedWorkspaces = collect();
@@ -45,7 +62,7 @@ class BoardController extends Controller
             $trashedBoards = \App\Models\Board::onlyTrashed()->with('workspace')->get();
         }
 
-        return view('boards.workspaces', compact('workspaces', 'hiddenBoards', 'trashedWorkspaces', 'trashedBoards'));
+        return view('boards.workspaces', compact('workspaces', 'possibleWorkspaceMembers', 'hiddenBoards', 'trashedWorkspaces', 'trashedBoards'));
     }
 
     /** Show a single board with its lists and cards (the Trello view). */
@@ -241,6 +258,18 @@ class BoardController extends Controller
             });
 
         $allBoardMembers = $board->members;
+        $boardMemberIds = $allBoardMembers->pluck('id');
+        $possibleBoardUsers = $board->workspace->members
+            ->concat(
+                User::active()
+                    ->with('roles')
+                    ->orderBy('name')
+                    ->get()
+                    ->filter(fn ($member) => $member->hasAnyRole(['digital-team', 'admin-digital', 'admin', 'boss', 'supervisor', 'staff']))
+            )
+            ->unique('id')
+            ->sortBy(fn ($member) => ($boardMemberIds->contains($member->id) ? '0_' : '1_') . strtolower($member->name))
+            ->values();
 
         $boardData = [
             'board'     => [
@@ -368,7 +397,7 @@ class BoardController extends Controller
 
         $externalTools = Setting::externalTools();
 
-        return view('boards.show', compact('board', 'workspaceBoards', 'allWorkspaces', 'boardData', 'externalTools'));
+        return view('boards.show', compact('board', 'workspaceBoards', 'allWorkspaces', 'boardData', 'externalTools', 'possibleBoardUsers', 'boardMemberIds'));
     }
 
     /** Return the current board state for realtime UI refreshes. */
@@ -1185,6 +1214,10 @@ class BoardController extends Controller
 
     private function canManageBoard(\App\Models\User $user, Board $board): bool
     {
+        if ($user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss'])) {
+            return true;
+        }
+
         // Allow all workspace members to manage the board
         return $board->workspace?->hasMember($user->id) ?? true;
     }
@@ -1609,6 +1642,8 @@ class BoardController extends Controller
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position'),
                 'boards.members:id,name,avatar',
+                'boards.activeLists:id,board_id,name,position',
+                'members:id,name,avatar',
             ])
                 ->where('is_active', true)
                 ->orderBy('position')
@@ -1618,6 +1653,8 @@ class BoardController extends Controller
             $allActiveWorkspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position'),
                 'boards.members:id,name,avatar',
+                'boards.activeLists:id,board_id,name,position',
+                'members:id,name,avatar',
             ])
                 ->where('is_active', true)
                 ->orderBy('position')

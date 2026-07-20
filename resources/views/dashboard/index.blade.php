@@ -22,9 +22,9 @@
             'count' => $recentActivities->filter(fn($log) => $log->created_at?->isSameDay($date))->count(),
         ];
     });
-    $dashboardNotifications = auth()->user()->notifications()->latest()->take(5)->get();
-    $dashboardUnreadCount = auth()->user()->unreadNotifications()->count();
-    $permissionsCount = auth()->user()->getAllPermissions()->count();
+    $dashboardNotifications = collect($dashboardNotifications ?? []);
+    $dashboardUnreadCount = (int) ($dashboardUnreadCount ?? 0);
+    $permissionsCount = (int) ($permissionsCount ?? 0);
     $appearance = $appearance ?? [
         'background_type' => 'gradient',
         'background_value' => 'linear-gradient(180deg,#f8fafc,#eef2f7)',
@@ -566,20 +566,20 @@
                     <div class="mt-5 space-y-3">
                         @foreach($dashboardNotifications as $notification)
                             @php
-                                $data = $notification->data;
+                                $data = data_get($notification, 'data', []);
                                 $actorName = data_get($data, 'actor_name', 'KIUQ SYSTEM');
                                 $actorAvatar = data_get($data, 'actor_avatar', 'https://ui-avatars.com/api/?name=System&size=64&background=6366f1&color=fff');
                                 $description = data_get($data, 'description') ?: data_get($data, 'message', 'New notification');
                                 $boardName = data_get($data, 'board_name');
                                 $cardTitle = data_get($data, 'card_title');
                             @endphp
-                            <div class="rounded-2xl border {{ $notification->read_at ? 'border-slate-200 bg-white/60' : 'border-indigo-200 bg-indigo-50/60' }} p-3">
+                            <div class="rounded-2xl border {{ data_get($notification, 'read_at') ? 'border-slate-200 bg-white/60' : 'border-indigo-200 bg-indigo-50/60' }} p-3">
                                 <div class="flex items-start gap-3">
                                     <img src="{{ $actorAvatar }}" alt="{{ $actorName }}" class="avatar avatar-sm">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center justify-between gap-3">
                                             <p class="truncate text-sm font-black text-slate-900">{{ $actorName }}</p>
-                                            <span class="text-[10px] font-bold text-slate-400">{{ $notification->created_at?->diffForHumans() }}</span>
+                                            <span class="text-[10px] font-bold text-slate-400">{{ data_get($notification, 'created_at_for_humans') }}</span>
                                         </div>
                                         <p class="mt-1 text-xs font-semibold leading-5 text-slate-600">{{ str_replace('**', '', strip_tags($description)) }}</p>
                                         <div class="mt-2 flex flex-wrap gap-1.5">
@@ -682,7 +682,10 @@ function dashboardAppearance(initial) {
     };
 }
 
-function initDashboardCharts() {
+async function initDashboardCharts() {
+    if (!window.Chart && window.loadChart) {
+        await window.loadChart();
+    }
     if (!window.Chart) return;
 
     Chart.defaults.font.family = "'Inter', sans-serif";
@@ -746,7 +749,17 @@ function initDashboardCharts() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', initDashboardCharts);
-document.addEventListener('turbo:load', initDashboardCharts);
+function scheduleDashboardCharts() {
+    const run = () => initDashboardCharts();
+
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(run, { timeout: 1200 });
+    } else {
+        setTimeout(run, 80);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', scheduleDashboardCharts);
+document.addEventListener('turbo:load', scheduleDashboardCharts);
 </script>
 @endpush

@@ -2,11 +2,23 @@ import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.e
 import collapse from '@alpinejs/collapse';
 import focus from '@alpinejs/focus';
 import Sortable from 'sortablejs';
-import Chart from 'chart.js/auto';
 
 // Expose globally for inline scripts
-window.Chart = Chart;
 window.Sortable = Sortable;
+window.loadChart = (() => {
+    let chartPromise = null;
+
+    return async () => {
+        if (window.Chart) return window.Chart;
+
+        chartPromise ??= import('chart.js/auto').then((module) => {
+            window.Chart = module.default;
+            return window.Chart;
+        });
+
+        return chartPromise;
+    };
+})();
 
 // Register Alpine.js plugins
 Alpine.plugin(collapse);

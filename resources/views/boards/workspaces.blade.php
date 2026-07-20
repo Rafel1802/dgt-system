@@ -83,7 +83,8 @@
                 <input type="text" x-model="search" placeholder="Search members..." class="w-full text-xs bg-slate-50 border-slate-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-lg py-1.5 px-2.5 mb-3" @click.stop>
                 <div class="max-h-48 overflow-y-auto space-y-2.5 mb-2 pr-1 scrollbar-thin">
                   @php
-                    $possibleUsers = \App\Models\User::active()->get()->filter(fn($u) => $u->hasAnyRole(['digital-team', 'admin-digital', 'super-admin', 'Graphic Head', 'Video Head', 'QC', 'Listing Head', 'Graphic head', 'Video head', 'Listing head']));
+                    $possibleUsers = $possibleWorkspaceMembers ?? collect();
+                    $workspaceMemberIds = $workspace->members->pluck('id');
                   @endphp
                   @foreach($possibleUsers as $u)
                     <div x-show="search === '' || '{{ strtolower(addslashes($u->name)) }}'.includes(search.toLowerCase())" class="flex items-center justify-between gap-2 text-xs">
@@ -91,7 +92,7 @@
                         <img src="{{ $u->avatar_url }}" class="w-6.5 h-6.5 rounded-full object-cover border border-slate-200">
                         <span class="font-semibold text-slate-700 truncate max-w-28" title="{{ $u->name }}">{{ $u->name }}</span>
                       </div>
-                      @if($workspace->members()->where('users.id', $u->id)->exists())
+                      @if($workspaceMemberIds->contains($u->id))
                         <button @click="removeWorkspaceMember({{ $workspace->id }}, {{ $u->id }}, $el)" class="text-[10px] text-rose-500 font-bold px-2.5 py-1 rounded-md hover:bg-rose-500 hover:text-white transition-colors">Remove</button>
                       @else
                         <button @click="addWorkspaceMember({{ $workspace->id }}, {{ $u->id }}, $el)" class="text-[10px] text-indigo-600 font-bold px-2.5 py-1 rounded-md hover:bg-indigo-600 hover:text-white transition-colors">Add</button>
@@ -734,4 +735,3 @@
 
 </div>
 @endsection
-
