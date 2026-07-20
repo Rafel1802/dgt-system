@@ -306,9 +306,25 @@ SVG;
      * removing one customer from a shipment) are NOT gated by this — only
      * whole-record deletes.
      */
+    /**
+     * super-admin/boss/CRM-supervisor can delete across every domain;
+     * ebay-supervisor and logistic-supervisor are scoped to their own
+     * domain only (per RolesAndPermissionsSeeder's own role descriptions —
+     * "ebay-supervisor: Can delete eBay records", "logistic-supervisor:
+     * Can delete Logistics records" — neither was ever meant to reach into
+     * the other's domain).
+     */
     public function canDeleteCrmRecords(string $domain = 'website'): bool
     {
-        return $this->hasAnyRole(['super-admin', 'boss', 'ebay-supervisor', 'logistic-supervisor']) || $this->isCrmSupervisor();
+        if ($this->hasAnyRole(['super-admin', 'boss']) || $this->isCrmSupervisor()) {
+            return true;
+        }
+
+        return match ($domain) {
+            'ebay'     => $this->hasRole('ebay-supervisor'),
+            'logistic' => $this->hasRole('logistic-supervisor'),
+            default    => false,
+        };
     }
 
     public function canCreateBoards(): bool

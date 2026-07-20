@@ -36,6 +36,7 @@ class EbayCustomerOrderAndDetailTest extends TestCase
             'tab_type' => EbayCustomerRecord::TAB_NEW_ORDER,
             'username' => 'buyer_1',
             'order_id' => 'ORD-100',
+            'order_date' => now()->toDateString(),
             'order_store_id' => $store->id,
             'products' => [
                 ['name' => 'Widget A', 'price' => '19.99'],
@@ -106,6 +107,7 @@ class EbayCustomerOrderAndDetailTest extends TestCase
             route('crm.ebay.customers.orders.store', $record),
             [
                 'order_id' => 'ORD-200',
+                'order_date' => now()->toDateString(),
                 'order_store_id' => $store->id,
                 'products' => [['name' => 'Replacement Part', 'price' => 12.5]],
             ]
@@ -182,6 +184,7 @@ class EbayCustomerOrderAndDetailTest extends TestCase
             'tab_type' => EbayCustomerRecord::TAB_NEW_ORDER,
             'username' => 'buyer_switch',
             'order_id' => 'ORD-SWITCH-1',
+            'order_date' => now()->toDateString(),
             'products' => [['name' => 'Part X', 'price' => '9.99']],
         ]);
 

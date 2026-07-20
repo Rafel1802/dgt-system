@@ -35,8 +35,8 @@
           <h2 class="font-display font-bold text-slate-800 text-lg">{{ $lead->client_name }}</h2>
           <div class="flex items-center justify-center gap-2 mt-1 flex-wrap">
             <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full"
-                  style="background:{{ $lead->status?->color() }}22; color:{{ $lead->status?->color() }}">
-              {{ $lead->status?->label() }}
+                  style="background:{{ $lead->display_status_color }}22; color:{{ $lead->display_status_color }}">
+              {{ $lead->display_status_label }}
             </span>
             @if($lead->techSupportCase?->occurrence_label)
               <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">
@@ -333,6 +333,10 @@
       <div class="p-6 space-y-4">
         <p class="text-xs text-slate-400" x-show="orderModalPurpose === 'successful'">At least one product is required to mark this lead as Successful.</p>
         <p class="text-xs text-slate-400" x-show="orderModalPurpose !== 'successful'">Search the catalog or type a product name manually — each order is kept in history, nothing gets overwritten.</p>
+        <div>
+          <label class="form-label">Purchase Date <span class="text-red-500">*</span></label>
+          <input type="date" x-model="orderDate" class="form-input" required>
+        </div>
         <div class="space-y-2">
           <template x-for="(line, i) in lines" :key="i">
             <div class="flex gap-2 items-start">
@@ -401,6 +405,7 @@ function leadProfile(leadId, catalog) {
     showFollowUp: {{ session('open_followup') ? 'true' : 'false' }},
     showOrderModal: false,
     orderModalPurpose: 'new', // 'new' (standalone order log) or 'successful' (tied to a status change)
+    orderDate: '',
     showTechNoteModal: false,
     techNote: '',
     pendingStatus: null,
@@ -447,6 +452,7 @@ function leadProfile(leadId, catalog) {
         this.pendingStatus = newStatus;
         this.orderModalPurpose = 'successful';
         this.lines = [{ product_id: null, product_name: '', price: '', quantity: 1 }];
+        this.orderDate = '';
         this.showOrderModal = true;
         return;
       }
@@ -456,12 +462,13 @@ function leadProfile(leadId, catalog) {
         this.showTechNoteModal = true;
         return;
       }
-      this._patchStatus(newStatus, null, null);
+      this._patchStatus(newStatus, null, null, null);
     },
 
     openNewOrderModal() {
       this.orderModalPurpose = 'new';
       this.lines = [{ product_id: null, product_name: '', price: '', quantity: 1 }];
+      this.orderDate = '';
       this.showOrderModal = true;
     },
 
@@ -470,11 +477,15 @@ function leadProfile(leadId, catalog) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Enter a product for each line.', type: 'error' } }));
         return;
       }
+      if (!this.orderDate) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Purchase date is required.', type: 'error' } }));
+        return;
+      }
       this.showOrderModal = false;
       if (this.orderModalPurpose === 'successful') {
-        await this._patchStatus(this.pendingStatus, this.lines, null);
+        await this._patchStatus(this.pendingStatus, this.lines, null, this.orderDate);
       } else {
-        await this._storeOrder(this.lines);
+        await this._storeOrder(this.lines, this.orderDate);
       }
     },
 
@@ -484,14 +495,17 @@ function leadProfile(leadId, catalog) {
         return;
       }
       this.showTechNoteModal = false;
-      await this._patchStatus(this.pendingStatus, null, this.techNote);
+      await this._patchStatus(this.pendingStatus, null, this.techNote, null);
     },
 
-    async _patchStatus(newStatus, lines, note) {
+    async _patchStatus(newStatus, lines, note, orderDate) {
       this.statusLoading = true;
       try {
         const body = { status: newStatus };
-        if (lines) body.products = lines.map(l => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, quantity: l.quantity }));
+        if (lines) {
+          body.products = lines.map(l => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, quantity: l.quantity }));
+          body.order_date = orderDate;
+        }
         if (note) body.note = note;
         await api(`/crm/website/${leadId}/status`, {
           method: 'PATCH',
@@ -504,10 +518,13 @@ function leadProfile(leadId, catalog) {
       } finally { this.statusLoading = false; }
     },
 
-    async _storeOrder(lines) {
+    async _storeOrder(lines, orderDate) {
       this.orderLoading = true;
       try {
-        const body = { products: lines.map(l => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, quantity: l.quantity })) };
+        const body = {
+          products: lines.map(l => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, quantity: l.quantity })),
+          order_date: orderDate,
+        };
         await api(`/crm/website/${leadId}/orders`, {
           method: 'POST',
           body: JSON.stringify(body),

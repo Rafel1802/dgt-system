@@ -11,6 +11,7 @@ use App\Models\EbayCustomerRecord;
 use App\Models\Lead;
 use App\Models\LeadProduct;
 use App\Models\Shipment;
+use App\Models\ShipmentCustomer;
 use App\Models\TechSupportCase;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -152,8 +153,9 @@ class CrmReportService
             'logistic' => [
                 'label' => 'Logistic', 'color' => '#10b981', 'icon' => '🚚',
                 'metrics' => [
-                    'Shipments Assigned' => Shipment::whereBetween('created_at', [$since, $until])->count(),
-                    'Complete'           => Shipment::where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
+                    'Number of Shipments'      => Shipment::whereBetween('created_at', [$since, $until])->count(),
+                    'Complete'                 => Shipment::where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
+                    'Total Customer Delivered' => ShipmentCustomer::where('status', ShipmentCustomer::STATUS_DELIVERED)->whereBetween('created_at', [$since, $until])->count(),
                 ],
                 'money_keys' => [],
             ],
@@ -261,7 +263,7 @@ class CrmReportService
      * member combined) across the selected period, for the General
      * Report's trend chart — real daily counts, not a decorative curve.
      * Same "created" events buildDomainReports() already counts as each
-     * domain's own "Total Customer"/"Cases Assigned"/"Shipments Assigned"
+     * domain's own "Total Customer"/"Cases Assigned"/"Number of Shipments"
      * headline, just broken out per day instead of one period total.
      *
      * Also returns each domain's own day-by-day series under `series` (same

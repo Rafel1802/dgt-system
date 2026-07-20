@@ -217,7 +217,7 @@ class ShipmentController extends Controller
 
         $shipment = Shipment::create([
             ...$validated,
-            'shipment_code' => $validated['shipment_code'] ?: $this->generateShipmentCode(),
+            'shipment_code' => $validated['shipment_code'] ?? $this->generateShipmentCode(),
             'created_by'    => auth()->id(),
         ]);
 

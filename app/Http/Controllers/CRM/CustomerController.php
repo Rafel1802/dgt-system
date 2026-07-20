@@ -14,6 +14,7 @@ use App\Services\TechSupportCaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -57,7 +58,34 @@ class CustomerController extends Controller
             default     => $customers,
         };
 
-        return view('crm.index', compact('stats', 'customers', 'statusFilter', 'sourceFilter', 'totalUnique'));
+        // Purchase Date and Created Date are deliberately separate filters —
+        // a fresh lead with no order yet has no purchase date at all (see
+        // CrmCustomerMatchService::buildUnifiedDirectory()), so filtering by
+        // purchase date must never fall back to matching on when they were
+        // created instead.
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        if ($dateFrom) {
+            $from = Carbon::parse($dateFrom)->startOfDay();
+            $customers = $customers->filter(fn ($c) => $c['purchase_date'] && $c['purchase_date']->gte($from));
+        }
+        if ($dateTo) {
+            $to = Carbon::parse($dateTo)->endOfDay();
+            $customers = $customers->filter(fn ($c) => $c['purchase_date'] && $c['purchase_date']->lte($to));
+        }
+
+        $createdFrom = $request->get('created_from');
+        $createdTo = $request->get('created_to');
+        if ($createdFrom) {
+            $from = Carbon::parse($createdFrom)->startOfDay();
+            $customers = $customers->filter(fn ($c) => $c['created_date'] && $c['created_date']->gte($from));
+        }
+        if ($createdTo) {
+            $to = Carbon::parse($createdTo)->endOfDay();
+            $customers = $customers->filter(fn ($c) => $c['created_date'] && $c['created_date']->lte($to));
+        }
+
+        return view('crm.index', compact('stats', 'customers', 'statusFilter', 'sourceFilter', 'totalUnique', 'dateFrom', 'dateTo', 'createdFrom', 'createdTo'));
     }
 
     /** Create customer form */
@@ -114,6 +142,19 @@ class CustomerController extends Controller
                 ->with('error', "A customer named \"{$duplicate->name}\" with this exact email already exists — opened their profile instead of creating a duplicate.");
         }
 
+        // customers.email is unique at the DB level regardless of name — a
+        // same-email-different-name submission still can't become a second
+        // row no matter how "different person" the intent above is, or
+        // createCustomer() below throws an uncaught unique-constraint
+        // QueryException (500) instead of a normal, recoverable redirect.
+        if (! empty($validated['email'])) {
+            $emailMatch = Customer::whereRaw('LOWER(email) = ?', [strtolower(trim($validated['email']))])->first();
+            if ($emailMatch) {
+                return redirect()->route('crm.customers.show', $emailMatch)
+                    ->with('error', "A customer with this email already exists (\"{$emailMatch->name}\") — opened their profile instead of creating a duplicate.");
+            }
+        }
+
         $customer = $this->crmService->createCustomer($validated, auth()->user());
 
         return redirect()->route('crm.customers.show', $customer)
@@ -135,7 +176,16 @@ class CustomerController extends Controller
         $source = $validated['source'] ?? CustomerSource::Website->value;
         unset($validated['source']);
 
-        $customer = $this->matcher->findDuplicateCustomer($validated['name'], $validated['email'] ?? null);
+        // Quick-create is a cross-entry-point reuse lookup (eBay New Order,
+        // Website Lead, Logistics combobox, ...), not a "same person filled
+        // the form twice" duplicate check — it must match by email-or-phone
+        // alone regardless of what name was typed this time, or it both
+        // spawns a second row for someone already on file AND crashes with
+        // a 500 the moment the typed name differs but the email collides
+        // with an existing customer (customers.email is unique).
+        // findDuplicateCustomer() (name+email together) is for the manual
+        // "Add Customer" form's true-duplicate check, not this.
+        $customer = $this->matcher->findCustomerByContact($validated['email'] ?? null, $validated['phone'] ?? null);
 
         if (! $customer) {
             $customer = Customer::create([

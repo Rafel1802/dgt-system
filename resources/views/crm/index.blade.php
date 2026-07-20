@@ -31,7 +31,7 @@
     </div>
   </div>
 
-  {{-- ── Status & Source Filters, Search ─────────────────────────────────────── --}}
+  {{-- ── Status Filter + Actions ───────────────────────────────────────────── --}}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
     <div class="flex gap-2 flex-wrap">
       @foreach(['All', 'Technical issues', 'Logistic issues', 'Negative feedback'] as $val)
@@ -41,13 +41,7 @@
       </a>
       @endforeach
     </div>
-    <div class="flex gap-2 items-center">
-      <form method="GET" action="{{ route('crm.customers.index') }}" class="flex gap-2">
-        <input type="hidden" name="status_filter" value="{{ $statusFilter }}">
-        <input type="hidden" name="source_filter" value="{{ $sourceFilter }}">
-        <input type="search" name="search" value="{{ request('search') }}" placeholder="Search name/email/phone…" class="form-input text-sm py-2 w-64">
-        <button type="submit" class="btn btn-secondary text-sm">Search</button>
-      </form>
+    <div class="flex gap-2 items-center flex-wrap">
       @include('crm.partials.report_export_modal', ['type' => 'customers', 'btnClass' => 'btn btn-secondary py-2'])
       @can('crm.create')
       <a href="{{ route('crm.customers.create') }}" class="btn btn-primary py-2" id="btn-add-customer">
@@ -56,6 +50,48 @@
       </a>
       @endcan
     </div>
+  </div>
+
+  {{-- ── Search + Date Filters ─────────────────────────────────────────────── --}}
+  <div class="card p-4 mb-5">
+    <form method="GET" action="{{ route('crm.customers.index') }}" class="flex flex-wrap items-end gap-x-6 gap-y-4">
+      <input type="hidden" name="status_filter" value="{{ $statusFilter }}">
+      <input type="hidden" name="source_filter" value="{{ $sourceFilter }}">
+
+      <div class="min-w-[220px]">
+        <label class="form-label text-xs">Search</label>
+        <input type="search" name="search" value="{{ request('search') }}" placeholder="Name/email/phone…" class="form-input text-sm py-2 w-full">
+      </div>
+
+      <div class="flex items-end gap-2 pl-4 border-l border-slate-100">
+        <div>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Created Date</p>
+          <div class="flex items-center gap-2">
+            <input type="date" name="created_from" value="{{ $createdFrom }}" class="form-input text-sm py-2 w-36" title="From">
+            <span class="text-xs text-slate-400">to</span>
+            <input type="date" name="created_to" value="{{ $createdTo }}" class="form-input text-sm py-2 w-36" title="To">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-end gap-2 pl-4 border-l border-slate-100">
+        <div>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Purchase Date</p>
+          <div class="flex items-center gap-2">
+            <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-input text-sm py-2 w-36" title="From">
+            <span class="text-xs text-slate-400">to</span>
+            <input type="date" name="date_to" value="{{ $dateTo }}" class="form-input text-sm py-2 w-36" title="To">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button type="submit" class="btn btn-secondary text-sm">Search</button>
+        @if($dateFrom || $dateTo || $createdFrom || $createdTo || request('search'))
+        <a href="{{ route('crm.customers.index', ['status_filter' => $statusFilter, 'source_filter' => $sourceFilter]) }}" class="btn btn-secondary text-sm">Clear</a>
+        @endif
+      </div>
+    </form>
   </div>
 
   <div class="flex items-center gap-2 mb-5">
@@ -84,6 +120,8 @@
             <th class="px-4 py-3 text-left">Contact</th>
             <th class="px-4 py-3 text-left">Source</th>
             <th class="px-4 py-3 text-left">Status</th>
+            <th class="px-4 py-3 text-left">Created</th>
+            <th class="px-4 py-3 text-left">Purchase Date</th>
             <th class="px-4 py-3 text-left">Handler</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
@@ -117,6 +155,8 @@
                 </span>
               @endif
             </td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ $customer['created_date']?->format('d/m/Y') ?? '—' }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ $customer['purchase_date']?->format('d/m/Y') ?? '—' }}</td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ $customer['handler'] ?: '—' }}</td>
             <td class="px-4 py-3">
               <div class="flex justify-end gap-1">

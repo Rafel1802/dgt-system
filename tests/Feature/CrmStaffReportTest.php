@@ -100,7 +100,14 @@ class CrmStaffReportTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('eBay');
-        $response->assertSee('No staff activity recorded for this team yet.');
+        // The Staff Report is one flat card per active staff member — a
+        // person's card only lists the pill-badges for domains they're
+        // actually active in (rendered by looping $row['activeDomains']),
+        // there's no separate "empty" section per domain. This staff
+        // member only has eBay activity this period, so that's the only
+        // domain their card should carry.
+        $response->assertViewHas('members', fn ($members) => $members->count() === 1
+            && $members->first()['activeDomains'] === ['ebay']);
     }
 
     public function test_staff_profile_is_clickable_and_links_to_the_show_route(): void
@@ -140,6 +147,16 @@ class CrmStaffReportTest extends TestCase
 
     public function test_staff_show_page_defaults_to_week_and_ignores_invalid_period(): void
     {
+        // Needs at least one active domain, or the page collapses to its
+        // "No staff activity recorded" empty state instead of the detailed
+        // KPI/chart layout this test is actually checking renders.
+        TechSupportCase::create([
+            'source_type' => EbayCustomerRecord::class,
+            'source_id'   => 1,
+            'assigned_to' => $this->user->id,
+            'status'      => TechSupportCase::STATUS_NEW,
+        ]);
+
         $response = $this->actingAs($this->user)->get(route('crm.reports.show', ['user' => $this->user, 'period' => 'bogus']));
 
         $response->assertOk();
@@ -319,7 +336,7 @@ class CrmStaffReportTest extends TestCase
         // Each domain gets its own heading, and its metric labels appear underneath it.
         $response->assertSeeInOrder(['🛒 eBay', 'Sales']);
         $response->assertSeeInOrder(['🌐 Website', 'Sales']);
-        $response->assertSeeInOrder(['🚚 Logistic', 'Shipments Assigned']);
+        $response->assertSeeInOrder(['🚚 Logistic', 'Number of Shipments']);
         $response->assertSeeInOrder(['🛠️ Technical Support', 'Cases Assigned']);
         // Combined total: 100 (eBay) + 50 (website) = 150.
         $response->assertSee('$150.00');
@@ -330,8 +347,8 @@ class CrmStaffReportTest extends TestCase
         $teamResponse = $this->actingAs($this->user)->get(route('crm.reports.index'));
         $staffResponse = $this->actingAs($this->user)->get(route('crm.reports.staff'));
 
-        $teamResponse->assertOk()->assertDontSee('No staff activity recorded for this team yet.');
-        $staffResponse->assertOk()->assertSee('No staff activity recorded for this team yet.');
+        $teamResponse->assertOk()->assertDontSee('No staff activity recorded for this period yet.');
+        $staffResponse->assertOk()->assertSee('No staff activity recorded for this period yet.');
 
         // Each page links to the other.
         $teamResponse->assertSee(route('crm.reports.staff'), false);

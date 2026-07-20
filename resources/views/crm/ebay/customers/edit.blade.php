@@ -111,8 +111,8 @@
               <input type="text" name="order_id" value="{{ old('order_id') }}" class="form-input font-mono">
             </div>
             <div>
-              <label class="form-label">Order Date</label>
-              <input type="date" name="order_date" value="{{ old('order_date') }}" class="form-input">
+              <label class="form-label">Order Date <span class="text-red-500">*</span></label>
+              <input type="date" name="order_date" value="{{ old('order_date') }}" class="form-input" x-bind:required="showOrderBlock">
             </div>
           </div>
           <div>

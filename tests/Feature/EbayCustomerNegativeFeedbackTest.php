@@ -55,6 +55,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             'tab_type' => EbayCustomerRecord::TAB_NEW_ORDER,
             'username' => 'nancy_d',
             'order_id' => 'ORD-1',
+            'order_date' => now()->toDateString(),
             'products' => [['name' => 'Widget', 'price' => '9.99']],
         ]);
         $response->assertSessionDoesntHaveErrors();
@@ -121,7 +122,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
 
         $response = $this->actingAs($this->user)->put(
             route('crm.ebay.customers.update', $record),
-            ['tab_type' => EbayCustomerRecord::TAB_NEW_ORDER, 'username' => 'no_note_needed', 'order_id' => 'ORD-1', 'products' => [['name' => 'Widget', 'price' => '9.99']]]
+            ['tab_type' => EbayCustomerRecord::TAB_NEW_ORDER, 'username' => 'no_note_needed', 'order_id' => 'ORD-1', 'order_date' => now()->toDateString(), 'products' => [['name' => 'Widget', 'price' => '9.99']]]
         );
 
         $response->assertSessionDoesntHaveErrors();

@@ -78,7 +78,7 @@
     $ebaySales = $domainReports['ebay']['metrics']['Sales'];
     $websiteSales = $domainReports['website']['metrics']['Sales'];
     // Each domain's first metric (Total Customer / Cases Assigned /
-    // Shipments Assigned) is its natural "how much came in" headline — the
+    // Number of Shipments) is its natural "how much came in" headline — the
     // same number buildDomainReports() already computes, just surfaced as
     // one comparable figure per domain instead of a full metrics grid.
     $headline = collect($domainReports)->map(fn ($d) => reset($d['metrics']));

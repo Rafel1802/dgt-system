@@ -340,7 +340,7 @@ class EbayCustomerController extends Controller
             'ebay_customer_record_id' => $record->id,
             'order_id'                => $orderData['order_id'],
             'ebay_store_id'           => $orderData['order_store_id'] ?? null,
-            'ordered_at'              => $orderData['order_date'] ?? now(),
+            'ordered_at'              => $orderData['order_date'],
             'created_by'              => auth()->id(),
         ]);
 
@@ -423,7 +423,7 @@ class EbayCustomerController extends Controller
     {
         return [
             'order_id'          => ['required', 'string', 'max:100'],
-            'order_date'        => ['nullable', 'date'],
+            'order_date'        => ['required', 'date'],
             'order_store_id'    => ['nullable', 'exists:ebay_stores,id'],
             'products'          => ['required', 'array', 'min:1'],
             'products.*.name'   => ['required', 'string', 'max:255'],

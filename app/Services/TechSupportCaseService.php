@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\WebsiteLeadStatus;
 use App\Models\CallRequest;
 use App\Models\Customer;
 use App\Models\EbayCustomerRecord;
@@ -435,14 +434,16 @@ class TechSupportCaseService
     }
 
     /**
-     * When the case's source is a Website Lead, flip its own pipeline status
-     * to Resolved — the Website CRM equivalent of syncToEbay() flipping
-     * EbayCustomerRecord.tab_type to TAB_RESOLVED above. "Resolved" is a
-     * real, directly-selectable WebsiteLeadStatus (same as eBay's Resolved
-     * tab) rather than a flag layered on top of a status frozen at
-     * Technical Support, so it shows correctly everywhere the raw status is
-     * read — the unified customer directory, the Leads index, the pipeline
-     * stepper — with nothing needing to know about tech_resolved at all.
+     * When the case's source is a Website Lead, set its tech_resolved flag
+     * — the Website CRM equivalent of syncToEbay() flipping
+     * EbayCustomerRecord.tech_resolved above. Deliberately does NOT touch
+     * the lead's own `status` (stays frozen at Technical Support) — same
+     * rule reopenCase() already relies on elsewhere in this file, and what
+     * Lead::display_status_label exists for: every place that shows the
+     * lead's status badge reads that accessor instead of the raw status,
+     * so a resolved technical issue still displays as "Resolved" without
+     * erasing the "this lead once had a technical issue" history a
+     * terminal status change would lose.
      */
     private function syncLeadResolved(TechSupportCase $case): void
     {
@@ -451,30 +452,28 @@ class TechSupportCaseService
         }
 
         $case->source->update([
-            'status'           => WebsiteLeadStatus::Resolved,
             'tech_resolved'    => true,
             'tech_resolved_at' => now(),
         ]);
     }
 
     /**
-     * Undo syncLeadResolved() when a resolved case is reopened: the lead
-     * goes back to Technical Support. Only touches the lead if it's still
-     * sitting on Resolved (the state syncLeadResolved() itself produced) —
-     * if staff have since moved it to some other status manually, that
-     * manual choice is left alone. Uses updateQuietly() so this doesn't
-     * re-trigger the lead's own "entered Technical Support" hook, which
-     * would otherwise try to create a second case for a source that
-     * already has this one reopened (mirrors revertEbaySync() above).
+     * Undo syncLeadResolved() when a resolved case is reopened: clears the
+     * lead's tech_resolved flag. Only touches the lead if it's still
+     * actually tech_resolved (the state syncLeadResolved() itself
+     * produced) — if staff have since moved it to some other status
+     * manually, that manual choice is left alone. Uses updateQuietly() so
+     * this doesn't re-trigger the lead's own "entered Technical Support"
+     * hook, which would otherwise try to create a second case for a source
+     * that already has this one reopened (mirrors revertEbaySync() above).
      */
     private function revertLeadResolved(TechSupportCase $case): void
     {
-        if ($case->source_type !== Lead::class || $case->source?->status !== WebsiteLeadStatus::Resolved) {
+        if ($case->source_type !== Lead::class || ! $case->source?->tech_resolved) {
             return;
         }
 
         $case->source->updateQuietly([
-            'status'           => WebsiteLeadStatus::TechnicalSupport,
             'tech_resolved'    => false,
             'tech_resolved_at' => null,
         ]);

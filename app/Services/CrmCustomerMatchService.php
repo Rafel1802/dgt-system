@@ -505,7 +505,7 @@ class CrmCustomerMatchService
             }
         };
 
-        Lead::with('handler', 'techSupportCase')->get()->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
+        Lead::with('handler', 'techSupportCase', 'latestOrder')->get()->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
             $k = $keysFor($lead->client_email, $lead->client_phone, 'lead-' . $lead->id, $lead->customer_id);
             if ($anySeen($k)) {
                 return;
@@ -524,6 +524,12 @@ class CrmCustomerMatchService
                 'occurrence_label' => $lead->techSupportCase?->occurrence_label,
                 'handler'     => $lead->handler?->name,
                 'link'        => route('crm.website.show', $lead),
+                // Two distinct dates: when this lead first came in (always
+                // set) vs. their most recent actual purchase (only set if
+                // they've bought something — a fresh inquiry with no order
+                // yet has no purchase date at all, not today's date).
+                'created_date'  => $lead->received_at ?? $lead->created_at,
+                'purchase_date' => $lead->latestOrder?->order_date,
                 'category'    => match (true) {
                     $lead->status === WebsiteLeadStatus::TechnicalSupport => 'technical',
                     $lead->status === WebsiteLeadStatus::DelayedShipment  => 'shipment_delay',
@@ -532,7 +538,7 @@ class CrmCustomerMatchService
             ]);
         });
 
-        EbayCustomerRecord::with('handlerHistory.user', 'techSupportCase')->get()->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
+        EbayCustomerRecord::with('handlerHistory.user', 'techSupportCase', 'orders')->get()->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
             $k = $keysFor($record->email, $record->phone, 'ebay-' . $record->id, $record->customer_id);
             if ($anySeen($k)) {
                 return;
@@ -559,6 +565,10 @@ class CrmCustomerMatchService
                 'occurrence_label' => $record->techSupportCase?->occurrence_label,
                 'handler'     => $record->current_handler?->name,
                 'link'        => route('crm.ebay.customers.show', $record),
+                // orders() is already ordered newest-first, so the first
+                // entry is the most recent purchase — null if none logged yet.
+                'created_date'  => $record->created_at,
+                'purchase_date' => $record->orders->first()?->ordered_at,
                 'category'    => match (true) {
                     $record->tab_type === EbayCustomerRecord::TAB_TECHNICAL => 'technical',
                     $record->shipment_delay => 'shipment_delay',
@@ -600,6 +610,10 @@ class CrmCustomerMatchService
                         (bool) $sc->shipment_id  => route('crm.logistics.shipments.show', $sc->shipment_id),
                         default                  => route('crm.logistics.shipments.index', ['status' => 'processing']),
                     },
+                    // No purchase concept at this level — a Logistics-flagged
+                    // row is a shipment problem, not a sale.
+                    'created_date'  => $sc->shipment?->created_at ?? $sc->created_at,
+                    'purchase_date' => null,
                     'category'    => 'shipment_delay',
                 ]);
             });
@@ -645,6 +659,11 @@ class CrmCustomerMatchService
                 'occurrence_label' => $customer->latestTechSupportCase?->occurrence_label,
                 'handler'     => $customer->assignee?->name,
                 'link'        => route('crm.customers.show', $customer),
+                // A bare Customer row (no matching Lead/eBay record) has no
+                // order history reachable from here — only Leads and eBay
+                // records track purchases directly.
+                'created_date'  => $customer->created_at,
+                'purchase_date' => null,
                 'category'    => $customer->shipment_delay ? 'shipment_delay' : null,
             ]);
         });
@@ -656,7 +675,12 @@ class CrmCustomerMatchService
                 || str_contains(strtolower($c['phone'] ?? ''), $search));
         }
 
-        return $out->values();
+        // Newest customers first — ranked by whichever is more recent between
+        // their purchase date and their created date (a repeat buyer's new
+        // order re-surfaces them at the top even if they first came in long
+        // ago; a brand new inquiry with no purchase yet still ranks by when
+        // they showed up).
+        return $out->sortByDesc(fn ($c) => max($c['purchase_date']?->timestamp ?? 0, $c['created_date']?->timestamp ?? 0))->values();
     }
 
     /** Deduplicated total customer count, for the Dashboard KPI tile. */

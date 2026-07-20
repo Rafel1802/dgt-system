@@ -332,9 +332,15 @@ class TechSupportTest extends TestCase
         $this->assertEquals(2, $case->fresh()->occurrence_count);
         $this->assertEquals(1, TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->count());
 
+        // Note: the Lead profile page's Pipeline Progress stepper always
+        // lists every possible status (including "Resolved") as a
+        // clickable step, for every lead, regardless of its current state
+        // — that's normal, unrelated UI, not a stale badge. Only the
+        // status badge itself is what display_status_label controls, and
+        // that's already covered above via the model-level assertion.
         $showResponse = $this->actingAs($this->admin)->get(route('crm.website.show', $lead));
         $showResponse->assertOk();
-        $showResponse->assertDontSee('Resolved');
+        $showResponse->assertSee('Technical Support');
     }
 
     private function makeOpenCase(): TechSupportCase

@@ -68,7 +68,8 @@ class WebsiteLeadProductsTest extends TestCase
         $product = $this->makeProduct('Excavator X1', 'SKU-X1', 15000);
 
         $response = $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'   => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::Successful->value,
+            'order_date' => now()->toDateString(),
             'products' => [
                 ['product_id' => $product->id, 'price' => 14500, 'quantity' => 1],
             ],
@@ -89,7 +90,8 @@ class WebsiteLeadProductsTest extends TestCase
         $lead = $this->makeLead();
 
         $response = $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'   => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::Successful->value,
+            'order_date' => now()->toDateString(),
             'products' => [
                 ['product_name' => 'Custom Bucket Attachment', 'price' => 300, 'quantity' => 1],
             ],
@@ -121,13 +123,15 @@ class WebsiteLeadProductsTest extends TestCase
 
         $firstProduct = $this->makeProduct('First Sale', 'F-1', 100);
         $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'   => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::Successful->value,
+            'order_date' => now()->toDateString(),
             'products' => [['product_id' => $firstProduct->id, 'price' => 100, 'quantity' => 1]],
         ])->assertOk();
 
         $secondProduct = $this->makeProduct('Second Sale', 'S-1', 200);
         $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'   => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::Successful->value,
+            'order_date' => now()->toDateString(),
             'products' => [['product_id' => $secondProduct->id, 'price' => 200, 'quantity' => 1]],
         ])->assertOk();
 
@@ -143,6 +147,7 @@ class WebsiteLeadProductsTest extends TestCase
         $product = $this->makeProduct('Repeat Purchase', 'RP-1', 750);
 
         $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'order_date' => now()->toDateString(),
             'products' => [['product_id' => $product->id, 'price' => 700, 'quantity' => 1]],
         ]);
 
@@ -157,6 +162,7 @@ class WebsiteLeadProductsTest extends TestCase
         $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
 
         $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'order_date' => now()->toDateString(),
             'products' => [['product_name' => 'One-off Custom Part', 'price' => 45]],
         ]);
 
@@ -172,6 +178,7 @@ class WebsiteLeadProductsTest extends TestCase
         $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
 
         $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'order_date' => now()->toDateString(),
             'products' => [],
         ]);
 
@@ -185,9 +192,11 @@ class WebsiteLeadProductsTest extends TestCase
         $productB = $this->makeProduct('Order B Item');
 
         $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'order_date' => now()->toDateString(),
             'products' => [['product_id' => $productA->id, 'price' => 100]],
         ])->assertOk();
         $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
+            'order_date' => now()->toDateString(),
             'products' => [['product_id' => $productB->id, 'price' => 200]],
         ])->assertOk();
 
@@ -224,7 +233,8 @@ class WebsiteLeadProductsTest extends TestCase
         $lead = $this->makeLead();
         $product = $this->makeProduct('Excavator X1', 'SKU-X1', 15000);
         $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'   => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::Successful->value,
+            'order_date' => now()->toDateString(),
             'products' => [['product_id' => $product->id, 'price' => 14500, 'quantity' => 1]],
         ])->assertOk();
 

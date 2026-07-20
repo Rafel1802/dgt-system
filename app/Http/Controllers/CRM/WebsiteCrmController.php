@@ -284,6 +284,7 @@ class WebsiteCrmController extends Controller
         $validated = $request->validate([
             'status'                  => ['required', Rule::enum(WebsiteLeadStatus::class)],
             'note'                    => ['nullable', 'string'],
+            'order_date'              => ['required_if:status,successful', 'nullable', 'date'],
             'products'                => ['nullable', 'array'],
             'products.*.product_id'   => ['nullable', 'exists:products,id'],
             'products.*.product_name' => ['nullable', 'string', 'max:255'],
@@ -337,7 +338,7 @@ class WebsiteCrmController extends Controller
         // and replace the last order's products; now it's simply another
         // entry in that lead's order history, same as "+ Add New Order".
         if ($newStatus === WebsiteLeadStatus::Successful && ! empty($productRows)) {
-            $this->createLeadOrder($lead, $productRows);
+            $this->createLeadOrder($lead, $productRows, $validated['order_date']);
         }
 
         return response()->json([
@@ -355,7 +356,7 @@ class WebsiteCrmController extends Controller
     public function storeOrder(Request $request, Lead $lead): JsonResponse
     {
         $validated = $request->validate([
-            'order_date'               => ['nullable', 'date'],
+            'order_date'               => ['required', 'date'],
             'products'                 => ['required', 'array', 'min:1'],
             'products.*.product_id'    => ['nullable', 'exists:products,id'],
             'products.*.product_name'  => ['nullable', 'string', 'max:255'],
@@ -369,7 +370,7 @@ class WebsiteCrmController extends Controller
             return response()->json(['message' => 'At least one product is required.'], 422);
         }
 
-        $order = $this->createLeadOrder($lead, $productRows, $validated['order_date'] ?? null);
+        $order = $this->createLeadOrder($lead, $productRows, $validated['order_date']);
 
         return response()->json([
             'message' => 'Order logged.',
@@ -386,10 +387,10 @@ class WebsiteCrmController extends Controller
     }
 
     /** Create a new LeadOrder + line items — never deletes previous orders. */
-    private function createLeadOrder(Lead $lead, array $rows, ?string $orderDate = null): LeadOrder
+    private function createLeadOrder(Lead $lead, array $rows, string $orderDate): LeadOrder
     {
         $order = $lead->orders()->create([
-            'order_date' => $orderDate ?? now()->toDateString(),
+            'order_date' => $orderDate,
             'created_by' => auth()->id(),
         ]);
 

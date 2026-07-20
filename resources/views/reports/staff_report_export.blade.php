@@ -97,7 +97,7 @@
             'website'      => ['label' => 'Website', 'rows' => ['Handled' => $summary['website']['crm_handled'] ?? 0, 'Successful Leads' => $summary['website']['crm_sales'] ?? 0, 'Calls Answered' => $summary['website']['calls_answered'] ?? 0]],
             'ebay'         => ['label' => 'eBay', 'rows' => ['Handled' => $summary['ebay']['ebay_handled'] ?? 0]],
             'tech_support' => ['label' => 'Technical Support', 'rows' => ['Cases Assigned' => $summary['tech_support']['assigned'] ?? 0, 'Cases Resolved' => $summary['tech_support']['resolved'] ?? 0]],
-            'logistic'     => ['label' => 'Logistic', 'rows' => ['Shipments Assigned' => $summary['logistic']['assigned'] ?? 0, 'Complete' => $summary['logistic']['complete'] ?? 0]],
+            'logistic'     => ['label' => 'Logistic', 'rows' => ['Number of Shipments' => $summary['logistic']['assigned'] ?? 0, 'Complete' => $summary['logistic']['complete'] ?? 0]],
         ];
         $headline = [
             'website'      => $summary['website']['crm_handled'] ?? 0,

@@ -223,4 +223,98 @@ class UnifiedCustomerDirectoryTest extends TestCase
             ->get(route('crm.directory.index'))
             ->assertRedirect(route('crm.customers.index'));
     }
+
+    public function test_customer_database_sorts_newest_first_by_default(): void
+    {
+        Lead::create([
+            'handled_by' => $this->user->id,
+            'client_name' => 'Older Lead',
+            'source' => InquirySource::Website->value,
+            'status' => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now()->subDays(5),
+        ]);
+        Lead::create([
+            'handled_by' => $this->user->id,
+            'client_name' => 'Newer Lead',
+            'source' => InquirySource::Website->value,
+            'status' => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('crm.customers.index'));
+
+        $response->assertOk();
+        $response->assertSeeInOrder(['Newer Lead', 'Older Lead']);
+    }
+
+    public function test_customer_database_can_be_filtered_by_created_date_range(): void
+    {
+        Lead::create([
+            'handled_by' => $this->user->id,
+            'client_name' => 'In Range Lead',
+            'source' => InquirySource::Website->value,
+            'status' => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now()->subDays(2),
+        ]);
+        Lead::create([
+            'handled_by' => $this->user->id,
+            'client_name' => 'Out Of Range Lead',
+            'source' => InquirySource::Website->value,
+            'status' => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now()->subDays(20),
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('crm.customers.index', [
+            'created_from' => now()->subDays(5)->toDateString(),
+            'created_to'   => now()->toDateString(),
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('In Range Lead');
+        $response->assertDontSee('Out Of Range Lead');
+    }
+
+    /**
+     * Purchase Date and Created Date are separate filters — a lead with no
+     * order yet has no purchase date at all, so it must never match a
+     * purchase-date filter just because it was created in range.
+     */
+    public function test_customer_database_can_be_filtered_by_purchase_date_range(): void
+    {
+        $purchased = Lead::create([
+            'handled_by' => $this->user->id,
+            'client_name' => 'Purchased In Range',
+            'source' => InquirySource::Website->value,
+            'status' => WebsiteLeadStatus::Successful->value,
+            'received_at' => now()->subDays(30),
+        ]);
+        $purchased->orders()->create(['order_date' => now()->subDays(2), 'created_by' => $this->user->id]);
+
+        $purchasedOutOfRange = Lead::create([
+            'handled_by' => $this->user->id,
+            'client_name' => 'Purchased Out Of Range',
+            'source' => InquirySource::Website->value,
+            'status' => WebsiteLeadStatus::Successful->value,
+            'received_at' => now()->subDays(30),
+        ]);
+        $purchasedOutOfRange->orders()->create(['order_date' => now()->subDays(20), 'created_by' => $this->user->id]);
+
+        Lead::create([
+            'handled_by' => $this->user->id,
+            'client_name' => 'No Purchase Yet',
+            'source' => InquirySource::Website->value,
+            'status' => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now()->subDays(2),
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('crm.customers.index', [
+            'date_from' => now()->subDays(5)->toDateString(),
+            'date_to'   => now()->toDateString(),
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Purchased In Range');
+        $response->assertDontSee('Purchased Out Of Range');
+        $response->assertDontSee('No Purchase Yet');
+    }
 }
