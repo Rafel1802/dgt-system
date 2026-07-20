@@ -201,14 +201,16 @@
             <td class="stat-label">Completed</td>
             <td class="stat-label">Pending</td>
             <td class="stat-label">Overdue</td>
-            <td colspan="3" style="border: none;">&nbsp;</td>
+            <td class="stat-label">Errors</td>
+            <td colspan="2" style="border: none;">&nbsp;</td>
         </tr>
         <tr>
             <td class="stat-value">{{ $totalTasks }}</td>
             <td class="stat-value" style="color: #10b981;">{{ $completedTasks }}</td>
             <td class="stat-value" style="color: #f59e0b;">{{ $pendingTasks }}</td>
             <td class="stat-value" style="color: #ef4444;">{{ $overdueTasks }}</td>
-            <td colspan="3" style="border: none;">&nbsp;</td>
+            <td class="stat-value" style="color: #ef4444;">{{ $errorTasks ?? 0 }}</td>
+            <td colspan="2" style="border: none;">&nbsp;</td>
         </tr>
         <tr>
             <td colspan="7" style="border: none;">&nbsp;</td>
@@ -260,6 +262,12 @@
                 <div class="task-title">{{ $c->title }}</div>
                 @if($includeDesc && $c->description)
                     <div class="task-desc">{!! strip_tags($c->description) !!}</div>
+                @endif
+                
+                @if(!empty($c->rejection_reason))
+                    <div style="margin-top: 6px; padding: 4px; background-color: #fef2f2; border-left: 2px solid #ef4444; font-size: 10px; color: #991b1b;">
+                        <strong>Error Reason:</strong> {{ $c->rejection_reason }}
+                    </div>
                 @endif
                 
                 @if(($includeComments ?? false) && $c->comments->isNotEmpty())

@@ -862,6 +862,108 @@ class WebsiteController extends Controller
         return $this->exportCsv($websites, $startDate, $endDate);
     }
 
+    public function exportPersonalReport(Request $request)
+    {
+        abort_unless(auth()->user()?->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
+
+        $format = $request->get('format', 'csv');
+        $userId = auth()->id();
+
+        $dateFrom = now()->startOfMonth()->toDateString();
+        $dateTo   = now()->toDateString();
+
+        if ($request->filled('date_range') && $request->date_range !== 'all_time') {
+            switch ($request->date_range) {
+                case 'this_week':
+                    $dateFrom = now()->startOfWeek()->toDateString();
+                    $dateTo   = now()->endOfWeek()->toDateString();
+                    break;
+                case 'this_month':
+                    $dateFrom = now()->startOfMonth()->toDateString();
+                    $dateTo   = now()->endOfMonth()->toDateString();
+                    break;
+                case 'last_month':
+                    $dateFrom = now()->subMonth()->startOfMonth()->toDateString();
+                    $dateTo   = now()->subMonth()->endOfMonth()->toDateString();
+                    break;
+                case 'custom':
+                case 'custom_period':
+                    if ($request->filled('start_date')) $dateFrom = \Carbon\Carbon::parse($request->start_date)->toDateString();
+                    if ($request->filled('end_date'))   $dateTo   = \Carbon\Carbon::parse($request->end_date)->toDateString();
+                    break;
+            }
+        } else {
+            $dateFrom = '2000-01-01';
+            $dateTo   = '2100-01-01';
+        }
+
+        $progressLogs = \App\Models\WebsiteProgressLog::with(['website', 'user'])
+            ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            ->when($userId, fn($q) => $q->where('user_id', $userId))
+            ->get()
+            ->map(function($log) {
+                return [
+                    'date' => $log->created_at,
+                    'website' => $log->website->name ?? 'Unknown',
+                    'action' => 'Progress Update',
+                    'details' => $log->percent . '% - ' . strip_tags($log->note),
+                    'user' => $log->user->name ?? '',
+                ];
+            });
+
+        $maintenanceLogs = \App\Models\WebsiteMaintenanceLog::with(['website', 'user'])
+            ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            ->when($userId, fn($q) => $q->where('user_id', $userId))
+            ->get()
+            ->map(function($log) {
+                $statusMsg = $log->old_status !== $log->new_status ? "Status changed from {$log->old_status} to {$log->new_status}. " : "";
+                return [
+                    'date' => $log->created_at,
+                    'website' => $log->website->name ?? 'Unknown',
+                    'action' => 'Status/Maintenance Update',
+                    'details' => $statusMsg . strip_tags($log->note),
+                    'user' => $log->user->name ?? '',
+                ];
+            });
+
+        $activities = $progressLogs->concat($maintenanceLogs)->sortBy('date');
+
+        if ($format === 'pdf') {
+            $userModel = $userId ? \App\Models\User::find($userId) : null;
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('websites.reports.personal-pdf', [
+                'activities' => $activities,
+                'user' => $userModel,
+                'dateFrom' => $dateFrom,
+                'dateTo' => $dateTo,
+            ])->setPaper('a4', 'landscape');
+            return $pdf->download('website-personal-report-' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        $headers = [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="website-personal-report-' . now()->format('Y-m-d') . '.csv"',
+            'Pragma'              => 'no-cache',
+        ];
+
+        $callback = function () use ($activities) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Date', 'User', 'Website', 'Action', 'Details']);
+
+            foreach ($activities as $act) {
+                fputcsv($handle, [
+                    $act['date']->format('Y-m-d H:i:s'),
+                    $act['user'],
+                    $act['website'],
+                    $act['action'],
+                    $act['details'],
+                ]);
+            }
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     private function exportFollowUpsCsv($followUps)
     {
         $this->logActivity('report_exported', 'Follow Ups report exported as CSV.');

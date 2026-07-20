@@ -144,4 +144,96 @@ class WebsiteFollowUpController extends Controller
             // Silently fail if activity log table has different schema
         }
     }
+
+    public function exportPersonalReport(Request $request)
+    {
+        abort_unless(auth()->user()?->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
+
+        $format = $request->get('format', 'csv');
+        $userId = auth()->id();
+
+        $dateFrom = now()->startOfMonth()->toDateString();
+        $dateTo   = now()->toDateString();
+
+        if ($request->filled('date_range') && $request->date_range !== 'all_time') {
+            switch ($request->date_range) {
+                case 'this_week':
+                    $dateFrom = now()->startOfWeek()->toDateString();
+                    $dateTo   = now()->endOfWeek()->toDateString();
+                    break;
+                case 'this_month':
+                    $dateFrom = now()->startOfMonth()->toDateString();
+                    $dateTo   = now()->endOfMonth()->toDateString();
+                    break;
+                case 'last_month':
+                    $dateFrom = now()->subMonth()->startOfMonth()->toDateString();
+                    $dateTo   = now()->subMonth()->endOfMonth()->toDateString();
+                    break;
+                case 'custom':
+                case 'custom_period':
+                    if ($request->filled('start_date')) $dateFrom = \Carbon\Carbon::parse($request->start_date)->toDateString();
+                    if ($request->filled('end_date'))   $dateTo   = \Carbon\Carbon::parse($request->end_date)->toDateString();
+                    break;
+            }
+        } else {
+            $dateFrom = '2000-01-01';
+            $dateTo   = '2100-01-01';
+        }
+
+        $query = WebsiteFollowUp::with(['website', 'assignee', 'qcChecker'])
+            ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+
+        if ($userId) {
+            // Include if they were assigned to it, OR if they QC checked it (assuming QC might pull their own report)
+            $query->where(function($q) use ($userId) {
+                $q->where('assigned_to', $userId)
+                  ->orWhere('qc_checked_by', $userId);
+            });
+        }
+
+        $followUps = $query->orderBy('created_at')->get();
+
+        if ($format === 'pdf') {
+            $userModel = $userId ? \App\Models\User::find($userId) : null;
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('websites.reports.followup-personal-pdf', [
+                'followUps' => $followUps,
+                'user' => $userModel,
+                'dateFrom' => $dateFrom,
+                'dateTo' => $dateTo,
+            ])->setPaper('a4', 'landscape');
+            return $pdf->download('follow-up-personal-report-' . now()->format('Y-m-d') . '.pdf');
+        }
+
+        $headers = [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="follow-up-personal-report-' . now()->format('Y-m-d') . '.csv"',
+            'Pragma'              => 'no-cache',
+        ];
+
+        $callback = function () use ($followUps) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, [
+                'Date', 'Website', 'Class', 'Type', 'URL', 'Handle By (User)',
+                'QC Status', 'QC Checker', 'QC Checked At', 'Note'
+            ]);
+
+            foreach ($followUps as $fu) {
+                fputcsv($handle, [
+                    $fu->created_at->format('Y-m-d H:i:s'),
+                    $fu->website->name ?? 'Unknown',
+                    $fu->website->category ?? 'Uncategorized',
+                    $fu->getTypeLabel(),
+                    $fu->url ?? '',
+                    $fu->assignee?->name ?? 'Unassigned',
+                    $fu->qc_status,
+                    $fu->qcChecker?->name ?? '',
+                    $fu->qc_checked_at?->format('Y-m-d H:i:s') ?? '',
+                    strip_tags($fu->note ?? ''),
+                ]);
+            }
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }

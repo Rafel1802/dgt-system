@@ -171,6 +171,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/{board}/basic-update', [BoardController::class, 'updateBoardBasic'])->name('basic-update');
             Route::get('/personal-report', [\App\Http\Controllers\Board\BoardExportController::class, 'personalReport'])->name('reports.personal');
             Route::get('/personal-report/export', [\App\Http\Controllers\Board\BoardExportController::class, 'exportPersonalReport'])->name('reports.personal.export');
+            Route::get('/personal-report/social-media/export', [\App\Http\Controllers\SocialMedia\SocialMediaReportController::class, 'exportPersonalReport'])->name('reports.personal.social_media.export');
+            Route::get('/personal-report/website/export', [\App\Http\Controllers\WebsiteController::class, 'exportPersonalReport'])->name('reports.personal.website.export');
+            Route::get('/personal-report/follow-up/export', [\App\Http\Controllers\WebsiteFollowUpController::class, 'exportPersonalReport'])->name('reports.personal.follow_up.export');
             Route::get('/{board:slug}', [BoardController::class, 'show'])->name('show');
             Route::get('/{board:slug}/snapshot', [BoardController::class, 'snapshot'])->name('snapshot');
             Route::patch('/{board:slug}', [BoardController::class, 'update'])->name('update');

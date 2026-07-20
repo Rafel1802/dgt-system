@@ -255,16 +255,19 @@ class BoardExportController extends Controller
 
             if ($user->isQc()) {
                 // QC Personal Report scope:
-                //  • Cards with a Label named "QC" or "QC/Text Team" (tasks the QC did)
-                //  • OR cards where THIS QC user has commented "QC approved" (tasks they reviewed)
+                //  • Cards assigned to this QC member
+                //  • OR cards this QC member moved to Supervisor
+                //  • OR cards where THIS QC user has commented "QC approved"
                 $userId = $user->id;
                 $query->where(function($q) use ($userId) {
-                    // Cards that have a label containing 'QC' attached
-                    $q->whereHas('labels', function($ql) {
-                        $ql->where('name', 'like', '%QC%')
-                           ->orWhere('name', 'like', '%Text Team%');
+                    $q->whereHas('assignees', function($qa) use ($userId) {
+                        $qa->where('users.id', $userId);
                     })
-                    // OR cards where this QC user has left a comment containing "QC approved"
+                    ->orWhereHas('activityLogs', function($qal) use ($userId) {
+                        $qal->where('user_id', $userId)
+                            ->where('action', 'card.moved')
+                            ->where('description', 'like', '%to **Supervisor%');
+                    })
                     ->orWhereHas('comments', function($qc) use ($userId) {
                         $qc->where('user_id', $userId)
                            ->where('is_system', false)
@@ -281,9 +284,23 @@ class BoardExportController extends Controller
                 }]);
 
             } elseif ($user->isSupervisorRole()) {
-                // Supervisor Personal Report scope: all cards that reached the "Approved" list
-                $query->whereHas('boardList', function($qb) {
-                    $qb->where('name', 'like', '%Approved%');
+                // Supervisor Personal Report scope:
+                //  • Cards moved from Supervisor to Approved list
+                //  • Cards moved from Supervisor to Blocked list
+                //  • Cards approved by Supervisor
+                //  • Cards marked as errors by Supervisor
+                $userId = $user->id;
+                $query->where(function($q) use ($userId) {
+                    $q->where('approved_by', $userId)
+                      ->orWhere('block_completed_by', $userId)
+                      ->orWhereHas('activityLogs', function($qal) use ($userId) {
+                          $qal->where('user_id', $userId)
+                              ->where('action', 'card.moved')
+                              ->where(function($qald) {
+                                  $qald->where('description', 'like', '%to **Approved%')
+                                       ->orWhere('description', 'like', '%to **Block%');
+                              });
+                      });
                 });
             }
         }
@@ -488,8 +505,9 @@ class BoardExportController extends Controller
         abort_unless(auth()->user()->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
 
         $workspaces = $this->getAuthorizedWorkspaces(auth()->user());
+        $users = \App\Models\User::where('is_active', true)->orderBy('name')->get();
 
-        return view('reports.personal', compact('workspaces'));
+        return view('reports.personal', compact('workspaces', 'users'));
     }
 
     /**
@@ -529,6 +547,7 @@ class BoardExportController extends Controller
             $completedTasks = $cards->filter($isCompleted)->count();
             $archivedTasks  = $cards->filter(fn($c) => $c->is_archived)->count();
             $pendingTasks   = $totalTasks - $completedTasks - $archivedTasks;
+            $errorTasks     = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
             
             // Overdue = has a past deadline AND is NOT completed (not in Approved list) AND not archived
             $overdueTasks = $cards->filter(function($c) use ($isCompleted) {
@@ -578,6 +597,7 @@ class BoardExportController extends Controller
                 'pendingTasks' => $pendingTasks,
                 'overdueTasks' => $overdueTasks,
                 'archivedTasks' => $archivedTasks,
+                'errorTasks' => $errorTasks,
                 'memberStats' => $memberStats,
                 'includeDesc' => $includeDesc,
                 'includeComments' => $includeComments,
@@ -601,6 +621,7 @@ class BoardExportController extends Controller
         $completedTasks = $cards->filter($isCompleted)->count();
         $archivedTasks  = $cards->filter(fn($c) => $c->is_archived)->count();
         $pendingTasks   = $totalTasks - $completedTasks - $archivedTasks;
+        $errorTasks     = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
         
         // Overdue = has a past deadline AND is NOT completed AND not archived
         $overdueTasks = $cards->filter(function($c) use ($isCompleted) {
@@ -643,6 +664,7 @@ class BoardExportController extends Controller
             'pendingTasks'  => $pendingTasks,
             'overdueTasks'  => $overdueTasks,
             'archivedTasks' => $archivedTasks,
+            'errorTasks'    => $errorTasks,
             'memberStats'   => $memberStats,
             'includeDesc'   => $includeDesc,
             'includeComments'=> $includeComments,
