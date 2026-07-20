@@ -216,7 +216,7 @@
               {{ $user->last_login_at ? $user->last_login_at->diffForHumans() : 'Never' }}
             </td>
             <td class="px-4 py-3" data-label="Security">
-              <span class="text-[10px] font-semibold px-2 py-0.5 rounded w-fit {{ $user->can_edit_profile ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600' }}">
+              <span id="security-badge-{{ $user->id }}" class="text-[10px] font-semibold px-2 py-0.5 rounded w-fit {{ $user->can_edit_profile ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600' }}">
                 {{ $user->can_edit_profile ? 'Allowed' : 'Not Allowed' }}
               </span>
             </td>
@@ -413,8 +413,33 @@ function userManager() {
         const data = await res.json();
         if (!res.ok) throw data;
 
+        // Update only the affected rows in place — same pattern as toggleActive()/deleteUser() below.
+        this.selectedUsers.forEach((userId) => {
+          if (action === 'freeze' || action === 'unfreeze') {
+            const isActive = action === 'unfreeze';
+            const dot  = document.getElementById(`status-dot-${userId}`);
+            const text = document.getElementById(`status-text-${userId}`);
+            const btn  = document.getElementById(`status-btn-${userId}`);
+            if (dot && text && btn) {
+              dot.className = isActive ? 'w-2 h-2 rounded-full bg-emerald-500' : 'w-2 h-2 rounded-full bg-slate-300';
+              text.textContent = isActive ? 'Active' : 'Frozen';
+              btn.className = isActive
+                ? btn.className.replace('text-slate-400', 'text-emerald-600')
+                : btn.className.replace('text-emerald-600', 'text-slate-400');
+            }
+          } else if (action === 'allow_security' || action === 'disallow_security') {
+            const allowed = action === 'allow_security';
+            const badge = document.getElementById(`security-badge-${userId}`);
+            if (badge) {
+              badge.textContent = allowed ? 'Allowed' : 'Not Allowed';
+              badge.className = allowed
+                ? 'text-[10px] font-semibold px-2 py-0.5 rounded w-fit bg-blue-50 text-blue-600'
+                : 'text-[10px] font-semibold px-2 py-0.5 rounded w-fit bg-red-50 text-red-600';
+            }
+          }
+        });
+
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: data.message, type: 'success' } }));
-        setTimeout(() => window.location.reload(), 800);
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       }

@@ -82,6 +82,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::view('/mac-app', 'downloads.mac-app')->name('downloads.mac-app');
+        // Internal-only: validates Livewire + Turbo coexist safely. Not linked from any menu. Remove after Livewire rollout is verified stable.
+        Route::view('/internal/livewire-test', 'internal.livewire-test')->name('internal.livewire-test');
         Route::get('/mac-app/download', [RouteClosureController::class, 'downloadMacApp'])->name('downloads.mac-app.file');
 
         // Polymorphic attachments download/delete/view

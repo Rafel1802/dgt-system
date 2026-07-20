@@ -126,8 +126,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         })();
     </script>
     <script src="{{ asset('js/workspace-alpine.js') }}?v={{ file_exists(public_path('js/workspace-alpine.js')) ? filemtime(public_path('js/workspace-alpine.js')) : '1.0.0' }}"></script>
-    <!-- Vite assets (Tailwind CSS + Alpine.js) -->
+    <!-- Vite assets (Tailwind CSS + Alpine.js + Livewire, bundled manually so Livewire's JS
+         is not injected into <body> where Turbo would re-execute it on every navigation) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
 
     @stack('styles')
     @stack('head')

@@ -1,4 +1,4 @@
-import Alpine from 'alpinejs';
+import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm';
 import collapse from '@alpinejs/collapse';
 import focus from '@alpinejs/focus';
 import Sortable from 'sortablejs';
@@ -536,9 +536,10 @@ Alpine.data('kanbanBoard', (config = {}) => ({
     },
 }));
 
-// ── Start Alpine ─────────────────────────────────────────────────────────
-window.Alpine = Alpine;
-Alpine.start();
+// ── Start Livewire + Alpine ────────────────────────────────────────────────
+// Livewire's bundle owns window.Alpine/window.Livewire and starts both itself
+// (once, on DOMContentLoaded) since we don't set window.livewireScriptConfig.
+// Do not call Alpine.start()/Livewire.start() here — that would double-start.
 
 // ── Turbo Sidebar Scroll Persistence ──────────────────────────────────────
 document.addEventListener('turbo:before-render', (event) => {
