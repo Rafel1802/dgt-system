@@ -320,12 +320,18 @@ class CustomerController extends Controller
         ]);
 
         $customer = $this->crmService->recordPurchase($customer, $validated['value'], auth()->user());
+        $interaction = $customer->interactions()->with('user:id,name,avatar')->latest()->first();
 
         return response()->json([
-            'success'       => true,
-            'message'       => 'Purchase recorded!',
-            'lifetime_value' => $customer->formatted_value,
-            'total_orders'  => $customer->total_orders,
+            'success'           => true,
+            'message'           => 'Purchase recorded!',
+            'lifetime_value'    => '$' . number_format($customer->lifetime_value, 2),
+            'total_orders'      => $customer->total_orders,
+            'has_purchased'     => $customer->has_purchased,
+            'last_purchase_date' => $customer->last_purchase_date?->format('d M Y'),
+            'status_label'      => $customer->status?->label(),
+            'status_badge_class' => $customer->status?->badgeClass(),
+            'interaction'       => $interaction,
         ]);
     }
 

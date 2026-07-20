@@ -24,10 +24,8 @@
         @endif
 
         <div class="flex justify-center gap-2 mt-3 flex-wrap">
-          <span class="badge {{ $customer->status?->badgeClass() }}">{{ $customer->status?->label() }}</span>
-          @if($customer->has_purchased)
-            <span class="badge badge-emerald">✓ Purchased</span>
-          @endif
+          <span id="status-badge" class="badge {{ $customer->status?->badgeClass() }}">{{ $customer->status?->label() }}</span>
+          <span id="purchased-badge" class="badge badge-emerald" style="{{ $customer->has_purchased ? '' : 'display:none' }}">✓ Purchased</span>
           @if($customer->shipment_delay)
             <span class="badge text-xs px-2 py-0.5 rounded-full"
                   style="background:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}22; color:{{ \App\Models\EbayCustomerRecord::LOGISTIC_ISSUES_COLOR }}">
@@ -106,17 +104,15 @@
         <h4 class="font-semibold text-slate-700 text-sm border-b border-slate-100 pb-2">Purchase History</h4>
         <div class="grid grid-cols-2 gap-3 text-center">
           <div class="bg-emerald-50 rounded-xl p-3">
-            <div class="text-lg font-bold text-emerald-700">${{ number_format($customer->lifetime_value, 2) }}</div>
+            <div id="stat-lifetime-value" class="text-lg font-bold text-emerald-700">${{ number_format($customer->lifetime_value, 2) }}</div>
             <div class="text-xs text-emerald-500">Lifetime Value</div>
           </div>
           <div class="bg-indigo-50 rounded-xl p-3">
-            <div class="text-lg font-bold text-indigo-700">{{ $customer->total_orders }}</div>
+            <div id="stat-total-orders" class="text-lg font-bold text-indigo-700">{{ $customer->total_orders }}</div>
             <div class="text-xs text-indigo-500">Total Orders</div>
           </div>
         </div>
-        @if($customer->last_purchase_date)
-          <p class="text-xs text-slate-400">Last purchase: <strong>{{ $customer->last_purchase_date->format('d M Y') }}</strong></p>
-        @endif
+        <p id="last-purchase-text" class="text-xs text-slate-400" style="{{ $customer->last_purchase_date ? '' : 'display:none' }}">Last purchase: <strong id="last-purchase-date">{{ $customer->last_purchase_date?->format('d M Y') }}</strong></p>
 
         {{-- Record Purchase --}}
         @can('update', $customer)
@@ -309,7 +305,7 @@
             </div>
           </div>
           @empty
-          <p class="text-slate-400 text-sm text-center py-4">No interactions logged yet.</p>
+          <p id="no-interactions-placeholder" class="text-slate-400 text-sm text-center py-4">No interactions logged yet.</p>
           @endforelse
         </div>
       </div>
@@ -377,6 +373,35 @@ function customerProfile(customerId) {
       }
     },
 
+    prependInteraction(interaction) {
+      const list = document.getElementById('interactions-list');
+      if (! list || ! interaction) return;
+
+      document.getElementById('no-interactions-placeholder')?.remove();
+
+      const icons = { call: '📞', email: '📧', meeting: '🤝', note: '📝', whatsapp: '💬', demo: '🖥️' };
+      const outcomeColors = { positive: 'text-emerald-600', negative: 'text-rose-600' };
+      const icon = icons[interaction.type] || '📋';
+      const outcomeColor = outcomeColors[interaction.outcome] || 'text-slate-500';
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+      const row = document.createElement('div');
+      row.className = 'flex gap-3';
+      row.innerHTML = `
+        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 text-base">${icon}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-semibold text-slate-700 text-sm">${esc(interaction.user?.name)}</span>
+            ${interaction.subject ? `<span class="text-slate-400 text-xs">· ${esc(interaction.subject)}</span>` : ''}
+            ${interaction.outcome ? `<span class="text-xs ${outcomeColor}">${esc(interaction.outcome.charAt(0).toUpperCase() + interaction.outcome.slice(1))}</span>` : ''}
+            <span class="text-xs text-slate-300 ml-auto">just now</span>
+          </div>
+          <p class="text-sm text-slate-600 mt-0.5 leading-relaxed">${esc(interaction.content)}</p>
+          ${interaction.duration_minutes ? `<p class="text-xs text-slate-400 mt-0.5">Duration: ${esc(interaction.duration_minutes)} min</p>` : ''}
+        </div>`;
+      list.prepend(row);
+    },
+
     async recordPurchase() {
       if (! this.purchaseValue) return;
       const res = await fetch(`/crm/customers/${this.customerId}/purchase`, {
@@ -386,7 +411,29 @@ function customerProfile(customerId) {
       });
       const data = await res.json();
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: data.message, type: res.ok ? 'success' : 'error' } }));
-      if (res.ok) setTimeout(() => location.reload(), 1200);
+      if (! res.ok) return;
+
+      this.purchaseValue = '';
+      document.getElementById('stat-lifetime-value').textContent = data.lifetime_value;
+      document.getElementById('stat-total-orders').textContent = data.total_orders;
+
+      if (data.last_purchase_date) {
+        const lastPurchase = document.getElementById('last-purchase-text');
+        document.getElementById('last-purchase-date').textContent = data.last_purchase_date;
+        lastPurchase.style.display = '';
+      }
+
+      if (data.has_purchased) {
+        document.getElementById('purchased-badge').style.display = '';
+      }
+
+      if (data.status_label) {
+        const statusBadge = document.getElementById('status-badge');
+        statusBadge.textContent = data.status_label;
+        statusBadge.className = `badge ${data.status_badge_class}`;
+      }
+
+      this.prependInteraction(data.interaction);
     },
 
     async submitInteraction() {
@@ -402,7 +449,7 @@ function customerProfile(customerId) {
         if (! res.ok) throw data;
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Interaction saved!', type: 'success' } }));
         this.newInteraction = { type: 'call', outcome: 'positive', subject: '', content: '', duration_minutes: '' };
-        setTimeout(() => location.reload(), 800);
+        this.prependInteraction(data.interaction);
       } catch(e) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: e.message || 'Failed.', type: 'error' } }));
       } finally {
