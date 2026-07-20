@@ -6,6 +6,7 @@ use App\Enums\CustomerSource;
 use App\Enums\CustomerStatus;
 use App\Enums\InquirySource;
 use App\Enums\WebsiteLeadStatus;
+use App\Events\InstantNotificationBroadcast;
 use App\Models\Customer;
 use App\Models\EbayCustomerRecord;
 use App\Models\Lead;
@@ -13,6 +14,7 @@ use App\Models\TechSupportCase;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class TechSupportTest extends TestCase
@@ -81,6 +83,32 @@ class TechSupportTest extends TestCase
             'subject'     => 'Technical Case Created',
         ]);
         $this->assertEquals(1, $this->tech->fresh()->notifications()->count());
+    }
+
+    /**
+     * The bell is only useful if it updates live — a new tech-support case
+     * must push over Pusher instantly, not rely on Laravel's default queued
+     * notification broadcast (which never fires; no queue worker runs in
+     * this deployment — see InstantNotificationBroadcast).
+     */
+    public function test_a_new_case_broadcasts_live_to_the_tech_support_team(): void
+    {
+        Event::fake([InstantNotificationBroadcast::class]);
+
+        $lead = Lead::create([
+            'handled_by'  => $this->admin->id,
+            'client_name' => 'Live Push Lead',
+            'source'      => InquirySource::WhatsApp->value,
+            'status'      => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now(),
+        ]);
+
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+
+        Event::assertDispatched(InstantNotificationBroadcast::class, function (InstantNotificationBroadcast $event) {
+            return $event->userId === $this->tech->id
+                && $event->payload['data']['type'] === 'tech_case_new';
+        });
     }
 
     public function test_flipping_status_back_and_forth_does_not_create_duplicate_open_cases(): void

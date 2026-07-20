@@ -117,8 +117,9 @@ class EbayCustomerController extends Controller
             $this->createOrder($record, $orderData);
         }
 
-        return redirect()->route('crm.ebay.customers.index', ['tab_type' => $record->tab_type])
-            ->with('success', 'Record added.');
+        return $this->redirectForNegativeFeedbackCause($record)
+            ?? redirect()->route('crm.ebay.customers.index', ['tab_type' => $record->tab_type])
+                ->with('success', 'Record added.');
     }
 
     public function show(EbayCustomerRecord $record): View
@@ -206,8 +207,38 @@ class EbayCustomerController extends Controller
             $this->createOrder($record, $orderData);
         }
 
-        return redirect()->route('crm.ebay.customers.index', ['tab_type' => $record->tab_type])
-            ->with('success', 'Record updated.');
+        return $this->redirectForNegativeFeedbackCause($record)
+            ?? redirect()->route('crm.ebay.customers.index', ['tab_type' => $record->tab_type])
+                ->with('success', 'Record updated.');
+    }
+
+    /**
+     * When a record is saved into one of the negative-feedback categories,
+     * route staff straight to whichever department the cause(s) actually
+     * point at — Technical/Logistic issues are someone else's queue to
+     * work from, not something staff would otherwise think to go check.
+     * "Customer service" has no dedicated queue of its own, so that (and no
+     * cause selected at all) falls through to the normal list redirect.
+     * When more than one cause is checked, Technical wins over Logistic
+     * issues over Customer service — most specific/urgent first, same
+     * ordering validatedRecord()'s note-required rule already treats these
+     * categories by.
+     */
+    private function redirectForNegativeFeedbackCause(EbayCustomerRecord $record): ?RedirectResponse
+    {
+        if (! in_array($record->tab_type, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true)) {
+            return null;
+        }
+
+        $causes = $record->negative_feedback_causes ?? [];
+
+        return match (true) {
+            in_array('Technical', $causes, true) => redirect()->route('crm.tech-support.index')
+                ->with('success', 'Record saved — routed to Technical Support (negative feedback cause).'),
+            in_array('Logistic issues', $causes, true) => redirect()->route('crm.logistics.issues.index')
+                ->with('success', 'Record saved — routed to Logistic Issues (negative feedback cause).'),
+            default => null,
+        };
     }
 
     /**

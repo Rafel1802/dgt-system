@@ -544,6 +544,14 @@ class CrmCustomerMatchService
                 return;
             }
             $reserve($k);
+            // A negative-feedback report caused by "Logistic issues" belongs
+            // on the real Logistic Issues page the same way an active
+            // shipment problem already does — computed live from the tab +
+            // cause rather than a stored flag, so it never goes stale
+            // (unchecking the cause or moving off the negative-feedback
+            // status just stops matching here, no separate cleanup needed).
+            $hasLogisticCause = in_array($record->tab_type, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true)
+                && in_array('Logistic issues', $record->negative_feedback_causes ?? [], true);
             $out->push([
                 'source'      => 'eBay',
                 'source_icon' => '🛒',
@@ -553,12 +561,12 @@ class CrmCustomerMatchService
                 'email'       => $record->email,
                 'phone'       => $record->phone,
                 'status_label'=> match (true) {
-                    $record->shipment_delay      => 'Logistic issues',
+                    $record->shipment_delay || $hasLogisticCause => 'Logistic issues',
                     $record->shipment_delivered  => 'Delivered',
                     default                       => EbayCustomerRecord::tabs()[$record->tab_type] ?? $record->tab_type,
                 },
                 'status_color'=> match (true) {
-                    $record->shipment_delay      => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
+                    $record->shipment_delay || $hasLogisticCause => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
                     $record->shipment_delivered  => EbayCustomerRecord::DELIVERED_COLOR,
                     default                       => EbayCustomerRecord::tabColor($record->tab_type),
                 },
@@ -571,7 +579,7 @@ class CrmCustomerMatchService
                 'purchase_date' => $record->orders->first()?->ordered_at,
                 'category'    => match (true) {
                     $record->tab_type === EbayCustomerRecord::TAB_TECHNICAL => 'technical',
-                    $record->shipment_delay => 'shipment_delay',
+                    $record->shipment_delay || $hasLogisticCause => 'shipment_delay',
                     in_array($record->tab_type, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES]) => 'negative_feedback',
                     default => null,
                 },

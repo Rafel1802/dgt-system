@@ -11,6 +11,7 @@ use App\Models\TechSupportCase;
 use App\Models\TechSupportCaseLog;
 use App\Models\User;
 use App\Notifications\GenericDatabaseNotification;
+use App\Support\InstantNotifier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
 
@@ -157,7 +158,7 @@ class TechSupportCaseService
         }
 
         foreach ($recipients as $recipient) {
-            $recipient->notify(new GenericDatabaseNotification([
+            InstantNotifier::send($recipient, new GenericDatabaseNotification([
                 'module'  => 'crm',
                 'type'    => $type,
                 'case_id' => $case->id,
@@ -263,8 +264,8 @@ class TechSupportCaseService
             'requested_by' => $actor?->id,
         ]);
 
-        if ($case->assigned_to) {
-            $case->assignee?->notify(new GenericDatabaseNotification([
+        if ($case->assigned_to && $case->assignee) {
+            InstantNotifier::send($case->assignee, new GenericDatabaseNotification([
                 'module'        => 'crm',
                 'type'          => 'tech_case_call_request',
                 'case_id'       => $case->id,
@@ -289,7 +290,7 @@ class TechSupportCaseService
             ->unique('id');
 
         foreach ($recipients as $recipient) {
-            $recipient->notify(new GenericDatabaseNotification([
+            InstantNotifier::send($recipient, new GenericDatabaseNotification([
                 'module'        => 'crm',
                 'type'          => 'call_request_new',
                 'call_request_id' => $callRequest->id,
@@ -333,8 +334,8 @@ class TechSupportCaseService
 
         $message = 'Call completed' . ($actor ? " by {$actor->name}" : '') . ": {$note}";
 
-        if ($case->assigned_to) {
-            $case->assignee?->notify(new GenericDatabaseNotification([
+        if ($case->assigned_to && $case->assignee) {
+            InstantNotifier::send($case->assignee, new GenericDatabaseNotification([
                 'module'  => 'crm',
                 'type'    => 'tech_case_call_completed',
                 'case_id' => $case->id,

@@ -19,16 +19,41 @@ class EbayCustomerRecord extends Model
     protected static function booted(): void
     {
         static::created(function (self $record) {
-            if ($record->tab_type === self::TAB_TECHNICAL) {
+            if ($record->shouldCreateTechSupportCase()) {
                 app(TechSupportCaseService::class)->createCaseFor($record);
             }
         });
 
         static::updated(function (self $record) {
-            if ($record->wasChanged('tab_type') && $record->tab_type === self::TAB_TECHNICAL) {
+            if (
+                ($record->wasChanged('tab_type') || $record->wasChanged('negative_feedback_causes'))
+                && $record->shouldCreateTechSupportCase()
+            ) {
                 app(TechSupportCaseService::class)->createCaseFor($record);
             }
         });
+    }
+
+    /**
+     * True when this record needs a real Tech Support case: either directly
+     * in the Technical Issues category, or in one of the negative-feedback
+     * categories with "Technical" checked as a cause — both funnel into the
+     * same shared case system Website CRM leads already use (assignable,
+     * shows on the Tech Support page, gets notifications), rather than
+     * leaving a technical negative-feedback report as just a tag on this
+     * record with nowhere for Tech Support to actually see or work it.
+     * createCaseFor() is itself idempotent (no-ops if an open case already
+     * exists, reopens a resolved one instead of duplicating), so it's safe
+     * to call this on every save that still matches, not just the first.
+     */
+    public function shouldCreateTechSupportCase(): bool
+    {
+        if ($this->tab_type === self::TAB_TECHNICAL) {
+            return true;
+        }
+
+        return in_array($this->tab_type, [self::TAB_POT_NEGATIVES, self::TAB_NEGATIVES], true)
+            && in_array('Technical', $this->negative_feedback_causes ?? [], true);
     }
 
     const TAB_URGENT         = 'urgent_client';

@@ -21,6 +21,8 @@ use App\Services\CrmCustomerMatchService;
 use App\Services\CrmService;
 use App\Services\GoogleSheetsExportService;
 use App\Services\TechSupportCaseService;
+use App\Notifications\GenericDatabaseNotification;
+use App\Support\InstantNotifier;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -225,7 +227,29 @@ class WebsiteCrmController extends Controller
             unset($validated['handled_by']);
         }
 
+        $previousHandlerId = $lead->handled_by;
+
         $lead->update($validated);
+
+        // Was completely silent before — a lead handed to someone else had
+        // no way to find out short of noticing it on the leads list.
+        if (
+            array_key_exists('handled_by', $validated)
+            && $validated['handled_by']
+            && $validated['handled_by'] !== $previousHandlerId
+            && $validated['handled_by'] !== auth()->id()
+        ) {
+            $newHandler = User::find($validated['handled_by']);
+            if ($newHandler) {
+                InstantNotifier::send($newHandler, new GenericDatabaseNotification([
+                    'module'  => 'crm',
+                    'type'    => 'lead_reassigned',
+                    'lead_id' => $lead->id,
+                    'message' => auth()->user()->name . " assigned you the lead \"{$lead->client_name}\".",
+                    'link'    => route('crm.website.show', $lead),
+                ]));
+            }
+        }
 
         return redirect()->route('crm.website.show', $lead)->with('success', 'Lead updated.');
     }
