@@ -52,26 +52,32 @@ class ShipmentController extends Controller
     /** Process Trucking — every ShipmentCustomer still Pending, across all shipments (including unassigned). */
     public function processTrucking(Request $request): View
     {
-        return $this->truckingQueue($request, ShipmentCustomer::STATUS_PENDING, true);
+        return $this->truckingQueue($request, [ShipmentCustomer::STATUS_PENDING], 'processing');
     }
 
-    /** Loaded — every ShipmentCustomer already In Transit, across all shipments. */
+    /** Loaded — every ShipmentCustomer already Loaded or In Delivery, across all shipments. */
     public function loaded(Request $request): View
     {
-        return $this->truckingQueue($request, ShipmentCustomer::STATUS_IN_TRANSIT, false);
+        return $this->truckingQueue($request, [ShipmentCustomer::STATUS_IN_TRANSIT, ShipmentCustomer::STATUS_IN_DELIVERY], 'loaded');
+    }
+
+    /** Delivered — every ShipmentCustomer marked Delivered, across all shipments. */
+    public function delivered(Request $request): View
+    {
+        return $this->truckingQueue($request, [ShipmentCustomer::STATUS_DELIVERED], 'delivered');
     }
 
     /**
-     * Shared customer-grain queue behind Process Trucking / Loaded — this is
-     * what powers bulk-selecting several customers (possibly from different
-     * shipments, or none yet) and moving them all to the next status, a
-     * shipment, or deleting them at once, none of which map onto a single
-     * shipment's own status the way the shipment-grain list above does.
+     * Shared customer-grain queue behind Process Trucking / Loaded / Delivered
+     * — this is what powers bulk-selecting several customers (possibly from
+     * different shipments, or none yet) and moving them all to the next
+     * status, a shipment, or deleting them at once, none of which map onto a
+     * single shipment's own status the way the shipment-grain list above does.
      */
-    private function truckingQueue(Request $request, string $customerStatus, bool $isProcessing): View
+    private function truckingQueue(Request $request, array $customerStatuses, string $mode): View
     {
         $customerQuery = ShipmentCustomer::with(['shipment', 'handler', 'products'])
-            ->where('status', $customerStatus);
+            ->whereIn('status', $customerStatuses);
 
         if ($s = $request->get('search')) {
             $customerQuery->search($s);
@@ -80,7 +86,7 @@ class ShipmentController extends Controller
         $shipmentCustomers = $customerQuery->latest()->paginate(20)->withQueryString();
 
         return view('crm.logistics.trucking-queue', [
-            'isProcessing'      => $isProcessing,
+            'mode'              => $mode,
             'shipmentCustomers' => $shipmentCustomers,
             // For the bulk "Add to Shipment" picker — active shipments only,
             // since assigning into an already-Complete one isn't useful.
@@ -606,8 +612,9 @@ class ShipmentController extends Controller
         }
 
         return match ($redirectStatus) {
-            'loaded' => redirect()->route('crm.logistics.loaded'),
-            default  => redirect()->route('crm.logistics.processTrucking'),
+            'loaded'    => redirect()->route('crm.logistics.loaded'),
+            'delivered' => redirect()->route('crm.logistics.delivered'),
+            default     => redirect()->route('crm.logistics.processTrucking'),
         };
     }
 
@@ -1100,10 +1107,11 @@ class ShipmentController extends Controller
         }
 
         $shipmentStatus = match ($uniqueStatuses->first()) {
-            ShipmentCustomer::STATUS_PENDING    => Shipment::STATUS_PENDING,
-            ShipmentCustomer::STATUS_IN_TRANSIT => Shipment::STATUS_IN_PROGRESS,
-            ShipmentCustomer::STATUS_DELIVERED  => Shipment::STATUS_COMPLETE,
-            ShipmentCustomer::STATUS_PROBLEM    => Shipment::STATUS_PROBLEM,
+            ShipmentCustomer::STATUS_PENDING     => Shipment::STATUS_PENDING,
+            ShipmentCustomer::STATUS_IN_TRANSIT,
+            ShipmentCustomer::STATUS_IN_DELIVERY => Shipment::STATUS_IN_PROGRESS,
+            ShipmentCustomer::STATUS_DELIVERED   => Shipment::STATUS_COMPLETE,
+            ShipmentCustomer::STATUS_PROBLEM     => Shipment::STATUS_PROBLEM,
             default => null,
         };
 

@@ -814,6 +814,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Loaded
                         </a>
+                        <a href="{{ route('crm.logistics.delivered') }}"
+                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.delivered') ? 'active' : '' }}"
+                           id="nav-delivered">
+                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                            </svg>
+                            Delivered
+                        </a>
                         <a href="{{ route('crm.logistics.issues.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.issues.*') ? 'active' : '' }}"
                            id="nav-logistic-issues">

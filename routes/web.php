@@ -464,11 +464,13 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::post('/quick/product', [LogisticCrmController::class, 'quickCreateProduct'])->name('quick.product');
                     // Logistic Issues — every customer currently flagged with a shipment problem
                     Route::get('/issues', [ShipmentController::class, 'issues'])->name('issues.index');
-                    // Process Trucking / Loaded — separate pages from Shipment Management,
-                    // customer-grain queues (every ShipmentCustomer still Pending / already
-                    // In Transit, across all shipments, including unassigned ones).
+                    // Process Trucking / Loaded / Delivered — separate pages from Shipment
+                    // Management, customer-grain queues (every ShipmentCustomer still
+                    // Pending / already Loaded or In Delivery / already Delivered, across
+                    // all shipments, including unassigned ones).
                     Route::get('/process-trucking', [ShipmentController::class, 'processTrucking'])->name('processTrucking');
                     Route::get('/loaded', [ShipmentController::class, 'loaded'])->name('loaded');
+                    Route::get('/delivered', [ShipmentController::class, 'delivered'])->name('delivered');
 
                     // Trucking Company Management
                     Route::prefix('trucking')->name('trucking.')->group(function () {

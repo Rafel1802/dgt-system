@@ -1,25 +1,28 @@
+@php
+  $modeLabels = ['processing' => 'Process Trucking', 'loaded' => 'Loaded', 'delivered' => 'Delivered'];
+  $modeRoutes = ['processing' => 'crm.logistics.processTrucking', 'loaded' => 'crm.logistics.loaded', 'delivered' => 'crm.logistics.delivered'];
+@endphp
 @extends('layouts.app')
-@section('title', $isProcessing ? 'Process Trucking' : 'Loaded')
-@section('page_title', $isProcessing ? 'Process Trucking' : 'Loaded')
+@section('title', $modeLabels[$mode])
+@section('page_title', $modeLabels[$mode])
 
 @section('content')
 <div class="animate-fade-in">
   {{-- ── Toolbar ──────────────────────────────────────────────────────────── --}}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <div class="flex gap-2 flex-wrap">
-      <a href="{{ route('crm.logistics.processTrucking') }}" class="btn text-xs py-1.5 px-3 {{ $isProcessing ? 'btn-primary' : 'btn-secondary' }}">
-        Process Trucking
+      @foreach($modeLabels as $m => $label)
+      <a href="{{ route($modeRoutes[$m]) }}" class="btn text-xs py-1.5 px-3 {{ $mode === $m ? 'btn-primary' : 'btn-secondary' }}">
+        {{ $label }}
       </a>
-      <a href="{{ route('crm.logistics.loaded') }}" class="btn text-xs py-1.5 px-3 {{ ! $isProcessing ? 'btn-primary' : 'btn-secondary' }}">
-        Loaded
-      </a>
+      @endforeach
     </div>
     <div class="flex gap-2">
       <a href="{{ route('crm.logistics.shipments.index') }}" class="btn btn-secondary text-sm">
         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"/></svg>
         Shipment Management
       </a>
-      @if($isProcessing)
+      @if($mode === 'processing')
       <button type="button" onclick="document.getElementById('importCustomersModal').classList.remove('hidden')" class="btn btn-secondary text-sm">
         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
         Import from Excel
@@ -29,7 +32,7 @@
   </div>
 
   {{-- ── Search ────────────────────────────────────────────────────────────── --}}
-  <form method="GET" action="{{ $isProcessing ? route('crm.logistics.processTrucking') : route('crm.logistics.loaded') }}" class="card p-4 mb-5" x-data>
+  <form method="GET" action="{{ route($modeRoutes[$mode]) }}" class="card p-4 mb-5" x-data>
     <div class="flex flex-wrap gap-3 items-end">
       <div class="flex-1 min-w-[200px]">
         <label class="form-label text-xs">Search</label>
@@ -43,11 +46,15 @@
     </div>
   </form>
 
-  {{-- ── Table (customer-grain: Process Trucking / Loaded) ───────────────────
+  {{-- ── Table (customer-grain: Process Trucking / Loaded / Delivered) ───────
        Bulk-select customers — possibly from different shipments, or none yet
        — and move them all to the next status, a shipment, or delete. --}}
   @php
-    $nextStatus = $isProcessing ? \App\Models\ShipmentCustomer::STATUS_IN_TRANSIT : \App\Models\ShipmentCustomer::STATUS_DELIVERED;
+    $nextStatus = match ($mode) {
+      'processing' => \App\Models\ShipmentCustomer::STATUS_IN_TRANSIT,
+      'loaded'      => \App\Models\ShipmentCustomer::STATUS_IN_DELIVERY,
+      'delivered'   => \App\Models\ShipmentCustomer::STATUS_DELIVERED,
+    };
     $statusLabels = \App\Models\ShipmentCustomer::statuses();
   @endphp
   <div class="card p-0 overflow-hidden" x-data="{
@@ -120,7 +127,7 @@
               <form method="POST" action="{{ route('crm.logistics.shipments.customers.destroy', $sc) }}"
                     data-confirm="Delete this customer record? This cannot be undone." data-confirm-tone="danger" class="inline">
                 @csrf @method('DELETE')
-                <input type="hidden" name="redirect_status" value="{{ $isProcessing ? 'processing' : 'loaded' }}">
+                <input type="hidden" name="redirect_status" value="{{ $mode }}">
                 <button type="submit" class="btn btn-danger btn-icon" style="width:28px;height:28px;" title="Delete">
                   <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                 </button>
@@ -131,8 +138,16 @@
           <tr>
             <td colspan="8" class="text-center py-14">
               <div class="text-4xl mb-3">🚚</div>
-              <p class="text-slate-500 font-medium">{{ $isProcessing ? 'No customers waiting to be loaded' : 'No customers currently loaded' }}</p>
-              <p class="text-slate-400 text-xs mt-1">{{ $isProcessing ? 'Every customer has already been marked Loaded or Delivered.' : 'Mark customers as Loaded from the Process Trucking page first.' }}</p>
+              @if($mode === 'processing')
+              <p class="text-slate-500 font-medium">No customers waiting to be loaded</p>
+              <p class="text-slate-400 text-xs mt-1">Every customer has already been marked Loaded or Delivered.</p>
+              @elseif($mode === 'loaded')
+              <p class="text-slate-500 font-medium">No customers currently loaded or in delivery</p>
+              <p class="text-slate-400 text-xs mt-1">Mark customers as Loaded from the Process Trucking page first.</p>
+              @else
+              <p class="text-slate-500 font-medium">No customers delivered yet</p>
+              <p class="text-slate-400 text-xs mt-1">Mark customers as Delivered from the Loaded page once they arrive.</p>
+              @endif
             </td>
           </tr>
           @endforelse
@@ -156,7 +171,7 @@
           <template x-for="id in selected" :key="id">
             <input type="hidden" name="customer_ids[]" :value="id">
           </template>
-          <input type="hidden" name="redirect_status" value="{{ $isProcessing ? 'processing' : 'loaded' }}">
+          <input type="hidden" name="redirect_status" value="{{ $mode }}">
           <select name="status" x-model="bulkStatus" class="form-input py-1.5 text-sm w-auto">
             @foreach(\App\Models\ShipmentCustomer::statuses() as $val => $lbl)
             <option value="{{ $val }}">{{ $lbl }}</option>
@@ -176,7 +191,7 @@
           <template x-for="id in selected" :key="id">
             <input type="hidden" name="customer_ids[]" :value="id">
           </template>
-          <input type="hidden" name="redirect_status" value="{{ $isProcessing ? 'processing' : 'loaded' }}">
+          <input type="hidden" name="redirect_status" value="{{ $mode }}">
           <input type="hidden" name="shipment_id" :value="bulkShipmentId === '__new__' ? '' : bulkShipmentId">
           <input type="hidden" name="new_shipment_code" :value="bulkShipmentId === '__new__' ? newShipmentCode : ''">
           <select x-model="bulkShipmentId" class="form-input py-1.5 text-sm w-auto">
@@ -200,7 +215,7 @@
           <template x-for="id in selected" :key="id">
             <input type="hidden" name="customer_ids[]" :value="id">
           </template>
-          <input type="hidden" name="redirect_status" value="{{ $isProcessing ? 'processing' : 'loaded' }}">
+          <input type="hidden" name="redirect_status" value="{{ $mode }}">
           <button type="submit" class="btn btn-danger text-sm py-1.5">Delete Selected</button>
         </form>
       </div>
@@ -208,7 +223,7 @@
   </div>
 </div>
 
-@if($isProcessing)
+@if($mode === 'processing')
 {{-- ── Import from Excel modal ──────────────────────────────────────────── --}}
 <div id="importCustomersModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center p-4">
   <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden text-left">
