@@ -124,6 +124,42 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
   Uri get appUri => Uri.parse(appBaseUrl);
 
+  bool _isDownloadUrl(Uri uri) {
+    final path = uri.path.toLowerCase();
+    final segments = uri.pathSegments.map((segment) => segment.toLowerCase());
+
+    if (segments.contains('download') ||
+        path.endsWith('/template') ||
+        path.endsWith('/template-xlsx')) {
+      return true;
+    }
+
+    return const <String>{
+      '.csv',
+      '.doc',
+      '.docx',
+      '.dmg',
+      '.heic',
+      '.ipa',
+      '.jpg',
+      '.jpeg',
+      '.numbers',
+      '.pdf',
+      '.png',
+      '.ppt',
+      '.pptx',
+      '.rar',
+      '.webp',
+      '.xls',
+      '.xlsx',
+      '.zip',
+    }.any(path.endsWith);
+  }
+
+  Future<void> _openExternalUrl(Uri uri) async {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -165,7 +201,8 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   }
 
   Future<void> _prepareOfficialAppSurface() async {
-    await controller?.evaluateJavascript(source: '''
+    await controller?.evaluateJavascript(
+      source: '''
       (() => {
         if (!window.__dgtOfficialAppReady) {
           window.__dgtOfficialAppReady = true;
@@ -174,6 +211,17 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
           }, { capture: true });
           document.documentElement.classList.add('dgt-macos-app');
         }
+
+        const blurAccidentalColorPicker = () => {
+          const active = document.activeElement;
+          if (active && active.matches && active.matches('input[type="color"]')) {
+            active.blur();
+          }
+        };
+
+        window.addEventListener('pageshow', blurAccidentalColorPicker, true);
+        window.addEventListener('load', blurAccidentalColorPicker, true);
+        window.setTimeout(blurAccidentalColorPicker, 80);
 
         if (window.__dgtNativeNotificationBridgeReady) {
           window.__dgtNativeConnectPusher?.();
@@ -346,7 +394,8 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
           }, 30000);
         });
       })();
-    ''');
+    ''',
+    );
   }
 
   Future<void> _handleNativeNotificationMessage(String message) async {
@@ -435,116 +484,128 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
         child: Scaffold(
           backgroundColor: const Color(0xFFF4F7FB),
           body: Stack(
-        children: [
-          Positioned.fill(
-            child: InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri(appUri.toString())),
-              initialSettings: InAppWebViewSettings(
-                userAgent: 'DGTSystemMacOSApp/1.0',
-                javaScriptEnabled: true,
-                transparentBackground: true,
-                cacheEnabled: true,
-              ),
-              onWebViewCreated: (webViewController) {
-                controller = webViewController;
-                controller?.addJavaScriptHandler(
-                  handlerName: 'DgtNativeNotifications',
-                  callback: (args) {
-                    if (args.isNotEmpty) {
-                      _handleNativeNotificationMessage(args[0].toString());
+            children: [
+              Positioned.fill(
+                child: InAppWebView(
+                  initialUrlRequest: URLRequest(url: WebUri(appUri.toString())),
+                  initialSettings: InAppWebViewSettings(
+                    userAgent: 'DGTSystemMacOSApp/1.0',
+                    javaScriptEnabled: true,
+                    transparentBackground: true,
+                    cacheEnabled: true,
+                    useShouldOverrideUrlLoading: true,
+                    useOnDownloadStart: true,
+                  ),
+                  onWebViewCreated: (webViewController) {
+                    controller = webViewController;
+                    controller?.addJavaScriptHandler(
+                      handlerName: 'DgtNativeNotifications',
+                      callback: (args) {
+                        if (args.isNotEmpty) {
+                          _handleNativeNotificationMessage(args[0].toString());
+                        }
+                      },
+                    );
+                  },
+                  onProgressChanged: (controller, progress) {
+                    if (!hasLoadedFirstPage) {
+                      setState(() => loadingProgress = progress);
                     }
                   },
-                );
-              },
-              onProgressChanged: (controller, progress) {
-                if (!hasLoadedFirstPage) {
-                  setState(() => loadingProgress = progress);
-                }
-              },
-              onLoadStart: (controller, url) {
-                setState(() {
-                  loadError = null;
-                  if (!hasLoadedFirstPage) {
-                    loadingProgress = 0;
-                  }
-                });
-              },
-              onLoadStop: (controller, url) async {
-                setState(() {
-                  loadingProgress = 100;
-                  hasLoadedFirstPage = true;
-                });
-                await _prepareOfficialAppSurface();
-                notificationPoller.start();
-              },
-              onReceivedError: (controller, request, error) {
-                if (request.isForMainFrame ?? false) {
-                  final desc = error.description.toLowerCase();
-                  // Ignore harmless cancellation errors caused by Turbo routing/back navigation
-                  if (desc.contains('-999') || desc.contains('cancelled') || desc.contains('aborted')) {
-                    return;
-                  }
-                  setState(() => loadError = error.description);
-                }
-              },
-              shouldOverrideUrlLoading: (controller, navigationAction) async {
-                final uri = navigationAction.request.url;
-                if (uri != null) {
-                  if (_isInternalUrl(uri)) {
-                    return NavigationActionPolicy.ALLOW;
-                  }
-                  launchUrl(uri, mode: LaunchMode.externalApplication);
-                  return NavigationActionPolicy.CANCEL;
-                }
-                return NavigationActionPolicy.ALLOW;
-              },
-            ),
-          ),
-          // ── Splash Screen Overlay ────────────────────────────────────────
-          if (!hasLoadedFirstPage)
-            Container(
-              color: const Color(0xFF161922),
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2F68ED),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'KQ',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 32,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Welcome to KIUQ SYSTEM',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
+                  onLoadStart: (controller, url) {
+                    setState(() {
+                      loadError = null;
+                      if (!hasLoadedFirstPage) {
+                        loadingProgress = 0;
+                      }
+                    });
+                  },
+                  onLoadStop: (controller, url) async {
+                    setState(() {
+                      loadingProgress = 100;
+                      hasLoadedFirstPage = true;
+                    });
+                    await _prepareOfficialAppSurface();
+                    notificationPoller.start();
+                  },
+                  onReceivedError: (controller, request, error) {
+                    if (request.isForMainFrame ?? false) {
+                      final desc = error.description.toLowerCase();
+                      // Ignore harmless cancellation errors caused by Turbo routing/back navigation
+                      if (desc.contains('-999') ||
+                          desc.contains('cancelled') ||
+                          desc.contains('aborted')) {
+                        return;
+                      }
+                      setState(() => loadError = error.description);
+                    }
+                  },
+                  shouldOverrideUrlLoading:
+                      (controller, navigationAction) async {
+                        final uri = navigationAction.request.url;
+                        if (uri != null) {
+                          if (_isDownloadUrl(uri)) {
+                            await _openExternalUrl(uri);
+                            return NavigationActionPolicy.CANCEL;
+                          }
+                          if (_isInternalUrl(uri)) {
+                            return NavigationActionPolicy.ALLOW;
+                          }
+                          await _openExternalUrl(uri);
+                          return NavigationActionPolicy.CANCEL;
+                        }
+                        return NavigationActionPolicy.ALLOW;
+                      },
+                  onDownloadStartRequest: (controller, request) async {
+                    await _openExternalUrl(request.url);
+                  },
+                ),
               ),
-            ),
-          if (loadError != null)
-            _LoadErrorPanel(
-              message: loadError!,
-              url: appBaseUrl,
-              onRetry: _reload,
-            ),
-        ],
-      ),
+              // ── Splash Screen Overlay ────────────────────────────────────────
+              if (!hasLoadedFirstPage)
+                Container(
+                  color: const Color(0xFF161922),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2F68ED),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'KQ',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 32,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Welcome to KIUQ SYSTEM',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (loadError != null)
+                _LoadErrorPanel(
+                  message: loadError!,
+                  url: appBaseUrl,
+                  onRetry: _reload,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -634,7 +695,9 @@ class NativeNotificationPoller {
   }
 
   Future<Map<String, dynamic>?> _fetchNotifications() async {
-    final cookies = await cookieManager.getCookies(url: WebUri(appUri.toString()));
+    final cookies = await cookieManager.getCookies(
+      url: WebUri(appUri.toString()),
+    );
     if (cookies.isEmpty) {
       return null;
     }

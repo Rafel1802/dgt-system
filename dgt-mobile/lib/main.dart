@@ -1,21 +1,24 @@
-import 'dart:convert';
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 // ─── App URL Configuration ───────────────────────────────────────────────────
-const configuredAppBaseUrl = String.fromEnvironment('APP_BASE_URL',
-    defaultValue: 'https://rosybrown-baboon-228003.hostingersite.com');
+const configuredAppBaseUrl = String.fromEnvironment(
+  'APP_BASE_URL',
+  defaultValue: 'https://rosybrown-baboon-228003.hostingersite.com',
+);
 
 final String appBaseUrl = _resolveAppBaseUrl();
 
 String _resolveAppBaseUrl() {
   final rawUrl = configuredAppBaseUrl;
-  if (rawUrl.isEmpty) return 'https://rosybrown-baboon-228003.hostingersite.com';
+  if (rawUrl.isEmpty) {
+    return 'https://rosybrown-baboon-228003.hostingersite.com';
+  }
   final uri = Uri.tryParse(rawUrl);
-  if (uri == null || !uri.hasScheme) return 'https://rosybrown-baboon-228003.hostingersite.com';
+  if (uri == null || !uri.hasScheme) {
+    return 'https://rosybrown-baboon-228003.hostingersite.com';
+  }
   final normalizedPath = uri.path.replaceFirst(RegExp(r'/api/?$'), '');
   final appUri = uri.replace(path: normalizedPath, query: '', fragment: '');
   return appUri.toString().replaceFirst(RegExp(r'/$'), '');
@@ -62,6 +65,42 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
   Uri get appUri => Uri.parse(appBaseUrl);
 
+  bool _isDownloadUrl(Uri uri) {
+    final path = uri.path.toLowerCase();
+    final segments = uri.pathSegments.map((segment) => segment.toLowerCase());
+
+    if (segments.contains('download') ||
+        path.endsWith('/template') ||
+        path.endsWith('/template-xlsx')) {
+      return true;
+    }
+
+    return const <String>{
+      '.csv',
+      '.doc',
+      '.docx',
+      '.dmg',
+      '.heic',
+      '.ipa',
+      '.jpg',
+      '.jpeg',
+      '.numbers',
+      '.pdf',
+      '.png',
+      '.ppt',
+      '.pptx',
+      '.rar',
+      '.webp',
+      '.xls',
+      '.xlsx',
+      '.zip',
+    }.any(path.endsWith);
+  }
+
+  Future<void> _openExternalUrl(Uri uri) async {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   bool _isInternalUrl(Uri? uri) {
     if (uri == null) return true;
     if (uri.scheme == 'about' || uri.scheme == 'data') return true;
@@ -74,13 +113,26 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   }
 
   Future<void> _prepareAppSurface() async {
-    await controller?.evaluateJavascript(source: '''
+    await controller?.evaluateJavascript(
+      source: '''
       (() => {
         if (window.__dgtMobileReady) return;
         window.__dgtMobileReady = true;
         document.documentElement.classList.add('dgt-mobile-app');
+
+        const blurAccidentalColorPicker = () => {
+          const active = document.activeElement;
+          if (active && active.matches && active.matches('input[type="color"]')) {
+            active.blur();
+          }
+        };
+
+        window.addEventListener('pageshow', blurAccidentalColorPicker, true);
+        window.addEventListener('load', blurAccidentalColorPicker, true);
+        window.setTimeout(blurAccidentalColorPicker, 80);
       })();
-    ''');
+    ''',
+    );
   }
 
   @override
@@ -88,117 +140,127 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: Stack(
-          children: [
-            // ── WebView ──────────────────────────────────────────────
-            Positioned.fill(
-              child: InAppWebView(
-                initialUrlRequest: URLRequest(url: WebUri(appBaseUrl)),
-                initialSettings: InAppWebViewSettings(
-                  userAgent: 'DGTSystemiOSApp/1.0',
-                  javaScriptEnabled: true,
-                  transparentBackground: true,
-                  allowFileAccessFromFileURLs: true,
-                  allowUniversalAccessFromFileURLs: true,
-                  mediaPlaybackRequiresUserGesture: false,
-                  disableContextMenu: true,
-                  verticalScrollBarEnabled: false,
-                  horizontalScrollBarEnabled: false,
-                  allowsBackForwardNavigationGestures: true,
-                  useShouldOverrideUrlLoading: true,
-                  cacheEnabled: true,
-                ),
-                onWebViewCreated: (webViewController) {
-                  controller = webViewController;
-                },
-                onProgressChanged: (controller, progress) {
-                  if (!hasLoadedFirstPage) {
-                    setState(() => loadingProgress = progress);
+        children: [
+          // ── WebView ──────────────────────────────────────────────
+          Positioned.fill(
+            child: InAppWebView(
+              initialUrlRequest: URLRequest(url: WebUri(appBaseUrl)),
+              initialSettings: InAppWebViewSettings(
+                userAgent: 'DGTSystemiOSApp/1.0',
+                javaScriptEnabled: true,
+                transparentBackground: true,
+                allowFileAccessFromFileURLs: true,
+                allowUniversalAccessFromFileURLs: true,
+                mediaPlaybackRequiresUserGesture: false,
+                disableContextMenu: true,
+                verticalScrollBarEnabled: false,
+                horizontalScrollBarEnabled: false,
+                allowsBackForwardNavigationGestures: true,
+                useShouldOverrideUrlLoading: true,
+                useOnDownloadStart: true,
+                cacheEnabled: true,
+              ),
+              onWebViewCreated: (webViewController) {
+                controller = webViewController;
+              },
+              onProgressChanged: (controller, progress) {
+                if (!hasLoadedFirstPage) {
+                  setState(() => loadingProgress = progress);
+                }
+              },
+              onLoadStart: (controller, url) {
+                setState(() {
+                  loadError = null;
+                  if (!hasLoadedFirstPage) loadingProgress = 0;
+                });
+              },
+              onLoadStop: (controller, url) async {
+                setState(() {
+                  loadingProgress = 100;
+                  hasLoadedFirstPage = true;
+                });
+                await _prepareAppSurface();
+              },
+              onReceivedError: (controller, request, error) {
+                if (request.isForMainFrame ?? false) {
+                  final desc = error.description.toLowerCase();
+                  if (desc.contains('-999') ||
+                      desc.contains('cancelled') ||
+                      desc.contains('aborted')) {
+                    return;
                   }
-                },
-                onLoadStart: (controller, url) {
-                  setState(() {
-                    loadError = null;
-                    if (!hasLoadedFirstPage) loadingProgress = 0;
-                  });
-                },
-                onLoadStop: (controller, url) async {
-                  setState(() {
-                    loadingProgress = 100;
-                    hasLoadedFirstPage = true;
-                  });
-                  await _prepareAppSurface();
-                },
-                onReceivedError: (controller, request, error) {
-                  if (request.isForMainFrame ?? false) {
-                    final desc = error.description.toLowerCase();
-                    if (desc.contains('-999') || desc.contains('cancelled') || desc.contains('aborted')) {
-                      return;
-                    }
-                    setState(() => loadError = error.description);
-                  }
-                },
-                shouldOverrideUrlLoading: (controller, navigationAction) async {
-                  final uri = navigationAction.request.url;
-                  if (_isInternalUrl(uri)) {
-                    return NavigationActionPolicy.ALLOW;
-                  }
-                  if (uri != null) {
-                    launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
+                  setState(() => loadError = error.description);
+                }
+              },
+              shouldOverrideUrlLoading: (controller, navigationAction) async {
+                final uri = navigationAction.request.url;
+                if (uri != null && _isDownloadUrl(uri)) {
+                  await _openExternalUrl(uri);
                   return NavigationActionPolicy.CANCEL;
-                },
+                }
+                if (_isInternalUrl(uri)) {
+                  return NavigationActionPolicy.ALLOW;
+                }
+                if (uri != null) {
+                  await _openExternalUrl(uri);
+                }
+                return NavigationActionPolicy.CANCEL;
+              },
+              onDownloadStartRequest: (controller, request) async {
+                await _openExternalUrl(request.url);
+              },
+            ),
+          ),
+
+          // ── Loading Bar Removed for Instant Feel ─────────────────────────
+
+          // ── Splash Screen Overlay ────────────────────────────────────────
+          if (!hasLoadedFirstPage)
+            Container(
+              color: const Color(0xFF161922),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2F68ED),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'KQ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 32,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Welcome to KIUQ SYSTEM',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             ),
 
-            // ── Loading Bar Removed for Instant Feel ─────────────────────────
-
-            // ── Splash Screen Overlay ────────────────────────────────────────
-            if (!hasLoadedFirstPage)
-              Container(
-                color: const Color(0xFF161922),
-                alignment: Alignment.center,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2F68ED),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'KQ',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 32,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Welcome to KIUQ SYSTEM',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // ── Error Panel ──────────────────────────────────────────
-            if (loadError != null)
-              _LoadErrorPanel(
-                message: loadError!,
-                url: appBaseUrl,
-                onRetry: _reload,
-              ),
-          ],
-        ),
+          // ── Error Panel ──────────────────────────────────────────
+          if (loadError != null)
+            _LoadErrorPanel(
+              message: loadError!,
+              url: appBaseUrl,
+              onRetry: _reload,
+            ),
+        ],
+      ),
     );
   }
 }
@@ -248,9 +310,11 @@ class _LoadErrorPanel extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Text(url,
-              style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
-              textAlign: TextAlign.center),
+          Text(
+            url,
+            style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
           Text(
             message,

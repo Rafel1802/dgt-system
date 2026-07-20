@@ -4,8 +4,10 @@
 
 @section('content')
 @php
-    $version = '1.0.1';
-    $downloadUrl = asset('downloads/KIUQ-SYSTEM-1.0.1.dmg');
+    $version = '1.0.6';
+    $downloadUrl = asset('downloads/KIUQ-SYSTEM-1.0.6.dmg');
+    $iosDownloadUrl = asset('downloads/KIUQ-SYSTEM-IOS-1.0.6.ipa');
+    $androidDownloadUrl = asset('downloads/KIUQ-SYSTEM-ANDROID-1.0.6.apk');
     $appcastUrl = asset('appcast/latest-mac.json');
 @endphp
 
@@ -171,30 +173,49 @@
 <div class="mac-app-page mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
     <div class="mac-app-shell overflow-hidden rounded-[1.75rem] border">
         <section class="mac-app-hero relative overflow-hidden px-7 py-8 sm:px-10 lg:px-12">
-            <div class="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
-                <div class="flex flex-col gap-6 sm:flex-row sm:items-center">
-                    <img src="{{ asset('favicon.svg') }}" alt="KIUQ SYSTEM" class="h-20 w-20 rounded-3xl object-contain shadow-2xl shadow-blue-950/30 ring-1 ring-white/20">
-                    <div>
+            <div class="relative grid gap-8 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_380px] lg:items-center">
+                <div class="flex flex-col gap-6 sm:flex-row sm:items-start lg:items-center min-w-0">
+                    <img src="{{ asset('favicon.svg') }}" alt="KIUQ SYSTEM" class="h-20 w-20 flex-shrink-0 rounded-3xl object-contain shadow-2xl shadow-blue-950/30 ring-1 ring-white/20">
+                    <div class="min-w-0">
                         <div class="mac-app-badge inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em]">
                             <span class="h-2 w-2 rounded-full bg-emerald-300"></span>
                             Private staff app
                         </div>
-                        <h1 class="mac-app-title mt-4 text-3xl font-black tracking-normal sm:text-5xl">KIUQ SYSTEM for macOS</h1>
-                        <p class="mac-app-copy mt-3 max-w-2xl text-base font-semibold leading-7">
-                            Faster access to the hosted workspace, native macOS notifications, and a cleaner desktop experience for staff.
+                        <h1 class="mac-app-title mt-4 text-3xl font-black tracking-normal sm:text-5xl break-words">KIUQ SYSTEM Apps</h1>
+                        <p class="mac-app-copy mt-3 max-w-xl text-base font-semibold leading-7">
+                            Faster access to the hosted workspace from macOS, iOS, and Android, with the optimized Hostinger app experience packaged for staff.
                         </p>
                     </div>
                 </div>
 
-                <div class="mac-app-download-box rounded-3xl p-4 backdrop-blur">
+                <div class="mac-app-download-box w-full rounded-3xl p-5 backdrop-blur">
                     <a href="{{ route('downloads.mac-app.file') }}"
-                       class="mac-app-download-button inline-flex w-full items-center justify-center gap-3 rounded-2xl px-7 py-4 text-base font-black transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                       class="mac-app-download-button inline-flex w-full items-center justify-center gap-3 rounded-2xl px-6 py-4 text-base font-black transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
                         </svg>
                         Download .dmg
                     </a>
-                    <p class="mac-app-meta mt-3 text-center text-xs font-bold">Version {{ $version }} · macOS</p>
+                    <a href="{{ $iosDownloadUrl }}"
+                       class="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-6 py-4 text-base font-black text-blue-700 transition hover:bg-blue-100"
+                       download>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/>
+                        </svg>
+                        Download iOS .ipa
+                    </a>
+                    <a href="{{ $androidDownloadUrl }}"
+                       class="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-4 text-base font-black text-emerald-700 transition hover:bg-emerald-100"
+                       download>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M8 8V5m8 3V5M6 10h12v7a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-7Z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v4m16-4v4"/>
+                        </svg>
+                        Download Android .apk
+                    </a>
+                    <p class="mac-app-meta mt-4 text-center text-xs font-bold">Version {{ $version }} · macOS</p>
+                    <p class="mac-app-meta mt-1 text-center text-xs font-bold">Version {{ $version }} · iOS IPA</p>
+                    <p class="mac-app-meta mt-1 text-center text-xs font-bold">Version {{ $version }} · Android APK</p>
                 </div>
             </div>
         </section>
@@ -209,8 +230,8 @@
                 <p class="mac-app-strong mt-2 truncate text-2xl font-black">Hostinger</p>
             </div>
             <div class="mac-app-card rounded-2xl border p-5">
-                <p class="mac-app-muted text-xs font-black uppercase tracking-[0.16em]">Notifications</p>
-                <p class="mac-app-strong mt-2 text-2xl font-black">Native macOS</p>
+                <p class="mac-app-muted text-xs font-black uppercase tracking-[0.16em]">Packages</p>
+                <p class="mac-app-strong mt-2 text-2xl font-black">DMG + IPA + APK</p>
             </div>
         </section>
 
