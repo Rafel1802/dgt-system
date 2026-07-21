@@ -43,18 +43,23 @@ run_cmd(rsync_cmd)
 ssh_cmd = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
     "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
-    "rm -rf bootstrap/cache/*.php storage/framework/cache/data/* storage/framework/views/* || true; "
+    # Deliberately NOT touching storage/framework/views/* — Laravel already
+    # recompiles a Blade file automatically when its source mtime is newer
+    # than the cached copy, which our rsync guarantees for every file we
+    # actually deploy. Blanket-deleting the whole view cache instead forced
+    # EVERY page on the live site into a cold recompile at once; a request
+    # landing in that gap (multiple deploys during active testing this
+    # session) could read a half-written/missing compiled view and get
+    # truncated or corrupted HTML — self-healing on the next request once
+    # recompiled, exactly the "blank page, refresh fixes it, random pages"
+    # symptom reported. `php artisan view:cache` was tried as a deliberate
+    # single-batch alternative but silently produces zero compiled files on
+    # this host (CLI `php` here reports 8.2.30 against a composer.json
+    # platform requirement of >=8.4.1 — likely a different PHP than what
+    # PHP-FPM actually serves requests with), so it can't be relied on here.
+    "rm -rf bootstrap/cache/*.php storage/framework/cache/data/* || true; "
     "php -r 'if (function_exists(\"opcache_reset\")) { var_dump(opcache_reset()); } else { echo \"no opcache\\n\"; }'"
 ]
 run_cmd(ssh_cmd)
-
-verify_cmd = [
-    "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
-    "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
-    "grep -c 'showCrmNotificationCard' resources/views/layouts/app.blade.php; "
-    "grep -c 'notifyAssignedRep' app/Http/Controllers/CRM/CustomerController.php; "
-    "grep -n 'setInterval(() => this.fetchData' resources/views/layouts/app.blade.php"
-]
-run_cmd(verify_cmd)
 
 print("Deploy successful!")
