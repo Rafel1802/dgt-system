@@ -20,6 +20,11 @@ use Illuminate\View\View;
 
 class CustomerController extends Controller
 {
+    // Accepts common US/Canada (NANP) formats: (207) 213-9077, 207-213-9077,
+    // 207.213.9077, 2072139077, +1 207-213-9077 — matches what
+    // PhoneNumberFormatter normalizes on save.
+    private const US_PHONE_REGEX = '/^\+?1?[-.\s]?\(?[2-9][0-9]{2}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/';
+
     public function __construct(
         private readonly CrmService $crmService,
         private readonly CrmCustomerMatchService $matcher,
@@ -112,7 +117,7 @@ class CustomerController extends Controller
             // name+email match together (see findDuplicateCustomer() below);
             // the same email under a different name is a different person.
             'email'             => ['nullable', 'email', 'max:255'],
-            'phone'             => ['nullable', 'string', 'max:30'],
+            'phone'             => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
             'company'           => ['nullable', 'string', 'max:255'],
             'job_title'         => ['nullable', 'string', 'max:100'],
             'website'           => ['nullable', 'url', 'max:255'],
@@ -129,6 +134,8 @@ class CustomerController extends Controller
             'notes'             => ['nullable', 'string', 'max:5000'],
             'assigned_to'       => ['nullable', 'integer', 'exists:users,id'],
             'tags'              => ['nullable', 'string'],
+        ], [
+            'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 
         // Convert comma-separated tags to array
@@ -253,7 +260,7 @@ class CustomerController extends Controller
         $validated = $request->validate([
             'name'              => ['required', 'string', 'max:255'],
             'email'             => ['nullable', 'email', 'max:255', "unique:customers,email,{$customer->id}"],
-            'phone'             => ['nullable', 'string', 'max:30'],
+            'phone'             => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
             'company'           => ['nullable', 'string', 'max:255'],
             'job_title'         => ['nullable', 'string', 'max:100'],
             'website'           => ['nullable', 'url', 'max:255'],
@@ -268,6 +275,8 @@ class CustomerController extends Controller
             'notes'             => ['nullable', 'string', 'max:5000'],
             'assigned_to'       => ['nullable', 'integer', 'exists:users,id'],
             'tags'              => ['nullable', 'string'],
+        ], [
+            'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 
         if (! empty($validated['tags'])) {

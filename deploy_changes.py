@@ -23,13 +23,9 @@ def run_cmd(args):
 
 rsync_cmd = [
     "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002", "--relative",
-    "resources/views/boards/workspaces.blade.php",
-    "resources/views/boards/partials/board-menu.blade.php",
-    "app/Http/Controllers/Board/BoardController.php",
-    "app/Http/Controllers/Board/CardController.php",
-    "app/Models/Board.php",
-    "resources/views/layouts/app.blade.php",
-    "routes/web.php",
+    "app/Http/Controllers/CRM/CustomerController.php",
+    "resources/views/crm/create.blade.php",
+    "resources/views/crm/edit.blade.php",
     "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"
 ]
 run_cmd(rsync_cmd)

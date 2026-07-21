@@ -29,7 +29,8 @@
           </div>
           <div>
             <label class="form-label">Phone</label>
-            <input type="text" name="phone" value="{{ old('phone', $customer->phone) }}" class="form-input">
+            <input type="text" name="phone" value="{{ old('phone', $customer->phone) }}" class="form-input @error('phone') border-red-300 @enderror" placeholder="+1 (207) 213-9077">
+            @error('phone')<p class="form-error">{{ $message }}</p>@enderror
           </div>
           <div>
             <label class="form-label">Company</label>
