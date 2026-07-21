@@ -2058,8 +2058,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             onNotification(payload);
         };
 
-        channel.bind('Illuminate\\Notifications\\Events\\BroadcastNotificationCreated', handle);
-        channel.bind('Illuminate\\\\Notifications\\\\Events\\\\BroadcastNotificationCreated', handle);
+        // A single bind_global handler, not multiple exact-name channel.bind()
+        // calls — Laravel's broadcastAs() name can arrive with different
+        // backslash-escaping depending on how it's transported, and binding
+        // several literal variants "just in case" means more than one of
+        // them matches the same incoming event, delivering (and popping up)
+        // the same notification multiple times. bind_global's substring
+        // check is escaping-agnostic and fires exactly once per event.
         channel.bind_global((eventName, payload) => {
             if (String(eventName).includes('BroadcastNotificationCreated')) {
                 handle(payload);
