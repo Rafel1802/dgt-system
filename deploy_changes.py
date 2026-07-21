@@ -35,6 +35,9 @@ rsync_cmd = [
     "resources/views/admin/users/create.blade.php",
     "resources/views/admin/users/edit.blade.php",
     "resources/views/layouts/app.blade.php",
+    "resources/views/crm/website/index.blade.php",
+    "app/Models/Lead.php",
+    "app/Services/TechSupportCaseService.php",
     "routes/web.php",
     "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"
 ]

@@ -37,8 +37,8 @@
           <h2 class="font-display font-bold text-slate-800 text-lg">{{ $lead->client_name }}</h2>
           <div class="flex items-center justify-center gap-2 mt-1 flex-wrap">
             <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full"
-                  style="background:{{ $lead->display_status_color }}22; color:{{ $lead->display_status_color }}">
-              {{ $lead->display_status_label }}
+                  style="background:{{ $lead->status?->color() }}22; color:{{ $lead->status?->color() }}">
+              {{ $lead->status?->label() }}
             </span>
             @if($lead->techSupportCase?->occurrence_label)
               <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">

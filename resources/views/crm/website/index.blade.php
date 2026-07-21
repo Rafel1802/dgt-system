@@ -134,8 +134,8 @@
             </td>
             <td class="px-4 py-3">
               <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full"
-                    style="background:{{ $lead->display_status_color }}22; color:{{ $lead->display_status_color }}">
-                {{ $lead->display_status_label }}
+                    style="background:{{ $lead->status?->color() }}22; color:{{ $lead->status?->color() }}">
+                {{ $lead->status?->label() }}
               </span>
               @if($lead->techSupportCase?->occurrence_label)
                 <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full block mt-1 w-fit bg-amber-50 text-amber-700" title="Repeat technical issue">

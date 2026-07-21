@@ -70,25 +70,6 @@ class Lead extends Model
         $this->attributes['client_phone'] = \App\Support\PhoneNumberFormatter::format($value);
     }
 
-    /**
-     * Resolving a technical support case never rewrites the lead's own
-     * pipeline status away from Technical Support (that would lose the
-     * "this lead once had a technical issue" history — see
-     * TechSupportCaseService::syncLeadResolved()) — tech_resolved is the
-     * real signal instead. Every place that shows the lead's status badge
-     * must read this accessor rather than the raw status so a resolved
-     * technical issue still displays as "Resolved".
-     */
-    public function getDisplayStatusLabelAttribute(): string
-    {
-        return $this->tech_resolved ? WebsiteLeadStatus::Resolved->label() : ($this->status?->label() ?? '');
-    }
-
-    public function getDisplayStatusColorAttribute(): string
-    {
-        return $this->tech_resolved ? WebsiteLeadStatus::Resolved->color() : ($this->status?->color() ?? '#94a3b8');
-    }
-
     // ── Relationships ───────────────────────────────────────────────────────
 
     public function customer(): BelongsTo
