@@ -76,6 +76,16 @@
       </div>
 
       <div>
+        <label class="form-label">CRM Role (optional)</label>
+        <select name="crm_role" class="form-input @error('crm_role') border-red-300 @enderror">
+          <option value="">Member (default)</option>
+          <option value="supervisor" {{ old('crm_role') === 'supervisor' ? 'selected' : '' }}>Supervisor</option>
+        </select>
+        <p class="text-xs text-slate-500 mt-1">Only applies to the Sales/CRM role. A CRM Supervisor can edit lead/customer details and purchase history — a Member can only change status and log follow-ups.</p>
+        @error('crm_role')<p class="form-error">{{ $message }}</p>@enderror
+      </div>
+
+      <div>
         <label class="form-label">Password <span class="text-red-500">*</span></label>
         <div class="relative">
           <input :type="showNew ? 'text' : 'password'" name="password" class="form-input pr-10 @error('password') border-red-300 @enderror" placeholder="Min 8 chars, mixed case + number" id="user-password" autocomplete="new-password" required>

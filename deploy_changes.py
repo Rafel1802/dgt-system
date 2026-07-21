@@ -24,10 +24,15 @@ def run_cmd(args):
 rsync_cmd = [
     "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002", "--relative",
     "app/Http/Controllers/CRM/CustomerController.php",
+    "app/Http/Controllers/CRM/WebsiteCrmController.php",
+    "app/Http/Controllers/Admin/UserController.php",
     "app/Services/CrmCustomerMatchService.php",
     "resources/views/crm/create.blade.php",
     "resources/views/crm/edit.blade.php",
     "resources/views/crm/partials/customer_combobox.blade.php",
+    "resources/views/crm/website/show.blade.php",
+    "resources/views/admin/users/create.blade.php",
+    "resources/views/admin/users/edit.blade.php",
     "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"
 ]
 run_cmd(rsync_cmd)
@@ -43,7 +48,7 @@ run_cmd(ssh_cmd)
 verify_cmd = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
     "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
-    "grep -n 'US_PHONE_REGEX\\|NAME_REGEX' app/Http/Controllers/CRM/CustomerController.php"
+    "grep -n 'canDeleteCrmRecords' app/Http/Controllers/CRM/WebsiteCrmController.php"
 ]
 run_cmd(verify_cmd)
 

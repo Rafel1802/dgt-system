@@ -184,6 +184,8 @@ class WebsiteCrmController extends Controller
 
     public function edit(Lead $lead): View
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can edit lead details.');
+
         return view('crm.website.edit', [
             'lead'      => $lead->load(['followUps', 'products']),
             'statuses'  => WebsiteLeadStatus::cases(),
@@ -203,6 +205,8 @@ class WebsiteCrmController extends Controller
      */
     public function update(Request $request, Lead $lead): RedirectResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can edit lead details.');
+
         $validated = $request->validate([
             'client_name'       => ['required', 'string', 'max:255'],
             'client_phone'      => ['nullable', 'string'],
@@ -219,13 +223,6 @@ class WebsiteCrmController extends Controller
             'handled_by'        => ['nullable', 'exists:users,id'],
             'lost_reason'       => ['nullable', 'string'],
         ]);
-
-        // Reassigning the handler is a supervisor-tier action — everyone else
-        // can still edit every other field on the lead, so silently drop the
-        // submitted value rather than rejecting the whole update.
-        if (! auth()->user()->canDeleteCrmRecords('website')) {
-            unset($validated['handled_by']);
-        }
 
         $previousHandlerId = $lead->handled_by;
 
@@ -379,6 +376,8 @@ class WebsiteCrmController extends Controller
      */
     public function storeOrder(Request $request, Lead $lead): JsonResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can log purchase history.');
+
         $validated = $request->validate([
             'order_date'               => ['required', 'date'],
             'products'                 => ['required', 'array', 'min:1'],

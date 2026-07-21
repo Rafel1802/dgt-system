@@ -8,7 +8,9 @@
   <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
     <a href="{{ route('crm.website.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Website CRM</a>
     <div class="flex gap-2">
+      @if(auth()->user()->canDeleteCrmRecords('website'))
       <a href="{{ route('crm.website.edit', $lead) }}" class="btn btn-secondary text-sm">Edit Lead</a>
+      @endif
       @if(!$lead->status?->isTerminal())
       <button @click="showFollowUp = true" class="btn btn-primary text-sm" id="btn-log-followup">
         📝 Log Follow-Up
@@ -155,7 +157,9 @@
       <div class="card">
         <div class="flex items-center justify-between mb-4">
           <h4 class="font-semibold text-slate-700">Order History</h4>
+          @if(auth()->user()->canDeleteCrmRecords('website'))
           <button @click="openNewOrderModal()" class="btn btn-primary text-sm" id="btn-add-order">+ Add New Order</button>
+          @endif
         </div>
 
         <div class="space-y-4">
