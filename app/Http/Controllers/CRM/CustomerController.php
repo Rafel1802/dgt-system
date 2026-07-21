@@ -176,8 +176,10 @@ class CustomerController extends Controller
         $validated = $request->validate([
             'name'  => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
             'source' => ['nullable', Rule::enum(CustomerSource::class)],
+        ], [
+            'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 
         $source = $validated['source'] ?? CustomerSource::Website->value;

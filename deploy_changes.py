@@ -24,16 +24,27 @@ def run_cmd(args):
 rsync_cmd = [
     "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002", "--relative",
     "app/Http/Controllers/CRM/CustomerController.php",
+    "app/Services/CrmCustomerMatchService.php",
     "resources/views/crm/create.blade.php",
     "resources/views/crm/edit.blade.php",
+    "resources/views/crm/partials/customer_combobox.blade.php",
     "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"
 ]
 run_cmd(rsync_cmd)
 
 ssh_cmd = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
-    "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && rm -rf bootstrap/cache/*.php storage/framework/cache/data/* storage/framework/views/* || true"
+    "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
+    "rm -rf bootstrap/cache/*.php storage/framework/cache/data/* storage/framework/views/* || true; "
+    "php -r 'if (function_exists(\"opcache_reset\")) { var_dump(opcache_reset()); } else { echo \"no opcache\\n\"; }'"
 ]
 run_cmd(ssh_cmd)
+
+verify_cmd = [
+    "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
+    "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
+    "grep -n 'US_PHONE_REGEX' app/Http/Controllers/CRM/CustomerController.php"
+]
+run_cmd(verify_cmd)
 
 print("Deploy successful!")

@@ -238,16 +238,16 @@ class EbayCustomerOrderAndDetailTest extends TestCase
 
     public function test_quick_create_reuses_an_existing_customer_matched_by_phone(): void
     {
-        $existing = Customer::create(['name' => 'Phone Match', 'phone' => '555-0100', 'status' => 'lead', 'source' => 'website', 'created_by' => $this->user->id]);
+        $existing = Customer::create(['name' => 'Phone Match', 'phone' => '555-010-0100', 'status' => 'lead', 'source' => 'website', 'created_by' => $this->user->id]);
 
         $response = $this->actingAs($this->user)->postJson(route('crm.customers.quick-create'), [
             'name'  => 'Different Name Same Phone',
-            'phone' => '555-0100',
+            'phone' => '555-010-0100',
         ]);
 
         $response->assertCreated();
         $response->assertJson(['id' => $existing->id]);
-        $this->assertEquals(1, Customer::where('phone', '555-0100')->count());
+        $this->assertEquals(1, Customer::where('phone', $existing->phone)->count());
     }
 
     public function test_edit_page_no_longer_shows_handler_or_status_history(): void

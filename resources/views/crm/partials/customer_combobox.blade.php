@@ -177,7 +177,7 @@
           </div>
           <div>
             <label class="form-label">Phone</label>
-            <input type="text" id="{{ $fieldId }}-new-phone" class="form-input" placeholder="+855..." autocomplete="off">
+            <input type="text" id="{{ $fieldId }}-new-phone" class="form-input" placeholder="+1 (207) 213-9077" autocomplete="off">
           </div>
         </div>
         <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4">
@@ -277,6 +277,22 @@
     const quickCreateSource = wrap.dataset.quickCreateSource || '';
     const autofill = wrap.dataset.autofill === 'true';
     let open = false;
+
+    // Mirrors PhoneNumberFormatter server-side: only a clean 10-digit US
+    // number (with or without a leading 1) gets reformatted, so partial
+    // typing or non-US numbers are left alone rather than mangled.
+    function formatUsPhone(raw) {
+      const trimmed = raw.trim();
+      if (!trimmed) return trimmed;
+      let digits = trimmed.replace(/\D+/g, '');
+      if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+      if (digits.length !== 10) return trimmed;
+      return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+
+    modalPhone?.addEventListener('blur', () => {
+      modalPhone.value = formatUsPhone(modalPhone.value);
+    });
 
     function addCustomer(customer) {
       const c = normalizeCustomer(customer);
