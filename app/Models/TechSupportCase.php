@@ -9,10 +9,28 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class TechSupportCase extends Model
 {
     use HasFactory, SoftDeletes;
+
+    /**
+     * The sidebar's "new case" badge count (layouts/app.blade.php) caches
+     * this for 5 minutes for performance, since it renders on every page
+     * load — invalidate it on any change that could move a case in or out
+     * of the New status, so the badge doesn't linger stale (e.g. showing
+     * "1" for up to 5 minutes after the last New case was already picked
+     * up) rather than clearing the moment it's no longer true.
+     */
+    protected static function booted(): void
+    {
+        $forget = fn () => Cache::forget('tech_case_count_new');
+
+        static::created($forget);
+        static::updated($forget);
+        static::deleted($forget);
+    }
 
     const STATUS_NEW         = 'new_case';
     const STATUS_IN_PROGRESS = 'in_progress';

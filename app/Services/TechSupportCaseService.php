@@ -15,6 +15,7 @@ use App\Notifications\GenericDatabaseNotification;
 use App\Support\InstantNotifier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Owns the Technical Support case lifecycle: auto-creation from Lead/eBay
@@ -148,6 +149,13 @@ class TechSupportCaseService
             ->get()
             ->filter(fn (DatabaseNotification $n) => in_array($n->data['case_id'] ?? null, $caseIds))
             ->each->markAsRead();
+
+        // The sidebar badge count (layouts/app.blade.php) caches this per
+        // user for 5 minutes for performance — without forgetting it here,
+        // the badge would keep showing a stale unread count for up to 5
+        // minutes after staff actually looked at the result, even though
+        // the notifications above are now marked read.
+        Cache::forget('unread_call_completed_' . auth()->id());
     }
 
     /** Broadcast to the whole Technical Support team. $excludeUserId skips someone who's already getting their own personal notification for this same event, so they don't see it twice. */
