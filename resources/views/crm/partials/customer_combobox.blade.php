@@ -441,6 +441,10 @@
         setError(modalError, 'Full name is required.');
         return;
       }
+      if (!/^[\p{L}\s]+$/u.test(name)) {
+        setError(modalError, 'Name can only contain letters and spaces.');
+        return;
+      }
 
       modalSave.disabled = true;
       modalSpin?.classList.remove('hidden');

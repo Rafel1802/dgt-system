@@ -25,6 +25,9 @@ class CustomerController extends Controller
     // PhoneNumberFormatter normalizes on save.
     private const US_PHONE_REGEX = '/^\+?1?[-.\s]?\(?[2-9][0-9]{2}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/';
 
+    // Letters (any language) and spaces only — no digits or symbols.
+    private const NAME_REGEX = '/^[\p{L}\s]+$/u';
+
     public function __construct(
         private readonly CrmService $crmService,
         private readonly CrmCustomerMatchService $matcher,
@@ -112,7 +115,7 @@ class CustomerController extends Controller
         $this->authorize('create', Customer::class);
 
         $validated = $request->validate([
-            'name'              => ['required', 'string', 'max:255'],
+            'name'              => ['required', 'string', 'max:255', 'regex:' . self::NAME_REGEX],
             // No blanket email uniqueness here — a duplicate is specifically a
             // name+email match together (see findDuplicateCustomer() below);
             // the same email under a different name is a different person.
@@ -135,6 +138,7 @@ class CustomerController extends Controller
             'assigned_to'       => ['nullable', 'integer', 'exists:users,id'],
             'tags'              => ['nullable', 'string'],
         ], [
+            'name.regex'  => 'Name can only contain letters and spaces.',
             'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 
@@ -174,11 +178,12 @@ class CustomerController extends Controller
         $this->authorize('create', Customer::class);
 
         $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:255'],
+            'name'  => ['required', 'string', 'max:255', 'regex:' . self::NAME_REGEX],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
             'source' => ['nullable', Rule::enum(CustomerSource::class)],
         ], [
+            'name.regex'  => 'Name can only contain letters and spaces.',
             'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 
@@ -260,7 +265,7 @@ class CustomerController extends Controller
         $this->authorize('update', $customer);
 
         $validated = $request->validate([
-            'name'              => ['required', 'string', 'max:255'],
+            'name'              => ['required', 'string', 'max:255', 'regex:' . self::NAME_REGEX],
             'email'             => ['nullable', 'email', 'max:255', "unique:customers,email,{$customer->id}"],
             'phone'             => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
             'company'           => ['nullable', 'string', 'max:255'],
@@ -278,6 +283,7 @@ class CustomerController extends Controller
             'assigned_to'       => ['nullable', 'integer', 'exists:users,id'],
             'tags'              => ['nullable', 'string'],
         ], [
+            'name.regex'  => 'Name can only contain letters and spaces.',
             'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 

@@ -43,7 +43,7 @@ run_cmd(ssh_cmd)
 verify_cmd = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
     "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
-    "grep -n 'US_PHONE_REGEX' app/Http/Controllers/CRM/CustomerController.php"
+    "grep -n 'US_PHONE_REGEX\\|NAME_REGEX' app/Http/Controllers/CRM/CustomerController.php"
 ]
 run_cmd(verify_cmd)
 
