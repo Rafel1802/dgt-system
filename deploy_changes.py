@@ -50,7 +50,7 @@ run_cmd(ssh_cmd)
 verify_cmd = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
     "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
-    "grep -n 'purchase-summary\\|updatePurchaseSummary' routes/web.php app/Http/Controllers/CRM/CustomerController.php"
+    "grep -n 'orders.update\\|orders.destroy' routes/web.php"
 ]
 run_cmd(verify_cmd)
 

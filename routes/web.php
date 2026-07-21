@@ -405,6 +405,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::delete('/{lead}/follow-up/{followUp}', [WebsiteCrmController::class, 'destroyFollowUp'])->name('follow-up.destroy');
                     Route::patch('/{lead}/status', [WebsiteCrmController::class, 'updateStatus'])->name('status');
                     Route::post('/{lead}/orders', [WebsiteCrmController::class, 'storeOrder'])->name('orders.store');
+                    Route::put('/{lead}/orders/{order}', [WebsiteCrmController::class, 'updateOrder'])->name('orders.update');
+                    Route::delete('/{lead}/orders/{order}', [WebsiteCrmController::class, 'destroyOrder'])->name('orders.destroy');
                 });
 
                 // ── eBay CRM ──────────────────────────────────────────────

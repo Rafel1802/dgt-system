@@ -167,7 +167,22 @@
           <div class="border border-slate-100 rounded-xl p-4">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
               <span class="font-mono text-xs text-slate-400">Order #{{ $order->id }}</span>
-              <span class="text-xs text-slate-400">{{ $order->order_date?->format('d M Y') }}</span>
+              <div class="flex items-center gap-3">
+                <span class="text-xs text-slate-400">{{ $order->order_date?->format('d M Y') }}</span>
+                @if(auth()->user()->canDeleteCrmRecords('website'))
+                <button @click="openEditOrderModal({{ Js::from([
+                    'id' => $order->id,
+                    'order_date' => $order->order_date?->format('Y-m-d'),
+                    'items' => $order->items->map(fn($i) => [
+                        'product_id' => $i->product_id,
+                        'product_name' => $i->product_name,
+                        'price' => $i->price,
+                        'quantity' => $i->quantity,
+                    ])->values(),
+                ]) }})" class="text-xs font-semibold text-indigo-500 hover:text-indigo-700">Edit</button>
+                <button @click="deleteOrder({{ $order->id }})" class="text-xs font-semibold text-red-400 hover:text-red-600">Delete</button>
+                @endif
+              </div>
             </div>
             <div class="divide-y divide-slate-50">
               @foreach($order->items as $item)
@@ -329,7 +344,7 @@
   <div x-show="showOrderModal" x-cloak class="modal-overlay" @keydown.escape.window="showOrderModal = false">
     <div class="modal-box max-w-lg" @click.stop>
       <div class="modal-header">
-        <h3 class="font-display font-bold text-slate-800" x-text="orderModalPurpose === 'successful' ? 'Products Sold' : 'Log New Order'"></h3>
+        <h3 class="font-display font-bold text-slate-800" x-text="orderModalPurpose === 'successful' ? 'Products Sold' : (orderModalPurpose === 'edit' ? 'Edit Order' : 'Log New Order')"></h3>
         <button @click="showOrderModal = false" class="btn btn-secondary btn-icon ml-auto">
           <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
         </button>
@@ -364,7 +379,7 @@
         <div class="flex gap-3 pt-2">
           <button @click="showOrderModal = false" class="btn btn-secondary flex-1">Cancel</button>
           <button @click="confirmOrder()" :disabled="statusLoading || orderLoading" class="btn btn-primary flex-1">
-            <span x-show="!statusLoading && !orderLoading" x-text="orderModalPurpose === 'successful' ? 'Save & Mark Successful' : 'Save Order'"></span>
+            <span x-show="!statusLoading && !orderLoading" x-text="orderModalPurpose === 'successful' ? 'Save & Mark Successful' : (orderModalPurpose === 'edit' ? 'Save Changes' : 'Save Order')"></span>
             <span x-show="statusLoading || orderLoading" x-cloak>Saving…</span>
           </button>
         </div>
@@ -408,7 +423,8 @@ function leadProfile(leadId, catalog) {
   return {
     showFollowUp: {{ session('open_followup') ? 'true' : 'false' }},
     showOrderModal: false,
-    orderModalPurpose: 'new', // 'new' (standalone order log) or 'successful' (tied to a status change)
+    orderModalPurpose: 'new', // 'new' (standalone order log), 'successful' (tied to a status change), or 'edit' (correcting an existing order)
+    editingOrderId: null,
     orderDate: '',
     showTechNoteModal: false,
     techNote: '',
@@ -471,9 +487,38 @@ function leadProfile(leadId, catalog) {
 
     openNewOrderModal() {
       this.orderModalPurpose = 'new';
+      this.editingOrderId = null;
       this.lines = [{ product_id: null, product_name: '', price: '', quantity: 1 }];
       this.orderDate = '';
       this.showOrderModal = true;
+    },
+
+    openEditOrderModal(order) {
+      this.orderModalPurpose = 'edit';
+      this.editingOrderId = order.id;
+      this.orderDate = order.order_date;
+      this.lines = order.items.length
+        ? order.items.map(i => ({ product_id: i.product_id, product_name: i.product_name, price: i.price, quantity: i.quantity }))
+        : [{ product_id: null, product_name: '', price: '', quantity: 1 }];
+      this.showOrderModal = true;
+    },
+
+    async deleteOrder(orderId) {
+      const ok = await window.confirmModal({
+        title: 'Delete Order',
+        message: 'Delete this order? This cannot be undone.',
+        confirmText: 'Delete',
+        tone: 'danger',
+      });
+      if (!ok) return;
+
+      try {
+        await api(`/crm/website/${leadId}/orders/${orderId}`, { method: 'DELETE' });
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order removed.', type: 'success' } }));
+        setTimeout(() => location.reload(), 700);
+      } catch(err) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+      }
     },
 
     async confirmOrder() {
@@ -488,6 +533,8 @@ function leadProfile(leadId, catalog) {
       this.showOrderModal = false;
       if (this.orderModalPurpose === 'successful') {
         await this._patchStatus(this.pendingStatus, this.lines, null, this.orderDate);
+      } else if (this.orderModalPurpose === 'edit') {
+        await this._updateOrder(this.editingOrderId, this.lines, this.orderDate);
       } else {
         await this._storeOrder(this.lines, this.orderDate);
       }
@@ -534,6 +581,24 @@ function leadProfile(leadId, catalog) {
           body: JSON.stringify(body),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order logged!', type: 'success' } }));
+        setTimeout(() => location.reload(), 700);
+      } catch(err) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+      } finally { this.orderLoading = false; }
+    },
+
+    async _updateOrder(orderId, lines, orderDate) {
+      this.orderLoading = true;
+      try {
+        const body = {
+          products: lines.map(l => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, quantity: l.quantity })),
+          order_date: orderDate,
+        };
+        await api(`/crm/website/${leadId}/orders/${orderId}`, {
+          method: 'PUT',
+          body: JSON.stringify(body),
+        });
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order updated!', type: 'success' } }));
         setTimeout(() => location.reload(), 700);
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
