@@ -153,11 +153,23 @@ class Board extends Model
 
     public function hasMember(int $userId): bool
     {
-        $user = User::find($userId);
-        if (!$user) return false;
+        $currentUser = auth()->id() === $userId ? auth()->user() : null;
+
+        if ($currentUser?->hasRole('super-admin')) {
+            return true;
+        }
+
+        if ($this->relationLoaded('members')) {
+            return $this->created_by === $userId || $this->members->contains('id', $userId);
+        }
+
+        $user = $currentUser ?: User::with('roles')->find($userId);
+        if (! $user) return false;
+
         if ($user->hasRole('super-admin')) {
             return true;
         }
+
         return $this->created_by === $userId
             || $this->members()->where('users.id', $userId)->exists();
     }

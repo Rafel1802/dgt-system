@@ -670,7 +670,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @can('crm.view')
 
                 {{-- ── 1. Website CRM (with accordion submenu) ────────────── --}}
-                @php $pendingCallRequestCount = \App\Models\CallRequest::pending()->count(); @endphp
+                @php
+                    $pendingCallRequestCount = \Illuminate\Support\Facades\Cache::remember(
+                        'pending_call_requests_count',
+                        30,
+                        fn () => \App\Models\CallRequest::pending()->count()
+                    );
+                @endphp
                 <div x-data="{ open: {{ request()->routeIs('crm.website.*') ? 'true' : 'false' }} }" class="w-full">
                     <button type="button"
                         @click="open = !open"

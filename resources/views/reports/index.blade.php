@@ -205,8 +205,13 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+async function initAdminReportCharts() {
+if (!window.Chart && window.loadChart) {
+  await window.loadChart();
+}
+if (!window.Chart) return;
+
 Chart.defaults.font.family = "'Inter', sans-serif";
 Chart.defaults.color = '#64748b';
 
@@ -276,5 +281,19 @@ mkChart('chartStaffTasks', 'bar', {
     { label: 'Completed', data: @json($staffPerformance['completed']), backgroundColor: '#d1fae5', borderColor: '#10b981', borderWidth: 1 },
   ],
 }, { scales: { y: { beginAtZero: true } } });
+}
+
+function scheduleAdminReportCharts() {
+  const run = () => initAdminReportCharts();
+
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(run, { timeout: 1200 });
+  } else {
+    setTimeout(run, 80);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', scheduleAdminReportCharts);
+document.addEventListener('turbo:load', scheduleAdminReportCharts);
 </script>
 @endpush

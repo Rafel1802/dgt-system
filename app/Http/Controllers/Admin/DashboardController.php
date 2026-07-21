@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -44,8 +45,38 @@ class DashboardController extends Controller
         $appearance = $this->dashboardAppearance($user);
         $externalTools = Setting::externalTools();
         $canManageExternalTools = $user->hasAnyRole(['super-admin', 'admin-digital']);
+        $dashboardNotifications = Cache::remember("dashboard_notifications_{$user->id}", 10, function () use ($user) {
+            return $user->notifications()
+                ->select('id', 'type', 'notifiable_type', 'notifiable_id', 'data', 'read_at', 'created_at')
+                ->latest()
+                ->limit(5)
+                ->get()
+                ->map(fn ($notification) => [
+                    'id' => $notification->id,
+                    'data' => $notification->data,
+                    'read_at' => $notification->read_at?->toISOString(),
+                    'created_at_for_humans' => $notification->created_at?->diffForHumans(),
+                ])
+                ->all();
+        });
+        $dashboardUnreadCount = Cache::remember(
+            "dashboard_unread_notifications_count_{$user->id}",
+            10,
+            fn () => $user->unreadNotifications()->count()
+        );
+        $user->loadMissing('roles.permissions');
+        $permissionsCount = $user->getAllPermissions()->count();
 
-        return view('dashboard.index', compact('user', 'stats', 'appearance', 'externalTools', 'canManageExternalTools'));
+        return view('dashboard.index', compact(
+            'user',
+            'stats',
+            'appearance',
+            'externalTools',
+            'canManageExternalTools',
+            'dashboardNotifications',
+            'dashboardUnreadCount',
+            'permissionsCount',
+        ));
     }
 
     /** Save per-user dashboard and cover background preferences. */

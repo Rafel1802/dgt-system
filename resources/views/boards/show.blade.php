@@ -318,15 +318,8 @@
           
           <div class="max-h-48 overflow-y-auto space-y-2.5 mb-2 pr-1 scrollbar-thin">
             @php
-              // Fetch workspace members to display in toggle list
-              $possibleUsers = $board->workspace->members;
-              
-              // Always add dynamic digital team members (and boss/supervisor) so they are available to add to any board
-              $digitalMembers = \App\Models\User::active()->get()->filter(fn($u) => $u->hasAnyRole(['digital-team', 'admin-digital', 'admin', 'boss', 'supervisor', 'staff']) && !$possibleUsers->contains($u->id));
-              
-              $possibleUsers = $possibleUsers->concat($digitalMembers)->sortBy(function($u) use ($board) {
-                  return ($board->hasMember($u->id) ? '0_' : '1_') . strtolower($u->name);
-              })->values();
+              $possibleUsers = $possibleBoardUsers ?? $board->workspace->members;
+              $boardMemberIds = $boardMemberIds ?? $board->members->pluck('id');
             @endphp
             @foreach($possibleUsers as $u)
               <div x-show="search === '' || '{{ strtolower(addslashes($u->name)) }}'.includes(search.toLowerCase())" class="flex items-center justify-between gap-2 text-xs">
@@ -334,7 +327,7 @@
                   <img src="{{ $u->avatar_url }}" class="w-6.5 h-6.5 rounded-full object-cover border border-slate-200">
                   <span class="font-semibold text-slate-700 truncate max-w-28" title="{{ $u->name }}">{{ $u->name }}</span>
                 </div>
-                @if($board->hasMember($u->id))
+                @if($boardMemberIds->contains($u->id) || $board->created_by === $u->id)
                   @if($board->created_by !== $u->id)
                     <button @click="removeBoardMember({{ $u->id }}, $el)" class="text-[10px] text-rose-500 font-bold hover:underline">Remove</button>
                   @else

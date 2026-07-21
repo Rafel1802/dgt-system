@@ -338,7 +338,10 @@
     // Exposed on window: Alpine's inline @click="...initReportChart(...)"
     // expression on the tab buttons needs to reach this as a global. Safe to
     // call repeatedly — resizes an existing chart instead of recreating it.
-    window.initReportChart = function (key) {
+    window.initReportChart = async function (key) {
+        if (!window.Chart && window.loadChart) {
+            await window.loadChart();
+        }
         if (!window.Chart) return;
         const def = chartDefs[key];
         if (!def) return;
