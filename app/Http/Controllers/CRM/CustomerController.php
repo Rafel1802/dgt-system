@@ -352,6 +352,52 @@ class CustomerController extends Controller
         ]);
     }
 
+    /**
+     * Directly correct the purchase summary totals (AJAX) — for fixing a
+     * mis-entered lifetime value/order count, not for logging a new
+     * purchase (see recordPurchase() above). Supervisor-tier only, same as
+     * editing a lead's purchase history on the Website CRM side.
+     */
+    public function updatePurchaseSummary(Request $request, Customer $customer): JsonResponse
+    {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can edit purchase history.');
+
+        $validated = $request->validate([
+            'lifetime_value' => ['required', 'numeric', 'min:0'],
+            'total_orders'   => ['required', 'integer', 'min:0'],
+        ]);
+
+        $customer->interactions()->create([
+            'user_id'       => auth()->id(),
+            'type'          => 'note',
+            'subject'       => 'Purchase history corrected',
+            'content'       => sprintf(
+                'Purchase summary corrected by %s: lifetime value %s → %s, total orders %d → %d.',
+                auth()->user()->name,
+                number_format($customer->lifetime_value, 2),
+                number_format($validated['lifetime_value'], 2),
+                $customer->total_orders,
+                $validated['total_orders']
+            ),
+            'outcome'       => 'neutral',
+            'interacted_at' => now(),
+        ]);
+
+        $customer->update([
+            'lifetime_value' => $validated['lifetime_value'],
+            'total_orders'   => $validated['total_orders'],
+            'has_purchased'  => $validated['total_orders'] > 0,
+        ]);
+
+        return response()->json([
+            'success'        => true,
+            'message'        => 'Purchase history updated.',
+            'lifetime_value' => '$' . number_format($customer->lifetime_value, 2),
+            'total_orders'   => $customer->total_orders,
+            'has_purchased'  => $customer->has_purchased,
+        ]);
+    }
+
     /** Pipeline stage update (AJAX drag-drop from pipeline view) */
     public function updateStage(Request $request, Customer $customer): JsonResponse
     {
