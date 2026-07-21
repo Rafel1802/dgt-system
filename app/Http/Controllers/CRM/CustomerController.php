@@ -8,9 +8,11 @@ use App\Enums\DealStage;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\User;
+use App\Notifications\GenericDatabaseNotification;
 use App\Services\CrmService;
 use App\Services\CrmCustomerMatchService;
 use App\Services\TechSupportCaseService;
+use App\Support\InstantNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +35,32 @@ class CustomerController extends Controller
         private readonly CrmCustomerMatchService $matcher,
         private readonly TechSupportCaseService $techSupportCases,
     ) {}
+
+    /**
+     * Notify the customer's assigned rep about a change someone else made —
+     * mirrors WebsiteCrmController's lead-reassignment notification. No-op
+     * when unassigned or when the actor is the assigned rep themselves (no
+     * point notifying someone about their own action).
+     */
+    private function notifyAssignedRep(Customer $customer, string $type, string $message): void
+    {
+        if (! $customer->assigned_to || $customer->assigned_to === auth()->id()) {
+            return;
+        }
+
+        $rep = User::find($customer->assigned_to);
+        if (! $rep) {
+            return;
+        }
+
+        InstantNotifier::send($rep, new GenericDatabaseNotification([
+            'module'      => 'crm',
+            'type'        => $type,
+            'customer_id' => $customer->id,
+            'message'     => $message,
+            'link'        => route('crm.customers.show', $customer),
+        ]));
+    }
 
     /**
      * Customer Database — a single unified list deduped across CRM Website
@@ -291,7 +319,43 @@ class CustomerController extends Controller
             $validated['tags'] = array_map('trim', explode(',', $validated['tags']));
         }
 
+        // Captured before update() mutates $customer in place, so the
+        // reassignment/status-change checks below compare against the
+        // actual prior values, not the just-saved ones.
+        $previousAssignedTo = $customer->assigned_to;
+        $previousStatus = $customer->status;
+
         $this->crmService->updateCustomer($customer, $validated, auth()->user());
+
+        if (
+            array_key_exists('assigned_to', $validated)
+            && $validated['assigned_to']
+            && $validated['assigned_to'] !== $previousAssignedTo
+            && $validated['assigned_to'] !== auth()->id()
+        ) {
+            $newRep = User::find($validated['assigned_to']);
+            if ($newRep) {
+                InstantNotifier::send($newRep, new GenericDatabaseNotification([
+                    'module'      => 'crm',
+                    'type'        => 'customer_reassigned',
+                    'customer_id' => $customer->id,
+                    'message'     => auth()->user()->name . " assigned you the customer \"{$customer->name}\".",
+                    'link'        => route('crm.customers.show', $customer),
+                ]));
+            }
+        } else {
+            // Not a reassignment — a plain info edit. Call out becoming Lost
+            // specifically since that's the one status change that actually
+            // needs the assigned rep's attention, not just a routine save.
+            $becameLost = $customer->status === CustomerStatus::Lost && $previousStatus !== CustomerStatus::Lost;
+            $this->notifyAssignedRep(
+                $customer,
+                $becameLost ? 'customer_lost' : 'customer_updated',
+                $becameLost
+                    ? auth()->user()->name . " marked \"{$customer->name}\" as Lost."
+                    : auth()->user()->name . " updated \"{$customer->name}\"'s details."
+            );
+        }
 
         return redirect()->route('crm.customers.show', $customer)
             ->with('success', 'Customer updated successfully.');
@@ -338,6 +402,12 @@ class CustomerController extends Controller
 
         $customer = $this->crmService->recordPurchase($customer, $validated['value'], auth()->user());
         $interaction = $customer->interactions()->with('user:id,name,avatar')->latest()->first();
+
+        $this->notifyAssignedRep(
+            $customer,
+            'customer_purchase',
+            auth()->user()->name . " recorded a $" . number_format($validated['value'], 2) . " purchase for \"{$customer->name}\"."
+        );
 
         return response()->json([
             'success'           => true,
@@ -388,6 +458,12 @@ class CustomerController extends Controller
             'total_orders'   => $validated['total_orders'],
             'has_purchased'  => $validated['total_orders'] > 0,
         ]);
+
+        $this->notifyAssignedRep(
+            $customer,
+            'customer_purchase_edited',
+            auth()->user()->name . " corrected the purchase history for \"{$customer->name}\"."
+        );
 
         return response()->json([
             'success'        => true,

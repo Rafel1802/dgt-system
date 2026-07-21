@@ -34,6 +34,7 @@ rsync_cmd = [
     "resources/views/crm/website/show.blade.php",
     "resources/views/admin/users/create.blade.php",
     "resources/views/admin/users/edit.blade.php",
+    "resources/views/layouts/app.blade.php",
     "routes/web.php",
     "u768808434@191.101.12.132:domains/rosybrown-baboon-228003.hostingersite.com/public_html/"
 ]
@@ -50,7 +51,9 @@ run_cmd(ssh_cmd)
 verify_cmd = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u768808434@191.101.12.132",
     "cd domains/rosybrown-baboon-228003.hostingersite.com/public_html && "
-    "grep -n 'orders.update\\|orders.destroy' routes/web.php"
+    "grep -c 'showCrmNotificationCard' resources/views/layouts/app.blade.php; "
+    "grep -c 'notifyAssignedRep' app/Http/Controllers/CRM/CustomerController.php; "
+    "grep -n 'setInterval(() => this.fetchData' resources/views/layouts/app.blade.php"
 ]
 run_cmd(verify_cmd)
 

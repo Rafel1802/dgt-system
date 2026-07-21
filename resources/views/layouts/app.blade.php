@@ -2083,10 +2083,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 this.refreshBrowserPermission();
                 this.fetchData();
 
-                window.kiuqConnectPusherNotifications?.(n => this.handleIncoming(n));
+                const pusherConnected = window.kiuqConnectPusherNotifications?.(n => this.handleIncoming(n));
 
-                // Fast polling failover backup; Pusher is instant when broadcasting is enabled.
-                // setInterval(() => this.fetchData(), 5000);
+                // Polling failover — Pusher is instant when it connects, but this
+                // deployment has no queue worker and depends on third-party
+                // WebSocket delivery, so a silent connection failure (misconfigured
+                // keys, blocked domain, etc.) would otherwise mean live updates and
+                // popups just never arrive until the page is manually refreshed.
+                // fetchData() already dedupes by notification id, so this is safe
+                // to run even when Pusher is also connected.
+                setInterval(() => this.fetchData(), pusherConnected ? 30000 : 10000);
             },
 
             refreshBrowserPermission() {
