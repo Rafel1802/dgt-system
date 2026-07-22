@@ -8,9 +8,11 @@ use App\Enums\DealStage;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\User;
+use App\Notifications\GenericDatabaseNotification;
 use App\Services\CrmService;
 use App\Services\CrmCustomerMatchService;
 use App\Services\TechSupportCaseService;
+use App\Support\InstantNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,11 +22,45 @@ use Illuminate\View\View;
 
 class CustomerController extends Controller
 {
+    // Accepts common US/Canada (NANP) formats: (207) 213-9077, 207-213-9077,
+    // 207.213.9077, 2072139077, +1 207-213-9077 — matches what
+    // PhoneNumberFormatter normalizes on save.
+    private const US_PHONE_REGEX = '/^\+?1?[-.\s]?\(?[2-9][0-9]{2}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/';
+
+    // Letters (any language) and spaces only — no digits or symbols.
+    private const NAME_REGEX = '/^[\p{L}\s]+$/u';
+
     public function __construct(
         private readonly CrmService $crmService,
         private readonly CrmCustomerMatchService $matcher,
         private readonly TechSupportCaseService $techSupportCases,
     ) {}
+
+    /**
+     * Notify the customer's assigned rep about a change someone else made —
+     * mirrors WebsiteCrmController's lead-reassignment notification. No-op
+     * when unassigned or when the actor is the assigned rep themselves (no
+     * point notifying someone about their own action).
+     */
+    private function notifyAssignedRep(Customer $customer, string $type, string $message): void
+    {
+        if (! $customer->assigned_to || $customer->assigned_to === auth()->id()) {
+            return;
+        }
+
+        $rep = User::find($customer->assigned_to);
+        if (! $rep) {
+            return;
+        }
+
+        InstantNotifier::send($rep, new GenericDatabaseNotification([
+            'module'      => 'crm',
+            'type'        => $type,
+            'customer_id' => $customer->id,
+            'message'     => $message,
+            'link'        => route('crm.customers.show', $customer),
+        ]));
+    }
 
     /**
      * Customer Database — a single unified list deduped across CRM Website
@@ -107,12 +143,12 @@ class CustomerController extends Controller
         $this->authorize('create', Customer::class);
 
         $validated = $request->validate([
-            'name'              => ['required', 'string', 'max:255'],
+            'name'              => ['required', 'string', 'max:255', 'regex:' . self::NAME_REGEX],
             // No blanket email uniqueness here — a duplicate is specifically a
             // name+email match together (see findDuplicateCustomer() below);
             // the same email under a different name is a different person.
             'email'             => ['nullable', 'email', 'max:255'],
-            'phone'             => ['nullable', 'string', 'max:30'],
+            'phone'             => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
             'company'           => ['nullable', 'string', 'max:255'],
             'job_title'         => ['nullable', 'string', 'max:100'],
             'website'           => ['nullable', 'url', 'max:255'],
@@ -129,6 +165,9 @@ class CustomerController extends Controller
             'notes'             => ['nullable', 'string', 'max:5000'],
             'assigned_to'       => ['nullable', 'integer', 'exists:users,id'],
             'tags'              => ['nullable', 'string'],
+        ], [
+            'name.regex'  => 'Name can only contain letters and spaces.',
+            'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 
         // Convert comma-separated tags to array
@@ -167,10 +206,13 @@ class CustomerController extends Controller
         $this->authorize('create', Customer::class);
 
         $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:255'],
+            'name'  => ['required', 'string', 'max:255', 'regex:' . self::NAME_REGEX],
             'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
+            'phone' => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
             'source' => ['nullable', Rule::enum(CustomerSource::class)],
+        ], [
+            'name.regex'  => 'Name can only contain letters and spaces.',
+            'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 
         $source = $validated['source'] ?? CustomerSource::Website->value;
@@ -251,9 +293,9 @@ class CustomerController extends Controller
         $this->authorize('update', $customer);
 
         $validated = $request->validate([
-            'name'              => ['required', 'string', 'max:255'],
+            'name'              => ['required', 'string', 'max:255', 'regex:' . self::NAME_REGEX],
             'email'             => ['nullable', 'email', 'max:255', "unique:customers,email,{$customer->id}"],
-            'phone'             => ['nullable', 'string', 'max:30'],
+            'phone'             => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
             'company'           => ['nullable', 'string', 'max:255'],
             'job_title'         => ['nullable', 'string', 'max:100'],
             'website'           => ['nullable', 'url', 'max:255'],
@@ -268,13 +310,52 @@ class CustomerController extends Controller
             'notes'             => ['nullable', 'string', 'max:5000'],
             'assigned_to'       => ['nullable', 'integer', 'exists:users,id'],
             'tags'              => ['nullable', 'string'],
+        ], [
+            'name.regex'  => 'Name can only contain letters and spaces.',
+            'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
         ]);
 
         if (! empty($validated['tags'])) {
             $validated['tags'] = array_map('trim', explode(',', $validated['tags']));
         }
 
+        // Captured before update() mutates $customer in place, so the
+        // reassignment/status-change checks below compare against the
+        // actual prior values, not the just-saved ones.
+        $previousAssignedTo = $customer->assigned_to;
+        $previousStatus = $customer->status;
+
         $this->crmService->updateCustomer($customer, $validated, auth()->user());
+
+        if (
+            array_key_exists('assigned_to', $validated)
+            && $validated['assigned_to']
+            && $validated['assigned_to'] !== $previousAssignedTo
+            && $validated['assigned_to'] !== auth()->id()
+        ) {
+            $newRep = User::find($validated['assigned_to']);
+            if ($newRep) {
+                InstantNotifier::send($newRep, new GenericDatabaseNotification([
+                    'module'      => 'crm',
+                    'type'        => 'customer_reassigned',
+                    'customer_id' => $customer->id,
+                    'message'     => auth()->user()->name . " assigned you the customer \"{$customer->name}\".",
+                    'link'        => route('crm.customers.show', $customer),
+                ]));
+            }
+        } else {
+            // Not a reassignment — a plain info edit. Call out becoming Lost
+            // specifically since that's the one status change that actually
+            // needs the assigned rep's attention, not just a routine save.
+            $becameLost = $customer->status === CustomerStatus::Lost && $previousStatus !== CustomerStatus::Lost;
+            $this->notifyAssignedRep(
+                $customer,
+                $becameLost ? 'customer_lost' : 'customer_updated',
+                $becameLost
+                    ? auth()->user()->name . " marked \"{$customer->name}\" as Lost."
+                    : auth()->user()->name . " updated \"{$customer->name}\"'s details."
+            );
+        }
 
         return redirect()->route('crm.customers.show', $customer)
             ->with('success', 'Customer updated successfully.');
@@ -322,6 +403,12 @@ class CustomerController extends Controller
         $customer = $this->crmService->recordPurchase($customer, $validated['value'], auth()->user());
         $interaction = $customer->interactions()->with('user:id,name,avatar')->latest()->first();
 
+        $this->notifyAssignedRep(
+            $customer,
+            'customer_purchase',
+            auth()->user()->name . " recorded a $" . number_format($validated['value'], 2) . " purchase for \"{$customer->name}\"."
+        );
+
         return response()->json([
             'success'           => true,
             'message'           => 'Purchase recorded!',
@@ -332,6 +419,58 @@ class CustomerController extends Controller
             'status_label'      => $customer->status?->label(),
             'status_badge_class' => $customer->status?->badgeClass(),
             'interaction'       => $interaction,
+        ]);
+    }
+
+    /**
+     * Directly correct the purchase summary totals (AJAX) — for fixing a
+     * mis-entered lifetime value/order count, not for logging a new
+     * purchase (see recordPurchase() above). Supervisor-tier only, same as
+     * editing a lead's purchase history on the Website CRM side.
+     */
+    public function updatePurchaseSummary(Request $request, Customer $customer): JsonResponse
+    {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can edit purchase history.');
+
+        $validated = $request->validate([
+            'lifetime_value' => ['required', 'numeric', 'min:0'],
+            'total_orders'   => ['required', 'integer', 'min:0'],
+        ]);
+
+        $customer->interactions()->create([
+            'user_id'       => auth()->id(),
+            'type'          => 'note',
+            'subject'       => 'Purchase history corrected',
+            'content'       => sprintf(
+                'Purchase summary corrected by %s: lifetime value %s → %s, total orders %d → %d.',
+                auth()->user()->name,
+                number_format($customer->lifetime_value, 2),
+                number_format($validated['lifetime_value'], 2),
+                $customer->total_orders,
+                $validated['total_orders']
+            ),
+            'outcome'       => 'neutral',
+            'interacted_at' => now(),
+        ]);
+
+        $customer->update([
+            'lifetime_value' => $validated['lifetime_value'],
+            'total_orders'   => $validated['total_orders'],
+            'has_purchased'  => $validated['total_orders'] > 0,
+        ]);
+
+        $this->notifyAssignedRep(
+            $customer,
+            'customer_purchase_edited',
+            auth()->user()->name . " corrected the purchase history for \"{$customer->name}\"."
+        );
+
+        return response()->json([
+            'success'        => true,
+            'message'        => 'Purchase history updated.',
+            'lifetime_value' => '$' . number_format($customer->lifetime_value, 2),
+            'total_orders'   => $customer->total_orders,
+            'has_purchased'  => $customer->has_purchased,
         ]);
     }
 

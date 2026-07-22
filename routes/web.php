@@ -378,6 +378,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 // Interaction & purchase endpoints (AJAX)
                 Route::post('/customers/{customer}/interactions', [CustomerController::class, 'logInteraction'])->name('customers.interactions');
                 Route::post('/customers/{customer}/purchase', [CustomerController::class, 'recordPurchase'])->name('customers.purchase');
+                Route::patch('/customers/{customer}/purchase-summary', [CustomerController::class, 'updatePurchaseSummary'])->name('customers.purchase-summary');
                 Route::patch('/customers/{customer}/stage', [CustomerController::class, 'updateStage'])->name('customers.stage');
                 Route::post('/customers/{customer}/attachments', [CustomerController::class, 'uploadAttachment'])->name('customers.attachments.upload');
 
@@ -404,6 +405,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::delete('/{lead}/follow-up/{followUp}', [WebsiteCrmController::class, 'destroyFollowUp'])->name('follow-up.destroy');
                     Route::patch('/{lead}/status', [WebsiteCrmController::class, 'updateStatus'])->name('status');
                     Route::post('/{lead}/orders', [WebsiteCrmController::class, 'storeOrder'])->name('orders.store');
+                    Route::put('/{lead}/orders/{order}', [WebsiteCrmController::class, 'updateOrder'])->name('orders.update');
+                    Route::delete('/{lead}/orders/{order}', [WebsiteCrmController::class, 'destroyOrder'])->name('orders.destroy');
                 });
 
                 // ── eBay CRM ──────────────────────────────────────────────

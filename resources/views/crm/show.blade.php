@@ -3,7 +3,7 @@
 @section('page_title', $customer->name)
 
 @section('content')
-<div x-data="customerProfile({{ $customer->id }})" class="animate-fade-in">
+<div x-data="customerProfile({{ $customer->id }}, {{ $customer->lifetime_value }}, {{ $customer->total_orders }})" class="animate-fade-in">
 
   {{-- Back --}}
   <a href="{{ route('crm.customers.index') }}" class="text-sm text-slate-400 hover:text-indigo-600 flex items-center gap-1 mb-5">
@@ -101,8 +101,31 @@
 
       {{-- Purchase Stats --}}
       <div class="card space-y-3">
-        <h4 class="font-semibold text-slate-700 text-sm border-b border-slate-100 pb-2">Purchase History</h4>
-        <div class="grid grid-cols-2 gap-3 text-center">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h4 class="font-semibold text-slate-700 text-sm">Purchase History</h4>
+          @if(auth()->user()->canDeleteCrmRecords('website'))
+          <button @click="editingPurchase = !editingPurchase" class="text-xs font-semibold text-indigo-500 hover:text-indigo-700">✏️ Edit</button>
+          @endif
+        </div>
+
+        @if(auth()->user()->canDeleteCrmRecords('website'))
+        <div x-show="editingPurchase" x-cloak class="space-y-2 bg-slate-50 rounded-xl p-3">
+          <div>
+            <label class="text-xs text-slate-500">Lifetime Value (USD)</label>
+            <input type="number" x-model="editLifetimeValue" step="0.01" min="0" class="form-input text-sm">
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">Total Orders</label>
+            <input type="number" x-model="editTotalOrders" step="1" min="0" class="form-input text-sm">
+          </div>
+          <div class="flex gap-2">
+            <button @click="editingPurchase = false" class="btn btn-secondary text-xs py-1.5 w-full">Cancel</button>
+            <button @click="savePurchaseSummary()" class="btn btn-primary text-xs py-1.5 w-full">Save</button>
+          </div>
+        </div>
+        @endif
+
+        <div class="grid grid-cols-2 gap-3 text-center" x-show="!editingPurchase">
           <div class="bg-emerald-50 rounded-xl p-3">
             <div id="stat-lifetime-value" class="text-lg font-bold text-emerald-700">${{ number_format($customer->lifetime_value, 2) }}</div>
             <div class="text-xs text-emerald-500">Lifetime Value</div>
@@ -343,10 +366,13 @@
 
 @push('scripts')
 <script>
-function customerProfile(customerId) {
+function customerProfile(customerId, lifetimeValue, totalOrders) {
   return {
     customerId,
     purchaseValue: '',
+    editingPurchase: false,
+    editLifetimeValue: lifetimeValue,
+    editTotalOrders: totalOrders,
     interactionLoading: false,
     newInteraction: {
       type: 'call', outcome: 'positive', subject: '', content: '', duration_minutes: '',
@@ -434,6 +460,31 @@ function customerProfile(customerId) {
       }
 
       this.prependInteraction(data.interaction);
+    },
+
+    async savePurchaseSummary() {
+      const res = await fetch(`/crm/customers/${this.customerId}/purchase-summary`, {
+        method: 'PATCH',
+        headers: { 'X-CSRF-TOKEN': window.csrf(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lifetime_value: this.editLifetimeValue,
+          total_orders: this.editTotalOrders,
+        }),
+      });
+      const data = await res.json();
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: data.message, type: res.ok ? 'success' : 'error' } }));
+      if (! res.ok) return;
+
+      document.getElementById('stat-lifetime-value').textContent = data.lifetime_value;
+      document.getElementById('stat-total-orders').textContent = data.total_orders;
+
+      if (data.has_purchased) {
+        document.getElementById('purchased-badge').style.display = '';
+      } else {
+        document.getElementById('purchased-badge').style.display = 'none';
+      }
+
+      this.editingPurchase = false;
     },
 
     async submitInteraction() {

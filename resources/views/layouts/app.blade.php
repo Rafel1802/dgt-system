@@ -1936,6 +1936,74 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }, 6000);
     };
 
+    // Global CRM Notification Card — same pop-up-and-stack idea as the rich
+    // Board toast above, but for CRM payloads (tech support cases, call
+    // requests, lead reassignment, negative-feedback routing — no
+    // actor_name, just a message + link). Deliberately does NOT auto-dismiss
+    // like the other toasts do: CRM asked for these to stay stacked in place
+    // until manually closed, since a case notification is easy to miss if it
+    // vanishes before they've finished reading it. Multiple cards stack
+    // naturally in #toast-container's own vertical gap — no extra layout
+    // code needed here for that part.
+    window.showCrmNotificationCard = function(data) {
+        if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
+
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const icons = {
+            tech_case_new: '🛠️',
+            tech_case_call_request: '📞',
+            tech_case_call_completed: '✅',
+            call_request_new: '📞',
+            lead_reassigned: '👤',
+        };
+        const icon = icons[data.type] || '🔔';
+
+        const card = document.createElement('div');
+        card.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-300 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
+
+        card.innerHTML = `
+            <div class="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-lg">${icon}</div>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                    <p class="truncate text-sm font-black text-slate-900">KIUQ SYSTEM</p>
+                    <span class="ml-auto text-[10px] font-bold text-slate-500">now</span>
+                </div>
+                <p class="mt-1.5 text-sm font-semibold leading-relaxed text-slate-600">${window.dgtEscapeHtml(data.message || 'New update')}</p>
+            </div>
+            <button class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all" aria-label="Close">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            </button>
+        `;
+
+        const closeBtn = card.querySelector('.toast-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                card.classList.add('translate-x-8', 'opacity-0');
+                setTimeout(() => card.remove(), 300);
+            });
+        }
+
+        if (data.link) {
+            card.addEventListener('click', (e) => {
+                if (!e.target.closest('.toast-close-btn')) {
+                    window.location.href = data.link;
+                }
+            });
+        }
+
+        container.appendChild(card);
+
+        setTimeout(() => {
+            card.classList.remove('translate-x-8', 'opacity-0');
+            window.playNotificationSound?.();
+        }, 50);
+
+        // Deliberately no auto-dismiss timer — stays until the user closes it.
+    };
+
     // Global Browser Native Notification Helper (with custom icon support)
     window.sendBrowserNotification = function(title, body, iconUrl = null) {
         if (!("Notification" in window)) return;
@@ -1990,8 +2058,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             onNotification(payload);
         };
 
-        channel.bind('Illuminate\\Notifications\\Events\\BroadcastNotificationCreated', handle);
-        channel.bind('Illuminate\\\\Notifications\\\\Events\\\\BroadcastNotificationCreated', handle);
+        // A single bind_global handler, not multiple exact-name channel.bind()
+        // calls — Laravel's broadcastAs() name can arrive with different
+        // backslash-escaping depending on how it's transported, and binding
+        // several literal variants "just in case" means more than one of
+        // them matches the same incoming event, delivering (and popping up)
+        // the same notification multiple times. bind_global's substring
+        // check is escaping-agnostic and fires exactly once per event.
         channel.bind_global((eventName, payload) => {
             if (String(eventName).includes('BroadcastNotificationCreated')) {
                 handle(payload);
@@ -2015,10 +2088,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 this.refreshBrowserPermission();
                 this.fetchData();
 
-                window.kiuqConnectPusherNotifications?.(n => this.handleIncoming(n));
+                const pusherConnected = window.kiuqConnectPusherNotifications?.(n => this.handleIncoming(n));
 
-                // Fast polling failover backup; Pusher is instant when broadcasting is enabled.
-                // setInterval(() => this.fetchData(), 5000);
+                // Polling failover — Pusher is instant when it connects, but this
+                // deployment has no queue worker and depends on third-party
+                // WebSocket delivery, so a silent connection failure (misconfigured
+                // keys, blocked domain, etc.) would otherwise mean live updates and
+                // popups just never arrive until the page is manually refreshed.
+                // fetchData() already dedupes by notification id, so this is safe
+                // to run even when Pusher is also connected.
+                setInterval(() => this.fetchData(), pusherConnected ? 30000 : 10000);
             },
 
             refreshBrowserPermission() {
@@ -2094,7 +2173,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     );
                                 }
                             } else {
-                                window.showToast(newNotif.data.message || "New update received");
+                                window.showCrmNotificationCard(newNotif.data);
                                 window.sendBrowserNotification("KIUQ SYSTEM Update", newNotif.data.message || "New update");
                             }
                         });
@@ -2126,14 +2205,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 // Trigger animations and toasts. Board/Kanban payloads carry
                 // actor_name and get the rich card toast; CRM payloads (call
                 // requests, tech support cases) never set actor_name — they
-                // used to arrive here silently (badge count only, no popup)
-                // even though fetchData()'s polling fallback already showed
-                // a plain toast + browser notification for the same case.
-                // Mirrored here so real-time delivery matches that behavior.
+                // get the persistent CRM notification card instead (stacks,
+                // stays until manually closed) rather than the Board-style
+                // toast, which auto-dismisses and expects actor fields this
+                // payload shape doesn't have.
                 if (notifItem.data && notifItem.data.actor_name) {
                     window.showRichNotificationToast(notifItem.data);
                 } else {
-                    window.showToast(notifItem.data.message || "New update received");
+                    window.showCrmNotificationCard(notifItem.data);
                     window.sendBrowserNotification("KIUQ SYSTEM Update", notifItem.data.message || "New update");
                 }
             },

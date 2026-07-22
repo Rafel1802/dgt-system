@@ -281,12 +281,10 @@ class TechSupportTest extends TestCase
     }
 
     /**
-     * Resolving a case doesn't revert Lead.status away from
-     * TechnicalSupport (that would lose the "this lead once had a
-     * technical issue" history) — tech_resolved is the real signal. Every
-     * page showing the lead's status badge (Website CRM Leads list, the
-     * Lead profile page) needs to read Lead::display_status_label instead
-     * of the raw status, or it keeps showing "Technical Support" forever.
+     * Resolving a case moves Lead.status to Resolved (mirrors
+     * syncToEbay()'s tab_type flip for eBay records) — the Pipeline
+     * Progress stepper and the status badge both read the same raw status,
+     * so they can never visually disagree with each other.
      */
     public function test_resolving_a_case_shows_resolved_status_on_the_website_crm_leads_pages(): void
     {
@@ -308,8 +306,7 @@ class TechSupportTest extends TestCase
 
         $lead->refresh();
         $this->assertTrue($lead->tech_resolved);
-        $this->assertEquals(WebsiteLeadStatus::TechnicalSupport, $lead->status);
-        $this->assertEquals('Resolved', $lead->display_status_label);
+        $this->assertEquals(WebsiteLeadStatus::Resolved, $lead->status);
 
         // Note: "Technical Support" legitimately still appears elsewhere on
         // this page (the status filter dropdown lists every possible
@@ -356,7 +353,7 @@ class TechSupportTest extends TestCase
 
         $lead->refresh();
         $this->assertFalse($lead->tech_resolved);
-        $this->assertEquals('Technical Support', $lead->display_status_label);
+        $this->assertEquals(WebsiteLeadStatus::TechnicalSupport, $lead->status);
         $this->assertEquals(2, $case->fresh()->occurrence_count);
         $this->assertEquals(1, TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->count());
 
@@ -364,7 +361,7 @@ class TechSupportTest extends TestCase
         // lists every possible status (including "Resolved") as a
         // clickable step, for every lead, regardless of its current state
         // — that's normal, unrelated UI, not a stale badge. Only the
-        // status badge itself is what display_status_label controls, and
+        // status badge itself reflects the lead's actual status, and
         // that's already covered above via the model-level assertion.
         $showResponse = $this->actingAs($this->admin)->get(route('crm.website.show', $lead));
         $showResponse->assertOk();

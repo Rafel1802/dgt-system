@@ -99,7 +99,7 @@ class WebsiteLeadReassignmentNotificationTest extends TestCase
         Event::assertNotDispatched(InstantNotificationBroadcast::class);
     }
 
-    /** A plain sales-crm rep can't reassign at all — handled_by is silently dropped, so nobody should be notified. */
+    /** A plain sales-crm rep can't edit the lead at all (403), so no reassignment happens and nobody is notified. */
     public function test_a_non_supervisor_cannot_trigger_reassignment_notifications(): void
     {
         Event::fake([InstantNotificationBroadcast::class]);

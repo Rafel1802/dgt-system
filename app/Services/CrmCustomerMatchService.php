@@ -12,6 +12,7 @@ use App\Models\Lead;
 use App\Models\LeadFollowUp;
 use App\Models\Shipment;
 use App\Models\ShipmentCustomer;
+use App\Support\PhoneNumberFormatter;
 use Illuminate\Support\Collection;
 
 /**
@@ -27,6 +28,12 @@ class CrmCustomerMatchService
         if (! $email && ! $phone) {
             return null;
         }
+
+        // Normalize before comparing — client_phone is stored normalized
+        // (Lead::setClientPhoneAttribute()), so an un-normalized raw
+        // lookup value (e.g. "2072139077" vs. the stored "+1 (207)
+        // 213-9077") would otherwise never match and spawn a duplicate.
+        $phone = $phone ? PhoneNumberFormatter::format($phone) : $phone;
 
         return Lead::where(function ($q) use ($email, $phone) {
             if ($email) {
@@ -44,6 +51,9 @@ class CrmCustomerMatchService
         if (! $email && ! $phone) {
             return null;
         }
+
+        // Normalize before comparing — see findLeadByContact() above for why.
+        $phone = $phone ? PhoneNumberFormatter::format($phone) : $phone;
 
         return Customer::where(function ($q) use ($email, $phone) {
             // Case-insensitive on email — customers.email is unique, so a
@@ -92,6 +102,9 @@ class CrmCustomerMatchService
             return null;
         }
 
+        // Normalize before comparing — see findLeadByContact() above for why.
+        $phone = $phone ? PhoneNumberFormatter::format($phone) : $phone;
+
         return EbayCustomerRecord::where(function ($q) use ($username, $email, $phone) {
             if ($username) {
                 $q->orWhere('username', $username);
@@ -110,6 +123,9 @@ class CrmCustomerMatchService
         if (! $email && ! $phone) {
             return null;
         }
+
+        // Normalize before comparing — see findLeadByContact() above for why.
+        $phone = $phone ? PhoneNumberFormatter::format($phone) : $phone;
 
         return EbayCustomerRecord::where(function ($q) use ($email, $phone) {
             if ($email) {

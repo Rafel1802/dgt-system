@@ -83,6 +83,15 @@
         <p class="text-xs text-slate-500 mt-1">Used for automatic assignment in Board Automations.</p>
       </div>
 
+      <div>
+        <label class="form-label">CRM Role (optional)</label>
+        <select name="crm_role" class="form-input">
+          <option value="" {{ old('crm_role', $user->crm_role) !== 'supervisor' ? 'selected' : '' }}>Member (default)</option>
+          <option value="supervisor" {{ old('crm_role', $user->crm_role) === 'supervisor' ? 'selected' : '' }}>Supervisor</option>
+        </select>
+        <p class="text-xs text-slate-500 mt-1">Only applies to the Sales/CRM role. A CRM Supervisor can edit lead/customer details and purchase history — a Member can only change status and log follow-ups.</p>
+      </div>
+
       <div class="flex items-center gap-2">
         <input type="checkbox" name="is_active" value="1" id="edit-active"
                {{ old('is_active', $user->is_active) ? 'checked' : '' }}

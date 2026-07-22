@@ -68,6 +68,7 @@ class UserController extends Controller
             'password' => ['required', Password::min(8)->mixedCase()->numbers(), 'confirmed'],
             'role'     => ['required', 'string', 'exists:roles,name'],
             'team_role'=> ['nullable', 'string', 'max:50'],
+            'crm_role' => ['nullable', 'string', 'in:supervisor'],
             'is_active' => ['nullable', 'boolean'],
             'avatar'   => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
         ]);
@@ -85,6 +86,7 @@ class UserController extends Controller
             'is_active' => $request->boolean('is_active', true),
             'avatar'    => $avatarPath,
             'team_role' => $validated['team_role'] ?? null,
+            'crm_role'  => $validated['crm_role'] ?? null,
         ]);
 
         $user->assignRole($validated['role']);
@@ -120,6 +122,7 @@ class UserController extends Controller
             'email'     => ['required', 'email', 'max:255', "unique:users,email,{$user->id}"],
             'role'      => ['required', 'string', 'exists:roles,name'],
             'team_role' => ['nullable', 'string', 'max:50'],
+            'crm_role'  => ['nullable', 'string', 'in:supervisor'],
             'is_active' => ['nullable', 'boolean'],
             'password'  => ['nullable', Password::min(8)->mixedCase()->numbers(), 'confirmed'],
             'avatar'    => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
@@ -133,6 +136,7 @@ class UserController extends Controller
             'username'  => $validated['username'],
             'email'     => $validated['email'],
             'team_role' => $validated['team_role'] ?? null,
+            'crm_role'  => $validated['crm_role'] ?? null,
             'is_active' => $isSelf ? true : $request->boolean('is_active'),
         ];
 

@@ -36,7 +36,8 @@
           </div>
           <div>
             <label class="form-label">Phone</label>
-            <input type="text" name="phone" value="{{ old('phone') }}" class="form-input" placeholder="+61 4XX XXX XXX" id="customer-phone">
+            <input type="text" name="phone" value="{{ old('phone') }}" class="form-input @error('phone') border-red-300 @enderror" placeholder="+1 (207) 213-9077" id="customer-phone">
+            @error('phone')<p class="form-error">{{ $message }}</p>@enderror
           </div>
           <div>
             <label class="form-label">Company</label>

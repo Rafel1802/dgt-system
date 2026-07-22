@@ -184,6 +184,8 @@ class WebsiteCrmController extends Controller
 
     public function edit(Lead $lead): View
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can edit lead details.');
+
         return view('crm.website.edit', [
             'lead'      => $lead->load(['followUps', 'products']),
             'statuses'  => WebsiteLeadStatus::cases(),
@@ -203,6 +205,8 @@ class WebsiteCrmController extends Controller
      */
     public function update(Request $request, Lead $lead): RedirectResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can edit lead details.');
+
         $validated = $request->validate([
             'client_name'       => ['required', 'string', 'max:255'],
             'client_phone'      => ['nullable', 'string'],
@@ -219,13 +223,6 @@ class WebsiteCrmController extends Controller
             'handled_by'        => ['nullable', 'exists:users,id'],
             'lost_reason'       => ['nullable', 'string'],
         ]);
-
-        // Reassigning the handler is a supervisor-tier action — everyone else
-        // can still edit every other field on the lead, so silently drop the
-        // submitted value rather than rejecting the whole update.
-        if (! auth()->user()->canDeleteCrmRecords('website')) {
-            unset($validated['handled_by']);
-        }
 
         $previousHandlerId = $lead->handled_by;
 
@@ -379,6 +376,8 @@ class WebsiteCrmController extends Controller
      */
     public function storeOrder(Request $request, Lead $lead): JsonResponse
     {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can log purchase history.');
+
         $validated = $request->validate([
             'order_date'               => ['required', 'date'],
             'products'                 => ['required', 'array', 'min:1'],
@@ -402,6 +401,47 @@ class WebsiteCrmController extends Controller
         ]);
     }
 
+    /** Correct an existing order (wrong price/product/date) — replaces its line items wholesale. */
+    public function updateOrder(Request $request, Lead $lead, LeadOrder $order): JsonResponse
+    {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can edit purchase history.');
+        abort_unless($order->lead_id === $lead->id, 404);
+
+        $validated = $request->validate([
+            'order_date'               => ['required', 'date'],
+            'products'                 => ['required', 'array', 'min:1'],
+            'products.*.product_id'    => ['nullable', 'exists:products,id'],
+            'products.*.product_name'  => ['nullable', 'string', 'max:255'],
+            'products.*.price'         => ['nullable', 'numeric', 'min:0'],
+            'products.*.quantity'      => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $productRows = $this->filledProductRows($validated['products']);
+
+        if (empty($productRows)) {
+            return response()->json(['message' => 'At least one product is required.'], 422);
+        }
+
+        $order->update(['order_date' => $validated['order_date']]);
+        $this->syncOrderItems($order, $lead, $productRows);
+
+        return response()->json([
+            'message' => 'Order updated.',
+            'order'   => $order->load('items'),
+        ]);
+    }
+
+    /** Remove a mistakenly-logged order — items cascade-delete with it. */
+    public function destroyOrder(Lead $lead, LeadOrder $order): JsonResponse
+    {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor or Boss can edit purchase history.');
+        abort_unless($order->lead_id === $lead->id, 404);
+
+        $order->delete();
+
+        return response()->json(['message' => 'Order removed.']);
+    }
+
     /** A product row counts once it has either a catalog product_id or a manually-typed product_name. */
     private function filledProductRows(array $rows): array
     {
@@ -417,6 +457,16 @@ class WebsiteCrmController extends Controller
             'order_date' => $orderDate,
             'created_by' => auth()->id(),
         ]);
+
+        $this->syncOrderItems($order, $lead, $rows);
+
+        return $order;
+    }
+
+    /** Replace an order's line items with $rows — used on create and on full edit-replace. */
+    private function syncOrderItems(LeadOrder $order, Lead $lead, array $rows): void
+    {
+        $order->items()->delete();
 
         foreach ($rows as $row) {
             $product = ! empty($row['product_id']) ? Product::find($row['product_id']) : null;
@@ -435,8 +485,6 @@ class WebsiteCrmController extends Controller
                 'quantity'     => $row['quantity'] ?? 1,
             ]);
         }
-
-        return $order;
     }
 
     /**
