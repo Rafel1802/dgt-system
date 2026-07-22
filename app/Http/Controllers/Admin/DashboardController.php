@@ -43,6 +43,7 @@ class DashboardController extends Controller
         ];
 
         $appearance = $this->dashboardAppearance($user);
+<<<<<<< HEAD
         $externalTools = Setting::externalTools();
         $canManageExternalTools = $user->hasAnyRole(['super-admin', 'admin-digital']);
         $dashboardNotifications = Cache::remember("dashboard_notifications_{$user->id}", 10, function () use ($user) {
@@ -64,6 +65,8 @@ class DashboardController extends Controller
             10,
             fn () => $user->unreadNotifications()->count()
         );
+=======
+>>>>>>> b3b281c (update again grape)
         $user->loadMissing('roles.permissions');
         $permissionsCount = $user->getAllPermissions()->count();
 
@@ -71,10 +74,13 @@ class DashboardController extends Controller
             'user',
             'stats',
             'appearance',
+<<<<<<< HEAD
             'externalTools',
             'canManageExternalTools',
             'dashboardNotifications',
             'dashboardUnreadCount',
+=======
+>>>>>>> b3b281c (update again grape)
             'permissionsCount',
         ));
     }

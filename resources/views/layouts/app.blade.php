@@ -89,6 +89,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 document.head.appendChild(link);
             };
 
+<<<<<<< HEAD
             const prefetchVisibleLinks = () => {
                 setTimeout(() => {
                     const links = document.querySelectorAll('#sidebar a[href], .board-link a[href], a.prefetch-link');
@@ -107,6 +108,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             document.addEventListener('DOMContentLoaded', prefetchVisibleLinks);
             document.addEventListener('turbo:load', prefetchVisibleLinks);
 
+=======
+>>>>>>> b3b281c (update again grape)
             document.addEventListener('turbo:before-render', (event) => {
                 const currentSidebar = document.getElementById('sidebar');
                 const newSidebar = event.detail.newBody.querySelector('#sidebar');
@@ -147,11 +150,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             }
 
             /* Make transitions ultra-fast (120ms) in the app for a smooth but instant feel */
+<<<<<<< HEAD
             html.dgt-macos-app *, html.dgt-macos-app *::before, html.dgt-macos-app *::after,
             html.dgt-mobile-app *, html.dgt-mobile-app *::before, html.dgt-mobile-app *::after {
                 transition-duration: 120ms !important;
                 animation-duration: 120ms !important;
             }
+=======
+            /* Removed global * transition rules for performance. Animations are now handled via targeted Tailwind classes. */
+>>>>>>> b3b281c (update again grape)
 
             /* Smooth scrolling and momentum touch scroll globally */
             html, body, .page-content, .board-wrap, .sidebar {

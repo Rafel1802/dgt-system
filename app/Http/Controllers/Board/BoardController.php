@@ -466,7 +466,11 @@ class BoardController extends Controller
         if (($validated['template'] ?? '') === 'workflow') {
             $defaults = ['Draft', 'Head Review', 'Text (QC) Review (Mr. Dara)', 'Supervisor Review (Ms. Somalika)', 'Approved', 'Block/Waiting'];
         } elseif (($validated['template'] ?? '') === 'planning') {
+<<<<<<< HEAD
             $defaults = ['Week 1 (1st-4th)', 'Week 2 (6th-11st)', 'Week 3 (17th-18th)', 'Week 4 (20th-25th)', 'Meeting Schedule', 'Block/Waiting'];
+=======
+            $defaults = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Meeting Schedule', 'Block/Waiting'];
+>>>>>>> b3b281c (update again grape)
         } else {
             $defaults = ['To Do', 'In Progress', 'Done'];
         }
