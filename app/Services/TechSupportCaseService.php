@@ -12,6 +12,7 @@ use App\Models\TechSupportCase;
 use App\Models\TechSupportCaseLog;
 use App\Models\User;
 use App\Notifications\GenericDatabaseNotification;
+use App\Support\CrmTeamNotifier;
 use App\Support\InstantNotifier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
@@ -224,6 +225,27 @@ class TechSupportCaseService
             $this->revertEbaySync($case);
             $this->revertLeadResolved($case);
         }
+
+        // eBay and Website/Sales CRM staff both regularly deal with this
+        // same customer outside of Tech Support — a status change here
+        // (especially Red Case or Resolved) is worth them knowing about
+        // without needing to separately check the Tech Support queue.
+        $customerName = $case->customer?->name
+            ?? ($case->source instanceof Lead ? $case->source->client_name : null)
+            ?? ($case->source instanceof EbayCustomerRecord ? ($case->source->buyer_name ?: $case->source->username) : null)
+            ?? 'Customer';
+        $assignedStaffName = $case->customer?->assignee?->name ?? 'Unassigned';
+        $latestNote = $case->logs()->latest()->value('note');
+        $priority = $newStatus === TechSupportCase::STATUS_RED ? 'High' : 'Normal';
+        CrmTeamNotifier::notifyEbayAndSalesTeams(
+            'tech_case_status_changed',
+            "Technical case for {$customerName} changed to " . ($labels[$newStatus] ?? $newStatus) . ($actor ? " by {$actor->name}" : '') . '.'
+                . " Assigned: {$assignedStaffName}. Priority: {$priority}."
+                . ($latestNote ? ' Latest note: ' . \Illuminate\Support\Str::limit($latestNote, 100) . '.' : '')
+                . ' ' . now()->format('d M Y, g:ia') . '.',
+            route('crm.tech-support.show', $case),
+            $actor?->id
+        );
 
         return $case;
     }

@@ -38,13 +38,13 @@ class CrmReportController extends Controller
         // 1. Fetch filtered data based on export type
         switch ($type) {
             case 'customers':
-                $query = Customer::with('assignee');
+                $query = Customer::with(['assignee', 'interactions' => fn ($q) => $q->limit(1)]);
                 if ($startDate) $query->where('created_at', '>=', $startDate);
                 if ($endDate) $query->where('created_at', '<=', $endDate);
                 if ($memberId !== 'All') $query->where('assigned_to', $memberId);
                 $data = $query->latest()->get();
                 $title = 'CRM Customer Report';
-                $headers = ['#', 'Name', 'Email', 'Phone', 'Company', 'Status', 'Source', 'Pipeline Stage', 'Value (USD)', 'Assigned To', 'Date Added'];
+                $headers = ['#', 'Customer ID', 'Name', 'Email', 'Phone', 'Address', 'Company', 'Status', 'Source', 'Pipeline Stage', 'Current Workflow', 'Purchase Date', 'Product', 'Value (USD)', 'Assigned To', 'Latest Follow-up', 'Created Date', 'Last Updated'];
                 break;
 
             case 'logistics':
@@ -106,16 +106,23 @@ class CrmReportController extends Controller
                     if ($type === 'customers') {
                         $rowData = [
                             $num,
+                            $row->id,
                             $row->name,
                             $row->email ?? '—',
                             $row->phone ?? '—',
+                            $row->address ?? '—',
                             $row->company ?? '—',
                             $row->status ? $row->status->label() : '—',
                             $row->source ? $row->source : '—',
                             $row->pipeline_stage ? $row->pipeline_stage->label() : '—',
+                            $row->current_queue ? $row->current_queue->label() : '—',
+                            $row->first_purchase_date ? $row->first_purchase_date->format('Y-m-d') : '—',
+                            $row->product_interests ? implode('; ', $row->product_interests) : '—',
                             $row->lifetime_value,
                             $row->assignee ? $row->assignee->name : 'Unassigned',
-                            $row->created_at->format('Y-m-d H:i')
+                            $row->interactions->first()?->content ?? '—',
+                            $row->created_at->format('Y-m-d H:i'),
+                            $row->updated_at->format('Y-m-d H:i'),
                         ];
                     } elseif ($type === 'logistics') {
                         $rowData = [

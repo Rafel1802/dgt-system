@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Product;
@@ -12,9 +13,11 @@ use App\Models\TruckingCompany;
 use App\Models\User;
 use App\Services\CrmCustomerMatchService;
 use App\Services\SimpleXlsxReader;
+use App\Support\CrmTeamNotifier;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -79,20 +82,80 @@ class ShipmentController extends Controller
         $customerQuery = ShipmentCustomer::with(['shipment', 'handler', 'products'])
             ->whereIn('status', $customerStatuses);
 
+        // Delivered Customers page (spec: Delivered Customer page) also
+        // surfaces the linked Customer record — Purchase Date and Follow-up
+        // History (CustomerInteraction) — since neither lives on
+        // ShipmentCustomer itself.
+        if ($mode === 'delivered') {
+            $customerQuery->with(['customer' => fn ($q) => $q->with(['interactions' => fn ($i) => $i->limit(5)])]);
+        }
+
         if ($s = $request->get('search')) {
             $customerQuery->search($s);
         }
 
-        $shipmentCustomers = $customerQuery->latest()->paginate(20)->withQueryString();
+        if ($mode === 'delivered') {
+            // ShipmentCustomer has no dedicated delivered_at column — updated_at
+            // is the last status-change timestamp, which for a Delivered row is
+            // effectively its delivery date.
+            $sortBy = in_array($request->get('sort_by'), ['delivery', 'purchase'], true) ? $request->get('sort_by') : 'delivery';
+            if ($sortBy === 'purchase') {
+                $customerQuery->leftJoin('customers', 'customers.id', '=', 'shipment_customers.customer_id')
+                    ->orderByDesc('customers.first_purchase_date')
+                    ->select('shipment_customers.*');
+            } else {
+                $customerQuery->latest('updated_at');
+            }
+        } else {
+            $sortBy = null;
+            $customerQuery->latest();
+        }
+
+        $shipmentCustomers = $customerQuery->paginate(20)->withQueryString();
 
         return view('crm.logistics.trucking-queue', [
             'mode'              => $mode,
             'shipmentCustomers' => $shipmentCustomers,
+            'sortBy'            => $sortBy,
             // For the bulk "Add to Shipment" picker — active shipments only,
             // since assigning into an already-Complete one isn't useful.
             'assignableShipments' => Shipment::where('status', '!=', Shipment::STATUS_COMPLETE)
                 ->latest()->limit(100)->get(['id', 'shipment_code']),
         ]);
+    }
+
+    /** CSV export for the Delivered Customers page — Search/filter apply the same as the on-screen list. */
+    public function exportDelivered(Request $request): StreamedResponse
+    {
+        $customerQuery = ShipmentCustomer::with(['shipment', 'handler', 'customer'])
+            ->where('status', ShipmentCustomer::STATUS_DELIVERED);
+
+        if ($s = $request->get('search')) {
+            $customerQuery->search($s);
+        }
+
+        $rows = $customerQuery->latest('updated_at')->get();
+
+        $headers = ['Recipient Name', 'Phone', 'Email', 'Address', 'Purchase Date', 'Delivery Date', 'Assigned Staff', 'Delivery Status', 'Notes'];
+
+        return response()->streamDownload(function () use ($rows, $headers) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers, ',', '"', '\\');
+            foreach ($rows as $row) {
+                fputcsv($out, [
+                    $row->recipient_name,
+                    $row->recipient_phone,
+                    $row->recipient_email,
+                    $row->shipping_address,
+                    $row->customer?->first_purchase_date?->format('Y-m-d'),
+                    $row->updated_at?->format('Y-m-d'),
+                    $row->handler?->name,
+                    ShipmentCustomer::statuses()[$row->status] ?? $row->status,
+                    $row->notes,
+                ], ',', '"', '\\');
+            }
+            fclose($out);
+        }, 'delivered-customers.csv', ['Content-Type' => 'text/csv']);
     }
 
     /** Every customer currently flagged with a logistics/shipment issue, across all sources. */
@@ -412,6 +475,12 @@ class ShipmentController extends Controller
 
         $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
+        // Captured before update() so the notification below only fires on
+        // an actual transition into Problem, not on every re-save of a
+        // shipment customer that was already flagged.
+        $becameProblem = $validated['status'] === ShipmentCustomer::STATUS_PROBLEM
+            && $customer->status !== ShipmentCustomer::STATUS_PROBLEM;
+
         $customer->update($validated);
 
         $this->syncShipmentCustomerProducts($customer, $productRows);
@@ -430,6 +499,23 @@ class ShipmentController extends Controller
         $this->matcher->syncEditedShipmentCustomer($customer);
 
         $this->syncShipmentCompletionStatus($shipment);
+
+        // eBay and Website/Sales CRM staff both deal with this same
+        // customer outside of Logistics — a shipment problem is worth them
+        // knowing about immediately, same as Tech Support status changes
+        // and eBay negative feedback.
+        if ($becameProblem) {
+            $assignedStaffName = $customer->handler?->name ?? 'Unassigned';
+            CrmTeamNotifier::notifyEbayAndSalesTeams(
+                'logistic_problem',
+                "Logistic issue reported for {$customer->recipient_name}."
+                    . " Assigned: {$assignedStaffName}."
+                    . ($customer->notes ? ' Latest note: ' . \Illuminate\Support\Str::limit($customer->notes, 100) . '.' : '')
+                    . ' ' . now()->format('d M Y, g:ia') . '.',
+                route('crm.logistics.issues.index'),
+                auth()->id()
+            );
+        }
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Customer record updated.');
@@ -921,104 +1007,198 @@ class ShipmentController extends Controller
                 ->withErrors(['file' => 'No import in progress — please upload a file first.']);
         }
 
+        // Only the outer shape is validated here — per-row field validity is
+        // checked row-by-row inside the loop below (via Validator::make())
+        // so one malformed row (e.g. a non-numeric quantity) is skipped
+        // individually instead of 422-ing the entire submission.
         $validated = $request->validate([
-            'rows'                    => ['required', 'array', 'min:1'],
-            'rows.*.recipient_name'   => ['nullable', 'string', 'max:255'],
-            'rows.*.address_line'     => ['nullable', 'string', 'max:255'],
-            'rows.*.city'             => ['nullable', 'string', 'max:255'],
-            'rows.*.state'            => ['nullable', 'string', 'max:255'],
-            'rows.*.zip'              => ['nullable', 'string', 'max:50'],
-            'rows.*.country'          => ['nullable', 'string', 'max:255'],
-            'rows.*.phone'            => ['nullable', 'string', 'max:50'],
-            'rows.*.email'            => ['nullable', 'string', 'max:255'],
-            'rows.*.product_name'     => ['nullable', 'string', 'max:255'],
-            'rows.*.sku'              => ['nullable', 'string', 'max:100'],
-            'rows.*.quantity'         => ['nullable', 'integer', 'min:1'],
-            'rows.*.tracking_number'  => ['nullable', 'string', 'max:150'],
-            'rows.*.notes'            => ['nullable', 'string'],
+            'rows' => ['required', 'array', 'min:1'],
         ]);
+
+        $rowRules = [
+            'recipient_name'  => ['nullable', 'string', 'max:255'],
+            'address_line'    => ['nullable', 'string', 'max:255'],
+            'city'            => ['nullable', 'string', 'max:255'],
+            'state'           => ['nullable', 'string', 'max:255'],
+            'zip'             => ['nullable', 'string', 'max:50'],
+            'country'         => ['nullable', 'string', 'max:255'],
+            'phone'           => ['nullable', 'string', 'max:50'],
+            'email'           => ['nullable', 'email', 'max:255'],
+            'product_name'    => ['nullable', 'string', 'max:255'],
+            'sku'             => ['nullable', 'string', 'max:100'],
+            'quantity'        => ['nullable', 'integer', 'min:1'],
+            'tracking_number' => ['nullable', 'string', 'max:150'],
+            'notes'           => ['nullable', 'string'],
+        ];
 
         $imported = 0;
         $skipped = [];
+        $failedRows = [];
+        $duplicateCount = 0;
         $seenTrackingNumbers = [];
 
-        foreach ($validated['rows'] as $i => $data) {
-            if (empty($data['recipient_name'])) {
-                $skipped[] = 'Row ' . ($i + 1) . ': missing Recipient Name.';
-                continue;
-            }
+        DB::transaction(function () use ($request, $rowRules, &$imported, &$skipped, &$failedRows, &$duplicateCount, &$seenTrackingNumbers) {
+            foreach ($request->input('rows', []) as $i => $data) {
+                $rowNumber = $i + 1;
 
-            // A tracking number is the one field that uniquely identifies a
-            // real-world shipping label — re-uploading the same export (or a
-            // file with an accidentally duplicated block) must not create a
-            // second record for the same label. Checked both within this
-            // batch and against everything ever imported before, since a
-            // duplicate could span two separate import sessions just as
-            // easily as one file. Rows with no detected tracking number
-            // skip this check entirely — there's no reliable key to dedupe
-            // on, and blocking on name/phone alone would wrongly reject a
-            // legitimate repeat order from a returning customer.
-            $trackingNumber = $data['tracking_number'] ?? null;
-            if (! empty($trackingNumber)) {
-                if (isset($seenTrackingNumbers[$trackingNumber]) || ShipmentCustomer::where('tracking_number', $trackingNumber)->exists()) {
-                    $skipped[] = 'Row ' . ($i + 1) . ": tracking number {$trackingNumber} already imported — skipped as duplicate.";
+                $validator = \Illuminate\Support\Facades\Validator::make($data, $rowRules);
+                if ($validator->fails()) {
+                    $reason = implode(' ', $validator->errors()->all());
+                    $skipped[] = "Row {$rowNumber}: {$reason}";
+                    $failedRows[] = $data + ['row' => $rowNumber, 'error' => $reason];
                     continue;
                 }
-                $seenTrackingNumbers[$trackingNumber] = true;
-            }
+                $data = $validator->validated();
 
-            $address = implode(', ', array_filter([
-                $data['address_line'] ?? null,
-                $data['city'] ?? null,
-                $data['state'] ?? null,
-                $data['zip'] ?? null,
-                $data['country'] ?? null,
-            ]));
+                if (empty($data['recipient_name'])) {
+                    $reason = 'missing Recipient Name.';
+                    $skipped[] = "Row {$rowNumber}: {$reason}";
+                    $failedRows[] = $data + ['row' => $rowNumber, 'error' => $reason];
+                    continue;
+                }
 
-            $shipmentCustomer = ShipmentCustomer::create([
-                'shipment_id'      => null,
-                'recipient_name'   => $data['recipient_name'],
-                'recipient_phone'  => $data['phone'] ?? null,
-                'recipient_email'  => $data['email'] ?? null,
-                'shipping_address' => $address,
-                'status'           => ShipmentCustomer::STATUS_PENDING,
-                'handled_by'       => auth()->id(),
-                'tracking_number'  => $data['tracking_number'] ?? null,
-                'notes'            => ! empty($data['notes']) ? $data['notes'] : null,
-            ]);
+                // A tracking number is the one field that uniquely identifies a
+                // real-world shipping label — re-uploading the same export (or a
+                // file with an accidentally duplicated block) must not create a
+                // second record for the same label. Checked both within this
+                // batch and against everything ever imported before, since a
+                // duplicate could span two separate import sessions just as
+                // easily as one file. Rows with no detected tracking number
+                // skip this check entirely — there's no reliable key to dedupe
+                // on, and blocking on name/phone alone would wrongly reject a
+                // legitimate repeat order from a returning customer.
+                $trackingNumber = $data['tracking_number'] ?? null;
+                if (! empty($trackingNumber)) {
+                    if (isset($seenTrackingNumbers[$trackingNumber]) || ShipmentCustomer::where('tracking_number', $trackingNumber)->exists()) {
+                        $reason = "tracking number {$trackingNumber} already imported — skipped as duplicate.";
+                        $skipped[] = "Row {$rowNumber}: {$reason}";
+                        $failedRows[] = $data + ['row' => $rowNumber, 'error' => $reason];
+                        $duplicateCount++;
+                        continue;
+                    }
+                    $seenTrackingNumbers[$trackingNumber] = true;
+                }
 
-            if (! empty($data['product_name']) || ! empty($data['sku'])) {
-                $product = ! empty($data['sku']) ? Product::where('sku', $data['sku'])->first() : null;
+                $address = implode(', ', array_filter([
+                    $data['address_line'] ?? null,
+                    $data['city'] ?? null,
+                    $data['state'] ?? null,
+                    $data['zip'] ?? null,
+                    $data['country'] ?? null,
+                ]));
 
-                $shipmentCustomer->products()->create([
-                    'product_id'   => $product?->id,
-                    'product_name' => $product->name ?? ($data['product_name'] ?: $data['sku']),
-                    'sku'          => $data['sku'] ?? $product?->sku,
-                    'quantity'     => $data['quantity'] ?: 1,
+                $shipmentCustomer = ShipmentCustomer::create([
+                    'shipment_id'      => null,
+                    'recipient_name'   => $data['recipient_name'],
+                    'recipient_phone'  => $data['phone'] ?? null,
+                    'recipient_email'  => $data['email'] ?? null,
+                    'shipping_address' => $address,
+                    'status'           => ShipmentCustomer::STATUS_PENDING,
+                    'handled_by'       => auth()->id(),
+                    'tracking_number'  => $data['tracking_number'] ?? null,
+                    'notes'            => ! empty($data['notes']) ? $data['notes'] : null,
                 ]);
+
+                if (! empty($data['product_name']) || ! empty($data['sku'])) {
+                    $product = ! empty($data['sku']) ? Product::where('sku', $data['sku'])->first() : null;
+
+                    $shipmentCustomer->products()->create([
+                        'product_id'   => $product?->id,
+                        'product_name' => $product->name ?? ($data['product_name'] ?: $data['sku']),
+                        'sku'          => $data['sku'] ?? $product?->sku,
+                        'quantity'     => $data['quantity'] ?: 1,
+                    ]);
+                }
+
+                // Every imported recipient lands in the Customer database: if
+                // their phone or email matches an existing Customer, link the
+                // two and refresh their info/status; otherwise create a new
+                // Customer record for them (source: Logistic) so Process
+                // Trucking imports aren't a data dead-end for people who've
+                // never come through the website or eBay.
+                $this->matcher->syncImportedCustomer($shipmentCustomer);
+
+                $imported++;
             }
-
-            // Every imported recipient lands in the Customer database: if
-            // their phone or email matches an existing Customer, link the
-            // two and refresh their info/status; otherwise create a new
-            // Customer record for them (source: Logistic) so Process
-            // Trucking imports aren't a data dead-end for people who've
-            // never come through the website or eBay.
-            $this->matcher->syncImportedCustomer($shipmentCustomer);
-
-            $imported++;
-        }
+        });
 
         session()->forget('shipment_import_preview');
+        session(['shipment_import_failed_rows' => $failedRows]);
 
+        ActivityLog::create([
+            'user_id'      => auth()->id(),
+            'action'       => 'logistics.import',
+            'module'       => 'crm',
+            'description'  => auth()->user()->name . " ran a logistics import — {$imported} imported, " . count($skipped) . ' skipped.',
+            'subject_type' => null,
+            'subject_id'   => null,
+            'properties'   => [
+                'imported'  => $imported,
+                'skipped'   => count($skipped),
+                'duplicates' => $duplicateCount,
+            ],
+            'ip_address'   => $request->ip(),
+            'user_agent'   => $request->userAgent(),
+            'created_at'   => now(),
+        ]);
+
+        // Import summary — success count, duplicate count, and the first few
+        // failure reasons up front; the full failed-row list stays available
+        // to download as CSV via downloadFailedImportRows() below.
         $message = "{$imported} customer(s) imported into Process Trucking.";
+        if ($duplicateCount > 0) {
+            $message .= " {$duplicateCount} duplicate(s) skipped.";
+        }
+        $otherSkipped = count($skipped) - $duplicateCount;
+        if ($otherSkipped > 0) {
+            $message .= " {$otherSkipped} invalid row(s) skipped.";
+        }
         if (! empty($skipped)) {
             $shown = array_slice($skipped, 0, 5);
-            $message .= ' ' . count($skipped) . ' row(s) skipped: ' . implode(' ', $shown) . (count($skipped) > 5 ? ' …' : '');
+            $message .= ' Details: ' . implode(' ', $shown) . (count($skipped) > 5 ? ' …' : '')
+                . ' — download the failed rows to review all of them.';
         }
 
         return redirect()->route('crm.logistics.processTrucking')
             ->with($imported > 0 ? 'success' : 'error', $message);
+    }
+
+    /** Download the rows skipped/failed in the most recent import as CSV, for review/re-upload. */
+    public function downloadFailedImportRows(): StreamedResponse|RedirectResponse
+    {
+        $failedRows = session('shipment_import_failed_rows', []);
+
+        if (empty($failedRows)) {
+            return redirect()->route('crm.logistics.processTrucking')
+                ->withErrors(['file' => 'No failed rows to download — run an import first.']);
+        }
+
+        $headers = ['Row', 'Recipient Name', 'Address Line', 'City', 'State', 'Zip', 'Country', 'Phone', 'Email', 'Product Name', 'SKU', 'Quantity', 'Tracking Number', 'Notes', 'Error'];
+
+        return response()->streamDownload(function () use ($failedRows, $headers) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers, ',', '"', '\\');
+            foreach ($failedRows as $row) {
+                fputcsv($out, [
+                    $row['row'] ?? '',
+                    $row['recipient_name'] ?? '',
+                    $row['address_line'] ?? '',
+                    $row['city'] ?? '',
+                    $row['state'] ?? '',
+                    $row['zip'] ?? '',
+                    $row['country'] ?? '',
+                    $row['phone'] ?? '',
+                    $row['email'] ?? '',
+                    $row['product_name'] ?? '',
+                    $row['sku'] ?? '',
+                    $row['quantity'] ?? '',
+                    $row['tracking_number'] ?? '',
+                    $row['notes'] ?? '',
+                    $row['error'] ?? '',
+                ], ',', '"', '\\');
+            }
+            fclose($out);
+        }, 'import-failed-rows.csv', ['Content-Type' => 'text/csv']);
     }
 
     /** @return array<string,int> import field key => source column index, matched against IMPORT_COLUMN_ALIASES */

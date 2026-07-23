@@ -27,6 +27,18 @@
         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
         Import from Excel
       </button>
+      @if(session()->has('shipment_import_failed_rows') && count(session('shipment_import_failed_rows')) > 0)
+      <a href="{{ route('crm.logistics.shipments.customers.import.failed') }}" class="btn btn-secondary text-sm">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6h10.5a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-1.5m-9 0H5.25A2.25 2.25 0 0 0 3 5.25v9a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+        Download Failed Rows ({{ count(session('shipment_import_failed_rows')) }})
+      </a>
+      @endif
+      @endif
+      @if($mode === 'delivered')
+      <a href="{{ route('crm.logistics.delivered.export', request()->only('search')) }}" class="btn btn-secondary text-sm">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+        Export CSV
+      </a>
       @endif
     </div>
   </div>
@@ -43,6 +55,15 @@
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
         </div>
       </div>
+      @if($mode === 'delivered')
+      <div class="min-w-[160px]">
+        <label class="form-label text-xs">Sort by</label>
+        <select name="sort_by" class="form-input py-2 text-sm" @change="$el.closest('form').submit()">
+          <option value="delivery" {{ $sortBy === 'delivery' ? 'selected' : '' }}>Delivery Date</option>
+          <option value="purchase" {{ $sortBy === 'purchase' ? 'selected' : '' }}>Purchase Date</option>
+        </select>
+      </div>
+      @endif
     </div>
   </form>
 
@@ -80,6 +101,11 @@
             <th class="px-4 py-3">Product</th>
             <th class="px-4 py-3">Tracking #</th>
             <th class="px-4 py-3">Handled By</th>
+            @if($mode === 'delivered')
+            <th class="px-4 py-3">Purchase Date</th>
+            <th class="px-4 py-3">Follow-up History</th>
+            <th class="px-4 py-3">Notes</th>
+            @endif
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
@@ -118,6 +144,21 @@
             <td class="px-4 py-3 text-slate-500 text-xs">
               {{ $sc->handler?->name ?? 'Unassigned' }}
             </td>
+            @if($mode === 'delivered')
+            <td class="px-4 py-3 text-slate-500 text-xs">
+              {{ $sc->customer?->first_purchase_date?->format('d/m/Y') ?? '—' }}
+            </td>
+            <td class="px-4 py-3 text-slate-500 text-xs">
+              @forelse(($sc->customer?->interactions ?? []) as $interaction)
+                <p class="truncate max-w-[160px]" title="{{ $interaction->content }}">{{ $interaction->interacted_at?->format('d/m/Y') }} — {{ \Illuminate\Support\Str::limit($interaction->content, 30) }}</p>
+              @empty
+                <span>—</span>
+              @endforelse
+            </td>
+            <td class="px-4 py-3 text-slate-500 text-xs">
+              <p class="truncate max-w-[160px]" title="{{ $sc->notes }}">{{ $sc->notes ?: '—' }}</p>
+            </td>
+            @endif
             <td class="px-4 py-3">
               <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $sc->statusColor() }}22; color:{{ $sc->statusColor() }}">
                 {{ $sc->statusLabel() }}
@@ -136,7 +177,7 @@
           </tr>
           @empty
           <tr>
-            <td colspan="8" class="text-center py-14">
+            <td colspan="{{ $mode === 'delivered' ? 11 : 8 }}" class="text-center py-14">
               <div class="text-4xl mb-3">🚚</div>
               @if($mode === 'processing')
               <p class="text-slate-500 font-medium">No customers waiting to be loaded</p>

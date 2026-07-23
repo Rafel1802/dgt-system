@@ -317,13 +317,8 @@
         </article>
     </section>
 
-<<<<<<< HEAD
     <section class="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div class="xl:col-span-2 space-y-6">
-=======
-    <section class="flex flex-col gap-6">
-        <div class="space-y-6">
->>>>>>> b3b281c (update again grape)
             <div class="dash-glass rounded-[1.5rem] p-5 sm:p-6">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -401,7 +396,6 @@
             </div>
         </div>
 
-<<<<<<< HEAD
         <aside class="space-y-6">
             {{-- Quick actions is hidden for staff whose only module is CRM
                  (a pure CRM role, not super-admin/boss who span both worlds
@@ -627,8 +621,6 @@
                 </div>
             </div>
         </aside>
-=======
->>>>>>> b3b281c (update again grape)
     </section>
 </div>
 @endsection

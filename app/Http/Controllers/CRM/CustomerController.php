@@ -2,16 +2,22 @@
 
 namespace App\Http\Controllers\CRM;
 
+use App\Enums\CustomerQueue;
 use App\Enums\CustomerSource;
 use App\Enums\CustomerStatus;
 use App\Enums\DealStage;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Crm\StoreCustomerRequest;
+use App\Http\Requests\Crm\UpdateCustomerRequest;
+use App\Models\ActivityLog;
 use App\Models\Customer;
+use App\Models\CustomerWorkflowLog;
 use App\Models\User;
 use App\Notifications\GenericDatabaseNotification;
 use App\Services\CrmService;
 use App\Services\CrmCustomerMatchService;
 use App\Services\TechSupportCaseService;
+use App\Support\CrmTeamNotifier;
 use App\Support\InstantNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -62,6 +68,29 @@ class CustomerController extends Controller
         ]));
     }
 
+    /** Structured audit entry — reuses the existing activity_logs table/model (see ActivityLog). */
+    private function logActivity(string $action, Customer $customer, string $description, array $properties = []): void
+    {
+        ActivityLog::create([
+            'user_id'      => auth()->id(),
+            'action'       => $action,
+            'module'       => 'crm',
+            'description'  => $description,
+            'subject_type' => Customer::class,
+            'subject_id'   => $customer->id,
+            'properties'   => $properties ?: null,
+            'ip_address'   => request()->ip(),
+            'user_agent'   => request()->userAgent(),
+            'created_at'   => now(),
+        ]);
+    }
+
+    private const REMEMBERED_FILTER_KEYS = [
+        'search', 'status_filter', 'source_filter', 'date_from', 'date_to',
+        'created_from', 'created_to', 'sort_by', 'new_only',
+        'assigned_to_filter', 'customer_status_filter',
+    ];
+
     /**
      * Customer Database — a single unified list deduped across CRM Website
      * (Leads), eBay, and Logistics-problem records, filterable by the
@@ -72,9 +101,25 @@ class CustomerController extends Controller
     {
         $this->authorize('viewAny', Customer::class);
 
+        if ($request->boolean('clear_filters')) {
+            session()->forget('crm.customers.filters');
+            return redirect()->route('crm.customers.index');
+        }
+
+        // Remember the last-applied filters in session so they persist while
+        // browsing (e.g. navigating to a customer and back) — a request with
+        // none of the recognized filter params present re-hydrates from
+        // whatever was last saved instead of resetting to "All".
+        if ($request->hasAny(self::REMEMBERED_FILTER_KEYS)) {
+            session(['crm.customers.filters' => $request->only(self::REMEMBERED_FILTER_KEYS)]);
+        } else {
+            $request->merge(session('crm.customers.filters', []));
+        }
+
         $stats = $this->crmService->getDashboardStats();
 
-        $all = $this->matcher->buildUnifiedDirectory(['search' => $request->get('search')]);
+        $sortBy = in_array($request->get('sort_by'), ['created', 'purchase'], true) ? $request->get('sort_by') : 'created';
+        $all = $this->matcher->buildUnifiedDirectory(['search' => $request->get('search'), 'sort_by' => $sortBy]);
         $totalUnique = $all->count();
 
         $statusFilter = $request->get('status_filter', 'All');
@@ -93,6 +138,27 @@ class CustomerController extends Controller
             'Website'   => $customers->filter(fn ($c) => ! in_array($c['source'], ['eBay', 'Logistics'], true)),
             default     => $customers,
         };
+
+        // Customer Status — the Customer entity's own lifecycle status
+        // (Lead/Prospect/Active Customer/Inactive/Lost), distinct from the
+        // cross-source issue category filter above.
+        $customerStatusFilter = $request->get('customer_status_filter', 'All');
+        if ($customerStatusFilter !== 'All') {
+            $customers = $customers->filter(fn ($c) => $c['status_label'] === $customerStatusFilter);
+        }
+
+        // New Customers — created within the last 7 days.
+        $newOnly = $request->boolean('new_only');
+        if ($newOnly) {
+            $newSince = now()->subDays(7);
+            $customers = $customers->filter(fn ($c) => $c['created_date'] && $c['created_date']->gte($newSince));
+        }
+
+        // Assigned Staff
+        $assignedToFilter = $request->get('assigned_to_filter');
+        if ($assignedToFilter) {
+            $customers = $customers->filter(fn ($c) => (int) ($c['handler_id'] ?? 0) === (int) $assignedToFilter);
+        }
 
         // Purchase Date and Created Date are deliberately separate filters —
         // a fresh lead with no order yet has no purchase date at all (see
@@ -121,7 +187,14 @@ class CustomerController extends Controller
             $customers = $customers->filter(fn ($c) => $c['created_date'] && $c['created_date']->lte($to));
         }
 
-        return view('crm.index', compact('stats', 'customers', 'statusFilter', 'sourceFilter', 'totalUnique', 'dateFrom', 'dateTo', 'createdFrom', 'createdTo'));
+        $assignableStaff = User::crmMembers()->orderBy('name')->get(['id', 'name']);
+        $customerStatuses = CustomerStatus::cases();
+
+        return view('crm.index', compact(
+            'stats', 'customers', 'statusFilter', 'sourceFilter', 'totalUnique',
+            'dateFrom', 'dateTo', 'createdFrom', 'createdTo', 'sortBy', 'newOnly',
+            'assignedToFilter', 'assignableStaff', 'customerStatusFilter', 'customerStatuses'
+        ));
     }
 
     /** Create customer form */
@@ -138,37 +211,9 @@ class CustomerController extends Controller
     }
 
     /** Store new customer */
-    public function store(Request $request): RedirectResponse
+    public function store(StoreCustomerRequest $request): RedirectResponse
     {
-        $this->authorize('create', Customer::class);
-
-        $validated = $request->validate([
-            'name'              => ['required', 'string', 'max:255', 'regex:' . self::NAME_REGEX],
-            // No blanket email uniqueness here — a duplicate is specifically a
-            // name+email match together (see findDuplicateCustomer() below);
-            // the same email under a different name is a different person.
-            'email'             => ['nullable', 'email', 'max:255'],
-            'phone'             => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
-            'company'           => ['nullable', 'string', 'max:255'],
-            'job_title'         => ['nullable', 'string', 'max:100'],
-            'website'           => ['nullable', 'url', 'max:255'],
-            'country'           => ['nullable', 'string', 'max:10'],
-            'state'             => ['nullable', 'string', 'max:100'],
-            'city'              => ['nullable', 'string', 'max:100'],
-            'address'           => ['nullable', 'string', 'max:500'],
-            'postcode'          => ['nullable', 'string', 'max:20'],
-            'status'            => ['required', Rule::enum(CustomerStatus::class)],
-            'source'            => ['nullable', Rule::enum(CustomerSource::class)],
-            'pipeline_stage'    => ['nullable', Rule::enum(DealStage::class)],
-            'product_interests' => ['nullable', 'array'],
-            'product_interests.*' => ['string', 'max:100'],
-            'notes'             => ['nullable', 'string', 'max:5000'],
-            'assigned_to'       => ['nullable', 'integer', 'exists:users,id'],
-            'tags'              => ['nullable', 'string'],
-        ], [
-            'name.regex'  => 'Name can only contain letters and spaces.',
-            'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
-        ]);
+        $validated = $request->validated();
 
         // Convert comma-separated tags to array
         if (! empty($validated['tags'])) {
@@ -195,6 +240,8 @@ class CustomerController extends Controller
         }
 
         $customer = $this->crmService->createCustomer($validated, auth()->user());
+
+        $this->logActivity('customer.created', $customer, auth()->user()->name . " created customer \"{$customer->name}\".");
 
         return redirect()->route('crm.customers.show', $customer)
             ->with('success', "Customer \"{$customer->name}\" created successfully.");
@@ -262,6 +309,7 @@ class CustomerController extends Controller
             'interactions.user:id,name,avatar',
             'attachments.uploader:id,name',
             'latestTechSupportCase',
+            'workflowLogs.mover:id,name',
         ]);
 
         // Viewing the customer counts as viewing the outcome of any of their
@@ -270,7 +318,10 @@ class CustomerController extends Controller
             $customer->techSupportCases()->pluck('id')->all()
         );
 
-        return view('crm.show', compact('customer'));
+        $fullEdit = auth()->user()->hasFullCrmEdit();
+        $queues = CustomerQueue::cases();
+
+        return view('crm.show', compact('customer', 'fullEdit', 'queues'));
     }
 
     /** Edit customer form */
@@ -284,36 +335,24 @@ class CustomerController extends Controller
             'sources'  => CustomerSource::cases(),
             'stages'   => DealStage::cases(),
             'users'    => User::crmMembers()->get(['id', 'name']),
+            'fullEdit' => auth()->user()->hasFullCrmEdit(),
         ]);
     }
 
-    /** Update customer */
-    public function update(Request $request, Customer $customer): RedirectResponse
-    {
-        $this->authorize('update', $customer);
+    // Fields a Normal Staff user (crm.status-update, no crm.edit) may change
+    // on their own assigned customer — status changes and notes only. See
+    // CustomerPolicy::update() for the "own assigned customer" gate.
+    private const NORMAL_STAFF_EDITABLE_FIELDS = ['status', 'notes'];
 
-        $validated = $request->validate([
-            'name'              => ['required', 'string', 'max:255', 'regex:' . self::NAME_REGEX],
-            'email'             => ['nullable', 'email', 'max:255', "unique:customers,email,{$customer->id}"],
-            'phone'             => ['nullable', 'string', 'max:30', 'regex:' . self::US_PHONE_REGEX],
-            'company'           => ['nullable', 'string', 'max:255'],
-            'job_title'         => ['nullable', 'string', 'max:100'],
-            'website'           => ['nullable', 'url', 'max:255'],
-            'country'           => ['nullable', 'string', 'max:10'],
-            'state'             => ['nullable', 'string', 'max:100'],
-            'city'              => ['nullable', 'string', 'max:100'],
-            'address'           => ['nullable', 'string', 'max:500'],
-            'status'            => ['required', Rule::enum(CustomerStatus::class)],
-            'source'            => ['nullable', Rule::enum(CustomerSource::class)],
-            'pipeline_stage'    => ['nullable', Rule::enum(DealStage::class)],
-            'product_interests' => ['nullable', 'array'],
-            'notes'             => ['nullable', 'string', 'max:5000'],
-            'assigned_to'       => ['nullable', 'integer', 'exists:users,id'],
-            'tags'              => ['nullable', 'string'],
-        ], [
-            'name.regex'  => 'Name can only contain letters and spaces.',
-            'phone.regex' => 'Enter a valid US phone number, e.g. (207) 213-9077.',
-        ]);
+    /** Update customer */
+    public function update(UpdateCustomerRequest $request, Customer $customer): RedirectResponse
+    {
+        $validated = $request->validated();
+        $fullEdit = auth()->user()->hasFullCrmEdit();
+
+        if (! $fullEdit) {
+            $validated = array_intersect_key($validated, array_flip(self::NORMAL_STAFF_EDITABLE_FIELDS));
+        }
 
         if (! empty($validated['tags'])) {
             $validated['tags'] = array_map('trim', explode(',', $validated['tags']));
@@ -325,7 +364,31 @@ class CustomerController extends Controller
         $previousAssignedTo = $customer->assigned_to;
         $previousStatus = $customer->status;
 
+        // Field-level diff for the audit log + supervisor/admin notification
+        // — computed only over the fields actually being changed (i.e.
+        // already whitelisted above for Normal Staff).
+        $changes = [];
+        foreach ($validated as $field => $newValue) {
+            $oldValue = $customer->getAttribute($field);
+            $oldComparable = $oldValue instanceof \BackedEnum ? $oldValue->value : $oldValue;
+            $newComparable = is_array($newValue) ? json_encode($newValue) : $newValue;
+            $oldForCompare = is_array($oldComparable) ? json_encode($oldComparable) : $oldComparable;
+            if ((string) $oldForCompare !== (string) $newComparable) {
+                $changes[$field] = ['old' => $oldComparable, 'new' => $newValue];
+            }
+        }
+
         $this->crmService->updateCustomer($customer, $validated, auth()->user());
+
+        if (! empty($changes)) {
+            $this->logActivity(
+                'customer.updated',
+                $customer,
+                auth()->user()->name . " updated customer \"{$customer->name}\" — changed: " . implode(', ', array_keys($changes)) . '.',
+                $changes
+            );
+            CrmTeamNotifier::notifyCustomerUpdated($customer, auth()->user(), $changes);
+        }
 
         if (
             array_key_exists('assigned_to', $validated)
@@ -359,6 +422,49 @@ class CustomerController extends Controller
 
         return redirect()->route('crm.customers.show', $customer)
             ->with('success', 'Customer updated successfully.');
+    }
+
+    /**
+     * Route a customer to a department queue based on feedback (Technical,
+     * Logistics, Sales, Follow-up) — Admin/Supervisor tier only. Writes
+     * Customer.current_queue and appends a CustomerWorkflowLog history row,
+     * then notifies the target department + assigned rep + Admin/Supervisor.
+     */
+    public function routeToQueue(Request $request, Customer $customer): RedirectResponse
+    {
+        $this->authorize('routeWorkflow', $customer);
+
+        $validated = $request->validate([
+            'feedback_category' => ['required', 'string', 'max:100'],
+            'to_queue'          => ['required', Rule::enum(CustomerQueue::class)],
+            'reason'            => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $queue = CustomerQueue::from($validated['to_queue']);
+        $previousQueue = $customer->current_queue;
+
+        $customer->update(['current_queue' => $queue->value]);
+
+        $log = CustomerWorkflowLog::create([
+            'customer_id'        => $customer->id,
+            'moved_by'           => auth()->id(),
+            'feedback_category'  => $validated['feedback_category'],
+            'from_queue'         => $previousQueue?->value,
+            'to_queue'           => $queue->value,
+            'reason'             => $validated['reason'] ?? null,
+        ]);
+
+        $this->logActivity(
+            'customer.workflow_changed',
+            $customer,
+            auth()->user()->name . " routed \"{$customer->name}\" to the " . $queue->label() . '.',
+            ['old' => $previousQueue?->value, 'new' => $queue->value, 'feedback_category' => $validated['feedback_category'], 'reason' => $log->reason]
+        );
+
+        CrmTeamNotifier::notifyQueueRouted($customer, auth()->user(), $queue, $validated['reason'] ?? null);
+
+        return redirect()->route('crm.customers.show', $customer)
+            ->with('success', "Customer routed to the {$queue->label()}.");
     }
 
     /** Permanently delete a customer and all data linked to them across every CRM domain. */

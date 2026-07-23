@@ -84,7 +84,7 @@
       {{-- CRM Classification --}}
       <div class="px-6 py-5 space-y-4">
         <h3 class="font-semibold text-slate-700 text-sm">CRM Classification</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div>
             <label class="form-label">Status <span class="text-red-500">*</span></label>
             <select name="status" class="form-input" id="customer-status" required>
@@ -109,6 +109,11 @@
                 <option value="{{ $s->value }}" {{ old('pipeline_stage', 'new_lead') === $s->value ? 'selected' : '' }}>{{ $s->label() }}</option>
               @endforeach
             </select>
+          </div>
+          <div>
+            <label class="form-label">Purchase Date <span class="text-red-500">*</span></label>
+            <input type="date" name="first_purchase_date" value="{{ old('first_purchase_date') }}" class="form-input @error('first_purchase_date') border-red-300 @enderror" id="customer-purchase-date" max="{{ now()->toDateString() }}" required>
+            @error('first_purchase_date')<p class="form-error">{{ $message }}</p>@enderror
           </div>
         </div>
 

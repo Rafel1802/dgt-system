@@ -32,13 +32,21 @@ class CustomerPolicy
 
     public function update(User $user, Customer $customer): bool
     {
-        if ($user->can('crm.edit')) return true;
-        return $customer->assigned_to === $user->id;
+        if ($user->hasFullCrmEdit()) return true;
+        // Normal Staff (crm.status-update): status/notes only, and only on
+        // their own assigned customers — field-level enforcement happens in
+        // CustomerController::update(), not here.
+        return $user->can('crm.status-update') && $customer->assigned_to === $user->id;
     }
 
     public function delete(User $user, Customer $customer): bool
     {
         return $user->canDeleteCrmRecords('website');
+    }
+
+    public function routeWorkflow(User $user, Customer $customer): bool
+    {
+        return $user->hasFullCrmEdit();
     }
 
     public function addInteraction(User $user, Customer $customer): bool

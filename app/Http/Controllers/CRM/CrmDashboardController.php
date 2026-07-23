@@ -63,8 +63,6 @@ class CrmDashboardController extends Controller
             ->latest('received_at')->limit(5)->get();
         $recentOffers  = EbayOffer::with(['handler', 'product'])
             ->latest()->limit(5)->get();
-        $recentLogistic= Logistic::with(['customer', 'assignee'])
-            ->latest()->limit(5)->get();
 
         // ── Demo-parity KPI tiles ─────────────────────────────────────────────
         $dedupedCustomers = $this->matcher->dedupedCustomerCount();
@@ -91,7 +89,7 @@ class CrmDashboardController extends Controller
 
         return view('crm.dashboard', compact(
             'websiteStats', 'ebayStats', 'logisticStats',
-            'recentLeads', 'recentOffers', 'recentLogistic',
+            'recentLeads', 'recentOffers',
             'dedupedCustomers', 'techIssuesOpen', 'negFeedbackOpen', 'activeShipments',
             'truckingCompanyCount', 'ebayStoreCount', 'pendingCallRequests',
             'statusChart', 'shipmentChart'

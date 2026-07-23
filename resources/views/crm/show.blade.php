@@ -97,6 +97,7 @@
         </div>
         @endif
         <div class="flex gap-2 text-sm"><span class="text-slate-400 w-20 flex-shrink-0">Added</span><span class="text-slate-700">{{ $customer->created_at->format('d M Y') }}</span></div>
+        <div class="flex gap-2 text-sm"><span class="text-slate-400 w-20 flex-shrink-0">Purchase Date</span><span class="text-slate-700">{{ $customer->first_purchase_date?->format('d M Y') ?? '—' }}</span></div>
       </div>
 
       {{-- Purchase Stats --}}
@@ -172,6 +173,65 @@
         </div>
       </div>
       @endif
+
+      {{-- Workflow Queue --}}
+      <div class="card space-y-3" x-data="{ routing: false }">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h4 class="font-semibold text-slate-700 text-sm">🔀 Workflow Queue</h4>
+          @if($fullEdit)
+          <button @click="routing = !routing" class="text-xs font-semibold text-indigo-500 hover:text-indigo-700">Route Customer</button>
+          @endif
+        </div>
+
+        @if($customer->current_queue)
+          <span class="badge {{ $customer->current_queue->badgeClass() }}">{{ $customer->current_queue->label() }}</span>
+        @else
+          <p class="text-xs text-slate-400">Not currently routed to any department queue.</p>
+        @endif
+
+        @if($fullEdit)
+        <form method="POST" action="{{ route('crm.customers.route', $customer) }}" x-show="routing" x-cloak class="space-y-2 bg-slate-50 rounded-xl p-3">
+          @csrf
+          <div>
+            <label class="text-xs text-slate-500">Feedback Category</label>
+            <select name="feedback_category" class="form-input text-sm" required>
+              <option value="Technical Issue">Technical Issue</option>
+              <option value="Delivery Issue">Delivery Issue</option>
+              <option value="Sales Inquiry">Sales Inquiry</option>
+              <option value="General Follow-up">General Follow-up</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">Route To</label>
+            <select name="to_queue" class="form-input text-sm" required>
+              @foreach($queues as $q)
+                <option value="{{ $q->value }}">{{ $q->label() }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">Reason</label>
+            <textarea name="reason" rows="2" class="form-input text-sm" placeholder="Why is this customer being routed?"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary text-xs py-1.5 w-full">Route Customer</button>
+        </form>
+        @endif
+
+        @if($customer->workflowLogs->isNotEmpty())
+        <div class="pt-2 border-t border-slate-100 space-y-2">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">History</p>
+          @foreach($customer->workflowLogs as $log)
+          <div class="text-xs text-slate-500">
+            <strong class="text-slate-700">{{ $log->mover?->name ?? 'Unknown' }}</strong>
+            routed to <strong>{{ $log->to_queue?->label() }}</strong>
+            @if($log->from_queue) (from {{ $log->from_queue->label() }}) @endif
+            — {{ $log->created_at->format('d M Y, g:ia') }}
+            @if($log->reason)<br><span class="italic">"{{ $log->reason }}"</span>@endif
+          </div>
+          @endforeach
+        </div>
+        @endif
+      </div>
     </div>
 
     {{-- ── Right: Activity / Interactions ─────────────────────────────────── --}}

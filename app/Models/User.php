@@ -298,6 +298,19 @@ SVG;
     }
 
     /**
+     * Full CRM edit/assignment/delete access to ANY customer (not just their
+     * own assigned ones) — the "Admin & Supervisor" tier. Normal Staff
+     * (ebay-team, logistic-team, plain sales-crm) hold crm.status-update
+     * instead, which only reaches their own assigned customers and only for
+     * status/notes (enforced in CustomerController::update()'s field
+     * whitelist, not here).
+     */
+    public function hasFullCrmEdit(): bool
+    {
+        return $this->hasRole('super-admin') || $this->can('crm.edit') || $this->isCrmSupervisor();
+    }
+
+    /**
      * Whether this user may delete entity-level CRM records (Leads, Customers,
      * Products, eBay records/stores/offers, Shipments, Trucking Companies) in
      * the given domain. super-admin, boss, a CRM Supervisor, ebay-supervisor,

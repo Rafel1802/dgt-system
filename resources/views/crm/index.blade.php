@@ -63,6 +63,39 @@
         <input type="search" name="search" value="{{ request('search') }}" placeholder="Name/email/phone…" class="form-input text-sm py-2 w-full">
       </div>
 
+      <div class="min-w-[160px]">
+        <label class="form-label text-xs">Sort by</label>
+        <select name="sort_by" class="form-input text-sm py-2 w-full">
+          <option value="created" {{ $sortBy === 'created' ? 'selected' : '' }}>Newest Created</option>
+          <option value="purchase" {{ $sortBy === 'purchase' ? 'selected' : '' }}>Newest Purchase</option>
+        </select>
+      </div>
+
+      <div class="min-w-[160px]">
+        <label class="form-label text-xs">Customer Status</label>
+        <select name="customer_status_filter" class="form-input text-sm py-2 w-full">
+          <option value="All" {{ $customerStatusFilter === 'All' ? 'selected' : '' }}>All Statuses</option>
+          @foreach($customerStatuses as $cs)
+          <option value="{{ $cs->label() }}" {{ $customerStatusFilter === $cs->label() ? 'selected' : '' }}>{{ $cs->label() }}</option>
+          @endforeach
+        </select>
+      </div>
+
+      <div class="min-w-[180px]">
+        <label class="form-label text-xs">Assigned Staff</label>
+        <select name="assigned_to_filter" class="form-input text-sm py-2 w-full">
+          <option value="">Anyone</option>
+          @foreach($assignableStaff as $staff)
+          <option value="{{ $staff->id }}" {{ (string) $assignedToFilter === (string) $staff->id ? 'selected' : '' }}>{{ $staff->name }}</option>
+          @endforeach
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2 pb-2">
+        <input type="checkbox" name="new_only" id="new_only" value="1" {{ $newOnly ? 'checked' : '' }} class="form-checkbox">
+        <label for="new_only" class="text-sm text-slate-600">New Customers (last 7 days)</label>
+      </div>
+
       <div class="flex items-end gap-2 pl-4 border-l border-slate-100">
         <div>
           <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Created Date</p>
@@ -87,8 +120,8 @@
 
       <div class="flex gap-2">
         <button type="submit" class="btn btn-secondary text-sm">Search</button>
-        @if($dateFrom || $dateTo || $createdFrom || $createdTo || request('search'))
-        <a href="{{ route('crm.customers.index', ['status_filter' => $statusFilter, 'source_filter' => $sourceFilter]) }}" class="btn btn-secondary text-sm">Clear</a>
+        @if($dateFrom || $dateTo || $createdFrom || $createdTo || request('search') || $newOnly || $assignedToFilter || $customerStatusFilter !== 'All' || $sortBy !== 'created')
+        <a href="{{ route('crm.customers.index', ['clear_filters' => 1]) }}" class="btn btn-secondary text-sm">Clear</a>
         @endif
       </div>
     </form>
@@ -170,7 +203,7 @@
           </tr>
           @empty
           <tr>
-            <td colspan="6" class="text-center py-16 text-slate-400">
+            <td colspan="8" class="text-center py-16 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="#cbd5e1" class="w-12 h-12 mx-auto mb-3">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
               </svg>

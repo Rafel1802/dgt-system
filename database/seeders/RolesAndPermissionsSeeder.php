@@ -16,13 +16,15 @@ class RolesAndPermissionsSeeder extends Seeder
      *   2. admin        — User management, all modules
      *   3. supervisor   — Task approval, team oversight
      *   4. staff        — Create & manage own tasks
-     *   5. sales-crm    — Full CRM access, sales pipeline
+     *   5. sales-crm    — Normal Staff tier: CRM status changes + notes on own
+     *                     assigned customers only. Full edit access instead if
+     *                     crm_role='supervisor' (User::isCrmSupervisor()).
      *   6. digital-team — Kanban board access (video, graphic, eBay, website)
      *   7. boss         — Read-only reports + dashboard, email notifications
      *   8. ebay-supervisor     — Can delete eBay records (offers, customer records, stores)
      *   9. logistic-supervisor — Can delete Logistics records (shipments, trucking companies)
-     *  10. ebay-team           — Same access as sales-crm (full CRM access, sales pipeline)
-     *  11. logistic-team       — Same access as sales-crm (full CRM access, sales pipeline)
+     *  10. ebay-team           — Normal Staff tier, same as sales-crm above
+     *  11. logistic-team       — Normal Staff tier, same as sales-crm above
      */
     public function run(): void
     {
@@ -47,6 +49,10 @@ class RolesAndPermissionsSeeder extends Seeder
             // CRM
             'crm.view', 'crm.create', 'crm.edit', 'crm.delete',
             'crm.export',
+            // Normal Staff tier (ebay-team, logistic-team, plain sales-crm):
+            // status changes + notes only — see CustomerPolicy/CustomerController
+            // field whitelist. Does NOT grant crm.edit's full-record access.
+            'crm.status-update',
 
             // eBay authorization (Hongling / Dennis only)
             'authorize-ebay-offers',
@@ -118,11 +124,15 @@ class RolesAndPermissionsSeeder extends Seeder
 
 
 
-        // 5. Sales/CRM
+        // 5. Sales/CRM — Normal Staff tier by default (status/notes only, own
+        // assigned customers — see CustomerPolicy/CustomerController). A
+        // sales-crm user with crm_role='supervisor' (checked via
+        // User::isCrmSupervisor(), not a Spatie permission) gets full edit
+        // access back despite the role's permission set below.
         $salesCrm = Role::firstOrCreate(['name' => 'sales-crm', 'guard_name' => 'web']);
         $salesCrm->syncPermissions([
             'dashboard.view',
-            'crm.view', 'crm.create', 'crm.edit', 'crm.delete',
+            'crm.view', 'crm.create', 'crm.status-update',
             'sales.view', 'sales.manage',
             'reports.view',
         ]);
@@ -151,22 +161,22 @@ class RolesAndPermissionsSeeder extends Seeder
             'crm.view', 'crm.create',
         ]);
 
-        // eBay Team — same permission set as Sales/CRM (full CRM access, sales pipeline),
-        // distinct from ebay-supervisor which only has view access plus delete rights.
+        // eBay Team — Normal Staff tier (status/notes only, own assigned
+        // customers), distinct from ebay-supervisor which has delete rights.
         $ebayTeam = Role::firstOrCreate(['name' => 'ebay-team', 'guard_name' => 'web']);
         $ebayTeam->syncPermissions([
             'dashboard.view',
-            'crm.view', 'crm.create', 'crm.edit', 'crm.delete',
+            'crm.view', 'crm.create', 'crm.status-update',
             'sales.view', 'sales.manage',
             'reports.view',
         ]);
 
-        // Logistic Team — same permission set as Sales/CRM (full CRM access, sales pipeline),
-        // distinct from logistic-supervisor which only has view access plus delete rights.
+        // Logistic Team — Normal Staff tier (status/notes only, own assigned
+        // customers), distinct from logistic-supervisor which has delete rights.
         $logisticTeam = Role::firstOrCreate(['name' => 'logistic-team', 'guard_name' => 'web']);
         $logisticTeam->syncPermissions([
             'dashboard.view',
-            'crm.view', 'crm.create', 'crm.edit', 'crm.delete',
+            'crm.view', 'crm.create', 'crm.status-update',
             'sales.view', 'sales.manage',
             'reports.view',
         ]);

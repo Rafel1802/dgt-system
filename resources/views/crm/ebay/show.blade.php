@@ -173,8 +173,8 @@
             </span>
           </div>
         </div>
-        <a href="{{ route('crm.logistics.create', ['ebay_order_id' => $offer->order->id]) }}"
-           class="btn btn-secondary text-xs w-full mt-3">🚛 Create Logistic Record</a>
+        <a href="{{ route('crm.logistics.shipments.create') }}"
+           class="btn btn-secondary text-xs w-full mt-3">🚛 Create Shipment</a>
       </div>
       @endif
     </div>

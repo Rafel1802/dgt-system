@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\CrmCustomerMatchService;
 use App\Services\CrmService;
 use App\Services\TechSupportCaseService;
+use App\Support\CrmTeamNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -201,6 +202,26 @@ class EbayCustomerController extends Controller
                 'changed_by'              => auth()->id(),
                 'changed_at'              => now(),
             ]);
+        }
+
+        // Sales/Website CRM staff and the rest of the eBay team both deal
+        // with this same customer outside this one record — a negative
+        // feedback flag is worth them knowing about immediately, same as
+        // Tech Support status changes and Logistic problems.
+        if ($statusChanged && in_array($validated['tab_type'], [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true)) {
+            $customerName = $record->buyer_name ?: $record->username;
+            $assignedStaffName = $record->current_handler?->name ?? 'Unassigned';
+            $priority = $validated['tab_type'] === EbayCustomerRecord::TAB_NEGATIVES ? 'High' : 'Normal';
+            $latestNote = $record->followUps()->latest('contacted_at')->value('notes');
+            CrmTeamNotifier::notifyEbayAndSalesTeams(
+                'ebay_negative_feedback',
+                "{$customerName}'s eBay record was marked as negative feedback."
+                    . " Assigned: {$assignedStaffName}. Priority: {$priority}."
+                    . ($latestNote ? ' Latest note: ' . \Illuminate\Support\Str::limit($latestNote, 100) . '.' : '')
+                    . ' ' . now()->format('d M Y, g:ia') . '.',
+                route('crm.ebay.customers.show', $record),
+                auth()->id()
+            );
         }
 
         if ($orderData) {

@@ -19,7 +19,6 @@ use App\Http\Controllers\CRM\CrmDashboardController;
 use App\Http\Controllers\CRM\WebsiteCrmController;
 use App\Http\Controllers\CRM\EbayCrmController;
 use App\Http\Controllers\CRM\EbayStoreController;
-use App\Http\Controllers\CRM\LogisticCrmController;
 use App\Http\Controllers\CRM\TruckingCompanyController;
 use App\Http\Controllers\CRM\ShipmentController;
 use App\Http\Controllers\CRM\ProductController;
@@ -380,6 +379,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::post('/customers/{customer}/purchase', [CustomerController::class, 'recordPurchase'])->name('customers.purchase');
                 Route::patch('/customers/{customer}/purchase-summary', [CustomerController::class, 'updatePurchaseSummary'])->name('customers.purchase-summary');
                 Route::patch('/customers/{customer}/stage', [CustomerController::class, 'updateStage'])->name('customers.stage');
+                Route::post('/customers/{customer}/route', [CustomerController::class, 'routeToQueue'])->name('customers.route');
                 Route::post('/customers/{customer}/attachments', [CustomerController::class, 'uploadAttachment'])->name('customers.attachments.upload');
 
                 // ── CRM Dashboard (3-panel) ───────────────────────────────
@@ -459,14 +459,6 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
                 // ── Logistic CRM ──────────────────────────────────────────
                 Route::prefix('logistics')->name('logistics.')->group(function () {
-                    Route::get('/', [LogisticCrmController::class, 'index'])->name('index');
-                    Route::get('/create', [LogisticCrmController::class, 'create'])->name('create');
-                    Route::post('/', [LogisticCrmController::class, 'store'])->name('store');
-                    // AJAX search + quick-create helpers
-                    Route::get('/search/customers', [LogisticCrmController::class, 'searchCustomers'])->name('search.customers');
-                    Route::get('/search/products', [LogisticCrmController::class, 'searchProducts'])->name('search.products');
-                    Route::post('/quick/customer', [LogisticCrmController::class, 'quickCreateCustomer'])->name('quick.customer');
-                    Route::post('/quick/product', [LogisticCrmController::class, 'quickCreateProduct'])->name('quick.product');
                     // Logistic Issues — every customer currently flagged with a shipment problem
                     Route::get('/issues', [ShipmentController::class, 'issues'])->name('issues.index');
                     // Process Trucking / Loaded / Delivered — separate pages from Shipment
@@ -476,6 +468,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::get('/process-trucking', [ShipmentController::class, 'processTrucking'])->name('processTrucking');
                     Route::get('/loaded', [ShipmentController::class, 'loaded'])->name('loaded');
                     Route::get('/delivered', [ShipmentController::class, 'delivered'])->name('delivered');
+                    Route::get('/delivered/export', [ShipmentController::class, 'exportDelivered'])->name('delivered.export');
 
                     // Trucking Company Management
                     Route::prefix('trucking')->name('trucking.')->group(function () {
@@ -519,14 +512,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::post('/customers/import/preview', [ShipmentController::class, 'previewImport'])->name('customers.import.preview.store');
                         Route::get('/customers/import/preview', [ShipmentController::class, 'showImportPreview'])->name('customers.import.preview');
                         Route::post('/customers/import/confirm', [ShipmentController::class, 'confirmImport'])->name('customers.import.confirm');
+                        Route::get('/customers/import/failed', [ShipmentController::class, 'downloadFailedImportRows'])->name('customers.import.failed');
                     });
-
-                    Route::get('/{logistic}', [LogisticCrmController::class, 'show'])->name('show');
-                    Route::get('/{logistic}/edit', [LogisticCrmController::class, 'edit'])->name('edit');
-                    Route::put('/{logistic}', [LogisticCrmController::class, 'update'])->name('update');
-                    Route::delete('/{logistic}', [LogisticCrmController::class, 'destroy'])->name('destroy');
-                    Route::post('/{logistic}/status', [LogisticCrmController::class, 'pushStatus'])->name('status');
-                    Route::post('/{logistic}/proof', [LogisticCrmController::class, 'uploadProof'])->name('proof');
                 });
 
                 // ── Products ──────────────────────────────────────────────

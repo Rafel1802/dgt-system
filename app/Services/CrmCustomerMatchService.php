@@ -539,6 +539,7 @@ class CrmCustomerMatchService
                 'status_color'=> $lead->status?->color() ?? '#94a3b8',
                 'occurrence_label' => $lead->techSupportCase?->occurrence_label,
                 'handler'     => $lead->handler?->name,
+                'handler_id'  => $lead->handled_by,
                 'link'        => route('crm.website.show', $lead),
                 // Two distinct dates: when this lead first came in (always
                 // set) vs. their most recent actual purchase (only set if
@@ -588,6 +589,7 @@ class CrmCustomerMatchService
                 },
                 'occurrence_label' => $record->techSupportCase?->occurrence_label,
                 'handler'     => $record->current_handler?->name,
+                'handler_id'  => $record->current_handler?->id,
                 'link'        => route('crm.ebay.customers.show', $record),
                 // orders() is already ordered newest-first, so the first
                 // entry is the most recent purchase — null if none logged yet.
@@ -622,6 +624,7 @@ class CrmCustomerMatchService
                     'status_label'=> 'Logistic issues',
                     'status_color'=> EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
                     'handler'     => null,
+                    'handler_id'  => null,
                     // Prefer the actual customer's own profile over the shipment
                     // page — a customer can have several shipments (some fine,
                     // some not), so landing on one specific delivery is less
@@ -682,6 +685,7 @@ class CrmCustomerMatchService
                 },
                 'occurrence_label' => $customer->latestTechSupportCase?->occurrence_label,
                 'handler'     => $customer->assignee?->name,
+                'handler_id'  => $customer->assigned_to,
                 'link'        => route('crm.customers.show', $customer),
                 // A bare Customer row (no matching Lead/eBay record) has no
                 // order history reachable from here — only Leads and eBay
@@ -699,12 +703,17 @@ class CrmCustomerMatchService
                 || str_contains(strtolower($c['phone'] ?? ''), $search));
         }
 
-        // Newest customers first — ranked by whichever is more recent between
-        // their purchase date and their created date (a repeat buyer's new
-        // order re-surfaces them at the top even if they first came in long
-        // ago; a brand new inquiry with no purchase yet still ranks by when
-        // they showed up).
-        return $out->sortByDesc(fn ($c) => max($c['purchase_date']?->timestamp ?? 0, $c['created_date']?->timestamp ?? 0))->values();
+        // Default: newest customers first, ranked by whichever is more recent
+        // between their purchase date and their created date (a repeat
+        // buyer's new order re-surfaces them at the top even if they first
+        // came in long ago; a brand new inquiry with no purchase yet still
+        // ranks by when they showed up). The customer list page can instead
+        // request an explicit 'created' or 'purchase' sort.
+        return match ($filters['sort_by'] ?? null) {
+            'created'  => $out->sortByDesc(fn ($c) => $c['created_date']?->timestamp ?? -1)->values(),
+            'purchase' => $out->sortByDesc(fn ($c) => $c['purchase_date']?->timestamp ?? -1)->values(),
+            default    => $out->sortByDesc(fn ($c) => max($c['purchase_date']?->timestamp ?? 0, $c['created_date']?->timestamp ?? 0))->values(),
+        };
     }
 
     /** Deduplicated total customer count, for the Dashboard KPI tile. */

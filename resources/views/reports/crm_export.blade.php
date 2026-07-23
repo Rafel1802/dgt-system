@@ -144,11 +144,13 @@
                     <td>{{ $index + 1 }}</td>
                     
                     @if($type === 'customers')
+                        <td>{{ $row->id }}</td>
                         <td>
                             <span class="font-semibold">{{ $row->name }}</span>
                         </td>
                         <td>{{ $row->email ?? '—' }}</td>
                         <td>{{ $row->phone ?? '—' }}</td>
+                        <td>{{ $row->address ?? '—' }}</td>
                         <td>{{ $row->company ?? '—' }}</td>
                         <td>
                             <span class="badge {{ $row->status ? $row->status->badgeClass() : 'badge-slate' }}">
@@ -165,9 +167,14 @@
                                 —
                             @endif
                         </td>
+                        <td>{{ $row->current_queue ? $row->current_queue->label() : '—' }}</td>
+                        <td>{{ $row->first_purchase_date ? $row->first_purchase_date->format('d M Y') : '—' }}</td>
+                        <td>{{ $row->product_interests ? implode('; ', $row->product_interests) : '—' }}</td>
                         <td class="text-right font-semibold">${{ number_format($row->lifetime_value, 2) }}</td>
                         <td>{{ $row->assignee ? $row->assignee->name : 'Unassigned' }}</td>
+                        <td>{{ \Illuminate\Support\Str::limit($row->interactions->first()?->content ?? '—', 60) }}</td>
                         <td>{{ $row->created_at->format('d M Y') }}</td>
+                        <td>{{ $row->updated_at->format('d M Y') }}</td>
 
                     @elseif($type === 'logistics')
                         <td class="font-semibold">{{ $row->order_id ?? '—' }}</td>

@@ -35,6 +35,15 @@ class DashboardController extends Controller
             $activityQuery->whereNotIn('module', $digitalOnlyModules);
         }
 
+        // Only admin/supervisor tiers get the full, system-wide feed (that's
+        // the point of it — company-wide oversight). Everyone else only
+        // sees their own activity, so a front-line CRM/Tech Support/Digital
+        // Team account isn't shown other staff's logins, page visits, etc.
+        $seesEveryone = $user->hasAnyRole(['super-admin', 'admin-crm', 'admin-digital', 'boss']) || $user->isCrmSupervisor();
+        if (! $seesEveryone) {
+            $activityQuery->where('user_id', $user->id);
+        }
+
         // Stats - will expand in later phases with real data
         $stats = [
             'total_users' => User::active()->count(),
@@ -43,7 +52,6 @@ class DashboardController extends Controller
         ];
 
         $appearance = $this->dashboardAppearance($user);
-<<<<<<< HEAD
         $externalTools = Setting::externalTools();
         $canManageExternalTools = $user->hasAnyRole(['super-admin', 'admin-digital']);
         $dashboardNotifications = Cache::remember("dashboard_notifications_{$user->id}", 10, function () use ($user) {
@@ -65,8 +73,6 @@ class DashboardController extends Controller
             10,
             fn () => $user->unreadNotifications()->count()
         );
-=======
->>>>>>> b3b281c (update again grape)
         $user->loadMissing('roles.permissions');
         $permissionsCount = $user->getAllPermissions()->count();
 
@@ -74,13 +80,10 @@ class DashboardController extends Controller
             'user',
             'stats',
             'appearance',
-<<<<<<< HEAD
             'externalTools',
             'canManageExternalTools',
             'dashboardNotifications',
             'dashboardUnreadCount',
-=======
->>>>>>> b3b281c (update again grape)
             'permissionsCount',
         ));
     }

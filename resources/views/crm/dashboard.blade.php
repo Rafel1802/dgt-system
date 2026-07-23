@@ -133,7 +133,7 @@
           <h3 class="font-display font-bold text-slate-800">🚛 Logistic CRM</h3>
           <p class="text-xs text-slate-400">Shipment tracking</p>
         </div>
-        <a href="{{ route('crm.logistics.create') }}" class="btn btn-primary text-xs py-1.5 px-3 bg-emerald-500 hover:bg-emerald-600" id="btn-new-shipment">+ New Shipment</a>
+        <a href="{{ route('crm.logistics.shipments.create') }}" class="btn btn-primary text-xs py-1.5 px-3 bg-emerald-500 hover:bg-emerald-600" id="btn-new-shipment">+ New Shipment</a>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div class="bg-slate-50 rounded-xl p-3 text-center">
@@ -153,14 +153,14 @@
           <div class="text-xs text-slate-500 mt-0.5">✅ Delivered Today</div>
         </div>
       </div>
-      <a href="{{ route('crm.logistics.index') }}" class="mt-4 text-xs text-emerald-600 hover:text-emerald-800 font-semibold flex items-center gap-1">
+      <a href="{{ route('crm.logistics.shipments.index') }}" class="mt-4 text-xs text-emerald-600 hover:text-emerald-800 font-semibold flex items-center gap-1">
         View All Shipments →
       </a>
     </div>
   </div>
 
   {{-- ── Recent Activity Row ────────────────────────────────────────────────── --}}
-  <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
 
     {{-- Recent Leads --}}
     <div class="card p-0 overflow-hidden">
@@ -213,32 +213,6 @@
       </div>
     </div>
 
-    {{-- Recent Logistics --}}
-    <div class="card p-0 overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h4 class="font-semibold text-slate-700 text-sm">Active Shipments</h4>
-        <a href="{{ route('crm.logistics.index') }}" class="text-xs text-emerald-600 hover:underline">View all</a>
-      </div>
-      <div class="divide-y divide-slate-50">
-        @forelse($recentLogistic as $ship)
-        <a href="{{ route('crm.logistics.show', $ship) }}" class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xl shrink-0"
-               style="background:{{ $ship->status?->color() ?? '#94a3b8' }}">
-            <span class="text-sm">{{ $ship->status?->icon() }}</span>
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-slate-800 truncate">{{ $ship->customer?->name }}</p>
-            <p class="text-xs text-slate-400">{{ $ship->order_id ?? '#'.$ship->id }} · {{ $ship->status?->label() }}</p>
-          </div>
-          @if($ship->estimated_arrival)
-          <span class="text-xs text-slate-400 shrink-0">{{ $ship->estimated_arrival->format('d M') }}</span>
-          @endif
-        </a>
-        @empty
-        <p class="text-center text-slate-400 text-sm py-6">No shipments yet.</p>
-        @endforelse
-      </div>
-    </div>
   </div>
 
   {{-- ── Charts ──────────────────────────────────────────────────────────── --}}
