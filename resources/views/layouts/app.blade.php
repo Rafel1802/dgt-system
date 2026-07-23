@@ -1945,11 +1945,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     // vanishes before they've finished reading it. Multiple cards stack
     // naturally in #toast-container's own vertical gap — no extra layout
     // code needed here for that part.
-    window.showCrmNotificationCard = function(data) {
+    window.showCrmNotificationCard = function(data, id = null) {
         if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
 
         const container = document.getElementById('toast-container');
         if (!container) return;
+
+        // Hard backstop against duplicate cards for the same notification —
+        // whatever upstream path called this twice (fetchData()/handleIncoming()
+        // racing, an orphaned poll interval left behind by SPA-style page
+        // navigation, ...), the DOM itself is the one source of truth this
+        // checks against, so it can't be fooled by any timing issue in the
+        // callers' own id-tracking.
+        if (id && container.querySelector(`[data-notification-id="${id}"]`)) return;
 
         const icons = {
             tech_case_new: '🛠️',
@@ -1962,6 +1970,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
         const card = document.createElement('div');
         card.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-300 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
+        if (id) card.dataset.notificationId = id;
 
         card.innerHTML = `
             <div class="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-lg">${icon}</div>
@@ -2120,16 +2129,31 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 this.refreshBrowserPermission();
                 this.fetchData();
 
+                // Always points at the fetchData() of whichever component instance
+                // most recently initialized — kept up to date below rather than
+                // captured once, since this page uses Turbo navigation (no full
+                // reload), which recreates this element and re-runs x-init on every
+                // navigation without ever destroying the previous instance's
+                // setInterval. Guarding interval creation globally (like the Pusher
+                // subscription below already does) means exactly one polling loop
+                // ever exists per browser tab, instead of accumulating one more
+                // per navigation — each of which independently hitting the network
+                // and racing the others to render the same notification.
+                window.__kiuqNotificationsPoll = () => this.fetchData();
+
                 const pusherConnected = window.kiuqConnectPusherNotifications?.(n => this.handleIncoming(n));
 
-                // Polling failover — Pusher is instant when it connects, but this
-                // deployment has no queue worker and depends on third-party
-                // WebSocket delivery, so a silent connection failure (misconfigured
-                // keys, blocked domain, etc.) would otherwise mean live updates and
-                // popups just never arrive until the page is manually refreshed.
-                // fetchData() already dedupes by notification id, so this is safe
-                // to run even when Pusher is also connected.
-                setInterval(() => this.fetchData(), pusherConnected ? 30000 : 10000);
+                if (! window.__kiuqNotificationsPollingStarted) {
+                    window.__kiuqNotificationsPollingStarted = true;
+                    // Polling failover — Pusher is instant when it connects, but this
+                    // deployment has no queue worker and depends on third-party
+                    // WebSocket delivery, so a silent connection failure (misconfigured
+                    // keys, blocked domain, etc.) would otherwise mean live updates and
+                    // popups just never arrive until the page is manually refreshed.
+                    // fetchData() already dedupes by notification id, so this is safe
+                    // to run even when Pusher is also connected.
+                    setInterval(() => window.__kiuqNotificationsPoll?.(), pusherConnected ? 30000 : 10000);
+                }
             },
 
             refreshBrowserPermission() {
@@ -2214,7 +2238,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     );
                                 }
                             } else {
-                                window.showCrmNotificationCard(newNotif.data);
+                                window.showCrmNotificationCard(newNotif.data, newNotif.id);
                                 window.sendBrowserNotification("KIUQ SYSTEM Update", newNotif.data.message || "New update");
                             }
                         });
@@ -2259,7 +2283,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 if (notifItem.data && notifItem.data.actor_name) {
                     window.showRichNotificationToast(notifItem.data);
                 } else {
-                    window.showCrmNotificationCard(notifItem.data);
+                    window.showCrmNotificationCard(notifItem.data, notifItem.id);
                     window.sendBrowserNotification("KIUQ SYSTEM Update", notifItem.data.message || "New update");
                 }
             },
