@@ -89,7 +89,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 document.head.appendChild(link);
             };
 
-<<<<<<< HEAD
             const prefetchVisibleLinks = () => {
                 setTimeout(() => {
                     const links = document.querySelectorAll('#sidebar a[href], .board-link a[href], a.prefetch-link');
@@ -108,8 +107,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             document.addEventListener('DOMContentLoaded', prefetchVisibleLinks);
             document.addEventListener('turbo:load', prefetchVisibleLinks);
 
-=======
->>>>>>> b3b281c (update again grape)
             document.addEventListener('turbo:before-render', (event) => {
                 const currentSidebar = document.getElementById('sidebar');
                 const newSidebar = event.detail.newBody.querySelector('#sidebar');
@@ -150,15 +147,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             }
 
             /* Make transitions ultra-fast (120ms) in the app for a smooth but instant feel */
-<<<<<<< HEAD
             html.dgt-macos-app *, html.dgt-macos-app *::before, html.dgt-macos-app *::after,
             html.dgt-mobile-app *, html.dgt-mobile-app *::before, html.dgt-mobile-app *::after {
                 transition-duration: 120ms !important;
                 animation-duration: 120ms !important;
             }
-=======
-            /* Removed global * transition rules for performance. Animations are now handled via targeted Tailwind classes. */
->>>>>>> b3b281c (update again grape)
 
             /* Smooth scrolling and momentum touch scroll globally */
             html, body, .page-content, .board-wrap, .sidebar {
@@ -2081,18 +2074,36 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         return true;
     };
 
+    // Persists which notification IDs have already popped a card, across
+    // page loads — this is a traditional multi-page app (full reload on
+    // every navigation, not an SPA), so in-memory Alpine state alone can't
+    // tell "already shown to the user" apart from "just not present in this
+    // particular page's first fetch yet". Without this, a notification that
+    // arrives while the user is on one page and is only first fetched after
+    // they've navigated to another page never pops up at all, since that
+    // next page's initial fetch treats it as pre-existing backlog.
+    const DGT_SHOWN_IDS_KEY = 'dgt_shown_notification_ids';
+    const DGT_SHOWN_IDS_MAX = 300;
+    window.dgtWasNotificationShown = function(id) {
+        try { return JSON.parse(localStorage.getItem(DGT_SHOWN_IDS_KEY) || '[]').includes(id); }
+        catch (e) { return false; }
+    };
+    window.dgtMarkNotificationShown = function(id) {
+        try {
+            const ids = JSON.parse(localStorage.getItem(DGT_SHOWN_IDS_KEY) || '[]');
+            if (ids.includes(id)) return;
+            ids.push(id);
+            while (ids.length > DGT_SHOWN_IDS_MAX) ids.shift();
+            localStorage.setItem(DGT_SHOWN_IDS_KEY, JSON.stringify(ids));
+        } catch (e) { /* localStorage unavailable — popups just won't dedupe across reloads */ }
+    };
+
     // AlpineJS Notification Dropdown Component
     function notificationSystem() {
         return {
             open: false,
             notifications: [],
             unreadCount: 0,
-            // Tracks whether fetchData() has completed at least once — distinct
-            // from notifications.length, which is legitimately 0 for a user who
-            // simply has no notifications yet. Using .length as that proxy meant
-            // their very first-ever notification (unreadCount 0 -> 1, but the
-            // list was still empty from before this fetch) never popped up.
-            hasFetchedOnce: false,
             browserPermission: 'unsupported',
             permissionBusy: false,
             notificationsMuted: localStorage.getItem('dgt_notifications_muted') === 'true',
@@ -2168,22 +2179,26 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         }
                     });
                     const data = await res.json();
-                    
-                    // Trigger rich popup and browser notifications if unreadCount increased
-                    // — gated on hasFetchedOnce (not notifications.length, see above)
-                    // so this doesn't replay old unread notifications as popups on the
-                    // very first load, but still fires for a user's first-ever notification.
-                    if (data.unread_count > this.unreadCount && this.hasFetchedOnce) {
-                        const newNotifs = (data.notifications || []).filter(
-                            n => !n.read_at && !this.notifications.some(x => x.id === n.id)
-                        );
-                        
-                        newNotifs.forEach(newNotif => {
+                    const unread = (data.notifications || []).filter(n => !n.read_at);
+
+                    // First time this browser has ever fetched notifications (no
+                    // shown-ids recorded yet): silently remember today's existing
+                    // backlog without popping cards for all of it, then pop normally
+                    // from here on — including across page navigations, since this
+                    // dedupe is keyed by localStorage, not this component's
+                    // (per-page-load) in-memory state.
+                    const neverFetchedBefore = localStorage.getItem('dgt_notifications_seeded') !== 'true';
+                    if (neverFetchedBefore) {
+                        unread.forEach(n => window.dgtMarkNotificationShown(n.id));
+                        localStorage.setItem('dgt_notifications_seeded', 'true');
+                    } else {
+                        unread.filter(n => !window.dgtWasNotificationShown(n.id)).forEach(newNotif => {
+                            window.dgtMarkNotificationShown(newNotif.id);
                             if (newNotif.data && newNotif.data.actor_name) {
                                 window.showRichNotificationToast(newNotif.data);
                                 if (newNotif.data.browser_notifications_enabled !== false) {
                                     window.sendBrowserNotification(
-                                        "KIUQ Board Update", 
+                                        "KIUQ Board Update",
                                         `${newNotif.data.actor_name} ${newNotif.data.description.replace(/\*\*/g, '')}`,
                                         newNotif.data.actor_avatar
                                     );
@@ -2197,7 +2212,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                     this.notifications = data.notifications || [];
                     this.unreadCount = data.unread_count || 0;
-                    this.hasFetchedOnce = true;
                 } catch (e) {
                     console.error('Error fetching notifications:', e);
                 }
@@ -2212,8 +2226,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     created_at: n.created_at || new Date().toISOString()
                 };
 
-                // Prevent duplicates
+                // Prevent duplicates — both against this page's own in-memory list
+                // and against the persisted shown-ids (in case the polling
+                // failover already popped this same notification moments ago).
                 if (this.notifications.some(x => x.id === notifItem.id)) return;
+                if (window.dgtWasNotificationShown(notifItem.id)) return;
+                window.dgtMarkNotificationShown(notifItem.id);
 
                 this.notifications.unshift(notifItem);
                 this.unreadCount++;
