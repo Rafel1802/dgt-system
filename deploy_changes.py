@@ -23,6 +23,7 @@ def run_cmd(args):
 
 rsync_cmd = [
     "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002", "--relative",
+    "bootstrap/app.php",
     "app/Http/Controllers/CRM/CustomerController.php",
     "app/Http/Controllers/CRM/WebsiteCrmController.php",
     "app/Http/Controllers/CRM/ShipmentController.php",
@@ -59,6 +60,7 @@ rsync_cmd = [
     "resources/views/layouts/app.blade.php",
     "resources/views/crm/website/index.blade.php",
     "resources/views/dashboard/index.blade.php",
+    "resources/views/crm/dashboard.blade.php",
     "resources/views/crm/ebay/show.blade.php",
     "resources/views/crm/logistics/shipments/index.blade.php",
     "resources/views/crm/logistics/trucking/index.blade.php",
