@@ -109,24 +109,24 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 });
                 if (best) {
                     best.classList.add('active');
-                    // Open parent accordion if the active link is nested.
+                    // Open parent accordion if the active link is nested — via
+                    // Alpine's own public $data API, not by reaching into
+                    // _x_dataStack (undocumented, not guaranteed to trigger
+                    // reactivity) or writing style.display directly on an
+                    // x-show/x-transition element. Alpine already owns that
+                    // style property for its own animated show/hide; a second,
+                    // uncoordinated writer fighting over the same property is
+                    // exactly what caused the open-close-open flash on every
+                    // click — Alpine's own transition replaying once it
+                    // "corrects" the DOM back to what its reactive state says.
                     const group = best.closest('[x-data]');
-                    if (group && group.__x) {
+                    if (group && window.Alpine && typeof window.Alpine.$data === 'function') {
                         try {
-                            // Alpine 3 store open flag when present
-                            if (typeof group._x_dataStack?.[0]?.open !== 'undefined') {
-                                group._x_dataStack[0].open = true;
+                            const data = window.Alpine.$data(group);
+                            if (data && typeof data.open !== 'undefined') {
+                                data.open = true;
                             }
                         } catch (_) {}
-                    }
-                    // Fallback: expand nested lists that contain the active link
-                    let parent = best.parentElement;
-                    while (parent && parent !== sidebar) {
-                        if (parent.hasAttribute('x-show') || parent.classList.contains('sidebar-submenu-list')) {
-                            parent.style.display = '';
-                            parent.removeAttribute('hidden');
-                        }
-                        parent = parent.parentElement;
                     }
                 }
             }
