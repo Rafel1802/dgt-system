@@ -2104,6 +2104,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             open: false,
             notifications: [],
             unreadCount: 0,
+            // Guards against overlapping fetchData() calls — the interval poll
+            // (every 10-30s) and toggleOpen() (clicking the bell) both call
+            // fetchData() independently. If a click lands while the interval's
+            // call is still awaiting the network response, both calls would
+            // otherwise independently see the same notification as "not yet
+            // shown" and each pop a card for it, since neither has called
+            // dgtMarkNotificationShown() yet when the other checks.
+            fetchInFlight: false,
             browserPermission: 'unsupported',
             permissionBusy: false,
             notificationsMuted: localStorage.getItem('dgt_notifications_muted') === 'true',
@@ -2171,6 +2179,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             },
 
             async fetchData() {
+                if (this.fetchInFlight) return;
+                this.fetchInFlight = true;
                 try {
                     const res = await fetch('{{ route('notifications.index') }}', {
                         headers: {
@@ -2214,6 +2224,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     this.unreadCount = data.unread_count || 0;
                 } catch (e) {
                     console.error('Error fetching notifications:', e);
+                } finally {
+                    this.fetchInFlight = false;
                 }
             },
 
