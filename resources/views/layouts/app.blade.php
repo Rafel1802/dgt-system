@@ -2087,6 +2087,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             open: false,
             notifications: [],
             unreadCount: 0,
+            // Tracks whether fetchData() has completed at least once — distinct
+            // from notifications.length, which is legitimately 0 for a user who
+            // simply has no notifications yet. Using .length as that proxy meant
+            // their very first-ever notification (unreadCount 0 -> 1, but the
+            // list was still empty from before this fetch) never popped up.
+            hasFetchedOnce: false,
             browserPermission: 'unsupported',
             permissionBusy: false,
             notificationsMuted: localStorage.getItem('dgt_notifications_muted') === 'true',
@@ -2164,7 +2170,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     const data = await res.json();
                     
                     // Trigger rich popup and browser notifications if unreadCount increased
-                    if (data.unread_count > this.unreadCount && this.notifications.length > 0) {
+                    // — gated on hasFetchedOnce (not notifications.length, see above)
+                    // so this doesn't replay old unread notifications as popups on the
+                    // very first load, but still fires for a user's first-ever notification.
+                    if (data.unread_count > this.unreadCount && this.hasFetchedOnce) {
                         const newNotifs = (data.notifications || []).filter(
                             n => !n.read_at && !this.notifications.some(x => x.id === n.id)
                         );
@@ -2188,6 +2197,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                     this.notifications = data.notifications || [];
                     this.unreadCount = data.unread_count || 0;
+                    this.hasFetchedOnce = true;
                 } catch (e) {
                     console.error('Error fetching notifications:', e);
                 }

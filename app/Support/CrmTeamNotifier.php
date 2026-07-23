@@ -28,8 +28,12 @@ class CrmTeamNotifier
     }
 
     /**
-     * A customer record was updated — notify the assigned rep (if not the
-     * actor), the CRM supervisor(s), and CRM admins, with what changed.
+     * A customer record was updated — notify the CRM supervisor(s) and CRM
+     * admins with what changed. Deliberately does NOT also notify the
+     * assigned rep here — CustomerController::update() already does that
+     * via notifyAssignedRep()/the reassignment-notify block with a more
+     * specific message (reassigned/lost/plain edit); notifying them again
+     * from here would double up the same edit into two cards.
      */
     public static function notifyCustomerUpdated(Customer $customer, User $actor, array $changes): void
     {
@@ -52,16 +56,8 @@ class CrmTeamNotifier
                 $q->role(self::ADMIN_ROLES)
                     ->orWhere(fn ($q2) => $q2->role('sales-crm')->where('crm_role', 'supervisor'));
             })
-            ->get();
-
-        if ($customer->assigned_to) {
-            $assignee = User::find($customer->assigned_to);
-            if ($assignee) {
-                $recipients->push($assignee);
-            }
-        }
-
-        $recipients = $recipients->unique('id')->reject(fn (User $u) => $u->id === $actor->id);
+            ->get()
+            ->reject(fn (User $u) => $u->id === $actor->id);
 
         foreach ($recipients as $recipient) {
             InstantNotifier::send($recipient, new GenericDatabaseNotification([
