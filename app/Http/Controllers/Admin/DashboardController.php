@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
-use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,22 +51,6 @@ class DashboardController extends Controller
         ];
 
         $appearance = $this->dashboardAppearance($user);
-        $externalTools = Setting::externalTools();
-        $canManageExternalTools = $user->hasAnyRole(['super-admin', 'admin-digital']);
-        $dashboardNotifications = Cache::remember("dashboard_notifications_{$user->id}", 10, function () use ($user) {
-            return $user->notifications()
-                ->select('id', 'type', 'notifiable_type', 'notifiable_id', 'data', 'read_at', 'created_at')
-                ->latest()
-                ->limit(5)
-                ->get()
-                ->map(fn ($notification) => [
-                    'id' => $notification->id,
-                    'data' => $notification->data,
-                    'read_at' => $notification->read_at?->toISOString(),
-                    'created_at_for_humans' => $notification->created_at?->diffForHumans(),
-                ])
-                ->all();
-        });
         $dashboardUnreadCount = Cache::remember(
             "dashboard_unread_notifications_count_{$user->id}",
             10,
@@ -80,9 +63,6 @@ class DashboardController extends Controller
             'user',
             'stats',
             'appearance',
-            'externalTools',
-            'canManageExternalTools',
-            'dashboardNotifications',
             'dashboardUnreadCount',
             'permissionsCount',
         ));

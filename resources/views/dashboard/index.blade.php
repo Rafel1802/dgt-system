@@ -10,10 +10,6 @@
     $totalUsers = (int) $stats['total_users'];
     $onlineUsers = (int) $stats['online_users'];
     $offlineUsers = max($totalUsers - $onlineUsers, 0);
-    $activityModules = $recentActivities
-        ->groupBy(fn($log) => $log->module ?: 'system')
-        ->map(fn($items, $module) => ['module' => ucfirst(str_replace(['-', '_'], ' ', $module)), 'count' => $items->count()])
-        ->values();
     $activityDays = collect(range(5, 0))->map(function ($daysAgo) use ($recentActivities) {
         $date = now()->subDays($daysAgo);
 
@@ -22,7 +18,6 @@
             'count' => $recentActivities->filter(fn($log) => $log->created_at?->isSameDay($date))->count(),
         ];
     });
-    $dashboardNotifications = collect($dashboardNotifications ?? []);
     $dashboardUnreadCount = (int) ($dashboardUnreadCount ?? 0);
     $permissionsCount = (int) ($permissionsCount ?? 0);
     $appearance = $appearance ?? [
@@ -31,10 +26,6 @@
         'cover_type' => 'gradient',
         'cover_value' => 'linear-gradient(135deg,#2F68ED 0%,#2457cf 46%,#173a92 100%)',
     ];
-    $externalTools = collect($externalTools ?? []);
-    $boardExternalTools = $externalTools->where('group', 'board')->values();
-    $generatorExternalTools = $externalTools->where('group', 'generator')->values();
-    $canManageExternalTools = $canManageExternalTools ?? auth()->user()->hasAnyRole(['super-admin', 'admin']);
 @endphp
 
 <style>
@@ -317,8 +308,8 @@
         </article>
     </section>
 
-    <section class="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div class="xl:col-span-2 space-y-6">
+    <section class="space-y-6">
+        <div class="space-y-6">
             <div class="dash-glass rounded-[1.5rem] p-5 sm:p-6">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -396,231 +387,6 @@
             </div>
         </div>
 
-        <aside class="space-y-6">
-            {{-- Quick actions is hidden for staff whose only module is CRM
-                 (a pure CRM role, not super-admin/boss who span both worlds
-                 and not digital-side staff, who keep seeing it) — none of
-                 these workflow shortcuts (boards, notes, CRM dashboard,
-                 settings) are relevant to day-to-day CRM work. --}}
-            @php $isPureCrmUser = in_array('crm', auth()->user()->notificationModules(), true) && ! in_array('digital', auth()->user()->notificationModules(), true); @endphp
-            @unless($isPureCrmUser)
-            <div class="dash-glass rounded-[1.5rem] p-5">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="dash-panel-title">Quick actions</h2>
-                        <p class="mt-1 text-xs font-semibold text-slate-500">Jump into common workflows.</p>
-                    </div>
-                </div>
-                <div class="mt-5 space-y-3">
-                    @if(Route::has('boards.workspaces'))
-                        <a href="{{ route('boards.workspaces') }}" class="dash-action">
-                            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25A2.25 2.25 0 0 1 8.25 10.5H6A2.25 2.25 0 0 1 3.75 8.25V6Zm9.75 0a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Z"/></svg>
-                            </span>
-                            <span>
-                                <span class="block text-sm font-black text-slate-800">Open boards</span>
-                                <span class="text-xs font-semibold text-slate-500">Manage team workspaces</span>
-                            </span>
-                        </a>
-                    @endif
-
-                    @if(Route::has('notes.private'))
-                        <a href="{{ route('notes.private') }}" class="dash-action">
-                            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-50 text-yellow-600">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
-                            </span>
-                            <span>
-                                <span class="block text-sm font-black text-slate-800">My Notes</span>
-                                <span class="text-xs font-semibold text-slate-500">Private & Team ideas</span>
-                            </span>
-                        </a>
-                    @endif
-
-                    @if($externalTools->isNotEmpty())
-                        <div class="supporter-container rounded-2xl border border-slate-200/70 bg-white/50 p-3">
-                            <div class="mb-3 flex items-center justify-between gap-3">
-                                <div>
-                                    <p class="text-xs font-black uppercase tracking-wider text-slate-500">eBay &amp; Web Supporter</p>
-                                    <p class="text-[11px] font-semibold text-slate-400">External systems</p>
-                                </div>
-                                @if($canManageExternalTools && Route::has('admin.settings.index'))
-                                    <a href="{{ route('admin.settings.index') }}" class="text-[11px] font-black text-[#2F68ED] hover:text-blue-700">Edit URLs</a>
-                                @endif
-                            </div>
-
-                            <div class="dash-tool-grid">
-                                @foreach($boardExternalTools as $tool)
-                                    @if(filled($tool['url']))
-                                        <a href="{{ $tool['url'] }}" target="_blank" rel="noopener noreferrer" class="dash-tool-link">
-                                            <span class="dash-tool-icon">
-                                                <x-external-tool-icon :name="$tool['icon']" />
-                                            </span>
-                                            <span class="min-w-0">
-                                                <span class="block truncate text-sm font-black text-slate-800">{{ $tool['short_label'] }}</span>
-                                                <span class="block truncate text-xs font-semibold text-slate-500">{{ $tool['description'] }}</span>
-                                            </span>
-                                        </a>
-                                    @elseif($canManageExternalTools)
-                                        <button type="button" class="dash-tool-link is-disabled" disabled>
-                                            <span class="dash-tool-icon">
-                                                <x-external-tool-icon :name="$tool['icon']" />
-                                            </span>
-                                            <span class="min-w-0">
-                                                <span class="block truncate text-sm font-black text-slate-800">{{ $tool['short_label'] }}</span>
-                                                <span class="block truncate text-xs font-semibold text-slate-500">URL not set yet</span>
-                                            </span>
-                                        </button>
-                                    @endif
-                                @endforeach
-                            </div>
-
-                            <div class="mt-4 border-t border-slate-200/70 pt-3">
-                                <p class="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">System Supporter</p>
-                                <div class="dash-tool-grid">
-                                    @foreach($generatorExternalTools as $tool)
-                                        @if(filled($tool['url']))
-                                            <a href="{{ $tool['url'] }}" target="_blank" rel="noopener noreferrer" class="dash-tool-link">
-                                                <span class="dash-tool-icon">
-                                                    <x-external-tool-icon :name="$tool['icon']" />
-                                                </span>
-                                                <span class="min-w-0">
-                                                    <span class="block truncate text-sm font-black text-slate-800">{{ $tool['short_label'] }}</span>
-                                                    <span class="block truncate text-xs font-semibold text-slate-500">{{ $tool['description'] }}</span>
-                                                </span>
-                                            </a>
-                                        @elseif($canManageExternalTools)
-                                            <button type="button" class="dash-tool-link is-disabled" disabled>
-                                                <span class="dash-tool-icon">
-                                                    <x-external-tool-icon :name="$tool['icon']" />
-                                                </span>
-                                                <span class="min-w-0">
-                                                    <span class="block truncate text-sm font-black text-slate-800">{{ $tool['short_label'] }}</span>
-                                                    <span class="block truncate text-xs font-semibold text-slate-500">URL not set yet</span>
-                                                </span>
-                                            </button>
-                                        @endif
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    @if(Route::has('crm.dashboard'))
-                        <a href="{{ route('crm.dashboard') }}" class="dash-action">
-                            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75M9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25M16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75"/></svg>
-                            </span>
-                            <span>
-                                <span class="block text-sm font-black text-slate-800">CRM dashboard</span>
-                                <span class="text-xs font-semibold text-slate-500">Review sales movement</span>
-                            </span>
-                        </a>
-                    @endif
-
-                    @if(Route::has('reports.index'))
-                        <a href="{{ route('reports.index') }}" class="dash-action">
-                            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z"/></svg>
-                            </span>
-                            <span>
-                                <span class="block text-sm font-black text-slate-800">Reports</span>
-                                <span class="text-xs font-semibold text-slate-500">Open analytics center</span>
-                            </span>
-                        </a>
-                    @endif
-
-                    @if(Route::has('settings'))
-                        <a href="{{ route('settings') }}" class="dash-action">
-                            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
-                            </span>
-                            <span>
-                                <span class="block text-sm font-black text-slate-800">Profile settings</span>
-                                <span class="text-xs font-semibold text-slate-500">Security and password</span>
-                            </span>
-                        </a>
-                    @endif
-                </div>
-            </div>
-            @endunless
-
-
-
-            <div class="dash-glass rounded-[1.5rem] p-5">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="dash-panel-title">Notification center</h2>
-                        <p class="mt-1 text-xs font-semibold text-slate-500">{{ $dashboardUnreadCount }} unread notifications</p>
-                    </div>
-                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022"/></svg>
-                    </span>
-                </div>
-
-                @if($dashboardNotifications->isEmpty())
-                    <div class="dash-empty-box mt-5 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-6 text-center">
-                        <p class="text-sm font-black text-slate-700">No notifications yet</p>
-                        <p class="mt-1 text-xs font-semibold text-slate-400">Board and card updates will appear here.</p>
-                    </div>
-                @else
-                    <div class="mt-5 space-y-3">
-                        @foreach($dashboardNotifications as $notification)
-                            @php
-                                $data = data_get($notification, 'data', []);
-                                $actorName = data_get($data, 'actor_name', 'KIUQ SYSTEM');
-                                $actorAvatar = data_get($data, 'actor_avatar', 'https://ui-avatars.com/api/?name=System&size=64&background=6366f1&color=fff');
-                                $description = data_get($data, 'description') ?: data_get($data, 'message', 'New notification');
-                                $boardName = data_get($data, 'board_name');
-                                $cardTitle = data_get($data, 'card_title');
-                            @endphp
-                            <div class="rounded-2xl border {{ data_get($notification, 'read_at') ? 'border-slate-200 bg-white/60' : 'border-indigo-200 bg-indigo-50/60' }} p-3">
-                                <div class="flex items-start gap-3">
-                                    <img src="{{ $actorAvatar }}" alt="{{ $actorName }}" class="avatar avatar-sm">
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex items-center justify-between gap-3">
-                                            <p class="truncate text-sm font-black text-slate-900">{{ $actorName }}</p>
-                                            <span class="text-[10px] font-bold text-slate-400">{{ data_get($notification, 'created_at_for_humans') }}</span>
-                                        </div>
-                                        <p class="mt-1 text-xs font-semibold leading-5 text-slate-600">{{ str_replace('**', '', strip_tags($description)) }}</p>
-                                        <div class="mt-2 flex flex-wrap gap-1.5">
-                                            @if($boardName)
-                                                <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600">{{ $boardName }}</span>
-                                            @endif
-                                            @if($cardTitle)
-                                                <span class="rounded-md bg-indigo-100 px-1.5 py-0.5 text-[10px] font-black text-indigo-700">{{ $cardTitle }}</span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-
-            <div class="dash-glass rounded-[1.5rem] p-5">
-                <h2 class="dash-panel-title">Activity modules</h2>
-                <p class="mt-1 text-xs font-semibold text-slate-500">Distribution from recent activity logs.</p>
-                <div class="mt-5 space-y-3">
-                    @forelse($activityModules as $module)
-                        @php $pct = $recentActivities->count() ? round(($module['count'] / $recentActivities->count()) * 100) : 0; @endphp
-                        <div>
-                            <div class="mb-1 flex items-center justify-between">
-                                <span class="text-xs font-black text-slate-700">{{ $module['module'] }}</span>
-                                <span class="text-xs font-bold text-slate-400">{{ $module['count'] }}</span>
-                            </div>
-                            <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-                                <div class="h-full rounded-full bg-sky-500" style="width: {{ $pct }}%"></div>
-                            </div>
-                        </div>
-                    @empty
-                        <p class="dash-empty-box rounded-2xl border border-dashed border-slate-300 bg-white/60 p-5 text-center text-sm font-semibold text-slate-500">
-                            No activity modules yet.
-                        </p>
-                    @endforelse
-                </div>
-            </div>
-        </aside>
     </section>
 </div>
 @endsection
