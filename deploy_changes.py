@@ -62,6 +62,8 @@ rsync_cmd = [
     "resources/views/dashboard/index.blade.php",
     "resources/views/crm/dashboard.blade.php",
     "resources/views/crm/ebay/show.blade.php",
+    "resources/views/crm/ebay/index.blade.php",
+    "resources/views/crm/ebay/customers/index.blade.php",
     "resources/views/crm/logistics/shipments/index.blade.php",
     "resources/views/crm/logistics/trucking/index.blade.php",
     "routes/web.php",

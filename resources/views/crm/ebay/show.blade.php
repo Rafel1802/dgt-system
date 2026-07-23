@@ -75,7 +75,7 @@
           @if($offer->ebay_username)
           <div class="flex items-center gap-2 text-sm">
             <span class="w-5 text-slate-400">👤</span>
-            <span class="text-slate-700 font-mono">@{{ $offer->ebay_username }}</span>
+            <span class="text-slate-700 font-mono">{{ '@' . $offer->ebay_username }}</span>
           </div>
           @endif
           @if($offer->ebay_item_id)

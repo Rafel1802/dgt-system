@@ -139,7 +139,7 @@
             <td class="px-4 py-3">
               <p class="font-medium text-slate-800">{{ $record->buyer_name ?: $record->username ?: '—' }}</p>
               @if($record->username && $record->buyer_name)
-                <p class="text-xs text-slate-400">@{{ $record->username }}</p>
+                <p class="text-xs text-slate-400">{{ '@' . $record->username }}</p>
               @endif
               @if($record->email)
                 <p class="text-xs text-slate-400">{{ $record->email }}</p>

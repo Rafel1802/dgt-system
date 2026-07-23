@@ -71,7 +71,7 @@
             <td class="px-5 py-3">
               <p class="font-semibold text-slate-800">{{ $offer->client_name ?? '(No name)' }}</p>
               @if($offer->ebay_username)
-                <p class="text-xs text-slate-400">@{{ $offer->ebay_username }}</p>
+                <p class="text-xs text-slate-400">{{ '@' . $offer->ebay_username }}</p>
               @endif
               @if($offer->client_email)
                 <p class="text-xs text-slate-400">{{ $offer->client_email }}</p>
