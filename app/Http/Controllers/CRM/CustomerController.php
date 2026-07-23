@@ -17,12 +17,15 @@ use App\Notifications\GenericDatabaseNotification;
 use App\Services\CrmService;
 use App\Services\CrmCustomerMatchService;
 use App\Services\TechSupportCaseService;
+use App\Support\CrmLookupCache;
 use App\Support\CrmTeamNotifier;
 use App\Support\InstantNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -119,75 +122,123 @@ class CustomerController extends Controller
         $stats = $this->crmService->getDashboardStats();
 
         $sortBy = in_array($request->get('sort_by'), ['created', 'purchase'], true) ? $request->get('sort_by') : 'created';
-        $all = $this->matcher->buildUnifiedDirectory(['search' => $request->get('search'), 'sort_by' => $sortBy]);
-        $totalUnique = $all->count();
-
         $statusFilter = $request->get('status_filter', 'All');
+        $sourceFilter = $request->get('source_filter', 'All');
+        $customerStatusFilter = $request->get('customer_status_filter', 'All');
+        $newOnly = $request->boolean('new_only');
+        $assignedToFilter = $request->get('assigned_to_filter');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $createdFrom = $request->get('created_from');
+        $createdTo = $request->get('created_to');
+
+        // Raw (no Carbon) path: search only first so totalUnique matches prior semantics
+        // (count after search, before status/source/date filters).
+        $searched = $this->matcher->buildUnifiedDirectoryRaw([
+            'search'  => $request->get('search'),
+            'sort_by' => null, // sort after filters — fewer rows to order
+        ]);
+        $totalUnique = $searched->count();
+
         $category = match ($statusFilter) {
             'Technical issues'  => 'technical',
             'Logistic issues'   => 'shipment_delay',
             'Negative feedback' => 'negative_feedback',
             default => null,
         };
-        $customers = $category ? $all->filter(fn ($c) => $c['category'] === $category) : $all;
 
-        $sourceFilter = $request->get('source_filter', 'All');
-        $customers = match ($sourceFilter) {
-            'eBay'      => $customers->filter(fn ($c) => $c['source'] === 'eBay'),
-            'Logistics' => $customers->filter(fn ($c) => $c['source'] === 'Logistics'),
-            'Website'   => $customers->filter(fn ($c) => ! in_array($c['source'], ['eBay', 'Logistics'], true)),
-            default     => $customers,
+        // Precompute filter bounds once (unix timestamps) — same day boundaries as Carbon.
+        $newSinceTs = $newOnly ? now()->subDays(7)->getTimestamp() : null;
+        $purchaseFromTs = $dateFrom ? Carbon::parse($dateFrom)->startOfDay()->getTimestamp() : null;
+        $purchaseToTs = $dateTo ? Carbon::parse($dateTo)->endOfDay()->getTimestamp() : null;
+        $createdFromTs = $createdFrom ? Carbon::parse($createdFrom)->startOfDay()->getTimestamp() : null;
+        $createdToTs = $createdTo ? Carbon::parse($createdTo)->endOfDay()->getTimestamp() : null;
+        $assignedToId = $assignedToFilter ? (int) $assignedToFilter : null;
+
+        // Single pass for all list filters (same semantics as the prior chain of filter()).
+        $customers = $searched->filter(function (array $c) use (
+            $category, $sourceFilter, $customerStatusFilter, $newSinceTs,
+            $assignedToId, $purchaseFromTs, $purchaseToTs, $createdFromTs, $createdToTs
+        ) {
+            if ($category !== null && ($c['category'] ?? null) !== $category) {
+                return false;
+            }
+
+            if ($sourceFilter === 'eBay' && ($c['source'] ?? null) !== 'eBay') {
+                return false;
+            }
+            if ($sourceFilter === 'Logistics' && ($c['source'] ?? null) !== 'Logistics') {
+                return false;
+            }
+            if ($sourceFilter === 'Website' && in_array($c['source'] ?? null, ['eBay', 'Logistics'], true)) {
+                return false;
+            }
+
+            // Customer Status — lifecycle label on the row (Lead/Prospect/Active/…).
+            if ($customerStatusFilter !== 'All' && ($c['status_label'] ?? null) !== $customerStatusFilter) {
+                return false;
+            }
+
+            // New Customers — created within the last 7 days.
+            if ($newSinceTs !== null) {
+                $createdTs = $c['created_ts'] ?? null;
+                if ($createdTs === null || (int) $createdTs < $newSinceTs) {
+                    return false;
+                }
+            }
+
+            if ($assignedToId !== null && (int) ($c['handler_id'] ?? 0) !== $assignedToId) {
+                return false;
+            }
+
+            // Purchase Date and Created Date are deliberately separate filters —
+            // a fresh lead with no order yet has no purchase date at all, so
+            // purchase filters must never fall back to created_date.
+            $purchaseTs = $c['purchase_ts'] ?? null;
+            if ($purchaseFromTs !== null && ($purchaseTs === null || (int) $purchaseTs < $purchaseFromTs)) {
+                return false;
+            }
+            if ($purchaseToTs !== null && ($purchaseTs === null || (int) $purchaseTs > $purchaseToTs)) {
+                return false;
+            }
+
+            $createdTs = $c['created_ts'] ?? null;
+            if ($createdFromTs !== null && ($createdTs === null || (int) $createdTs < $createdFromTs)) {
+                return false;
+            }
+            if ($createdToTs !== null && ($createdTs === null || (int) $createdTs > $createdToTs)) {
+                return false;
+            }
+
+            return true;
+        })->values();
+
+        // Sort filtered set only (cheaper than sorting the full directory first).
+        $customers = match ($sortBy) {
+            'purchase' => $customers->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? -1)->values(),
+            default    => $customers->sortByDesc(fn (array $c) => $c['created_ts'] ?? -1)->values(),
         };
 
-        // Customer Status — the Customer entity's own lifecycle status
-        // (Lead/Prospect/Active Customer/Inactive/Lost), distinct from the
-        // cross-source issue category filter above.
-        $customerStatusFilter = $request->get('customer_status_filter', 'All');
-        if ($customerStatusFilter !== 'All') {
-            $customers = $customers->filter(fn ($c) => $c['status_label'] === $customerStatusFilter);
-        }
+        // Paginate, then hydrate Carbon only for the 50 rows in the HTML response.
+        $perPage = 50;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $filteredTotal = $customers->count();
+        $pageRows = $this->matcher->hydrateDirectoryDates(
+            $customers->forPage($page, $perPage)->values()
+        );
 
-        // New Customers — created within the last 7 days.
-        $newOnly = $request->boolean('new_only');
-        if ($newOnly) {
-            $newSince = now()->subDays(7);
-            $customers = $customers->filter(fn ($c) => $c['created_date'] && $c['created_date']->gte($newSince));
-        }
+        $customers = new LengthAwarePaginator(
+            $pageRows,
+            $filteredTotal,
+            $perPage,
+            $page,
+            [
+                'path'  => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
-        // Assigned Staff
-        $assignedToFilter = $request->get('assigned_to_filter');
-        if ($assignedToFilter) {
-            $customers = $customers->filter(fn ($c) => (int) ($c['handler_id'] ?? 0) === (int) $assignedToFilter);
-        }
-
-        // Purchase Date and Created Date are deliberately separate filters —
-        // a fresh lead with no order yet has no purchase date at all (see
-        // CrmCustomerMatchService::buildUnifiedDirectory()), so filtering by
-        // purchase date must never fall back to matching on when they were
-        // created instead.
-        $dateFrom = $request->get('date_from');
-        $dateTo = $request->get('date_to');
-        if ($dateFrom) {
-            $from = Carbon::parse($dateFrom)->startOfDay();
-            $customers = $customers->filter(fn ($c) => $c['purchase_date'] && $c['purchase_date']->gte($from));
-        }
-        if ($dateTo) {
-            $to = Carbon::parse($dateTo)->endOfDay();
-            $customers = $customers->filter(fn ($c) => $c['purchase_date'] && $c['purchase_date']->lte($to));
-        }
-
-        $createdFrom = $request->get('created_from');
-        $createdTo = $request->get('created_to');
-        if ($createdFrom) {
-            $from = Carbon::parse($createdFrom)->startOfDay();
-            $customers = $customers->filter(fn ($c) => $c['created_date'] && $c['created_date']->gte($from));
-        }
-        if ($createdTo) {
-            $to = Carbon::parse($createdTo)->endOfDay();
-            $customers = $customers->filter(fn ($c) => $c['created_date'] && $c['created_date']->lte($to));
-        }
-
-        $assignableStaff = User::crmMembers()->orderBy('name')->get(['id', 'name']);
+        $assignableStaff = CrmLookupCache::crmMembers();
         $customerStatuses = CustomerStatus::cases();
 
         return view('crm.index', compact(
@@ -206,7 +257,7 @@ class CustomerController extends Controller
             'statuses' => CustomerStatus::cases(),
             'sources'  => CustomerSource::cases(),
             'stages'   => DealStage::cases(),
-            'users'    => User::crmMembers()->get(['id', 'name']),
+            'users'    => CrmLookupCache::crmMembers(),
         ]);
     }
 
@@ -300,6 +351,7 @@ class CustomerController extends Controller
                 'pipeline_stage' => DealStage::NewLead->value,
                 'created_by'     => auth()->id(),
             ]);
+            CrmService::forgetDashboardStats();
         }
 
         return response()->json([
@@ -350,7 +402,7 @@ class CustomerController extends Controller
             'statuses' => CustomerStatus::cases(),
             'sources'  => CustomerSource::cases(),
             'stages'   => DealStage::cases(),
-            'users'    => User::crmMembers()->get(['id', 'name']),
+            'users'    => CrmLookupCache::crmMembers(),
             'fullEdit' => auth()->user()->hasFullCrmEdit(),
         ]);
     }

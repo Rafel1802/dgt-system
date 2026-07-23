@@ -7,6 +7,7 @@ use App\Models\EbayCustomerOrder;
 use App\Models\EbayCustomerOrderItem;
 use App\Models\EbayStore;
 use App\Models\User;
+use App\Support\CrmLookupCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -31,7 +32,7 @@ class EbayStoreController extends Controller
         }
 
         $stores   = $query->latest()->paginate(20)->withQueryString();
-        $crmUsers = User::crmMembers()->orderBy('name')->get();
+        $crmUsers = CrmLookupCache::crmMembers();
         $allStores = EbayStore::orderBy('store_name')->get(['id', 'store_name']);
         $totalStoresCount = EbayStore::count();
 
@@ -53,7 +54,7 @@ class EbayStoreController extends Controller
     public function create(): View
     {
         return view('crm.ebay.stores.create', [
-            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
+            'crmUsers' => CrmLookupCache::crmMembers(),
         ]);
     }
 
@@ -102,7 +103,7 @@ class EbayStoreController extends Controller
     {
         return view('crm.ebay.stores.edit', [
             'store'    => $store,
-            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
+            'crmUsers' => CrmLookupCache::crmMembers(),
         ]);
     }
 

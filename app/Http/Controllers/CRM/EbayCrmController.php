@@ -10,6 +10,7 @@ use App\Models\EbayOffer;
 use App\Models\EbayOrder;
 use App\Models\Product;
 use App\Models\User;
+use App\Support\CrmLookupCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,11 +37,11 @@ class EbayCrmController extends Controller
     public function create(): View
     {
         return view('crm.ebay.create', [
-            'products'  => Product::active()->orderBy('name')->get(),
+            'products'  => CrmLookupCache::activeProducts(),
             'statuses'  => EbayLeadStatus::cases(),
-            'crmUsers'  => User::crmMembers()->orderBy('name')->get(),
-            'stores'    => \App\Models\EbayStore::active()->orderBy('store_name')->get(),
-            'customers' => Customer::orderBy('name')->get(['id','name','phone','company']),
+            'crmUsers'  => CrmLookupCache::crmMembers(),
+            'stores'    => CrmLookupCache::activeEbayStores(),
+            'customers' => CrmLookupCache::customersCombobox(),
         ]);
     }
 
@@ -88,9 +89,9 @@ class EbayCrmController extends Controller
         return view('crm.ebay.edit', [
             'offer'    => $offer,
             'statuses' => EbayLeadStatus::cases(),
-            'products' => Product::active()->orderBy('name')->get(),
-            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
-            'stores'   => \App\Models\EbayStore::active()->orderBy('store_name')->get(),
+            'products' => CrmLookupCache::activeProducts(),
+            'crmUsers' => CrmLookupCache::crmMembers(),
+            'stores'   => CrmLookupCache::activeEbayStores(),
         ]);
     }
 

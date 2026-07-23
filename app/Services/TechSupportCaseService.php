@@ -75,7 +75,7 @@ class TechSupportCaseService
 
         $this->logActivity($case->customer_id, 'Technical Case Created', 'A new technical support case was created' . ($case->order_id ? " for order {$case->order_id}." : '.'));
 
-        $this->notifyTechnicians($case, 'New technical support case' . ($case->order_id ? " for order {$case->order_id}" : '') . '.');
+        $this->notifyTechnicians($case, 'New tech case' . ($case->order_id ? " · #{$case->order_id}" : ''));
 
         return $case;
     }
@@ -126,7 +126,7 @@ class TechSupportCaseService
 
         $this->logActivity($case->customer_id, 'Technical Case Reopened', "New technical issue reported ({$ordinal} occurrence).");
 
-        $this->notifyTechnicians($case, "New technical issue reported ({$ordinal} occurrence) for the same customer.");
+        $this->notifyTechnicians($case, "Tech case reopened · {$ordinal} occurrence");
 
         return $case;
     }
@@ -141,14 +141,20 @@ class TechSupportCaseService
      */
     public function markCallCompletedNotificationsRead(array $caseIds): void
     {
-        if (empty($caseIds)) {
+        if (empty($caseIds) || ! auth()->check()) {
             return;
         }
 
+        $ids = array_map('intval', $caseIds);
+
+        // Already scoped to this user's unread rows only (small set) — filter in PHP
+        // so SQLite tests and MySQL both work without brittle JSON path differences.
         auth()->user()->unreadNotifications()
             ->where('data', 'like', '%tech_case_call_completed%')
+            ->orderByDesc('created_at')
+            ->limit(50)
             ->get()
-            ->filter(fn (DatabaseNotification $n) => in_array($n->data['case_id'] ?? null, $caseIds))
+            ->filter(fn (DatabaseNotification $n) => in_array((int) ($n->data['case_id'] ?? 0), $ids, true))
             ->each->markAsRead();
 
         // The sidebar badge count (layouts/app.blade.php) caches this per
@@ -195,9 +201,14 @@ class TechSupportCaseService
         if ($newStatus === TechSupportCase::STATUS_IN_PROGRESS && ! $case->acknowledged_at) {
             $case->acknowledged_at = now();
 
-            DatabaseNotification::where('data', 'like', '%"case_id":' . $case->id . '%')
+            // Scope by case_id first (more selective than two full-table LIKEs).
+            $caseId = (int) $case->id;
+            DatabaseNotification::whereNull('read_at')
+                ->where(function ($q) use ($caseId) {
+                    $q->where('data', 'like', '%"case_id":' . $caseId . '%')
+                        ->orWhere('data', 'like', '%"case_id":"' . $caseId . '"%');
+                })
                 ->where('data', 'like', '%tech_case_new%')
-                ->whereNull('read_at')
                 ->update(['read_at' => now()]);
         }
 
@@ -230,22 +241,39 @@ class TechSupportCaseService
         // same customer outside of Tech Support — a status change here
         // (especially Red Case or Resolved) is worth them knowing about
         // without needing to separately check the Tech Support queue.
+        //
+        // Fan-out after the HTTP response so status clicks return immediately
+        // on shared hosting (same recipients/message as before).
+        $case->loadMissing(['customer.assignee', 'source']);
         $customerName = $case->customer?->name
             ?? ($case->source instanceof Lead ? $case->source->client_name : null)
             ?? ($case->source instanceof EbayCustomerRecord ? ($case->source->buyer_name ?: $case->source->username) : null)
             ?? 'Customer';
-        $assignedStaffName = $case->customer?->assignee?->name ?? 'Unassigned';
-        $latestNote = $case->logs()->latest()->value('note');
-        $priority = $newStatus === TechSupportCase::STATUS_RED ? 'High' : 'Normal';
-        CrmTeamNotifier::notifyEbayAndSalesTeams(
-            'tech_case_status_changed',
-            "Technical case for {$customerName} changed to " . ($labels[$newStatus] ?? $newStatus) . ($actor ? " by {$actor->name}" : '') . '.'
-                . " Assigned: {$assignedStaffName}. Priority: {$priority}."
-                . ($latestNote ? ' Latest note: ' . \Illuminate\Support\Str::limit($latestNote, 100) . '.' : '')
-                . ' ' . now()->format('d M Y, g:ia') . '.',
-            route('crm.tech-support.show', $case),
-            $actor?->id
-        );
+        // Keep the popup/card readable — long assignee/note/timestamp strings
+        // were overflowing the notification card.
+        $statusLabel = $labels[$newStatus] ?? $newStatus;
+        $message = "{$customerName}: {$statusLabel}"
+            . ($actor ? " · {$actor->name}" : '')
+            . ($newStatus === TechSupportCase::STATUS_RED ? ' · High priority' : '');
+        $link = route('crm.tech-support.show', $case);
+        $excludeUserId = $actor?->id;
+
+        $notify = function () use ($message, $link, $excludeUserId) {
+            CrmTeamNotifier::notifyEbayAndSalesTeams(
+                'tech_case_status_changed',
+                $message,
+                $link,
+                $excludeUserId
+            );
+        };
+
+        // After-response in production so the click returns immediately; sync in
+        // tests so Event::assertDispatched still sees the broadcasts.
+        if (app()->runningUnitTests()) {
+            $notify();
+        } else {
+            dispatch($notify)->afterResponse();
+        }
 
         return $case;
     }
@@ -295,44 +323,66 @@ class TechSupportCaseService
             'requested_by' => $actor?->id,
         ]);
 
-        if ($case->assigned_to && $case->assignee) {
-            InstantNotifier::send($case->assignee, new GenericDatabaseNotification([
-                'module'        => 'crm',
-                'type'          => 'tech_case_call_request',
-                'case_id'       => $case->id,
-                'message'       => "Call requested for {$customerName}" . ($case->order_id ? " (Order #{$case->order_id})" : '') . '.',
-                'customer_name' => $customerName,
-                'order_id'      => $case->order_id,
-                'requested_at'  => now()->toIso8601String(),
-                'link'          => route('crm.tech-support.show', $case),
-            ]));
-        }
+        // Notify after the HTTP response so Request Call feels instant.
+        // Recipient set matches prior logic: sales-crm OR website canDeleteCrmRecords
+        // (super-admin, boss, admin-crm / CRM supervisor) — queried by role, not
+        // "load every active user then filter in PHP".
+        $caseId = $case->id;
+        $orderId = $case->order_id;
+        $assigneeId = $case->assigned_to;
+        $callRequestId = $callRequest->id;
+        $requestedAt = now()->toIso8601String();
+        $caseLink = route('crm.tech-support.show', $case);
+        $callListLink = route('crm.website.call-requests.index');
 
-        // Website CRM is the team that actually makes the call — notify them
-        // too so a new call request shows up on their sidebar bell, not just
-        // logged on a page they'd have to remember to check. Also notify the
-        // supervisor tier (CRM/eBay/Logistic Supervisor, boss, super-admin —
-        // same set as User::canDeleteCrmRecords()) so they have the same
-        // visibility into CRM staff activity as sales-crm reps, not just
-        // access to the pages. unique('id') avoids double-notifying anyone
-        // who qualifies under both loops (e.g. a sales-crm CRM Supervisor).
-        $recipients = User::where('is_active', true)->get()
-            ->filter(fn (User $u) => $u->hasRole('sales-crm') || $u->canDeleteCrmRecords('website'))
-            ->unique('id');
+        $notify = function () use (
+            $caseId, $orderId, $assigneeId, $callRequestId, $customerName,
+            $note, $requestedAt, $caseLink, $callListLink
+        ) {
+            if ($assigneeId) {
+                $assignee = User::find($assigneeId);
+                if ($assignee) {
+                    InstantNotifier::send($assignee, new GenericDatabaseNotification([
+                        'module'        => 'crm',
+                        'type'          => 'tech_case_call_request',
+                        'case_id'       => $caseId,
+                        'message'       => "Call requested · {$customerName}" . ($orderId ? " · #{$orderId}" : ''),
+                        'customer_name' => $customerName,
+                        'order_id'      => $orderId,
+                        'requested_at'  => $requestedAt,
+                        'link'          => $caseLink,
+                    ]));
+                }
+            }
 
-        foreach ($recipients as $recipient) {
-            InstantNotifier::send($recipient, new GenericDatabaseNotification([
-                'module'        => 'crm',
-                'type'          => 'call_request_new',
-                'call_request_id' => $callRequest->id,
-                'message'       => "New call request for {$customerName}: {$note}",
-                'customer_name' => $customerName,
-                'requested_at'  => now()->toIso8601String(),
-                'link'          => route('crm.website.call-requests.index'),
-            ]));
+            // Website CRM + supervisors who canDeleteCrmRecords('website').
+            $recipients = User::role(['sales-crm', 'super-admin', 'boss', 'admin-crm'])
+                ->where('is_active', true)
+                ->get()
+                ->unique('id');
+
+            $shortNote = \Illuminate\Support\Str::limit(trim($note), 48, '…');
+            foreach ($recipients as $recipient) {
+                InstantNotifier::send($recipient, new GenericDatabaseNotification([
+                    'module'          => 'crm',
+                    'type'            => 'call_request_new',
+                    'call_request_id' => $callRequestId,
+                    'message'         => "Call request · {$customerName}" . ($shortNote !== '' ? " · {$shortNote}" : ''),
+                    'customer_name'   => $customerName,
+                    'requested_at'    => $requestedAt,
+                    'link'            => $callListLink,
+                ]));
+            }
+        };
+
+        if (app()->runningUnitTests()) {
+            $notify();
+        } else {
+            dispatch($notify)->afterResponse();
         }
 
         $this->logActivity($case->customer_id, 'Request Call', "Call requested for {$customerName}.");
+        Cache::forget('crm.lookup.pending_call_requests');
 
         return $callRequest;
     }
@@ -363,24 +413,64 @@ class TechSupportCaseService
 
         $this->logActivity($case->customer_id, 'Call Completed', $note);
 
-        $message = 'Call completed' . ($actor ? " by {$actor->name}" : '') . ": {$note}";
+        $shortOutcome = \Illuminate\Support\Str::limit(trim($note), 40, '…');
+        $message = 'Call done' . ($actor ? " · {$actor->name}" : '')
+            . ($shortOutcome !== '' ? " · {$shortOutcome}" : '');
 
-        if ($case->assigned_to && $case->assignee) {
-            InstantNotifier::send($case->assignee, new GenericDatabaseNotification([
-                'module'  => 'crm',
-                'type'    => 'tech_case_call_completed',
-                'case_id' => $case->id,
-                'message' => $message,
-                'link'    => route('crm.tech-support.show', $case),
-            ]));
+        // Fan-out after the HTTP response so "Mark Called" returns immediately
+        // instead of waiting for N InstantNotifier sends (DB + Pusher) to every
+        // tech-support user. Same recipients as before, minus the actor (they
+        // just performed the action — no need to notify themselves).
+        $caseId = $case->id;
+        $assigneeId = $case->assigned_to;
+        $actorId = $actor?->id;
+        $link = route('crm.tech-support.show', $case);
+
+        $notify = function () use ($caseId, $assigneeId, $actorId, $message, $link) {
+            $case = TechSupportCase::find($caseId);
+            if (! $case) {
+                return;
+            }
+
+            $exclude = array_values(array_filter([$assigneeId, $actorId]));
+
+            if ($assigneeId && $assigneeId !== $actorId) {
+                $assignee = User::find($assigneeId);
+                if ($assignee) {
+                    InstantNotifier::send($assignee, new GenericDatabaseNotification([
+                        'module'  => 'crm',
+                        'type'    => 'tech_case_call_completed',
+                        'case_id' => $caseId,
+                        'message' => $message,
+                        'link'    => $link,
+                    ]));
+                }
+            }
+
+            // Wider tech team, excluding assignee (already notified) and actor.
+            $recipients = User::role('tech-support')->where('is_active', true)->get();
+            if (! empty($exclude)) {
+                $recipients = $recipients->reject(fn (User $u) => in_array($u->id, $exclude, true));
+            }
+            foreach ($recipients as $recipient) {
+                InstantNotifier::send($recipient, new GenericDatabaseNotification([
+                    'module'  => 'crm',
+                    'type'    => 'tech_case_call_completed',
+                    'case_id' => $caseId,
+                    'message' => $message,
+                    'link'    => $link,
+                ]));
+            }
+        };
+
+        if (app()->runningUnitTests()) {
+            $notify();
+        } else {
+            dispatch($notify)->afterResponse();
         }
 
-        // Also broadcast to the wider Technical Support team, not just the
-        // specific assignee — otherwise a completed call went unnoticed
-        // whenever the case had no assignee yet, and nobody besides that one
-        // person ever saw it on an assigned case either. Excludes the
-        // assignee since they already got the personal notification above.
-        $this->notifyTechnicians($case, $message, 'tech_case_call_completed', $case->assigned_to);
+        Cache::forget('crm.lookup.pending_call_requests');
+        Cache::forget('unread_call_completed_' . ($actorId ?? 0));
     }
 
     /**

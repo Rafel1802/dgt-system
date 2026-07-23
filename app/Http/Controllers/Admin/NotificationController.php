@@ -35,12 +35,15 @@ class NotificationController extends Controller
         $user = auth()->user();
         $modules = $user->notificationModules();
 
+        // Use the raw notification UUID as `id` — must match InstantNotifier /
+        // Pusher payload ids so the frontend dedupe (localStorage shown-ids)
+        // treats live push + poll refresh as the same card, not two.
         $notifications = $this->scopeToUserModules($user->notifications(), $modules)
             ->take(30)->get()->map(fn($n) => [
-                'id'       => 'notif_' . $n->id,
-                'data'     => $n->data,
-                'read_at'  => $n->read_at,
-                'time_ago' => $n->created_at->format('M j, Y, g:i A'),
+                'id'         => (string) $n->id,
+                'data'       => $n->data,
+                'read_at'    => $n->read_at,
+                'time_ago'   => $n->created_at->format('M j, Y, g:i A'),
                 'created_at' => $n->created_at,
             ]);
 

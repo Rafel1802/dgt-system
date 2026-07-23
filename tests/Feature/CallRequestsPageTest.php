@@ -94,7 +94,9 @@ class CallRequestsPageTest extends TestCase
             'note' => 'Spoke with the customer, issue resolved.',
         ]);
 
-        $response->assertRedirect(route('crm.website.call-requests.index'));
+        // Redirect keeps the pending tab so the row disappears from the list
+        // the user was looking at (feels faster than a full unfiltered reload).
+        $response->assertRedirect(route('crm.website.call-requests.index', ['status' => 'pending']));
         $callRequest->refresh();
         $this->assertTrue($callRequest->fulfilled);
         $this->assertEquals('Spoke with the customer, issue resolved.', $callRequest->fulfillment_note);
@@ -156,11 +158,14 @@ class CallRequestsPageTest extends TestCase
         $response = $this->actingAs($this->user)->get(route('crm.tech-support.show', $case));
 
         $response->assertOk();
-        $response->assertDontSee('Awaiting CRM Website Callback');
+        // Fulfilled call requests no longer appear as pending cards — only in Follow-Up Logs.
+        // (Alpine may keep a pending-card template in the page HTML, so we assert on
+        // the fulfilled state rather than the template's static heading string.)
         $response->assertDontSee('✓ Called');
-        // Still visible — but now only inside the Follow-Up Log entry.
         $response->assertSee('Distinctive Request Reason Text');
         $response->assertSee('Distinctive Outcome Text');
+        // pendingCalls Alpine seed should be empty after fulfill.
+        $response->assertSee('pendingCalls: []', false);
     }
 
     public function test_pending_call_requests_no_longer_appear_on_the_leads_index(): void

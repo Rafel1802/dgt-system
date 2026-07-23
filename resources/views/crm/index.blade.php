@@ -142,7 +142,10 @@
   {{-- ── Customer Table ────────────────────────────────────────────────────── --}}
   <div class="card p-0 overflow-hidden">
     <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-      <p class="text-sm text-slate-500">Showing <strong>{{ $customers->count() }}</strong> customer(s)</p>
+      <p class="text-sm text-slate-500">
+        Showing <strong>{{ $customers->count() }}</strong>
+        of <strong>{{ $customers->total() }}</strong> filtered customer(s)
+      </p>
     </div>
 
     <div class="overflow-x-auto">
@@ -214,6 +217,11 @@
         </tbody>
       </table>
     </div>
+    @if($customers->hasPages())
+    <div class="px-6 py-4 border-t border-slate-100">
+      {{ $customers->links() }}
+    </div>
+    @endif
   </div>
 
 </div>

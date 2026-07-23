@@ -10,6 +10,7 @@ use App\Services\TechSupportCaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -22,7 +23,13 @@ class TechSupportController extends Controller
     /** Technical Support dashboard: KPI tiles + search/filter + case list */
     public function index(Request $request): View
     {
-        $query = TechSupportCase::with(['customer', 'assignee', 'source', 'callRequests']);
+        // List page only needs identity fields + latest call-request flag — not full histories.
+        $query = TechSupportCase::with([
+            'customer:id,name,phone,email',
+            'assignee:id,name',
+            'source',
+            'callRequests' => fn ($q) => $q->latest('id')->limit(1),
+        ]);
 
         if ($s = $request->get('search')) {
             $query->search($s);
@@ -39,16 +46,26 @@ class TechSupportController extends Controller
 
         $cases = $query->latest('updated_at')->paginate(20)->withQueryString();
 
-        $stats = [
-            'total'       => TechSupportCase::count(),
-            'new'         => TechSupportCase::status(TechSupportCase::STATUS_NEW)->count(),
-            'in_progress' => TechSupportCase::status(TechSupportCase::STATUS_IN_PROGRESS)->count(),
-            'red'         => TechSupportCase::status(TechSupportCase::STATUS_RED)->count(),
-            'resolved'    => TechSupportCase::status(TechSupportCase::STATUS_RESOLVED)->count(),
-        ];
+        $stats = Cache::remember('tech_support.index_stats', 30, function () {
+            $row = TechSupportCase::query()
+                ->selectRaw('COUNT(*) as total')
+                ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as new_count", [TechSupportCase::STATUS_NEW])
+                ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as in_progress", [TechSupportCase::STATUS_IN_PROGRESS])
+                ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as red", [TechSupportCase::STATUS_RED])
+                ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as resolved", [TechSupportCase::STATUS_RESOLVED])
+                ->first();
 
-        \Spatie\Permission\Models\Role::findOrCreate('tech-support', 'web');
-        $technicians = User::role('tech-support')->where('is_active', true)->orderBy('name')->get();
+            return [
+                'total'       => (int) ($row->total ?? 0),
+                'new'         => (int) ($row->new_count ?? 0),
+                'in_progress' => (int) ($row->in_progress ?? 0),
+                'red'         => (int) ($row->red ?? 0),
+                'resolved'    => (int) ($row->resolved ?? 0),
+            ];
+        });
+
+        // Role is seeded — never findOrCreate on a read path.
+        $technicians = $this->technicians();
         $statuses = TechSupportCase::statuses();
 
         // Which of these cases have a call-completed outcome this user hasn't
@@ -56,6 +73,8 @@ class TechSupportController extends Controller
         // separate from a call that's completed but already been looked at.
         $unreadCallCompletedCaseIds = auth()->user()->unreadNotifications()
             ->where('data', 'like', '%tech_case_call_completed%')
+            ->orderByDesc('created_at')
+            ->limit(100)
             ->get()
             ->pluck('data.case_id')
             ->unique()
@@ -78,11 +97,37 @@ class TechSupportController extends Controller
         // badge doesn't keep flagging an outcome they've already read.
         $this->service->markCallCompletedNotificationsRead([$case->id]);
 
-        \Spatie\Permission\Models\Role::findOrCreate('tech-support', 'web');
-        $technicians = User::role('tech-support')->where('is_active', true)->orderBy('name')->get();
+        $technicians = $this->technicians();
         $statuses = TechSupportCase::statuses();
+        $statusColors = collect(array_keys($statuses))
+            ->mapWithKeys(fn ($k) => [$k => TechSupportCase::statusColor($k)])
+            ->all();
 
-        return view('crm.tech-support.show', compact('case', 'technicians', 'statuses'));
+        return view('crm.tech-support.show', compact('case', 'technicians', 'statuses', 'statusColors'));
+    }
+
+    /**
+     * Active tech-support users for assign dropdowns.
+     * Returns a plain collection of {id, name} arrays — never cache raw Eloquent
+     * models here (Hostinger file/database cache can corrupt them on unserialize
+     * and the Blade view then dies with "Attempt to read property id on string").
+     */
+    private function technicians()
+    {
+        return Cache::remember('tech_support.technicians.v2', 120, function () {
+            try {
+                return User::role('tech-support')
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])
+                    ->values()
+                    ->all();
+            } catch (\Throwable) {
+                // Role missing on a fresh DB — empty list is fine; seeder owns roles.
+                return [];
+            }
+        });
     }
 
     public function updateStatus(Request $request, TechSupportCase $case): JsonResponse
@@ -92,10 +137,16 @@ class TechSupportController extends Controller
         ]);
 
         $this->service->changeStatus($case, $validated['status'], auth()->user());
+        Cache::forget('tech_support.index_stats');
+
+        $case->refresh();
+        $statuses = TechSupportCase::statuses();
 
         return response()->json([
-            'message' => 'Status updated.',
-            'status'  => $case->fresh()->status,
+            'message'      => 'Status updated.',
+            'status'       => $case->status,
+            'status_label' => $statuses[$case->status] ?? $case->status,
+            'status_color' => TechSupportCase::statusColor($case->status),
         ]);
     }
 
@@ -104,6 +155,7 @@ class TechSupportController extends Controller
         $validated = $request->validate(['user_id' => ['required', 'exists:users,id']]);
 
         $case->update(['assigned_to' => $validated['user_id']]);
+        $case->load('assignee:id,name');
 
         return response()->json([
             'message'  => 'Case assigned.',
@@ -155,7 +207,12 @@ class TechSupportController extends Controller
 
         return response()->json([
             'message'      => 'Call requested.',
-            'call_request' => $callRequest,
+            'call_request' => [
+                'id'         => $callRequest->id,
+                'note'       => $callRequest->note,
+                'created_at' => $callRequest->created_at?->format('d M Y, g:ia'),
+                'fulfilled'  => (bool) $callRequest->fulfilled,
+            ],
         ]);
     }
 }

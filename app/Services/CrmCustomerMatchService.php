@@ -14,6 +14,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentCustomer;
 use App\Support\PhoneNumberFormatter;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Cross-source customer matching, delay-propagation, and dedup for the CRM module.
@@ -221,6 +222,8 @@ class CrmCustomerMatchService
         if ($customer && $customer->shipment_delay !== $hasActiveProblem) {
             $customer->update(['shipment_delay' => $hasActiveProblem]);
         }
+
+        self::forgetUnifiedDirectoryCache();
     }
 
     /**
@@ -274,6 +277,8 @@ class CrmCustomerMatchService
         if ($customer && ! $customer->shipment_delivered) {
             $customer->update(['shipment_delivered' => true]);
         }
+
+        self::forgetUnifiedDirectoryCache();
     }
 
     /**
@@ -387,6 +392,10 @@ class CrmCustomerMatchService
             ]);
         }
 
+        self::forgetUnifiedDirectoryCache();
+        Cache::forget('crm.shipment_picker_customers');
+        Cache::forget('crm.shipment_picker_customers.v2');
+
         return $customer;
     }
 
@@ -489,6 +498,29 @@ class CrmCustomerMatchService
     }
 
     /**
+     * Cache key for the base (unfiltered) unified directory.
+     * v3: includes created_ts/purchase_ts + lowercase search fields so list
+     * pages can filter/sort without re-parsing Carbon on every row.
+     * Invalidated via forgetUnifiedDirectoryCache() on CRM writes.
+     */
+    public const UNIFIED_DIRECTORY_CACHE_KEY = 'crm.unified_directory.base.v3';
+
+    /** Drop cached directory + count (call after any create/update that changes who appears). */
+    public static function forgetUnifiedDirectoryCache(): void
+    {
+        Cache::forget(self::UNIFIED_DIRECTORY_CACHE_KEY);
+        // Legacy key from v2 — safe forget if any process still warms it.
+        Cache::forget('crm.unified_directory.base.v2');
+        Cache::forget('crm.deduped_customer_count');
+        Cache::forget('crm.dashboard_stats');
+        // Day-scoped dashboard KPI block
+        Cache::forget('crm.dashboard.page_kpis.' . now()->toDateString());
+        if (app()->bound('crm.unified_directory.base_collection')) {
+            app()->forgetInstance('crm.unified_directory.base_collection');
+        }
+    }
+
+    /**
      * Deduplicated cross-source customer directory (Leads + eBay records +
      * Logistics "Problem" shipment customers + any remaining Customer Database
      * rows not already surfaced by one of those), matched by lowercased email-or-phone.
@@ -496,11 +528,122 @@ class CrmCustomerMatchService
      * Lead/eBay/Shipment are matched first so their technical/shipment-delay/
      * negative-feedback category detection always wins; plain Customer records
      * only fill in the gap so every real customer still appears somewhere.
+     *
+     * Performance: base directory is cached ~180s (same row shape + dedupe rules);
+     * search/sort still applied in-process so filter semantics stay identical.
+     * Returns Carbon dates on created_date/purchase_date for Blade/callers.
      */
     public function buildUnifiedDirectory(array $filters = []): Collection
     {
+        return $this->hydrateDirectoryDates(
+            $this->filterAndSortDirectory($this->baseUnifiedDirectory(), $filters)
+        );
+    }
+
+    /**
+     * Same rows as buildUnifiedDirectory(), but dates stay as ISO strings +
+     * integer timestamps. Use on list pages that only need to hydrate the
+     * current paginator page (Customers DB is the main consumer).
+     */
+    public function buildUnifiedDirectoryRaw(array $filters = []): Collection
+    {
+        return $this->filterAndSortDirectory($this->baseUnifiedDirectory(), $filters);
+    }
+
+    /**
+     * Convert ISO date strings (or timestamps) to Carbon for a small page slice.
+     */
+    public function hydrateDirectoryDates(Collection $rows): Collection
+    {
+        return $rows->map(function (array $row) {
+            foreach (['created_date' => 'created_ts', 'purchase_date' => 'purchase_ts'] as $dateKey => $tsKey) {
+                if ($row[$dateKey] instanceof \DateTimeInterface) {
+                    continue;
+                }
+                if (is_string($row[$dateKey] ?? null) && $row[$dateKey] !== '') {
+                    try {
+                        $row[$dateKey] = \Illuminate\Support\Carbon::parse($row[$dateKey]);
+                        continue;
+                    } catch (\Throwable) {
+                        $row[$dateKey] = null;
+                    }
+                } elseif (! empty($row[$tsKey])) {
+                    $row[$dateKey] = \Illuminate\Support\Carbon::createFromTimestamp((int) $row[$tsKey]);
+                } else {
+                    $row[$dateKey] = null;
+                }
+            }
+
+            return $row;
+        })->values();
+    }
+
+    /**
+     * Search + sort on precomputed scalar fields (no Carbon).
+     */
+    private function filterAndSortDirectory(Collection $out, array $filters): Collection
+    {
+        if ($search = $filters['search'] ?? null) {
+            $search = strtolower(trim((string) $search));
+            if ($search !== '') {
+                $out = $out->filter(function (array $c) use ($search) {
+                    return str_contains($c['name_l'] ?? strtolower((string) ($c['name'] ?? '')), $search)
+                        || str_contains($c['email_l'] ?? strtolower((string) ($c['email'] ?? '')), $search)
+                        || str_contains($c['phone_l'] ?? strtolower((string) ($c['phone'] ?? '')), $search);
+                });
+            }
+        }
+
+        // Default: newest customers first, ranked by whichever is more recent
+        // between their purchase date and their created date (a repeat
+        // buyer's new order re-surfaces them at the top even if they first
+        // came in long ago; a brand new inquiry with no purchase yet still
+        // ranks by when they showed up). The customer list page can instead
+        // request an explicit 'created' or 'purchase' sort.
+        return match ($filters['sort_by'] ?? null) {
+            'created'  => $out->sortByDesc(fn (array $c) => $c['created_ts'] ?? -1)->values(),
+            'purchase' => $out->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? -1)->values(),
+            default    => $out->sortByDesc(fn (array $c) => max((int) ($c['purchase_ts'] ?? 0), (int) ($c['created_ts'] ?? 0)))->values(),
+        };
+    }
+
+    /**
+     * Base directory without search/sort — shared across Customer DB, Website
+     * side-rows, logistic issues, and dashboard count. Cached for 180 seconds
+     * in production; never cached under PHPUnit (tests need fresh rows).
+     *
+     * Rows keep ISO date strings + integer timestamps (no Carbon) so cache hits
+     * stay cheap until a caller hydrates a page slice.
+     */
+    private function baseUnifiedDirectory(): Collection
+    {
+        // Per-request memo (container-scoped) so one page pays once.
+        if (app()->bound('crm.unified_directory.base_collection')) {
+            return app('crm.unified_directory.base_collection');
+        }
+
+        $rows = app()->runningUnitTests()
+            ? $this->buildBaseUnifiedDirectoryRows()
+            : Cache::remember(self::UNIFIED_DIRECTORY_CACHE_KEY, 180, fn () => $this->buildBaseUnifiedDirectoryRows());
+
+        $collection = collect($rows);
+
+        app()->instance('crm.unified_directory.base_collection', $collection);
+
+        return $collection;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function buildBaseUnifiedDirectoryRows(): array
+    {
         $seen = [];
         $out = collect();
+
+        // NOTE: Search is applied only after cross-source dedupe (in buildUnifiedDirectory).
+        // Pre-filtering each source in SQL would change which row "wins"
+        // the dedupe and alter search results — business logic must stay identical.
 
         // A record is identified by its customer_id FK or its email — either
         // matching an earlier row means it's the same person, so a Lead/eBay/
@@ -540,7 +683,19 @@ class CrmCustomerMatchService
             }
         };
 
-        Lead::with('handler', 'techSupportCase', 'latestOrder')->get()->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
+        Lead::query()
+            ->select([
+                'id', 'customer_id', 'handled_by', 'client_name', 'client_email', 'client_phone',
+                'source', 'status', 'received_at', 'created_at',
+            ])
+            ->with([
+                'handler:id,name',
+                'techSupportCase',
+                // Do not column-restrict latestOfMany — SQLite/MySQL can error on ambiguous lead_id.
+                'latestOrder',
+            ])
+            ->get()
+            ->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
             $k = $keysFor($lead->client_email, $lead->client_phone, 'lead-' . $lead->id, $lead->customer_id);
             if ($anySeen($k)) {
                 return;
@@ -574,7 +729,20 @@ class CrmCustomerMatchService
             ]);
         });
 
-        EbayCustomerRecord::with('handlerHistory.user', 'techSupportCase', 'orders')->get()->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
+        // Only open handler history rows + latest order (not full order history).
+        EbayCustomerRecord::query()
+            ->select([
+                'id', 'customer_id', 'tab_type', 'buyer_name', 'username', 'email', 'phone',
+                'shipment_delay', 'shipment_delivered', 'negative_feedback_causes', 'created_at',
+            ])
+            ->with([
+                'handlerHistory' => fn ($q) => $q->whereNull('ended_at')->with('user:id,name'),
+                'techSupportCase',
+                // Avoid column-restricting latestOfMany (ambiguous FK in nested subquery).
+                'latestOrder',
+            ])
+            ->get()
+            ->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
             $k = $keysFor($record->email, $record->phone, 'ebay-' . $record->id, $record->customer_id);
             if ($anySeen($k)) {
                 return;
@@ -610,10 +778,9 @@ class CrmCustomerMatchService
                 'handler'     => $record->current_handler?->name,
                 'handler_id'  => $record->current_handler?->id,
                 'link'        => route('crm.ebay.customers.show', $record),
-                // orders() is already ordered newest-first, so the first
-                // entry is the most recent purchase — null if none logged yet.
+                // latestOrder is the most recent purchase — null if none logged yet.
                 'created_date'  => $record->created_at,
-                'purchase_date' => $record->orders->first()?->ordered_at,
+                'purchase_date' => $record->latestOrder?->ordered_at,
                 'category'    => match (true) {
                     $record->tab_type === EbayCustomerRecord::TAB_TECHNICAL => 'technical',
                     $record->shipment_delay || $hasLogisticCause => 'shipment_delay',
@@ -623,7 +790,12 @@ class CrmCustomerMatchService
             ]);
         });
 
-        ShipmentCustomer::with('shipment')
+        ShipmentCustomer::query()
+            ->select([
+                'id', 'shipment_id', 'customer_id', 'recipient_name', 'recipient_email',
+                'recipient_phone', 'status', 'created_at',
+            ])
+            ->with(['shipment:id,created_at'])
             ->where('status', ShipmentCustomer::STATUS_PROBLEM)
             ->get()
             ->each(function (ShipmentCustomer $sc) use (&$out, $keysFor, $anySeen, $reserve) {
@@ -664,7 +836,17 @@ class CrmCustomerMatchService
                 ]);
             });
 
-        Customer::with('assignee', 'latestTechSupportCase')->get()->each(function (Customer $customer) use (&$out, $keysFor, $anySeen, $reserve) {
+        Customer::query()
+            ->select([
+                'id', 'name', 'email', 'phone', 'status', 'source', 'assigned_to',
+                'shipment_delay', 'shipment_delivered', 'created_at',
+            ])
+            ->with([
+                'assignee:id,name',
+                'latestTechSupportCase',
+            ])
+            ->get()
+            ->each(function (Customer $customer) use (&$out, $keysFor, $anySeen, $reserve) {
             // Reserving/checking its own id alongside email+phone means this
             // correctly cross-matches an earlier row whether that row was
             // linked via customer_id or only matched by contact info.
@@ -715,29 +897,46 @@ class CrmCustomerMatchService
             ]);
         });
 
-        if ($search = $filters['search'] ?? null) {
-            $search = strtolower($search);
-            $out = $out->filter(fn ($c) => str_contains(strtolower($c['name'] ?? ''), $search)
-                || str_contains(strtolower($c['email'] ?? ''), $search)
-                || str_contains(strtolower($c['phone'] ?? ''), $search));
-        }
+        // Serialize dates as ISO strings + integer timestamps + lowercase
+        // search fields so list pages can filter/sort without re-parsing.
+        return $out->map(function (array $row) {
+            foreach (['created_date' => 'created_ts', 'purchase_date' => 'purchase_ts'] as $dateKey => $tsKey) {
+                $value = $row[$dateKey] ?? null;
+                if ($value instanceof \DateTimeInterface) {
+                    $row[$tsKey] = $value->getTimestamp();
+                    $row[$dateKey] = $value->format('c');
+                } elseif (is_string($value) && $value !== '') {
+                    try {
+                        $parsed = \Illuminate\Support\Carbon::parse($value);
+                        $row[$tsKey] = $parsed->getTimestamp();
+                        $row[$dateKey] = $parsed->format('c');
+                    } catch (\Throwable) {
+                        $row[$tsKey] = null;
+                        $row[$dateKey] = null;
+                    }
+                } else {
+                    $row[$tsKey] = null;
+                    $row[$dateKey] = null;
+                }
+            }
 
-        // Default: newest customers first, ranked by whichever is more recent
-        // between their purchase date and their created date (a repeat
-        // buyer's new order re-surfaces them at the top even if they first
-        // came in long ago; a brand new inquiry with no purchase yet still
-        // ranks by when they showed up). The customer list page can instead
-        // request an explicit 'created' or 'purchase' sort.
-        return match ($filters['sort_by'] ?? null) {
-            'created'  => $out->sortByDesc(fn ($c) => $c['created_date']?->timestamp ?? -1)->values(),
-            'purchase' => $out->sortByDesc(fn ($c) => $c['purchase_date']?->timestamp ?? -1)->values(),
-            default    => $out->sortByDesc(fn ($c) => max($c['purchase_date']?->timestamp ?? 0, $c['created_date']?->timestamp ?? 0))->values(),
-        };
+            $row['name_l'] = strtolower((string) ($row['name'] ?? ''));
+            $row['email_l'] = strtolower((string) ($row['email'] ?? ''));
+            $row['phone_l'] = strtolower((string) ($row['phone'] ?? ''));
+
+            return $row;
+        })->values()->all();
     }
 
-    /** Deduplicated total customer count, for the Dashboard KPI tile. */
+    /**
+     * Deduplicated total customer count, for the Dashboard KPI tile.
+     * Cached briefly — aggregate only, no PII in the cache value.
+     */
     public function dedupedCustomerCount(): int
     {
-        return $this->buildUnifiedDirectory()->count();
+        return (int) Cache::remember('crm.deduped_customer_count', 60, function () {
+            // Use base directory (already cached) — avoid a second full rebuild.
+            return $this->baseUnifiedDirectory()->count();
+        });
     }
 }

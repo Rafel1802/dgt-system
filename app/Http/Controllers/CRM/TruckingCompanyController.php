@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TruckingCompany;
 use App\Models\TruckingCompanyDriver;
 use App\Models\User;
+use App\Support\CrmLookupCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -26,7 +27,7 @@ class TruckingCompanyController extends Controller
         }
 
         $companies = $query->latest()->paginate(20)->withQueryString();
-        $crmUsers  = User::crmMembers()->orderBy('name')->get();
+        $crmUsers  = CrmLookupCache::crmMembers();
 
         return view('crm.logistics.trucking.index', compact('companies', 'crmUsers'));
     }
@@ -34,7 +35,7 @@ class TruckingCompanyController extends Controller
     public function create(): View
     {
         return view('crm.logistics.trucking.create', [
-            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
+            'crmUsers' => CrmLookupCache::crmMembers(),
         ]);
     }
 
@@ -76,7 +77,7 @@ class TruckingCompanyController extends Controller
     {
         return view('crm.logistics.trucking.edit', [
             'company'  => $truckingCompany,
-            'crmUsers' => User::crmMembers()->orderBy('name')->get(),
+            'crmUsers' => CrmLookupCache::crmMembers(),
         ]);
     }
 

@@ -3,6 +3,17 @@
 @section('page_title', 'Tech Support — Case Detail')
 
 @section('content')
+@php
+  $color = \App\Models\TechSupportCase::statusColor($case->status);
+  $statusColors = $statusColors ?? collect(array_keys($statuses))
+      ->mapWithKeys(fn ($k) => [$k => \App\Models\TechSupportCase::statusColor($k)])
+      ->all();
+  $initialPendingCalls = $case->callRequests->where('fulfilled', false)->values()->map(fn ($cr) => [
+      'id' => $cr->id,
+      'note' => $cr->note,
+      'created_at' => $cr->created_at?->format('d M Y, g:ia'),
+  ])->all();
+@endphp
 <div class="animate-fade-in" x-data="{
   statusLoading: false,
   assignLoading: false,
@@ -11,14 +22,29 @@
   showFollowUp: false,
   showRequestCall: false,
   requestCallNote: '',
+  currentStatus: @js($case->status),
+  statusLabels: @js($statuses),
+  statusColors: @js($statusColors),
+  pendingCalls: @js($initialPendingCalls),
+
+  colorFor(status) {
+    return (this.statusColors && this.statusColors[status]) ? this.statusColors[status] : '#94a3b8';
+  },
+  labelFor(status) {
+    return (this.statusLabels && this.statusLabels[status]) ? this.statusLabels[status] : status;
+  },
 
   async changeStatus(newStatus) {
+    if (this.statusLoading || newStatus === this.currentStatus) return;
     this.statusLoading = true;
+    const previous = this.currentStatus;
+    this.currentStatus = newStatus;
     try {
-      await window.api('{{ route('crm.tech-support.status', $case) }}', { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
+      const data = await window.api('{{ route('crm.tech-support.status', $case) }}', { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
+      this.currentStatus = data.status || newStatus;
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
-      setTimeout(() => location.reload(), 700);
     } catch (err) {
+      this.currentStatus = previous;
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
     } finally { this.statusLoading = false; }
   },
@@ -29,7 +55,6 @@
       const userId = new FormData(event.target).get('user_id');
       await window.api(event.target.action, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Case assigned!', type: 'success' } }));
-      setTimeout(() => location.reload(), 700);
     } catch (err) {
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
     } finally { this.assignLoading = false; }
@@ -49,7 +74,7 @@
         throw new Error(data.message || 'Failed.');
       }
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up added!', type: 'success' } }));
-      setTimeout(() => location.reload(), 700);
+      if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
     } catch (err) {
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
     } finally { this.followUpLoading = false; }
@@ -62,9 +87,13 @@
     }
     this.requestCallLoading = true;
     try {
-      await window.api('{{ route('crm.tech-support.request-call', $case) }}', { method: 'POST', body: JSON.stringify({ note: this.requestCallNote }) });
+      const data = await window.api('{{ route('crm.tech-support.request-call', $case) }}', { method: 'POST', body: JSON.stringify({ note: this.requestCallNote }) });
+      if (data.call_request) {
+        this.pendingCalls.unshift(data.call_request);
+      }
+      this.requestCallNote = '';
+      this.showRequestCall = false;
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Call requested!', type: 'success' } }));
-      setTimeout(() => location.reload(), 700);
     } catch (err) {
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
     } finally { this.requestCallLoading = false; }
@@ -81,15 +110,22 @@
     <div class="xl:col-span-1 space-y-4">
 
       <div class="card">
-        @php $color = \App\Models\TechSupportCase::statusColor($case->status); @endphp
-        <div class="h-2 -mx-5 -mt-5 mb-4 rounded-t-2xl" style="background:{{ $color }}"></div>
+        {{-- Server-rendered color so UI is correct before Alpine boots; Alpine updates on status change --}}
+        <div class="h-2 -mx-5 -mt-5 mb-4 rounded-t-2xl"
+             style="background:{{ $color }}"
+             :style="'background:' + colorFor(currentStatus)"></div>
 
         <div class="text-center pb-2">
-          <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3" style="background:{{ $color }}">
+          <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3"
+               style="background:{{ $color }}"
+               :style="'background:' + colorFor(currentStatus)">
             {{ strtoupper(substr($case->customer?->name ?? '?', 0, 1)) }}
           </div>
           <h2 class="font-display font-bold text-slate-800 text-lg">{{ $case->customer?->name ?? 'Unknown Customer' }}</h2>
-          <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full inline-block mt-1" style="background:{{ $color }}22; color:{{ $color }}">
+          <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full inline-block mt-1"
+                style="background:{{ $color }}22; color:{{ $color }}"
+                :style="'background:' + colorFor(currentStatus) + '22; color:' + colorFor(currentStatus)"
+                x-text="labelFor(currentStatus)">
             {{ $statuses[$case->status] ?? $case->status }}
           </span>
           @if($case->occurrence_label)
@@ -126,18 +162,33 @@
           </div>
         </div>
 
-        {{-- Status buttons --}}
+        {{-- Status buttons.
+             IMPORTANT: do NOT put selected/unselected classes in the static `class`
+             attribute. Alpine merges :class with static class and never removes the
+             static ones — so after switching away from the status the page loaded
+             with, the old `text-white` stayed and made the label invisible on a
+             white background (blank "Resolved" button). Styling is Alpine-only;
+             a neutral static base is fine for no-JS fallback. --}}
         <div class="mt-4 pt-4 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Technical Status</p>
           <div class="grid grid-cols-2 gap-2">
             @foreach($statuses as $key => $label)
-            <button @click="changeStatus('{{ $key }}')" :disabled="statusLoading"
-                    class="py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $case->status === $key ? 'text-white border-transparent' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }}"
-                    style="{{ $case->status === $key ? 'background:'.\App\Models\TechSupportCase::statusColor($key).'; border-color:'.\App\Models\TechSupportCase::statusColor($key) : '' }}">
+            @php $btnColor = $statusColors[$key] ?? \App\Models\TechSupportCase::statusColor($key); @endphp
+            <button type="button"
+                    @click="changeStatus('{{ $key }}')"
+                    :disabled="statusLoading"
+                    class="py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2"
+                    :class="currentStatus === '{{ $key }}'
+                      ? 'text-white border-transparent'
+                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'"
+                    :style="currentStatus === '{{ $key }}'
+                      ? { backgroundColor: '{{ $btnColor }}', borderColor: '{{ $btnColor }}', color: '#ffffff' }
+                      : { backgroundColor: '#ffffff', borderColor: '#e2e8f0', color: '#475569' }">
               {{ $label }}
             </button>
             @endforeach
           </div>
+          <p x-show="statusLoading" x-cloak class="text-xs text-slate-400 mt-2">Updating…</p>
         </div>
 
         {{-- Assign technician --}}
@@ -147,7 +198,7 @@
             <select name="user_id" class="form-input py-2 text-sm flex-1">
               <option value="">Unassigned</option>
               @foreach($technicians as $tech)
-              <option value="{{ $tech->id }}" {{ $case->assigned_to === $tech->id ? 'selected' : '' }}>{{ $tech->name }}</option>
+              <option value="{{ $tech['id'] }}" {{ (int) $case->assigned_to === (int) $tech['id'] ? 'selected' : '' }}>{{ $tech['name'] }}</option>
               @endforeach
             </select>
             <button type="submit" class="btn btn-secondary text-sm" :disabled="assignLoading">Assign</button>
@@ -191,20 +242,17 @@
         @endif
       </div>
 
-      {{-- Call Requests — only the still-pending ones; once called, the outcome is logged on the Follow-Up Log instead (see logCallCompletedOnCase()) so it isn't shown twice. --}}
-      @php $pendingCallRequests = $case->callRequests->where('fulfilled', false); @endphp
-      @if($pendingCallRequests->count())
-      <div class="card">
+      {{-- Call Requests — only still-pending; new requests appended without reload --}}
+      <div class="card" x-show="pendingCalls.length" x-cloak>
         <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Call Requests</h4>
-        @foreach($pendingCallRequests as $cr)
-        <div class="border border-amber-200 bg-amber-50 rounded-xl p-3 mb-2">
-          <p class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Awaiting CRM Website Callback</p>
-          <p class="text-sm text-slate-700">{{ $cr->note }}</p>
-          <p class="text-xs text-slate-400 mt-1">Requested {{ $cr->created_at->format('d M Y, g:ia') }}</p>
-        </div>
-        @endforeach
+        <template x-for="cr in pendingCalls" :key="cr.id">
+          <div class="border border-amber-200 bg-amber-50 rounded-xl p-3 mb-2">
+            <p class="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Pending callback</p>
+            <p class="text-sm text-slate-700" x-text="cr.note"></p>
+            <p class="text-xs text-slate-400 mt-1">Requested <span x-text="cr.created_at"></span></p>
+          </div>
+        </template>
       </div>
-      @endif
     </div>
 
     {{-- ── Right: Follow-Up Logs ─────────────────────────────────────────────── --}}

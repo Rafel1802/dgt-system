@@ -11,6 +11,7 @@ use App\Models\EbayCustomerOrderItem;
 use App\Models\LeadProduct;
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class CrmService
@@ -85,6 +86,8 @@ class CrmService
                 'interacted_at' => now(),
             ]);
 
+            self::forgetDashboardStats();
+
             return $customer;
         });
     }
@@ -112,6 +115,8 @@ class CrmService
                     'interacted_at' => now(),
                 ]);
             }
+
+            self::forgetDashboardStats();
 
             return $customer->fresh();
         });
@@ -157,6 +162,8 @@ class CrmService
                 'interacted_at' => now(),
             ]);
 
+            self::forgetDashboardStats();
+
             return $customer->fresh();
         });
     }
@@ -200,21 +207,44 @@ class CrmService
             }
 
             $customer->forceDelete();
+            self::forgetDashboardStats();
         });
     }
 
     /**
      * Dashboard stats for the CRM module.
+     *
+     * Short-lived cache (60s): aggregate KPIs only — not customer PII.
+     * Invalidated on write via forgetDashboardStats().
      */
     public function getDashboardStats(): array
     {
-        return [
-            'total'         => Customer::count(),
-            'leads'         => Customer::byStatus('lead')->count(),
-            'active'        => Customer::byStatus('active')->count(),
-            'purchased'     => Customer::purchased()->count(),
-            'total_value'   => $this->totalSales(),
-        ];
+        return Cache::remember('crm.dashboard_stats', 60, function () {
+            // One grouped scan instead of four separate COUNT queries.
+            $counts = Customer::query()
+                ->selectRaw('COUNT(*) as total')
+                ->selectRaw("SUM(CASE WHEN status = 'lead' THEN 1 ELSE 0 END) as leads")
+                ->selectRaw("SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active")
+                ->selectRaw('SUM(CASE WHEN has_purchased = 1 THEN 1 ELSE 0 END) as purchased')
+                ->first();
+
+            return [
+                'total'       => (int) ($counts->total ?? 0),
+                'leads'       => (int) ($counts->leads ?? 0),
+                'active'      => (int) ($counts->active ?? 0),
+                'purchased'   => (int) ($counts->purchased ?? 0),
+                'total_value' => $this->totalSales(),
+            ];
+        });
+    }
+
+    /** Drop cached CRM list KPI tiles + unified directory after mutations. */
+    public static function forgetDashboardStats(): void
+    {
+        \App\Services\CrmCustomerMatchService::forgetUnifiedDirectoryCache();
+        Cache::forget('crm.shipment_picker_customers');
+        Cache::forget('crm.shipment_picker_customers.v2');
+        \App\Support\CrmLookupCache::forgetAll();
     }
 
     /**
@@ -226,9 +256,11 @@ class CrmService
     {
         $ebaySales = (float) EbayCustomerOrderItem::sum('price');
 
-        $websiteSales = (float) LeadProduct::whereHas('lead', fn ($q) => $q->where('status', WebsiteLeadStatus::Successful))
-            ->get()
-            ->sum(fn ($p) => $p->price * $p->quantity);
+        // SQL aggregate — never hydrate every LeadProduct row into PHP.
+        $websiteSales = (float) LeadProduct::whereHas(
+            'lead',
+            fn ($q) => $q->where('status', WebsiteLeadStatus::Successful)
+        )->sum(DB::raw('price * quantity'));
 
         return $ebaySales + $websiteSales;
     }

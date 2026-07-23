@@ -132,9 +132,9 @@ class CrmReportService
      */
     public function websiteSalesTotal(Carbon $since, Carbon $until): float
     {
+        // Same math as before (sum of price * quantity), done in SQL.
         return (float) LeadProduct::whereBetween('created_at', [$since, $until])
-            ->get()
-            ->sum(fn ($p) => $p->price * $p->quantity);
+            ->sum(\Illuminate\Support\Facades\DB::raw('price * quantity'));
     }
 
     /** All 4 domain keys the Team Report page has one profile-style card/tab for, in display order. */

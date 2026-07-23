@@ -461,7 +461,7 @@ function leadProfile(leadId, catalog) {
         });
         this.showFollowUp = false;
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up saved!', type: 'success' } }));
-        setTimeout(() => location.reload(), 900);
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.fuLoading = false; }
@@ -515,7 +515,7 @@ function leadProfile(leadId, catalog) {
       try {
         await api(`/crm/website/${leadId}/orders/${orderId}`, { method: 'DELETE' });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order removed.', type: 'success' } }));
-        setTimeout(() => location.reload(), 700);
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       }
@@ -563,7 +563,7 @@ function leadProfile(leadId, catalog) {
           body: JSON.stringify(body),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
-        setTimeout(() => location.reload(), 700);
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.statusLoading = false; }
@@ -581,7 +581,7 @@ function leadProfile(leadId, catalog) {
           body: JSON.stringify(body),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order logged!', type: 'success' } }));
-        setTimeout(() => location.reload(), 700);
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.orderLoading = false; }
@@ -599,7 +599,7 @@ function leadProfile(leadId, catalog) {
           body: JSON.stringify(body),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order updated!', type: 'success' } }));
-        setTimeout(() => location.reload(), 700);
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.orderLoading = false; }

@@ -44,9 +44,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <!-- Turbo 8 for ultra-fast SPA navigation & Instant Visual Feedback -->
-    <meta name="turbo-prefetch" content="true">
-    <meta name="turbo-cache-control" content="no-cache">
+    <!-- Turbo 8: Drive navigation without speculative prefetch of heavy CRM pages.
+         Do NOT set turbo-cache-control=no-cache — that forced a full network +
+         full layout re-render on every menu click and made switching feel slow.
+         Snapshot cache (default) makes Back/forward instant; sidebar is permanent. -->
+    <meta name="turbo-prefetch" content="false">
     <style>
         .turbo-progress-bar {
             height: 3px;
@@ -74,55 +76,72 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }
     </style>
     <script type="module">
-        import * as Turbo from "https://unpkg.com/@hotwired/turbo@8.0.4/dist/turbo.es2017-esm.js";
+        // Self-hosted Turbo — avoid unpkg RTT on every cold load (Hostinger users often far from CDN).
+        import * as Turbo from "{{ asset('js/turbo.es2017-esm.js') }}?v={{ file_exists(public_path('js/turbo.es2017-esm.js')) ? filemtime(public_path('js/turbo.es2017-esm.js')) : '8.0.4' }}";
         Turbo.setProgressBarDelay(0);
     </script>
     <script>
         (function() {
-            const prefetch = (url) => {
-                if (!url || url.includes('#') || url.startsWith('javascript:')) return;
-                if (url.includes('/logout') || url.includes('/login')) return;
-                if (document.querySelector(`link[rel="prefetch"][href="${url}"]`)) return;
-                const link = document.createElement('link');
-                link.rel = 'prefetch';
-                link.href = url;
-                document.head.appendChild(link);
-            };
+            // Keep sidebar scroll + active item in sync when the sidebar is
+            // data-turbo-permanent (not re-rendered on every menu click).
+            function updateSidebarActive() {
+                const sidebar = document.getElementById('sidebar');
+                if (!sidebar) return;
+                const path = window.location.pathname.replace(/\/+$/, '') || '/';
+                const links = [...sidebar.querySelectorAll('a[href]')].filter(a => {
+                    try { return a.origin === window.location.origin; } catch (_) { return false; }
+                });
 
-            const prefetchVisibleLinks = () => {
-                setTimeout(() => {
-                    const links = document.querySelectorAll('#sidebar a[href], .board-link a[href], a.prefetch-link');
-                    links.forEach(a => {
-                        if (a.href && a.origin === window.location.origin) {
-                            if (window.requestIdleCallback) {
-                                window.requestIdleCallback(() => prefetch(a.href));
-                            } else {
-                                setTimeout(() => prefetch(a.href), 50);
-                            }
+                links.forEach(a => a.classList.remove('active'));
+
+                let best = null;
+                let bestLen = -1;
+                links.forEach(a => {
+                    let href;
+                    try { href = new URL(a.getAttribute('href'), window.location.origin).pathname.replace(/\/+$/, '') || '/'; }
+                    catch (_) { return; }
+                    if (href === path || (href !== '/' && path.startsWith(href + '/'))) {
+                        if (href.length > bestLen) {
+                            best = a;
+                            bestLen = href.length;
                         }
-                    });
-                }, 400);
-            };
+                    }
+                });
+                if (best) {
+                    best.classList.add('active');
+                    // Open parent accordion if the active link is nested.
+                    const group = best.closest('[x-data]');
+                    if (group && group.__x) {
+                        try {
+                            // Alpine 3 store open flag when present
+                            if (typeof group._x_dataStack?.[0]?.open !== 'undefined') {
+                                group._x_dataStack[0].open = true;
+                            }
+                        } catch (_) {}
+                    }
+                    // Fallback: expand nested lists that contain the active link
+                    let parent = best.parentElement;
+                    while (parent && parent !== sidebar) {
+                        if (parent.hasAttribute('x-show') || parent.classList.contains('sidebar-submenu-list')) {
+                            parent.style.display = '';
+                            parent.removeAttribute('hidden');
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+            }
 
-            document.addEventListener('DOMContentLoaded', prefetchVisibleLinks);
-            document.addEventListener('turbo:load', prefetchVisibleLinks);
+            document.addEventListener('turbo:load', updateSidebarActive);
+            document.addEventListener('DOMContentLoaded', updateSidebarActive);
 
             document.addEventListener('turbo:before-render', (event) => {
                 const currentSidebar = document.getElementById('sidebar');
                 const newSidebar = event.detail.newBody.querySelector('#sidebar');
                 if (currentSidebar && newSidebar) {
-                    newSidebar.scrollTop = currentSidebar.scrollTop;
+                    // Preserve scroll; permanent element keeps DOM, but copy scroll if swapped.
+                    try { newSidebar.scrollTop = currentSidebar.scrollTop; } catch (_) {}
                 }
             });
-
-            const handleTrigger = (e) => {
-                const a = e.target.closest('a');
-                if (a && a.href && a.origin === window.location.origin) {
-                    prefetch(a.href);
-                }
-            };
-            document.addEventListener('touchstart', handleTrigger, { passive: true });
-            document.addEventListener('mousedown', handleTrigger, { passive: true });
         })();
     </script>
     <script src="{{ asset('js/workspace-alpine.js') }}?v={{ file_exists(public_path('js/workspace-alpine.js')) ? filemtime(public_path('js/workspace-alpine.js')) : '1.0.0' }}"></script>
@@ -294,10 +313,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         ></div>
 
         <!-- ── Sidebar ────────────────────────────────────────────────── -->
+        {{-- data-turbo-permanent: keep sidebar DOM across menu clicks so Turbo
+             does not re-paint the full nav on every navigation. Active item
+             is updated in JS on turbo:load. --}}
         <aside
             :class="{ 'open': mobileOpen }"
             class="sidebar"
             id="sidebar"
+            data-turbo-permanent
             aria-label="Main navigation"
         >
             <!-- Logo -->
@@ -671,8 +694,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 {{-- ── 1. Website CRM (with accordion submenu) ────────────── --}}
                 @php
+                    // Align with CrmLookupCache key so fulfill/requestCall invalidations apply.
                     $pendingCallRequestCount = \Illuminate\Support\Facades\Cache::remember(
-                        'pending_call_requests_count',
+                        'crm.lookup.pending_call_requests',
                         30,
                         fn () => \App\Models\CallRequest::pending()->count()
                     );
@@ -1293,7 +1317,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                                 <span class="truncate text-xs font-black text-slate-900" x-text="actorName(notif)"></span>
                                                 <span class="flex-shrink-0 text-[10px] font-bold text-slate-400" x-text="notificationTime(notif)"></span>
                                             </span>
-                                            <span class="mt-0.5 block text-xs font-semibold leading-5 text-slate-600" x-text="notificationAction(notif)"></span>
+                                            <span class="mt-0.5 block text-xs font-semibold leading-5 text-slate-600 line-clamp-2" x-text="notificationAction(notif)" :title="(notif?.data?.message || notif?.data?.description || '')"></span>
                                             <span class="mt-1 flex flex-wrap items-center gap-1.5">
                                                 <span x-show="boardName(notif)" class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600" x-text="boardName(notif)"></span>
                                                 <span x-show="cardName(notif)" class="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-black text-indigo-700" x-text="cardName(notif)"></span>
@@ -1317,11 +1341,28 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
                     @php
-                        $pendingHandlerConfirmations = \App\Models\EbayCustomerHandlerHistory::pendingConfirmation()
-                            ->where('user_id', auth()->id())
-                            ->with('record')
-                            ->latest('started_at')
-                            ->get();
+                        // Cached 30s as plain arrays — avoid Eloquent + record join on every menu click.
+                        $pendingHandlerConfirmations = collect(
+                            \Illuminate\Support\Facades\Cache::remember(
+                                'crm.pending_handler_confirms.' . auth()->id(),
+                                30,
+                                function () {
+                                    return \App\Models\EbayCustomerHandlerHistory::pendingConfirmation()
+                                        ->where('user_id', auth()->id())
+                                        ->with(['record:id,buyer_name,username'])
+                                        ->latest('started_at')
+                                        ->limit(20)
+                                        ->get()
+                                        ->map(fn ($entry) => [
+                                            'id'         => $entry->id,
+                                            'record_id'  => $entry->ebay_customer_record_id,
+                                            'buyer_name' => $entry->record?->buyer_name,
+                                            'username'   => $entry->record?->username,
+                                        ])
+                                        ->all();
+                                }
+                            )
+                        );
                     @endphp
                     <div class="relative" x-data="dropdown">
                         <button type="button"
@@ -1375,15 +1416,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     @foreach($pendingHandlerConfirmations as $entry)
                                     <div class="rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2">
                                         <p class="text-xs font-semibold text-slate-800 truncate">
-                                            {{ $entry->record?->buyer_name ?: $entry->record?->username ?? 'Unknown Customer' }}
+                                            {{ $entry['buyer_name'] ?: $entry['username'] ?? 'Unknown Customer' }}
                                         </p>
                                         <div class="mt-1.5 flex items-center gap-1.5">
-                                            <form method="POST" action="{{ route('crm.ebay.customers.handler-history.confirm', $entry) }}" class="flex-1">
+                                            <form method="POST" action="{{ route('crm.ebay.customers.handler-history.confirm', $entry['id']) }}" class="flex-1">
                                                 @csrf
-                                                <button type="submit" class="w-full btn btn-primary text-[11px] py-1 leading-tight" id="confirm-handler-{{ $entry->id }}">Confirm</button>
+                                                <button type="submit" class="w-full btn btn-primary text-[11px] py-1 leading-tight" id="confirm-handler-{{ $entry['id'] }}">Confirm</button>
                                             </form>
-                                            @if($entry->record)
-                                            <a href="{{ route('crm.ebay.customers.show', $entry->record) }}" class="btn btn-secondary text-[11px] py-1 px-2 leading-tight">View</a>
+                                            @if($entry['record_id'])
+                                            <a href="{{ route('crm.ebay.customers.show', $entry['record_id']) }}" class="btn btn-secondary text-[11px] py-1 px-2 leading-tight">View</a>
                                             @endif
                                         </div>
                                     </div>
@@ -1862,6 +1903,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     // Global Premium Clickable Trello-style Rich Notification Toast Helper
     window.showRichNotificationToast = function(data) {
         if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
+        if (window.dgtShouldSuppressDuplicateContent?.(data)) return;
 
         const container = document.getElementById('toast-container');
         if (!container) return;
@@ -1874,7 +1916,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         const avatar = data.actor_avatar || window.dgtInitialsAvatar(actorName);
         const subject = data.card_title || data.board_name || data.customer_name || data.lead_name || data.offer_name || data.logistic_name || '';
         const time = data.created_at ? new Date(data.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now';
-        const actionText = (data.description || data.message || 'New activity').replace(/\*/g, '');
+        const actionRaw = (data.description || data.message || 'New activity').replace(/\*/g, '');
+        const actionText = window.dgtShortenNotificationText
+            ? window.dgtShortenNotificationText(actionRaw, 100)
+            : actionRaw;
         const cardTitleMarkup = data.card_title 
             ? `<span class="mt-2 inline-flex max-w-full rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-black text-indigo-700">${window.dgtEscapeHtml(data.card_title)}</span>`
             : '';
@@ -1889,7 +1934,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <p class="truncate text-sm font-black text-slate-900">${window.dgtEscapeHtml(actorName)}</p>
                     <span class="ml-auto text-[10px] font-bold text-slate-500">${window.dgtEscapeHtml(time)}</span>
                 </div>
-                <p class="mt-2 text-sm font-semibold leading-relaxed text-slate-600">${window.dgtEscapeHtml(actionText)}</p>
+                <p class="mt-2 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(actionRaw)}">${window.dgtEscapeHtml(actionText)}</p>
                 ${subject && !data.card_title ? `<span class="mt-2 inline-flex max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700">${window.dgtEscapeHtml(subject)}</span>` : cardTitleMarkup}
             </div>
             <button class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all" aria-label="Close">
@@ -1945,6 +1990,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     // vanishes before they've finished reading it. Multiple cards stack
     // naturally in #toast-container's own vertical gap — no extra layout
     // code needed here for that part.
+    // Truncate notification body for cards/bell — keeps layout tight.
+    window.dgtShortenNotificationText = function(text, maxLen = 96) {
+        const cleaned = String(text || '').replace(/\s+/g, ' ').replace(/\*/g, '').trim();
+        if (cleaned.length <= maxLen) return cleaned;
+        return cleaned.slice(0, Math.max(0, maxLen - 1)).trimEnd() + '…';
+    };
+
     window.showCrmNotificationCard = function(data, id = null) {
         if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
 
@@ -1957,7 +2009,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         // navigation, ...), the DOM itself is the one source of truth this
         // checks against, so it can't be fooled by any timing issue in the
         // callers' own id-tracking.
-        if (id && container.querySelector(`[data-notification-id="${id}"]`)) return;
+        const normId = window.dgtNormalizeNotificationId?.(id) || id;
+        if (normId && (
+            container.querySelector(`[data-notification-id="${normId}"]`)
+            || container.querySelector(`[data-notification-id="notif_${normId}"]`)
+            || container.querySelector(`[data-notification-id="${id}"]`)
+        )) return;
+
+        if (window.dgtShouldSuppressDuplicateContent?.(data)) return;
 
         const icons = {
             tech_case_new: '🛠️',
@@ -1965,12 +2024,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             tech_case_call_completed: '✅',
             call_request_new: '📞',
             lead_reassigned: '👤',
+            tech_case_status_changed: '🔄',
+            ebay_negative_feedback: '⚠️',
+            logistic_problem: '🚚',
         };
         const icon = icons[data.type] || '🔔';
+        const shortMessage = window.dgtShortenNotificationText(data.message || 'New update', 90);
 
         const card = document.createElement('div');
         card.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-300 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
-        if (id) card.dataset.notificationId = id;
+        if (normId) card.dataset.notificationId = normId;
 
         card.innerHTML = `
             <div class="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-lg">${icon}</div>
@@ -1979,7 +2042,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <p class="truncate text-sm font-black text-slate-900">KIUQ SYSTEM</p>
                     <span class="ml-auto text-[10px] font-bold text-slate-500">now</span>
                 </div>
-                <p class="mt-1.5 text-sm font-semibold leading-relaxed text-slate-600">${window.dgtEscapeHtml(data.message || 'New update')}</p>
+                <p class="mt-1.5 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(data.message || 'New update')}">${window.dgtEscapeHtml(shortMessage)}</p>
             </div>
             <button class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all" aria-label="Close">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
@@ -2093,18 +2156,49 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     // next page's initial fetch treats it as pre-existing backlog.
     const DGT_SHOWN_IDS_KEY = 'dgt_shown_notification_ids';
     const DGT_SHOWN_IDS_MAX = 300;
+    // Normalize ids so "uuid", "notif_uuid", and legacy shapes all match.
+    window.dgtNormalizeNotificationId = function(id) {
+        if (id == null || id === '') return '';
+        let s = String(id);
+        if (s.startsWith('notif_')) s = s.slice(6);
+        return s;
+    };
     window.dgtWasNotificationShown = function(id) {
-        try { return JSON.parse(localStorage.getItem(DGT_SHOWN_IDS_KEY) || '[]').includes(id); }
-        catch (e) { return false; }
+        try {
+            const key = window.dgtNormalizeNotificationId(id);
+            if (!key) return false;
+            const ids = JSON.parse(localStorage.getItem(DGT_SHOWN_IDS_KEY) || '[]');
+            return ids.includes(key) || ids.includes('notif_' + key) || ids.includes(id);
+        } catch (e) { return false; }
     };
     window.dgtMarkNotificationShown = function(id) {
         try {
+            const key = window.dgtNormalizeNotificationId(id);
+            if (!key) return;
             const ids = JSON.parse(localStorage.getItem(DGT_SHOWN_IDS_KEY) || '[]');
-            if (ids.includes(id)) return;
-            ids.push(id);
+            if (ids.includes(key)) return;
+            ids.push(key);
             while (ids.length > DGT_SHOWN_IDS_MAX) ids.shift();
             localStorage.setItem(DGT_SHOWN_IDS_KEY, JSON.stringify(ids));
         } catch (e) { /* localStorage unavailable — popups just won't dedupe across reloads */ }
+    };
+    // Short-window content fingerprint: if the same message pops twice within
+    // a few seconds (e.g. Pusher + poll race before id lists sync), suppress.
+    window.__dgtRecentNotifFingerprints = window.__dgtRecentNotifFingerprints || new Map();
+    window.dgtShouldSuppressDuplicateContent = function(data) {
+        try {
+            const msg = String(data?.message || data?.description || '').trim();
+            if (!msg) return false;
+            const fp = (data?.type || '') + '|' + msg;
+            const now = Date.now();
+            const prev = window.__dgtRecentNotifFingerprints.get(fp);
+            window.__dgtRecentNotifFingerprints.set(fp, now);
+            // Prune old entries
+            for (const [k, t] of window.__dgtRecentNotifFingerprints) {
+                if (now - t > 15000) window.__dgtRecentNotifFingerprints.delete(k);
+            }
+            return prev != null && (now - prev) < 8000;
+        } catch (e) { return false; }
     };
 
     // AlpineJS Notification Dropdown Component
@@ -2238,6 +2332,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     );
                                 }
                             } else {
+                                // Content fingerprint blocks Pusher+poll double-pop within seconds.
+                                if (window.dgtShouldSuppressDuplicateContent?.(newNotif.data)) return;
                                 window.showCrmNotificationCard(newNotif.data, newNotif.id);
                                 window.sendBrowserNotification("KIUQ SYSTEM Update", newNotif.data.message || "New update");
                             }
@@ -2255,8 +2351,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             handleIncoming(n) {
                 // Prepend incoming websocket notification
+                const rawId = n.id || n.data?.id || null;
                 const notifItem = {
-                    id: n.id,
+                    id: window.dgtNormalizeNotificationId?.(rawId) || rawId,
                     data: n.data || n,
                     read_at: null,
                     created_at: n.created_at || new Date().toISOString()
@@ -2265,9 +2362,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 // Prevent duplicates — both against this page's own in-memory list
                 // and against the persisted shown-ids (in case the polling
                 // failover already popped this same notification moments ago).
-                if (this.notifications.some(x => x.id === notifItem.id)) return;
-                if (window.dgtWasNotificationShown(notifItem.id)) return;
-                window.dgtMarkNotificationShown(notifItem.id);
+                const nid = notifItem.id;
+                if (nid && this.notifications.some(x => window.dgtNormalizeNotificationId?.(x.id) === nid || x.id === nid)) return;
+                if (window.dgtWasNotificationShown(nid)) return;
+                window.dgtMarkNotificationShown(nid);
 
                 this.notifications.unshift(notifItem);
                 this.unreadCount++;
@@ -2339,9 +2437,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             notificationAction(notif) {
                 const data = notif?.data || {};
-                if (data.description) return this.stripMarkdown(data.description);
-                if (data.message) return this.stripMarkdown(data.message);
-                return data.action ? this.stripMarkdown(String(data.action).replace(/_/g, ' ')) : 'sent a notification';
+                let text = '';
+                if (data.description) text = this.stripMarkdown(data.description);
+                else if (data.message) text = this.stripMarkdown(data.message);
+                else text = data.action ? this.stripMarkdown(String(data.action).replace(/_/g, ' ')) : 'sent a notification';
+                return window.dgtShortenNotificationText ? window.dgtShortenNotificationText(text, 90) : text;
             },
 
             boardName(notif) {

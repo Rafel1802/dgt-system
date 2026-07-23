@@ -59,7 +59,7 @@
         <select name="assigned_to" class="form-input py-2 text-sm" @change="$el.closest('form').submit()">
           <option value="">All Technicians</option>
           @foreach($technicians as $tech)
-            <option value="{{ $tech->id }}" {{ request('assigned_to') == $tech->id ? 'selected' : '' }}>{{ $tech->name }}</option>
+            <option value="{{ $tech['id'] }}" {{ (string) request('assigned_to') === (string) $tech['id'] ? 'selected' : '' }}>{{ $tech['name'] }}</option>
           @endforeach
         </select>
       </div>

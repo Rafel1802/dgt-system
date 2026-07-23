@@ -22,6 +22,7 @@ use App\Services\CrmService;
 use App\Services\GoogleSheetsExportService;
 use App\Services\TechSupportCaseService;
 use App\Notifications\GenericDatabaseNotification;
+use App\Support\CrmLookupCache;
 use App\Support\InstantNotifier;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -43,7 +44,13 @@ class WebsiteCrmController extends Controller
 
     public function index(Request $request): View
     {
-        $query = Lead::with(['handler', 'customer', 'product', 'techSupportCase']);
+        // List-only relations — avoid hydrating full customer/product models.
+        $query = Lead::with([
+            'handler:id,name',
+            'product:id,name',
+            // Do not column-restrict morph techSupportCase (ambiguous source_* columns).
+            'techSupportCase',
+        ]);
 
         // Role-based visibility: sales-crm only sees leads they handle themselves
         // (matches the same convention used in CrmService for Customers/Deals).
@@ -68,21 +75,31 @@ class WebsiteCrmController extends Controller
             // temperature filter kept for backward compat but not shown in UI
             $query->where('temperature', $temp);
         }
-        $leads   = $query->latest('received_at')->paginate(20)->withQueryString();
+        // Lean columns on list — detail page loads full relations.
+        $leads   = $query->select([
+            'id', 'customer_id', 'handled_by', 'product_id', 'client_name', 'client_phone',
+            'client_email', 'source', 'status', 'temperature', 'received_at', 'created_at',
+            'follow_up_date', 'product_interested',
+        ])->latest('received_at')->paginate(20)->withQueryString();
         $statuses = WebsiteLeadStatus::cases();
         $sources  = InquirySource::cases();
-        $crmUsers = User::crmMembers()->orderBy('name')->get();
+        $crmUsers = CrmLookupCache::crmMembers();
 
-        $pendingCallRequestsCount = CallRequest::pending()->count();
+        $pendingCallRequestsCount = CrmLookupCache::pendingCallRequestsCount();
 
         // Customers with a Website-channel source but no Lead of their own yet —
         // the same "Website" bucket shown by the All Customers page's source filter.
-        // Shown read-only here (no pipeline/status/follow-up controls, since they
-        // aren't Leads) unless the current user is search/status/source/handler
-        // filtering, in which case we keep the leads table the sole focus.
+        // Uses the cached unified directory so this is free after first CRM hit.
+        // Cap HTML size: list pages already paginate leads (20); unlimited
+        // customer-only rows made Website CRM feel like a multi-second hang.
         $customerOnlyRows = collect();
         if (! $request->get('search') && ! $request->get('status') && ! $request->get('source') && ! $request->get('handled_by')) {
-            $customerOnlyRows = $this->matcher->buildUnifiedDirectory()->filter(fn ($c) => $c['source'] === 'Website');
+            $customerOnlyRows = $this->matcher->hydrateDirectoryDates(
+                $this->matcher->buildUnifiedDirectoryRaw()
+                    ->filter(fn (array $c) => ($c['source'] ?? null) === 'Website')
+                    ->take(50)
+                    ->values()
+            );
         }
 
         return view('crm.website.index', compact('leads', 'statuses', 'sources', 'crmUsers', 'pendingCallRequestsCount', 'customerOnlyRows'));
@@ -94,7 +111,7 @@ class WebsiteCrmController extends Controller
         $callReports = $this->filteredCallReportsQuery($request)
             ->latest('occurred_at')->paginate(20)->withQueryString();
         $inquiryTypes = CallReport::INQUIRY_TYPES;
-        $crmUsers = User::crmMembers()->orderBy('name')->get();
+        $crmUsers = CrmLookupCache::crmMembers();
         $filteredTotal = $callReports->total();
 
         return view('crm.website.call-reports', compact('callReports', 'inquiryTypes', 'crmUsers', 'filteredTotal'));
@@ -122,8 +139,8 @@ class WebsiteCrmController extends Controller
         return view('crm.website.create', [
             'statuses'  => WebsiteLeadStatus::cases(),
             'sources'   => InquirySource::cases(),
-            'products'  => \App\Models\Product::active()->orderBy('name')->get(),
-            'customers' => \App\Models\Customer::orderBy('name')->get(['id','name','email','phone','company','address']),
+            'products'  => CrmLookupCache::activeProducts(),
+            'customers' => CrmLookupCache::customersCombobox(),
         ]);
     }
 
@@ -178,7 +195,7 @@ class WebsiteCrmController extends Controller
             'lead'            => $lead,
             'statuses'        => WebsiteLeadStatus::cases(),
             'temps'           => LeadTemperature::cases(),
-            'catalogProducts' => Product::active()->orderBy('name')->get(['id', 'name', 'sku', 'price']),
+            'catalogProducts' => CrmLookupCache::activeProducts(),
         ]);
     }
 
@@ -190,8 +207,8 @@ class WebsiteCrmController extends Controller
             'lead'      => $lead->load(['followUps', 'products']),
             'statuses'  => WebsiteLeadStatus::cases(),
             'sources'   => InquirySource::cases(),
-            'products'  => Product::active()->orderBy('name')->get(),
-            'crmUsers'  => \App\Models\User::crmMembers()->orderBy('name')->get(),
+            'products'  => CrmLookupCache::activeProducts(),
+            'crmUsers'  => CrmLookupCache::crmMembers(),
             'temps'     => LeadTemperature::cases(),
         ]);
     }
@@ -545,6 +562,15 @@ class WebsiteCrmController extends Controller
             'note' => ['required', 'string'],
         ]);
 
+        // Already fulfilled — idempotent (double-submit / back button).
+        if ($callRequest->fulfilled) {
+            return redirect()
+                ->route('crm.website.call-requests.index', $request->only('status', 'search'))
+                ->with('success', 'Call request already marked as called.');
+        }
+
+        $callRequest->loadMissing('source');
+
         $callRequest->update([
             'fulfilled'        => true,
             'fulfilled_at'     => now(),
@@ -553,10 +579,22 @@ class WebsiteCrmController extends Controller
         ]);
 
         if ($callRequest->source instanceof TechSupportCase) {
-            $this->techSupportCases->logCallCompletedOnCase($callRequest->source, auth()->user(), $validated['note'], $callRequest->note);
+            // Notifications fan out after the response (see logCallCompletedOnCase).
+            $this->techSupportCases->logCallCompletedOnCase(
+                $callRequest->source,
+                auth()->user(),
+                $validated['note'],
+                $callRequest->note
+            );
         }
 
-        return redirect()->route('crm.website.call-requests.index')->with('success', 'Call request marked as called.');
+        // Preserve current tab/search so the redirect feels like the same page.
+        return redirect()
+            ->route('crm.website.call-requests.index', array_filter([
+                'status' => $request->input('return_status', $request->query('status', 'pending')),
+                'search' => $request->input('return_search', $request->query('search')),
+            ]))
+            ->with('success', 'Call request marked as called.');
     }
 
     /** Dedicated Call Requests page — separate from the Tech Support case page, which keeps managing its own. */

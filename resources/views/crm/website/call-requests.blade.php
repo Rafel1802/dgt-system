@@ -86,8 +86,11 @@
               {{-- Mark Called Modal --}}
               <div id="fulfillModal{{ $request->id }}" class="fixed inset-0 z-50 hidden bg-slate-900/50 flex items-center justify-center p-4">
                 <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col text-left">
-                  <form method="POST" action="{{ route('crm.website.call-requests.fulfill', $request) }}" class="flex flex-col min-h-0">
+                  <form method="POST" action="{{ route('crm.website.call-requests.fulfill', $request) }}" class="flex flex-col min-h-0"
+                        onsubmit="const btn=this.querySelector('[data-save-btn]'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }">
                     @csrf
+                    <input type="hidden" name="return_status" value="{{ $tab }}">
+                    <input type="hidden" name="return_search" value="{{ request('search') }}">
                     <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
                       <h3 class="font-display font-bold text-lg text-slate-800">Mark Called — {{ $request->name }}</h3>
                       <button type="button" onclick="document.getElementById('fulfillModal{{ $request->id }}').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
@@ -107,7 +110,7 @@
                     </div>
                     <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl shrink-0">
                       <button type="button" onclick="document.getElementById('fulfillModal{{ $request->id }}').classList.add('hidden')" class="btn btn-secondary text-sm">Cancel</button>
-                      <button type="submit" class="btn btn-primary text-sm">Save</button>
+                      <button type="submit" data-save-btn class="btn btn-primary text-sm">Save</button>
                     </div>
                   </form>
                 </div>

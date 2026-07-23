@@ -36,8 +36,9 @@ class LivewireTurboIntegrationTest extends TestCase
         $response->assertDontSee('livewire.js', false);
         $response->assertDontSee('livewire.min.js', false);
 
-        // Turbo must still be present and untouched.
-        $response->assertSee('hotwired/turbo', false);
+        // Turbo must still be present (self-hosted under /js, not unpkg CDN).
+        $response->assertSee('turbo.es2017-esm.js', false);
+        $response->assertDontSee('unpkg.com/@hotwired/turbo', false);
 
         // Sidebar/topbar shell must still be present alongside the Livewire component.
         $response->assertSee('id="sidebar"', false);

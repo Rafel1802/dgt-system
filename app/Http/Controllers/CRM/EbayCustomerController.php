@@ -18,10 +18,12 @@ use App\Models\User;
 use App\Services\CrmCustomerMatchService;
 use App\Services\CrmService;
 use App\Services\TechSupportCaseService;
+use App\Support\CrmLookupCache;
 use App\Support\CrmTeamNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -36,7 +38,13 @@ class EbayCustomerController extends Controller
     /** One combined list across all 6 statuses; status is a filter, not a URL segment */
     public function index(Request $request): View
     {
-        $query = EbayCustomerRecord::with(['store', 'creator', 'customer', 'techSupportCase']);
+        $query = EbayCustomerRecord::with([
+            'store:id,store_name',
+            'creator:id,name',
+            'customer:id,name',
+            // Do not column-restrict morph techSupportCase (ambiguous source_* on SQLite/MySQL).
+            'techSupportCase',
+        ]);
 
         $tabType = $request->get('tab_type');
         if ($tabType && array_key_exists($tabType, EbayCustomerRecord::tabs())) {
@@ -53,7 +61,7 @@ class EbayCustomerController extends Controller
         // you just changed floats to the top of its new filtered view instead
         // of staying buried wherever it was chronologically created.
         $records = $query->latest('updated_at')->paginate(30)->withQueryString();
-        $stores  = EbayStore::active()->orderBy('store_name')->get();
+        $stores  = CrmLookupCache::activeEbayStores();
         $tabs    = EbayCustomerRecord::tabs();
 
         return view('crm.ebay.customers.index', compact('records', 'stores', 'tabs', 'tabType'));
@@ -63,10 +71,10 @@ class EbayCustomerController extends Controller
     {
         return view('crm.ebay.customers.create', [
             'tabs'           => EbayCustomerRecord::tabs(),
-            'stores'         => EbayStore::active()->orderBy('store_name')->get(),
-            'customers'      => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
+            'stores'         => CrmLookupCache::activeEbayStores(),
+            'customers'      => CrmLookupCache::customersCombobox(),
             'negativeCauses' => EbayCustomerRecord::NEGATIVE_FEEDBACK_CAUSES,
-            'catalogProducts'=> Product::active()->orderBy('name')->get(['id', 'name', 'sku']),
+            'catalogProducts'=> CrmLookupCache::activeProducts(false),
         ]);
     }
 
@@ -106,6 +114,7 @@ class EbayCustomerController extends Controller
             'user_id'                 => auth()->id(),
             'started_at'              => now(),
         ]);
+        Cache::forget('crm.pending_handler_confirms.' . auth()->id());
 
         EbayCustomerStatusHistory::create([
             'ebay_customer_record_id' => $record->id,
@@ -146,9 +155,9 @@ class EbayCustomerController extends Controller
         return view('crm.ebay.customers.show', [
             'record'         => $record,
             'tabs'           => EbayCustomerRecord::tabs(),
-            'stores'         => EbayStore::active()->orderBy('store_name')->get(),
-            'crmUsers'       => User::crmMembers()->orderBy('name')->get(),
-            'catalogProducts'=> Product::active()->orderBy('name')->get(['id', 'name', 'sku']),
+            'stores'         => CrmLookupCache::activeEbayStores(),
+            'crmUsers'       => CrmLookupCache::crmMembers(),
+            'catalogProducts'=> CrmLookupCache::activeProducts(false),
         ]);
     }
 
@@ -157,10 +166,10 @@ class EbayCustomerController extends Controller
         return view('crm.ebay.customers.edit', [
             'record'         => $record,
             'tabs'           => EbayCustomerRecord::tabs(),
-            'stores'         => EbayStore::active()->orderBy('store_name')->get(),
-            'customers'      => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
+            'stores'         => CrmLookupCache::activeEbayStores(),
+            'customers'      => CrmLookupCache::customersCombobox(),
             'negativeCauses' => EbayCustomerRecord::NEGATIVE_FEEDBACK_CAUSES,
-            'catalogProducts'=> Product::active()->orderBy('name')->get(['id', 'name', 'sku']),
+            'catalogProducts'=> CrmLookupCache::activeProducts(false),
         ]);
     }
 
@@ -210,15 +219,10 @@ class EbayCustomerController extends Controller
         // Tech Support status changes and Logistic problems.
         if ($statusChanged && in_array($validated['tab_type'], [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true)) {
             $customerName = $record->buyer_name ?: $record->username;
-            $assignedStaffName = $record->current_handler?->name ?? 'Unassigned';
-            $priority = $validated['tab_type'] === EbayCustomerRecord::TAB_NEGATIVES ? 'High' : 'Normal';
-            $latestNote = $record->followUps()->latest('contacted_at')->value('notes');
+            $priority = $validated['tab_type'] === EbayCustomerRecord::TAB_NEGATIVES ? 'Negative feedback' : 'Potential negative';
             CrmTeamNotifier::notifyEbayAndSalesTeams(
                 'ebay_negative_feedback',
-                "{$customerName}'s eBay record was marked as negative feedback."
-                    . " Assigned: {$assignedStaffName}. Priority: {$priority}."
-                    . ($latestNote ? ' Latest note: ' . \Illuminate\Support\Str::limit($latestNote, 100) . '.' : '')
-                    . ' ' . now()->format('d M Y, g:ia') . '.',
+                "{$customerName}: {$priority}",
                 route('crm.ebay.customers.show', $record),
                 auth()->id()
             );
@@ -309,6 +313,7 @@ class EbayCustomerController extends Controller
             'user_id'                 => $validated['user_id'],
             'started_at'              => $now,
         ]);
+        Cache::forget('crm.pending_handler_confirms.' . $validated['user_id']);
 
         return response()->json([
             'message' => 'Handler updated.',
@@ -322,6 +327,7 @@ class EbayCustomerController extends Controller
         abort_unless($entry->user_id === auth()->id(), 403, 'Only the assigned handler can confirm this assignment.');
 
         $entry->update(['confirmed_at' => now()]);
+        Cache::forget('crm.pending_handler_confirms.' . $entry->user_id);
 
         return redirect()->route('crm.ebay.customers.show', $entry->ebay_customer_record_id)
             ->with('success', 'Assignment confirmed.');

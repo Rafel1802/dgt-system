@@ -8,7 +8,7 @@
     search: '',
     selected: {{ $selected ?? 'null' }},
     selectedLabel: '{{ addslashes($members->firstWhere('id', $selected ?? 0)?->name ?? '') }}',
-    members: {{ $members->map(fn($m) => ['id' => $m->id, 'label' => $m->name . ' — ' . $m->crm_role_display])->toJson() }},
+    members: {{ $members->map(fn($m) => ['id' => $m->id, 'label' => $m->name . ' — ' . ($m->crm_role_display ?? '')])->toJson() }},
     get filtered() {
         if (!this.search) return this.members;
         const q = this.search.toLowerCase();

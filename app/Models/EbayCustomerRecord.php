@@ -6,6 +6,8 @@ use App\Services\TechSupportCaseService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -205,9 +207,15 @@ class EbayCustomerRecord extends Model
         return $this->hasMany(EbayCustomerFollowUp::class)->orderByDesc('contacted_at');
     }
 
-    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function orders(): HasMany
     {
         return $this->hasMany(EbayCustomerOrder::class)->orderByDesc('ordered_at');
+    }
+
+    /** Most recent order only — used by list/directory paths that only need purchase date. */
+    public function latestOrder(): HasOne
+    {
+        return $this->hasOne(EbayCustomerOrder::class)->latestOfMany('ordered_at');
     }
 
     public function attachments(): MorphMany

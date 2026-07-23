@@ -456,7 +456,7 @@ function ebayOffer(offerId) {
           body: JSON.stringify({ authorization_status: 'pending', notes: 'Submitted for review.' }),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Submitted for authorization!', type: 'success' } }));
-        setTimeout(() => location.reload(), 900);
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
       } catch(e) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: e.message || 'Failed.', type: 'error' } }));
       } finally { this.loading = false; }
@@ -477,7 +477,7 @@ function ebayOffer(offerId) {
         await api(`/crm/ebay/${offerId}/authorize`, { method: 'POST', body: JSON.stringify(payload) });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Authorization saved!', type: 'success' } }));
         this.showAuthPanel = false;
-        setTimeout(() => location.reload(), 900);
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
       } catch(e) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: e.message || 'Failed.', type: 'error' } }));
       } finally { this.loading = false; }

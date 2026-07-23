@@ -13,10 +13,12 @@ use App\Models\TruckingCompany;
 use App\Models\User;
 use App\Services\CrmCustomerMatchService;
 use App\Services\SimpleXlsxReader;
+use App\Support\CrmLookupCache;
 use App\Support\CrmTeamNotifier;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -161,9 +163,21 @@ class ShipmentController extends Controller
     /** Every customer currently flagged with a logistics/shipment issue, across all sources. */
     public function issues(Request $request): View
     {
-        $customers = $this->matcher->buildUnifiedDirectory(['search' => $request->get('search')])
-            ->filter(fn ($c) => $c['category'] === 'shipment_delay')
+        // Raw directory (timestamps only) → filter → hydrate just this page.
+        $all = $this->matcher->buildUnifiedDirectoryRaw(['search' => $request->get('search')])
+            ->filter(fn (array $c) => ($c['category'] ?? null) === 'shipment_delay')
             ->values();
+
+        // Paginate issue list so large fleets don't render thousands of rows.
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = 50;
+        $customers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $this->matcher->hydrateDirectoryDates($all->forPage($page, $perPage)->values()),
+            $all->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return view('crm.logistics.issues', compact('customers'));
     }
@@ -172,9 +186,10 @@ class ShipmentController extends Controller
     {
         return view('crm.logistics.shipments.create', [
             'statuses'         => Shipment::statuses(),
+            // Drivers still needed for the create form picker — keep live load.
             'truckingCompanies'=> TruckingCompany::active()->with('drivers')->orderBy('company_name')->get(),
-            'crmUsers'         => User::crmMembers()->orderBy('name')->get(),
-            'customers'        => Customer::orderBy('name')->get(['id', 'name', 'email', 'phone', 'company', 'address']),
+            'crmUsers'         => CrmLookupCache::crmMembers(),
+            'customers'        => CrmLookupCache::customersCombobox(),
         ]);
     }
 
@@ -190,20 +205,42 @@ class ShipmentController extends Controller
      */
     private function customersForPicker(): Collection
     {
-        return Customer::orderBy('name')
-            ->with([
-                'latestLogistic.product',
-                'ebayCustomerRecords.orders' => fn ($q) => $q->with('items'),
-                'leads' => fn ($q) => $q->orderByDesc('received_at'),
-                'leads.orders.items',
-                'leads.product',
-            ])
-            ->get(['id', 'name', 'email', 'phone', 'company', 'address'])
-            ->map(function (Customer $customer) {
-                $customer->latest_order_product = $this->latestOrderProductFor($customer);
+        // Lean eager loads: only the latest order per channel (not full histories).
+        // Cache PLAIN ARRAYS only — never Eloquent models (file cache on Hostinger
+        // returns __PHP_Incomplete_Class and 500s shipment show/create flows).
+        $builder = function (): array {
+            return Customer::orderBy('name')
+                ->with([
+                    'latestLogistic.product:id,name',
+                    'ebayCustomerRecords:id,customer_id',
+                    // latestOfMany must not be column-restricted (ambiguous FK subqueries).
+                    'ebayCustomerRecords.latestOrder.items:id,ebay_customer_order_id,product_name',
+                    'leads' => fn ($q) => $q->orderByDesc('received_at')
+                        ->select(['id', 'customer_id', 'product_id', 'product_interested', 'received_at']),
+                    'leads.latestOrder.items:id,lead_order_id,product_name',
+                    'leads.product:id,name',
+                ])
+                ->get(['id', 'name', 'email', 'phone', 'company', 'address'])
+                ->map(function (Customer $customer) {
+                    return [
+                        'id'                   => $customer->id,
+                        'name'                 => $customer->name,
+                        'email'                => $customer->email,
+                        'phone'                => $customer->phone,
+                        'company'              => $customer->company,
+                        'address'              => $customer->address,
+                        'latest_order_product' => $this->latestOrderProductFor($customer),
+                    ];
+                })
+                ->values()
+                ->all();
+        };
 
-                return $customer;
-            });
+        $rows = app()->runningUnitTests()
+            ? $builder()
+            : Cache::remember('crm.shipment_picker_customers.v2', 45, $builder);
+
+        return collect($rows)->map(fn (array $r) => (object) $r);
     }
 
     /** Compares a customer's latest order across Logistic, eBay, and Website (lead) channels and returns whichever is most recent, product name(s) only — falling back to an unstamped signal only if none of the three have a dated order on file. */
@@ -218,7 +255,8 @@ class ShipmentController extends Controller
         ]);
 
         $latestEbayOrder = $customer->ebayCustomerRecords
-            ->flatMap(fn ($record) => $record->orders)
+            ->map(fn ($record) => $record->latestOrder)
+            ->filter()
             ->sortByDesc('ordered_at')
             ->first();
         $candidates->push([
@@ -227,7 +265,8 @@ class ShipmentController extends Controller
         ]);
 
         $latestLeadOrder = $customer->leads
-            ->flatMap(fn ($lead) => $lead->orders)
+            ->map(fn ($lead) => $lead->latestOrder)
+            ->filter()
             ->sortByDesc('order_date')
             ->first();
         $candidates->push([
@@ -260,16 +299,24 @@ class ShipmentController extends Controller
      */
     private function leadsForPicker(): Collection
     {
+        // Plain objects for the combobox — same shape as customersForPicker.
         return Lead::whereNull('customer_id') // already-converted leads have a fuller Customer record — pick that instead
             ->orderBy('client_name')
             ->with(['latestOrder.items', 'product'])
             ->get(['id', 'customer_id', 'client_name', 'client_phone', 'client_email', 'product_interested', 'product_id'])
             ->map(function (Lead $lead) {
                 $orderProduct = $lead->latestOrder?->items->pluck('product_name')->filter()->implode(', ');
-                $lead->latest_order_product = $orderProduct ?: ($lead->product->name ?? $lead->product_interested);
 
-                return $lead;
-            });
+                return (object) [
+                    'id'                   => $lead->id,
+                    'client_name'          => $lead->client_name,
+                    'client_phone'         => $lead->client_phone,
+                    'client_email'         => $lead->client_email,
+                    'product_interested'   => $lead->product_interested,
+                    'latest_order_product' => $orderProduct ?: ($lead->product->name ?? $lead->product_interested),
+                ];
+            })
+            ->values();
     }
 
     public function store(Request $request): RedirectResponse
@@ -314,7 +361,7 @@ class ShipmentController extends Controller
             'shipment'        => $shipment,
             'statuses'        => Shipment::statuses(),
             'custStatuses'    => ShipmentCustomer::statuses(),
-            'catalogProducts' => Product::active()->orderBy('name')->get(['id', 'name', 'sku', 'price']),
+            'catalogProducts' => CrmLookupCache::activeProducts(),
             'customers'       => $this->customersForPicker(),
             'leads'           => $this->leadsForPicker(),
             // For "Add from Process Trucking" — unassigned records, searchable
@@ -331,7 +378,7 @@ class ShipmentController extends Controller
             'shipment'         => $shipment,
             'statuses'         => Shipment::statuses(),
             'truckingCompanies'=> TruckingCompany::active()->with('drivers')->orderBy('company_name')->get(),
-            'crmUsers'         => User::crmMembers()->orderBy('name')->get(),
+            'crmUsers'         => CrmLookupCache::crmMembers(),
         ]);
     }
 
@@ -505,13 +552,9 @@ class ShipmentController extends Controller
         // knowing about immediately, same as Tech Support status changes
         // and eBay negative feedback.
         if ($becameProblem) {
-            $assignedStaffName = $customer->handler?->name ?? 'Unassigned';
             CrmTeamNotifier::notifyEbayAndSalesTeams(
                 'logistic_problem',
-                "Logistic issue reported for {$customer->recipient_name}."
-                    . " Assigned: {$assignedStaffName}."
-                    . ($customer->notes ? ' Latest note: ' . \Illuminate\Support\Str::limit($customer->notes, 100) . '.' : '')
-                    . ' ' . now()->format('d M Y, g:ia') . '.',
+                "Logistic issue · {$customer->recipient_name}",
                 route('crm.logistics.issues.index'),
                 auth()->id()
             );

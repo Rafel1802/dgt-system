@@ -12,14 +12,17 @@ class Setting extends Model
 
     protected static function booted()
     {
-        static::saved(function () {
+        $flush = function () {
             \Illuminate\Support\Facades\Cache::forget('global_settings');
             self::$cachedSettings = null;
-        });
-        static::deleted(function () {
-            \Illuminate\Support\Facades\Cache::forget('global_settings');
-            self::$cachedSettings = null;
-        });
+            // Precomputed sidebar tool lists (layout hits these every navigation).
+            foreach (['board', 'generator', 'workspace', 'ai'] as $group) {
+                \Illuminate\Support\Facades\Cache::forget("settings.tools.{$group}.0");
+                \Illuminate\Support\Facades\Cache::forget("settings.tools.{$group}.1");
+            }
+        };
+        static::saved($flush);
+        static::deleted($flush);
     }
 
     public static function externalToolDefinitions(): array
@@ -213,49 +216,54 @@ class Setting extends Model
 
     public static function externalToolsForGroup(string $group, bool $configuredOnly = false): array
     {
-        $tools = array_values(array_filter(
-            self::externalTools(),
-            fn (array $tool): bool => $tool['group'] === $group
-        ));
+        // Layout calls this 4× per page navigation — cache the assembled list.
+        $cacheKey = "settings.tools.{$group}." . ($configuredOnly ? '1' : '0');
 
-        $customToolsKey = "custom_{$group}_tools";
-        $customToolsJson = self::get($customToolsKey, '[]');
-        $customTools = json_decode($customToolsJson, true) ?: [];
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 600, function () use ($group, $configuredOnly) {
+            $tools = array_values(array_filter(
+                self::externalTools(),
+                fn (array $tool): bool => $tool['group'] === $group
+            ));
 
-        foreach ($customTools as &$ct) {
-            $ct['group'] = $group;
-        }
+            $customToolsKey = "custom_{$group}_tools";
+            $customToolsJson = self::get($customToolsKey, '[]');
+            $customTools = json_decode($customToolsJson, true) ?: [];
 
-        $tools = array_merge($tools, $customTools);
+            foreach ($customTools as &$ct) {
+                $ct['group'] = $group;
+            }
 
-        // Sort by saved group-specific order
-        $orderKey = $group . '_tools_order';
-        $savedOrderJson = self::get($orderKey, '[]');
-        $savedOrder = json_decode($savedOrderJson, true) ?: [];
+            $tools = array_merge($tools, $customTools);
 
-        if (!empty($savedOrder)) {
-            usort($tools, function ($a, $b) use ($savedOrder) {
-                $keyA = $a['key'] ?? $a['custom_id'] ?? null;
-                $keyB = $b['key'] ?? $b['custom_id'] ?? null;
+            // Sort by saved group-specific order
+            $orderKey = $group . '_tools_order';
+            $savedOrderJson = self::get($orderKey, '[]');
+            $savedOrder = json_decode($savedOrderJson, true) ?: [];
 
-                $posA = $keyA ? array_search($keyA, $savedOrder) : false;
-                $posB = $keyB ? array_search($keyB, $savedOrder) : false;
+            if (! empty($savedOrder)) {
+                usort($tools, function ($a, $b) use ($savedOrder) {
+                    $keyA = $a['key'] ?? $a['custom_id'] ?? null;
+                    $keyB = $b['key'] ?? $b['custom_id'] ?? null;
 
-                $posA = ($posA !== false) ? $posA : 9999;
-                $posB = ($posB !== false) ? $posB : 9999;
+                    $posA = $keyA ? array_search($keyA, $savedOrder) : false;
+                    $posB = $keyB ? array_search($keyB, $savedOrder) : false;
 
-                return $posA <=> $posB;
-            });
-        }
+                    $posA = ($posA !== false) ? $posA : 9999;
+                    $posB = ($posB !== false) ? $posB : 9999;
 
-        if (! $configuredOnly) {
-            return $tools;
-        }
+                    return $posA <=> $posB;
+                });
+            }
 
-        return array_values(array_filter(
-            $tools,
-            fn (array $tool): bool => filled($tool['url'] ?? null)
-        ));
+            if (! $configuredOnly) {
+                return $tools;
+            }
+
+            return array_values(array_filter(
+                $tools,
+                fn (array $tool): bool => filled($tool['url'] ?? null)
+            ));
+        });
     }
 
     public static function get(string $key, $default = null)

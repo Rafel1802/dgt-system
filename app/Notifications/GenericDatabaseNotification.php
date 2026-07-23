@@ -14,7 +14,11 @@ class GenericDatabaseNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        // Database only. Live push is handled by InstantNotifier → InstantNotificationBroadcast
+        // (ShouldBroadcastNow). Including 'broadcast' here ALSO queues Laravel's own
+        // BroadcastNotificationCreated job; when a queue worker/cron runs it, the same
+        // alert is delivered a second time and the UI shows a duplicate card.
+        return ['database'];
     }
 
     public function toArray(object $notifiable): array

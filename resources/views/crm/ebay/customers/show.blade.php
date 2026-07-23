@@ -3,63 +3,8 @@
 @section('page_title', 'eBay Customer — Detail')
 
 @section('content')
-<div class="animate-fade-in" x-data="{
-  showFollowUp: false,
-  fuLoading: false,
-  fuNotes: '',
-  handlerLoading: false,
-  showAddOrder: false,
-  orderLoading: false,
-  products: [{ name: '', price: '' }],
-  addProduct() { this.products.push({ name: '', price: '' }); },
-  removeProduct(i) { if (this.products.length > 1) this.products.splice(i, 1); },
-  async submitFollowUp() {
-    if (!this.fuNotes.trim()) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Notes are required.', type: 'error' } }));
-      return;
-    }
-    this.fuLoading = true;
-    try {
-      await window.api('{{ route('crm.ebay.customers.follow-up', $record) }}', { method: 'POST', body: JSON.stringify({ notes: this.fuNotes }) });
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up saved!', type: 'success' } }));
-      setTimeout(() => location.reload(), 700);
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
-    } finally { this.fuLoading = false; }
-  },
-  async switchHandler(event) {
-    this.handlerLoading = true;
-    try {
-      const userId = new FormData(event.target).get('user_id');
-      await window.api(event.target.action, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Handler updated!', type: 'success' } }));
-      setTimeout(() => location.reload(), 700);
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
-    } finally { this.handlerLoading = false; }
-  },
-  async submitOrder(event) {
-    const fd = new FormData(event.target);
-    const payload = {
-      order_id: fd.get('order_id'),
-      order_date: fd.get('order_date'),
-      order_store_id: fd.get('order_store_id'),
-      products: this.products.filter(p => p.name.trim() && String(p.price).trim() !== ''),
-    };
-    if (!payload.order_id || payload.products.length === 0) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order ID and at least one product with a price are required.', type: 'error' } }));
-      return;
-    }
-    this.orderLoading = true;
-    try {
-      await window.api(event.target.action, { method: 'POST', body: JSON.stringify(payload) });
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order added!', type: 'success' } }));
-      setTimeout(() => location.reload(), 700);
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
-    } finally { this.orderLoading = false; }
-  },
-}">
+{{-- Alpine logic lives in a script (not inline x-data="{...}") so quotes / => never break the HTML attribute. --}}
+<div class="animate-fade-in" x-data="ebayCustomerShow(@js(route('crm.ebay.customers.follow-up', $record)))">
 
   <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
     <a href="{{ route('crm.ebay.customers.index', ['tab_type' => $record->tab_type]) }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Records</a>
@@ -368,3 +313,67 @@
   </datalist>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+function ebayCustomerShow(followUpUrl) {
+  return {
+    showFollowUp: false,
+    fuLoading: false,
+    fuNotes: '',
+    handlerLoading: false,
+    showAddOrder: false,
+    orderLoading: false,
+    products: [{ name: '', price: '' }],
+    addProduct() { this.products.push({ name: '', price: '' }); },
+    removeProduct(i) { if (this.products.length > 1) this.products.splice(i, 1); },
+    async submitFollowUp() {
+      if (!this.fuNotes.trim()) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Notes are required.', type: 'error' } }));
+        return;
+      }
+      this.fuLoading = true;
+      try {
+        await window.api(followUpUrl, { method: 'POST', body: JSON.stringify({ notes: this.fuNotes }) });
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up saved!', type: 'success' } }));
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
+      } catch (err) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+      } finally { this.fuLoading = false; }
+    },
+    async switchHandler(event) {
+      this.handlerLoading = true;
+      try {
+        const userId = new FormData(event.target).get('user_id');
+        await window.api(event.target.action, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Handler updated!', type: 'success' } }));
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
+      } catch (err) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+      } finally { this.handlerLoading = false; }
+    },
+    async submitOrder(event) {
+      const fd = new FormData(event.target);
+      const payload = {
+        order_id: fd.get('order_id'),
+        order_date: fd.get('order_date'),
+        order_store_id: fd.get('order_store_id'),
+        products: this.products.filter(function (p) { return p.name.trim() && String(p.price).trim() !== ''; }),
+      };
+      if (!payload.order_id || payload.products.length === 0) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order ID and at least one product with a price are required.', type: 'error' } }));
+        return;
+      }
+      this.orderLoading = true;
+      try {
+        await window.api(event.target.action, { method: 'POST', body: JSON.stringify(payload) });
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order added!', type: 'success' } }));
+        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
+      } catch (err) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+      } finally { this.orderLoading = false; }
+    },
+  };
+}
+</script>
+@endpush
