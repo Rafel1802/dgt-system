@@ -186,7 +186,8 @@
                             @else
                                 <div class="gs-checkbox {{ $isCompleted ? 'checked' : '' }} {{ !$canEdit ? 'disabled' : '' }}"
                                      id="complete-{{ $item->id }}"
-                                     @click="toggleComplete({{ $item->id }}, {{ $post ? $post->id : 'null' }})">
+                                     data-post-id="{{ $post ? $post->id : '' }}"
+                                     @click="toggleComplete({{ $item->id }})">
                                 </div>
                             @endif
                         </td>
@@ -296,7 +297,7 @@
                 // Update complete button binding
                 const btn = document.getElementById(`complete-${itemId}`);
                 if(btn) {
-                    btn.setAttribute('@click', `toggleComplete(${itemId}, ${data.post_id})`);
+                    btn.dataset.postId = data.post_id;
                 }
                 this.showToast('Link saved');
             } catch(e) {
@@ -304,7 +305,12 @@
             }
         },
 
-        async toggleComplete(itemId, postId) {
+        async toggleComplete(itemId) {
+            const btn = document.getElementById(`complete-${itemId}`);
+            if(!btn || btn.classList.contains('disabled')) return;
+
+            const postId = btn.dataset.postId;
+
             const urlInput = document.getElementById(`url-${itemId}`);
             if(!urlInput.value) {
                 window.showToast('Please enter a post link first.', 'error');
@@ -313,12 +319,9 @@
 
             // Need to upsert first if no post ID exists yet
             if(!postId) {
-                window.showToast('Saving link first...', 'info');
+                window.showToast('Saving link first... Please click complete again.', 'info');
                 return; // Let the change event trigger first
             }
-
-            const btn = document.getElementById(`complete-${itemId}`);
-            if(btn.classList.contains('disabled')) return;
 
             const isCurrentlyCompleted = btn.classList.contains('checked');
             const targetState = !isCurrentlyCompleted;
