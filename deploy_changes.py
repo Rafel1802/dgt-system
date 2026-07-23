@@ -34,7 +34,12 @@ rsync_cmd = [
     "bootstrap/app.php",
     # Layout / Turbo / static
     "resources/views/layouts/app.blade.php",
+    "resources/js/app.js",
     "public/js/turbo.es2017-esm.js",
+    # Vite build output — git-ignored, never committed, but still has to
+    # reach production whenever resources/js|css change (run `npm run
+    # build` locally first; this host has no Node/npm to build on).
+    "public/build",
     "public/.htaccess",
     # Services / cache helpers
     "app/Services/CrmCustomerMatchService.php",

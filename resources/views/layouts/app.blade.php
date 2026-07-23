@@ -287,10 +287,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </style>
     <div
         id="dgt-app-wrapper"
-        x-data="sidebar"
         x-init="$nextTick(() => { $el.classList.remove('not-ready') })"
-        x-on:keydown.escape.window="close"
-        :class="{ 'sidebar-is-collapsed': collapsed }"
+        x-on:keydown.escape.window="$store.sidebar.close()"
+        :class="{ 'sidebar-is-collapsed': $store.sidebar.collapsed }"
         class="relative h-full not-ready"
     >
         <script>
@@ -300,7 +299,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         </script>
         <!-- Mobile overlay backdrop -->
         <div
-            x-show="mobileOpen && !isDesktop"
+            x-show="$store.sidebar.mobileOpen && !$store.sidebar.isDesktop"
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100"
@@ -308,16 +307,22 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0"
             class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
-            @click="close"
+            @click="$store.sidebar.close()"
             x-cloak
         ></div>
 
         <!-- ── Sidebar ────────────────────────────────────────────────── -->
         {{-- data-turbo-permanent: keep sidebar DOM across menu clicks so Turbo
              does not re-paint the full nav on every navigation. Active item
-             is updated in JS on turbo:load. --}}
+             is updated in JS on turbo:load. Its open/collapsed/mobileOpen
+             state lives in the global $store.sidebar (resources/js/app.js),
+             not a local x-data — #dgt-app-wrapper itself is NOT permanent and
+             gets fully recreated by Turbo on every navigation, so a local
+             component here would reinitialize (and its state briefly flash
+             back to defaults, and its listeners re-stack on the permanent
+             aside below) on every single click. --}}
         <aside
-            :class="{ 'open': mobileOpen }"
+            :class="{ 'open': $store.sidebar.mobileOpen }"
             class="sidebar"
             id="sidebar"
             data-turbo-permanent
@@ -335,7 +340,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <!-- Desktop collapse btn -->
                 <button type="button"
                         class="sidebar-collapse-btn hidden lg:inline-flex"
-                        @click="toggleCollapse()"
+                        @click="$store.sidebar.toggleCollapse()"
                         aria-label="Collapse sidebar"
                         title="Collapse sidebar">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -345,7 +350,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <!-- Mobile close btn -->
                 <button type="button"
                         class="sidebar-mobile-close-btn lg:hidden"
-                        @click="close()"
+                        @click="$store.sidebar.close()"
                         aria-label="Close menu">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -1163,8 +1168,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <div class="flex items-center gap-3">
                     <!-- Toggle/Expand Sidebar Button (Desktop) -->
                     <button type="button"
-                            x-show="collapsed"
-                            @click="expandSidebar()"
+                            x-show="$store.sidebar.collapsed"
+                            @click="$store.sidebar.expandSidebar()"
                             class="sidebar-expand-btn btn btn-secondary btn-icon hidden lg:inline-flex active:scale-95 transition-all duration-150"
                             title="Show sidebar"
                             aria-label="Show sidebar"
@@ -1176,7 +1181,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                     <!-- Hamburger Button (Mobile) -->
                     <button type="button"
-                            @click="toggleMobile()"
+                            @click="$store.sidebar.toggleMobile()"
                             class="mobile-menu-btn lg:hidden"
                             title="Toggle menu"
                             aria-label="Toggle menu">

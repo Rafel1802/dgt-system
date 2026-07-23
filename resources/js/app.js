@@ -112,8 +112,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Global Alpine Components ──────────────────────────────────────────────
 
-// Sidebar
-Alpine.data('sidebar', () => ({
+// Sidebar — a global store, not a per-element component. The <aside id="sidebar">
+// itself is data-turbo-permanent, but the wrapper this used to be x-data-bound to
+// (#dgt-app-wrapper) is NOT permanent and gets fully recreated by Turbo on every
+// navigation. As a component, init() reran on every single click: re-reading
+// collapsed from localStorage (briefly flashing the default state before it
+// resynced) and re-attaching resize/open-mobile-sidebar/scroll/pagehide/
+// visibilitychange/click listeners — the last of those on the *permanent* aside
+// node itself, so every navigation left one more click listener stacked on top
+// of all the previous ones, forever, for the life of the tab. A store is
+// registered once when Alpine starts and never reinitialized by DOM churn,
+// which fixes both problems at once.
+Alpine.store('sidebar', {
     mobileOpen: false,
     collapsed: false,
     isDesktop: window.innerWidth >= 1024,
@@ -134,7 +144,10 @@ Alpine.data('sidebar', () => ({
             if (! this.isDesktop) this.mobileOpen = true;
         });
 
-        this.$nextTick(() => this.initScrollMemory());
+        // Stores have no $nextTick (that's a component/element concept) — the
+        // #sidebar node may not exist yet the moment Alpine starts, so retry
+        // via rAF instead of assuming it's already in the DOM.
+        this.initScrollMemoryWhenReady();
     },
 
     toggle() {
@@ -165,9 +178,12 @@ Alpine.data('sidebar', () => ({
         localStorage.setItem(this.storageKey, 'false');
     },
 
-    initScrollMemory() {
+    initScrollMemoryWhenReady() {
         const sidebar = document.getElementById('sidebar');
-        if (! sidebar) return;
+        if (! sidebar) {
+            requestAnimationFrame(() => this.initScrollMemoryWhenReady());
+            return;
+        }
 
         const savedScrollTop = Number(localStorage.getItem(this.scrollStorageKey) || 0);
 
@@ -175,7 +191,7 @@ Alpine.data('sidebar', () => ({
             // Temporarily disable smooth scroll to prevent animated jump
             const originalBehavior = sidebar.style.scrollBehavior;
             sidebar.style.scrollBehavior = 'auto';
-            
+
             sidebar.scrollTop = savedScrollTop;
             sidebar.dataset.scrollRestored = 'true';
 
@@ -189,6 +205,9 @@ Alpine.data('sidebar', () => ({
             localStorage.setItem(this.scrollStorageKey, String(sidebar.scrollTop));
         };
 
+        // This runs exactly once for the life of the tab (the store's init()
+        // never reruns), so this single set of listeners is all there ever is —
+        // no accumulation across Turbo navigations.
         sidebar.addEventListener('scroll', saveScrollTop, { passive: true });
 
         window.addEventListener('pagehide', saveScrollTop);
@@ -203,7 +222,7 @@ Alpine.data('sidebar', () => ({
             }
         }, true);
     },
-}));
+});
 
 // Theme System
 Alpine.data('themeSystem', () => ({
