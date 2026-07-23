@@ -90,6 +90,25 @@ class CrmCustomerMatchService
     }
 
     /**
+     * Phone-only match used for the *soft* duplicate warning on the create
+     * form — deliberately not folded into findDuplicateCustomer() (which
+     * hard-blocks), since a shared phone number (household, shared work
+     * line) routinely belongs to genuinely different people, unlike email.
+     * Staff get shown the match and choose to proceed or not; nothing here
+     * blocks on its own.
+     */
+    public function findCustomerByPhoneOnly(?string $phone): ?Customer
+    {
+        if (! $phone) {
+            return null;
+        }
+
+        $phone = PhoneNumberFormatter::format($phone);
+
+        return Customer::where('phone', $phone)->first();
+    }
+
+    /**
      * Find an existing eBay customer record by username (the natural unique
      * identifier for an eBay account) or by matching email/phone, so a second
      * "New Record" for the same person doesn't fork their history across two

@@ -17,7 +17,21 @@
       <p class="text-slate-400 text-sm mt-1">Fill in the customer details below. All fields except name are optional.</p>
     </div>
 
-    <form method="POST" action="{{ route('crm.customers.store') }}" class="divide-y divide-slate-100">
+    @if(session('phoneDuplicateWarning'))
+      @php $dup = session('phoneDuplicateWarning'); @endphp
+      <div class="mx-6 mt-5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3 flex-wrap">
+        <p class="text-sm text-amber-800">
+          ⚠ A customer with this phone number already exists:
+          <a href="{{ $dup['link'] }}" class="font-semibold underline hover:text-amber-900" target="_blank">{{ $dup['name'] }}</a>.
+          Still create this as a new, separate customer?
+        </p>
+        <button type="submit" form="customer-create-form" name="confirm_duplicate" value="1" class="btn btn-secondary text-xs py-1.5 whitespace-nowrap">
+          Create anyway
+        </button>
+      </div>
+    @endif
+
+    <form method="POST" action="{{ route('crm.customers.store') }}" class="divide-y divide-slate-100" id="customer-create-form">
       @csrf
 
       {{-- Identity --}}

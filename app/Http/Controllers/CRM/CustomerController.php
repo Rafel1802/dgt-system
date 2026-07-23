@@ -239,6 +239,22 @@ class CustomerController extends Controller
             }
         }
 
+        // Phone-only match is a soft warning, not a block — a shared phone
+        // number routinely belongs to genuinely different people (household,
+        // shared work line), unlike email. Staff see who it matched and
+        // explicitly confirm before a second customer is actually created;
+        // fixing a typo'd phone and resubmitting re-runs this check fresh.
+        if (! empty($validated['phone']) && ! $request->boolean('confirm_duplicate')) {
+            $phoneMatch = $this->matcher->findCustomerByPhoneOnly($validated['phone']);
+            if ($phoneMatch) {
+                return back()->withInput()->with('phoneDuplicateWarning', [
+                    'id'   => $phoneMatch->id,
+                    'name' => $phoneMatch->name,
+                    'link' => route('crm.customers.show', $phoneMatch),
+                ]);
+            }
+        }
+
         $customer = $this->crmService->createCustomer($validated, auth()->user());
 
         $this->logActivity('customer.created', $customer, auth()->user()->name . " created customer \"{$customer->name}\".");
