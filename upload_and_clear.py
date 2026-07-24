@@ -1,27 +1,20 @@
-import pty
 import os
 import sys
-import time
+import subprocess
 
 def run_cmd(cmd_args, password="KhmerLucky#2888\n"):
     print(f"Running: {' '.join(cmd_args)}")
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.execvp(cmd_args[0], cmd_args)
-    else:
-        while True:
-            try:
-                data = os.read(fd, 1024)
-                if not data:
-                    break
-                # Simple check for password prompt
-                if b"password:" in data.lower():
-                    os.write(fd, password.encode())
-                print(data.decode("utf-8", "replace"), end="", flush=True)
-            except OSError:
-                break
-        os.waitpid(pid, 0)
-        print("\n--- Command Finished ---\n")
+    askpass_path = os.path.abspath("askpass.sh")
+    env = os.environ.copy()
+    env["SSH_ASKPASS"] = askpass_path
+    env["DISPLAY"] = "dummy"
+    env["SSH_ASKPASS_REQUIRE"] = "force"
+    
+    proc = subprocess.run(cmd_args, env=env)
+    if proc.returncode != 0:
+        print(f"Command failed with exit code {proc.returncode}")
+        sys.exit(1)
+    print("\n--- Command Finished ---\n")
 
 if __name__ == "__main__":
     # 1. Upload all files (replace if exist), excluding vendor, node_modules, etc.

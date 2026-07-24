@@ -366,7 +366,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @unless(auth()->user()->hasRole('boss'))
                 <span class="sidebar-section-label">Main</span>
 
-                <a href="{{ route('dashboard') }}"
+                <a wire:navigate.hover href="{{ route('dashboard') }}"
                    class="sidebar-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
                    id="nav-dashboard">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -378,7 +378,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endcan
 
                 <!-- All Members Directory -->
-                <a href="{{ route('members.index') }}"
+                <a wire:navigate.hover href="{{ route('members.index') }}"
                    class="sidebar-item {{ request()->routeIs('members.*') ? 'active' : '' }}"
                    id="nav-all-members">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -390,7 +390,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <!-- Notes -->
                 @unless(auth()->user()->hasRole('boss'))
                 <span class="sidebar-section-label">Notes</span>
-                <a href="{{ route('notes.team') }}"
+                <a wire:navigate.hover href="{{ route('notes.team') }}"
                    class="sidebar-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
                    id="nav-notes-team">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -398,7 +398,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </svg>
                     Team Note
                 </a>
-                <a href="{{ route('notes.private') }}"
+                <a wire:navigate.hover href="{{ route('notes.private') }}"
                    class="sidebar-item {{ request()->routeIs('notes.private*') ? 'active' : '' }}"
                    id="nav-notes-private">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -419,7 +419,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     $canSeeApprovalQueue = auth()->user()->can('kanban.approve');
                 ?>
 
-                <a href="{{ route('boards.workspaces') }}"
+                <a wire:navigate.hover href="{{ route('boards.workspaces') }}"
                    class="sidebar-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                    id="nav-boards">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -430,7 +430,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 {{-- Social Media Team --}}
                 @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
-                <a href="{{ route('social-media.dashboard') }}"
+                <a wire:navigate.hover href="{{ route('social-media.dashboard') }}"
                    class="sidebar-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
                    id="nav-social-media">
                     <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Team" class="w-5 h-5 flex-shrink-0 object-contain">
@@ -439,7 +439,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endif
 
                 @if($canSeeApprovalQueue)
-                <a href="{{ route('approvals.index') }}"
+                <a wire:navigate.hover href="{{ route('approvals.index') }}"
                    class="sidebar-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
                    id="nav-approvals">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -450,7 +450,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endif
 
                 @if(auth()->user()->isQcOrSupervisor())
-                <a href="{{ route('boards.reports.personal') }}"
+                <a wire:navigate.hover href="{{ route('boards.reports.personal') }}"
                    class="sidebar-item {{ request()->routeIs('boards.reports.personal') ? 'active' : '' }}"
                    id="nav-personal-report">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -467,7 +467,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('websites.*') ? 'active' : '' }}"
                         id="nav-websites-toggle"
                     >
-                        <a href="{{ route('websites.index', ['tab' => 'build']) }}" class="flex items-center gap-[0.625rem] flex-1">
+                        <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'build']) }}" class="flex items-center gap-[0.625rem] flex-1">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
                             </svg>
@@ -505,7 +505,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             $wsStatusTabs = ['build','build-progress','live','maintenance','qc-error','supervisor-error'];
                             $isOnStatusTab = request()->routeIs('websites.index') && in_array(request()->get('tab','build'), $wsStatusTabs);
                         @endphp
-                        <a href="{{ route('websites.index', ['tab' => 'build']) }}"
+                        <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'build']) }}"
                            class="sidebar-submenu-item {{ $isOnStatusTab ? 'active' : '' }}"
                            id="nav-websites-status">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
@@ -514,7 +514,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             <span>Website Status</span>
                         </a>
                         {{-- 2. Follow Up --}}
-                        <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
+                        <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
                            class="sidebar-submenu-item {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
                            id="nav-websites-followup">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
@@ -529,7 +529,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 ?>
                 @unless(auth()->user()->hasRole('boss'))
                 @if($weeklyReport)
-                    <a href="{{ $weeklyReport['url'] }}"
+                    <a wire:navigate.hover href="{{ $weeklyReport['url'] }}"
                        target="_blank"
                        rel="noopener noreferrer"
                        class="sidebar-item">
@@ -568,7 +568,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     $toolUrl = $toolUrl . $separator . 'authuser=' . urlencode($userEmail);
                                 }
                             @endphp
-                            <a href="{{ $toolUrl }}"
+                            <a wire:navigate.hover href="{{ $toolUrl }}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item"
@@ -596,7 +596,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <div class="sidebar-tool-group">
                         <span class="sidebar-tool-heading">eBay &amp; Web Supporter</span>
                         @foreach($sidebarWebTools as $tool)
-                            <a href="{{ $tool['url'] }}"
+                            <a wire:navigate.hover href="{{ $tool['url'] }}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item sidebar-tool-item-web"
@@ -616,7 +616,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <div class="sidebar-tool-group sidebar-tool-group-system">
                         <span class="sidebar-tool-heading">System Supporter</span>
                         @foreach($sidebarSystemTools as $tool)
-                            <a href="{{ $tool['url'] }}"
+                            <a wire:navigate.hover href="{{ $tool['url'] }}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item sidebar-tool-item-system"
@@ -672,7 +672,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             class="sidebar-submenu-list mt-1 space-y-1 relative"
                         >
                              @foreach($sidebarAiTools as $tool)
-                                <a href="{{ $tool['url'] }}"
+                                <a wire:navigate.hover href="{{ $tool['url'] }}"
                                    target="_blank"
                                    rel="noopener noreferrer"
                                    class="sidebar-submenu-item"
@@ -730,7 +730,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </span>
                     </button>
                     <div x-show="open" x-transition x-cloak class="ml-8 mt-0.5 space-y-0.5 border-l-2 border-slate-100 pl-3">
-                        <a href="{{ route('crm.website.index') }}"
+                        <a wire:navigate.hover href="{{ route('crm.website.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.website.*') && ! request()->routeIs('crm.website.call-reports.*') ? 'active' : '' }}"
                            id="nav-website-leads">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -738,7 +738,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Leads
                         </a>
-                        <a href="{{ route('crm.website.call-reports.index') }}"
+                        <a wire:navigate.hover href="{{ route('crm.website.call-reports.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.website.call-reports.*') ? 'active' : '' }}"
                            id="nav-website-call-reports">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -746,7 +746,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Call Reports
                         </a>
-                        <a href="{{ route('crm.website.call-requests.index') }}"
+                        <a wire:navigate.hover href="{{ route('crm.website.call-requests.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.website.call-requests.*') ? 'active' : '' }}"
                            id="nav-website-call-requests">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -780,7 +780,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
                     <div x-show="open" x-transition x-cloak class="ml-8 mt-0.5 space-y-0.5 border-l-2 border-slate-100 pl-3">
-                        <a href="{{ route('crm.ebay.stores.index') }}"
+                        <a wire:navigate.hover href="{{ route('crm.ebay.stores.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.ebay.stores.*') ? 'active' : '' }}"
                            id="nav-ebay-manage-store">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -788,7 +788,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Manage Store
                         </a>
-                        <a href="{{ route('crm.ebay.customers.index') }}"
+                        <a wire:navigate.hover href="{{ route('crm.ebay.customers.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.ebay.customers.*') ? 'active' : '' }}"
                            id="nav-ebay-manage-customer">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -819,7 +819,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
                     <div x-show="open" x-transition x-cloak class="ml-8 mt-0.5 space-y-0.5 border-l-2 border-slate-100 pl-3">
-                        <a href="{{ route('crm.logistics.trucking.index') }}"
+                        <a wire:navigate.hover href="{{ route('crm.logistics.trucking.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.trucking.*') ? 'active' : '' }}"
                            id="nav-trucking-company">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -827,7 +827,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Trucking Company
                         </a>
-                        <a href="{{ route('crm.logistics.shipments.index') }}"
+                        <a wire:navigate.hover href="{{ route('crm.logistics.shipments.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.shipments.*') ? 'active' : '' }}"
                            id="nav-shipment-management">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -835,7 +835,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Shipment Management
                         </a>
-                        <a href="{{ route('crm.logistics.processTrucking') }}"
+                        <a wire:navigate.hover href="{{ route('crm.logistics.processTrucking') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.processTrucking') ? 'active' : '' }}"
                            id="nav-process-trucking">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -843,7 +843,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Process Trucking
                         </a>
-                        <a href="{{ route('crm.logistics.loaded') }}"
+                        <a wire:navigate.hover href="{{ route('crm.logistics.loaded') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.loaded') ? 'active' : '' }}"
                            id="nav-loaded">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -851,7 +851,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Loaded
                         </a>
-                        <a href="{{ route('crm.logistics.delivered') }}"
+                        <a wire:navigate.hover href="{{ route('crm.logistics.delivered') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.delivered') ? 'active' : '' }}"
                            id="nav-delivered">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -859,7 +859,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             Delivered
                         </a>
-                        <a href="{{ route('crm.logistics.issues.index') }}"
+                        <a wire:navigate.hover href="{{ route('crm.logistics.issues.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.issues.*') ? 'active' : '' }}"
                            id="nav-logistic-issues">
                             <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -871,7 +871,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </div>
 
                 {{-- ── 4. Customers ────────────────────────────────────────── --}}
-                <a href="{{ route('crm.customers.index') }}"
+                <a wire:navigate.hover href="{{ route('crm.customers.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.customers.*') ? 'active' : '' }}"
                    id="nav-customers">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -881,7 +881,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
 
                 {{-- ── 5. Product ─────────────────────────────────────────── --}}
-                <a href="{{ route('crm.products.index') }}"
+                <a wire:navigate.hover href="{{ route('crm.products.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.products.*') ? 'active' : '' }}"
                    id="nav-products">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -891,7 +891,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
 
                 {{-- ── 6. Tech Support ────────────────────────────────────── --}}
-                <a href="{{ route('crm.tech-support.index') }}"
+                <a wire:navigate.hover href="{{ route('crm.tech-support.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.tech-support.*') ? 'active' : '' }}"
                    id="nav-tech-support">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -913,7 +913,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
 
                 {{-- ── 8. Reports ─────────────────────────────────────────── --}}
-                <a href="{{ route('crm.reports.index') }}"
+                <a wire:navigate.hover href="{{ route('crm.reports.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.reports.*') ? 'active' : '' }}"
                    id="nav-crm-reports">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -948,7 +948,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <div class="sidebar-tool-group sidebar-tool-group-system">
                         <span class="sidebar-tool-heading">CRM External Links</span>
                         @foreach($crmSidebarLinks as $link)
-                            <a href="{{ $link->url }}"
+                            <a wire:navigate.hover href="{{ $link->url }}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item sidebar-tool-item-system"
@@ -976,7 +976,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 {{--
                 <span class="sidebar-section-label">Analytics</span>
 
-                <a href="{{ route('reports.index') }}"
+                <a wire:navigate.hover href="{{ route('reports.index') }}"
                    class="sidebar-item {{ request()->routeIs('reports.*') ? 'active' : '' }}"
                    id="nav-reports">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -993,7 +993,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
                 @can('users.view')
-                <a href="{{ route('admin.users.index') }}"
+                <a wire:navigate.hover href="{{ route('admin.users.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"
                    id="nav-users">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1005,7 +1005,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
                 @hasanyrole('super-admin|admin-digital')
-                <a href="{{ route('admin.labels.index') }}"
+                <a wire:navigate.hover href="{{ route('admin.labels.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.labels.*') ? 'active' : '' }}"
                    id="nav-labels">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1016,7 +1016,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endhasanyrole
 
                 @can('security.view')
-                <a href="{{ route('admin.security.index') }}"
+                <a wire:navigate.hover href="{{ route('admin.security.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.security.*') ? 'active' : '' }}"
                    id="nav-security">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1029,13 +1029,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
                 @hasanyrole('super-admin|admin-digital')
-                <a href="{{ route('admin.settings.index') }}"
+                <a wire:navigate.hover href="{{ route('admin.settings.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}"
                    aria-label="External Systems" title="External Systems">
                     <x-external-tool-icon name="link" class="w-5 h-5 flex-shrink-0" />
                     <span>External Systems</span>
                 </a>
-                <a href="{{ route('crm.links.index') }}"
+                <a wire:navigate.hover href="{{ route('crm.links.index') }}"
                    class="sidebar-item {{ request()->routeIs('crm.links.*') ? 'active' : '' }}"
                    aria-label="CRM External Links" title="CRM External Links">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1043,7 +1043,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </svg>
                     <span>CRM External Links</span>
                 </a>
-                <a href="{{ route('admin.maintenance.index') }}"
+                <a wire:navigate.hover href="{{ route('admin.maintenance.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.maintenance.*') ? 'active' : '' }}"
                    aria-label="Maintenance System" title="Maintenance System">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1094,20 +1094,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         x-cloak
                         role="menu"
                     >
-                        <a href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-profile">
+                        <a wire:navigate.hover href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-profile">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
                             </svg>
                             My Profile
                         </a>
-                        <a href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-settings">
+                        <a wire:navigate.hover href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-settings">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                             </svg>
                             Settings
                         </a>
-                        <a href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-macos-app">
+                        <a wire:navigate.hover href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-macos-app">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 18h8m-6 3h4m-9-6h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/>
                             </svg>
@@ -1429,7 +1429,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                                 <button type="submit" class="w-full btn btn-primary text-[11px] py-1 leading-tight" id="confirm-handler-{{ $entry['id'] }}">Confirm</button>
                                             </form>
                                             @if($entry['record_id'])
-                                            <a href="{{ route('crm.ebay.customers.show', $entry['record_id']) }}" class="btn btn-secondary text-[11px] py-1 px-2 leading-tight">View</a>
+                                            <a wire:navigate.hover href="{{ route('crm.ebay.customers.show', $entry['record_id']) }}" class="btn btn-secondary text-[11px] py-1 px-2 leading-tight">View</a>
                                             @endif
                                         </div>
                                     </div>
@@ -1438,27 +1438,27 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </div>
                             @endif
                             @if(in_array('crm', auth()->user()->notificationModules(), true))
-                            <a href="{{ route('crm.ebay.customers.handler-history.index') }}" class="dropdown-item mt-1 hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-handler-history">
+                            <a wire:navigate.hover href="{{ route('crm.ebay.customers.handler-history.index') }}" class="dropdown-item mt-1 hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-handler-history">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
                                 </svg>
                                 Handler Assignment History
                             </a>
                             @endif
-                            <a href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-profile">
+                            <a wire:navigate.hover href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-profile">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0"/>
                                 </svg>
                                 My Profile
                             </a>
-                            <a href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-settings">
+                            <a wire:navigate.hover href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-settings">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87l.22.127c.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992v.255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124l-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87l-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991v-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124l.22-.128c.332-.183.582-.495.644-.869l.214-1.28Z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                                 </svg>
                                 Settings
                             </a>
-                            <a href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-macos-app">
+                            <a wire:navigate.hover href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-macos-app">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 18h8m-6 3h4m-9-6h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/>
                                 </svg>
@@ -1517,7 +1517,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Home (Everyone) -->
             @can('dashboard.view')
-            <a href="{{ route('dashboard') }}"
+            <a wire:navigate.hover href="{{ route('dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
                aria-label="Dashboard">
                 <span class="mobile-nav-icon">
@@ -1531,7 +1531,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Boards (Everyone) -->
             @can('kanban.view')
-            <a href="{{ route('boards.workspaces') }}"
+            <a wire:navigate.hover href="{{ route('boards.workspaces') }}"
                class="mobile-nav-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                aria-label="Boards">
                 <span class="mobile-nav-icon">
@@ -1546,7 +1546,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Boss specific items -->
             @if(auth()->user()->hasRole('boss'))
                 <!-- Approval Queue -->
-                <a href="{{ route('approvals.index') }}"
+                <a wire:navigate.hover href="{{ route('approvals.index') }}"
                    class="mobile-nav-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
                    aria-label="Approval">
                     <span class="mobile-nav-icon">
@@ -1560,7 +1560,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Social Media (Boss, super-admin, Digital Team) -->
             @if(auth()->user()->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
-            <a href="{{ route('social-media.dashboard') }}"
+            <a wire:navigate.hover href="{{ route('social-media.dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
                aria-label="Social">
                 <span class="mobile-nav-icon">
@@ -1572,7 +1572,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Websites (Boss + super-admin) -->
             @if(auth()->user()->hasAnyRole(['boss', 'super-admin']))
-            <a href="{{ route('websites.dashboard') }}"
+            <a wire:navigate.hover href="{{ route('websites.dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('websites.*') ? 'active' : '' }}"
                aria-label="Websites">
                 <span class="mobile-nav-icon">
@@ -1587,7 +1587,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Digital Team (Private Note) -->
             @hasanyrole('admin-digital|digital-team|staff|social_qc|social_admin')
                 @unless(auth()->user()->hasAnyRole(['super-admin', 'boss', 'admin-crm', 'sales-crm']))
-                <a href="{{ route('notes.private') }}"
+                <a wire:navigate.hover href="{{ route('notes.private') }}"
                    class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
                    aria-label="Note">
                     <span class="mobile-nav-icon">
@@ -1604,7 +1604,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             @hasanyrole('super-admin|admin-crm|sales-crm')
                 @unless(auth()->user()->hasRole('boss'))
                 <!-- Team Notes -->
-                <a href="{{ route('notes.team') }}"
+                <a wire:navigate.hover href="{{ route('notes.team') }}"
                    class="mobile-nav-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
                    aria-label="Notes">
                     <span class="mobile-nav-icon">
