@@ -1,0 +1,46 @@
+*.log
+.DS_Store
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+Thumbs.db
+*.sql
+*.sql.zip
+*.sql.gz
+
+# Large binary/backup files - never commit these
+"ALL CODE.zip"
+ALL\ CODE.zip
+/old_backup/
+
+# App downloads/binaries
+/public/downloads/*.apk
+/public/downloads/*.dmg
+/public/downloads/*.ipa
+
+# Sample/customer-data spreadsheets belong outside the repo, not committed —
+# see upload_and_clear.py for why (one briefly leaked to production this way).
+/*.xlsx
+/*.xls
+/*.csv

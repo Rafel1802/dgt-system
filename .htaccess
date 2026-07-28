@@ -1,0 +1,17 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    # sw.js is deployed directly to the domain root (see upload of public/sw.js
+    # here, alongside manifest.json — this host's static-file rules were
+    # caching .js files for 7 days by default, which meant browsers and the
+    # CDN could keep serving a stale/broken service worker for up to a week
+    # after every deploy. Service worker scripts must always be revalidated.
+    <FilesMatch "^sw\.js$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+    </FilesMatch>
+</IfModule>

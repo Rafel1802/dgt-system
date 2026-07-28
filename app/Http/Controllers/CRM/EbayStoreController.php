@@ -1,0 +1,166 @@
+<?php
+
+namespace App\Http\Controllers\CRM;
+
+use App\Http\Controllers\Controller;
+use App\Models\EbayCustomerOrder;
+use App\Models\EbayCustomerOrderItem;
+use App\Models\EbayStore;
+use App\Models\User;
+use App\Support\CrmLookupCache;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class EbayStoreController extends Controller
+{
+    public function index(Request $request): View
+    {
+        $query = EbayStore::with(['handler'])->withCount('customerRecords');
+
+        if ($s = $request->get('search')) {
+            $query->search($s);
+        }
+        if ($storeId = $request->get('store_id')) {
+            $query->where('id', $storeId);
+        }
+
+        if ($request->get('status') === 'inactive') {
+            $query->where('is_active', false);
+        } elseif ($request->get('status') !== 'all') {
+            $query->where('is_active', true);
+        }
+
+        $stores   = $query->latest()->paginate(20)->withQueryString();
+        $crmUsers = CrmLookupCache::crmMembers();
+        $allStores = EbayStore::orderBy('store_name')->get(['id', 'store_name']);
+        $totalStoresCount = EbayStore::count();
+
+        // Real sales per store (order-item prices), same source as the
+        // store profile page and the eBay Report — not the unmaintained
+        // EbayStore.total_sales field. Computed only for the current page
+        // of stores to avoid summing the whole table on every request.
+        $salesByStore = EbayCustomerOrderItem::join(
+                'ebay_customer_orders', 'ebay_customer_orders.id', '=', 'ebay_customer_order_items.ebay_customer_order_id'
+            )
+            ->whereIn('ebay_customer_orders.ebay_store_id', $stores->pluck('id'))
+            ->selectRaw('ebay_customer_orders.ebay_store_id, SUM(ebay_customer_order_items.price) as total')
+            ->groupBy('ebay_customer_orders.ebay_store_id')
+            ->pluck('total', 'ebay_store_id');
+
+        return view('crm.ebay.stores.index', compact('stores', 'crmUsers', 'allStores', 'totalStoresCount', 'salesByStore'));
+    }
+
+    public function create(): View
+    {
+        return view('crm.ebay.stores.create', [
+            'crmUsers' => CrmLookupCache::crmMembers(),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'store_name'   => ['required', 'string', 'max:255'],
+            'logo_url'     => ['nullable', 'url', 'max:1000'],
+            'store_url'    => ['nullable', 'url', 'max:500'],
+            'ebay_username'=> ['nullable', 'string', 'max:255'],
+            'handled_by'   => ['nullable', 'exists:users,id'],
+            'notes'        => ['nullable', 'string'],
+            'total_sales'  => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $store = EbayStore::create([...$validated, 'is_active' => true]);
+
+        return redirect()->route('crm.ebay.stores.show', $store)
+            ->with('success', 'eBay Store "' . $store->store_name . '" created.');
+    }
+
+    public function show(EbayStore $store, Request $request): View
+    {
+        $store->load(['handler'])->loadCount('customerRecords');
+
+        $ordersQuery = EbayCustomerOrder::with(['record', 'items'])
+            ->where('ebay_store_id', $store->id);
+
+        if ($s = $request->get('search')) {
+            $ordersQuery->where(function ($q) use ($s) {
+                $q->where('order_id', 'like', "%{$s}%")
+                  ->orWhereHas('record', fn ($rq) => $rq->where('buyer_name', 'like', "%{$s}%")
+                      ->orWhere('username', 'like', "%{$s}%"));
+            });
+        }
+
+        $orders = $ordersQuery->latest('ordered_at')->paginate(20)->withQueryString();
+
+        $totalOrders = EbayCustomerOrder::where('ebay_store_id', $store->id)->count();
+        $totalSales = (float) EbayCustomerOrderItem::whereHas('order', fn ($q) => $q->where('ebay_store_id', $store->id))->sum('price');
+
+        return view('crm.ebay.stores.show', compact('store', 'orders', 'totalOrders', 'totalSales'));
+    }
+
+    public function edit(EbayStore $store): View
+    {
+        return view('crm.ebay.stores.edit', [
+            'store'    => $store,
+            'crmUsers' => CrmLookupCache::crmMembers(),
+        ]);
+    }
+
+    public function update(Request $request, EbayStore $store): RedirectResponse
+    {
+        $validated = $request->validate([
+            'store_name'   => ['required', 'string', 'max:255'],
+            'logo_url'     => ['nullable', 'url', 'max:1000'],
+            'store_url'    => ['nullable', 'url', 'max:500'],
+            'ebay_username'=> ['nullable', 'string', 'max:255'],
+            'handled_by'   => ['nullable', 'exists:users,id'],
+            'notes'        => ['nullable', 'string'],
+            'is_active'    => ['sometimes', 'boolean'],
+            'total_sales'  => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $store->update($validated);
+
+        return redirect()->route('crm.ebay.stores.show', $store)
+            ->with('success', 'Store updated.');
+    }
+
+    public function destroy(EbayStore $store): RedirectResponse
+    {
+        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, Logistic Supervisor, CRM Supervisor, or Boss can delete eBay records.');
+
+        $store->delete();
+        return redirect()->route('crm.ebay.stores.index')
+            ->with('success', 'Store deleted.');
+    }
+
+    /** CSV export of a single store's customer records + summary (mirrors CrmReportController's CSV pattern) */
+    public function exportReport(EbayStore $store)
+    {
+        $records = $store->customerRecords()->with('handlerHistory.user')->get();
+
+        $filename = str($store->store_name)->slug('_') . '_report.csv';
+
+        return response()->streamDownload(function () use ($store, $records) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Store', $store->store_name]);
+            fputcsv($out, ['Email', $store->ebay_username]);
+            fputcsv($out, ['URL', $store->store_url]);
+            fputcsv($out, ['Total Sales', $store->total_sales]);
+            fputcsv($out, ['Customers this week', $records->where('created_at', '>=', now()->subDays(7))->count()]);
+            fputcsv($out, ['Customers this month', $records->where('created_at', '>=', now()->startOfMonth())->count()]);
+            fputcsv($out, []);
+            fputcsv($out, ['Name', 'Username', 'Status', 'Handler']);
+            foreach ($records as $record) {
+                fputcsv($out, [
+                    $record->buyer_name,
+                    $record->username,
+                    $record->status,
+                    $record->current_handler?->name,
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+}

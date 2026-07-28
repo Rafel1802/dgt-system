@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="38" y1="32" x2="470" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/><stop offset=".52" stop-color="#2563EB"/><stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="card" x1="82" y1="72" x2="430" y2="442" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#93C5FD" stop-opacity=".9"/><stop offset="1" stop-color="#7C3AED" stop-opacity=".84"/>
+    </linearGradient>
+    <linearGradient id="txt" x1="160" y1="170" x2="350" y2="330"><stop stop-color="#fff"/><stop offset="1" stop-color="#DBEAFE"/></linearGradient>
+    <filter id="s"><feDropShadow dx="0" dy="20" stdDeviation="24" flood-opacity=".38"/></filter>
+    <filter id="g"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+  <circle cx="404" cy="104" r="88" fill="#67E8F9" opacity=".18"/>
+  <circle cx="108" cy="405" r="110" fill="#F0ABFC" opacity=".16"/>
+  <rect x="70" y="70" width="372" height="372" rx="94" fill="url(#card)" filter="url(#s)"/>
+  <path d="M112 132C184 78 326 76 402 126" stroke="white" stroke-opacity=".28" stroke-width="18" stroke-linecap="round"/>
+  <text x="256" y="322" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="178" font-weight="900" letter-spacing="-16" fill="url(#txt)" filter="url(#g)">KQ</text>
+  <circle cx="365" cy="176" r="9" fill="white" opacity=".9"/>
+</svg>

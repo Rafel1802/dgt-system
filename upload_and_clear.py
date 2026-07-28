@@ -1,0 +1,112 @@
+import os
+import sys
+import subprocess
+
+def run_cmd(cmd_args, password="Digital@PhnomPenh#!2027\n"):
+    print(f"Running: {' '.join(cmd_args)}")
+    askpass_path = os.path.abspath("askpass.sh")
+    env = os.environ.copy()
+    env["SSH_ASKPASS"] = askpass_path
+    env["DISPLAY"] = "dummy"
+    env["SSH_ASKPASS_REQUIRE"] = "force"
+    
+    proc = subprocess.run(cmd_args, env=env)
+    if proc.returncode != 0:
+        print(f"Command failed with exit code {proc.returncode}")
+        sys.exit(1)
+    print("\n--- Command Finished ---\n")
+
+if __name__ == "__main__":
+    # 1. Upload all files (replace if exist), excluding vendor, node_modules, etc.
+    #
+    # IMPORTANT: this rsyncs the *entire* project into the live public web root.
+    # Any loose file at the repo root — a debug script, a DB dump, a deploy
+    # helper with a hardcoded password — becomes instantly web-accessible
+    # unless explicitly excluded here. (This is exactly what happened: several
+    # *.php test/maintenance scripts and *.py deploy scripts containing this
+    # very SSH password were found live on production and had to be purged.)
+    # No real Laravel app code lives as a loose script at the project root —
+    # it all lives under app/, routes/, config/, resources/, etc. — so blanket-
+    # excluding root-level *.php/*.py/*.sh/*.exp files is safe and closes this
+    # class of leak for good, not just for the specific filenames seen so far.
+    rsync_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "--exclude", ".git/",
+        "--exclude", "vendor/",
+        "--exclude", "node_modules/",
+        "--exclude", ".env",
+        "--exclude", ".DS_Store",
+        "--exclude", "bootstrap/cache/",
+        "--exclude", "backups/",
+        "--exclude", "*.sql",
+        "--exclude", "/*.php",   # leading "/" = project root only, not app/ etc.
+        "--exclude", "/*.py",
+        "--exclude", "/*.sh",
+        "--exclude", "/*.exp",
+        "--exclude", "/*.md",
+        "--exclude", "public/debug_path.php",
+        "--exclude", "public/check_storage_link.php",
+        "--exclude", "public/log_viewer.php",
+        # A sample customer-data spreadsheet dropped at the project root (for
+        # designing the Process Trucking import template) got deployed to the
+        # live document root this way and was briefly publicly downloadable —
+        # same class of leak as the *.php/*.py exclusions above, just for
+        # spreadsheets instead of scripts.
+        "--exclude", "/*.xlsx",
+        "--exclude", "/*.xls",
+        "--exclude", "/*.csv",
+        "--exclude", ".phpunit.result.cache",
+        "./",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/"
+    ]
+    run_cmd(rsync_cmd)
+
+    # 1c. Sync user-uploaded files (QC error images, avatars, attachments, etc.)
+    # These are stored in storage/app/public/ locally and served via storage symlink on server.
+    rsync_storage_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "--ignore-existing",  # Don't overwrite files that already exist on the server
+        "storage/app/public/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/storage/app/public/"
+    ]
+    run_cmd(rsync_storage_cmd)
+
+    # 1b. Upload assets directly to public_html/js/ (without public/ prefix) just in case public_html is the document root
+    rsync_workspace_alpine_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "public/js/workspace-alpine.js",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/js/"
+    ]
+    run_cmd(rsync_workspace_alpine_cmd)
+
+    rsync_trello_board_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "public/js/trello-board.js",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/js/"
+    ]
+    run_cmd(rsync_trello_board_cmd)
+
+    # 2. Remove hot file + optimize caching on server.
+    # Do not run migrations from this performance deploy: the optimization pass
+    # must not modify schema or data.
+    # NOTE: the server's default `php` on PATH is 8.2 (Composer requires >=8.4.1),
+    # so every artisan call below silently no-ops on the platform check unless we
+    # point at the real PHP 8.4 binary explicitly.
+    PHP = "/opt/alt/php84/usr/bin/php"
+    ssh_cmd = [
+        "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
+        (
+            "cd domains/lightcyan-weasel-711536.hostingersite.com/public_html && "
+            "mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions && "
+            "chmod -R 775 storage bootstrap/cache && "
+            "rm -f public/hot && "
+            "rm -f bootstrap/cache/*.php && "
+            f"{PHP} artisan optimize:clear && "
+            f"{PHP} artisan optimize && "
+            f"{PHP} artisan view:cache && "
+            f"{PHP} artisan storage:link"
+        )
+    ]
+    run_cmd(ssh_cmd)
+
+    print("Done! Code uploaded and server cache cleared. Migrations were intentionally skipped.")

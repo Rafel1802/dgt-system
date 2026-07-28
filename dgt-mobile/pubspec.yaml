@@ -1,0 +1,35 @@
+name: dgt_mobile_app
+description: "KIUQ SYSTEM iOS mobile app - WebView wrapper."
+publish_to: 'none'
+
+version: 1.0.6+7
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.5.5
+  url_launcher: ^6.3.2
+  flutter_inappwebview: ^6.0.0
+
+dependency_overrides:
+  flutter_inappwebview_android:
+    path: third_party/flutter_inappwebview_android
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: "^0.13.1"
+
+flutter_launcher_icons:
+  image_path: "../public/master_1024.png"
+  ios: true
+  android: true
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
