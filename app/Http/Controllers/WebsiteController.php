@@ -28,14 +28,25 @@ class WebsiteController extends Controller
 
         $tab = $request->get('tab', 'build');
 
-        // Fetch all non-archived websites with relationships
-        $allWebsites = Website::with([
-            'handler', 'progressLogs', 'maintenanceLogs', 'qcChecks',
-            'activityLogs', 'activityLogs.user',
-        ])
+        // Fetch all non-archived websites — only eager-load the relationships
+        // that the ACTIVE tab's Blade template actually uses. This avoids loading
+        // progressLogs, maintenanceLogs, qcChecks, and activityLogs on every tab
+        // even when they are not rendered (the view uses @if($tab === '...') guards).
+        $tabRelations = match($tab) {
+            'build'            => ['handler'],
+            'build-progress'   => ['handler', 'progressLogs', 'qcChecks', 'activityLogs', 'activityLogs.user'],
+            'live'             => ['handler', 'maintenanceLogs'],
+            'maintenance'      => ['handler', 'maintenanceLogs'],
+            'qc-error'         => ['handler', 'activityLogs', 'activityLogs.user'],
+            'supervisor-error' => ['handler', 'activityLogs', 'activityLogs.user'],
+            default            => ['handler'],
+        };
+
+        $allWebsites = Website::with($tabRelations)
             ->where('is_archived', false)
             ->orderBy('name')
             ->get();
+
 
 
         // ── Build Website Tab ─────────────────────────────────────────────────

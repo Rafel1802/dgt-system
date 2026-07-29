@@ -166,7 +166,7 @@
     @endphp
     @foreach($tabs as $key => $tabInfo)
     @php $isActive = $tab === $key; $c = $colorMap[$tabInfo['color']]; @endphp
-    <a href="{{ route('websites.index', ['tab' => $key]) }}"
+    <a wire:navigate.hover href="{{ route('websites.index', ['tab' => $key]) }}"
        class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all duration-150 -mb-px rounded-t-lg whitespace-nowrap flex-shrink-0
               {{ $isActive ? $c['active'] . ' bg-white dark:bg-slate-800/50' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300' }}">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4 flex-shrink-0">
@@ -368,7 +368,7 @@
     <div class="card border border-dashed border-slate-200 dark:border-slate-700 p-16 text-center">
         <div class="text-5xl mb-4">📊</div>
         <h3 class="text-lg font-bold text-slate-700 dark:text-slate-200 mb-2">No websites in progress</h3>
-        <p class="text-slate-500 text-sm">Start a website from the <a href="{{ route('websites.index', ['tab' => 'build']) }}" class="text-indigo-500 font-semibold">Build Website</a> tab.</p>
+        <p class="text-slate-500 text-sm">Start a website from the <button type="button" @click="switchTab('build')" class="text-indigo-500 font-semibold hover:underline">Build Website</button> tab.</p>
     </div>
     @else
     <div>
@@ -769,7 +769,7 @@
     <div class="card border border-dashed border-slate-200 dark:border-slate-700 p-16 text-center">
         <div class="text-5xl mb-4">🔧</div>
         <h3 class="text-lg font-bold text-slate-700 dark:text-slate-200 mb-2">No websites under maintenance</h3>
-        <p class="text-slate-500 text-sm">Start maintenance from the <a href="{{ route('websites.index', ['tab' => 'live']) }}" class="text-indigo-500 font-semibold">Live Websites</a> tab.</p>
+        <p class="text-slate-500 text-sm">Start maintenance from the <button type="button" @click="switchTab('live')" class="text-indigo-500 font-semibold hover:underline">Live Websites</button> tab.</p>
     </div>
     @else
     <div>

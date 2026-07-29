@@ -15,8 +15,11 @@ class SocialMediaDashboardController extends Controller
         $isQc             = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss']);
 
         // Build class query based on role
-        $classQuery = SocialMediaClass::with(['activeItems', 'assignedUsers'])
-            ->withCount('activeItems as items_count');
+        $classQuery = SocialMediaClass::with(['activeItems', 'assignedUsers', 'posts' => function ($query) use ($user, $isQc) {
+            if (!$isQc) {
+                $query->where('user_id', $user->id);
+            }
+        }])->withCount('activeItems as items_count');
 
         $canSeeAllClasses = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss', 'digital-team']);
         // Remove the restriction so everyone sees all classes (unassigned users will see them in view-only mode)
@@ -24,14 +27,9 @@ class SocialMediaDashboardController extends Controller
         $classes = $classQuery->orderBy('name')->get();
 
         // Compute summary stats per class
-        $classesWithStats = $classes->map(function (SocialMediaClass $class) use ($user, $isQc) {
-            $postsQuery = $class->posts();
-
-            if (!$isQc) {
-                $postsQuery->where('user_id', $user->id);
-            }
-
-            $posts = $postsQuery->get();
+        $classesWithStats = $classes->map(function (SocialMediaClass $class) {
+            // Posts are already eager-loaded and filtered based on the role
+            $posts = $class->posts;
 
             return [
                 'model'       => $class,

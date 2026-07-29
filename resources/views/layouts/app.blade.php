@@ -79,6 +79,21 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         // Self-hosted Turbo — avoid unpkg RTT on every cold load (Hostinger users often far from CDN).
         import * as Turbo from "{{ asset('js/turbo.es2017-esm.js') }}?v={{ file_exists(public_path('js/turbo.es2017-esm.js')) ? filemtime(public_path('js/turbo.es2017-esm.js')) : '8.0.4' }}";
         Turbo.setProgressBarDelay(0);
+        
+        // Prevent Turbo from conflicting with Livewire's wire:navigate.
+        // Both Turbo and Livewire attempt to intercept SPA links. By adding
+        // data-turbo="false" to Livewire links, Turbo ignores them and lets
+        // Livewire's faster DOM-morphing handle the navigation seamlessly.
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('[wire\\:navigate], [wire\\:navigate\\.hover]').forEach(el => {
+                el.setAttribute('data-turbo', 'false');
+            });
+        });
+        document.addEventListener('turbo:load', () => {
+            document.querySelectorAll('[wire\\:navigate], [wire\\:navigate\\.hover]').forEach(el => {
+                el.setAttribute('data-turbo', 'false');
+            });
+        });
     </script>
     <script>
         (function() {
@@ -1109,9 +1124,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </a>
                         <a wire:navigate.hover href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-macos-app">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 18h8m-6 3h4m-9-6h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
                             </svg>
-                            macOS App
+                            Download App
                         </a>
                         <hr class="border-[var(--border-color)] my-1">
                         <form method="POST" action="{{ route('logout') }}">
@@ -1192,9 +1207,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                     <button type="button"
                             @if(View::hasSection('back_url'))
-                                onclick="window.location.href='@yield('back_url')'"
+                                onclick="window.Livewire ? Livewire.navigate('@yield('back_url')') : window.location.href='@yield('back_url')'"
                             @else
-                                onclick="window.history.length > 1 ? window.history.back() : window.location.href='{{ route('boards.workspaces') }}'"
+                                onclick="window.history.length > 1 ? window.history.back() : (window.Livewire ? Livewire.navigate('{{ route('boards.workspaces') }}') : window.location.href='{{ route('boards.workspaces') }}')"
                             @endif
                             class="mobile-back-btn"
                             title="Back"
@@ -1460,9 +1475,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </a>
                             <a wire:navigate.hover href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-macos-app">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 18h8m-6 3h4m-9-6h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
                                 </svg>
-                                macOS App
+                                Download App
                             </a>
                             <hr class="border-[var(--border-color)] my-1">
                             <form method="POST" action="{{ route('logout') }}">
