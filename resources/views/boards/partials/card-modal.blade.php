@@ -67,38 +67,107 @@
 
         {{-- Meta Badges Row --}}
         <div class="flex flex-wrap gap-6 mt-5 text-xs">
-          {{-- Active Labels --}}
-          <div x-show="activeCard?.labels?.length" class="min-w-[120px]">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Labels</p>
-            <div class="flex flex-wrap gap-1">
-              <template x-for="lbl in (activeCard?.labels ?? [])" :key="lbl.id">
-                <span class="px-2.5 py-1 rounded-md text-white font-semibold text-[10px] shadow-sm"
-                      :style="'background:'+lbl.color" x-text="lbl.name"></span>
-              </template>
-            </div>
-          </div>
+          {{-- SMM Specific: Team & Class Labels --}}
+          <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.template === 'workflow'">
+            <div class="flex flex-wrap gap-6 text-xs">
+              {{-- Assign By Badge --}}
+              <div class="min-w-[100px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Assign By</p>
+                <div class="flex items-center gap-1.5">
+                  <template x-if="activeCard?.creator">
+                    <div class="flex items-center gap-1.5">
+                      <img x-show="avatarUrl(activeCard.creator)" :src="avatarUrl(activeCard.creator)" :title="activeCard.creator.name" class="w-6 h-6 rounded-full object-cover shadow-sm">
+                      <span x-show="!avatarUrl(activeCard.creator)" class="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold text-slate-600 shadow-sm" x-text="avatarInitials(activeCard.creator)" :title="activeCard.creator.name"></span>
+                      <span class="text-xs font-semibold text-slate-700" x-text="activeCard.creator.name"></span>
+                    </div>
+                  </template>
+                  <span x-show="!activeCard?.creator" class="text-xs font-semibold text-slate-400">None</span>
+                </div>
+              </div>
 
-          {{-- Assignees --}}
-          <div x-show="activeCard?.assignees?.length" class="min-w-[120px]">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Members</p>
-            <div class="flex flex-wrap gap-1">
-              <template x-for="m in (activeCard?.assignees ?? [])" :key="m.id">
-                <span>
-                  <template x-if="avatarUrl(m)">
-                    <img :src="avatarUrl(m)" :alt="m.name" :title="m.name"
-                         @dblclick.stop="openAvatarPreview(m)"
-                         class="w-7 h-7 cursor-zoom-in rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100 hover:scale-105 transition-transform">
+              {{-- Assign To (Members) --}}
+              <div x-show="activeCard?.assignees?.length" class="min-w-[100px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Assign To</p>
+                <div class="flex flex-wrap gap-1 -space-x-1">
+                  <template x-for="m in (activeCard?.assignees ?? [])" :key="m.id">
+                    <span>
+                      <template x-if="avatarUrl(m)">
+                        <img :src="avatarUrl(m)" :alt="m.name" :title="m.name"
+                             @dblclick.stop="openAvatarPreview(m)"
+                             class="w-6 h-6 cursor-zoom-in rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100 hover:scale-105 transition-transform">
+                      </template>
+                      <template x-if="!avatarUrl(m)">
+                        <span class="w-6 h-6 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100 flex items-center justify-center text-[9px] font-black text-slate-600 bg-slate-200"
+                              x-text="avatarInitials(m)"
+                              :title="m.name"></span>
+                      </template>
+                    </span>
                   </template>
-                  <template x-if="!avatarUrl(m)">
-                    <span class="w-7 h-7 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100 flex items-center justify-center text-[10px] font-black text-white"
-                          :style="avatarStyle(m)"
-                          x-text="avatarInitials(m)"
-                          :title="m.name"></span>
+                </div>
+              </div>
+
+              {{-- Team Label Badge --}}
+              <div x-show="activeCard?.smm_team_label" class="min-w-[100px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Team</p>
+                <span class="px-2.5 py-1 rounded-md text-slate-700 bg-slate-100 font-bold text-[10px] shadow-sm" x-text="activeCard?.smm_team_label"></span>
+              </div>
+              
+              {{-- Class Label Badge --}}
+              <div x-show="activeCard?.smm_class_label" class="min-w-[100px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Class</p>
+                <span class="px-2.5 py-1 rounded-md text-indigo-700 bg-indigo-50 font-bold text-[10px] shadow-sm" x-text="activeCard?.smm_class_label"></span>
+              </div>
+
+              {{-- Active Labels (Standard) --}}
+              <div x-show="activeCard?.labels?.length" class="min-w-[120px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Labels</p>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="lbl in (activeCard?.labels ?? [])" :key="lbl.id">
+                    <span class="px-2.5 py-1 rounded-md text-white font-semibold text-[10px] shadow-sm"
+                          :style="'background:'+lbl.color" x-text="lbl.name"></span>
                   </template>
-                </span>
-              </template>
+                </div>
+              </div>
             </div>
-          </div>
+          </template>
+
+          {{-- Standard Meta Badges --}}
+          <template x-if="!(board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.template === 'workflow')">
+            <div class="flex flex-wrap gap-6 text-xs">
+              {{-- Active Labels --}}
+              <div x-show="activeCard?.labels?.length" class="min-w-[120px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Labels</p>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="lbl in (activeCard?.labels ?? [])" :key="lbl.id">
+                    <span class="px-2.5 py-1 rounded-md text-white font-semibold text-[10px] shadow-sm"
+                          :style="'background:'+lbl.color" x-text="lbl.name"></span>
+                  </template>
+                </div>
+              </div>
+
+              {{-- Assignees --}}
+              <div x-show="activeCard?.assignees?.length" class="min-w-[120px]">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Members</p>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="m in (activeCard?.assignees ?? [])" :key="m.id">
+                    <span>
+                      <template x-if="avatarUrl(m)">
+                        <img :src="avatarUrl(m)" :alt="m.name" :title="m.name"
+                             @dblclick.stop="openAvatarPreview(m)"
+                             class="w-7 h-7 cursor-zoom-in rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100 hover:scale-105 transition-transform">
+                      </template>
+                      <template x-if="!avatarUrl(m)">
+                        <span class="w-7 h-7 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100 flex items-center justify-center text-[10px] font-black text-white"
+                              :style="avatarStyle(m)"
+                              x-text="avatarInitials(m)"
+                              :title="m.name"></span>
+                      </template>
+                    </span>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
 
           {{-- Due Date → opens Trello-style date picker --}}
           <div class="min-w-[180px]">
@@ -544,63 +613,82 @@
         <div class="space-y-4">
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">Add to Card</p>
           
-          {{-- Members → opens dedicated Trello-style member picker --}}
-          <div class="relative">
-            <button @click="openMemberPicker(activeCard)" data-ctx-panel="members"
-                    class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl">
-              <span class="text-sm">👤</span>
-              <span class="font-semibold">Members</span>
-              <template x-if="activeCard?.assignees?.length">
-                <span class="ml-auto bg-indigo-100 text-indigo-700 text-[10px] font-extrabold
-                             px-1.5 py-0.5 rounded-md" x-text="activeCard.assignees.length"></span>
-              </template>
-            </button>
-          </div>
-
-          {{-- Labels Dropdown Action --}}
-          <div class="relative" x-data="{ open: false, search: '' }">
-            <button @click="open = !open; search = ''; $nextTick(() => { if(open) $refs.labelSearch.focus() })" data-ctx-panel="labels"
-                  class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl">
-              <span class="text-sm">🏷</span>
-              <span class="font-semibold">Labels</span>
-            </button>
-            <div x-show="open" @click.outside="open = false" x-cloak
-                 class="absolute right-0 top-11 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 py-1.5"
-                 x-transition:enter="transition ease-out duration-75"
-                 x-transition:enter-start=" scale-95"
-                 x-transition:enter-end=" scale-100">
-              <p class="text-[10px] uppercase font-bold text-slate-400 px-3 py-1.5 border-b border-slate-100 select-none">Card Labels</p>
-              
-              <div class="px-2 py-1.5 border-b border-slate-100">
-                  <input type="text" x-model="search" x-ref="labelSearch"
-                         placeholder="Search labels..." 
-                         class="form-input w-full text-xs py-1.5 px-2 rounded-lg border-slate-200 shadow-inner">
+          {{-- SMM Specific Actions --}}
+          <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.template === 'workflow'">
+            <div>
+              {{-- Assign By Dropdown --}}
+              <div class="relative mb-2">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-1 select-none">Assign By</p>
+                <button @click="openMemberPicker(activeCard, 'assignBy')"
+                        class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2 px-3 flex items-center shadow-sm transition-all rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+                  <span class="text-sm">👤</span>
+                  <span class="font-semibold text-slate-700" x-text="activeCard?.creator?.name || 'Select Assign By...'"></span>
+                </button>
               </div>
 
-              <div class="max-h-48 overflow-y-auto">
-                <template x-for="lbl in labels.filter(l => l.name.toLowerCase().includes(search.toLowerCase()))" :key="lbl.id">
-                  <button @click="toggleLabel(lbl.id)"
-                          class="w-full flex items-center justify-between px-3 py-2.5 text-xs text-left hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
-                    <div class="flex items-center gap-2">
-                      <span class="w-3.5 h-3.5 rounded-full border border-slate-200 shadow-sm" :style="'background:'+lbl.color"></span>
-                      <span class="font-medium text-slate-700" x-text="lbl.name"></span>
-                    </div>
-                    <template x-if="activeCard?.labels?.find(l => l.id === lbl.id)">
-                      <span class="text-indigo-600 font-extrabold text-xs">✓</span>
-                    </template>
-                  </button>
-                </template>
-              </div>
-
-              {{-- Create Label --}}
-              <div x-show="labels.filter(l => l.name.toLowerCase().includes(search.toLowerCase())).length === 0 && search.trim() !== ''" class="px-3 py-2 text-center border-t border-slate-100 mt-1">
-                  <p class="text-[10px] text-slate-500 mb-1.5">No matching labels found.</p>
-                  <button @click="createNewBoardLabel(search)" class="btn btn-primary w-full text-[10px] py-1.5 font-bold rounded shadow-sm">
-                      Create "<span x-text="search"></span>"
-                  </button>
+              {{-- Assign To (Members Picker) --}}
+              <div class="relative mb-2">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 ml-1 select-none">Assign To</p>
+                <button @click="openMemberPicker(activeCard)" data-ctx-panel="members"
+                        class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2 px-3 flex items-center shadow-sm transition-all rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+                  <span class="text-sm">👤</span>
+                  <span class="font-semibold text-slate-700">Select Assignees...</span>
+                  <template x-if="activeCard?.assignees?.length">
+                    <span class="ml-auto bg-indigo-100 text-indigo-700 text-[10px] font-extrabold px-1.5 py-0.5 rounded-md" x-text="activeCard.assignees.length"></span>
+                  </template>
+                </button>
               </div>
             </div>
-          </div>
+          </template>
+
+          {{-- Standard Actions --}}
+          <div>
+              {{-- Labels Dropdown Action --}}
+              <div class="relative" x-data="{ open: false, search: '' }">
+                <button @click="open = !open; search = ''; $nextTick(() => { if(open) $refs.labelSearch.focus() })" data-ctx-panel="labels"
+                      class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl">
+                  <span class="text-sm">🏷</span>
+                  <span class="font-semibold">Labels</span>
+                </button>
+                <div x-show="open" @click.outside="open = false" x-cloak
+                     class="absolute right-0 top-11 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 py-1.5"
+                     x-transition:enter="transition ease-out duration-75"
+                     x-transition:enter-start=" scale-95"
+                     x-transition:enter-end=" scale-100">
+                  <p class="text-[10px] uppercase font-bold text-slate-400 px-3 py-1.5 border-b border-slate-100 select-none">Card Labels</p>
+                  
+                  <div class="px-2 py-1.5 border-b border-slate-100">
+                      <input type="text" x-model="search" x-ref="labelSearch"
+                             placeholder="Search labels..." 
+                             class="form-input w-full text-xs py-1.5 px-2 rounded-lg border-slate-200 shadow-inner">
+                  </div>
+
+                  <div class="max-h-48 overflow-y-auto">
+                    <template x-for="lbl in labels.filter(l => l.name.toLowerCase().includes(search.toLowerCase()))" :key="lbl.id">
+                      <button @click="toggleLabel(lbl.id)"
+                              class="w-full flex items-center justify-between px-3 py-2.5 text-xs text-left hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
+                        <div class="flex items-center gap-2">
+                          <span class="w-3.5 h-3.5 rounded-full border border-slate-200 shadow-sm" :style="'background:'+lbl.color"></span>
+                          <span class="font-medium text-slate-700" x-text="lbl.name"></span>
+                        </div>
+                        <template x-if="activeCard?.labels?.find(l => l.id === lbl.id)">
+                          <span class="text-indigo-600 font-extrabold text-xs">✓</span>
+                        </template>
+                      </button>
+                    </template>
+                  </div>
+
+                  {{-- Create Label --}}
+                  <div x-show="labels.filter(l => l.name.toLowerCase().includes(search.toLowerCase())).length === 0 && search.trim() !== ''" class="px-3 py-2 text-center border-t border-slate-100 mt-1">
+                      <p class="text-[10px] text-slate-500 mb-1.5">No matching labels found.</p>
+                      <button @click="createNewBoardLabel(search)" class="btn btn-primary w-full text-[10px] py-1.5 font-bold rounded shadow-sm">
+                          Create "<span x-text="search"></span>"
+                      </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
 
           {{-- Dates action → opens dedicated Trello-style date picker --}}
           <button @click="openDatePicker(activeCard)" data-ctx-panel="dates"

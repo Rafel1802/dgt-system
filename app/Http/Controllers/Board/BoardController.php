@@ -229,10 +229,12 @@ class BoardController extends Controller
         $board->load(['activeLists.cards' => function ($query) {
             $query->withCount('comments')
                   ->with([
+                      'creator',
                       'assignees',
                       'labels',
                       'checklists.items',
-                      'files'
+                      'files',
+                      'activities.user'
                   ]);
         }]);
 
@@ -294,11 +296,16 @@ class BoardController extends Controller
             ],
             'boardId'   => $board->id,
             'boardSlug' => $board->slug,
+            'boardType' => $board->type,
+            'baseRoute' => $board->type === 'smm' ? 'smm-boards' : 'boards',
             'csrfToken' => csrf_token(),
             'currentUserId' => $user->id,
             'currentUser' => [
                 'id' => $user->id,
                 'name' => $user->name,
+                'avatar_url' => $user->avatar_url,
+                'avatar_initials' => $user->avatar_initials,
+                'avatar_color' => $user->avatar_color,
                 'is_digital_team' => $user->hasRole('digital-team'),
                 'can_move_any_card' => $this->canMoveAnyCard($user),
                 'can_manage_blocked_cards' => $this->canManageBlockedCards($user),
@@ -333,6 +340,56 @@ class BoardController extends Controller
                     'checklist_done'  => $c->checklists->flatMap->items->where('is_completed',true)->count(),
                     'has_files'       => $c->files->count() > 0,
                     'comment_count'   => $c->comments_count ?? 0,
+                    'creator' => $c->creator ? [
+                        'id' => $c->creator->id,
+                        'name' => $c->creator->name,
+                        'avatar' => $c->creator->avatar_url,
+                        'initials' => $c->creator->avatar_initials,
+                        'avatar_color' => $c->creator->avatar_color,
+                    ] : null,
+                    'description' => $c->description,
+                    'checklists' => $c->checklists->map(fn($cl) => [
+                         'id' => $cl->id,
+                         'title' => $cl->title,
+                         'position' => $cl->position,
+                         'items' => $cl->items->map(fn($item) => [
+                              'id' => $item->id,
+                              'title' => $item->title,
+                              'is_completed' => (bool)$item->is_completed,
+                         ])->values()->all(),
+                    ])->values()->all(),
+                    'files' => $c->files->map(fn($f) => [
+                         'id' => $f->id,
+                         'name' => $f->original_name,
+                         'url' => \Illuminate\Support\Facades\Storage::url($f->path),
+                         'created_at' => $f->created_at?->toISOString(),
+                         'time_ago' => $f->created_at?->format('M j, Y'),
+                    ])->values()->all(),
+                    'comments' => $c->comments->map(fn($comment) => [
+                        'id' => $comment->id,
+                        'body' => $comment->body ?? $comment->content,
+                        'content' => $comment->body ?? $comment->content,
+                        'user_id' => $comment->user_id,
+                        'created_at' => $comment->created_at?->toISOString(),
+                        'user' => $comment->user ? [
+                            'id' => $comment->user->id,
+                            'name' => $comment->user->name,
+                            'avatar' => $comment->user->avatar_url,
+                            'avatar_initials' => $comment->user->avatar_initials,
+                            'avatar_color' => $comment->user->avatar_color,
+                        ] : null,
+                    ])->values()->all(),
+                    'activities' => $c->activities->take(15)->map(fn($log) => [
+                        'id'          => $log->id,
+                        'user_name'   => $log->user?->name ?? 'System',
+                        'user_avatar' => $log->user?->avatar_url ?? null,
+                        'user_initials' => $log->user?->avatar_initials ?? 'SY',
+                        'user_avatar_color' => $log->user?->avatar_color ?? '#64748b',
+                        'description' => $log->description,
+                        'action'      => $log->action,
+                        'created_at'  => $log->created_at?->toISOString(),
+                        'time_ago'    => $log->created_at ? $log->created_at->format('M j, Y, g:i A') : 'N/A',
+                    ])->values()->all(),
                 ])->values()->all(),
             ])->values()->all(),
             'labels'           => \App\Models\Label::where(function($q) use ($board) {
@@ -392,6 +449,14 @@ class BoardController extends Controller
                         'avatar' => $m->avatar_url,
                     ])->values()->all(),
                 ])->values()->all(),
+            ])->values()->all(),
+            'allSystemMembers' => $possibleBoardUsers->map(fn($u) => [
+                'id'      => $u->id,
+                'name'    => $u->name,
+                'email'   => $u->email,
+                'avatar'  => $u->avatar_url,
+                'initials'=> $u->avatar_initials,
+                'avatar_color' => $u->avatar_color,
             ])->values()->all(),
         ];
 
@@ -1589,6 +1654,15 @@ class BoardController extends Controller
             $workspace->members()->attach($validated['user_id']);
         }
 
+        // For SMM Workspace: auto-add the user to ALL SMM boards in the workspace
+        if ($workspace->name === 'Social Media Management' || stripos($workspace->name, 'smm') !== false) {
+            foreach ($workspace->boards as $board) {
+                if (! $board->members()->where('users.id', $validated['user_id'])->exists()) {
+                    $board->members()->attach($validated['user_id'], ['role' => 'member']);
+                }
+            }
+        }
+
         return response()->json(['message' => 'Member added to workspace']);
     }
 
@@ -1597,6 +1671,13 @@ class BoardController extends Controller
         $this->authorizeWorkspace($workspace->id);
 
         $workspace->members()->detach($user->id);
+
+        // For SMM Workspace: auto-remove the user from ALL SMM boards in the workspace
+        if ($workspace->name === 'Social Media Management' || stripos($workspace->name, 'smm') !== false) {
+            foreach ($workspace->boards as $board) {
+                $board->members()->detach($user->id);
+            }
+        }
 
         return response()->json(['message' => 'Member removed from workspace']);
     }
@@ -1646,6 +1727,7 @@ class BoardController extends Controller
                 'members:id,name,avatar',
             ])
                 ->where('is_active', true)
+                ->where('name', '!=', 'Social Media Management')
                 ->orderBy('position')
                 ->orderBy('id')
                 ->get();
@@ -1657,6 +1739,7 @@ class BoardController extends Controller
                 'members:id,name,avatar',
             ])
                 ->where('is_active', true)
+                ->where('name', '!=', 'Social Media Management')
                 ->orderBy('position')
                 ->orderBy('id')
                 ->get();

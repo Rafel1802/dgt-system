@@ -193,6 +193,24 @@
               <span class="badge" :class="detailCard.card.priority === 'urgent' ? 'badge-rose' : detailCard.card.priority === 'high' ? 'badge-amber' : detailCard.card.priority === 'medium' ? 'badge-sky' : 'badge-slate'"
                     x-text="detailCard.card.priority?.charAt(0).toUpperCase() + detailCard.card.priority?.slice(1)"></span>
             </div>
+            
+            {{-- SMM Class Label --}}
+            <div x-show="detailCard.card.smm_class_label">
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">SMM Class</p>
+              <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30" x-text="detailCard.card.smm_class_label"></span>
+            </div>
+
+            {{-- SMM Team Label --}}
+            <div x-show="detailCard.card.smm_team_label">
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">SMM Team</p>
+              <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30" x-text="detailCard.card.smm_team_label"></span>
+            </div>
+
+            {{-- Start Date --}}
+            <div x-show="detailCard.card.start_date">
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Start Date</p>
+              <p class="text-slate-700 font-medium" x-text="detailCard.card.start_date ? new Date(detailCard.card.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : ''"></p>
+            </div>
 
             {{-- Deadline --}}
             <div x-show="detailCard.card.deadline">

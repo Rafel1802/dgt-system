@@ -295,6 +295,24 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::delete('/cards/{card}/files/{file}', [CardFileController::class, 'destroy'])->name('files.destroy');
             });
 
+        // ── SMM Planning Boards ───────────────────────────────────────────
+        Route::prefix('smm-boards')
+            ->name('smm-boards.')
+            ->middleware(['auth', 'ensure.active', 'role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team'])
+            ->group(function () {
+                Route::get('/', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'store'])->name('store');
+                Route::post('/{board}/duplicate', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'duplicate'])->name('duplicate');
+                Route::patch('/{board}/toggle-active', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'toggleActive'])->name('toggle-active');
+                Route::patch('/{board}/toggle-hidden', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'toggleHidden'])->name('toggle-hidden');
+                Route::delete('/{board}', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'destroy'])->name('destroy');
+                
+                // Import
+                Route::get('/{board:slug}/import/template', [\App\Http\Controllers\SocialMedia\SmmImportController::class, 'template'])->name('import.template');
+                Route::post('/{board:slug}/import/preview', [\App\Http\Controllers\SocialMedia\SmmImportController::class, 'preview'])->name('import.preview');
+                Route::post('/{board:slug}/import/confirm', [\App\Http\Controllers\SocialMedia\SmmImportController::class, 'confirm'])->name('import.confirm');
+            });
+
         // ── Settings ────────────────────────────────────────────────────────
         Route::middleware(['role:super-admin|admin-digital'])->prefix('settings')->name('settings.')->group(function () {
             Route::get('/', [SettingController::class, 'index'])->name('index');

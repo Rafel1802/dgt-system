@@ -24,6 +24,7 @@ window.trelloBoard = function(config) {
     // All members for filtering (set from PHP injected config)
     allBoardMembers:     config.boardMembers     || [],
     allWorkspaceMembers: config.workspaceMembers || [],
+    allSystemMembers:    config.allSystemMembers || [],
     allWorkspaces:       config.allWorkspaces    || [],
 
     // Filters & Zoom
@@ -31,6 +32,9 @@ window.trelloBoard = function(config) {
     searchQuery: '',
     filterPriority: '',
     filterAssignee: '',
+    filterAssignBy: '',
+    filterLabel: '',
+    filterStatus: '',
     filterDateFrom: '',
     filterDateTo: '',
     filtersOpen: false,
@@ -124,6 +128,7 @@ window.trelloBoard = function(config) {
       step: 1,           // 1=source, 2=preview, 3=done
       source: 'csv',     // 'csv' | 'sheets'
       sheetsUrl: '',
+      worksheetName: '',
       file: null,
       dragOver: false,
       preview: null,     // JSON from /import/preview
@@ -863,32 +868,20 @@ window.trelloBoard = function(config) {
         recurring:  dp.recurring || 'none',
       };
 
-      const res = await this.api(`/boards/cards/${id}`, 'PATCH', payload);
-      if (res.card || res.message) {
-        // Sync into active card modal if open
-        if (this.activeCard && this.activeCard.id === id) {
-          Object.assign(this.activeCard, {
-            due_at:     payload.due_at,
-            start_date: payload.start_date,
-            due_time:   payload.due_time,
-            reminder:   payload.reminder,
-            recurring:  payload.recurring,
-          });
-        }
-        // Sync into board list card for badge
-        this.lists.forEach(l => {
-          const c = l.cards.find(c => c.id === id);
-          if (c) {
-            c.due_at     = payload.due_at;
-            c.start_date = payload.start_date;
-            c.due_time   = payload.due_time;
-            c.reminder   = payload.reminder;
-            c.recurring  = payload.recurring;
-          }
-        });
-        window.showToast('Dates saved!');
-        this.closeDatePicker();
+      // Optimistic update
+      if (this.activeCard && this.activeCard.id === id) {
+        Object.assign(this.activeCard, payload);
       }
+      // Sync into board list card for badge
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === id);
+        if (c) Object.assign(c, payload);
+      });
+      window.showToast('Dates saved!');
+      this.closeDatePicker();
+
+      // Background API call
+      this.api(`/boards/cards/${id}`, 'PATCH', payload).catch(() => {});
     },
 
     async removeDates() {
@@ -1251,6 +1244,9 @@ window.trelloBoard = function(config) {
       if (this.searchQuery.trim()) count++;
       if (this.filterPriority) count++;
       if (this.filterAssignee) count++;
+      if (this.filterAssignBy) count++;
+      if (this.filterLabel) count++;
+      if (this.filterStatus) count++;
       if (this.filterDateFrom) count++;
       if (this.filterDateTo) count++;
       return count;
@@ -1260,6 +1256,9 @@ window.trelloBoard = function(config) {
       this.searchQuery = '';
       this.filterPriority = '';
       this.filterAssignee = '';
+      this.filterAssignBy = '';
+      this.filterLabel = '';
+      this.filterStatus = '';
       this.filterDateFrom = '';
       this.filterDateTo = '';
       this.searchOpen = false;
@@ -1281,10 +1280,35 @@ window.trelloBoard = function(config) {
           if (c.priority !== this.filterPriority) return false;
         }
 
+        // Label
+        if (this.filterLabel) {
+          if (!c.labels || !c.labels.some(lbl => lbl.id == this.filterLabel)) return false;
+        }
+
         // Assignee
         if (this.filterAssignee) {
           const hasAssignee = c.assignees && c.assignees.some(u => u.id === parseInt(this.filterAssignee));
           if (!hasAssignee) return false;
+        }
+
+        // Assign By
+        if (this.filterAssignBy) {
+          if (!c.creator || c.creator.id !== parseInt(this.filterAssignBy)) return false;
+        }
+
+        // Team Label
+        if (this.filterTeamLabel) {
+          if (!c.smm_team_label || !c.smm_team_label.toLowerCase().includes(this.filterTeamLabel.toLowerCase())) return false;
+        }
+
+        // SMM Class
+        if (this.filterSmmClass) {
+          if (!c.smm_class_label || !c.smm_class_label.toLowerCase().includes(this.filterSmmClass.toLowerCase())) return false;
+        }
+
+        // Status
+        if (this.filterStatus) {
+          if (c.status !== this.filterStatus && (!c.status || this.filterStatus !== 'approved' || c.status.toLowerCase() !== 'approved')) return false;
         }
 
         if (this.filterDateFrom || this.filterDateTo) {
@@ -2110,7 +2134,7 @@ window.trelloBoard = function(config) {
       params.append('include_desc', em.includeDesc ? '1' : '0');
 
       const route = em.format === 'pdf' ? 'export/pdf' : 'export/csv';
-      const url = `/boards/${this.boardSlug}/${route}?${params.toString()}`;
+      const url = `/${this.baseRoute || 'boards'}/${this.boardSlug}/${route}?${params.toString()}`;
 
       if (em.format === 'pdf') {
         // Open PDF report in a new tab for printing
@@ -2132,6 +2156,7 @@ window.trelloBoard = function(config) {
       im.step = 1;
       im.source = 'csv';
       im.sheetsUrl = '';
+      im.worksheetName = '';
       im.file = null;
       im.preview = null;
       im.error = null;
@@ -2163,7 +2188,7 @@ window.trelloBoard = function(config) {
     },
 
     downloadImportTemplate() {
-      window.location.href = `/boards/${this.boardSlug}/import/template`;
+      window.location.href = `/${this.baseRoute || 'boards'}/${this.boardSlug}/import/template`;
     },
 
     async importPreview() {
@@ -2187,10 +2212,14 @@ window.trelloBoard = function(config) {
         }
         formData.append('sheets_url', im.sheetsUrl.trim());
       }
+      
+      if (im.worksheetName.trim()) {
+        formData.append('worksheet_name', im.worksheetName.trim());
+      }
 
       try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || this.csrfToken;
-        const res = await fetch(`/boards/${this.boardSlug}/import/preview`, {
+        const res = await fetch(`/${this.baseRoute || 'boards'}/${this.boardSlug}/import/preview`, {
           method: 'POST',
           headers: {
             'X-CSRF-TOKEN': csrfToken,
@@ -2400,44 +2429,77 @@ window.trelloBoard = function(config) {
       const title = this.newCardTitle.trim();
       if (!title) return;
 
+      const list = this.lists.find(l => l.id === listId);
+      if (!list) return;
+
+      // Optimistic Create
+      const tempId = 'temp-' + Date.now();
+      const tempCard = {
+        id: tempId,
+        title: title,
+        priority: 'medium',
+        due_at: null,
+        labels: [],
+        assignees: [],
+        creator: this.currentUser,
+        created_by: this.currentUser?.id,
+        checklist_total: 0,
+        checklist_done: 0,
+        has_files: false,
+        comment_count: 0,
+      };
+      list.cards.push(tempCard);
+      
+      this.newCardTitle = '';
+      this.addingCardListId = null;
+
+      // Background Sync
       const res = await this.api(`/boards/${this.boardSlug}/cards`, 'POST', {
         board_list_id: listId,
         title,
       });
 
       if (res.card) {
-        const list = this.lists.find(l => l.id === listId);
-        if (list) {
-          list.cards.push({
-            id:              res.card.id,
-            title:           res.card.title,
-            priority:        res.card.priority ?? 'medium',
-            due_at:          res.card.due_at ?? null,
-            labels:          [],
-            assignees:       [],
-            checklist_total: 0,
-            checklist_done:  0,
-            has_files:       false,
-            comment_count:   0,
-          });
+        const idx = list.cards.findIndex(c => c.id === tempId);
+        if (idx !== -1) {
+          list.cards[idx] = res.card;
         }
-        this.newCardTitle     = '';
-        this.addingCardListId = null;
         window.showToast(`Card "${title}" added!`);
       }
     },
 
     // ── Card detail modal ────────────────────────────────────────────────────
     async openCard(cardId) {
-      this.activeCard     = null;
-      this.cardLoading    = true;
       this.newComment     = '';
       this.cardActivities = [];
       this.isEditingDesc  = false;
 
+      // Optimistic Open: Instantly show whatever data we already have from the board
+      let foundCard = null;
+      for (const l of this.lists) {
+        foundCard = l.cards.find(c => c.id === cardId);
+        if (foundCard) break;
+      }
+      
+      if (foundCard) {
+        // Deep clone so we don't modify the list version directly until needed, but keep ALL properties
+        this.activeCard = JSON.parse(JSON.stringify(foundCard));
+        this.cardActivities = foundCard.activities || [];
+        this.cardLoading = false; // Show instantly
+      } else {
+        this.activeCard = null;
+        this.cardLoading = true;
+      }
+
+      // Background Fetch for full details (comments, activities, etc.)
       const res = await this.api(`/boards/cards/${cardId}`, 'GET');
       if (res.card) {
-        this.activeCard = res.card;
+        if (!this.activeCard) {
+          this.activeCard = res.card;
+        } else {
+          // Mutate properties to avoid full DOM redraw / blink
+          Object.assign(this.activeCard, res.card);
+        }
         this.cardActivities = res.activities || [];
       }
       this.cardLoading = false;
@@ -2520,10 +2582,11 @@ window.trelloBoard = function(config) {
     },
 
     // ── Member Picker ──────────────────────────────────────────────────────────────
-    openMemberPicker(card) {
+    openMemberPicker(card, mode = 'assignee') {
       if (!card) return;
       const mp       = this.memberPicker;
       mp.cardId      = card.id;
+      mp.mode        = mode;
       mp.search      = '';
       mp.loading     = false;
       this.mpSeparateMembers(card);
@@ -2536,7 +2599,26 @@ window.trelloBoard = function(config) {
 
     // Split allBoardMembers / allWorkspaceMembers into three buckets for the picker
     mpSeparateMembers(card) {
-      const mp            = this.memberPicker;
+      const mp = this.memberPicker;
+
+      if (mp.mode === 'assignBy') {
+        const creatorId = card.created_by || card.creator?.id;
+        const assignedMembers = this.allSystemMembers.filter(u => u.id === creatorId);
+        mp.cardMembers = assignedMembers.map(a => ({
+          id:       a.id,
+          name:     a.name,
+          email:    a.email || '',
+          avatar:   a.avatar || a.avatar_url || '',
+          initials: a.avatar_initials || a.initials || this.avatarInitials(a),
+          avatar_color: a.avatar_color || this.avatarColor(a),
+        }));
+        mp.boardMembers = this.allSystemMembers
+          .filter(u => u.id !== creatorId)
+          .map(u => ({ ...u }));
+        mp.workspaceMembers = [];
+        return;
+      }
+
       const assigneeIds   = new Set((card.assignees || []).map(a => a.id));
       const boardMemberIds = new Set(this.allBoardMembers.map(u => u.id));
 
@@ -2602,21 +2684,57 @@ window.trelloBoard = function(config) {
       const card = this.activeCard;
       if (!card) return;
 
+      if (this.memberPicker.mode === 'assignBy') {
+        // Optimistic UI for Assign By
+        card.created_by = user.id;
+        card.creator = user;
+        this.lists.forEach(l => {
+          const c = l.cards.find(x => x.id === card.id);
+          if (c) {
+            c.created_by = user.id;
+            c.creator = user;
+          }
+        });
+        this.mpSeparateMembers(card);
+        this.closeMemberPicker();
+
+        // Background update
+        const res = await this.api(`/boards/cards/${card.id}`, 'PATCH', { created_by: user.id });
+        if (res.card) {
+          window.showToast("Assign By updated");
+          this.refreshCardActivities();
+        }
+        return;
+      }
+
       const isAssigned = (card.assignees || []).some(a => a.id === user.id);
+      
+      // Optimistic UI Update (Instant)
+      if (isAssigned) {
+        card.assignees = card.assignees.filter(a => a.id !== user.id);
+      } else {
+        card.assignees.push(user);
+      }
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === card.id);
+        if (c) c.assignees = card.assignees;
+      });
+      this.mpSeparateMembers(card); // Re-render picker instantly
+
+      // Background API Request
       const res = await this.api(`/boards/cards/${card.id}/members`, 'POST', { user_id: user.id });
 
       if (res.assignees !== undefined) {
-        // Update active card
+        // Update to confirm state from server
         card.assignees = res.assignees;
-        // Update board list card
         this.lists.forEach(l => {
           const c = l.cards.find(x => x.id === card.id);
           if (c) c.assignees = res.assignees;
         });
-        // Re-separate so the picker buckets update instantly
         this.mpSeparateMembers(card);
         this.loadBoardMembers();
         window.showToast(res.message || (isAssigned ? 'Member removed.' : 'Member added.'));
+        this.refreshCardActivities();
       }
     },
 
@@ -2647,11 +2765,29 @@ window.trelloBoard = function(config) {
 
     async toggleLabel(labelId) {
       if (!this.activeCard) return;
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/labels`, 'POST', { label_id: labelId });
+      const card = this.activeCard;
+      const lbl = this.labels.find(l => l.id === labelId);
+      if (!lbl) return;
+
+      const hasLabel = (card.labels || []).some(l => l.id === labelId);
+
+      // Optimistic UI Update (Instant)
+      if (hasLabel) {
+        card.labels = card.labels.filter(l => l.id !== labelId);
+      } else {
+        card.labels.push(lbl);
+      }
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === card.id);
+        if (c) c.labels = card.labels;
+      });
+
+      // Background Sync
+      const res = await this.api(`/boards/cards/${card.id}/labels`, 'POST', { label_id: labelId });
       if (res.labels) {
-        this.activeCard.labels = res.labels;
+        card.labels = res.labels;
         this.lists.forEach(l => {
-          const c = l.cards.find(x => x.id === this.activeCard.id);
+          const c = l.cards.find(x => x.id === card.id);
           if (c) c.labels = res.labels;
         });
         window.showToast(res.message);
@@ -2672,13 +2808,18 @@ window.trelloBoard = function(config) {
       });
       if (!title) return;
 
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists`, 'POST', { title });
-      if (res.checklist) {
-        if (!this.activeCard.checklists) this.activeCard.checklists = [];
-        this.activeCard.checklists.push(res.checklist);
-        window.showToast('Checklist added successfully!');
-        this.refreshCardActivities();
-      }
+      const tempId = 'temp-cl-' + Date.now();
+      const fakeChecklist = { id: tempId, title: title, name: title, items: [] };
+      if (!this.activeCard.checklists) this.activeCard.checklists = [];
+      this.activeCard.checklists.push(fakeChecklist);
+      window.showToast('Checklist added!');
+
+      this.api(`/boards/cards/${this.activeCard.id}/checklists`, 'POST', { title }).then(res => {
+        if (res.checklist) {
+          const idx = this.activeCard.checklists.findIndex(c => c.id === tempId);
+          if (idx !== -1) this.activeCard.checklists[idx] = res.checklist;
+        }
+      }).catch(() => {});
     },
 
     async deleteChecklist(cl) {
@@ -2688,12 +2829,16 @@ window.trelloBoard = function(config) {
         confirmText: 'Delete checklist',
         tone: 'danger',
       })) return;
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}`, 'DELETE');
-      if (res.success) {
-        this.activeCard.checklists = this.activeCard.checklists.filter(x => x.id !== cl.id);
-        window.showToast('Checklist removed.');
-        this.refreshCardActivities();
-      }
+      
+      const original = [...this.activeCard.checklists];
+      this.activeCard.checklists = this.activeCard.checklists.filter(x => x.id !== cl.id);
+      window.showToast('Checklist removed.');
+
+      this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}`, 'DELETE')
+        .catch(() => {
+          this.activeCard.checklists = original;
+          window.showToast?.('Failed to delete checklist', 'error');
+        });
     },
 
     async addChecklistItem(cl) {
@@ -2707,14 +2852,18 @@ window.trelloBoard = function(config) {
       });
       if (!title) return;
 
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items`, 'POST', { title });
-      if (res.item) {
-        if (!cl.items) cl.items = [];
-        cl.items.push(res.item);
-        this.updateCardChecklistProgress();
-        window.showToast('Item added!');
-        this.refreshCardActivities();
-      }
+      const tempId = 'temp-item-' + Date.now();
+      const fakeItem = { id: tempId, title: title, content: title, is_completed: false };
+      if (!cl.items) cl.items = [];
+      cl.items.push(fakeItem);
+      this.updateCardChecklistProgress();
+
+      this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items`, 'POST', { title }).then(res => {
+        if (res.item) {
+          const idx = cl.items.findIndex(i => i.id === tempId);
+          if (idx !== -1) cl.items[idx] = res.item;
+        }
+      }).catch(() => {});
     },
 
     async toggleChecklistItem(cl, item) {
@@ -2729,13 +2878,18 @@ window.trelloBoard = function(config) {
 
     async deleteChecklistItem(cl, item) {
       if (!this.activeCard || !await window.confirmModal("Delete this checklist item?")) return;
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items/${item.id}`, 'DELETE');
-      if (res.success) {
-        cl.items = cl.items.filter(x => x.id !== item.id);
-        this.updateCardChecklistProgress();
-        window.showToast('Item deleted.');
-        this.refreshCardActivities();
-      }
+      
+      const original = [...cl.items];
+      cl.items = cl.items.filter(x => x.id !== item.id);
+      this.updateCardChecklistProgress();
+      window.showToast('Item deleted.');
+
+      this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items/${item.id}`, 'DELETE')
+        .catch(() => {
+          cl.items = original;
+          this.updateCardChecklistProgress();
+          window.showToast?.('Failed to delete item', 'error');
+        });
     },
 
     updateCardChecklistProgress() {
@@ -2997,40 +3151,76 @@ window.trelloBoard = function(config) {
       // Optionally focus back to textarea at correct position (requires $nextTick and refs, but good enough for now)
     },
     
-    async submitComment() {
+    submitComment() {
       const body = this.newComment.trim();
       if (!body || !this.activeCard) return;
 
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/comments`, 'POST', { body });
-      if (res.comment) {
-        if (res.card_moved) {
-          window.showToast('Card moved by automation!');
-          const newCard = res.card;
-          if (newCard.board_id !== this.boardId) {
-            this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
-            this.closeCard();
-            return;
-          } else if (newCard.board_list_id !== this.activeCard.board_list_id) {
-            this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
-            const targetList = this.lists.find(l => l.id === newCard.board_list_id);
-            if (targetList) targetList.cards.push(newCard);
-            this.closeCard();
-            return;
+      const tempId = 'temp-' + Date.now();
+      const newCommentVal = this.newComment;
+      this.newComment = '';
+
+      const fakeComment = {
+        id: tempId,
+        body: body,
+        content: body,
+        user_id: this.currentUser.id,
+        created_at: new Date().toISOString(),
+        user: {
+          ...this.currentUser,
+          name: this.currentUser.name || 'You',
+          avatar: this.currentUser.avatar_url || this.currentUser.avatar || this.avatarUrl(this.currentUser) || '',
+          avatar_initials: this.currentUser.initials || this.currentUser.avatar_initials || this.avatarInitials(this.currentUser) || '',
+          avatar_color: this.currentUser.avatar_color || this.avatarColor(this.currentUser) || '#64748b'
+        },
+      };
+
+      if (!this.activeCard.comments) this.activeCard.comments = [];
+      this.activeCard.comments.push(fakeComment);
+
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === this.activeCard.id);
+        if (c) c.comment_count = (c.comment_count ?? 0) + 1;
+      });
+
+      this.api(`/boards/cards/${this.activeCard.id}/comments`, 'POST', { body: newCommentVal })
+        .then(res => {
+          if (res.comment) {
+            const idx = this.activeCard.comments.findIndex(c => c.id === tempId);
+            if (idx !== -1) this.activeCard.comments[idx] = res.comment;
+
+            if (res.card_moved) {
+              window.showToast('Card moved by automation!');
+              const newCard = res.card;
+              if (newCard.board_id !== this.boardId) {
+                this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
+                this.closeCard();
+                return;
+              } else if (newCard.board_list_id !== this.activeCard.board_list_id) {
+                this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
+                const targetList = this.lists.find(l => l.id === newCard.board_list_id);
+                if (targetList) targetList.cards.push(newCard);
+                this.closeCard();
+                return;
+              }
+            }
+            // No need to refreshCardActivities() if we successfully swapped the comment optimistically
+          } else {
+            this.revertComment(tempId, newCommentVal);
           }
-        }
-
-        if (!this.activeCard.comments) this.activeCard.comments = [];
-        this.activeCard.comments.push(res.comment);
-        this.newComment = '';
-
-        this.lists.forEach(l => {
-          const c = l.cards.find(x => x.id === this.activeCard.id);
-          if (c) c.comment_count = (c.comment_count ?? 0) + 1;
+        }).catch(() => {
+          this.revertComment(tempId, newCommentVal);
         });
+    },
 
-        window.showToast('Comment posted!');
-        this.refreshCardActivities();
-      }
+    revertComment(tempId, originalText) {
+      if (!this.activeCard) return;
+      this.activeCard.comments = this.activeCard.comments.filter(c => c.id !== tempId);
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === this.activeCard.id);
+        if (c) c.comment_count = Math.max(0, (c.comment_count ?? 1) - 1);
+      });
+      this.newComment = originalText;
+      window.showToast?.('Failed to post comment', 'error');
     },
 
     async updateComment(commentId, body) {
@@ -3164,40 +3354,59 @@ window.trelloBoard = function(config) {
       xhr.send(formData);
     },
 
-    async amSubmitLink() {
+    amSubmitLink() {
       const am   = this.attachmentModal;
       const card = this.activeCard;
       if (!am.linkUrl || !card) return;
 
-      // Basic URL validation
       try { new URL(am.linkUrl); } catch {
         am.error = 'Please enter a valid URL (including https://).';
         return;
       }
 
-      am.error     = '';
-      am.uploading = true;
-      const res = await this.api(`/boards/cards/${card.id}/files`, 'POST', {
-        link_url:  am.linkUrl,
-        link_name: am.linkName || am.linkUrl,
-      });
-      am.uploading = false;
+      am.error = '';
+      const tempId = 'temp-link-' + Date.now();
+      const linkUrl = am.linkUrl;
+      const linkName = am.linkName || am.linkUrl;
 
-      if (res.file) {
-        if (!card.files) card.files = [];
-        card.files.push(res.file);
-        this.lists.forEach(l => {
-          const c = l.cards.find(x => x.id === card.id);
-          if (c) c.has_files = true;
-        });
-        window.showToast('Link attached successfully!');
-        am.linkUrl  = '';
-        am.linkName = '';
-        this.openCard(card.id);
-        this.closeAttachmentModal();
-      } else {
-        am.error = res.error || res.message || 'Failed to attach link.';
-      }
+      const fakeFile = {
+        id: tempId,
+        original_name: linkName,
+        path: linkUrl,
+        url: linkUrl,
+        created_at: new Date().toISOString(),
+        time_ago: 'Just now',
+        is_link: true,
+      };
+
+      if (!card.files) card.files = [];
+      card.files.push(fakeFile);
+
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === card.id);
+        if (c) c.has_files = true;
+      });
+
+      am.linkUrl  = '';
+      am.linkName = '';
+      this.closeAttachmentModal();
+      window.showToast?.('Link attached!');
+
+      this.api(`/boards/cards/${card.id}/files`, 'POST', {
+        link_url:  linkUrl,
+        link_name: linkName,
+      }).then(res => {
+        if (res.file) {
+          const idx = card.files.findIndex(f => f.id === tempId);
+          if (idx !== -1) card.files.splice(idx, 1, res.file);
+        } else {
+          card.files = card.files.filter(f => f.id !== tempId);
+          window.showToast?.(res.error || 'Failed to attach link', 'error');
+        }
+      }).catch(() => {
+        card.files = card.files.filter(f => f.id !== tempId);
+        window.showToast?.('Network error attaching link', 'error');
+      });
     },
 
     async amEditAttachment(file) {
@@ -3237,7 +3446,7 @@ window.trelloBoard = function(config) {
         const res = await resp.json();
         if (res.success) {
           const idx = this.activeCard.files.findIndex(x => x.id === file.id);
-          if (idx !== -1) this.activeCard.files[idx] = res.file;
+          if (idx !== -1) this.activeCard.files.splice(idx, 1, res.file);
           am.editingFileId = null;
           window.showToast('Attachment updated successfully.');
         }
@@ -3283,16 +3492,24 @@ window.trelloBoard = function(config) {
 
     async amDeleteAttachment(file) {
       if (!this.activeCard || !await window.confirmModal(`Remove "${file.original_name}"?`)) return;
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/files/${file.id}`, 'DELETE');
-      if (res.success) {
-        this.activeCard.files = this.activeCard.files.filter(x => x.id !== file.id);
-        this.lists.forEach(l => {
-          const c = l.cards.find(x => x.id === this.activeCard.id);
-          if (c) c.has_files = this.activeCard.files.length > 0;
+      
+      const original = [...this.activeCard.files];
+      this.activeCard.files = this.activeCard.files.filter(x => x.id !== file.id);
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === this.activeCard.id);
+        if (c) c.has_files = this.activeCard.files.length > 0;
+      });
+      window.showToast('Attachment removed.');
+
+      this.api(`/boards/cards/${this.activeCard.id}/files/${file.id}`, 'DELETE')
+        .catch(() => {
+          this.activeCard.files = original;
+          this.lists.forEach(l => {
+            const c = l.cards.find(x => x.id === this.activeCard.id);
+            if (c) c.has_files = this.activeCard.files.length > 0;
+          });
+          window.showToast?.('Failed to remove attachment', 'error');
         });
-        window.showToast('Attachment removed.');
-        this.refreshCardActivities();
-      }
     },
 
     amAutoFillName() {
@@ -3446,16 +3663,35 @@ window.trelloBoard = function(config) {
 
     async deleteComment(commentId) {
       if (!this.activeCard || !await window.confirmModal("Delete this comment permanently?")) return;
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/comments/${commentId}`, 'DELETE');
-      if (res.success) {
-        this.activeCard.comments = this.activeCard.comments.filter(x => x.id !== commentId);
-        this.lists.forEach(l => {
-          const c = l.cards.find(x => x.id === this.activeCard.id);
-          if (c) c.comment_count = Math.max(0, (c.comment_count ?? 1) - 1);
+      
+      const originalComments = [...this.activeCard.comments];
+      this.activeCard.comments = this.activeCard.comments.filter(x => x.id !== commentId);
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === this.activeCard.id);
+        if (c) c.comment_count = Math.max(0, (c.comment_count ?? 1) - 1);
+      });
+      
+      this.api(`/boards/cards/${this.activeCard.id}/comments/${commentId}`, 'DELETE')
+        .then(res => {
+          if (res.success || res.message) {
+            window.showToast('Comment deleted.');
+            this.refreshCardActivities();
+          } else {
+            this.activeCard.comments = originalComments;
+            this.lists.forEach(l => {
+              const c = l.cards.find(x => x.id === this.activeCard.id);
+              if (c) c.comment_count = (c.comment_count ?? 0) + 1;
+            });
+            window.showToast?.('Failed to delete comment', 'error');
+          }
+        }).catch(() => {
+          this.activeCard.comments = originalComments;
+          this.lists.forEach(l => {
+            const c = l.cards.find(x => x.id === this.activeCard.id);
+            if (c) c.comment_count = (c.comment_count ?? 0) + 1;
+          });
+          window.showToast?.('Network error', 'error');
         });
-        window.showToast('Comment deleted.');
-        this.refreshCardActivities();
-      }
     },
 
     insertMarkdown(tag) {

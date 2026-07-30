@@ -23,11 +23,27 @@
     </svg>
   </div>
 
-  {{-- Label badge --}}
-  <div class="k-card-label" style="background: {{ $card->label_bg }}; color: {{ $card->label_color }};">
-    {{ $card->label }}
-    @if($card->sub_label)
-      <span class="opacity-60">→ {{ $card->sub_label }}</span>
+  {{-- Label badges --}}
+  <div class="flex flex-wrap gap-1 mb-2">
+    @if($card->label && $card->label !== 'None')
+    <div class="k-card-label" style="background: {{ $card->label_bg }}; color: {{ $card->label_color }};">
+      {{ $card->label }}
+      @if($card->sub_label)
+        <span class="opacity-60">→ {{ $card->sub_label }}</span>
+      @endif
+    </div>
+    @endif
+    
+    @if($card->smm_class_label)
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+        {{ $card->smm_class_label }}
+      </span>
+    @endif
+    
+    @if($card->smm_team_label)
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
+        {{ $card->smm_team_label }}
+      </span>
     @endif
   </div>
 
@@ -68,6 +84,13 @@
   @if($progress['total'] > 0)
   <div class="progress-bar mt-2">
     <div class="progress-bar-fill" style="width: {{ $progress['percent'] }}%"></div>
+  </div>
+  @endif
+
+  @if($card->status === CardStatus::Approved)
+  <div class="mt-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-md w-fit">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+    Approved
   </div>
   @endif
 

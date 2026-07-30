@@ -98,7 +98,7 @@ class CardController extends Controller
             BoardActivityNotification::send($board, 'card_created', "{$request->user()->name} created card {$card->title}", $card, true);
         }
 
-        return response()->json(['card' => $card->load(['board', 'boardList', 'assignees', 'labels'])], 201);
+        return response()->json(['card' => $card->load(['board', 'boardList', 'assignees', 'labels', 'creator'])], 201);
     }
 
     public function update(Request $request, Card $card): JsonResponse
@@ -118,6 +118,7 @@ class CardController extends Controller
             'status' => ['sometimes', 'in:todo,in_progress,review,approved,rejected,done'],
             'deadline' => ['nullable', 'date'],
             'due_at' => ['nullable', 'date'],
+            'created_by' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
             'assignee_ids' => ['nullable', 'array'],
             'assignee_ids.*' => ['integer', 'exists:users,id'],
         ]);
@@ -125,7 +126,17 @@ class CardController extends Controller
         $card->update(collect($validated)->except('assignee_ids')->all());
 
         if (array_key_exists('assignee_ids', $validated)) {
-            $card->assignees()->sync(collect($validated['assignee_ids'] ?? [])->mapWithKeys(fn ($id) => [$id => ['assigned_at' => now()]])->all());
+            $assigneesData = collect($validated['assignee_ids'] ?? [])->mapWithKeys(fn ($id) => [$id => ['assigned_at' => now()]])->all();
+            $card->assignees()->sync($assigneesData);
+            
+            if ($card->sync_group_id) {
+                $linkedCards = Card::where('sync_group_id', $card->sync_group_id)
+                    ->where('id', '!=', $card->id)
+                    ->get();
+                foreach ($linkedCards as $linkedCard) {
+                    $linkedCard->assignees()->sync($assigneesData);
+                }
+            }
         }
 
         if ($card->board) {

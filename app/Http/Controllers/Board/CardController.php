@@ -145,6 +145,7 @@ class CardController extends Controller
             'is_archived'   => ['sometimes', 'boolean'],
             'board_list_id' => ['sometimes', 'exists:board_lists,id'],
             'status'        => ['sometimes', 'string'],
+            'created_by'    => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
         ]);
 
         $oldValues = $card->only(array_keys($validated));
@@ -173,6 +174,8 @@ class CardController extends Controller
                     'updated card description'),
                 'title'       => $this->logCardActivity($card, 'title_changed',
                     "renamed card to **{$val}**"),
+                'created_by'  => $this->logCardActivity($card, 'creator_changed',
+                    "changed Assigned By user"),
                 default       => null,
             };
         }
@@ -455,6 +458,20 @@ class CardController extends Controller
             ], 403);
         }
 
+        // SMM Planning Board: Final Captions enforcement
+        if (str_contains(strtolower($targetList->name), 'final captions')) {
+            $hasCaption = $card->comments()->where(function($q) {
+                $q->where('content', 'like', '%caption ready%')
+                  ->orWhere('content', 'like', '%http%');
+            })->exists();
+            
+            if (!$hasCaption) {
+                return response()->json([
+                    'error' => 'You must add a comment with "Caption Ready" or a link before moving to Final Captions.',
+                ], 403);
+            }
+        }
+
         $card->update([
             'board_id'      => $targetList->board_id,
             'board_list_id' => $targetList->id,
@@ -467,6 +484,8 @@ class CardController extends Controller
 
         if (str_contains(strtolower($newList), 'block/waiting')) {
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Block/Waiting');
+        } elseif (str_contains(strtolower($newList), 'approved')) {
+            app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Approved');
         }
         $automation = $this->checkAutomations($card, $targetList->id);
 

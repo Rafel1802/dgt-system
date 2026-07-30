@@ -275,23 +275,71 @@
           <button type="button" @click="clearFilters()" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
         </div>
         <div class="space-y-3">
-          <label class="block">
-            <span class="block text-[11px] font-bold text-slate-500 mb-1">Member</span>
-            <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs">
-              <option value="">All members</option>
-              <template x-for="member in allBoardMembers" :key="member.id">
-                <option :value="member.id" x-text="member.name"></option>
-              </template>
-            </select>
-          </label>
-          <div class="grid grid-cols-2 gap-2">
+          {{-- SMM Specific Filters --}}
+          <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.template === 'workflow'">
+            <div class="space-y-3">
+              <label class="block">
+                <span class="block text-[11px] font-bold text-slate-500 mb-1">Assign By</span>
+                <select x-model="filterAssignBy" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
+                  <option value="">Anyone</option>
+                  <template x-for="member in allBoardMembers" :key="member.id">
+                    <option :value="member.id" x-text="member.name"></option>
+                  </template>
+                </select>
+              </label>
+              
+              <label class="block">
+                <span class="block text-[11px] font-bold text-slate-500 mb-1">Assign To</span>
+                <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
+                  <option value="">Anyone</option>
+                  <template x-for="member in allBoardMembers" :key="member.id">
+                    <option :value="member.id" x-text="member.name"></option>
+                  </template>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="block text-[11px] font-bold text-slate-500 mb-1">Label</span>
+                <select x-model="filterLabel" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
+                  <option value="">Any Label</option>
+                  <template x-for="lbl in labels" :key="lbl.id">
+                    <option :value="lbl.id" x-text="lbl.name"></option>
+                  </template>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="block text-[11px] font-bold text-slate-500 mb-1">Approval Status</span>
+                <select x-model="filterStatus" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
+                  <option value="">All Statuses</option>
+                  <option value="approved">Approved Only</option>
+                </select>
+              </label>
+            </div>
+          </template>
+
+          {{-- Standard Filters --}}
+          <template x-if="!(board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.template === 'workflow')">
             <label class="block">
-              <span class="block text-[11px] font-bold text-slate-500 mb-1">From</span>
-              <input type="date" x-model="filterDateFrom" class="form-input w-full rounded-xl text-xs">
+              <span class="block text-[11px] font-bold text-slate-500 mb-1">Member</span>
+              <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs">
+                <option value="">All members</option>
+                <template x-for="member in allBoardMembers" :key="member.id">
+                  <option :value="member.id" x-text="member.name"></option>
+                </template>
+              </select>
+            </label>
+          </template>
+
+          {{-- Common Date Filters --}}
+          <div class="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 mt-1">
+            <label class="block">
+              <span class="block text-[11px] font-bold text-slate-500 mb-1">From Date</span>
+              <input type="date" x-model="filterDateFrom" class="form-input w-full rounded-xl text-xs text-slate-600">
             </label>
             <label class="block">
-              <span class="block text-[11px] font-bold text-slate-500 mb-1">To</span>
-              <input type="date" x-model="filterDateTo" class="form-input w-full rounded-xl text-xs">
+              <span class="block text-[11px] font-bold text-slate-500 mb-1">To Date</span>
+              <input type="date" x-model="filterDateTo" class="form-input w-full rounded-xl text-xs text-slate-600">
             </label>
           </div>
         </div>
@@ -438,86 +486,158 @@
               </svg>
             </button>
 
-            {{-- Labels --}}
-            <div x-show="card.labels && card.labels.length" class="flex flex-wrap gap-1 mb-2.5">
-              <template x-for="lbl in card.labels" :key="lbl.id">
-                <span class="kanban-card-label inline-flex items-center"
-                      :style="'background:'+lbl.color" :title="lbl.name"></span>
-              </template>
-            </div>
+            {{-- SMM Specific Vertical Layout --}}
+            <template x-if="card.smm_team_label || card.smm_class_label">
+              <div class="flex flex-col gap-1.5 w-full mt-1">
+                <div class="flex flex-col border-b border-slate-100 pb-1.5">
+                  <div class="flex items-center justify-between w-full">
+                    <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Title</span>
+                    <svg x-show="list.name.toLowerCase().includes('approved') || card.status === 'Approved'" 
+                         class="w-4 h-4 text-emerald-500 flex-shrink-0 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                  </div>
+                  <p class="kanban-card-title !mb-0 !text-sm mt-0.5" x-text="card.title"></p>
+                </div>
+                
+                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Team Label</span>
+                  <span class="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded" x-text="card.smm_team_label || 'None'"></span>
+                </div>
+                
+                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">SMM Class</span>
+                  <span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded" x-text="card.smm_class_label || 'None'"></span>
+                </div>
 
-            {{-- Title --}}
-            <div class="flex items-start justify-between gap-2 mb-2">
-              <p class="kanban-card-title !mb-0 !pr-0"
-                 x-text="card.title"></p>
-              <svg x-show="list.name.toLowerCase().includes('approved') || card.status === 'Approved'" 
-                   class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-              <button type="button"
-                      x-show="isBlockList(list) && currentUser.can_manage_blocked_cards"
-                      x-cloak
-                      @click.stop="completeBlockedCard(card, list)"
-                      :class="card.block_completed_at
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white'
-                        : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400 hover:text-emerald-500'"
-                      class="w-5 h-5 rounded-full border flex flex-shrink-0 items-center justify-center mt-0.5 transition"
-                      :title="card.block_completed_at ? 'Mark blocked card not fixed' : 'Mark blocked card fixed'">
-                <svg x-show="!card.block_completed_at" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor"><circle cx="12" cy="12" r="8.5" /></svg>
-                <svg x-show="card.block_completed_at" x-cloak class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-              </button>
-              <svg x-show="isBlockList(list) && card.block_completed_at && !currentUser.can_manage_blocked_cards"
-                   x-cloak
-                   class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm"
-                   fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-            </div>
-
-            {{-- Meta row --}}
-            <div class="flex items-center gap-2 flex-wrap">
-              {{-- Due date --}}
-              <span x-show="card.due_at"
-                    :class="isOverdue(card) ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'"
-                    class="kanban-card-meta font-bold px-2 py-1 rounded-lg"
-                    x-text="formatDate(card.due_at)"></span>
-
-              {{-- Checklist --}}
-              <span x-show="card.checklist_total > 0"
-                    class="kanban-card-meta text-slate-500 font-bold flex items-center gap-1">
-                ✓ <span x-text="card.checklist_done+'/'+card.checklist_total"></span>
-              </span>
-
-              {{-- Files --}}
-              <span x-show="card.has_files" class="kanban-card-meta text-slate-500">📎</span>
-
-              {{-- Comments --}}
-              <span x-show="card.comment_count > 0"
-                    class="kanban-card-meta text-slate-500 font-bold flex items-center gap-1">
-                💬 <span x-text="card.comment_count"></span>
-              </span>
-
-              {{-- Assignees --}}
-              <div class="ml-auto flex -space-x-1.5">
-                <template x-for="u in card.assignees.slice(0,3)" :key="u.id">
-                  <span>
-                    <template x-if="avatarUrl(u)">
-                      <img :src="avatarUrl(u)" :alt="u.name" :title="u.name"
-                           class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 object-cover">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Assign By</span>
+                  <div class="flex items-center gap-1.5">
+                    <template x-if="card.creator">
+                      <div class="flex items-center gap-1.5">
+                        <img x-show="avatarUrl(card.creator)" :src="avatarUrl(card.creator)" class="w-4 h-4 rounded-full object-cover">
+                        <span x-show="!avatarUrl(card.creator)" class="w-4 h-4 rounded-full bg-slate-200 text-[8px] flex items-center justify-center font-bold text-slate-600" x-text="avatarInitials(card.creator)"></span>
+                        <span class="text-[11px] font-semibold text-slate-600" x-text="card.creator.name"></span>
+                      </div>
                     </template>
-                    <template x-if="!avatarUrl(u)">
-                      <span class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 flex items-center justify-center text-[11px] font-black text-white"
-                            :style="avatarStyle(u)"
-                            x-text="avatarInitials(u)"
-                            :title="u.name"></span>
+                    <span x-show="!card.creator" class="text-[11px] text-slate-400">None</span>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Assign To</span>
+                  <div class="flex items-center gap-1">
+                    <template x-if="card.assignees && card.assignees.length">
+                      <div class="flex -space-x-1">
+                        <template x-for="u in card.assignees" :key="u.id">
+                          <span>
+                            <img x-show="avatarUrl(u)" :src="avatarUrl(u)" :title="u.name" class="w-4 h-4 rounded-full object-cover border border-white ring-1 ring-slate-100">
+                            <span x-show="!avatarUrl(u)" class="w-4 h-4 rounded-full bg-slate-200 text-[8px] flex items-center justify-center font-bold text-slate-600 border border-white ring-1 ring-slate-100" x-text="avatarInitials(u)" :title="u.name"></span>
+                          </span>
+                        </template>
+                      </div>
                     </template>
-                  </span>
-                </template>
-                <span x-show="card.assignees && card.assignees.length > 3" x-cloak
-                      class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 bg-slate-800 text-white flex items-center justify-center text-[10px] font-black"
-                      x-text="'+' + ((card.assignees || []).length - 3)"></span>
+                    <span x-show="!card.assignees || !card.assignees.length" class="text-[11px] text-slate-400">None</span>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Publish Date</span>
+                  <span class="text-[11px] font-semibold text-slate-600" x-text="card.start_date ? formatDate(card.start_date) : 'N/A'"></span>
+                </div>
+
+                <div class="flex items-center justify-between pb-0.5">
+                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Deadline</span>
+                  <span class="text-[11px] font-semibold" :class="isOverdue(card) ? 'text-red-600 font-bold bg-red-50 px-1 rounded' : 'text-slate-600'" x-text="card.due_at ? formatDate(card.due_at) : 'N/A'"></span>
+                </div>
               </div>
-            </div>
+            </template>
+
+            {{-- Standard Trello Layout --}}
+            <template x-if="!card.smm_team_label && !card.smm_class_label">
+              <div>
+                {{-- Labels --}}
+                <div x-show="card.labels && card.labels.length" class="flex flex-wrap gap-1 mb-2.5 mt-1">
+                  <template x-for="lbl in card.labels" :key="lbl.id">
+                    <span class="kanban-card-label inline-flex items-center"
+                          :style="'background:'+lbl.color" :title="lbl.name"></span>
+                  </template>
+                </div>
+
+                {{-- Title --}}
+                <div class="flex items-start justify-between gap-2 mb-2">
+                  <p class="kanban-card-title !mb-0 !pr-0"
+                     x-text="card.title"></p>
+                  <svg x-show="list.name.toLowerCase().includes('approved') || card.status === 'Approved' || card.status === 'approved'" 
+                       class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  <button type="button"
+                          x-show="isBlockList(list) && currentUser.can_manage_blocked_cards"
+                          x-cloak
+                          @click.stop="completeBlockedCard(card, list)"
+                          :class="card.block_completed_at
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                            : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400 hover:text-emerald-500'"
+                          class="w-5 h-5 rounded-full border flex flex-shrink-0 items-center justify-center mt-0.5 transition"
+                          :title="card.block_completed_at ? 'Mark blocked card not fixed' : 'Mark blocked card fixed'">
+                    <svg x-show="!card.block_completed_at" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor"><circle cx="12" cy="12" r="8.5" /></svg>
+                    <svg x-show="card.block_completed_at" x-cloak class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                  </button>
+                  <svg x-show="isBlockList(list) && card.block_completed_at && !currentUser.can_manage_blocked_cards"
+                       x-cloak
+                       class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm"
+                       fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </div>
+
+                {{-- Meta row --}}
+                <div class="flex items-center gap-2 flex-wrap">
+                  {{-- Due date --}}
+                  <span x-show="card.due_at"
+                        :class="isOverdue(card) ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'"
+                        class="kanban-card-meta font-bold px-2 py-1 rounded-lg"
+                        x-text="formatDate(card.due_at)"></span>
+
+                  {{-- Checklist --}}
+                  <span x-show="card.checklist_total > 0"
+                        class="kanban-card-meta text-slate-500 font-bold flex items-center gap-1">
+                    ✓ <span x-text="card.checklist_done+'/'+card.checklist_total"></span>
+                  </span>
+
+                  {{-- Files --}}
+                  <span x-show="card.has_files" class="kanban-card-meta text-slate-500">📎</span>
+
+                  {{-- Comments --}}
+                  <span x-show="card.comment_count > 0"
+                        class="kanban-card-meta text-slate-500 font-bold flex items-center gap-1">
+                    💬 <span x-text="card.comment_count"></span>
+                  </span>
+
+                  {{-- Assignees --}}
+                  <div class="ml-auto flex -space-x-1.5">
+                    <template x-for="u in card.assignees.slice(0,3)" :key="u.id">
+                      <span>
+                        <template x-if="avatarUrl(u)">
+                          <img :src="avatarUrl(u)" :alt="u.name" :title="u.name"
+                               class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 object-cover">
+                        </template>
+                        <template x-if="!avatarUrl(u)">
+                          <span class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 flex items-center justify-center text-[11px] font-black text-white"
+                                :style="avatarStyle(u)"
+                                x-text="avatarInitials(u)"
+                                :title="u.name"></span>
+                        </template>
+                      </span>
+                    </template>
+                    <span x-show="card.assignees && card.assignees.length > 3" x-cloak
+                          class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 bg-slate-800 text-white flex items-center justify-center text-[10px] font-black"
+                          x-text="'+' + ((card.assignees || []).length - 3)"></span>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </template>
       </div>

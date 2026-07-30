@@ -8,8 +8,14 @@ $faviconPng = asset('favicon-32x32.png') . '?v=' . (file_exists(public_path('fav
 $appleTouchIcon = $appIcon;
 $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOSApp');
 ?>
+    @php
+        $userAgent = (string) request()->userAgent();
+        $isIosApp = str_contains($userAgent, 'DGTSystemiOSApp') || preg_match('/iPhone|iPad|iPod/i', $userAgent);
+        $isAndroidApp = str_contains($userAgent, 'DGTSystemAndroidApp') || str_contains($userAgent, 'wv') || preg_match('/Android/i', $userAgent);
+        $isMobile = $isIosApp || $isAndroidApp || preg_match('/Mobile/i', $userAgent);
+    @endphp
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }} {{ $isMobile ? 'dgt-mobile-app' : '' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -44,11 +50,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <!-- Turbo 8: Drive navigation without speculative prefetch of heavy CRM pages.
-         Do NOT set turbo-cache-control=no-cache — that forced a full network +
-         full layout re-render on every menu click and made switching feel slow.
-         Snapshot cache (default) makes Back/forward instant; sidebar is permanent. -->
-    <meta name="turbo-prefetch" content="false">
+    <!-- Turbo 8: Drive navigation with speculative prefetch for instant loading. -->
+    <meta name="turbo-prefetch" content="true">
     <style>
         .turbo-progress-bar {
             height: 3px;
@@ -94,6 +97,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 el.setAttribute('data-turbo', 'false');
             });
         });
+
+        // Trigger Turbo prefetch on touch devices (Turbo 8 relies on hover/focus which doesn't trigger fast enough on mobile taps)
+        document.addEventListener('touchstart', (e) => {
+            const link = e.target.closest('a[href]');
+            if (link && link.href && link.origin === window.location.origin && link.getAttribute('data-turbo') !== 'false') {
+                const event = new MouseEvent('mouseenter', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true
+                });
+                link.dispatchEvent(event);
+            }
+        }, { passive: true });
     </script>
     <script>
         (function() {
@@ -169,8 +185,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     @stack('head')
 
     @php
-        $isIosApp = str_contains((string) request()->userAgent(), 'DGTSystemiOSApp');
-        $isDesktopOrMobileApp = $isMacDesktopApp || $isIosApp;
+        $isDesktopOrMobileApp = $isMacDesktopApp || $isMobile;
     @endphp
 
     @if($isDesktopOrMobileApp)
@@ -443,14 +458,40 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     Boards
                 </a>
 
-                {{-- Social Media Team --}}
+                {{-- Social Media --}}
                 @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
-                <a wire:navigate.hover href="{{ route('social-media.dashboard') }}"
-                   class="sidebar-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
-                   id="nav-social-media">
-                    <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Team" class="w-5 h-5 flex-shrink-0 object-contain">
-                    Social Media Team
-                </a>
+                <div x-data="{ smOpen: localStorage.getItem('dgt-sm-menu-open') === 'true' || {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
+                    <button type="button" class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'active' : '' }}" @click="smOpen = !smOpen; localStorage.setItem('dgt-sm-menu-open', smOpen)">
+                        <div class="flex items-center gap-[0.625rem] flex-1">
+                            <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Management" class="w-[18px] h-[18px] flex-shrink-0 object-contain">
+                            <span>Social Media Management</span>
+                        </div>
+                        <div class="p-1 -mr-1 rounded hover:bg-slate-700/50 transition-colors">
+                            <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="{'rotate-180': smOpen}" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </div>
+                    </button>
+                    <div x-show="smOpen" x-collapse x-cloak>
+                        <div class="sidebar-submenu-list mt-1 space-y-1 relative">
+                            
+                            <a wire:navigate.hover href="{{ route('social-media.dashboard') }}"
+                               class="sidebar-submenu-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                                <span>Post Follow Up</span>
+                            </a>
+
+                            <a wire:navigate.hover href="{{ route('smm-boards.index') }}"
+                               class="sidebar-submenu-item {{ request()->routeIs('smm-boards.*') ? 'active' : '' }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                                </svg>
+                                <span>SMM Planning Board</span>
+                            </a>
+                            
+                        </div>
+                    </div>
+                </div>
                 @endif
 
                 @if($canSeeApprovalQueue)
@@ -1651,7 +1692,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </nav>
 
     {{-- Global Toast Container --}}
-    <div id="toast-container" class="fixed top-5 right-5 z-50 space-y-3 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-sm"></div>
+    <div id="toast-container" class="fixed top-5 right-5 z-[9999] space-y-3 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-sm"></div>
 
     <script>
     window.dgtInitialsAvatar = function(name = 'User', color = '#4f46e5') {

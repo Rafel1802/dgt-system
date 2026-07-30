@@ -22,6 +22,7 @@ class Board extends Model
         'notifications_enabled', 'browser_notifications_enabled',
 
         'is_starred', 'is_archived', 'is_hidden', 'is_template', 'created_by', 'position',
+        'type', 'is_active_smm',
     ];
 
     protected function casts(): array
@@ -34,6 +35,7 @@ class Board extends Model
             'card_covers_enabled' => 'boolean',
             'notifications_enabled' => 'boolean',
             'browser_notifications_enabled' => 'boolean',
+            'is_active_smm' => 'boolean',
 
         ];
     }

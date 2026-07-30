@@ -17,6 +17,15 @@ def run_cmd(cmd_args, password="Digital@PhnomPenh#!2027\n"):
     print("\n--- Command Finished ---\n")
 
 if __name__ == "__main__":
+    # 0. Build production assets
+    print("Building production frontend assets...")
+    try:
+        subprocess.run(["npm", "run", "build"], check=True)
+        print("Frontend assets built successfully.\n")
+    except subprocess.CalledProcessError:
+        print("Failed to build frontend assets. Make sure npm is installed.")
+        sys.exit(1)
+
     # 1. Upload all files (replace if exist), excluding vendor, node_modules, etc.
     #
     # IMPORTANT: this rsyncs the *entire* project into the live public web root.

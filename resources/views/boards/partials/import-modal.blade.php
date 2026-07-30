@@ -135,6 +135,19 @@
           </div>
         </div>
 
+        {{-- Optional: Worksheet Name --}}
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs font-black text-slate-600 uppercase tracking-wider block mb-1.5">Worksheet Name (Optional)</label>
+            <input type="text" x-model="importModal.worksheetName"
+                   placeholder="e.g. Week1-August"
+                   class="form-input text-sm w-full rounded-xl border-slate-200 focus:border-emerald-400 focus:ring-emerald-300">
+            <p class="text-[10px] text-slate-400 font-semibold mt-1.5 leading-relaxed">
+              Used to automatically place tasks into the correct week list (e.g. Week 1, Week 2).
+            </p>
+          </div>
+        </div>
+
         {{-- Template download --}}
         <div class="bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 rounded-2xl p-4">
           <div class="flex items-start gap-3">
@@ -170,15 +183,14 @@
                 </tr>
               </thead>
               <tbody class="text-slate-600">
-                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Title *</td><td>Card title (required)</td></tr>
-                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Label</td><td>Must exactly match an existing label on this board</td></tr>
-                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Description</td><td>Full task description</td></tr>
-                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Start Date</td><td>YYYY-MM-DD format</td></tr>
-                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Due Date</td><td>YYYY-MM-DD format</td></tr>
-                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Assigned To</td><td>Member username</td></tr>
-                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Attachment Link</td><td>Any URL (Google Drive, etc.)</td></tr>
-                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Checklist</td><td>Items separated by semicolons</td></tr>
-                <tr><td class="py-1.5 pr-3 font-bold">Week</td><td>Column/list name (defaults to first list)</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Cluster *</td><td>Card cluster/category (required)</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Team</td><td>e.g. Video Team, Graphic Team</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Work Task / Content Type *</td><td>Task type (becomes Title)</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Content Public Date</td><td>YYYY-MM-DD or DD-Month-YYYY format</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Deadline Time & Date</td><td>YYYY-MM-DD or custom format</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Assigned To</td><td>Member username or name</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Assigned By</td><td>Manager username or name</td></tr>
+                <tr><td class="py-1.5 pr-3 font-bold">Worksheet Name</td><td>Used for auto Week assignment</td></tr>
               </tbody>
             </table>
           </div>
@@ -316,16 +328,24 @@
         {{-- Import summary --}}
         <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2.5 max-w-xs mx-auto">
           <div class="flex items-center justify-between text-xs">
-            <span class="font-semibold text-slate-500">Cards created</span>
+            <span class="font-semibold text-slate-500">Cards Imported</span>
             <span class="font-black text-emerald-600" x-text="importModal.result?.created ?? 0"></span>
           </div>
           <div class="flex items-center justify-between text-xs">
-            <span class="font-semibold text-slate-500">Rows skipped</span>
-            <span class="font-black text-rose-500" x-text="importModal.result?.skipped ?? 0"></span>
+            <span class="font-semibold text-slate-500">Cards Updated</span>
+            <span class="font-black text-indigo-500" x-text="importModal.result?.updated ?? 0"></span>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-500">Duplicate Rows Skipped</span>
+            <span class="font-black text-amber-500" x-text="(importModal.result?.skipped_duplicates ?? 0) + (importModal.result?.skipped ?? 0)"></span>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-500">Failed</span>
+            <span class="font-black text-rose-500" x-text="importModal.result?.failed ?? 0"></span>
           </div>
         </div>
 
-        <p class="text-xs font-semibold text-slate-400">The new cards have been added to the board. Activity logs show they were created via Import.</p>
+        <p class="text-xs font-semibold text-slate-400">The SMM cards have been processed and distributed.</p>
       </div>
 
     </div>

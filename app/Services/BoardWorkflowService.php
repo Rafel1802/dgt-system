@@ -49,6 +49,21 @@ class BoardWorkflowService
 
         // Trigger the workflow immediately if ANY assignee comments "Ready"
         $this->triggerPlanningToWorkflowCopy($card);
+        
+        // Auto-move to Final Captions on SMM Planning Board if they comment "caption ready"
+        if (str_contains($text, 'caption ready')) {
+            $board = $card->board;
+            if ($board) {
+                $finalList = $board->lists()->where('name', 'like', '%Final Captions%')->first();
+                if ($finalList && $card->board_list_id !== $finalList->id) {
+                    $card->update(['board_list_id' => $finalList->id]);
+                    app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
+                        $card,
+                        "Card automatically moved to **{$finalList->name}**."
+                    );
+                }
+            }
+        }
     }
 
     private function triggerPlanningToWorkflowCopy(Card $card)
@@ -171,9 +186,11 @@ class BoardWorkflowService
             "Card automatically moved to **{$targetList->name}** ({$reason})."
         );
         
-        // Also trigger the cross-board list sync if it's Block/Waiting
+        // Also trigger the cross-board list sync if it's Block/Waiting or Approved
         if (str_contains(strtolower($createName), 'block/waiting')) {
             $this->syncListStateAcrossBoards($card, 'Block/Waiting');
+        } elseif (str_contains(strtolower($createName), 'approved')) {
+            $this->syncListStateAcrossBoards($card, 'Approved');
         }
     }
 
@@ -189,7 +206,31 @@ class BoardWorkflowService
             $twinBoard = $twin->board;
             if (!$twinBoard) continue;
             
+            // If the target state is "Approved" and the twin board is a Planning board,
+            // we do NOT move it to an "Approved" list. We just update its status to Approved!
+            if (strtolower($targetListName) === 'approved' && 
+                (stripos($twinBoard->name, 'Planning board') !== false || $twinBoard->is_template)) {
+                
+                $twin->update(['status' => 'approved']);
+                
+                $twin->comments()->create([
+                    'user_id' => auth()->id(),
+                    'content' => "Card automatically marked as **Approved** (Synced from connected board).",
+                    'is_system' => true,
+                ]);
+                continue; // Skip the list moving logic!
+            }
+
             $twinList = $twinBoard->lists()->where('name', 'like', "%{$targetListName}%")->first();
+            
+            // Auto-create the list if it doesn't exist on the synced board
+            if (!$twinList) {
+                $twinList = $twinBoard->lists()->create([
+                    'name' => $targetListName,
+                    'position' => $twinBoard->lists()->max('position') + 1
+                ]);
+            }
+
             if ($twinList && $twin->board_list_id !== $twinList->id) {
                 // We use Card::withoutEvents to prevent infinite recursion if we add observer hooks later
                 // But for now just updating is fine since we aren't hooking `updated` for list syncs yet, 

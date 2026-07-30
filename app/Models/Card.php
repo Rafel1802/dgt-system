@@ -30,6 +30,8 @@ class Card extends Model
         'description',
         'label',
         'sub_label',
+        'smm_class_label',
+        'smm_team_label',
         'priority',
         'status',
         'position',
@@ -79,10 +81,10 @@ class Card extends Model
                 try {
                     $dirty = $card->getDirty();
                     $syncFields = [
-                        'title', 'description', 'label', 'sub_label', 'priority', 'status',
+                        'title', 'description', 'label', 'sub_label', 'smm_class_label', 'smm_team_label', 'priority', 'status',
                         'deadline', 'due_at', 'start_date', 'due_time', 'reminder', 'recurring',
                         'cover_image', 'is_archived', 'approved_by', 'approved_at', 'rejection_reason',
-                        'reviewed_by', 'reviewed_at', 'block_completed_by', 'block_completed_at'
+                        'reviewed_by', 'reviewed_at', 'block_completed_by', 'block_completed_at', 'created_by'
                     ];
 
                     $toUpdate = [];
@@ -285,6 +287,11 @@ class Card extends Model
     public function files(): HasMany
     {
         return $this->hasMany(CardFile::class)->orderBy('created_at');
+    }
+
+    public function activities(): MorphMany
+    {
+        return $this->morphMany(ActivityLog::class, 'subject')->orderByDesc('created_at');
     }
 
     // ─── Accessors & Helpers ──────────────────────────────────────────────────

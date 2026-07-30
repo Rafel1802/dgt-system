@@ -8,13 +8,13 @@
   {{-- ── Header ───────────────────────────────────────────────────────── --}}
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-display font-bold text-slate-800">My Workspaces</h1>
-      <p class="text-sm text-slate-400 mt-0.5">All your workspaces and boards in one place.</p>
+      <h1 class="text-2xl font-display font-bold text-slate-800">{{ isset($isSmmModule) && $isSmmModule ? 'SMM Planning Boards' : 'My Workspaces' }}</h1>
+      <p class="text-sm text-slate-400 mt-0.5">{{ isset($isSmmModule) && $isSmmModule ? 'Manage monthly Social Media Planning boards.' : 'All your workspaces and boards in one place.' }}</p>
     </div>
     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
 
 
-      @if(auth()->user()->hasAnyRole(['super-admin', 'admin', 'admin-digital']))
+      @if(auth()->user()->hasAnyRole(['super-admin', 'admin', 'admin-digital']) && (!isset($isSmmModule) || !$isSmmModule))
         <button @click="showCreateWorkspace = true" class="btn btn-secondary gap-2 border border-slate-200">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
           New Workspace
@@ -229,8 +229,9 @@
          @click.stop>
       <h3 class="font-display font-bold text-slate-800 text-lg mb-5">Create New Board</h3>
 
-      <form method="POST" action="{{ route('boards.store') }}" enctype="multipart/form-data" class="space-y-4" x-data="{ template: 'normal', bgType: 'color', customColor: '#6366f1', customImage: '', month: '{{ date('F') }}', year: '{{ date('Y') }}' }" x-init="$watch('template', value => { if (value === 'workflow') customColor = '#ffffff'; else if (value === 'planning') customColor = '#ef4444'; else customColor = '#6366f1'; })">
+      <form method="POST" action="{{ isset($isSmmModule) && $isSmmModule ? route('smm-boards.store') : route('boards.store') }}" enctype="multipart/form-data" class="space-y-4" x-data="{ template: 'normal', bgType: 'color', customColor: '#6366f1', customImage: '', month: '{{ date('F') }}', year: '{{ date('Y') }}' }" x-init="$watch('template', value => { if (value === 'workflow') customColor = '#ffffff'; else if (value === 'planning') customColor = '#ef4444'; else customColor = '#6366f1'; })">
         @csrf
+        @if(!isset($isSmmModule) || !$isSmmModule)
         <div>
           <label class="form-label">Workspace</label>
           <select name="workspace_id" x-model="selectedWorkspaceId" class="form-input" required>
@@ -248,8 +249,9 @@
             <option value="planning">Planning board</option>
           </select>
         </div>
+        @endif
 
-        <div x-show="template === 'workflow' || template === 'planning'" x-cloak class="grid grid-cols-2 gap-4">
+        <div @if(!isset($isSmmModule) || !$isSmmModule) x-show="template === 'workflow' || template === 'planning'" x-cloak @endif class="grid grid-cols-2 gap-4">
           <div>
             <label class="form-label">Month</label>
             <select name="template_month" x-model="month" class="form-input">
@@ -268,10 +270,19 @@
           </div>
         </div>
 
+        @if(!isset($isSmmModule) || !$isSmmModule)
         <div x-show="template === 'normal'" x-cloak>
           <label class="form-label">Board Name <span class="text-red-500">*</span></label>
-          <input type="text" name="name" class="form-input" placeholder="e.g. Planning Board" :required="template === 'normal'" autofocus>
+          <input type="text" name="name" class="form-input" placeholder="e.g. Planning Board - August 2026" :required="template === 'normal'" autofocus>
         </div>
+        @endif
+        
+        @if(isset($isSmmModule) && $isSmmModule)
+        <div>
+          <label class="form-label">Description (Optional)</label>
+          <textarea name="description" rows="2" class="form-input"></textarea>
+        </div>
+        @endif
 
         <div>
           <label class="form-label">Background Type</label>
@@ -325,6 +336,7 @@
           </div>
         </div>
 
+        @if(!isset($isSmmModule) || !$isSmmModule)
         <div>
           <label class="form-label">Visibility</label>
           <select name="visibility" class="form-input">
@@ -333,6 +345,7 @@
             <option value="public">Public (anyone can view)</option>
           </select>
         </div>
+        @endif
 
         <div class="flex gap-3 pt-2">
           <button type="button" @click="showCreateBoard = false" class="btn btn-secondary flex-1">Cancel</button>
