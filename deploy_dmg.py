@@ -80,21 +80,21 @@ def main():
     with open(appcast_path, "w") as f:
         json.dump(appcast_data, f, indent=2)
 
-    # 4. Update routes/web.php
-    web_route_path = os.path.join(app_root, "routes/web.php")
-    print("Updating version in routes/web.php...")
+    # 4. Update RouteClosureController.php
+    web_route_path = os.path.join(app_root, "app/Http/Controllers/RouteClosureController.php")
+    print("Updating version in RouteClosureController.php...")
     with open(web_route_path, "r") as f:
         web_content = f.read()
 
-    # We want to replace $version = '...'; inside the mac-app/download route
-    pattern_web = r"(Route::get\('/mac-app/download',\s*function\s*\(\)\s*\{[^}]*?\$version\s*=\s*')[^']+('\s*;)"
+    # We want to replace $version = '...'; inside downloadMacApp
+    pattern_web = r"(public\s+function\s+downloadMacApp\(\)\s*\{[^}]*?\$version\s*=\s*')[^']+('\s*;)"
     if re.search(pattern_web, web_content):
         web_content = re.sub(pattern_web, rf"\g<1>{new_version}\g<2>", web_content)
         with open(web_route_path, "w") as f:
             f.write(web_content)
-        print("Successfully updated routes/web.php")
+        print("Successfully updated RouteClosureController.php")
     else:
-        print("Warning: Could not automatically update version in routes/web.php. Please verify manually.")
+        print("Warning: Could not automatically update version in RouteClosureController.php. Please verify manually.")
 
     # 5. Update resources/views/downloads/mac-app.blade.php
     blade_path = os.path.join(app_root, "resources/views/downloads/mac-app.blade.php")
@@ -155,7 +155,7 @@ def main():
         "rsync", "-avzR", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
         f"public/downloads/KIUQ-SYSTEM-{new_version}.dmg",
         "public/appcast/latest-mac.json",
-        "routes/web.php",
+        "app/Http/Controllers/RouteClosureController.php",
         "resources/views/downloads/mac-app.blade.php",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/"
     ]

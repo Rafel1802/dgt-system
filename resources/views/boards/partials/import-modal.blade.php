@@ -1,7 +1,8 @@
 {{-- ── Board Import Modal ─────────────────────────────────────────────── --}}
 {{-- Multi-step: Step 1 = source selection, Step 2 = validation preview, Step 3 = done --}}
 <div x-show="importModal.open" x-cloak
-     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 overflow-y-auto"
+     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+     style="z-index: 110;"
      @click.self="closeImportModal()"
      @keydown.escape.window="closeImportModal()">
 
@@ -265,11 +266,18 @@
                         <span class="text-[9px] font-bold text-slate-400">Row <span x-text="row.row"></span></span>
                         <span x-show="row.is_duplicate" class="text-[9px] font-black text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">DUPLICATE</span>
                       </div>
-                      <div class="flex items-center gap-3 mt-1 text-[10px] text-slate-400 font-semibold flex-wrap">
-                        <span x-show="row.list_name">→ <span x-text="row.list_name"></span></span>
-                        <span x-show="row.assigned_name">👤 <span x-text="row.assigned_name"></span></span>
-                        <span x-show="row.start_date">▶ <span x-text="row.start_date"></span></span>
-                        <span x-show="row.due_date">📅 <span x-text="row.due_date"></span></span>
+                      <div class="flex flex-col gap-1 mt-2 text-[10px] text-slate-500 font-medium">
+                        <div x-show="row.list_name"><span class="font-bold text-slate-700">List:</span> <span x-text="row.list_name"></span></div>
+                        <div x-show="row.smm_cluster_label"><span class="font-bold text-slate-700">Cluster:</span> <span x-text="row.smm_cluster_label"></span></div>
+                        <div x-show="row.smm_team_label"><span class="font-bold text-slate-700">Team:</span> <span x-text="row.smm_team_label"></span></div>
+                        <div x-show="row.smm_class_label"><span class="font-bold text-slate-700">SMM Class:</span> <span x-text="row.smm_class_label"></span></div>
+                        <div x-show="row.assigned_name"><span class="font-bold text-slate-700">Assign To:</span> <span x-text="row.assigned_name"></span></div>
+                        <div x-show="row.assigned_by_name"><span class="font-bold text-slate-700">Assign By:</span> <span x-text="row.assigned_by_name"></span></div>
+                        <div x-show="row.content_public_date"><span class="font-bold text-slate-700">Publish:</span> <span x-text="formatDateHuman(row.content_public_date)"></span></div>
+                        <div x-show="row.deadline || row.due_time"><span class="font-bold text-slate-700">Due:</span> 
+                          <span x-show="row.deadline" x-text="formatDateHuman(row.deadline)"></span>
+                          <span x-show="row.due_time" x-text="' ' + row.due_time"></span>
+                        </div>
                       </div>
                       {{-- Errors --}}
                       <div x-show="row.errors && row.errors.length" class="mt-1.5 space-y-0.5">

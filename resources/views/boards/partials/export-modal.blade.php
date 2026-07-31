@@ -1,6 +1,7 @@
 {{-- Export & Reporting Modal --}}
 <div x-show="exportModal.open" x-cloak
-     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+     style="z-index: 110;"
      @click.self="exportModal.open = false">
      
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 flex flex-col"

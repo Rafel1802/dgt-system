@@ -102,6 +102,20 @@ class BoardImportController extends Controller
         $boardLists  = $board->activeLists()->pluck('id', 'name')->all();
         $firstListId = $board->activeLists()->orderBy('position')->value('id');
 
+        // Robust user lookup for "Assigned To"
+        $allUsers = User::select('id', 'name', 'username')->get();
+        $userLookup = [];
+        foreach ($allUsers as $u) {
+            $userLookup[strtolower(trim($u->name))] = ['id' => $u->id, 'name' => $u->name];
+            $userLookup[strtolower(trim($u->username))] = ['id' => $u->id, 'name' => $u->name];
+            $coreName = preg_replace('/^(Mr\.|Ms\.|Mrs\.)\s*/i', '', $u->name);
+            $coreName = preg_replace('/\s*\(.*?\)/', '', $coreName);
+            $coreName = strtolower(trim($coreName));
+            if ($coreName) {
+                $userLookup[$coreName] = ['id' => $u->id, 'name' => $u->name];
+            }
+        }
+
         // Build a composite key set: "title|due_date" for precise duplicate detection
         $existingCardKeys = Card::where('board_id', $board->id)
             ->whereNull('deleted_at')
@@ -154,27 +168,25 @@ class BoardImportController extends Controller
                 }
             }
 
-            // Label — must exist on the board if provided
+            // Label — auto-create if doesn't exist during confirm, so no error here
             $labelId = null;
             if (!empty($row['Label'])) {
                 $labelName = strtolower(trim($row['Label']));
                 if (isset($boardLabels[$labelName])) {
                     $labelId = $boardLabels[$labelName];
-                } else {
-                    $errors[] = "Label \"{$row['Label']}\" does not exist. Please create it first.";
                 }
             }
 
-            // Assigned To — match by username
+            // Assigned To — robust match
             $assignedUserId   = null;
             $assignedUserName = null;
             if (!empty($row['Assigned To'])) {
-                $user = User::where('username', $row['Assigned To'])->first();
-                if (!$user) {
-                    $errors[] = "Username \"{$row['Assigned To']}\" not found. Please check the username.";
+                $matchedUser = $this->resolveMember($row['Assigned To'], $userLookup);
+                if (!$matchedUser['id']) {
+                    $errors[] = "User \"{$row['Assigned To']}\" not found. Please check the name or username.";
                 } else {
-                    $assignedUserId   = $user->id;
-                    $assignedUserName = $user->name;
+                    $assignedUserId   = $matchedUser['id'];
+                    $assignedUserName = $matchedUser['name'];
                 }
             }
 
@@ -313,6 +325,13 @@ class BoardImportController extends Controller
             // ── 5. Label ──────────────────────────────────────────────────
             if (!empty($row['label_id'])) {
                 $card->labels()->attach($row['label_id']);
+            } elseif (!empty($row['label'])) {
+                // Auto-create missing label
+                $newLabel = Label::firstOrCreate(
+                    ['name' => trim($row['label']), 'workspace_id' => null, 'board_id' => null],
+                    ['color' => '#10b981'] // default green
+                );
+                $card->labels()->attach($newLabel->id);
             }
 
             // ── 6. Assignee ───────────────────────────────────────────────
@@ -471,9 +490,22 @@ class BoardImportController extends Controller
         return $map;
     }
 
-    /**
-     * Map a raw CSV row array to a named field array using the column map.
-     */
+    // ── Helper: Map row values to column names ────────────────────────────────
+
+    private function resolveMember($rawValue, $userLookup)
+    {
+        if (empty($rawValue)) return ['id' => null, 'name' => null];
+        $search = strtolower(trim($rawValue));
+        if (isset($userLookup[$search])) return $userLookup[$search];
+        // fallback partial match
+        foreach ($userLookup as $key => $data) {
+            if (str_contains($key, $search) || str_contains($search, $key)) {
+                return $data;
+            }
+        }
+        return ['id' => null, 'name' => null];
+    }
+
     private function mapRow(array $rawRow, array $colMap): array
     {
         $result = [];

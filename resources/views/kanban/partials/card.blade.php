@@ -35,7 +35,8 @@
     @endif
     
     @if($card->smm_class_label)
-      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border"
+            style="background: {{ $card->smm_class_color }}20; color: {{ $card->smm_class_color }}; border-color: {{ $card->smm_class_color }}40;">
         {{ $card->smm_class_label }}
       </span>
     @endif

@@ -9,7 +9,8 @@
            amFormatBytes()
 --}}
 <div x-show="attachmentModal.open" x-cloak
-     class="fixed inset-0 z-[80] flex items-center justify-center p-4"
+     class="fixed inset-0 flex items-center justify-center p-4"
+     style="z-index: 110;"
      @keydown.escape.window="closeAttachmentModal()">
 
   {{-- Backdrop --}}
@@ -352,7 +353,8 @@
 </div>
 
 <div x-show="imagePreview.open" x-cloak
-     class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/75 p-4"
+     class="fixed inset-0 flex items-center justify-center bg-slate-950/75 p-4"
+     style="z-index: 110;"
      @keydown.escape.window="closeImagePreview()"
      @click="closeImagePreview()">
   <div class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl" @click.stop>
@@ -372,7 +374,8 @@
 
 <!-- Video Preview Modal -->
 <div x-show="videoPreview.open" x-cloak
-     class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4"
+     class="fixed inset-0 flex items-center justify-center bg-slate-950/80 p-4"
+     style="z-index: 110;"
      @keydown.escape.window="closeVideoPreview()"
      @click="closeVideoPreview()">
   <div class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl flex flex-col" @click.stop>

@@ -146,6 +146,8 @@ class CardController extends Controller
             'board_list_id' => ['sometimes', 'exists:board_lists,id'],
             'status'        => ['sometimes', 'string'],
             'created_by'    => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'content_public_date' => ['sometimes', 'nullable', 'date'],
+            'smm_class_label' => ['sometimes', 'nullable', 'string'],
         ]);
 
         $oldValues = $card->only(array_keys($validated));
@@ -176,6 +178,10 @@ class CardController extends Controller
                     "renamed card to **{$val}**"),
                 'created_by'  => $this->logCardActivity($card, 'creator_changed',
                     "changed Assigned By user"),
+                'smm_class_label' => $this->logCardActivity($card, 'smm_class_changed',
+                    "changed SMM Class to **{$val}**"),
+                'content_public_date' => $this->logCardActivity($card, 'content_public_date_changed',
+                    "changed Public Date to **{$val}**"),
                 default       => null,
             };
         }

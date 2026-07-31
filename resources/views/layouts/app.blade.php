@@ -1061,14 +1061,35 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
                 @hasanyrole('super-admin|admin-digital')
-                <a wire:navigate.hover href="{{ route('admin.labels.index') }}"
-                   class="sidebar-item {{ request()->routeIs('admin.labels.*') ? 'active' : '' }}"
-                   id="nav-labels">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/>
-                    </svg>
-                    Labels
-                </a>
+                <div x-data="{ open: {{ request()->routeIs('admin.labels.*') || request()->routeIs('admin.smm-classes.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
+                    <button type="button"
+                        @click="open = !open"
+                        class="sidebar-item w-full justify-between {{ request()->routeIs('admin.labels.*') || request()->routeIs('admin.smm-classes.*') ? 'active' : '' }}"
+                        id="nav-labels-toggle"
+                        aria-expanded="open">
+                        <span class="flex items-center gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/>
+                            </svg>
+                            <span>Labels</span>
+                        </span>
+                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0"
+                             :class="{'rotate-180': open}"
+                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
+                        </svg>
+                    </button>
+                    <div x-show="open" x-collapse class="sidebar-submenu-list mt-1 space-y-1 relative">
+                        <a wire:navigate.hover href="{{ route('admin.labels.index') }}"
+                           class="sidebar-submenu-item {{ request()->routeIs('admin.labels.*') ? 'active' : '' }}">
+                            <span>Team Labels</span>
+                        </a>
+                        <a wire:navigate.hover href="{{ route('admin.smm-classes.index') }}"
+                           class="sidebar-submenu-item {{ request()->routeIs('admin.smm-classes.*') ? 'active' : '' }}">
+                            <span>Class Labels</span>
+                        </a>
+                    </div>
+                </div>
                 @endhasanyrole
 
                 @can('security.view')

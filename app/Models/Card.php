@@ -32,6 +32,8 @@ class Card extends Model
         'sub_label',
         'smm_class_label',
         'smm_team_label',
+        'smm_cluster_label',
+        'content_public_date',
         'priority',
         'status',
         'position',
@@ -59,6 +61,7 @@ class Card extends Model
         'deadline'          => 'date',
         'due_at'            => 'datetime',
         'start_date'        => 'date',
+        'content_public_date'=> 'date',
         'due_reminder_sent' => 'boolean',
         'is_archived'       => 'boolean',
         'approved_at'       => 'datetime',
@@ -81,8 +84,8 @@ class Card extends Model
                 try {
                     $dirty = $card->getDirty();
                     $syncFields = [
-                        'title', 'description', 'label', 'sub_label', 'smm_class_label', 'smm_team_label', 'priority', 'status',
-                        'deadline', 'due_at', 'start_date', 'due_time', 'reminder', 'recurring',
+                        'title', 'description', 'label', 'sub_label', 'smm_class_label', 'smm_team_label', 'smm_cluster_label', 'priority', 'status',
+                        'deadline', 'due_at', 'start_date', 'content_public_date', 'due_time', 'reminder', 'recurring',
                         'cover_image', 'is_archived', 'approved_by', 'approved_at', 'rejection_reason',
                         'reviewed_by', 'reviewed_at', 'block_completed_by', 'block_completed_at', 'created_by'
                     ];
@@ -304,6 +307,13 @@ class Card extends Model
     public function getLabelBgAttribute(): string
     {
         return CardLabel::tryFrom($this->label)?->bgColor() ?? '#f3f4f6';
+    }
+
+    public function getSmmClassColorAttribute()
+    {
+        if (!$this->smm_class_label) return '#6366f1';
+        $class = SocialMediaClass::where('name', $this->smm_class_label)->first();
+        return $class ? $class->color : '#6366f1';
     }
 
     public function isOverdue(): bool

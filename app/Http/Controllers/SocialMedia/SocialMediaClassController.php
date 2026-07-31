@@ -84,6 +84,21 @@ class SocialMediaClassController extends Controller
         return back()->with('success', 'Class "' . $data['name'] . '" created successfully.');
     }
 
+    public function quickStore(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255|unique:social_media_classes,name',
+        ]);
+
+        $class = SocialMediaClass::create([
+            'name'       => $data['name'],
+            'status'     => 'active',
+            'created_by' => auth()->id(),
+        ]);
+
+        return response()->json(['success' => true, 'smm_class' => $class]);
+    }
+
     public function update(Request $request, SocialMediaClass $class)
     {
         $data = $request->validate([

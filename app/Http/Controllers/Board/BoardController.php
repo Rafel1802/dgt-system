@@ -298,6 +298,7 @@ class BoardController extends Controller
             'boardSlug' => $board->slug,
             'boardType' => $board->type,
             'baseRoute' => $board->type === 'smm' ? 'smm-boards' : 'boards',
+            'smmClasses' => \App\Models\SocialMediaClass::active()->get(['id', 'name', 'color'])->toArray(),
             'csrfToken' => csrf_token(),
             'currentUserId' => $user->id,
             'currentUser' => [
@@ -1118,6 +1119,27 @@ class BoardController extends Controller
          $list->delete();
 
          return response()->json(['message' => 'List and its cards permanently deleted.']);
+     }
+
+     /** Clear all cards inside a list (Super Admin only). */
+     public function clearList(BoardList $list): JsonResponse
+     {
+         if (!auth()->user()->hasRole('super-admin')) {
+             return response()->json(['message' => 'Unauthorized. Super Admin only.'], 403);
+         }
+         
+         $this->authorizeBoard($list->board);
+         
+         try {
+             \App\Notifications\BoardActivityNotification::send($list->board, 'list_cleared', "cleared all cards from list **{$list->name}**");
+         } catch (\Throwable $e) {
+             \Illuminate\Support\Facades\Log::error("Notification failed: " . $e->getMessage());
+         }
+
+         // Delete all cards inside this list
+         $list->cards()->delete();
+
+         return response()->json(['message' => 'List cleared successfully.']);
      }
 
     /** Reorder lists via drag-and-drop. */

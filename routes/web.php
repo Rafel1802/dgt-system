@@ -198,6 +198,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::patch('/lists/{list}', [BoardController::class, 'updateList'])->name('lists.update');
             Route::post('/{board:slug}/lists/reorder', [BoardController::class, 'reorderLists'])->name('lists.reorder');
             Route::delete('/lists/{list}', [BoardController::class, 'destroyList'])->name('lists.destroy');
+            Route::delete('/lists/{list}/clear', [BoardController::class, 'clearList'])->name('lists.clear');
 
             // Card management — AJAX
             Route::post('/{board:slug}/cards', [BoardCardController::class, 'store'])->name('cards.store');
@@ -298,7 +299,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         // ── SMM Planning Boards ───────────────────────────────────────────
         Route::prefix('smm-boards')
             ->name('smm-boards.')
-            ->middleware(['auth', 'ensure.active', 'role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team'])
+            ->middleware(['auth', 'ensure.active', 'role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team', 'maintenance:social_media'])
             ->group(function () {
                 Route::get('/', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'index'])->name('index');
                 Route::post('/', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'store'])->name('store');
@@ -350,6 +351,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/users/bulk-action', [UserController::class, 'bulkAction'])->name('users.bulk-action');
             Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
             Route::resource('labels', LabelController::class)->except(['create', 'show', 'edit']);
+            Route::resource('smm-classes', \App\Http\Controllers\Admin\SmmClassController::class)->except(['create', 'show', 'edit']);
 
             // ── System Settings ───────────────────────────────────────────
             Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
@@ -658,6 +660,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::delete('/analytics/{analytic}', [SocialMediaAnalyticsController::class, 'destroy'])->name('analytics.destroy');
                 });
 
+                // Quick create SMM Class from Board
+                Route::post('/classes/quick-create', [\App\Http\Controllers\SocialMedia\SocialMediaClassController::class, 'quickStore'])->name('classes.quick-store');
 
                 // Class & Item Management — platform admins and Social QC only
                 Route::middleware('role:super-admin|admin-digital|social_qc')->group(function () {

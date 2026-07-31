@@ -111,6 +111,7 @@ if __name__ == "__main__":
             "rm -f public/hot && "
             "rm -f bootstrap/cache/*.php && "
             f"{PHP} artisan optimize:clear && "
+            f"{PHP} artisan tinker --execute=\"App\\Models\\SocialMediaClass::whereIn('name', ['Long Landscape', 'Share Blog', 'Short Reel', 'Poster Design', 'Reel'])->delete();\" && "
             f"{PHP} artisan optimize && "
             f"{PHP} artisan view:cache && "
             f"{PHP} artisan storage:link"

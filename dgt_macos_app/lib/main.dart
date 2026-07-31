@@ -491,10 +491,12 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                   initialSettings: InAppWebViewSettings(
                     userAgent: 'DGTSystemMacOSApp/1.0',
                     javaScriptEnabled: true,
-                    transparentBackground: true,
+                    transparentBackground: false,
                     cacheEnabled: true,
                     useShouldOverrideUrlLoading: true,
                     useOnDownloadStart: true,
+                    allowsBackForwardNavigationGestures: true,
+                    isInspectable: false,
                   ),
                   onWebViewCreated: (webViewController) {
                     controller = webViewController;
@@ -509,7 +511,12 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                   },
                   onProgressChanged: (controller, progress) {
                     if (!hasLoadedFirstPage) {
-                      setState(() => loadingProgress = progress);
+                      setState(() {
+                        loadingProgress = progress;
+                        if (progress >= 80) {
+                          hasLoadedFirstPage = true;
+                        }
+                      });
                     }
                   },
                   onLoadStart: (controller, url) {

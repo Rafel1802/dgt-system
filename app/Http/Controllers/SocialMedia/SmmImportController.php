@@ -8,9 +8,11 @@ use App\Models\Card;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\SocialMediaClass;
+use App\Models\Label;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -18,15 +20,15 @@ class SmmImportController extends Controller
 {
     /** Standard import columns */
     private const HEADERS = [
-        'Cluster', 'Team', 'Work Task / Content Type', 'Assigned To', 'Assigned By', 
-        'Content Public Date', 'Deadline Time & Date',
+        'Cluster', 'Team', 'Work Task / Content Type', 'Title', 'Description', 'Attachement',
+        'Assigned To', 'Assigned By', 'Content Public Date', 'Deadline Date', 'Deadline Time', 'Weeks'
     ];
 
     public function template(Board $board): Response
     {
         $headers = implode(',', self::HEADERS);
-        $sample1 = 'ImpossibleMachinery,Graphic Team,Poster Design,Pich,Srey Pich,3-August-2026,Jul 29 2026 - 12:00 PM';
-        $sample2 = 'ImpossibleMachinery,Video Team,Short Reel,Lyhour,Srey Pich,5-August-2026,Jul 31 2026 - 12:00 PM';
+        $sample1 = 'ImpossibleMachinery,Graphic Team,Poster Design,TYPH-1702 Ebay Content,Desing 3 posters,https://example.com,Pich,Srey Pich,6-August-2026,29-July-2026,12:00';
+        $sample2 = 'MachineryAsia,Video Team,Short Reel,TYPH-1703,Create short reel,https://example.com/video,Lyhour,Srey Pich,5-August-2026,30-July-2026,15:00';
         $csv = implode("\n", [$headers, $sample1, $sample2]) . "\n";
 
         return response($csv, 200, [
@@ -81,9 +83,23 @@ class SmmImportController extends Controller
         $boardLists = $board->activeLists()->pluck('id', 'name')->all();
         $firstListId = $board->activeLists()->orderBy('position')->value('id');
 
+        $allUsers = User::select('id', 'name', 'username')->get();
+        $userLookup = [];
+        foreach ($allUsers as $u) {
+            $userLookup[strtolower(trim($u->name))] = ['id' => $u->id, 'name' => $u->name];
+            $userLookup[strtolower(trim($u->username))] = ['id' => $u->id, 'name' => $u->name];
+            $coreName = preg_replace('/^(Mr\.|Ms\.|Mrs\.)\s*/i', '', $u->name);
+            $coreName = preg_replace('/\s*\(.*?\)/', '', $coreName);
+            $coreName = strtolower(trim($coreName));
+            if ($coreName) {
+                $userLookup[$coreName] = ['id' => $u->id, 'name' => $u->name];
+            }
+        }
+
         $preview = [];
         $totalValid = 0;
         $totalInvalid = 0;
+        $totalWarnings = 0;
 
         foreach ($dataRows as $idx => $rawRow) {
             // Skip fully empty rows
@@ -102,34 +118,49 @@ class SmmImportController extends Controller
             }
 
             $errors = [];
+            $warnings = [];
             
             // Dates Parsing
             $pubDate = $this->parseFlexibleDate($row['Content Public Date'] ?? '');
-            $deadline = $this->parseFlexibleDate($row['Deadline Time & Date'] ?? '');
+            
+            $deadlineDateStr = trim($row['Deadline Date'] ?? '');
+            $deadlineTimeStr = trim($row['Deadline Time'] ?? '');
+            $deadline = null;
+            if ($deadlineDateStr) {
+                $deadline = $this->parseFlexibleDate($deadlineDateStr . ' ' . $deadlineTimeStr);
+            }
+            
+            $startDate = $this->parseFlexibleDate($row['Start Date'] ?? '');
 
-            // Team Label extraction (Remove " Team")
-            $teamRaw = trim($row['Team'] ?? '');
-            $teamLabel = preg_replace('/\s+Team$/i', '', $teamRaw);
+            // Team Label extraction (Keep exact string from spreadsheet to match existing labels)
+            $teamLabel = trim($row['Team'] ?? '');
             if (strtolower($teamLabel) === 'none') $teamLabel = '';
-
+            
             // Title
-            $cluster = trim($row['Cluster'] ?? 'Unknown');
-            $contentType = trim($row['Work Task / Content Type'] ?? 'Task');
-            $title = $cluster . ' - ' . $contentType;
+            $cluster = trim($row['Cluster'] ?? '');
+            $contentType = trim($row['Work Task / Content Type'] ?? '');
+            $rawTitle = trim($row['Title'] ?? '');
+            
+            if (empty($rawTitle) && empty($contentType)) continue;
+            
+            if (empty($rawTitle)) {
+                $title = $contentType;
+            } elseif (stripos($rawTitle, $contentType) === false) {
+                $title = $rawTitle . ' - ' . $contentType;
+            } else {
+                $title = $rawTitle;
+            }
 
-            // Generate Description
-            $desc = "**Cluster:** {$cluster}\n";
-            $desc .= "**Content Type:** {$contentType}\n";
-            $desc .= "**Assigned By:** " . ($row['Assigned By'] ?? 'N/A') . "\n";
-            $desc .= "**Assigned To:** " . ($row['Assigned To'] ?? 'N/A') . "\n";
-            $desc .= "**Publish Date:** " . ($row['Content Public Date'] ?? 'N/A') . "\n";
-            $desc .= "**Deadline:** " . ($row['Deadline Time & Date'] ?? 'N/A') . "\n";
-            $desc .= "**Imported From:** {$worksheetName}\n";
-            $desc .= "**Imported:** " . now()->format('F j, Y') . "\n";
+            // Description and Attachment
+            $desc = trim($row['Description'] ?? '');
+            $attachment = trim($row['Attachement'] ?? '');
 
             // Determine Week List
             $weekNumber = '1';
-            if (preg_match('/Week\s*(\d)/i', $worksheetName, $matches)) {
+            $weeksCol = $row['Weeks'] ?? '';
+            if (!empty($weeksCol) && preg_match('/Week\s*(\d)/i', $weeksCol, $matches)) {
+                $weekNumber = $matches[1];
+            } elseif (preg_match('/Week\s*(\d)/i', $worksheetName, $matches)) {
                 $weekNumber = $matches[1];
             }
             $targetWeek = "Week " . $weekNumber;
@@ -148,20 +179,39 @@ class SmmImportController extends Controller
             if ($isValid) $totalValid++;
             else $totalInvalid++;
 
+            $assignTo = $this->resolveMember($row['Assigned To'] ?? '', $userLookup);
+            $assignBy = $this->resolveMember($row['Assigned By'] ?? '', $userLookup);
+
+            if ($assignTo['warning']) {
+                $warnings[] = $assignTo['warning'];
+                $totalWarnings++;
+            }
+            if ($assignBy['warning']) {
+                $warnings[] = $assignBy['warning'];
+                $totalWarnings++;
+            }
+
             $preview[] = [
                 'row' => $idx + 2,
                 'title' => $title,
+                'smm_cluster_label' => $cluster,
                 'smm_class_label' => $contentType,
                 'smm_team_label' => $teamLabel,
                 'description' => $desc,
-                'start_date' => $pubDate,
+                'attachment' => $attachment,
+                'content_public_date' => $pubDate,
+                'start_date' => $startDate,
                 'deadline' => $deadline,
+                'due_time' => $deadlineTimeStr,
                 'assign_by_raw' => trim($row['Assigned By'] ?? ''),
                 'assign_to_raw' => trim($row['Assigned To'] ?? ''),
+                'assigned_name' => $assignTo['resolved_name'] ?: trim($row['Assigned To'] ?? ''),
+                'assigned_by_name' => $assignBy['resolved_name'] ?: trim($row['Assigned By'] ?? ''),
                 'list_id' => $listId,
                 'list_name' => $listName,
                 'valid' => $isValid,
                 'errors' => $errors,
+                'warnings' => $warnings,
                 'worksheet' => $worksheetName,
             ];
         }
@@ -170,6 +220,7 @@ class SmmImportController extends Controller
             'total' => count($preview),
             'valid' => $totalValid,
             'invalid' => $totalInvalid,
+            'warnings' => $totalWarnings,
             'rows' => $preview,
         ]);
     }
@@ -196,28 +247,27 @@ class SmmImportController extends Controller
         $allUsers = User::select('id', 'name', 'username')->get();
         $userLookup = [];
         foreach ($allUsers as $u) {
-            $userLookup[strtolower(trim($u->name))] = $u->id;
-            $userLookup[strtolower(trim($u->username))] = $u->id;
-            
-            // Extract core name for fuzzy matching (remove Mr/Ms and parenthetical roles)
+            $userLookup[strtolower(trim($u->name))] = ['id' => $u->id, 'name' => $u->name];
+            $userLookup[strtolower(trim($u->username))] = ['id' => $u->id, 'name' => $u->name];
             $coreName = preg_replace('/^(Mr\.|Ms\.|Mrs\.)\s*/i', '', $u->name);
             $coreName = preg_replace('/\s*\(.*?\)/', '', $coreName);
             $coreName = strtolower(trim($coreName));
             if ($coreName) {
-                $userLookup[$coreName] = $u->id;
+                $userLookup[$coreName] = ['id' => $u->id, 'name' => $u->name];
             }
         }
 
-        // 2. Pre-load existing cards for this board to update duplicates efficiently
-        $existingCards = Card::where('board_id', $board->id)
-            ->select('id', 'title', 'start_date', 'due_at', 'description', 'smm_class_label', 'smm_team_label', 'sync_id')
-            ->get();
-            
-        $existingCardsMap = [];
-        foreach ($existingCards as $ec) {
-            $key = strtolower($ec->title) . '|' . $ec->start_date;
-            $existingCardsMap[$key] = $ec;
-        }
+            // 2. Pre-load existing cards for this board to update duplicates efficiently
+            $existingCards = Card::where('board_id', $board->id)
+                ->select('id', 'title', 'start_date', 'content_public_date', 'due_at', 'description', 'smm_class_label', 'smm_team_label', 'sync_group_id')
+                ->get();
+                
+            $existingCardsMap = [];
+            foreach ($existingCards as $ec) {
+                $dateKey = $ec->start_date ?? $ec->content_public_date;
+                $key = strtolower($ec->title) . '|' . $dateKey;
+                $existingCardsMap[$key] = $ec;
+            }
 
         // 3. Pre-load workspaces and their active boards for team distribution
         $workspaces = Workspace::with(['boards' => function ($query) {
@@ -226,6 +276,8 @@ class SmmImportController extends Controller
             $query->where('is_archived', false)->orderBy('position');
         }])->get();
 
+        $distributedCounts = [];
+
         foreach ($rows as $row) {
             if (empty($row['valid'])) {
                 $skipped++;
@@ -233,7 +285,8 @@ class SmmImportController extends Controller
             }
 
             // Fix for duplicate testing within same payload
-            $compositeKey = md5(strtolower($row['worksheet'] . '|' . $row['title'] . '|' . $row['assign_to_raw'] . '|' . $row['start_date']));
+            $dateKey = $row['start_date'] ?: $row['content_public_date'];
+            $compositeKey = md5(strtolower($row['worksheet'] . '|' . $row['title'] . '|' . $row['assign_to_raw'] . '|' . $dateKey));
             
             if (in_array($compositeKey, $importedKeys)) {
                 $skippedDuplicates++;
@@ -241,35 +294,28 @@ class SmmImportController extends Controller
             }
             $importedKeys[] = $compositeKey;
 
-            // Auto-create class if it doesn't exist
+            // Auto-create class if it doesn't exist (Class = Cluster/Brand)
+            $clusterName = $row['smm_cluster_label'] ?? '';
             $className = $row['smm_class_label'] ?? '';
-            if (!empty($className) && !in_array(strtolower($className), $existingClasses)) {
+            if (!empty($clusterName) && !in_array(strtolower($clusterName), $existingClasses)) {
                 SocialMediaClass::create([
-                    'name' => $className,
-                    'color' => '#6366f1',
-                    'is_active' => true,
+                    'name' => $clusterName,
+                    'status' => 'active',
+                    'created_by' => auth()->id(),
                 ]);
-                $existingClasses[] = strtolower($className);
+                $existingClasses[] = strtolower($clusterName);
             }
 
-            // Fuzzy match helper
-            $fuzzyMatch = function($raw) use ($userLookup) {
-                $raw = strtolower(trim($raw));
-                if (isset($userLookup[$raw])) return $userLookup[$raw];
-                
-                $core = preg_replace('/^(Mr\.|Ms\.|Mrs\.)\s*/i', '', $raw);
-                $core = preg_replace('/\s*\(.*?\)/', '', $core);
-                $core = trim($core);
-                return $userLookup[$core] ?? null;
-            };
-
-            // Find User ID with fuzzy matching
-            $assignToUserId = $fuzzyMatch($row['assign_to_raw'] ?? '');
-            $assignByUserId = $fuzzyMatch($row['assign_by_raw'] ?? '');
+            // Find User ID with robust matching
+            $assignToResult = $this->resolveMember($row['assign_to_raw'] ?? '', $userLookup);
+            $assignByResult = $this->resolveMember($row['assign_by_raw'] ?? '', $userLookup);
+            $assignToUserId = $assignToResult['id'];
+            $assignByUserId = $assignByResult['id'];
             $createdById = $assignByUserId ?: auth()->id();
 
             // Check if card exists for updating from pre-loaded map
-            $lookupKey = strtolower($row['title']) . '|' . $row['start_date'];
+            $dateKey = $row['start_date'] ?: $row['content_public_date'];
+            $lookupKey = strtolower($row['title']) . '|' . $dateKey;
             $existingCard = $existingCardsMap[$lookupKey] ?? null;
 
             if ($existingCard) {
@@ -277,8 +323,13 @@ class SmmImportController extends Controller
                 Card::where('id', $existingCard->id)->update([
                     'description' => $row['description'],
                     'due_at' => $row['deadline'] ?: null,
+                    'start_date' => $row['start_date'] ?: null,
+                    'content_public_date' => $row['content_public_date'] ?: null,
+                    'due_time' => $row['due_time'] ?? null,
                     'smm_class_label' => $className ?: null,
                     'smm_team_label' => $row['smm_team_label'] ?: null,
+                    'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
+                    'created_by' => $createdById,
                 ]);
                 
                 // Collect label IDs to sync
@@ -287,10 +338,7 @@ class SmmImportController extends Controller
                     $teamLabel = Label::firstOrCreate(['name' => trim($row['smm_team_label']), 'workspace_id' => null, 'board_id' => null], ['color' => '#f43f5e']);
                     $labelIds[] = $teamLabel->id;
                 }
-                if (!empty($className)) {
-                    $classLabel = Label::firstOrCreate(['name' => trim($className), 'workspace_id' => null, 'board_id' => null], ['color' => '#8b5cf6']);
-                    $labelIds[] = $classLabel->id;
-                }
+                
                 $smmLabel = Label::firstOrCreate(['name' => 'SMM', 'workspace_id' => null, 'board_id' => null], ['color' => '#10b981']);
                 $labelIds[] = $smmLabel->id;
                 
@@ -314,8 +362,11 @@ class SmmImportController extends Controller
                     'description' => $row['description'],
                     'smm_class_label' => $className ?: null,
                     'smm_team_label' => $row['smm_team_label'] ?: null,
+                    'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
                     'start_date' => $row['start_date'] ?: null,
+                    'content_public_date' => $row['content_public_date'] ?: null,
                     'due_at' => $row['deadline'] ?: null,
+                    'due_time' => $row['due_time'] ?? null,
                     'status' => 'todo',
                     'position' => $position,
                     'created_by' => $createdById,
@@ -327,10 +378,7 @@ class SmmImportController extends Controller
                     $teamLabel = Label::firstOrCreate(['name' => trim($row['smm_team_label']), 'workspace_id' => null, 'board_id' => null], ['color' => '#f43f5e']);
                     $labelIds[] = $teamLabel->id;
                 }
-                if (!empty($className)) {
-                    $classLabel = Label::firstOrCreate(['name' => trim($className), 'workspace_id' => null, 'board_id' => null], ['color' => '#8b5cf6']);
-                    $labelIds[] = $classLabel->id;
-                }
+                
                 $smmLabel = Label::firstOrCreate(['name' => 'SMM', 'workspace_id' => null, 'board_id' => null], ['color' => '#10b981']);
                 $labelIds[] = $smmLabel->id;
                 
@@ -343,7 +391,30 @@ class SmmImportController extends Controller
                 $created[] = $card;
                 
                 // Distribute/Sync created card
-                $this->distributeToTeamWorkspace($card, $row['smm_team_label'] ?? null, $workspaces);
+                $teamBoard = $this->distributeToTeamWorkspace($card, $row['smm_team_label'] ?? null, $workspaces);
+                if ($teamBoard) {
+                    if (!isset($distributedCounts[$teamBoard->id])) {
+                        $distributedCounts[$teamBoard->id] = ['board' => $teamBoard, 'count' => 0];
+                    }
+                    $distributedCounts[$teamBoard->id]['count']++;
+                }
+            }
+
+            // Handle Attachment Link
+            if (!empty($row['attachment'])) {
+                $attachmentUrl = $row['attachment'];
+                if (filter_var($attachmentUrl, FILTER_VALIDATE_URL)) {
+                    $cardId = $existingCard ? $existingCard->id : $card->id;
+                    \App\Models\CardFile::firstOrCreate([
+                        'card_id' => $cardId,
+                        'disk' => 'url',
+                        'path' => $attachmentUrl,
+                    ], [
+                        'uploaded_by' => $createdById,
+                        'original_name' => $attachmentUrl,
+                        'stored_name' => '',
+                    ]);
+                }
             }
         }
 
@@ -356,6 +427,45 @@ class SmmImportController extends Controller
             'model_id' => $board->id,
             'details' => $logMessage
         ]);
+
+        if (count($created) > 0) {
+            $actor = auth()->user();
+            $smmMessage = $actor->name . " imported " . count($created) . " cards into SMM board";
+            
+            // 1. Notify SMM Board admins
+            $smmAdmins = \App\Models\User::role(['admin-digital', 'social_qc', 'super-admin'])->get();
+            foreach ($smmAdmins as $admin) {
+                if ($admin->id !== $actor->id) {
+                    $admin->notify(new \App\Notifications\GenericDatabaseNotification([
+                        'actor_id'     => $actor->id,
+                        'actor_name'   => $actor->name,
+                        'actor_avatar' => $actor->avatar_url,
+                        'module'       => 'digital',
+                        'message'      => $smmMessage,
+                        'link'         => route('boards.show', $board->slug)
+                    ]));
+                }
+            }
+
+            // 2. Notify team board members
+            foreach ($distributedCounts as $data) {
+                $teamBoard = $data['board'];
+                $count = $data['count'];
+                $teamMessage = $actor->name . " imported $count cards into Planning Board";
+                foreach ($teamBoard->members as $member) {
+                    if ($member->id !== $actor->id) {
+                        $member->notify(new \App\Notifications\GenericDatabaseNotification([
+                            'actor_id'     => $actor->id,
+                            'actor_name'   => $actor->name,
+                            'actor_avatar' => $actor->avatar_url,
+                            'module'       => 'digital',
+                            'message'      => $teamMessage,
+                            'link'         => route('boards.show', $teamBoard->slug)
+                        ]));
+                    }
+                }
+            }
+        }
 
         return response()->json([
             'created' => count($created),
@@ -370,37 +480,78 @@ class SmmImportController extends Controller
     /** Distribute card directly to the team workspace Planning Board using preloaded workspaces */
     private function distributeToTeamWorkspace(Card $card, ?string $teamLabel, $workspaces)
     {
-        if (empty($teamLabel)) return;
+        if (empty($teamLabel)) return null;
 
+        $normalizedTeamLabel = str_replace(' ', '', strtolower($teamLabel));
         $targetWorkspace = null;
         foreach ($workspaces as $workspace) {
-            if (stripos($workspace->name, $teamLabel) !== false) {
+            $normalizedWorkspaceName = str_replace(' ', '', strtolower($workspace->name));
+            if (strpos($normalizedWorkspaceName, $normalizedTeamLabel) !== false) {
                 $targetWorkspace = $workspace;
                 break;
             }
         }
         
-        if (!$targetWorkspace || $targetWorkspace->boards->isEmpty()) return;
+        if (!$targetWorkspace || $targetWorkspace->boards->isEmpty()) return null;
         
-        $teamBoard = $targetWorkspace->boards->first();
-        if ($teamBoard->lists->isEmpty()) return;
+        // Extract month/year from main board (e.g. "August 2026")
+        $mainBoardName = $card->board->name ?? '';
+        $monthYear = '';
+        if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i', $mainBoardName, $matches)) {
+            $monthYear = $matches[0];
+        }
         
-        $teamList = $teamBoard->lists->first();
+        $teamBoard = $targetWorkspace->boards->first(function($board) use ($monthYear) {
+            $isPlanning = stripos($board->name, 'Planning') !== false;
+            if ($monthYear) {
+                return $isPlanning && stripos($board->name, $monthYear) !== false;
+            }
+            return $isPlanning;
+        });
+
+        if (!$teamBoard) {
+            $teamBoard = $targetWorkspace->boards->first(function($board) {
+                return stripos($board->name, 'Planning') !== false;
+            });
+        }
+
+        if (!$teamBoard) {
+            $teamBoard = $targetWorkspace->boards->first(function($board) {
+                return stripos($board->name, 'Workflow') === false;
+            });
+        }
         
-        // Ensure sync_id exists
-        if (!$card->sync_id) {
+        if (!$teamBoard) {
+            $teamBoard = $targetWorkspace->boards->first();
+        }
+        
+        if (!$teamBoard || $teamBoard->lists->isEmpty()) return null;
+        
+        $originalListName = $card->boardList->name ?? '';
+        $teamList = $teamBoard->lists->first(function($list) use ($originalListName) {
+            return strcasecmp(trim($list->name), trim($originalListName)) === 0;
+        });
+
+        if (!$teamList) {
+            $teamList = $teamBoard->lists->first();
+        }
+        
+        // Ensure sync_group_id exists
+        if (!$card->sync_group_id) {
             Card::withoutEvents(function () use ($card) {
-                $card->sync_id = \Illuminate\Support\Str::uuid();
+                $card->sync_group_id = \Illuminate\Support\Str::uuid();
                 $card->save();
             });
         }
         
         // Quick check if already synced (still 1 query per card distributed, but better than 5 per card)
-        $alreadySynced = Card::where('board_id', $teamBoard->id)->where('sync_id', $card->sync_id)->exists();
+        $alreadySynced = Card::where('board_id', $teamBoard->id)->where('sync_group_id', $card->sync_group_id)->exists();
         if (!$alreadySynced) {
             $clone = $card->replicateRelationally($teamBoard->id, $teamList->id);
             $clone->update(['status' => 'todo']);
+            return $teamBoard;
         }
+        return null;
     }
 
     private function parseFlexibleDate($dateStr)
@@ -453,9 +604,54 @@ class SmmImportController extends Controller
     {
         $map = [];
         foreach ($headerRow as $idx => $colName) {
-            $map[$colName] = $idx;
+            $cleanName = strtolower(trim($colName));
+            if ($cleanName === 'attachement') $cleanName = 'attachment';
+            if (str_contains($cleanName, 'work task')) $cleanName = 'work task / content type';
+            if (str_contains($cleanName, 'content type')) $cleanName = 'work task / content type';
+            
+            // Map common aliases
+            if ($cleanName === 'work task / content type') $map['Work Task / Content Type'] = $idx;
+            elseif ($cleanName === 'cluster') $map['Cluster'] = $idx;
+            elseif ($cleanName === 'team') $map['Team'] = $idx;
+            elseif ($cleanName === 'title') $map['Title'] = $idx;
+            elseif ($cleanName === 'description') $map['Description'] = $idx;
+            elseif (str_contains($cleanName, 'attach')) $map['Attachement'] = $idx; // Map back to what mapRow expects
+            elseif ($cleanName === 'assigned to' || $cleanName === 'assign to') $map['Assigned To'] = $idx;
+            elseif ($cleanName === 'assigned by' || $cleanName === 'assign by') $map['Assigned By'] = $idx;
+            elseif (str_contains($cleanName, 'content public')) $map['Content Public Date'] = $idx;
+            elseif (str_contains($cleanName, 'deadline date')) $map['Deadline Date'] = $idx;
+            elseif (str_contains($cleanName, 'deadline time')) $map['Deadline Time'] = $idx;
+            elseif (str_contains($cleanName, 'start date')) $map['Start Date'] = $idx;
+            else $map[$colName] = $idx;
         }
         return $map;
+    }
+
+    private function resolveMember($rawName, $userLookup)
+    {
+        $rawName = trim($rawName);
+        if (empty($rawName) || in_array(strtolower($rawName), ['none', 'n/a', '-', 'blank', 'no member'])) {
+            return ['id' => null, 'warning' => null, 'resolved_name' => ''];
+        }
+
+        $lowerRaw = strtolower($rawName);
+        if (isset($userLookup[$lowerRaw])) {
+            return ['id' => $userLookup[$lowerRaw]['id'], 'warning' => null, 'resolved_name' => $userLookup[$lowerRaw]['name']];
+        }
+
+        $core = preg_replace('/^(Mr\.|Ms\.|Mrs\.)\s*/i', '', $rawName);
+        $core = preg_replace('/\s*\(.*?\)/', '', $core);
+        $core = strtolower(trim($core));
+
+        if (isset($userLookup[$core])) {
+            return ['id' => $userLookup[$core]['id'], 'warning' => null, 'resolved_name' => $userLookup[$core]['name']];
+        }
+
+        return [
+            'id' => null, 
+            'warning' => "Member \"$rawName\" could not be matched. Card imported successfully; resolve assignment later.", 
+            'resolved_name' => $rawName
+        ];
     }
 
     private function mapRow(array $rawRow, array $colMap): array

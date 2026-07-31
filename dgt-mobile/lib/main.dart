@@ -148,7 +148,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               initialSettings: InAppWebViewSettings(
                 userAgent: 'DGTSystemiOSApp/1.0',
                 javaScriptEnabled: true,
-                transparentBackground: true,
+                transparentBackground: false,
                 allowFileAccessFromFileURLs: true,
                 allowUniversalAccessFromFileURLs: true,
                 mediaPlaybackRequiresUserGesture: false,
@@ -165,7 +165,12 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               },
               onProgressChanged: (controller, progress) {
                 if (!hasLoadedFirstPage) {
-                  setState(() => loadingProgress = progress);
+                  setState(() {
+                    loadingProgress = progress;
+                    if (progress >= 80) {
+                      hasLoadedFirstPage = true;
+                    }
+                  });
                 }
               },
               onLoadStart: (controller, url) {

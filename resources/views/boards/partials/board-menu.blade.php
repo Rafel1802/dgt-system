@@ -2,7 +2,7 @@
   Trello-style right-side board menu.
   State and actions live in public/js/trello-board.js under boardMenu.
 --}}
-<div x-show="boardMenu.open" x-cloak class="fixed inset-0 z-[60] overflow-hidden" @keydown.escape.window="closeBoardMenu()">
+<div x-show="boardMenu.open" x-cloak class="fixed inset-0 overflow-hidden" style="z-index: 60;" @keydown.escape.window="closeBoardMenu()">
   <div class="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px]"
        x-show="boardMenu.open"
        x-transition.opacity

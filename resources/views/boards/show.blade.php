@@ -2,6 +2,7 @@
 @section('title', $board->name)
 
 @push('head')
+<meta name="turbo-visit-control" content="reload">
 <!-- Quill Theme -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
@@ -459,6 +460,12 @@
               <button @click="openMenu = false; deleteList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 font-medium">
                 🗑️ Delete
               </button>
+              @if(auth()->check() && auth()->user()->hasRole('super-admin'))
+              <div class="border-t border-slate-100 my-1"></div>
+              <button @click="openMenu = false; clearList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 font-medium" title="Delete all cards in this list">
+                🧹 Clear List
+              </button>
+              @endif
             </div>
           </div>
         </div>

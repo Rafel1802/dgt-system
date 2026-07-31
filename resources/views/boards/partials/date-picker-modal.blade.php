@@ -5,7 +5,8 @@
                          dueDate, dueTime, reminder, recurring, useStart, useDue }
 --}}
 <div x-show="datePicker.open" x-cloak
-     class="fixed inset-0 z-[80] flex items-center justify-center p-4"
+     class="fixed inset-0 flex items-center justify-center p-4"
+     style="z-index: 110;"
      @click.self="closeDatePicker()"
      @keydown.escape.window="closeDatePicker()">
 

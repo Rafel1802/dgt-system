@@ -26,7 +26,7 @@ class RouteClosureController extends Controller
      */
     public function downloadMacApp()
     {
-        $version = '1.0.6';
+        $version = '1.0.8';
         return redirect(asset("downloads/KIUQ-SYSTEM-{$version}.dmg"));
     }
 
