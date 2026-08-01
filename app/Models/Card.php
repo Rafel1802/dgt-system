@@ -71,6 +71,10 @@ class Card extends Model
         'priority'          => CardPriority::class,
     ];
 
+    protected $appends = [
+        'smm_cluster_link',
+    ];
+
     public static $isSyncing = false;
 
     protected static function booted()
@@ -299,9 +303,16 @@ class Card extends Model
 
     // ─── Accessors & Helpers ──────────────────────────────────────────────────
 
-    public function getLabelColorAttribute(): string
+    public function getLabelColorAttribute()
     {
-        return CardLabel::tryFrom($this->label)?->color() ?? '#6b7280';
+        $labelEnum = CardLabel::tryFrom($this->label);
+        return $labelEnum ? $labelEnum->color() : '#475569';
+    }
+
+    public function getSmmClusterLinkAttribute()
+    {
+        if (!$this->smm_cluster_label) return null;
+        return SocialMediaClass::where('name', $this->smm_cluster_label)->value('external_link');
     }
 
     public function getLabelBgAttribute(): string

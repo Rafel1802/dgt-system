@@ -194,11 +194,6 @@
                     x-text="detailCard.card.priority?.charAt(0).toUpperCase() + detailCard.card.priority?.slice(1)"></span>
             </div>
             
-            {{-- SMM Class Label --}}
-            <div x-show="detailCard.card.smm_class_label">
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">SMM Class</p>
-              <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30" x-text="detailCard.card.smm_class_label"></span>
-            </div>
 
             {{-- SMM Team Label --}}
             <div x-show="detailCard.card.smm_team_label">

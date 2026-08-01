@@ -23,6 +23,7 @@
         <thead>
           <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
             <th class="px-5 py-4">Class Label</th>
+            <th class="px-5 py-4">External Link</th>
             <th class="px-4 py-4 text-right">Actions</th>
           </tr>
         </thead>
@@ -35,9 +36,19 @@
                 <span class="font-bold text-slate-800">{{ $class->name }}</span>
               </div>
             </td>
+            <td class="px-5 py-3">
+              @if($class->external_link)
+                <a href="{{ $class->external_link }}" target="_blank" class="text-xs text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                  Drive Link
+                </a>
+              @else
+                <span class="text-xs text-slate-400">None</span>
+              @endif
+            </td>
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button @click="openEditModal({{ $class->id }}, '{{ addslashes($class->name) }}', '{{ $class->color }}')" 
+                <button @click="openEditModal({{ $class->id }}, '{{ addslashes($class->name) }}', '{{ $class->color }}', '{{ addslashes($class->external_link ?? '') }}')" 
                         class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="Edit">
                   <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                 </button>
@@ -96,6 +107,11 @@
             </div>
         </div>
 
+        <div>
+            <label class="form-label text-xs">External Link (Google Drive, etc.)</label>
+            <input type="url" name="external_link" x-model="form.external_link" class="form-input py-2 text-sm" placeholder="https://drive.google.com/...">
+        </div>
+
         <div class="pt-2 flex justify-end gap-2">
             <button type="button" @click="showModal=false" class="btn btn-secondary py-2 text-xs">Cancel</button>
             <button type="submit" class="btn btn-primary py-2 text-xs shadow-md" x-text="editId ? 'Save Changes' : 'Create Class Label'"></button>
@@ -116,20 +132,22 @@
         editId: null,
         form: {
             name: '',
-            color: '#ef4444'
+            color: '#ef4444',
+            external_link: ''
         },
 
         openCreateModal() {
             this.editId = null;
-            this.form = { name: '', color: '#ef4444' };
+            this.form = { name: '', color: '#ef4444', external_link: '' };
             this.showModal = true;
         },
 
-        openEditModal(id, name, color) {
+        openEditModal(id, name, color, external_link) {
             this.editId = id;
             this.form = {
                 name: name,
-                color: color || '#ef4444'
+                color: color || '#ef4444',
+                external_link: external_link || ''
             };
             this.showModal = true;
         }

@@ -20,7 +20,7 @@ class SmmImportController extends Controller
 {
     /** Standard import columns */
     private const HEADERS = [
-        'Cluster', 'Team', 'Work Task / Content Type', 'Title', 'Description', 'Attachement',
+        'Class', 'Team', 'Work Task / Content Type', 'Title', 'Description', 'Attachement',
         'Assigned To', 'Assigned By', 'Content Public Date', 'Deadline Date', 'Deadline Time', 'Weeks'
     ];
 
@@ -108,12 +108,12 @@ class SmmImportController extends Controller
             $row = $this->mapRow($rawRow, $colMap);
             
             // Skip group headers (e.g. SREYPICH'S CLUSTERS)
-            // If Cluster has text but everything else is empty, it's likely a header
-            if (!empty($row['Cluster']) && empty($row['Work Task / Content Type']) && empty($row['Team']) && empty($row['Assigned To'])) {
+            // If Class has text but everything else is empty, it's likely a header
+            if (!empty($row['Class']) && empty($row['Work Task / Content Type']) && empty($row['Team']) && empty($row['Assigned To'])) {
                 continue;
             }
 
-            if (empty($row['Work Task / Content Type']) && empty($row['Cluster'])) {
+            if (empty($row['Work Task / Content Type']) && empty($row['Class'])) {
                 continue; // Skip formatting rows
             }
 
@@ -137,7 +137,7 @@ class SmmImportController extends Controller
             if (strtolower($teamLabel) === 'none') $teamLabel = '';
             
             // Title
-            $cluster = trim($row['Cluster'] ?? '');
+            $cluster = trim($row['Class'] ?? '');
             $contentType = trim($row['Work Task / Content Type'] ?? '');
             $rawTitle = trim($row['Title'] ?? '');
             
@@ -319,40 +319,8 @@ class SmmImportController extends Controller
             $existingCard = $existingCardsMap[$lookupKey] ?? null;
 
             if ($existingCard) {
-                // Update
-                Card::where('id', $existingCard->id)->update([
-                    'description' => $row['description'],
-                    'due_at' => $row['deadline'] ?: null,
-                    'start_date' => $row['start_date'] ?: null,
-                    'content_public_date' => $row['content_public_date'] ?: null,
-                    'due_time' => $row['due_time'] ?? null,
-                    'smm_class_label' => $className ?: null,
-                    'smm_team_label' => $row['smm_team_label'] ?: null,
-                    'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
-                    'created_by' => $createdById,
-                ]);
-                
-                // Collect label IDs to sync
-                $labelIds = [];
-                if (!empty($row['smm_team_label'])) {
-                    $teamLabel = Label::firstOrCreate(['name' => trim($row['smm_team_label']), 'workspace_id' => null, 'board_id' => null], ['color' => '#f43f5e']);
-                    $labelIds[] = $teamLabel->id;
-                }
-                
-                $smmLabel = Label::firstOrCreate(['name' => 'SMM', 'workspace_id' => null, 'board_id' => null], ['color' => '#10b981']);
-                $labelIds[] = $smmLabel->id;
-                
-                $existingCard->labels()->syncWithoutDetaching($labelIds);
-
-                
-                if ($assignToUserId) {
-                    $existingCard->assignees()->syncWithoutDetaching([$assignToUserId => ['assigned_at' => now()]]);
-                }
-                $updated[] = $existingCard;
-                
-                // Distribute/Sync updated card
-                $this->distributeToTeamWorkspace($existingCard, $row['smm_team_label'] ?? null, $workspaces);
-
+                $skippedDuplicates++;
+                continue;
             } else {
                 $position = Card::where('board_list_id', $row['list_id'])->max('position') + 1;
                 $card = Card::create([
@@ -418,8 +386,8 @@ class SmmImportController extends Controller
             }
         }
 
-        // Generate Import Log Message
-        $logMessage = "Imported " . count($created) . " cards. Updated " . count($updated) . " cards. Skipped $skipped duplicates/invalid.";
+        $totalSkipped = $skipped + $skippedDuplicates;
+        $logMessage = "Imported " . count($created) . " cards. Skipped $totalSkipped duplicates/invalid.";
         \App\Models\ActivityLog::create([
             'user_id' => auth()->id(),
             'action' => 'import',
@@ -611,7 +579,7 @@ class SmmImportController extends Controller
             
             // Map common aliases
             if ($cleanName === 'work task / content type') $map['Work Task / Content Type'] = $idx;
-            elseif ($cleanName === 'cluster') $map['Cluster'] = $idx;
+            elseif ($cleanName === 'class' || $cleanName === 'cluster') $map['Class'] = $idx;
             elseif ($cleanName === 'team') $map['Team'] = $idx;
             elseif ($cleanName === 'title') $map['Title'] = $idx;
             elseif ($cleanName === 'description') $map['Description'] = $idx;

@@ -544,6 +544,7 @@ class BoardController extends Controller
         // Add workspace members to the new board automatically
         if ($board->workspace) {
             $workspaceMembers = $board->workspace->members()->get();
+            $syncData = [];
             foreach ($workspaceMembers as $member) {
                 // Map workspace roles to valid board roles (board_members only allows admin, member, observer)
                 $wsRole = $member->pivot->role ?? 'member';
@@ -555,9 +556,10 @@ class BoardController extends Controller
                     $boardRole = 'observer';
                 }
 
-                $board->members()->syncWithoutDetaching([
-                    $member->id => ['role' => $boardRole]
-                ]);
+                $syncData[$member->id] = ['role' => $boardRole];
+            }
+            if (!empty($syncData)) {
+                $board->members()->syncWithoutDetaching($syncData);
             }
         }
 
@@ -620,7 +622,7 @@ class BoardController extends Controller
     public function toggleHidden(Board $board): JsonResponse
     {
         $user = auth()->user();
-        if (! $user->hasAnyRole(['super-admin', 'admin-digital'])) {
+        if (! $user->canManageBoards()) {
             return response()->json(['error' => 'Unauthorized.'], 403);
         }
 
@@ -1341,7 +1343,7 @@ class BoardController extends Controller
 
     private function canDeleteBoard(User $user, Board $board): bool
     {
-        if ($user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'Graphic Head', 'Video head', 'QC', 'Listing head', 'Graphic Head', 'Video Head', 'Listing Head'])) {
+        if ($user->canManageBoards()) {
             return true;
         }
         // Allow all workspace members to delete the board

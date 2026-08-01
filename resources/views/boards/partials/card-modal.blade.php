@@ -75,28 +75,19 @@
               <div>
                 <p class="text-[11px] font-bold text-slate-800 uppercase tracking-widest mb-3 border-b border-slate-200 pb-1">Classification</p>
                 <div class="flex flex-wrap gap-6">
-                  {{-- Cluster --}}
+                  {{-- Class (formerly Cluster) --}}
                   <div class="min-w-[100px]">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Cluster</p>
-                    <template x-if="activeCard?.smm_cluster_label">
-                      <span class="px-2.5 py-1 rounded-md text-emerald-700 bg-emerald-50 font-bold text-[10px] shadow-sm border border-emerald-100" x-text="activeCard?.smm_cluster_label"></span>
-                    </template>
-                    <template x-if="!activeCard?.smm_cluster_label">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Class</p>
+                    <div x-show="activeCard?.smm_cluster_label">
+                      <a x-show="activeCard?.smm_cluster_link" :href="activeCard?.smm_cluster_link" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-emerald-700 bg-emerald-50 font-bold text-[10px] shadow-sm border border-emerald-100 hover:bg-emerald-100 transition-colors cursor-pointer" title="Open Drive Link">
+                        <span x-text="activeCard?.smm_cluster_label"></span>
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                      </a>
+                      <span x-show="!activeCard?.smm_cluster_link" class="px-2.5 py-1 rounded-md text-emerald-700 bg-emerald-50 font-bold text-[10px] shadow-sm border border-emerald-100" x-text="activeCard?.smm_cluster_label"></span>
+                    </div>
+                    <div x-show="!activeCard?.smm_cluster_label">
                       <span class="text-xs text-slate-400 italic">None</span>
-                    </template>
-                  </div>
-                  {{-- SMM Class --}}
-                  <div class="min-w-[100px]">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">SMM Class</p>
-                    <template x-if="activeCard?.smm_class_label">
-                      <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 shadow-sm w-fit">
-                        <span class="w-2.5 h-2.5 rounded-full shadow-inner" :style="'background:' + (getSmmClassColor(activeCard.smm_class_label) || '#e2e8f0')"></span>
-                        <span class="font-bold text-[10px] text-slate-700" x-text="activeCard.smm_class_label"></span>
-                      </div>
-                    </template>
-                    <template x-if="!activeCard?.smm_class_label">
-                      <span class="text-xs text-slate-400 italic">None</span>
-                    </template>
+                    </div>
                   </div>
                   {{-- Content Public Date --}}
                   <div class="min-w-[100px]">

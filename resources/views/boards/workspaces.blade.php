@@ -21,7 +21,7 @@
         </button>
       @endif
 
-      @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']))
+      @if(auth()->user()->canManageBoards())
         <button @click="showHiddenBoards = true" class="btn btn-secondary gap-2 border border-slate-200">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
           Hidden Boards
@@ -69,7 +69,7 @@
             @endif
           </div>
 
-          @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'Graphic Head', 'Video head', 'QC', 'Listing head', 'Graphic Head', 'Video Head', 'Listing Head']))
+          @if(auth()->user()->canManageBoards())
             <div class="relative" x-data="{ openWsMembers: false, search: '' }">
               <button @click="openWsMembers = !openWsMembers; search = ''" class="flex-shrink-0 text-slate-500 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-indigo-50" title="Manage Members">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -109,7 +109,7 @@
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
             </button>
           @endif
-          @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']))
+          @if(auth()->user()->canManageBoards())
             <div class="flex items-center gap-1">
               <form method="POST" action="{{ route('boards.workspaces.moveUp', $workspace->id) }}">
                 @csrf
@@ -167,7 +167,7 @@
             @endif
 
             {{-- Three-dot menu (superadmin/admin-digital on hover) --}}
-            @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']))
+            @if(auth()->user()->canManageBoards())
               <div class="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity" :class="{ 'opacity-100': openBoardMenu }">
                 <button @click.stop.prevent="openBoardMenu = !openBoardMenu"
                         class="p-1.5 rounded-lg bg-black/40 text-white hover:bg-black/60 transition-colors backdrop-blur-sm">
@@ -425,7 +425,7 @@
         </div>
       </form>
 
-      @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']))
+      @if(auth()->user()->canManageBoards())
         <form method="POST" :action="`/boards/workspaces/${editWorkspaceModal.id}`" class="mt-4 pt-4 border-t border-rose-100 dark:border-rose-900/30" onsubmit="return confirm('Are you sure you want to move this workspace to trash? All its boards will be hidden until restored.')">
           @csrf
           @method('DELETE')
@@ -439,7 +439,7 @@
   </div>
 
   {{-- ── Hidden Boards Modal ─────────────────────────────────────────────── --}}
-  @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']))
+  @if(auth()->user()->canManageBoards())
   <div x-show="showHiddenBoards" x-cloak
        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity"
        x-transition:enter="ease-out duration-300"
@@ -512,7 +512,7 @@
   @endif
 
   {{-- ── Trash Workspaces Modal (with checkboxes & bulk actions) ───────────── --}}
-  @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']))
+  @if(auth()->user()->canManageBoards())
   <div x-show="showTrashWorkspaces" x-cloak
        x-data="trashManager()"
        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity"

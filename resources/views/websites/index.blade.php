@@ -1367,7 +1367,7 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
-                <input type="date" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? '' }}" class="form-input text-sm rounded-lg py-1.5 min-w-[130px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800" onchange="this.form.submit()">
+                <input type="date" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? '' }}" class="form-input text-base font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 [&::-webkit-calendar-picker-indicator]:scale-150 [&::-webkit-calendar-picker-indicator]:mr-1" onchange="this.form.submit()">
             </div>
             <div class="flex items-center">
                 <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}" class="btn btn-secondary text-sm py-1.5 px-3">Clear</a>
@@ -1400,6 +1400,7 @@
     @foreach($fuGroups as $groupName => $groupFollowUps)
         @if($groupFollowUps->isNotEmpty())
         <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupFollowUps->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()) }})">
+            @if($groupName !== 'Uncategorized')
             <h3 @click="toggleGroup('followup-{{ addslashes($groupName) }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
                 <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('followup-{{ addslashes($groupName) }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -1408,7 +1409,8 @@
                 <span class="truncate">{{ $groupName }}</span>
                 <span class="text-xs font-normal text-slate-400">({{ $groupFollowUps->count() }})</span>
             </h3>
-            <div x-show="!isGroupCollapsed('followup-{{ addslashes($groupName) }}')" class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-4">
+            @endif
+            <div x-show="{{ $groupName === 'Uncategorized' ? 'true' : '!isGroupCollapsed(\'followup-\'.addslashes($groupName))' }}" class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-4">
                 <table class="w-full text-left border-collapse text-sm">
                     <thead>
                         <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">

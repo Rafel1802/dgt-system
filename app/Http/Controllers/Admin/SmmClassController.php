@@ -15,7 +15,7 @@ class SmmClassController extends Controller
      */
     public function index(): View
     {
-        $classes = SocialMediaClass::orderBy('name')->get(['id', 'name', 'color']);
+        $classes = SocialMediaClass::orderBy('name')->get(['id', 'name', 'color', 'external_link']);
 
         return view('admin.smm-classes.index', compact('classes'));
     }
@@ -28,11 +28,13 @@ class SmmClassController extends Controller
         $validated = $request->validate([
             'name'  => ['required', 'string', 'max:100', 'unique:social_media_classes,name'],
             'color' => ['required', 'string', 'max:7', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'external_link' => ['nullable', 'url', 'max:255'],
         ]);
 
         SocialMediaClass::create([
             'name'       => $validated['name'],
             'color'      => $validated['color'],
+            'external_link' => $validated['external_link'] ?? null,
             'status'     => 'active',
             'created_by' => auth()->id(),
         ]);
@@ -49,6 +51,7 @@ class SmmClassController extends Controller
         $validated = $request->validate([
             'name'  => ['required', 'string', 'max:100', 'unique:social_media_classes,name,' . $smm_class->id],
             'color' => ['required', 'string', 'max:7', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'external_link' => ['nullable', 'url', 'max:255'],
         ]);
 
         $smm_class->update($validated);

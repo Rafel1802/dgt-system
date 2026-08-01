@@ -346,6 +346,16 @@ SVG;
         return true;
     }
 
+    public function canManageBoards(): bool
+    {
+        if ($this->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor'])) {
+            return true;
+        }
+
+        $teamRole = strtolower($this->team_role ?? '');
+        return str_contains($teamRole, 'head') || str_contains($teamRole, 'qc') || str_contains($teamRole, 'supervisor');
+    }
+
     // ─── Website Permissions & Roles ──────────────────────────────────────────
 
     public function hasWebsiteAccess(): bool
