@@ -69,6 +69,13 @@
     .notes-editor-card .ql-editor h1,
     .notes-editor-card .ql-editor h2,
     .notes-editor-card .ql-editor h3 { color: #0f172a; margin: 1.1em 0 .45em; font-weight: 800; }
+    
+    /* Dark mode text colors */
+    html[data-theme="dark"] .notes-editor-card .ql-editor { color: #f8fafc; }
+    html[data-theme="dark"] .notes-editor-card .ql-editor h1,
+    html[data-theme="dark"] .notes-editor-card .ql-editor h2,
+    html[data-theme="dark"] .notes-editor-card .ql-editor h3 { color: #ffffff; }
+    html[data-theme="dark"] .notes-editor-card .ql-editor.ql-blank::before { color: #94a3b8; }
     .notes-editor-card #editor-container { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; outline: none; }
     .notes-editor-card .ql-picker-options { z-index: 50; border-color: #e2e8f0 !important; border-radius: 10px; box-shadow: 0 18px 40px rgba(15, 23, 42, .14); }
     .notes-editor-card .ql-tooltip { z-index: 60; border-radius: 12px; box-shadow: 0 18px 40px rgba(15, 23, 42, .14); }

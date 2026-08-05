@@ -47,36 +47,17 @@ class NotificationController extends Controller
                 'created_at' => $n->created_at,
             ]);
 
-        // Every ActivityLog row with module='kanban' is board/Kanban activity
-        // (see CardController::logCardActivity()) — this whole query used to
-        // run unconditionally for every user, with no scoping at all, which
-        // is what let board activity from other teams show up in everyone's
-        // bell regardless of role. Only fetch it for users whose role set
-        // actually grants them the 'digital' module.
-        $activities = in_array('digital', $modules, true)
-            ? \App\Models\ActivityLog::with('user')
-                ->where('module', 'kanban')
-                ->latest('created_at')
-                ->take(30)
-                ->get()
-                ->map(fn($act) => [
-                    'id'       => 'act_' . $act->id,
-                    'data'     => [
-                        'actor_name'   => $act->user?->name ?? 'System',
-                        'actor_avatar' => $act->user?->avatar_url,
-                        'action'       => strip_tags($act->description),
-                    ],
-                    'read_at'  => now(), // Activities don't have unread state
-                    'time_ago' => $act->created_at->format('M j, Y, g:i A'),
-                    'created_at' => $act->created_at,
-                ])
-            : collect();
-
-        $merged = $notifications->concat($activities)->sortByDesc('created_at')->take(30)->values();
+        $unreadQuery = $this->scopeToUserModules($user->unreadNotifications(), $modules)->get();
+        $unreadByModule = [
+            'boards' => $unreadQuery->where('data.module', 'kanban')->count(),
+            'smm' => $unreadQuery->where('data.module', 'social-media')->count(),
+            'websites' => $unreadQuery->where('data.module', 'websites')->count(),
+        ];
 
         return response()->json([
-            'notifications' => $merged,
-            'unread_count' => $this->scopeToUserModules($user->unreadNotifications(), $modules)->count(),
+            'notifications' => $notifications,
+            'unread_count' => $unreadQuery->count(),
+            'unread_by_module' => $unreadByModule,
         ]);
     }
 

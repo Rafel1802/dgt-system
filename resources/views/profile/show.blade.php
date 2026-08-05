@@ -312,8 +312,19 @@
         <div class="flex flex-col gap-3 sm:flex-row">
           <a href="{{ route('settings') }}" class="btn justify-center bg-white border border-slate-200 text-slate-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:-translate-y-0.5 hover:shadow-sm transition-colors">Change Password</a>
         </div>
-        <button type="submit" class="btn justify-center px-5 bg-indigo-600 text-white border border-indigo-600 hover:bg-white hover:text-slate-900 hover:border-green-500 hover:ring-1 hover:ring-green-500 hover:shadow-lg transition-colors" id="btn-save-profile">
-          Save Changes
+        <button type="submit" 
+                class="btn justify-center px-5 bg-indigo-600 text-white border border-indigo-600 hover:bg-white hover:text-slate-900 hover:border-green-500 hover:ring-1 hover:ring-green-500 hover:shadow-lg transition-colors relative" 
+                id="btn-save-profile"
+                x-data="{ isSubmitting: false }"
+                @click="isSubmitting = true; setTimeout(() => isSubmitting = false, 8000)"
+                :class="{ 'opacity-70 cursor-wait': isSubmitting }">
+          <span :class="{ 'opacity-0': isSubmitting }">Save Changes</span>
+          <span x-show="isSubmitting" x-cloak class="absolute inset-0 flex items-center justify-center text-current">
+            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </span>
         </button>
       </div>
     </section>

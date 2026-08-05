@@ -61,6 +61,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   InAppWebViewController? controller;
   int loadingProgress = 0;
   bool hasLoadedFirstPage = false;
+  bool splashScreenDone = false;
   String? loadError;
 
   Uri get appUri => Uri.parse(appBaseUrl);
@@ -105,6 +106,23 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     if (uri == null) return true;
     if (uri.scheme == 'about' || uri.scheme == 'data') return true;
     return uri.host == appUri.host;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => splashScreenDone = true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -220,37 +238,45 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
           // ── Loading Bar Removed for Instant Feel ─────────────────────────
 
           // ── Splash Screen Overlay ────────────────────────────────────────
-          if (!hasLoadedFirstPage)
+          if (!hasLoadedFirstPage || !splashScreenDone)
             Container(
-              color: const Color(0xFF161922),
+              color: const Color(0xFF2F68ED),
               alignment: Alignment.center,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 90,
+                    height: 90,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2F68ED),
-                      borderRadius: BorderRadius.circular(18),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 20,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
                     ),
                     alignment: Alignment.center,
                     child: const Text(
                       'KQ',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Color(0xFF2F68ED),
                         fontWeight: FontWeight.w900,
-                        fontSize: 32,
+                        fontSize: 36,
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Welcome to KIUQ SYSTEM',
+                    'KIUQ SYSTEM',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 22,
+                      fontSize: 24,
                       fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ],

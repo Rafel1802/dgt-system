@@ -319,7 +319,31 @@ class SmmImportController extends Controller
             $existingCard = $existingCardsMap[$lookupKey] ?? null;
 
             if ($existingCard) {
-                $skippedDuplicates++;
+                $existingCard->update([
+                    'description' => $row['description'],
+                    'smm_class_label' => $className ?: null,
+                    'smm_team_label' => $row['smm_team_label'] ?: null,
+                    'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
+                    'due_at' => $row['deadline'] ?: null,
+                    'due_time' => $row['due_time'] ?? null,
+                ]);
+
+                $labelIds = [];
+                if (!empty($row['smm_team_label'])) {
+                    $teamLabel = Label::firstOrCreate(['name' => trim($row['smm_team_label']), 'workspace_id' => null, 'board_id' => null], ['color' => '#f43f5e']);
+                    $labelIds[] = $teamLabel->id;
+                }
+                $smmLabel = Label::firstOrCreate(['name' => 'SMM', 'workspace_id' => null, 'board_id' => null], ['color' => '#10b981']);
+                $labelIds[] = $smmLabel->id;
+                $existingCard->labels()->sync($labelIds);
+
+                if ($assignToUserId) {
+                    $existingCard->assignees()->sync([$assignToUserId => ['assigned_at' => now()]]);
+                } else {
+                    $existingCard->assignees()->detach();
+                }
+                
+                $updated[] = $existingCard;
                 continue;
             } else {
                 $position = Card::where('board_list_id', $row['list_id'])->max('position') + 1;
@@ -497,7 +521,15 @@ class SmmImportController extends Controller
         
         $originalListName = $card->boardList->name ?? '';
         $teamList = $teamBoard->lists->first(function($list) use ($originalListName) {
-            return strcasecmp(trim($list->name), trim($originalListName)) === 0;
+            $lName = trim($list->name);
+            $oName = trim($originalListName);
+            if (strcasecmp($lName, $oName) === 0) return true;
+            
+            // Allow matching "Week 1" to "Week 1 (1st-4th)"
+            if (preg_match('/^Week\s+\d+/i', $lName, $lMatch) && preg_match('/^Week\s+\d+/i', $oName, $oMatch)) {
+                return strcasecmp($lMatch[0], $oMatch[0]) === 0;
+            }
+            return false;
         });
 
         if (!$teamList) {
@@ -613,6 +645,13 @@ class SmmImportController extends Controller
 
         if (isset($userLookup[$core])) {
             return ['id' => $userLookup[$core]['id'], 'warning' => null, 'resolved_name' => $userLookup[$core]['name']];
+        }
+
+        // Partial match fallback
+        foreach ($userLookup as $key => $user) {
+            if (str_contains($key, $core)) {
+                return ['id' => $user['id'], 'warning' => null, 'resolved_name' => $user['name']];
+            }
         }
 
         return [

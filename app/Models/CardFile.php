@@ -39,10 +39,14 @@ class CardFile extends Model
                         ->get();
                     foreach ($otherCards as $otherCard) {
                         if (!\App\Models\CardFile::where('card_id', $otherCard->id)->where('sync_id', $file->sync_id)->exists()) {
-                            // Copy the file physically in storage
-                            $newPath = "kanban/{$otherCard->id}/{$file->stored_name}";
-                            if (\Illuminate\Support\Facades\Storage::exists($file->path)) {
-                                \Illuminate\Support\Facades\Storage::copy($file->path, $newPath);
+                            // Copy the file physically in storage if it's a real file
+                            if ($file->disk !== 'url' && $file->mime_type !== 'link') {
+                                $newPath = "kanban/{$otherCard->id}/{$file->stored_name}";
+                                if (\Illuminate\Support\Facades\Storage::exists($file->path)) {
+                                    \Illuminate\Support\Facades\Storage::copy($file->path, $newPath);
+                                }
+                            } else {
+                                $newPath = $file->path;
                             }
                             
                             \App\Models\CardFile::create([

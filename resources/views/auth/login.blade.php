@@ -6,7 +6,7 @@
 @php($appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favicon.svg') : asset('favicon.svg'))
 <style>
     .login-shell {
-        --login-bg: url("{{ asset('bg-light.png') }}");
+        --login-bg: url("{{ asset('bg-light.webp') }}");
         --login-text: #f8fbff;
         --login-muted: rgba(226, 238, 255, 0.78);
         --login-soft: rgba(187, 222, 255, 0.68);
@@ -380,7 +380,7 @@
 <main class="login-shell flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-10"
       x-data="themeSystem()"
       x-init="initTheme()"
-      :style="{ '--login-bg': theme === 'dark' ? 'url({{ asset('bg-dark-custom.jpg') }})' : 'url({{ asset('bg-light.png') }})' }">
+      :style="{ '--login-bg': theme === 'dark' ? 'url({{ asset('bg-dark.webp') }})' : 'url({{ asset('bg-light.webp') }})' }">
     <div class="login-backdrop" aria-hidden="true"></div>
     <div class="ambient-orbit" aria-hidden="true"></div>
 

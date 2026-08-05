@@ -188,18 +188,20 @@ class CardController extends Controller
 
         // Notify assignees when due date changes
         if (array_key_exists('due_at', $validated) && (string)($oldValues['due_at'] ?? '') !== (string)$validated['due_at']) {
-            foreach ($card->assignees as $assignee) {
-                if ($assignee->id !== auth()->id()) {
-                    $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
-                        'actor_id'     => auth()->id(),
-                        'actor_name'   => auth()->user()->name,
-                        'actor_avatar' => auth()->user()->avatar_url,
-                        'module'       => 'digital',
-                        'message'      => auth()->user()->name . " updated the due date on card '{$card->title}'",
-                        'link'         => route('boards.show', $card->board->slug),
-                    ]));
+            dispatch(function () use ($card) {
+                foreach ($card->assignees as $assignee) {
+                    if ($assignee->id !== auth()->id()) {
+                        $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
+                            'actor_id'     => auth()->id(),
+                            'actor_name'   => auth()->user()->name,
+                            'actor_avatar' => auth()->user()->avatar_url,
+                            'module'       => 'digital',
+                            'message'      => auth()->user()->name . " updated the due date on card '{$card->title}'",
+                            'link'         => route('boards.show', $card->board->slug),
+                        ]));
+                    }
                 }
-            }
+            })->afterResponse();
         }
 
         $titleChanged = array_key_exists('title', $validated) && (string)($oldValues['title'] ?? '') !== (string)$validated['title'];
@@ -374,14 +376,16 @@ class CardController extends Controller
 
             // Notify assigned member
             if ($userId !== auth()->id()) {
-                $user->notify(new GenericDatabaseNotification([
-                    'actor_id'     => auth()->id(),
-                    'actor_name'   => auth()->user()->name,
-                    'actor_avatar' => auth()->user()->avatar_url,
-                    'module'       => 'digital',
-                    'message'      => auth()->user()->name . " assigned you to card '{$card->title}'",
-                    'link'         => route('boards.show', $card->board->slug)
-                ]));
+                dispatch(function () use ($user, $card) {
+                    $user->notify(new \App\Notifications\GenericDatabaseNotification([
+                        'actor_id'     => auth()->id(),
+                        'actor_name'   => auth()->user()->name,
+                        'actor_avatar' => auth()->user()->avatar_url,
+                        'module'       => 'digital',
+                        'message'      => auth()->user()->name . " assigned you to card '{$card->title}'",
+                        'link'         => route('boards.show', $card->board->slug)
+                    ]));
+                })->afterResponse();
             }
         }
 
@@ -486,7 +490,6 @@ class CardController extends Controller
         $newList = $targetList->name;
 
         $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$newList}**");
-        $this->addSystemComment($card, "moved this card from **{$oldList}** to **{$newList}**");
 
         if (str_contains(strtolower($newList), 'block/waiting')) {
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Block/Waiting');
@@ -570,7 +573,6 @@ class CardController extends Controller
             : 'marked this blocked card as fixed';
 
         $this->logCardActivity($card, $isCompleted ? 'block_reopened' : 'block_completed', $message);
-        $this->addSystemComment($card, $message);
 
         return response()->json([
             'card' => $this->formatCardForBoard($card),
@@ -695,18 +697,29 @@ class CardController extends Controller
             'is_system' => false,
         ]);
         
-        // Parse @mentions
-        preg_match_all('/(?:^|\s)@([a-zA-Z0-9_.-]+)/', $validated['body'], $matches);
+        // Parse @mentions — match by username OR by name-with-no-spaces (fallback)
+        preg_match_all('/(?:^|\s)@([\w.\-]+)/', $validated['body'], $matches);
         if (!empty($matches[1])) {
-            $usernames = array_unique($matches[1]);
-            $mentionedUsers = \App\Models\User::whereIn('username', $usernames)->get();
-            $boardMemberUserIds = $card->board->members()->pluck('users.id')->toArray();
-            
-            foreach ($mentionedUsers as $mentionedUser) {
-                if (in_array($mentionedUser->id, $boardMemberUserIds) && $mentionedUser->id !== auth()->id()) {
-                    $mentionedUser->notify(new \App\Notifications\CardMentionNotification($card, $comment, auth()->user()));
+            dispatch(function () use ($matches, $card, $comment) {
+                $usernames = array_unique($matches[1]);
+                // Match by username column OR by name with spaces removed (e.g. @Ms.Vouchky → "Ms. Vouchky")
+                $mentionedUsers = \App\Models\User::where(function ($q) use ($usernames) {
+                    $q->whereIn('username', $usernames);
+                    foreach ($usernames as $u) {
+                        // Allow "Ms.Vouchky" → "Ms. Vouchky" style matching
+                        $q->orWhereRaw("REPLACE(name, ' ', '') = ?", [$u])
+                          ->orWhereRaw("REPLACE(name, ' ', '.') = ?", [$u]);
+                    }
+                })->get();
+
+                $boardMemberUserIds = $card->board->members()->pluck('users.id')->toArray();
+
+                foreach ($mentionedUsers as $mentionedUser) {
+                    if (in_array($mentionedUser->id, $boardMemberUserIds) && $mentionedUser->id !== auth()->id()) {
+                        $mentionedUser->notify(new \App\Notifications\CardMentionNotification($card, $comment, auth()->user()));
+                    }
                 }
-            }
+            })->afterResponse();
         }
             
         $originalBoardId = $card->board_id;
@@ -719,26 +732,30 @@ class CardController extends Controller
 
         $cardMoved = $card->board_id !== $originalBoardId || $card->board_list_id !== $originalListId;
 
-        $logContent = \Illuminate\Support\Str::limit($comment->content, 100);
-        if (str_contains($comment->content, '![screenshot](data:image')) {
-            $logContent = 'added a comment with a screenshot';
-        } else {
-            $logContent = "added comment: \"{$logContent}\"";
-        }
-        $this->logCardActivity($card, 'comment_added', $logContent);
-
-        // Notify card assignees
-        foreach ($card->assignees as $assignee) {
-            if ($assignee->id !== auth()->id()) {
-                $assignee->notify(new GenericDatabaseNotification([
-                    'actor_id'     => auth()->id(),
-                    'actor_name'   => auth()->user()->name,
-                    'actor_avatar' => auth()->user()->avatar_url,
-                    'module'       => 'digital',
-                    'message'      => auth()->user()->name . " commented on card '{$card->title}'",
-                    'link'         => route('boards.show', $card->board->slug)
-                ]));
+        if (!$cardMoved) {
+            $logContent = \Illuminate\Support\Str::limit($comment->content, 100);
+            if (str_contains($comment->content, '![screenshot](data:image')) {
+                $logContent = 'added a comment with a screenshot';
+            } else {
+                $logContent = "added comment: \"{$logContent}\"";
             }
+            $this->logCardActivity($card, 'comment_added', $logContent);
+
+            // Notify card assignees
+            dispatch(function () use ($card) {
+                foreach ($card->assignees as $assignee) {
+                    if ($assignee->id !== auth()->id()) {
+                        $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
+                            'actor_id'     => auth()->id(),
+                            'actor_name'   => auth()->user()->name,
+                            'actor_avatar' => auth()->user()->avatar_url,
+                            'module'       => 'digital',
+                            'message'      => auth()->user()->name . " commented on card '{$card->title}'",
+                            'link'         => route('boards.show', $card->board->slug)
+                        ]));
+                    }
+                }
+            })->afterResponse();
         }
 
         $comment->load('user');
@@ -787,18 +804,20 @@ class CardController extends Controller
         if ($oldBody !== $newBody) {
             $this->logCardActivity($card, 'comment_edited', $logContent);
 
-            foreach ($card->assignees as $assignee) {
-                if ($assignee->id !== auth()->id()) {
-                    $assignee->notify(new GenericDatabaseNotification([
-                        'actor_id'     => auth()->id(),
-                        'actor_name'   => auth()->user()->name,
-                        'actor_avatar' => auth()->user()->avatar_url,
-                        'module'       => 'digital',
-                        'message'      => auth()->user()->name . " edited a comment on card '{$card->title}'",
-                        'link'         => route('boards.show', $card->board->slug) . "?card={$card->id}",
-                    ]));
+            dispatch(function () use ($card) {
+                foreach ($card->assignees as $assignee) {
+                    if ($assignee->id !== auth()->id()) {
+                        $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
+                            'actor_id'     => auth()->id(),
+                            'actor_name'   => auth()->user()->name,
+                            'actor_avatar' => auth()->user()->avatar_url,
+                            'module'       => 'digital',
+                            'message'      => auth()->user()->name . " edited a comment on card '{$card->title}'",
+                            'link'         => route('boards.show', $card->board->slug) . "?card={$card->id}",
+                        ]));
+                    }
                 }
-            }
+            })->afterResponse();
         }
         
         return response()->json([
@@ -835,18 +854,20 @@ class CardController extends Controller
 
         $this->logCardActivity($card, 'comment_deleted', $logContent);
 
-        foreach ($card->assignees as $assignee) {
-            if ($assignee->id !== auth()->id()) {
-                $assignee->notify(new GenericDatabaseNotification([
-                    'actor_id'     => auth()->id(),
-                    'actor_name'   => auth()->user()->name,
-                    'actor_avatar' => auth()->user()->avatar_url,
-                    'module'       => 'digital',
-                    'message'      => auth()->user()->name . " deleted a comment on card '{$card->title}'",
-                    'link'         => route('boards.show', $card->board->slug) . "?card={$card->id}",
-                ]));
+        dispatch(function () use ($card) {
+            foreach ($card->assignees as $assignee) {
+                if ($assignee->id !== auth()->id()) {
+                    $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
+                        'actor_id'     => auth()->id(),
+                        'actor_name'   => auth()->user()->name,
+                        'actor_avatar' => auth()->user()->avatar_url,
+                        'module'       => 'digital',
+                        'message'      => auth()->user()->name . " deleted a comment on card '{$card->title}'",
+                        'link'         => route('boards.show', $card->board->slug) . "?card={$card->id}",
+                    ]));
+                }
             }
-        }
+        })->afterResponse();
 
         return response()->json(['success' => true]);
     }
@@ -911,18 +932,20 @@ class CardController extends Controller
             $this->logCardActivity($card, 'file_attached', "attached file **{$cardFile->original_name}**");
 
             // Notify assignees
-            foreach ($card->assignees as $assignee) {
-                if ($assignee->id !== auth()->id()) {
-                    $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
-                        'actor_id'     => auth()->id(),
-                        'actor_name'   => auth()->user()->name,
-                        'actor_avatar' => auth()->user()->avatar_url,
-                        'module'       => 'digital',
-                        'message'      => auth()->user()->name . " attached a file to card '{$card->title}'",
-                        'link'         => route('boards.show', $card->board->slug),
-                    ]));
+            dispatch(function () use ($card) {
+                foreach ($card->assignees as $assignee) {
+                    if ($assignee->id !== auth()->id()) {
+                        $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
+                            'actor_id'     => auth()->id(),
+                            'actor_name'   => auth()->user()->name,
+                            'actor_avatar' => auth()->user()->avatar_url,
+                            'module'       => 'digital',
+                            'message'      => auth()->user()->name . " attached a file to card '{$card->title}'",
+                            'link'         => route('boards.show', $card->board->slug),
+                        ]));
+                    }
                 }
-            }
+            })->afterResponse();
 
         } else {
             $request->validate([
@@ -944,18 +967,20 @@ class CardController extends Controller
             $this->logCardActivity($card, 'link_attached', "attached link **{$request->link_name}**");
 
             // Notify assignees
-            foreach ($card->assignees as $assignee) {
-                if ($assignee->id !== auth()->id()) {
-                    $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
-                        'actor_id'     => auth()->id(),
-                        'actor_name'   => auth()->user()->name,
-                        'actor_avatar' => auth()->user()->avatar_url,
-                        'module'       => 'digital',
-                        'message'      => auth()->user()->name . " added a link to card '{$card->title}'",
-                        'link'         => route('boards.show', $card->board->slug),
-                    ]));
+            dispatch(function () use ($card) {
+                foreach ($card->assignees as $assignee) {
+                    if ($assignee->id !== auth()->id()) {
+                        $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
+                            'actor_id'     => auth()->id(),
+                            'actor_name'   => auth()->user()->name,
+                            'actor_avatar' => auth()->user()->avatar_url,
+                            'module'       => 'digital',
+                            'message'      => auth()->user()->name . " added a link to card '{$card->title}'",
+                            'link'         => route('boards.show', $card->board->slug),
+                        ]));
+                    }
                 }
-            }
+            })->afterResponse();
         }
 
         return response()->json([

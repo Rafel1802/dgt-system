@@ -13,11 +13,11 @@
 .list-header{padding:.75rem 1rem;font-weight:600;font-size:.875rem;color:#334155;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
 .list-cards{padding:.5rem;flex:1;overflow-y:auto;min-height:40px}
 .list-cards.drag-over{background:rgba(99,102,241,.08);border-radius:8px}
-.kanban-card{background:#fff;border:1px solid rgba(226,232,240,.92);border-radius:12px;padding:1rem;margin-bottom:.65rem;box-shadow:0 1px 3px rgba(15,23,42,.08);cursor:grab;transition:box-shadow .2s,transform .2s,border-color .2s;position:relative}
-.kanban-card:hover{box-shadow:0 8px 22px rgba(15,23,42,.13);border-color:#10b981;transform:translateY(-1px)}
+.kanban-card{background:#fff;border:1px solid rgba(226,232,240,.92);border-radius:8px;padding:.75rem;margin-bottom:.5rem;box-shadow:0 1px 2px rgba(15,23,42,.06);cursor:grab;transition:box-shadow .2s,transform .2s,border-color .2s;position:relative}
+.kanban-card:hover{box-shadow:0 4px 12px rgba(15,23,42,.1);border-color:#10b981;transform:translateY(-1px)}
 .kanban-card:hover .card-quick-btn{opacity:1}
 .kanban-card.dragging{opacity:.5;transform:rotate(2deg)}
-.kanban-card-title{font-size:1.05rem;line-height:1.38;font-weight:800;color:#1e293b;letter-spacing:0;margin-bottom:.8rem;padding-right:1.5rem}
+.kanban-card-title{font-size:.95rem;line-height:1.3;font-weight:700;color:#1e293b;letter-spacing:0;margin-bottom:.5rem;padding-right:1.5rem}
 .kanban-card-meta{font-size:.875rem;line-height:1.25}
 .kanban-card-label{height:.6rem;width:3.25rem;border-radius:999px}
 .kanban-card-avatar{width:2rem;height:2rem}
@@ -79,25 +79,37 @@
 
 	/* ── Mobile Board Fixes ── */
 	@media (max-width: 1023px) {
+		.topbar { padding: 4px 8px !important; min-height: 36px !important; border-bottom: none !important; margin-bottom: 0 !important; background: transparent !important; }
+		.topbar .mobile-topbar-title-text { display: none; } /* Hide redundant topbar title */
+		.page-content { padding: 0.25rem !important; }
 		.board-wrap {
-			min-height: calc(100dvh - 56px - 60px - env(safe-area-inset-bottom,0px) - 8rem);
-			padding: .75rem .5rem;
-			gap: .625rem;
+			min-height: calc(100dvh - 40px - 50px - env(safe-area-inset-bottom,0px) - 2rem);
+			padding: .25rem 7.5vw;
+			gap: 1rem;
+			scroll-snap-type: x mandatory;
+			scroll-behavior: smooth;
 		}
 		.board-list {
-			width: 240px;
-			max-height: calc(100dvh - 56px - 60px - env(safe-area-inset-bottom,0px) - 10rem);
+			width: 85vw;
+			max-height: calc(100dvh - 40px - 50px - env(safe-area-inset-bottom,0px) - 3rem);
+			scroll-snap-align: center;
 		}
-		/* Board header: wrap on mobile */
-		.board-header-mobile { flex-wrap: wrap; gap: .5rem; }
+		/* Board header: drastically compact on mobile */
+		.board-header-mobile { flex-wrap: wrap; gap: .25rem; padding: .35rem; margin-bottom: .25rem; border-radius: .5rem; }
+		.board-header-mobile h1 { font-size: 1rem; line-height: 1.1; margin: 0; }
+		.board-header-mobile .btn { padding: .2rem .35rem; font-size: .75rem; height: auto; }
+		.board-header-mobile .zoom-container { display: none !important; }
 		/* Member avatars: fewer overlap */
-		.board-member-stack img { width: 1.75rem; height: 1.75rem; }
-		/* kanban cards: slightly smaller text */
-		.kanban-card-title { font-size: .95rem; }
+		.board-member-stack img { width: 1.5rem; height: 1.5rem; }
+		/* kanban cards: Trello compact font */
+		.kanban-card-title { font-size: 1rem; }
+		/* Make quick action button easy to click on mobile */
+		.card-quick-btn { opacity: 1; width: 38px; height: 38px; top: 6px; right: 6px; border-radius: 8px; }
+		.card-quick-btn svg { width: 18px; height: 18px; }
 	}
 	@media (max-width: 480px) {
-		.board-list { width: 220px; }
-		.board-wrap { padding: .5rem .375rem; gap: .5rem; }
+		.board-list { width: 85vw; }
+		.board-wrap { padding: .5rem 7.5vw; gap: 1rem; }
 	}
 
 	/* Zoom Control Styling */
@@ -163,11 +175,15 @@
   <div class="relative flex items-center gap-2">
     <div>
       <nav class="hidden sm:block text-xs text-slate-400 mb-0.5">
-        <a href="{{ route('boards.workspaces') }}" class="hover:text-indigo-600 font-medium">Workspaces</a>
-        <span class="mx-1 text-slate-300">›</span>
-        <span class="font-medium text-slate-500" x-text="sbmBoardWorkspaceName(board)">{{ $board->workspace->name }}</span>
+        @if(isset($isSmmModule) && $isSmmModule)
+            <a href="{{ route('smm-boards.index') }}" class="hover:text-indigo-600 font-medium">SMM Planning Boards</a>
+        @else
+            <a href="{{ route('boards.workspaces') }}" class="hover:text-indigo-600 font-medium">Workspaces</a>
+            <span class="mx-1 text-slate-300">›</span>
+            <span class="font-medium text-slate-500" x-text="sbmBoardWorkspaceName(board)">{{ $board->workspace->name }}</span>
+        @endif
       </nav>
-      <div class="relative flex items-center gap-2">
+      <div class="relative flex items-center gap-1.5 sm:gap-2">
         <h1 class="font-display font-black text-slate-800 text-base sm:text-lg cursor-pointer hover:text-indigo-600 flex items-center gap-1 sm:gap-1.5 transition-colors select-none" @click="openSwitchBoardsModal()">
           <span x-text="board.name">{{ $board->name }}</span>
           <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
@@ -623,24 +639,25 @@
                   </span>
 
                   {{-- Assignees --}}
-                  <div class="ml-auto flex -space-x-1.5">
+                  <div class="ml-auto flex flex-col gap-1.5 items-end">
                     <template x-for="u in card.assignees.slice(0,3)" :key="u.id">
-                      <span>
+                      <div class="flex items-center gap-1 bg-slate-50 rounded-full pl-1.5 pr-[2px] py-[2px] border border-slate-100/60 shadow-sm">
+                        <span class="text-[9px] font-bold text-slate-600 truncate max-w-[110px]" x-text="u.name"></span>
                         <template x-if="avatarUrl(u)">
                           <img :src="avatarUrl(u)" :alt="u.name" :title="u.name"
-                               class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 object-cover">
+                               class="kanban-card-avatar rounded-full object-cover">
                         </template>
                         <template x-if="!avatarUrl(u)">
-                          <span class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 flex items-center justify-center text-[11px] font-black text-white"
+                          <span class="kanban-card-avatar rounded-full flex items-center justify-center text-[10px] font-black text-white"
                                 :style="avatarStyle(u)"
                                 x-text="avatarInitials(u)"
                                 :title="u.name"></span>
                         </template>
-                      </span>
+                      </div>
                     </template>
                     <span x-show="card.assignees && card.assignees.length > 3" x-cloak
-                          class="kanban-card-avatar rounded-full border-2 border-white ring-1 ring-slate-100 bg-slate-800 text-white flex items-center justify-center text-[10px] font-black"
-                          x-text="'+' + ((card.assignees || []).length - 3)"></span>
+                          class="text-[10px] font-bold text-slate-400 pr-1"
+                          x-text="'+' + ((card.assignees || []).length - 3) + ' more'"></span>
                   </div>
                 </div>
               </div>

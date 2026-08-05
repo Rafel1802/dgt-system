@@ -165,6 +165,18 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             document.addEventListener('turbo:load', updateSidebarActive);
             document.addEventListener('DOMContentLoaded', updateSidebarActive);
 
+            // Optimistic UI update: instantly change active state on click
+            document.addEventListener('click', (e) => {
+                const link = e.target.closest('#sidebar a[href]');
+                if (link && !link.closest('[x-data="{ open: false }"]')) { // Only update for actual navigation links
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) {
+                        sidebar.querySelectorAll('a[href]').forEach(a => a.classList.remove('active'));
+                        link.classList.add('active');
+                    }
+                }
+            });
+
             document.addEventListener('turbo:before-render', (event) => {
                 const currentSidebar = document.getElementById('sidebar');
                 const newSidebar = event.detail.newBody.querySelector('#sidebar');

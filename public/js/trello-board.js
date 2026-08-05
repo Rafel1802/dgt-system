@@ -3870,38 +3870,41 @@ window.trelloBoard = function(config) {
       return html;
     },
 
-    // Render comment body: supports ![alt](url) images and regular text
+    // Render comment body: supports @mentions, markdown images, links, bold, italic
     parseCommentBody(text) {
       if (!text) return '';
-      
-      // Parse mentions: @username (render as bold blue)
-      text = text.replace(/(?:^|\s)@([a-zA-Z0-9_.-]+)/g, (match, username) => {
-        return match.replace('@' + username, `<span class="font-bold text-indigo-600 bg-indigo-50 px-1 rounded">@${username}</span>`);
-      });
 
-      // Escape HTML first
+      // Step 1: HTML-escape the raw text first to prevent XSS
       let html = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-        
-      // Bold rendering (for system comments like **file.png**)
+
+      // Step 2: Parse mentions AFTER escaping — so the span tags are NOT escaped
+      html = html.replace(/(?:^|(?<=\s))@([\w.\-]+)/g, (match, username) => {
+        return match.replace('@' + username,
+          `<span class="inline-flex items-center gap-0.5 font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full text-[11px]">@${username}</span>`);
+      });
+
+      // Step 3: Bold and italic markdown
       html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900">$1</strong>');
       html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
-      
-      // Render markdown images ![alt](url) as clickable thumbnails
+
+      // Step 4: Render markdown images ![alt](url) as clickable thumbnails
       html = html.replace(/!\[([^\]]*?)\]\(([^)]+?)\)/g, (_, alt, url) => {
         const safeUrl = url.replace(/"/g, '%22');
         return `<a href="${safeUrl}" target="_blank" rel="noopener" class="block mt-1">`
           + `<img src="${safeUrl}" alt="${alt || 'screenshot'}" class="max-w-full max-h-48 rounded-xl border border-slate-200 shadow-sm object-contain cursor-zoom-in hover:shadow-md transition-shadow">`
           + `</a>`;
       });
-      // Render [text](url) links
+
+      // Step 5: Render [text](url) links
       html = html.replace(/\[([^\]]+?)\]\(([^)]+?)\)/g, (_, label, url) => {
         const safeUrl = url.replace(/"/g, '%22');
         return `<a href="${safeUrl}" target="_blank" rel="noopener" class="text-indigo-600 underline hover:text-indigo-800">${label}</a>`;
       });
-      // Newlines
+
+      // Step 6: Newlines
       html = html.replace(/\n/g, '<br>');
       return html;
     },

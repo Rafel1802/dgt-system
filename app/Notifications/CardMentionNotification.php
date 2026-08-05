@@ -8,8 +8,9 @@ use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 
-class CardMentionNotification extends Notification implements ShouldQueue
+class CardMentionNotification extends Notification
 {
     use Queueable;
 
@@ -26,7 +27,7 @@ class CardMentionNotification extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     public function toDatabase($notifiable)
@@ -42,5 +43,15 @@ class CardMentionNotification extends Notification implements ShouldQueue
             'sender_id'   => $this->mentioner->id,
             'avatar_url'  => $this->mentioner->avatar_url,
         ];
+    }
+
+    public function toBroadcast($notifiable)
+    {
+        return new BroadcastMessage([
+            'id'   => $this->id,
+            'data' => $this->toDatabase($notifiable),
+            'read_at' => null,
+            'created_at' => now()->toISOString(),
+        ]);
     }
 }

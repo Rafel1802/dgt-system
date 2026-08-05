@@ -88,13 +88,15 @@ class BoardActivityNotification extends Notification
             return;
         }
 
-        $board->loadMissing('members');
-        foreach ($board->members as $member) {
-            $isSuperAdminTesting = $actor->hasRole('super-admin') && in_array($action, ['file_edited', 'file_replaced']);
-            
-            if ($member->id !== $actor->id || $isSuperAdminTesting) {
-                $member->notify(new self($payload));
+        dispatch(function () use ($board, $actor, $action, $payload) {
+            $board->loadMissing('members');
+            foreach ($board->members as $member) {
+                $isSuperAdminTesting = $actor->hasRole('super-admin') && in_array($action, ['file_edited', 'file_replaced']);
+                
+                if ($member->id !== $actor->id || $isSuperAdminTesting) {
+                    $member->notify(new self($payload));
+                }
             }
-        }
+        })->afterResponse();
     }
 }

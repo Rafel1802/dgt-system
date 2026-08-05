@@ -210,11 +210,14 @@ class Card extends Model
                     $newFile->sync_id = $file->sync_id;
                 }
 
-                $newPath = "kanban/{$replica->id}/{$file->stored_name}";
-                if (\Illuminate\Support\Facades\Storage::exists($file->path)) {
-                    \Illuminate\Support\Facades\Storage::copy($file->path, $newPath);
+                if ($file->disk !== 'url' && $file->mime_type !== 'link') {
+                    $newPath = "kanban/{$replica->id}/{$file->stored_name}";
+                    if (\Illuminate\Support\Facades\Storage::exists($file->path)) {
+                        \Illuminate\Support\Facades\Storage::copy($file->path, $newPath);
+                    }
+                    $newFile->path = $newPath;
                 }
-                $newFile->path = $newPath;
+                
                 $newFile->save();
             }
         } finally {
@@ -312,7 +315,13 @@ class Card extends Model
     public function getSmmClusterLinkAttribute()
     {
         if (!$this->smm_cluster_label) return null;
-        return SocialMediaClass::where('name', $this->smm_cluster_label)->value('external_link');
+        
+        static $clusterLinks = null;
+        if ($clusterLinks === null) {
+            $clusterLinks = \App\Models\SocialMediaClass::pluck('external_link', 'name')->toArray();
+        }
+        
+        return $clusterLinks[$this->smm_cluster_label] ?? null;
     }
 
     public function getLabelBgAttribute(): string
@@ -323,8 +332,13 @@ class Card extends Model
     public function getSmmClassColorAttribute()
     {
         if (!$this->smm_class_label) return '#6366f1';
-        $class = SocialMediaClass::where('name', $this->smm_class_label)->first();
-        return $class ? $class->color : '#6366f1';
+        
+        static $classColors = null;
+        if ($classColors === null) {
+            $classColors = \App\Models\SocialMediaClass::pluck('color', 'name')->toArray();
+        }
+        
+        return $classColors[$this->smm_class_label] ?? '#6366f1';
     }
 
     public function isOverdue(): bool

@@ -117,6 +117,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   late final NativeNotificationPoller notificationPoller;
   int loadingProgress = 0;
   bool hasLoadedFirstPage = false;
+  bool splashScreenDone = false;
   String? loadError;
   final Set<String> shownNativeNotificationIds = <String>{};
   final Map<String, DateTime> recentNativeNotificationFingerprints =
@@ -168,6 +169,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       appUri: appUri,
       onNotification: _showNativeNotificationPayload,
     );
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => splashScreenDone = true);
+      }
+    });
   }
 
   @override
@@ -497,6 +503,15 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     useOnDownloadStart: true,
                     allowsBackForwardNavigationGestures: true,
                     isInspectable: false,
+                    // Performance: use desktop rendering engine, not mobile
+                    preferredContentMode: UserPreferredContentMode.DESKTOP,
+                    // Performance: disable unnecessary features
+                    disableHorizontalScroll: false,
+                    disableVerticalScroll: false,
+                    // Performance: allow page zoom
+                    supportZoom: true,
+                    // Performance: hardware acceleration
+                    hardwareAcceleration: true,
                   ),
                   onWebViewCreated: (webViewController) {
                     controller = webViewController;
@@ -569,37 +584,45 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 ),
               ),
               // ── Splash Screen Overlay ────────────────────────────────────────
-              if (!hasLoadedFirstPage)
+              if (!hasLoadedFirstPage || !splashScreenDone)
                 Container(
-                  color: const Color(0xFF161922),
+                  color: const Color(0xFF2F68ED),
                   alignment: Alignment.center,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        width: 80,
-                        height: 80,
+                        width: 90,
+                        height: 90,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2F68ED),
-                          borderRadius: BorderRadius.circular(18),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 20,
+                              offset: Offset(0, 8),
+                            ),
+                          ],
                         ),
                         alignment: Alignment.center,
                         child: const Text(
                           'KQ',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Color(0xFF2F68ED),
                             fontWeight: FontWeight.w900,
-                            fontSize: 32,
+                            fontSize: 36,
                           ),
                         ),
                       ),
                       const SizedBox(height: 24),
                       const Text(
-                        'Welcome to KIUQ SYSTEM',
+                        'KIUQ SYSTEM',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 22,
+                          fontSize: 24,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
                         ),
                       ),
                     ],

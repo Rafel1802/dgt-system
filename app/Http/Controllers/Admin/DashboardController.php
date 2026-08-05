@@ -43,17 +43,17 @@ class DashboardController extends Controller
             $activityQuery->where('user_id', $user->id);
         }
 
-        // Stats - will expand in later phases with real data
+        // Retrieve stats per user (do not cache Eloquent collections to file to avoid incomplete object errors)
         $stats = [
-            'total_users' => User::active()->count(),
-            'online_users' => User::where('last_login_at', '>=', now()->subMinutes(30))->count(),
-            'recent_activities' => $activityQuery->limit(50)->get(),
+            'total_users'        => User::active()->count(),
+            'online_users'       => User::where('last_login_at', '>=', now()->subMinutes(30))->count(),
+            'recent_activities'  => $activityQuery->limit(50)->get(),
         ];
 
         $appearance = $this->dashboardAppearance($user);
         $dashboardUnreadCount = Cache::remember(
             "dashboard_unread_notifications_count_{$user->id}",
-            10,
+            60,
             fn () => $user->unreadNotifications()->count()
         );
         $user->loadMissing('roles.permissions');

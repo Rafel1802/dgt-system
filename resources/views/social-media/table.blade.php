@@ -91,11 +91,15 @@
             @endif
             <div class="flex items-center gap-1 sm:gap-2">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-wide px-1 sm:px-2">Date</span>
-                <input type="date" name="date" value="{{ $postDate }}" class="form-input py-1.5 text-xs sm:text-sm border-none bg-slate-50 dark:bg-slate-900 rounded-lg font-bold" onchange="this.form.submit()">
+                <input type="date" name="date" id="posting-date-picker" value="{{ $postDate }}" class="form-input py-1.5 text-xs sm:text-sm border-none bg-slate-50 dark:bg-slate-900 rounded-lg font-bold w-[130px]">
             </div>
         </form>
     </div>
 </div>
+
+@push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+@endpush
 
 <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-slate-200 dark:border-slate-700">
     <div class="overflow-x-auto max-h-[70vh] relative">
@@ -419,4 +423,23 @@
     <img :src="viewerUrl" class="w-auto h-[85vh] max-w-[95vw] rounded-2xl object-contain shadow-2xl" @click.stop>
 </div>
 </div>
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    function initFlatpickr() {
+        if (document.getElementById("posting-date-picker")) {
+            flatpickr("#posting-date-picker", {
+                dateFormat: "Y-m-d",
+                allowInput: true,
+                onChange: function(selectedDates, dateStr, instance) {
+                    instance.element.form.submit();
+                }
+            });
+        }
+    }
+    document.addEventListener("DOMContentLoaded", initFlatpickr);
+    document.addEventListener("turbo:load", initFlatpickr);
+</script>
+@endpush
 @endsection

@@ -1,6 +1,6 @@
 {{-- Upgraded Card Detail Modal (Phase 2 Trello features) --}}
 <div x-show="activeCard !== null" x-cloak
-     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 pt-16 overflow-y-auto"
+     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 pt-16 pb-32 lg:pb-16 overflow-y-auto"
      style="z-index: 70;"
      @click.self="closeCard()">
 
@@ -256,12 +256,12 @@
               {{-- Non-editing preview mode --}}
               <div x-show="!isEditingDesc"
                    @click="isEditingDesc = true"
-                   class="bg-slate-50 hover:bg-slate-100/70 border border-slate-100/50 rounded-xl p-4 text-xs text-slate-700 cursor-pointer min-h-16 prose prose-slate max-w-none transition-all leading-relaxed"
+                   class="bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100/70 dark:hover:bg-slate-800 border border-slate-100/50 dark:border-slate-700 rounded-xl p-4 text-xs text-slate-700 dark:text-slate-200 cursor-pointer min-h-16 prose prose-slate dark:prose-invert max-w-none transition-all leading-relaxed"
                    x-html="parseMarkdown(activeCard?.description)">
               </div>
 
               {{-- Rich Text editor mode --}}
-              <div x-show="isEditingDesc" x-cloak class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm transition-all"
+              <div x-show="isEditingDesc" x-cloak class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-sm transition-all"
                    x-init="$watch('isEditingDesc', val => {
                      if (val) {
                        if (!window.cardDescQuill) {
@@ -298,10 +298,17 @@
                   .ql-toolbar.ql-snow { border-top: none; border-left: none; border-right: none; background: #f8fafc; border-bottom: 1px solid #f1f5f9; padding: 6px 12px; }
                   .ql-container.ql-snow { border: none; font-family: inherit; font-size: 13px; color: #475569; }
                   .ql-editor { min-height: 120px; }
+                  
+                  html[data-theme="dark"] .ql-toolbar.ql-snow { background: #1e293b; border-bottom-color: #334155; }
+                  html[data-theme="dark"] .ql-toolbar.ql-snow .ql-stroke { stroke: #cbd5e1; }
+                  html[data-theme="dark"] .ql-toolbar.ql-snow .ql-fill { fill: #cbd5e1; }
+                  html[data-theme="dark"] .ql-toolbar.ql-snow .ql-picker { color: #cbd5e1; }
+                  html[data-theme="dark"] .ql-container.ql-snow { color: #e2e8f0; }
+                  html[data-theme="dark"] .ql-editor.ql-blank::before { color: #64748b; }
                 </style>
-                <div id="card-desc-editor" class="w-full bg-white"></div>
+                <div id="card-desc-editor" class="w-full"></div>
                 
-                <div class="px-3 py-2 bg-slate-50/50 border-t border-slate-100 flex items-center gap-2">
+                <div class="px-3 py-2 bg-slate-50/50 dark:bg-slate-800 dark:border-slate-700 border-t border-slate-100 flex items-center gap-2">
                   <button @click="updateCardField({ description: activeCard.description }); isEditingDesc = false;"
                           class="btn btn-primary px-3 py-1.5">
                     Save Description

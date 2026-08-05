@@ -15,6 +15,7 @@ use App\Notifications\BoardActivityNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -34,7 +35,11 @@ class BoardController extends Controller
     public function workspaces(): View
     {
         $user = auth()->user();
+
+        // Retrieve workspace list per user
         $workspaces = $this->getAuthorizedWorkspaces($user);
+
+        // Retrieve possible members
         $possibleWorkspaceMembers = User::active()
             ->with('roles')
             ->orderBy('name')
@@ -52,7 +57,7 @@ class BoardController extends Controller
                 'Listing head',
             ]))
             ->values();
-        
+
         $hiddenBoards = collect();
         $trashedWorkspaces = collect();
         $trashedBoards = collect();
@@ -228,13 +233,12 @@ class BoardController extends Controller
 
         $board->load(['activeLists.cards' => function ($query) {
             $query->withCount('comments')
+                  ->withCount('files')
                   ->with([
-                      'creator',
-                      'assignees',
+                      'creator:id,name,avatar,username',
+                      'assignees:id,name,avatar,username',
                       'labels',
-                      'checklists.items',
-                      'files',
-                      'activities.user'
+                      'checklists.items:id,card_checklist_id,name,is_completed,position',
                   ]);
         }]);
 
@@ -339,7 +343,7 @@ class BoardController extends Controller
                     ]),
                     'checklist_total' => $c->checklists->flatMap->items->count(),
                     'checklist_done'  => $c->checklists->flatMap->items->where('is_completed',true)->count(),
-                    'has_files'       => $c->files->count() > 0,
+                    'has_files'       => $c->files_count > 0,
                     'comment_count'   => $c->comments_count ?? 0,
                     'creator' => $c->creator ? [
                         'id' => $c->creator->id,
@@ -359,38 +363,6 @@ class BoardController extends Controller
                               'is_completed' => (bool)$item->is_completed,
                          ])->values()->all(),
                     ])->values()->all(),
-                    'files' => $c->files->map(fn($f) => [
-                         'id' => $f->id,
-                         'name' => $f->original_name,
-                         'url' => \Illuminate\Support\Facades\Storage::url($f->path),
-                         'created_at' => $f->created_at?->toISOString(),
-                         'time_ago' => $f->created_at?->format('M j, Y'),
-                    ])->values()->all(),
-                    'comments' => $c->comments->map(fn($comment) => [
-                        'id' => $comment->id,
-                        'body' => $comment->body ?? $comment->content,
-                        'content' => $comment->body ?? $comment->content,
-                        'user_id' => $comment->user_id,
-                        'created_at' => $comment->created_at?->toISOString(),
-                        'user' => $comment->user ? [
-                            'id' => $comment->user->id,
-                            'name' => $comment->user->name,
-                            'avatar' => $comment->user->avatar_url,
-                            'avatar_initials' => $comment->user->avatar_initials,
-                            'avatar_color' => $comment->user->avatar_color,
-                        ] : null,
-                    ])->values()->all(),
-                    'activities' => $c->activities->take(15)->map(fn($log) => [
-                        'id'          => $log->id,
-                        'user_name'   => $log->user?->name ?? 'System',
-                        'user_avatar' => $log->user?->avatar_url ?? null,
-                        'user_initials' => $log->user?->avatar_initials ?? 'SY',
-                        'user_avatar_color' => $log->user?->avatar_color ?? '#64748b',
-                        'description' => $log->description,
-                        'action'      => $log->action,
-                        'created_at'  => $log->created_at?->toISOString(),
-                        'time_ago'    => $log->created_at ? $log->created_at->format('M j, Y, g:i A') : 'N/A',
-                    ])->values()->all(),
                 ])->values()->all(),
             ])->values()->all(),
             'labels'           => \App\Models\Label::where(function($q) use ($board) {
@@ -408,6 +380,7 @@ class BoardController extends Controller
             'boardMembers'     => $allBoardMembers->map(fn($u) => [
                 'id'      => $u->id,
                 'name'    => $u->name,
+                'username'=> $u->username,
                 'email'   => $u->email,
                 'avatar'  => $u->avatar_url,
                 'initials'=> $u->avatar_initials,
@@ -419,6 +392,7 @@ class BoardController extends Controller
                 ->map(fn($u) => [
                     'id'      => $u->id,
                     'name'    => $u->name,
+                    'username'=> $u->username,
                     'email'   => $u->email,
                     'avatar'  => $u->avatar_url,
                     'initials'=> $u->avatar_initials,
@@ -463,7 +437,9 @@ class BoardController extends Controller
 
         $externalTools = Setting::externalTools();
 
-        return view('boards.show', compact('board', 'workspaceBoards', 'allWorkspaces', 'boardData', 'externalTools', 'possibleBoardUsers', 'boardMemberIds'));
+        $isSmmModule = $board->workspace->name === 'Social Media Management';
+
+        return view('boards.show', compact('board', 'workspaceBoards', 'allWorkspaces', 'boardData', 'externalTools', 'possibleBoardUsers', 'boardMemberIds', 'isSmmModule'));
     }
 
     /** Return the current board state for realtime UI refreshes. */
@@ -532,7 +508,7 @@ class BoardController extends Controller
         if (($validated['template'] ?? '') === 'workflow') {
             $defaults = ['Draft', 'Head Review', 'Text (QC) Review (Mr. Dara)', 'Supervisor Review (Ms. Somalika)', 'Approved', 'Block/Waiting'];
         } elseif (($validated['template'] ?? '') === 'planning') {
-            $defaults = ['Week 1 (1st-4th)', 'Week 2 (6th-11st)', 'Week 3 (17th-18th)', 'Week 4 (20th-25th)', 'Meeting Schedule', 'Block/Waiting'];
+            $defaults = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Meeting Schedule', 'Block/Waiting'];
         } else {
             $defaults = ['To Do', 'In Progress', 'Done'];
         }
@@ -1745,7 +1721,7 @@ class BoardController extends Controller
     {
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
-                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position'),
+                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
                 'boards.members:id,name,avatar',
                 'boards.activeLists:id,board_id,name,position',
                 'members:id,name,avatar',
@@ -1757,7 +1733,7 @@ class BoardController extends Controller
                 ->get();
         } else {
             $allActiveWorkspaces = Workspace::with([
-                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position'),
+                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
                 'boards.members:id,name,avatar',
                 'boards.activeLists:id,board_id,name,position',
                 'members:id,name,avatar',

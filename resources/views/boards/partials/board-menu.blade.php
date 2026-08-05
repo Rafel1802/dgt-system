@@ -40,7 +40,7 @@
       </button>
     </header>
 
-    <div class="flex-1 overflow-y-auto p-4 scrollbar-thin">
+    <div class="flex-1 overflow-y-auto p-4 pb-28 lg:pb-4 scrollbar-thin">
       <div x-show="boardMenu.view === 'menu'" class="space-y-4">
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div class="h-24 rounded-lg shadow-inner ring-1 ring-slate-900/5"
