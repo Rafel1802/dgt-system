@@ -18,7 +18,7 @@ class ApprovalController extends Controller
         private readonly KanbanService $kanbanService
     ) {}
 
-    // ── Team classification: checks the card's `label` field AND Labels pivot ──
+    // ── Team classification: checks the card's `label` field, Labels pivot, and SMM team label ──
     private function matchesTeam(Card $card, string $keyword): bool
     {
         // Primary: card->label string field (e.g. "video", "Graphic", "listing", "CRM")
@@ -28,6 +28,10 @@ class ApprovalController extends Controller
         // Secondary: Labels pivot (tag names like "Graphic Team", "Video Team", etc.)
         if ($card->relationLoaded('labels') &&
             $card->labels->contains(fn($l) => stripos($l->name ?? '', $keyword) !== false)) {
+            return true;
+        }
+        // Tertiary: SMM team label column (e.g. "Graphic", "Video", "Listing", "Content", "QC")
+        if (stripos($card->smm_team_label ?? '', $keyword) !== false) {
             return true;
         }
         
@@ -111,9 +115,7 @@ class ApprovalController extends Controller
                     'total'   => $cards->count(),
                     'graphic' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count(),
                     'video'   => $cards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count(),
-                    'listing' => $cards->filter(fn($c) =>
-                        $this->matchesTeam($c, 'Listing') || $this->matchesTeam($c, 'SM')
-                    )->count(),
+                    'listing' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count(),
                     'content' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count(),
                     'qc'      => $cards->filter(fn($c) =>
                         $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
@@ -149,7 +151,10 @@ class ApprovalController extends Controller
                 if ($start && $end) {
                     $q->where(function($sub) use ($start, $end) {
                         $sub->whereBetween('approved_at', [$start, $end])
-                            ->orWhereBetween('updated_at', [$start, $end]);
+                            ->orWhere(function($inner) use ($start, $end) {
+                                $inner->whereNull('approved_at')
+                                      ->whereBetween('updated_at', [$start, $end]);
+                            });
                     });
                 }
                 return $q->get();
@@ -218,7 +223,10 @@ class ApprovalController extends Controller
             ->whereHas('boardList', fn($q) => $q->where('name', 'like', '%Approved%'))
             ->where(function($q) use ($start, $end) {
                 $q->whereBetween('approved_at', [$start, $end])
-                  ->orWhereBetween('updated_at', [$start, $end]);
+                  ->orWhere(function($inner) use ($start, $end) {
+                      $inner->whereNull('approved_at')
+                            ->whereBetween('updated_at', [$start, $end]);
+                  });
             })
             ->get();
 
@@ -226,9 +234,7 @@ class ApprovalController extends Controller
             'total'   => $approvedCards->count(),
             'graphic' => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count(),
             'video'   => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count(),
-            'listing' => $approvedCards->filter(fn($c) =>
-                $this->matchesTeam($c, 'Listing') || $this->matchesTeam($c, 'SM')
-            )->count(),
+            'listing' => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count(),
             'content' => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count(),
             'qc'      => $approvedCards->filter(fn($c) =>
                 $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')

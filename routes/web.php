@@ -110,6 +110,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/websites/export', [\App\Http\Controllers\WebsiteController::class, 'exportReport'])->name('websites.export');
             Route::post('/websites/{website}/progress', [\App\Http\Controllers\WebsiteController::class, 'updateProgress'])->name('websites.progress.update');
             Route::post('/websites/{website}/approve-qc', [\App\Http\Controllers\WebsiteController::class, 'approveQc'])->name('websites.qc.approve');
+            Route::post('/websites/{website}/revert-qc', [\App\Http\Controllers\WebsiteController::class, 'revertQc'])->name('websites.qc.revert');
             Route::post('/websites/{website}/approve-supervisor', [\App\Http\Controllers\WebsiteController::class, 'approveSupervisor'])->name('websites.supervisor.approve');
             Route::post('/websites/{website}/qc-error', [\App\Http\Controllers\WebsiteController::class, 'qcError'])->name('websites.qc.error');
             Route::post('/websites/{website}/supervisor-error', [\App\Http\Controllers\WebsiteController::class, 'supervisorError'])->name('websites.supervisor.error');
@@ -130,6 +131,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::delete('/websites/history-logs/{id}/attachments/{fileId}', [\App\Http\Controllers\WebsiteController::class, 'destroyHistoryAttachment'])->name('websites.history-logs.attachments.destroy');
             Route::post('/websites/history-logs/{id}/attachment', [\App\Http\Controllers\WebsiteController::class, 'updateHistoryAttachment'])->name('websites.history-logs.attachment.update');
             Route::delete('/websites/history-logs/{id}/attachment', [\App\Http\Controllers\WebsiteController::class, 'destroyHistoryAttachment'])->name('websites.history-logs.attachment.destroy');
+            Route::get('/websites/{website}/history', [\App\Http\Controllers\WebsiteController::class, 'getHistory'])->name('websites.history');
 
             // Website CRUD resource
             Route::resource('websites', \App\Http\Controllers\WebsiteController::class)->except(['create', 'show', 'edit']);

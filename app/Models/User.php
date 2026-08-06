@@ -44,6 +44,7 @@ class User extends Authenticatable
         'team_role',
         'crm_role',
         'notification_sound',
+        'board_backgrounds',
     ];
 
     /**
@@ -73,6 +74,7 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'dashboard_appearance' => 'array',
             'password' => 'hashed',
+            'board_backgrounds' => 'array',
         ];
     }
 

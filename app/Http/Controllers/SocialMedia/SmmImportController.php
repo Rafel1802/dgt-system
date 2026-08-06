@@ -157,18 +157,33 @@ class SmmImportController extends Controller
 
             // Determine Week List
             $weekNumber = '1';
-            $weeksCol = $row['Weeks'] ?? '';
-            if (!empty($weeksCol) && preg_match('/Week\s*(\d)/i', $weeksCol, $matches)) {
-                $weekNumber = $matches[1];
-            } elseif (preg_match('/Week\s*(\d)/i', $worksheetName, $matches)) {
-                $weekNumber = $matches[1];
+            $weeksCol = trim($row['Weeks'] ?? '');
+            
+            if (strcasecmp($weeksCol, 'Urgent / Priority') === 0 || strcasecmp($weeksCol, 'Urgent/Priority') === 0 || strcasecmp($weeksCol, 'Urgent') === 0) {
+                $targetWeek = 'Urgent / Priority';
+            } elseif (stripos($worksheetName, 'Urgent') !== false || stripos($worksheetName, 'Priority') !== false) {
+                $targetWeek = 'Urgent / Priority';
+            } else {
+                if (!empty($weeksCol) && preg_match('/Week\s*(\d)/i', $weeksCol, $matches)) {
+                    $weekNumber = $matches[1];
+                } elseif (preg_match('/Week\s*(\d)/i', $worksheetName, $matches)) {
+                    $weekNumber = $matches[1];
+                }
+                $targetWeek = "Week " . $weekNumber;
             }
-            $targetWeek = "Week " . $weekNumber;
             
             $listId = $firstListId;
             $listName = 'First list';
             foreach ($boardLists as $name => $id) {
                 if (strcasecmp(trim($name), $targetWeek) === 0) {
+                    $listId = $id;
+                    $listName = $name;
+                    break;
+                }
+                // Fuzzy fallback (strip spaces)
+                $cleanListName = str_replace(' ', '', strtolower($name));
+                $cleanTargetWeek = str_replace(' ', '', strtolower($targetWeek));
+                if ($cleanListName === $cleanTargetWeek) {
                     $listId = $id;
                     $listName = $name;
                     break;

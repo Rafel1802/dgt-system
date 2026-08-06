@@ -128,14 +128,14 @@
 
       {{-- Action buttons --}}
       <div class="flex gap-2 pt-1">
+        <button @click="closeAttachmentModal()"
+                class="btn btn-danger attach-cancel-btn flex-1 py-2.5">
+          Cancel
+        </button>
         <button @click="$refs.amFileInput.click()"
                 :disabled="attachmentModal.uploading"
                 class="btn btn-primary flex-1 py-2.5">
           Choose File
-        </button>
-        <button @click="closeAttachmentModal()"
-                class="btn btn-danger attach-cancel-btn flex-1 py-2.5">
-          Cancel
         </button>
       </div>
     </div>
@@ -191,14 +191,14 @@
 
       {{-- Action buttons --}}
       <div class="flex gap-2 pt-1">
+        <button @click="closeAttachmentModal()"
+                class="btn btn-danger attach-cancel-btn flex-1 py-2.5">
+          Cancel
+        </button>
         <button @click="amSubmitLink()"
                 :disabled="!attachmentModal.linkUrl || attachmentModal.uploading"
                 class="btn btn-primary flex-1 py-2.5">
           Insert
-        </button>
-        <button @click="closeAttachmentModal()"
-                class="btn btn-danger attach-cancel-btn flex-1 py-2.5">
-          Cancel
         </button>
       </div>
     </div>
@@ -353,22 +353,22 @@
 </div>
 
 <div x-show="imagePreview.open" x-cloak
-     class="fixed inset-0 flex items-center justify-center bg-slate-950/75 p-4"
-     style="z-index: 110;"
+     class="fixed inset-0 bg-slate-950/95 flex flex-col w-screen h-screen overflow-hidden"
+     style="z-index: 99999;"
      @keydown.escape.window="closeImagePreview()"
      @click="closeImagePreview()">
-  <div class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl" @click.stop>
-    <div class="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
-      <p class="truncate text-sm font-black" x-text="imagePreview.title"></p>
-      <button type="button" @click="closeImagePreview()" class="rounded-lg p-2 text-white/70 transition hover:bg-white/10 hover:text-white" aria-label="Close preview">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-    <div class="flex max-h-[78vh] items-center justify-center bg-slate-900">
-      <img :src="imagePreview.url" :alt="imagePreview.title" class="max-h-[78vh] max-w-full object-contain">
-    </div>
+  <div class="flex items-center justify-between border-b border-white/10 px-6 pb-3.5 text-white bg-slate-900/90 backdrop-blur-md flex-shrink-0 w-full"
+       style="padding-top: calc(14px + env(safe-area-inset-top, 0px));"
+       @click.stop>
+    <p class="truncate text-base font-extrabold tracking-wide" x-text="imagePreview.title"></p>
+    <button type="button" @click="closeImagePreview()" class="rounded-xl p-2 text-white/80 transition hover:bg-white/20 hover:text-white bg-white/10" aria-label="Close preview">
+      <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+  <div class="flex-1 w-full h-full flex items-center justify-center p-4 sm:p-8 min-h-0 overflow-hidden" @click.stop>
+    <img :src="imagePreview.url" :alt="imagePreview.title" class="max-h-full max-w-full w-auto h-auto object-contain select-none shadow-2xl rounded-xl">
   </div>
 </div>
 

@@ -493,7 +493,8 @@ class BoardExportController extends Controller
             'memberStats' => $memberStats,
             'includeDesc' => $includeDesc,
             'includeComments' => $includeComments,
-            'exportDate' => now()->format('M d, Y g:i A')
+            'exportDate' => now()->format('M d, Y g:i A'),
+            'reportUrl' => request()->fullUrl(),
         ]);
     }
 
@@ -671,6 +672,7 @@ class BoardExportController extends Controller
             'exportDate'    => now()->format('M d, Y g:i A'),
             // QC-specific: show revision count column
             'isQcReport'    => auth()->user()->isQc(),
+            'reportUrl'     => request()->fullUrl(),
         ]);
 
     }

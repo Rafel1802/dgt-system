@@ -59,6 +59,7 @@ class SecurityController extends Controller
         $settings = [
             'max_attempts' => \App\Models\Setting::get('security_max_login_attempts', 10),
             'ban_duration' => \App\Models\Setting::get('security_ban_duration_minutes', 0),
+            'lock_profile_images' => in_array(strtolower((string)\App\Models\Setting::get('lock_profile_images', false)), ['1', 'true', 'yes']),
         ];
 
         return view('admin.security.index', compact(
@@ -140,6 +141,10 @@ class SecurityController extends Controller
         foreach ($validated as $key => $value) {
             \App\Models\Setting::updateOrCreate(['key' => $key], ['value' => $value]);
         }
+
+        // Handle the profile image lock toggle
+        $lockProfileImages = $request->has('lock_profile_images') ? '1' : '0';
+        \App\Models\Setting::updateOrCreate(['key' => 'lock_profile_images'], ['value' => $lockProfileImages]);
 
         return back()->with('success', 'Security settings have been updated.');
     }

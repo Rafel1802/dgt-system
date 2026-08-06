@@ -126,6 +126,28 @@ class Board extends Model
         return $this->members->firstWhere('id', $userId)?->pivot->role;
     }
 
+    public function getBackgroundTypeAttribute($value)
+    {
+        if (auth()->check()) {
+            $prefs = auth()->user()->board_backgrounds ?? [];
+            if (isset($prefs[$this->id]['background_type'])) {
+                return $prefs[$this->id]['background_type'];
+            }
+        }
+        return $value;
+    }
+
+    public function getBackgroundValueAttribute($value)
+    {
+        if (auth()->check()) {
+            $prefs = auth()->user()->board_backgrounds ?? [];
+            if (isset($prefs[$this->id]['background_value'])) {
+                return $prefs[$this->id]['background_value'];
+            }
+        }
+        return $value;
+    }
+
     public function getNameAttribute($value)
     {
         // If the stored name already has a month suffix, extract and preserve it

@@ -241,7 +241,7 @@
         /* Print Specifics */
         @media print {
             body {
-                padding: 0;
+                padding: 15mm 15mm 15mm 15mm !important;
             }
             .no-print {
                 display: none !important;
@@ -252,6 +252,12 @@
             .section-container {
                 page-break-inside: avoid;
             }
+        }
+
+        /* Suppress browser default header/footer (URL text + page number) */
+        @page {
+            size: auto;
+            margin: 0;
         }
 
         .print-btn-container {
@@ -626,6 +632,38 @@
                 @endif
             </tbody>
         </table>
+    </div>
+
+    <!-- Clickable Report Footer Link -->
+    <div class="report-footer" style="
+        margin-top: 40px;
+        padding: 14px 20px;
+        border-top: 2px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 10px;
+        color: #64748b;
+        background: #f8fafc;
+        border-radius: 0 0 8px 8px;
+    ">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 700; color: #4f46e5; letter-spacing: 0.5px; text-transform: uppercase; font-size: 9px;">📄 Report Link</span>
+            <a href="{{ $reportUrl }}"
+               style="
+                   color: #4f46e5;
+                   font-weight: 600;
+                   text-decoration: underline;
+                   word-break: break-all;
+                   font-size: 9.5px;
+                   font-family: monospace;
+               "
+            >{{ $reportUrl }}</a>
+        </div>
+        <div style="white-space: nowrap; font-size: 9px; color: #94a3b8;">
+            Generated: {{ $exportDate }}
+        </div>
     </div>
 
     <!-- Auto-trigger Browser Printing -->

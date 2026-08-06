@@ -123,10 +123,22 @@ class KanbanService
         return DB::transaction(function () use ($card, $newStatus, $position, $mover) {
             $oldStatus = $card->status;
 
-            $card->update([
+            $updateData = [
                 'status'   => $newStatus->value,
                 'position' => $position,
-            ]);
+            ];
+
+            if ($newStatus === CardStatus::Approved) {
+                if (!$card->approved_at) {
+                    $updateData['approved_by'] = $mover->id;
+                    $updateData['approved_at'] = now();
+                }
+            } elseif ($oldStatus === CardStatus::Approved) {
+                $updateData['approved_by'] = null;
+                $updateData['approved_at'] = null;
+            }
+
+            $card->update($updateData);
 
             $this->addSystemComment(
                 $card,

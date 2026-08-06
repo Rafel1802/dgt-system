@@ -213,11 +213,7 @@ class BoardWorkflowService
                 
                 $twin->update(['status' => 'approved']);
                 
-                $twin->comments()->create([
-                    'user_id' => auth()->id(),
-                    'content' => "Card automatically marked as **Approved** (Synced from connected board).",
-                    'is_system' => true,
-                ]);
+
                 continue; // Skip the list moving logic!
             }
 

@@ -29,16 +29,14 @@ class WebsiteController extends Controller
         $tab = $request->get('tab', 'build');
 
         // Fetch all non-archived websites — only eager-load the relationships
-        // that the ACTIVE tab's Blade template actually uses. This avoids loading
-        // progressLogs, maintenanceLogs, qcChecks, and activityLogs on every tab
-        // even when they are not rendered (the view uses @if($tab === '...') guards).
+        // that the ACTIVE tab's Blade template actually uses.
         $tabRelations = match($tab) {
             'build'            => ['handler'],
-            'build-progress'   => ['handler', 'progressLogs', 'qcChecks', 'activityLogs', 'activityLogs.user'],
-            'live'             => ['handler', 'maintenanceLogs'],
-            'maintenance'      => ['handler', 'maintenanceLogs'],
-            'qc-error'         => ['handler', 'activityLogs', 'activityLogs.user'],
-            'supervisor-error' => ['handler', 'activityLogs', 'activityLogs.user'],
+            'build-progress'   => ['handler', 'latestProgressLog'],
+            'live'             => ['handler', 'latestMaintenanceLog'],
+            'maintenance'      => ['handler', 'latestMaintenanceLog'],
+            'qc-error'         => ['handler'],
+            'supervisor-error' => ['handler'],
             default            => ['handler'],
         };
 
@@ -162,12 +160,14 @@ class WebsiteController extends Controller
               ->whereIn('role', ['Developer', 'QC']);
         })->orderBy('name')->get(['id', 'name', 'email']);
 
+        $reportUsers = $users->concat($websiteTeamMembers)->unique('id')->sortBy('name')->values();
+
         return view('websites.index', compact(
             'tab', 'stats', 'allWebsites', 'groupedWebsites', 'orderArray',
             'buildWebsites', 'buildProgressWebsites', 'liveWebsites',
             'maintenanceWebsites', 'followUps', 'followUpFilter', 'users',
             'allClasses', 'websiteMembers', 'memberRolesMap',
-            'qcErrorWebsites', 'supervisorErrorWebsites', 'websiteTeamMembers'
+            'qcErrorWebsites', 'supervisorErrorWebsites', 'websiteTeamMembers', 'reportUsers'
         ));
     }
 
@@ -361,6 +361,53 @@ class WebsiteController extends Controller
 
         return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
             ->with('success', "\"{$website->name}\" QC Approved. Now pending Supervisor approval.");
+    }
+
+    // ── REVERT QC ──────────────────────────────────────────────────────────────
+    public function revertQc(Request $request, Website $website)
+    {
+        abort_unless(auth()->user()?->canApproveWebsiteQc(), 403);
+
+        $oldStatus = $website->status;
+        $isMaintenanceFlow = in_array($oldStatus, [
+            Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
+            Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR
+        ]);
+        $newStatus = $isMaintenanceFlow 
+            ? Website::STATUS_MAINTENANCE_QC_CHECKING 
+            : Website::STATUS_QC_CHECKING;
+
+        $website->update([
+            'status'         => $newStatus,
+            'qc_approved_by' => null,
+            'qc_approved_at' => null,
+            'updated_by'     => auth()->id(),
+        ]);
+
+        WebsiteProgressLog::create([
+            'website_id' => $website->id,
+            'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
+            'user_id'    => auth()->id(),
+            'percent'    => $isMaintenanceFlow ? $website->maintenance_percent : $website->progress_percent,
+            'note'       => 'QC Approval Reverted. Sent back to QC Checking.',
+            'created_at' => now(),
+        ]);
+
+        WebsiteMaintenanceLog::create([
+            'website_id'  => $website->id,
+            'user_id'     => auth()->id(),
+            'action'      => 'qc_reverted',
+            'note'        => 'QC approval reverted. Sent back to QC Checking.',
+            'old_status'  => $oldStatus,
+            'new_status'  => $newStatus,
+            'old_progress'=> $website->progress_percent,
+            'new_progress'=> $website->progress_percent,
+        ]);
+
+        $this->logActivity('qc_reverted', "QC approval reverted for \"{$website->name}\".");
+
+        return redirect()->back()
+            ->with('success', "\"{$website->name}\" QC Approval Reverted. Sent back to QC Checking.");
     }
 
     // ── QC ERROR ───────────────────────────────────────────────────────────────
@@ -851,7 +898,7 @@ class WebsiteController extends Controller
           ->orderBy('name');
 
         if ($memberId) {
-            $query->where('handler_id', $memberId);
+            $query->where('handled_by', $memberId);
         }
         
         // Removed the website created_at filter so that we can fetch all websites and filter their activity logs by the date range instead.
@@ -1355,7 +1402,7 @@ class WebsiteController extends Controller
 
     public function renameCategory(Request $request)
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES), 403);
+        abort_unless(auth()->user()?->canUpdateWebsiteProgress(), 403);
         
         $validated = $request->validate([
             'old_category' => 'required|string|max:255',
@@ -1382,7 +1429,7 @@ class WebsiteController extends Controller
     
     public function storeCategory(Request $request)
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES), 403);
+        abort_unless(auth()->user()?->canUpdateWebsiteProgress(), 403);
 
         $validated = $request->validate(['name' => 'required|string|max:255']);
 
@@ -1399,7 +1446,7 @@ class WebsiteController extends Controller
 
     public function destroyCategory(Request $request)
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES), 403);
+        abort_unless(auth()->user()?->canUpdateWebsiteProgress(), 403);
 
         $validated = $request->validate(['category' => 'required|string|max:255']);
 
@@ -1418,7 +1465,7 @@ class WebsiteController extends Controller
 
     public function reorderCategory(Request $request)
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES), 403);
+        abort_unless(auth()->user()?->canUpdateWebsiteProgress(), 403);
 
         $validated = $request->validate([
             'categories'   => 'required|array',
@@ -1591,6 +1638,46 @@ class WebsiteController extends Controller
         }
 
         return $existing;
+    }
+
+    public function getHistory(Website $website)
+    {
+        abort_unless(auth()->user()?->hasWebsiteAccess(), 403);
+
+        $logs = $website->activityLogs()->with(['user'])->orderByDesc('created_at')->get();
+
+        $formatted = $logs->map(function ($log) {
+            $attachments = collect($log->attachments ?: [])
+                ->filter(fn ($file) => ! empty($file['path']))
+                ->values()
+                ->all();
+
+            if (empty($attachments) && $log->attachment_path) {
+                $attachments[] = [
+                    'id' => 'legacy',
+                    'path' => $log->attachment_path,
+                    'name' => $log->attachment_name ?: basename($log->attachment_path),
+                ];
+            }
+
+            $firstAttachment = $attachments[0] ?? null;
+
+            return [
+                'id' => $log->id,
+                'new_status' => $log->new_status,
+                'action' => $log->action,
+                'percent' => $log->percent ?? $log->new_progress ?? 0,
+                'created_at' => $log->created_at?->toIso8601String(),
+                'note' => $log->note,
+                'attachments' => $attachments,
+                'attachment_path' => $firstAttachment['path'] ?? null,
+                'attachment_name' => $firstAttachment['name'] ?? null,
+                'user' => $log->user ? ['name' => $log->user->name] : null,
+                'user_id' => $log->user_id,
+            ];
+        });
+
+        return response()->json($formatted);
     }
 
     private function logActivity(string $action, string $description): void

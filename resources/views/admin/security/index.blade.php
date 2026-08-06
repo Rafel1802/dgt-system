@@ -406,6 +406,19 @@
           </div>
           
           <div class="pt-4 border-t border-slate-100">
+            <h3 class="font-display font-bold text-slate-800 text-sm mb-2">Global Profile Controls</h3>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <div class="flex items-center h-5">
+                <input type="checkbox" name="lock_profile_images" value="1" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" {{ $settings['lock_profile_images'] ? 'checked' : '' }}>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-sm font-bold text-slate-800">Lock Profile Images Globally</span>
+                <span class="text-[11px] text-slate-400">If enabled, normal users will not be able to upload or change their profile avatars. Only Super Admins can bypass this lock.</span>
+              </div>
+            </label>
+          </div>
+          
+          <div class="pt-4 border-t border-slate-100">
             <button type="submit" class="btn btn-primary px-6 py-2.5 shadow-sm text-sm">Save Configuration</button>
           </div>
         </form>

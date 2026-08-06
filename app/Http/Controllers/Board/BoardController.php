@@ -239,6 +239,8 @@ class BoardController extends Controller
                       'assignees:id,name,avatar,username',
                       'labels',
                       'checklists.items:id,card_checklist_id,name,is_completed,position',
+                      'files',
+                      'comments.user:id,name,avatar,username',
                   ]);
         }]);
 
@@ -353,6 +355,29 @@ class BoardController extends Controller
                         'avatar_color' => $c->creator->avatar_color,
                     ] : null,
                     'description' => $c->description,
+                    'files' => $c->files->map(fn($f) => [
+                        'id' => $f->id,
+                        'name' => $f->file_name,
+                        'url' => \Illuminate\Support\Facades\Storage::disk('public')->url($f->file_path),
+                        'size' => $f->file_size,
+                        'mime_type' => $f->mime_type,
+                        'created_at' => $f->created_at?->toISOString(),
+                    ])->values()->all(),
+                    'comments' => $c->comments->map(fn($comment) => [
+                        'id'         => $comment->id,
+                        'body'       => $comment->body ?? $comment->content,
+                        'content'    => $comment->body ?? $comment->content,
+                        'user_id'    => $comment->user_id,
+                        'created_at' => $comment->created_at?->toISOString(),
+                        'user'       => $comment->user ? [
+                            'id'     => $comment->user->id,
+                            'name'   => $comment->user->name,
+                            'username' => $comment->user->username,
+                            'avatar' => $comment->user->avatar_url,
+                            'avatar_initials' => $comment->user->avatar_initials,
+                            'avatar_color' => $comment->user->avatar_color,
+                        ] : null,
+                    ])->values()->all(),
                     'checklists' => $c->checklists->map(fn($cl) => [
                          'id' => $cl->id,
                          'title' => $cl->title,
@@ -508,7 +533,7 @@ class BoardController extends Controller
         if (($validated['template'] ?? '') === 'workflow') {
             $defaults = ['Draft', 'Head Review', 'Text (QC) Review (Mr. Dara)', 'Supervisor Review (Ms. Somalika)', 'Approved', 'Block/Waiting'];
         } elseif (($validated['template'] ?? '') === 'planning') {
-            $defaults = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Meeting Schedule', 'Block/Waiting'];
+            $defaults = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Meeting Schedule', 'Urgent / Priority', 'Block/Waiting'];
         } else {
             $defaults = ['To Do', 'In Progress', 'Done'];
         }
@@ -648,8 +673,6 @@ class BoardController extends Controller
             'workspace_id',
             'name',
             'description',
-            'background_type',
-            'background_value',
             'visibility',
             'member_permissions',
             'card_covers_enabled',
@@ -658,6 +681,20 @@ class BoardController extends Controller
 
             'is_archived',
         ];
+
+        if (array_key_exists('background_type', $validated) || array_key_exists('background_value', $validated)) {
+            $user = auth()->user();
+            $prefs = $user->board_backgrounds ?? [];
+            $prefs[$board->id] = [
+                'background_type' => $backgroundType ?? $board->background_type,
+                'background_value' => $backgroundValue ?? $board->background_value,
+            ];
+            $user->board_backgrounds = $prefs;
+            $user->save();
+
+            unset($validated['background_type']);
+            unset($validated['background_value']);
+        }
 
         if (array_intersect(array_keys($validated), $settingsFields) && ! $this->canManageBoard(auth()->user(), $board)) {
             return response()->json(['error' => 'You do not have permission to update board settings.'], 403);
@@ -685,13 +722,7 @@ class BoardController extends Controller
             }
         }
 
-        // Auto delete unused background image
-        if (in_array('background_value', $changed)) {
-            $oldBg = $before['background_value'] ?? null;
-            if ($oldBg && $oldBg !== $board->cover_value) {
-                $this->deleteStoredBoardBackground($oldBg);
-            }
-        }
+        // Background image deletion skipped since backgrounds are now user-specific
 
         if ($changed) {
             $action = in_array('is_archived', $changed, true)
@@ -778,23 +809,24 @@ class BoardController extends Controller
                     $backgroundValue = $uploadedUrl;
                 }
             } elseif (! $this->isAllowedBackgroundImageValue($backgroundValue)) {
-                return back()->with('error', 'Enter a valid background image URL or upload an image.');
+                return back()->withErrors(['background_value' => 'Enter a valid background image URL.']);
             }
         } elseif ($validated['background_type'] === 'color' && ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $backgroundValue)) {
-            return back()->with('error', 'Choose a valid hex background color.');
+            return back()->withErrors(['background_value' => 'Choose a valid hex background color.']);
         }
 
-        $oldCover = $board->cover_value;
+        $user = auth()->user();
+        $prefs = $user->board_backgrounds ?? [];
+        $prefs[$board->id] = [
+            'background_type' => $validated['background_type'],
+            'background_value' => $backgroundValue,
+        ];
+        $user->board_backgrounds = $prefs;
+        $user->save();
 
         $board->update([
             'name' => $validated['name'],
-            'cover_type' => $validated['background_type'],
-            'cover_value' => $backgroundValue,
         ]);
-
-        if ($oldCover && $oldCover !== $backgroundValue && $oldCover !== $board->background_value) {
-            $this->deleteStoredBoardBackground($oldCover);
-        }
 
         return back()->with('success', 'Board updated successfully.');
     }
@@ -818,16 +850,14 @@ class BoardController extends Controller
             return response()->json(['error' => 'Failed to process image.'], 422);
         }
 
-        $oldBackground = $board->background_value;
-
-        $board->update([
+        $user = auth()->user();
+        $prefs = $user->board_backgrounds ?? [];
+        $prefs[$board->id] = [
             'background_type' => 'image',
             'background_value' => $uploadedUrl,
-        ]);
-
-        if ($oldBackground !== $board->cover_value) {
-            $this->deleteStoredBoardBackground($oldBackground);
-        }
+        ];
+        $user->board_backgrounds = $prefs;
+        $user->save();
 
         $board = $board->fresh(['workspace']);
         $this->logBoardActivity($board, 'background_updated', "updated board background for **{$board->name}**", [
@@ -1290,13 +1320,15 @@ class BoardController extends Controller
     private function canMoveAnyCard(\App\Models\User $user): bool
     {
         return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
-            || $user->isQcOrSupervisor();
+            || $user->isQcOrSupervisor()
+            || str_contains(strtolower($user->team_role ?? ''), 'head');
     }
 
     private function canManageBlockedCards(\App\Models\User $user): bool
     {
         return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
-            || $user->isSupervisorRole();
+            || $user->isSupervisorRole()
+            || str_contains(strtolower($user->team_role ?? ''), 'head');
     }
 
     private function canMoveCard(\App\Models\User $user, Card $card, ?BoardList $sourceList, BoardList $targetList): bool

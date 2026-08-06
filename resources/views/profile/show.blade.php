@@ -12,6 +12,10 @@
   $avatarUrlValue = old('avatar_url', $remoteAvatar);
   $removeAvatar = old('remove_avatar') === '1';
   $previewAvatar = $removeAvatar ? $initialsAvatar : ($avatarUrlValue ?: $user->avatar_url);
+
+  $lockedSetting = \App\Models\Setting::where('key', 'lock_profile_images')->value('value');
+  $isLocked = in_array(strtolower((string)$lockedSetting), ['1', 'true', 'yes']);
+  $canChangeAvatar = !$isLocked || $user->hasAnyRole(['super-admin']);
 @endphp
 
 @section('content')
@@ -128,23 +132,29 @@
         >
       </div>
       <div class="mt-4 space-y-2">
-        <label for="avatar" class="btn w-full justify-center bg-indigo-600 text-white border border-indigo-600 hover:bg-white hover:text-slate-900 hover:border-green-500 hover:ring-1 hover:ring-green-500 hover:shadow-lg transition-colors cursor-pointer">
-          Choose image
-        </label>
-        <input
-          x-ref="avatarFile"
-          id="avatar"
-          type="file"
-          name="avatar"
-          class="sr-only"
-          accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
-          @change="setFile"
-        >
-        <button type="button" class="btn w-full justify-center bg-white border border-slate-200 text-slate-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:-translate-y-0.5 hover:shadow-sm transition-colors" @click="useInitials">
-          Use initials avatar
-        </button>
-        <p class="min-h-5 truncate text-center text-xs font-semibold text-slate-400" x-text="fileName || 'JPEG, PNG, GIF, or WEBP up to 2 MB'"></p>
-        @error('avatar')<p class="form-error justify-center">{{ $message }}</p>@enderror
+        @if($canChangeAvatar)
+          <label for="avatar" class="btn w-full justify-center bg-indigo-600 text-white border border-indigo-600 hover:bg-white hover:text-slate-900 hover:border-green-500 hover:ring-1 hover:ring-green-500 hover:shadow-lg transition-colors cursor-pointer">
+            Choose image
+          </label>
+          <input
+            x-ref="avatarFile"
+            id="avatar"
+            type="file"
+            name="avatar"
+            class="sr-only"
+            accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+            @change="setFile"
+          >
+          <button type="button" class="btn w-full justify-center bg-white border border-slate-200 text-slate-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 hover:-translate-y-0.5 hover:shadow-sm transition-colors" @click="useInitials">
+            Use initials avatar
+          </button>
+          <p class="min-h-5 truncate text-center text-xs font-semibold text-slate-400" x-text="fileName || 'JPEG, PNG, GIF, or WEBP up to 2 MB'"></p>
+          @error('avatar')<p class="form-error justify-center">{{ $message }}</p>@enderror
+        @else
+          <div class="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center">
+            <p class="text-xs font-medium text-rose-600">Profile images are currently locked by the administrator.</p>
+          </div>
+        @endif
       </div>
     </aside>
 
@@ -158,6 +168,7 @@
       </div>
 
       <div class="grid gap-5 sm:grid-cols-2">
+        @if($canChangeAvatar)
         <div class="sm:col-span-2">
           <label for="avatar_url" class="form-label">Image URL</label>
           <input
@@ -172,6 +183,7 @@
           <p class="mt-1 text-xs font-medium text-slate-400">Paste a direct image URL, or choose a local file instead.</p>
           @error('avatar_url')<p class="form-error">{{ $message }}</p>@enderror
         </div>
+        @endif
 
         <div>
           <label for="profile-name" class="form-label flex gap-2">Full Name</label>

@@ -50,7 +50,7 @@
   @endif
 
   {{-- ── Pipeline Stats Row ──────────────────────────────────────────────── --}}
-  <div class="mobile-scroll-x lg:grid lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+  <div class="mobile-scroll-x lg:grid lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
     {{-- Drafting --}}
     <div class="stat-card !p-4 flex items-center justify-between flex-shrink-0 w-[280px] lg:w-auto">
       <div class="flex items-center gap-3">
@@ -113,26 +113,6 @@
         <span class="bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-center">L: {{ $stats['supervisor_review']['listing'] }}</span>
         <span class="bg-fuchsia-50 text-fuchsia-600 px-2 py-0.5 rounded text-center">C: {{ $stats['supervisor_review']['content'] }}</span>
         <span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-center">Q: {{ $stats['supervisor_review']['qc'] }}</span>
-      </div>
-    </div>
-    {{-- Urgent Priority --}}
-    <div class="stat-card !p-4 flex items-center justify-between flex-shrink-0 w-[280px] lg:w-auto">
-      <div class="flex items-center gap-3">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca)">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#dc2626" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
-        </div>
-        <div>
-          <div class="stat-value text-red-600">{{ $stats['urgent']['total'] }}</div>
-          <div class="stat-label">Urgent</div>
-          <div class="text-[9px] text-slate-400 mt-0.5 leading-tight">Requires action</div>
-        </div>
-      </div>
-      <div class="flex flex-col gap-1 pl-3 border-l border-slate-100 text-[10px] font-bold min-w-[3.5rem]">
-        <span class="bg-sky-50 text-sky-600 px-2 py-0.5 rounded text-center">G: {{ $stats['urgent']['graphic'] }}</span>
-        <span class="bg-violet-50 text-violet-600 px-2 py-0.5 rounded text-center">V: {{ $stats['urgent']['video'] }}</span>
-        <span class="bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-center">L: {{ $stats['urgent']['listing'] }}</span>
-        <span class="bg-fuchsia-50 text-fuchsia-600 px-2 py-0.5 rounded text-center">C: {{ $stats['urgent']['content'] }}</span>
-        <span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-center">Q: {{ $stats['urgent']['qc'] }}</span>
       </div>
     </div>
   </div>

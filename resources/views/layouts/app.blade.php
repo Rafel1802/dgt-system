@@ -113,6 +113,80 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </script>
     <script>
         (function() {
+            // Keep scroll position on form submissions & show processing spinner
+            document.addEventListener('submit', (e) => {
+                if (e.defaultPrevented) return;
+                
+                const form = e.target;
+                if (form.checkValidity && !form.checkValidity()) {
+                    return;
+                }
+
+                // Store current path and scroll position
+                sessionStorage.setItem('scroll_position_path', window.location.pathname);
+                sessionStorage.setItem('scroll_position_y', window.scrollY);
+
+                // Show spinner and disable buttons to prevent double clicks
+                setTimeout(() => {
+                    if (e.defaultPrevented) return;
+                    
+                    const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+                    submitButtons.forEach(button => {
+                        if (!button.disabled) {
+                            button.dataset.originalHtml = button.innerHTML;
+                            button.disabled = true;
+                            button.classList.add('opacity-75', 'cursor-not-allowed');
+                            
+                            const isSmall = button.classList.contains('py-1') || button.classList.contains('px-1.5') || button.classList.contains('px-2.5');
+                            
+                            button.innerHTML = `
+                                <svg class="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5 text-current inline-block align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span class="align-middle">${isSmall ? '...' : 'Processing...'}</span>
+                            `;
+
+                            // If form has data-turbo="false", it is likely a file download.
+                            // Re-enable button after 3 seconds so it doesn't get stuck disabled.
+                            if (form.getAttribute('data-turbo') === 'false') {
+                                setTimeout(() => {
+                                    if (button.disabled && button.dataset.originalHtml) {
+                                        button.disabled = false;
+                                        button.classList.remove('opacity-75', 'cursor-not-allowed');
+                                        button.innerHTML = button.dataset.originalHtml;
+                                    }
+                                }, 3000);
+                            }
+                        }
+                    });
+                }, 0);
+            });
+
+            // Restore scroll position on turbo:load
+            document.addEventListener('turbo:load', () => {
+                const savedPath = sessionStorage.getItem('scroll_position_path');
+                const savedY = sessionStorage.getItem('scroll_position_y');
+                if (savedPath === window.location.pathname && savedY !== null) {
+                    requestAnimationFrame(() => {
+                        window.scrollTo(0, parseInt(savedY, 10));
+                    });
+                    sessionStorage.removeItem('scroll_position_path');
+                    sessionStorage.removeItem('scroll_position_y');
+                }
+            });
+
+            // Re-enable buttons if retrieved from Turbo cache (back/forward navigation)
+            document.addEventListener('turbo:before-cache', () => {
+                document.querySelectorAll('form button[type="submit"], form input[type="submit"]').forEach(button => {
+                    if (button.disabled && button.dataset.originalHtml) {
+                        button.disabled = false;
+                        button.classList.remove('opacity-75', 'cursor-not-allowed');
+                        button.innerHTML = button.dataset.originalHtml;
+                    }
+                });
+            });
+
             // Keep sidebar scroll + active item in sync when the sidebar is
             // data-turbo-permanent (not re-rendered on every menu click).
             function updateSidebarActive() {
@@ -608,7 +682,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                             </svg>
                         @endif
-                        {{ $weeklyReport['name'] ?? 'Weekly Report' }}
+                        {{ $weeklyReport['short_label'] ?? $weeklyReport['label'] ?? $weeklyReport['name'] ?? 'Weekly Report' }}
                     </a>
                 @endif
                 @endunless
@@ -2630,7 +2704,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             bubble.style.width = `${itemWidth - PADDING}px`;
             // relative to inner container
             currentX = items[activeIndex].offsetLeft + (PADDING / 2);
-            bubble.style.transform = `translateX(${currentX}px) translateY(-50%)`;
+            bubble.style.transform = `translateX(${currentX}px)`;
         };
         
         // Apply instantly on load to avoid sliding-in animation glitch
@@ -2682,7 +2756,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             const maxX = items[items.length - 1].offsetLeft + (PADDING / 2);
             newX = Math.max(minX, Math.min(newX, maxX));
             
-            bubble.style.transform = `translateX(${newX}px) translateY(-50%)`;
+            bubble.style.transform = `translateX(${newX}px)`;
             
             let closestIndex = 0;
             let minDiff = Infinity;
@@ -2729,7 +2803,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             
             const selectedItem = items[closestIndex];
             currentX = selectedItem.offsetLeft + (PADDING / 2);
-            bubble.style.transform = `translateX(${currentX}px) translateY(-50%)`;
+            bubble.style.transform = `translateX(${currentX}px)`;
             
             items.forEach((item, index) => {
                 if (index === closestIndex) item.classList.add('active');
@@ -2793,7 +2867,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 });
                 
                 bubble.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
-                bubble.style.transform = `translateX(${currentX}px) translateY(-50%)`;
+                bubble.style.transform = `translateX(${currentX}px)`;
                 
                 setTimeout(() => {
                     handleNavAction(item);

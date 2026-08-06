@@ -125,18 +125,24 @@ class Card extends Model
             $this->save();
         }
 
-        $position = Card::where('board_list_id', $targetListId)->max('position') + 1;
+        Card::where('board_list_id', $targetListId)->increment('position');
         $replica = $this->replicate();
         $replica->board_id = $targetBoardId;
         $replica->board_list_id = $targetListId;
         $replica->title = $newTitle;
-        $replica->position = $position;
-        $replica->created_by = $createdBy ?? auth()->id() ?? $this->created_by;
+        $replica->position = 0;
+        $replica->created_by = $this->created_by;
         if ($enableSync) {
             $replica->sync_group_id = $this->sync_group_id;
         } else {
             $replica->sync_group_id = null;
         }
+
+        // Inherit approved status if source or any twin is approved
+        if ($this->status === 'approved' || ($this->sync_group_id && Card::where('sync_group_id', $this->sync_group_id)->where('status', 'approved')->exists())) {
+            $replica->status = 'approved';
+        }
+
         $replica->save();
 
         $originalSyncing = self::$isSyncing;
@@ -296,7 +302,7 @@ class Card extends Model
 
     public function files(): HasMany
     {
-        return $this->hasMany(CardFile::class)->orderBy('created_at');
+        return $this->hasMany(CardFile::class)->where('is_comment_image', false)->orderBy('created_at');
     }
 
     public function activities(): MorphMany

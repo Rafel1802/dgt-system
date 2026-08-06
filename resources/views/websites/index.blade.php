@@ -2,6 +2,70 @@
 @section('title', 'All Websites')
 @section('page_title', 'All Websites')
 
+@push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    /* Premium overrides to make Flatpickr match our slate/indigo design */
+    .flatpickr-calendar {
+        background: #ffffff !important;
+        border-radius: 16px !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #cbd5e1 !important;
+        font-family: inherit !important;
+        padding: 4px;
+        z-index: 100050 !important;
+    }
+    .dark .flatpickr-calendar {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+    }
+    .flatpickr-months .flatpickr-month {
+        color: #1e293b !important;
+    }
+    .dark .flatpickr-months .flatpickr-month {
+        color: #f8fafc !important;
+    }
+    .flatpickr-current-month .flatpickr-monthDropdown-months {
+        font-weight: 700 !important;
+    }
+    .flatpickr-weekdays {
+        font-weight: 600 !important;
+    }
+    .flatpickr-day {
+        border-radius: 8px !important;
+        color: #334155 !important;
+    }
+    .dark .flatpickr-day {
+        color: #cbd5e1 !important;
+    }
+    .flatpickr-day.today {
+        border-color: #4f46e5 !important;
+        color: #4f46e5 !important;
+    }
+    .dark .flatpickr-day.today {
+        border-color: #6366f1 !important;
+        color: #818cf8 !important;
+    }
+    .flatpickr-day.selected, .flatpickr-day.selected:hover {
+        background: #4f46e5 !important;
+        border-color: #4f46e5 !important;
+        color: #ffffff !important;
+    }
+    .dark .flatpickr-day.selected, .dark .flatpickr-day.selected:hover {
+        background: #6366f1 !important;
+        border-color: #6366f1 !important;
+        color: #ffffff !important;
+    }
+    .flatpickr-day:hover {
+        background: #f1f5f9 !important;
+    }
+    .dark .flatpickr-day:hover {
+        background: #334155 !important;
+    }
+</style>
+@endpush
+
 @section('content')
 <style>
     .image-modal {
@@ -487,8 +551,8 @@
                 </div>
 
                 {{-- Last Progress Note --}}
-                @if($website->progressLogs->isNotEmpty())
-                @php $lastLog = $website->progressLogs->first(); @endphp
+                @if($website->latestProgressLog)
+                @php $lastLog = $website->latestProgressLog; @endphp
                 <div class="mb-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border border-slate-100 dark:border-slate-700">
                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Last Update</div>
                     <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{{ Str::limit($lastLog->note, 100) }}</p>
@@ -542,12 +606,23 @@
                         ✗ Sup. Error
                     </button>
                     @else
-                    <span class="text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-1 text-center">Awaiting Supervisor Approval</span>
+                    <div class="flex flex-col items-center gap-1.5 w-full">
+                        <span class="text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-1 text-center">Awaiting Supervisor Approval</span>
+                        @if(auth()->user()->canApproveWebsiteQc())
+                        <div class="flex items-center gap-1.5 w-full">
+                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-confirm="Revert QC approval for {{ addslashes($website->name) }}? It will go back to QC Checking stage.">
+                                @csrf
+                                <button type="submit" class="btn text-xs py-1.5 px-2.5 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center justify-center gap-1">
+                                    ✓ Fix Approved
+                                </button>
+                            </form>
+                        </div>
+                        @endif
+                    </div>
                     @endif
                     @endif
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'build', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->serialized_logs }}"
+                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'build')"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -715,20 +790,31 @@
                         @if(!$isUnderMaintenance && auth()->user()->canUpdateWebsiteProgress())
                         <button type="button"
                                 @click="openMaintenanceModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5 group hover:bg-amber-500 hover:text-white hover:border-amber-500 dark:hover:bg-amber-600 transition-colors" title="Start Maintenance">
+                            class="relative group btn btn-secondary text-xs py-1.5 px-2.5 hover:bg-amber-500 hover:text-white hover:border-amber-500 dark:hover:bg-amber-600 transition-colors" aria-label="Start Maintenance">
                         <svg class="w-4 h-4 text-amber-500 dark:text-amber-400 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75a4.5 4.5 0 0 1-4.884 4.484c-1.076-.091-2.264.071-2.95.904l-7.152 8.684a2.548 2.548 0 1 1-3.586-3.586l8.684-7.152c.833-.686.995-1.874.904-2.95a4.5 4.5 0 0 1 6.336-4.486l-3.276 3.276a3.004 3.004 0 0 0 2.25 2.25l3.276-3.276c.256.565.398 1.192.398 1.852Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M4.867 19.125h.008v.008h-.008v-.008Z" /></svg>
+                        <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-950 dark:bg-slate-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md shadow-md z-50 whitespace-nowrap">
+                            Start Maintenance
+                            <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950 dark:border-t-slate-800"></span>
+                        </span>
                     </button>
                     @endif
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->serialized_logs }}"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
+                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance')"
+                            class="relative group btn btn-secondary text-xs py-1.5 px-2.5" aria-label="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                        <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-950 dark:bg-slate-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md shadow-md z-50 whitespace-nowrap">
+                            View History
+                            <span class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950 dark:border-t-slate-800"></span>
+                        </span>
                     </button>
                     @if(auth()->user()->canUpdateWebsiteProgress())
                     <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                            class="relative group btn btn-secondary text-xs py-1.5 px-2.5" aria-label="Edit">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
+                        <span class="absolute bottom-full right-0 mb-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-950 dark:bg-slate-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md shadow-md z-50 whitespace-nowrap">
+                            Edit Website
+                            <span class="absolute top-full right-3 border-4 border-transparent border-t-slate-950 dark:border-t-slate-800"></span>
+                        </span>
                     </button>
                     @endif
                     @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
@@ -895,8 +981,8 @@
                 </div>
 
                 {{-- Last Maintenance Note --}}
-                @if($website->maintenanceLogs->isNotEmpty())
-                @php $lastMaint = $website->maintenanceLogs->first(); @endphp
+                @if($website->latestMaintenanceLog)
+                @php $lastMaint = $website->latestMaintenanceLog; @endphp
                 <div class="mb-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 border border-orange-100 dark:border-orange-800">
                     <div class="text-[10px] font-bold text-orange-400 uppercase tracking-wide mb-1">Last Update</div>
                     <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{{ Str::limit($lastMaint->note, 100) }}</p>
@@ -943,13 +1029,24 @@
                         ✗ Sup. Error
                     </button>
                     @else
-                    <span class="text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-1 text-center">Awaiting Supervisor Approval</span>
+                    <div class="flex flex-col items-center gap-1.5 w-full">
+                        <span class="text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-1 text-center">Awaiting Supervisor Approval</span>
+                        @if(auth()->user()->canApproveWebsiteQc())
+                        <div class="flex items-center gap-1.5 w-full">
+                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-confirm="Revert QC approval for {{ addslashes($website->name) }}? It will go back to QC Checking stage.">
+                                @csrf
+                                <button type="submit" class="btn text-xs py-1.5 px-2.5 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center justify-center gap-1">
+                                    ✓ Fix Approved
+                                </button>
+                            </form>
+                        </div>
+                        @endif
+                    </div>
                     @endif
                     @endif
                     <div class="flex items-center gap-1.5 shrink-0">
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->serialized_logs }}"
+                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance')"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -1102,8 +1199,7 @@
                     @endif
                     
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR ? 'maintenance' : 'build' }}', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->serialized_logs }}"
+                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR ? 'maintenance' : 'build' }}')"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -1251,8 +1347,7 @@
                     @endif
                     
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR ? 'maintenance' : 'build' }}', JSON.parse($event.currentTarget.dataset.logs))"
-                            data-logs="{{ $website->serialized_logs }}"
+                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR ? 'maintenance' : 'build' }}')"
                             class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
@@ -2335,7 +2430,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.export') }}" method="GET" x-data="{ format: 'csv' }" class="p-6 space-y-6">
+        <form action="{{ route('websites.export') }}" method="GET" x-data="{ format: 'csv' }" data-turbo="false" class="p-6 space-y-6">
             <input type="hidden" name="tab" value="{{ $tab }}">
             {{-- Format Selection --}}
             <div>
@@ -2375,39 +2470,45 @@
             </div>
 
             {{-- Member Filter --}}
-            @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']) || auth()->user()->hasRole('boss'))
             <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1 uppercase tracking-wide">Filter by Member</label>
-                <select name="member_id" class="form-select w-full rounded-lg text-sm border-slate-200">
+                <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5 uppercase tracking-wide">Filter by Member</label>
+                <select name="member_id" class="form-select w-full rounded-xl text-base py-3 px-4 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500">
                     <option value="">All Members</option>
-                    @foreach(($tab === 'follow-up' ? $websiteTeamMembers : $users) as $u)
+                    @foreach($reportUsers as $u)
                         <option value="{{ $u->id }}">{{ $u->name }}</option>
                     @endforeach
                 </select>
-                <p class="text-[10px] text-slate-500 mt-1">Export websites assigned to a specific member.</p>
+                <p class="text-[10px] text-slate-500 mt-1.5">Export websites assigned to a specific member.</p>
             </div>
-            @else
-            <input type="hidden" name="member_id" value="{{ auth()->id() }}">
-            @endif
 
             {{-- Date Range Selection --}}
             <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
                 <p class="text-xs text-slate-500 mb-3 font-semibold uppercase tracking-wide">Date Filter (Optional)</p>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">Start Date</label>
-                        <input type="date" name="start_date" class="form-input w-full rounded-lg text-sm border-slate-200">
+                        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5">Start Date</label>
+                        <div class="relative">
+                            <input type="text" name="start_date" placeholder="Select Start Date" x-init="flatpickr($el, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'F j, Y', allowInput: true, disableMobile: true })" class="form-input w-full rounded-xl text-base py-3 pl-4 pr-10 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer">
+                            <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z"/></svg>
+                            </div>
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">End Date</label>
-                        <input type="date" name="end_date" class="form-input w-full rounded-lg text-sm border-slate-200">
+                        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5">End Date</label>
+                        <div class="relative">
+                            <input type="text" name="end_date" placeholder="Select End Date" x-init="flatpickr($el, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'F j, Y', allowInput: true, disableMobile: true })" class="form-input w-full rounded-xl text-base py-3 pl-4 pr-10 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer">
+                            <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z"/></svg>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <div class="flex items-center justify-end gap-3 pt-2">
                 <button type="button" @click="showExportModal = false" class="btn btn-secondary text-sm px-5">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-200" @click="showExportModal = false">
+                <button type="submit" class="btn btn-primary text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-200" @click="setTimeout(() => showExportModal = false, 300)">
                     <svg class="w-4 h-4 mr-1.5 inline" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                     <span x-text="format === 'pdf' ? 'Download PDF' : 'Download CSV'"></span>
                 </button>
@@ -2431,7 +2532,16 @@
             </button>
         </div>
         <div class="p-5 max-h-[60vh] overflow-y-auto space-y-4 bg-slate-50 dark:bg-slate-900/30">
-            <template x-if="historyLogs.length === 0">
+            <template x-if="historyLoading">
+                <div class="flex flex-col items-center justify-center py-12 gap-3 text-slate-500">
+                    <svg class="animate-spin h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Loading history logs...</span>
+                </div>
+            </template>
+            <template x-if="!historyLoading && historyLogs.length === 0">
                 <p class="text-center text-sm text-slate-500 py-4">No history records found.</p>
             </template>
             <template x-for="log in historyLogs" :key="log.id">
@@ -2630,6 +2740,9 @@
 </div>{{-- /x-data --}}
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    // Flatpickr relies on x-init on the specific inputs instead of this global script now
+</script>
 <script>
 function websitesApp() {
     return {
@@ -2694,6 +2807,7 @@ function websitesApp() {
             website_id: '', type: '', title: '', url: '', google_indexed: '', assigned_to: '', note: '', created_at: ''
         },
         showHistoryModal:     false,
+        historyLoading:       false,
 
         // Collapsible groups state
         collapsedGroups: {},
@@ -2788,12 +2902,28 @@ function websitesApp() {
             // Close modals on Escape key
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
+                    // Close attachment preview first if open
+                    if (this.showAttachmentPreview) {
+                        this.closeAttachmentPreview();
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                    // Close history log edit modal if open (keeping main history modal open)
+                    if (this.showHistoryEditModal) {
+                        this.closeHistoryEditModal();
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                    // Close delete class modal
                     if (this.showDeleteClassModal) {
                         this.showDeleteClassModal = false;
                         this.classToDelete = '';
                         this.classToDeleteId = '';
                         return;
                     }
+                    // Close other standard modals
                     this.showCreateModal = false;
                     this.showProgressModal = false;
                     this.showQcModal = false;
@@ -2930,36 +3060,48 @@ function websitesApp() {
             this.showEditFollowUpModal = true;
         },
 
-        openHistoryModal(websiteId, websiteName, type, logs) {
+        async openHistoryModal(websiteId, websiteName, type) {
             this.historyWebsiteName = websiteName;
             this.historyType = type;
-            let parsedLogs = Array.isArray(logs) ? logs : (typeof logs === 'string' ? JSON.parse(logs) : []);
-            
-            // Retrofit old logs that stored files as text "| File: filename.ext"
-            parsedLogs = parsedLogs.map(log => {
-                if (!log.attachment_path && log.note && log.note.includes(' | File: ')) {
-                    const parts = log.note.split(' | File: ');
-                    log.note = parts[0];
-                    log.attachment_name = parts[1];
-                    log.attachment_path = 'website-error-references/' + parts[1];
-                }
-                if (!Array.isArray(log.attachments)) {
-                    log.attachments = [];
-                }
-                if (!log.attachments.length && log.attachment_path) {
-                    log.attachments = [{
-                        id: 'legacy',
-                        path: log.attachment_path,
-                        name: log.attachment_name || 'Attached File'
-                    }];
-                }
-                return log;
-            });
-
-            // Sort logs by created_at descending just to be safe
-            parsedLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            this.historyLogs = parsedLogs;
+            this.historyLogs = [];
+            this.historyLoading = true;
             this.showHistoryModal = true;
+            
+            try {
+                const response = await fetch(`/websites/${websiteId}/history`);
+                if (!response.ok) throw new Error('Failed to load history');
+                let parsedLogs = await response.json();
+                
+                // Retrofit old logs that stored files as text "| File: filename.ext"
+                parsedLogs = parsedLogs.map(log => {
+                    if (!log.attachment_path && log.note && log.note.includes(' | File: ')) {
+                        const parts = log.note.split(' | File: ');
+                        log.note = parts[0];
+                        log.attachment_name = parts[1];
+                        log.attachment_path = 'website-error-references/' + parts[1];
+                    }
+                    if (!Array.isArray(log.attachments)) {
+                        log.attachments = [];
+                    }
+                    if (!log.attachments.length && log.attachment_path) {
+                        log.attachments = [{
+                            id: 'legacy',
+                            path: log.attachment_path,
+                            name: log.attachment_name || 'Attached File'
+                        }];
+                    }
+                    return log;
+                });
+
+                // Sort logs by created_at descending just to be safe
+                parsedLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                this.historyLogs = parsedLogs;
+            } catch (err) {
+                console.error(err);
+                window.showToast('Failed to load website history.', 'error');
+            } finally {
+                this.historyLoading = false;
+            }
         },
 
         // Returns storage URL - works with both relative paths and full URLs
@@ -3295,6 +3437,39 @@ function websitesApp() {
         },
     };
 }
+
+// Global script to prevent double form submissions
+document.addEventListener('submit', function(e) {
+    if (e.target && e.target.tagName === 'FORM') {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            // If already submitting, prevent duplicate submission
+            if (e.target.dataset.submitting) {
+                e.preventDefault();
+                return;
+            }
+            e.target.dataset.submitting = 'true';
+            
+            // Disable button visually and functionally
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            
+            // Change button content to indicate processing
+            if (!submitBtn.dataset.originalText) {
+                submitBtn.dataset.originalText = submitBtn.innerHTML;
+            }
+            submitBtn.innerHTML = '<span class="inline-flex items-center gap-1.5"><svg class="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Processing...</span>';
+            
+            // Fallback: reset the button state after 8 seconds in case validation fails without a page reload
+            setTimeout(() => {
+                e.target.dataset.submitting = '';
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                submitBtn.innerHTML = submitBtn.dataset.originalText;
+            }, 8000);
+        }
+    }
+});
 </script>
 @endpush
 

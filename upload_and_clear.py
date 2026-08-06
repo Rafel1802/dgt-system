@@ -102,6 +102,15 @@ if __name__ == "__main__":
     # so every artisan call below silently no-ops on the platform check unless we
     # point at the real PHP 8.4 binary explicitly.
     PHP = "/opt/alt/php84/usr/bin/php"
+    tinker_sync = (
+        PHP + ' artisan tinker --execute="'
+        "App\\Models\\Card::whereHas('boardList', function(\\$q){ \\$q->where('name', 'like', '%approved%'); })"
+        "->whereNotNull('sync_group_id')->pluck('sync_group_id')->unique()"
+        "->each(fn(\\$g) => App\\Models\\Card::where('sync_group_id', \\$g)->update(['status' => 'approved']));"
+        '" && '
+    )
+    tinker_clean = PHP + ' artisan tinker --execute="App\\Models\\SocialMediaClass::whereIn(\'name\', [\'Long Landscape\', \'Share Blog\', \'Short Reel\', \'Poster Design\', \'Reel\'])->delete();" && '
+
     ssh_cmd = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
         (
@@ -110,13 +119,15 @@ if __name__ == "__main__":
             "chmod -R 775 storage bootstrap/cache && "
             "rm -f public/hot && "
             "rm -f bootstrap/cache/*.php && "
-            f"{PHP} artisan optimize:clear && "
-            f"{PHP} artisan tinker --execute=\"App\\Models\\SocialMediaClass::whereIn('name', ['Long Landscape', 'Share Blog', 'Short Reel', 'Poster Design', 'Reel'])->delete();\" && "
-            f"{PHP} artisan optimize && "
-            f"{PHP} artisan view:cache && "
-            f"{PHP} artisan storage:link"
+            + PHP + " artisan optimize:clear && "
+            + tinker_sync
+            + tinker_clean
+            + PHP + " artisan migrate --force && "
+            + PHP + " artisan optimize && "
+            + PHP + " artisan view:cache && "
+            + PHP + " artisan storage:link"
         )
     ]
     run_cmd(ssh_cmd)
 
-    print("Done! Code uploaded and server cache cleared. Migrations were intentionally skipped.")
+    print("Done! Code uploaded, database migrated, and server cache cleared.")

@@ -18,6 +18,7 @@ class CardFile extends Model
         'mime_type',
         'size',
         'sync_id',
+        'is_comment_image',
     ];
 
     protected static function booted()
@@ -93,6 +94,7 @@ class CardFile extends Model
 
     protected $casts = [
         'size' => 'integer',
+        'is_comment_image' => 'boolean',
     ];
 
     protected $appends = [

@@ -62,16 +62,22 @@ class ProfileController extends Controller
 
         $avatarUrl = trim((string) $request->input('avatar_url'));
 
-        if ($request->boolean('remove_avatar')) {
-            $this->deleteLocalAvatar($user->avatar);
-            $validated['avatar'] = null;
-        } elseif ($request->hasFile('avatar')) {
-            $this->deleteLocalAvatar($user->avatar);
-            $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
-            $this->publishLocalAvatar($validated['avatar']);
-        } elseif ($avatarUrl !== '') {
-            $this->deleteLocalAvatar($user->avatar);
-            $validated['avatar'] = $avatarUrl;
+        $lockedSetting = \App\Models\Setting::where('key', 'lock_profile_images')->value('value');
+        $isLocked = in_array(strtolower((string)$lockedSetting), ['1', 'true', 'yes']);
+        $canChangeAvatar = !$isLocked || $user->hasAnyRole(['super-admin']);
+
+        if ($canChangeAvatar) {
+            if ($request->boolean('remove_avatar')) {
+                $this->deleteLocalAvatar($user->avatar);
+                $validated['avatar'] = null;
+            } elseif ($request->hasFile('avatar')) {
+                $this->deleteLocalAvatar($user->avatar);
+                $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
+                $this->publishLocalAvatar($validated['avatar']);
+            } elseif ($avatarUrl !== '') {
+                $this->deleteLocalAvatar($user->avatar);
+                $validated['avatar'] = $avatarUrl;
+            }
         }
 
         unset($validated['avatar_url'], $validated['remove_avatar'], $validated['current_password']);

@@ -1140,7 +1140,7 @@ window.trelloBoard = function(config) {
                // Add it to actual target list
                const actualTargetList = this.lists.find(l => l.id == res.card.board_list_id);
                if (actualTargetList) {
-                 actualTargetList.cards.push(res.card);
+                 actualTargetList.cards.unshift(res.card);
                }
             }
 
@@ -2604,7 +2604,7 @@ window.trelloBoard = function(config) {
           } else if (newCard.board_list_id !== this.activeCard.board_list_id) {
             this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
             const targetList = this.lists.find(l => l.id === newCard.board_list_id);
-            if (targetList) targetList.cards.push(newCard);
+            if (targetList) targetList.cards.unshift(newCard);
             this.closeCard();
             return;
           }
@@ -3297,7 +3297,7 @@ window.trelloBoard = function(config) {
               } else if (newCard.board_list_id !== this.activeCard.board_list_id) {
                 this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
                 const targetList = this.lists.find(l => l.id === newCard.board_list_id);
-                if (targetList) targetList.cards.push(newCard);
+                if (targetList) targetList.cards.unshift(newCard);
                 this.closeCard();
                 return;
               }
@@ -3653,6 +3653,34 @@ window.trelloBoard = function(config) {
       this.imagePreview.title = '';
     },
 
+    async downloadAttachment(file) {
+      if (!file) return;
+      const url = file.download_url || file.url;
+      const filename = file.original_name || 'download';
+
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } catch (err) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    },
+
     openVideoPreview(file) {
       if (!file || !file.url) return;
       let embedUrl = file.url;
@@ -3904,6 +3932,12 @@ window.trelloBoard = function(config) {
         return `<a href="${safeUrl}" target="_blank" rel="noopener" class="text-indigo-600 underline hover:text-indigo-800">${label}</a>`;
       });
 
+      // Step 5.5: Render raw HTTP/HTTPS URLs (that aren't inside markdown links or html attributes)
+      // By checking for (^|\s), we avoid matching URLs inside href="..." or src="..." or [text](url)
+      html = html.replace(/(^|\s)(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g, (_, space, url) => {
+        return `${space}<a href="${url}" target="_blank" rel="noopener" class="text-indigo-600 underline hover:text-indigo-800 break-all">${url}</a>`;
+      });
+
       // Step 6: Newlines
       html = html.replace(/\n/g, '<br>');
       return html;
@@ -3954,8 +3988,34 @@ window.trelloBoard = function(config) {
       if (!this.pastedImage || !this.activeCard) return;
       this.sendingScreenshot = true;
       try {
+        // 1. Upload the image as a file (with comment_only flag so it won't show in Attachments)
+        const fetchRes = await fetch(this.pastedImage);
+        const blob = await fetchRes.blob();
+        const formData = new FormData();
+        formData.append('file', blob, 'screenshot.jpg');
+        formData.append('comment_only', '1');
+
+        const fileRes = await fetch(`/boards/cards/${this.activeCard.id}/files`, {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': this.csrfToken,
+            'Accept': 'application/json'
+          },
+          body: formData
+        });
+        const fileData = await fileRes.json();
+        
+        if (!fileRes.ok) {
+           window.showToast(fileData.error || 'Failed to upload screenshot.', 'error');
+           this.sendingScreenshot = false;
+           return;
+        }
+
+        // NOTE: Do NOT add to activeCard.files — comment screenshots should only appear in comments
+
+        // 2. Post the comment referencing the fast URL instead of huge base64
         const textPrefix = this.newComment.trim() ? this.newComment.trim() + '\n\n' : '';
-        const body = textPrefix + '![screenshot](' + this.pastedImage + ')';
+        const body = textPrefix + '![screenshot](' + fileData.file.url + ')';
         const res = await this.api(`/boards/cards/${this.activeCard.id}/comments`, 'POST', { body });
         if (res.comment) {
           if (res.card_moved) {
@@ -3968,7 +4028,7 @@ window.trelloBoard = function(config) {
             } else if (newCard.board_list_id !== this.activeCard.board_list_id) {
               this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
               const targetList = this.lists.find(l => l.id === newCard.board_list_id);
-              if (targetList) targetList.cards.push(newCard);
+              if (targetList) targetList.cards.unshift(newCard);
               this.closeCard();
               return;
             }

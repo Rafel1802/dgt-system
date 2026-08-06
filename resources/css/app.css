@@ -75,11 +75,11 @@
     --sidebar-hover:        rgba(255, 255, 255, 0.08);
     --sidebar-active:       rgba(255, 255, 255, 0.12);
 
-    /* Backgrounds — Chrome-style dark */
-    --bg-page:              #111318;  /* very dark neutral */
-    --bg-card:              #1c1f26;  /* card surface */
-    --bg-card-hover:        #252932;  /* slightly lighter for hover/input */
-    --bg-elevated:          #2a2e38;  /* modals, dropdowns, popovers */
+    /* Backgrounds — Navy Dark (Slate) */
+    --bg-page:              #0f172a;  /* slate-900 */
+    --bg-card:              #1e293b;  /* slate-800 */
+    --bg-card-hover:        #29364b;  /* slightly lighter slate-800 */
+    --bg-elevated:          #334155;  /* slate-700 */
 
     /* Text */
     --text-primary:         #e8eaf0;  /* near-white, easy to read */
@@ -1660,27 +1660,25 @@
     left: 0;
     right: 0;
     z-index: 45;
-    background: rgba(255, 255, 255, 0.45);
-    border-top: 1px solid rgba(255, 255, 255, 0.6);
-    border-radius: 2rem 2rem 0 0;
-    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.08), inset 0 1px 1px rgba(255,255,255,0.8);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
     width: 100%;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   [data-theme="dark"] .mobile-bottom-nav {
-    background: rgba(15, 23, 42, 0.45);
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255,255,255,0.15);
+    background: var(--bg-card);
+    border-color: var(--border-color);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
   }
 
   .mobile-bottom-nav-inner {
     display: flex;
     align-items: flex-start;
     justify-content: space-around;
-    padding: 8px 0.5rem calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 0.5rem calc(4px + env(safe-area-inset-bottom, 8px));
     position: relative;
   }
 
@@ -1691,7 +1689,7 @@
     justify-content: center;
     gap: 3px;
     flex: 1;
-    padding: 8px 4px 6px;
+    padding: 4px 4px;
     border-radius: 12px;
     text-decoration: none;
     background: none;
@@ -1750,11 +1748,11 @@
   /* ── Liquid Glass Active Bubble ─────────────────────────────────────── */
   #nav-active-bubble {
     position: absolute;
-    top: 50%;
+    top: 6px;
     left: 0;
-    height: 48px;
+    height: 44px;
     background: transparent;
-    border-radius: 999px;
+    border-radius: 14px;
     z-index: 0;
     transform-origin: center center;
     will-change: transform, width;
@@ -1766,7 +1764,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    border-radius: 999px;
+    border-radius: 14px;
     background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%);
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
@@ -1844,8 +1842,8 @@
 
     /* Safe area at top for notch devices */
     .topbar {
-      padding-top: max(0px, env(safe-area-inset-top, 0px));
-      height: calc(56px + env(safe-area-inset-top, 0px));
+      padding-top: calc(12px + env(safe-area-inset-top, 0px));
+      height: calc(68px + env(safe-area-inset-top, 0px));
     }
   }
 

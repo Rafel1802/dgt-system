@@ -128,11 +128,25 @@ class Website extends Model
             ->orderByDesc('created_at');
     }
 
+    public function latestProgressLog()
+    {
+        return $this->hasOne(WebsiteProgressLog::class)
+            ->where('type', 'build')
+            ->latestOfMany();
+    }
+
     public function maintenanceLogs(): HasMany
     {
         return $this->hasMany(WebsiteProgressLog::class)
             ->where('type', 'maintenance')
             ->orderByDesc('created_at');
+    }
+
+    public function latestMaintenanceLog()
+    {
+        return $this->hasOne(WebsiteProgressLog::class)
+            ->where('type', 'maintenance')
+            ->latestOfMany();
     }
 
     public function activityLogs(): HasMany

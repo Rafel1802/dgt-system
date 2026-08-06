@@ -200,16 +200,7 @@
     </div>
   </div>
 
-  <div class="hidden lg:flex flex-1 justify-start pl-4 lg:pl-6">
-    <button type="button"
-            @click="openSwitchBoardsModal()"
-            class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-indigo-700">
-      <svg class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h12A2.25 2.25 0 0 1 20.25 6v12A2.25 2.25 0 0 1 18 20.25H6A2.25 2.25 0 0 1 3.75 18V6Zm4.5 3h7.5m-7.5 6h7.5" />
-      </svg>
-      Switch board
-    </button>
-  </div>
+
 
   <div class="ml-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-3">
     {{-- Zoom Control --}}
@@ -839,13 +830,11 @@
     Archive
   </div>
 
-  {{-- Delete: admin only --}}
-  @if(auth()->user()->hasAnyRole(['super-admin', 'admin']))
+  {{-- Delete: available to all users --}}
   <div class="ctx-item ctx-danger" @click="ctxAction('delete')">
     <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
     Delete card
   </div>
-  @endif
 
 </div>
 
@@ -872,6 +861,18 @@
 
 
 
+{{-- Switch Board Button (Fixed at bottom middle) --}}
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] drop-shadow-2xl">
+  <button type="button"
+          @click="openSwitchBoardsModal()"
+          class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-6 py-2.5 text-sm font-extrabold text-slate-700 dark:text-slate-200 shadow-xl transition-all hover:-translate-y-1 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:hover:text-white hover:shadow-2xl">
+    <svg class="h-4 w-4 text-indigo-500 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h12A2.25 2.25 0 0 1 20.25 6v12A2.25 2.25 0 0 1 18 20.25H6A2.25 2.25 0 0 1 3.75 18V6Zm4.5 3h7.5m-7.5 6h7.5" />
+    </svg>
+    Switch board
+  </button>
+</div>
+
 </div>
 @endsection
 
@@ -880,6 +881,8 @@
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 @php
     $trelloBoardVersion = file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0';
+    $dragScrollVersion = file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0';
 @endphp
 <script src="{{ asset('js/trello-board.js') }}?v={{ $trelloBoardVersion }}"></script>
+<script src="{{ asset('js/drag-scroll.js') }}?v={{ $dragScrollVersion }}"></script>
 @endpush

@@ -67,7 +67,7 @@
         </div>
 
         {{-- Meta Badges Row --}}
-        <div class="flex flex-wrap gap-6 mt-5 text-xs">
+        <div class="flex flex-wrap gap-6 mt-5 text-xs" style="padding-left: 40px;">
           {{-- SMM Specific: Team & Class Labels --}}
           <template x-if="board?.name?.toLowerCase().includes('smm') || activeCard?.smm_class_label || activeCard?.smm_cluster_label || activeCard?.content_public_date || activeCard?.labels?.some(l => l.name.toLowerCase() === 'smm')">
             <div class="flex flex-col gap-6 text-xs w-full">
@@ -109,31 +109,7 @@
               <div>
                 <p class="text-[11px] font-bold text-slate-800 uppercase tracking-widest mb-3 border-b border-slate-200 pb-1">Assignment</p>
                 <div class="flex flex-wrap gap-6">
-                  {{-- Assign To --}}
-                  <div class="min-w-[100px]">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Assign To</p>
-                    <template x-if="activeCard?.assignees?.length">
-                      <div class="flex flex-wrap gap-1 -space-x-1">
-                        <template x-for="m in (activeCard?.assignees ?? [])" :key="m.id">
-                          <span>
-                            <template x-if="avatarUrl(m)">
-                              <img :src="avatarUrl(m)" :alt="m.name" :title="m.name"
-                                   @dblclick.stop="openAvatarPreview(m)"
-                                   class="w-6 h-6 cursor-zoom-in rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100 hover:scale-105 transition-transform">
-                            </template>
-                            <template x-if="!avatarUrl(m)">
-                              <span class="w-6 h-6 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100 flex items-center justify-center text-[9px] font-black text-slate-600 bg-slate-200"
-                                    x-text="avatarInitials(m)"
-                                    :title="m.name"></span>
-                            </template>
-                          </span>
-                        </template>
-                      </div>
-                    </template>
-                    <template x-if="!activeCard?.assignees?.length">
-                      <span class="text-xs text-slate-400 italic">Unassigned</span>
-                    </template>
-                  </div>
+
                   {{-- Assign By --}}
                   <div class="min-w-[100px]">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Assign By</p>
@@ -159,7 +135,35 @@
           </template>
 
           {{-- Standard Meta Badges --}}
-          <div class="flex flex-wrap gap-6 text-xs mt-6">
+          <div class="flex flex-wrap gap-6 items-start text-xs mt-6">
+            {{-- Members --}}
+            <div class="min-w-[120px]">
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Members</p>
+              <template x-if="activeCard?.assignees?.length">
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="m in (activeCard?.assignees ?? [])" :key="m.id">
+                    <span class="flex items-center gap-1.5 bg-slate-100/50 hover:bg-slate-100 transition-colors border border-slate-200/60 rounded-full pr-2.5 pb-0.5 pt-0.5 pl-0.5">
+                      <template x-if="avatarUrl(m)">
+                        <img :src="avatarUrl(m)" :alt="m.name" :title="m.name"
+                             @dblclick.stop="openAvatarPreview(m)"
+                             class="w-6 h-6 cursor-zoom-in rounded-full object-cover shadow-sm hover:scale-105 transition-transform">
+                      </template>
+                      <template x-if="!avatarUrl(m)">
+                        <span class="w-6 h-6 rounded-full shadow-sm flex items-center justify-center text-[9px] font-black text-white"
+                              :style="avatarStyle(m)"
+                              x-text="avatarInitials(m)"
+                              :title="m.name"></span>
+                      </template>
+                      <span class="text-[11px] font-medium text-slate-700" x-text="m.name"></span>
+                    </span>
+                  </template>
+                </div>
+              </template>
+              <template x-if="!activeCard?.assignees?.length">
+                <span class="text-xs text-slate-400 italic">Unassigned</span>
+              </template>
+            </div>
+
             {{-- Active Labels --}}
             <div x-show="activeCard?.labels?.length" class="min-w-[120px]">
               <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Labels</p>
@@ -171,65 +175,43 @@
               </div>
             </div>
 
-            {{-- Assignees --}}
-            <div x-show="activeCard?.assignees?.length" class="min-w-[120px]">
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Members</p>
-              <div class="flex flex-wrap gap-1">
-                <template x-for="m in (activeCard?.assignees ?? [])" :key="m.id">
-                  <span>
-                    <template x-if="avatarUrl(m)">
-                      <img :src="avatarUrl(m)" :alt="m.name" :title="m.name"
-                           @dblclick.stop="openAvatarPreview(m)"
-                           class="w-7 h-7 cursor-zoom-in rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100 hover:scale-105 transition-transform">
-                    </template>
-                    <template x-if="!avatarUrl(m)">
-                      <span class="w-7 h-7 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100 flex items-center justify-center text-[10px] font-black text-white"
-                            :style="avatarStyle(m)"
-                            x-text="avatarInitials(m)"
-                            :title="m.name"></span>
-                    </template>
-                    </span>
-                  </template>
-                </div>
-              </div>
-            </div>
+            {{-- Due Date → opens Trello-style date picker --}}
+            <div class="min-w-[180px]">
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">📅 Dates</p>
+              <div class="flex items-center gap-2 flex-wrap">
 
-          {{-- Due Date → opens Trello-style date picker --}}
-          <div class="min-w-[180px]">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">📅 Dates</p>
-            <div class="flex items-center gap-2 flex-wrap">
+                {{-- Start date badge --}}
+                <template x-if="activeCard?.start_date">
+                  <button @click="openDatePicker(activeCard)"
+                          class="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex items-center gap-1">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25"/></svg>
+                    Start: <span x-text="formatDateShort(activeCard.start_date)"></span>
+                  </button>
+                </template>
 
-              {{-- Start date badge --}}
-              <template x-if="activeCard?.start_date">
+                {{-- Due date badge with status colour --}}
                 <button @click="openDatePicker(activeCard)"
-                        class="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex items-center gap-1">
-                  <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25"/></svg>
-                  Start: <span x-text="formatDateShort(activeCard.start_date)"></span>
+                        class="text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                        :class="activeCard?.due_at
+                          ? (activeCard?.status === 'done'
+                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                              : (new Date(activeCard.due_at) < new Date()
+                                  ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+                                  : ((new Date(activeCard.due_at) - new Date()) < 86400000
+                                      ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200')))
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'">
+                  <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+                  <span x-text="formatDueBadge(activeCard?.due_at, activeCard?.due_time, activeCard?.status)"></span>
                 </button>
-              </template>
 
-              {{-- Due date badge with status colour --}}
-              <button @click="openDatePicker(activeCard)"
-                      class="text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1 transition-colors"
-                      :class="activeCard?.due_at
-                        ? (activeCard?.status === 'done'
-                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                            : (new Date(activeCard.due_at) < new Date()
-                                ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'
-                                : ((new Date(activeCard.due_at) - new Date()) < 86400000
-                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200')))
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'">
-                <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
-                <span x-text="formatDueBadge(activeCard?.due_at, activeCard?.due_time, activeCard?.status)"></span>
-              </button>
-
-              {{-- Recurring badge --}}
-              <template x-if="activeCard?.recurring && activeCard.recurring !== 'none'">
-                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 flex items-center gap-0.5">
-                  🔄 <span x-text="activeCard.recurring"></span>
-                </span>
-              </template>
+                {{-- Recurring badge --}}
+                <template x-if="activeCard?.recurring && activeCard.recurring !== 'none'">
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 flex items-center gap-0.5">
+                    🔄 <span x-text="activeCard.recurring"></span>
+                  </span>
+                </template>
+              </div>
             </div>
           </div>
         </div>
@@ -464,13 +446,20 @@
                       </template>
                     </div>
                     <div class="flex items-center gap-2 pr-1  group-hover: transition-opacity">
-                      <a x-show="f.disk !== 'url'"
-                         :href="f.download_url || f.url"
-                         :download="f.original_name"
-                         title="Download"
-                         class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                      <button type="button"
+                              x-show="f.is_image"
+                              @click.stop="previewAttachment(f)"
+                              title="View Full Screen"
+                              class="p-2 text-[#2F68ED] hover:bg-blue-50 rounded-lg transition">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+                      </button>
+                      <button type="button"
+                              x-show="f.disk !== 'url'"
+                              @click.stop="downloadAttachment(f)"
+                              title="Download"
+                              class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 16.5m0 0 4.5-4.5M12 16.5V3"/></svg>
-                      </a>
+                      </button>
                       <button @click="deleteAttachment(f)" title="Remove" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916"/></svg>
                       </button>
@@ -508,7 +497,7 @@
                   </template>
 
                   <div class="relative">
-                    <textarea x-model="newComment" rows="2" placeholder="Write a comment… or paste a screenshot (⌘+V)"
+                    <textarea x-ref="commentInput" x-model="newComment" rows="2" placeholder="Write a comment… or paste a screenshot (⌘+V)"
                               class="w-full p-3 pr-10 text-xs bg-white border border-slate-200 focus:bg-white rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none transition-all shadow-sm resize-none"
                               @keydown.ctrl.enter="submitComment()"
                               @keydown.meta.enter="pastedImage ? sendScreenshot() : submitComment()"
@@ -589,14 +578,15 @@
                           <div class="flex items-center gap-2 mb-1">
                             <p class="text-[11px] font-bold text-slate-700" x-text="item.user_name"></p>
                             <span class="text-[10px] text-slate-400" x-text="item.time_ago"></span>
-                            <template x-if="item.user_id === {{ auth()->id() }} || '{{ auth()->user()->hasAnyRole(['super-admin', 'admin-digital']) }}' === '1'">
-                              <div class="ml-auto flex items-center gap-2  group-hover: transition-all">
-                                <template x-if="item.user_id === {{ auth()->id() }}">
-                                  <button @click="editingCommentId = item.original.id; editBody = item.content" class="text-[10px] text-slate-300 hover:text-indigo-500">Edit</button>
-                                </template>
+                            <div class="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button @click="newComment = (newComment ? newComment.trim() + ' ' : '') + '@' + (item.original?.user?.username || item.user_name.replace(/\s+/g, '')) + ' '; $refs.commentInput.focus()" class="text-[10px] text-slate-400 hover:text-indigo-500 font-semibold">Reply</button>
+                              <template x-if="item.user_id === {{ auth()->id() }}">
+                                <button @click="editingCommentId = item.original.id; editBody = item.content" class="text-[10px] text-slate-300 hover:text-indigo-500">Edit</button>
+                              </template>
+                              <template x-if="item.user_id === {{ auth()->id() }} || '{{ auth()->user()->hasAnyRole(['super-admin', 'admin-digital']) }}' === '1'">
                                 <button @click="deleteComment(item.original.id)" class="text-[10px] text-slate-300 hover:text-rose-500">Delete</button>
-                              </div>
-                            </template>
+                              </template>
+                            </div>
                           </div>
                           
                           <template x-if="editingCommentId !== item.original.id">
@@ -795,7 +785,7 @@
               <button type="button" @click="$refs.publicDateInput.showPicker ? $refs.publicDateInput.showPicker() : $refs.publicDateInput.click()"
                       class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl relative">
                 <span class="text-sm">📅</span>
-                <span class="font-semibold" x-text="activeCard?.content_public_date ? 'Public: ' + String(activeCard.content_public_date).substring(0,10) : 'Public Date'"></span>
+                <span class="font-semibold" x-text="activeCard?.content_public_date ? 'Public: ' + formatDateShort(activeCard.content_public_date) : 'Public Date'"></span>
               </button>
             </div>
           </template>

@@ -41,7 +41,7 @@ class CardController extends Controller
             'checklists.items',
             'comments.user',
             'files',
-            'creator:id,name',
+            'creator:id,name,avatar,username',
             'boardList:id,name',
         ]);
 
@@ -74,6 +74,15 @@ class CardController extends Controller
             'initials' => $u->avatar_initials,
             'avatar_color' => $u->avatar_color,
         ])->values()->all();
+        // Explicitly re-map creator so avatar fields are always included
+        // (toArray() only has what was loaded via 'creator:id,name,avatar,username')
+        $cardData['creator'] = $card->creator ? [
+            'id'          => $card->creator->id,
+            'name'        => $card->creator->name,
+            'avatar'      => $card->creator->avatar_url,
+            'initials'    => $card->creator->avatar_initials,
+            'avatar_color'=> $card->creator->avatar_color,
+        ] : null;
         $cardData['comments'] = $card->comments->map(fn($c) => [
             'id'         => $c->id,
             'body'       => $c->body ?? $c->content,
@@ -309,14 +318,18 @@ class CardController extends Controller
                     $this->logCardActivity($copy, 'copied_by_automation', "copied this card from **{$sourceListName}**");
                     // Retain original members. Removed logic that automatically adds more members based on target_assignee_role.
                 } else {
-                    $maxPos = \App\Models\Card::where('board_list_id', $automation->target_list_id)->max('position') ?? 0;
                     $targetBoard = \App\Models\Board::find($automation->target_board_id);
                     $targetList = \App\Models\BoardList::find($automation->target_list_id);
                     
+                    // Shift all existing cards in the target list down to make room at position 0 (top)
+                    \App\Models\Card::where('board_list_id', $automation->target_list_id)
+                        ->where('id', '!=', $card->id)
+                        ->increment('position');
+
                     $card->update([
                         'board_id' => $automation->target_board_id,
                         'board_list_id' => $automation->target_list_id,
-                        'position' => $maxPos + 1,
+                        'position' => 0,
                     ]);
                     $card->unsetRelation('board');
                     $card->unsetRelation('boardList');
@@ -482,6 +495,12 @@ class CardController extends Controller
             }
         }
 
+        if (!$request->has('position')) {
+            Card::where('board_list_id', $targetList->id)
+                ->where('id', '!=', $card->id)
+                ->increment('position');
+        }
+
         $card->update([
             'board_id'      => $targetList->board_id,
             'board_list_id' => $targetList->id,
@@ -494,7 +513,10 @@ class CardController extends Controller
         if (str_contains(strtolower($newList), 'block/waiting')) {
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Block/Waiting');
         } elseif (str_contains(strtolower($newList), 'approved')) {
+            $card->update(['status' => 'approved']);
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Approved');
+        } elseif (str_contains(strtolower($oldList), 'approved') && !str_contains(strtolower($newList), 'approved')) {
+            $card->update(['status' => null]);
         }
         $automation = $this->checkAutomations($card, $targetList->id);
 
@@ -542,6 +564,12 @@ class CardController extends Controller
         $targetListId = $targetList->id;
 
         $copy = $card->replicateRelationally($targetBoard->id, $targetListId, $request->title, auth()->id(), true);
+
+        if (str_contains(strtolower($targetList->name), 'block/waiting')) {
+            app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($copy, 'Block/Waiting');
+        } elseif (str_contains(strtolower($targetList->name), 'approved')) {
+            app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($copy, 'Approved');
+        }
 
         $this->logCardActivity($copy, 'copied', "copied from card **{$card->title}**");
 
@@ -696,6 +724,12 @@ class CardController extends Controller
             'content'   => $validated['body'],
             'is_system' => false,
         ]);
+
+        // Move commented card to top of its list
+        Card::where('board_list_id', $card->board_list_id)
+            ->where('id', '!=', $card->id)
+            ->increment('position');
+        $card->update(['position' => 0]);
         
         // Parse @mentions — match by username OR by name-with-no-spaces (fallback)
         preg_match_all('/(?:^|\s)@([\w.\-]+)/', $validated['body'], $matches);
@@ -733,11 +767,17 @@ class CardController extends Controller
         $cardMoved = $card->board_id !== $originalBoardId || $card->board_list_id !== $originalListId;
 
         if (!$cardMoved) {
-            $logContent = \Illuminate\Support\Str::limit($comment->content, 100);
-            if (str_contains($comment->content, '![screenshot](data:image')) {
-                $logContent = 'added a comment with a screenshot';
+            $plainText = trim(preg_replace('/!\[.*?\]\([^)]+\)/', '', $comment->content));
+            $hasImage = preg_match('/!\[.*?\]\([^)]+\)/', $comment->content) || str_contains($comment->content, '<img');
+
+            if ($hasImage) {
+                if ($plainText !== '') {
+                    $logContent = "added a comment with a screenshot: \"" . \Illuminate\Support\Str::limit($plainText, 100) . "\"";
+                } else {
+                    $logContent = 'added a comment with a screenshot';
+                }
             } else {
-                $logContent = "added comment: \"{$logContent}\"";
+                $logContent = "added comment: \"" . \Illuminate\Support\Str::limit($plainText, 100) . "\"";
             }
             $this->logCardActivity($card, 'comment_added', $logContent);
 
@@ -929,23 +969,31 @@ class CardController extends Controller
             $kanbanService = app(\App\Services\KanbanService::class);
             $cardFile = $kanbanService->uploadFile($card, $file, auth()->user());
 
-            $this->logCardActivity($card, 'file_attached', "attached file **{$cardFile->original_name}**");
+            // If this is a comment-only screenshot upload, mark it and skip activity/notifications
+            $isCommentOnly = $request->boolean('comment_only');
+            if ($isCommentOnly) {
+                $cardFile->update(['is_comment_image' => true]);
+            }
 
-            // Notify assignees
-            dispatch(function () use ($card) {
-                foreach ($card->assignees as $assignee) {
-                    if ($assignee->id !== auth()->id()) {
-                        $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
-                            'actor_id'     => auth()->id(),
-                            'actor_name'   => auth()->user()->name,
-                            'actor_avatar' => auth()->user()->avatar_url,
-                            'module'       => 'digital',
-                            'message'      => auth()->user()->name . " attached a file to card '{$card->title}'",
-                            'link'         => route('boards.show', $card->board->slug),
-                        ]));
+            if (!$isCommentOnly) {
+                $this->logCardActivity($card, 'file_attached', "attached file **{$cardFile->original_name}**");
+
+                // Notify assignees
+                dispatch(function () use ($card) {
+                    foreach ($card->assignees as $assignee) {
+                        if ($assignee->id !== auth()->id()) {
+                            $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
+                                'actor_id'     => auth()->id(),
+                                'actor_name'   => auth()->user()->name,
+                                'actor_avatar' => auth()->user()->avatar_url,
+                                'module'       => 'digital',
+                                'message'      => auth()->user()->name . " attached a file to card '{$card->title}'",
+                                'link'         => route('boards.show', $card->board->slug),
+                            ]));
+                        }
                     }
-                }
-            })->afterResponse();
+                })->afterResponse();
+            }
 
         } else {
             $request->validate([
@@ -1087,7 +1135,10 @@ class CardController extends Controller
             abort(404, 'Attachment not found.');
         }
 
-        $this->logCardActivity($card, 'file_downloaded', "downloaded attachment **{$file->original_name}**");
+        // Don't log download activity for comment-only screenshot files
+        if (!$file->is_comment_image) {
+            $this->logCardActivity($card, 'file_downloaded', "downloaded attachment **{$file->original_name}**");
+        }
 
         return Storage::disk($disk)->download($file->path, $file->original_name);
     }
@@ -1238,13 +1289,15 @@ class CardController extends Controller
     private function canMoveAnyCard(User $user): bool
     {
         return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
-            || $user->isQcOrSupervisor();
+            || $user->isQcOrSupervisor()
+            || str_contains(strtolower($user->team_role ?? ''), 'head');
     }
 
     private function canManageBlockedCards(User $user): bool
     {
         return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
-            || $user->isSupervisorRole();
+            || $user->isSupervisorRole()
+            || str_contains(strtolower($user->team_role ?? ''), 'head');
     }
 
     private function canMoveCard(User $user, Card $card, ?BoardList $sourceList, BoardList $targetList): bool

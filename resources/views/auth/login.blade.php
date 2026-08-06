@@ -511,7 +511,23 @@
                         <div x-data="{ show: false }">
                             <div class="mb-2 flex items-center justify-between gap-3">
                                 <label for="password" class="block text-sm font-black text-white">Password</label>
-                                <a href="{{ Route::has('password.request') ? route('password.request') : '#' }}"
+                                <?php
+                                    $whatsappUrl = \App\Models\Setting::get('whatsapp_url');
+                                    if (empty($whatsappUrl) || $whatsappUrl === 'https://web.whatsapp.com' || $whatsappUrl === 'https://web.whatsapp.com/') {
+                                        $whatsappUrl = 'https://wa.me/855883175615';
+                                    }
+                                    $message = "Hello Dara, I forgot my account password, could you help reset the password for me now? thank dear!";
+                                    if (str_contains($whatsappUrl, 'wa.me') || str_contains($whatsappUrl, 'api.whatsapp.com')) {
+                                        $forgotPasswordUrl = $whatsappUrl . (str_contains($whatsappUrl, '?') ? '&' : '?') . 'text=' . urlencode($message);
+                                    } elseif (str_contains($whatsappUrl, 'web.whatsapp.com')) {
+                                        $forgotPasswordUrl = rtrim($whatsappUrl, '/') . '/send?text=' . urlencode($message);
+                                    } else {
+                                        $forgotPasswordUrl = $whatsappUrl . (str_contains($whatsappUrl, '?') ? '&' : '?') . 'text=' . urlencode($message);
+                                    }
+                                ?>
+                                <a href="{{ $forgotPasswordUrl }}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
                                    class="text-xs font-black text-cyan-200 transition hover:text-white hover:underline"
                                    id="forgot-password-link">
                                     Forgot password?

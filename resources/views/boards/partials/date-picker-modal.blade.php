@@ -133,13 +133,13 @@
 
       {{-- Actions --}}
       <div class="flex gap-2 pt-1">
-        <button @click="saveDatePicker()"
-                class="btn btn-primary flex-1 py-2">
-          Save
-        </button>
         <button @click="removeDates()"
                 class="flex-1 bg-rose-600 text-white font-bold py-2 rounded-xl border border-rose-600 hover:bg-white hover:text-rose-600 shadow-sm transition-colors text-xs">
           Remove
+        </button>
+        <button @click="saveDatePicker()"
+                class="btn btn-primary flex-1 py-2">
+          Save
         </button>
       </div>
 
