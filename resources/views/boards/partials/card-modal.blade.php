@@ -2,7 +2,8 @@
 <div x-show="activeCard !== null" x-cloak
      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 pt-16 pb-32 lg:pb-16 overflow-y-auto"
      style="z-index: 70;"
-     @click.self="closeCard()">
+     @click.self="closeCard()"
+     @keydown.escape.window="if(!imagePreview.open && !attachmentModal?.open && !exportModal?.open && !switchBoardsModal?.open && !importModal?.open && !cardTransferModal?.open) closeCard()">
 
   <div class="trello-card-modal bg-white rounded-2xl shadow-2xl w-full max-w-4xl mb-8 overflow-hidden border border-slate-100 flex flex-col"
        x-show="activeCard"
@@ -578,26 +579,64 @@
                           <div class="flex items-center gap-2 mb-1">
                             <p class="text-[11px] font-bold text-slate-700" x-text="item.user_name"></p>
                             <span class="text-[10px] text-slate-400" x-text="item.time_ago"></span>
-                            <div class="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button @click="newComment = (newComment ? newComment.trim() + ' ' : '') + '@' + (item.original?.user?.username || item.user_name.replace(/\s+/g, '')) + ' '; $refs.commentInput.focus()" class="text-[10px] text-slate-400 hover:text-indigo-500 font-semibold">Reply</button>
-                              <template x-if="item.user_id === {{ auth()->id() }}">
-                                <button @click="editingCommentId = item.original.id; editBody = item.content" class="text-[10px] text-slate-300 hover:text-indigo-500">Edit</button>
-                              </template>
-                              <template x-if="item.user_id === {{ auth()->id() }} || '{{ auth()->user()->hasAnyRole(['super-admin', 'admin-digital']) }}' === '1'">
-                                <button @click="deleteComment(item.original.id)" class="text-[10px] text-slate-300 hover:text-rose-500">Delete</button>
-                              </template>
-                            </div>
                           </div>
                           
                           <template x-if="editingCommentId !== item.original.id">
-                            <div class="bg-white border border-slate-200/80 rounded-2xl px-3.5 py-2.5 shadow-sm">
-                              <div class="text-xs text-slate-600 leading-relaxed space-y-2" x-html="typeof parseCommentBody === 'function' ? parseCommentBody(item.content) : item.content" @click="handleCommentClick($event)"></div>
+                            <div>
+                              <div class="bg-white border border-slate-200 rounded-2xl px-3.5 py-2.5 shadow-sm block w-full kanban-comment-bubble">
+                                <div class="text-xs text-slate-700 leading-relaxed space-y-2 kanban-comment-text" x-html="typeof parseCommentBody === 'function' ? parseCommentBody(item.content) : item.content" @click="handleCommentClick($event)"></div>
+                              </div>
+                              
+                              <div class="mt-1 flex flex-wrap items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-1">
+                                  <template x-for="reaction in getReactionGroups(item.reactions)" :key="reaction.emoji">
+                                    <button @click="toggleReaction(item.original.id, reaction.emoji)"
+                                            :class="{'bg-indigo-50 border-indigo-200': reaction.hasReacted, 'bg-slate-50 border-slate-200': !reaction.hasReacted}"
+                                            class="flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[11px] hover:bg-slate-100 transition-transform duration-200 hover:scale-105 active:scale-95"
+                                            :title="reaction.users.join(', ')">
+                                      <span x-text="reaction.emoji"></span>
+                                      <span class="font-medium" :class="{'text-indigo-600': reaction.hasReacted, 'text-slate-500': !reaction.hasReacted}" x-text="reaction.count"></span>
+                                    </button>
+                                  </template>
+                                </div>
+                                
+                                <div class="flex items-center gap-2 text-slate-500">
+                                  <div class="relative" x-data="{ openReact: false }">
+                                    <button @click="openReact = !openReact" @click.away="openReact = false" class="flex items-center justify-center w-5 h-5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors">
+                                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm3.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Z" /></svg>
+                                    </button>
+                                    <div x-show="openReact" x-transition class="absolute left-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-lg p-2 z-50 flex items-center gap-1">
+                                      <template x-for="emoji in ['👍', '❤️', '😂', '😮', '😢', '🔥', '👀', '✍️']" :key="emoji">
+                                        <button @click="toggleReaction(item.original.id, emoji); openReact = false" class="w-7 h-7 rounded hover:bg-slate-100 flex items-center justify-center text-base transition-transform duration-200 hover:scale-125 active:scale-90">
+                                          <span x-text="emoji"></span>
+                                        </button>
+                                      </template>
+                                    </div>
+                                  </div>
+                                  <span class="text-slate-300 text-[10px]">•</span>
+                                  <button @click="newComment = (newComment ? newComment.trim() + ' ' : '') + '@' + (item.original?.user?.username || item.user_name.replace(/\s+/g, '')) + ' '; $refs.commentInput.focus()" class="text-[11px] font-medium underline-offset-2 hover:underline">Reply</button>
+                                  
+                                  <template x-if="item.user_id === {{ auth()->id() }}">
+                                    <span class="text-slate-300 text-[10px]">•</span>
+                                  </template>
+                                  <template x-if="item.user_id === {{ auth()->id() }}">
+                                    <button @click="editingCommentId = item.original.id; editBody = item.content" class="text-[11px] font-medium underline-offset-2 hover:underline">Edit</button>
+                                  </template>
+                                  
+                                  <template x-if="item.user_id === {{ auth()->id() }} || '{{ auth()->user()->hasAnyRole(['super-admin', 'admin-digital']) }}' === '1'">
+                                    <span class="text-slate-300 text-[10px]">•</span>
+                                  </template>
+                                  <template x-if="item.user_id === {{ auth()->id() }} || '{{ auth()->user()->hasAnyRole(['super-admin', 'admin-digital']) }}' === '1'">
+                                    <button @click="deleteComment(item.original.id)" class="text-[11px] font-medium underline-offset-2 hover:underline">Delete</button>
+                                  </template>
+                                </div>
+                              </div>
                             </div>
                           </template>
 
                           <template x-if="editingCommentId === item.original.id">
                             <div class="mt-1">
-                              <textarea x-model="editBody" rows="2" class="w-full p-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none"></textarea>
+                              <textarea x-model="editBody" rows="2" class="w-full p-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none" @keydown="if(typeof handleCommentKeydown === 'function') handleCommentKeydown($event)"></textarea>
                               <div class="flex gap-2 mt-2">
                                 <button @click="updateComment(item.original.id, editBody); editingCommentId = null" class="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">Save</button>
                                 <button @click="editingCommentId = null" class="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-200">Cancel</button>
@@ -801,6 +840,10 @@
           {{-- Card Options (Bottom as row) --}}
           <div>
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none mb-2">Card Options</p>
+            <button @click="openCardTransferModal('copy', activeCard, lists.find(l => l.id === activeCard.board_list_id))" type="button" class="w-full bg-white text-indigo-600 border border-indigo-200/60 rounded-xl text-xs justify-center gap-2 py-2.5 px-3 flex items-center hover:bg-indigo-50 hover:border-indigo-300 transition-all mb-2 shadow-sm">
+              <span class="text-[11px]">📄</span>
+              <span class="font-bold">Copy / duplicate</span>
+            </button>
             <div class="flex flex-row gap-2 w-full">
               <button @click="archiveCard()" type="button" class="bg-white text-amber-600 border border-amber-200/60 rounded-xl text-xs flex-1 flex items-center justify-center gap-1.5 py-2 shadow-sm hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all">
                 <span class="text-[11px]">📦</span>

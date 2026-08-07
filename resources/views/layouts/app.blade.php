@@ -2033,6 +2033,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
         const audio = document.getElementById('notif-sound');
         if (audio) {
+            audio.currentTime = 0;
             audio.volume = 1.0;
             audio.play().catch(e => console.log('Audio play blocked:', e));
         }

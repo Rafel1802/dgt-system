@@ -119,6 +119,7 @@ if __name__ == "__main__":
             "chmod -R 775 storage bootstrap/cache && "
             "rm -f public/hot && "
             "rm -f bootstrap/cache/*.php && "
+            "rm -f database/migrations/2026_08_07_075801_modify_unique_constraint_on_comment_reactions.php && "
             + PHP + " artisan optimize:clear && "
             + tinker_sync
             + tinker_clean

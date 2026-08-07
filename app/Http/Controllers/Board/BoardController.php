@@ -860,10 +860,6 @@ class BoardController extends Controller
         $user->save();
 
         $board = $board->fresh(['workspace']);
-        $this->logBoardActivity($board, 'background_updated', "updated board background for **{$board->name}**", [
-            'background_type' => 'image',
-            'background_value' => $board->background_value,
-        ]);
 
         return response()->json([
             'message' => 'Board background image uploaded.',

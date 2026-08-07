@@ -108,4 +108,9 @@ class CardComment extends Model
     {
         return $this->belongsTo(User::class)->withTrashed();
     }
+
+    public function reactions()
+    {
+        return $this->hasMany(CommentReaction::class, 'card_comment_id');
+    }
 }

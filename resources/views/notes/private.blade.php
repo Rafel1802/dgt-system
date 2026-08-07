@@ -339,6 +339,7 @@
 
 @push('scripts')
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="https://unpkg.com/quill-magic-url@3.0.0/dist/index.js"></script>
 <script>
     (function() {
         const initNotesApp = () => {
@@ -391,10 +392,18 @@
                     bounds: '.notes-editor-card',
                     placeholder: 'Start writing your note...',
                     modules: {
-                        toolbar: false,
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'color': [] }, { 'background': [] }],
+                            ['link', 'blockquote', 'code-block'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['clean']
+                        ],
                         clipboard: {
                             matchVisual: false
-                        }
+                        },
+                        magicUrl: true
                     }
                 });
 

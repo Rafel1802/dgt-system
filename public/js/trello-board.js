@@ -7,7 +7,7 @@
  */
 
 // Safe guard flag to prevent live production board from flickering/auto-refreshing
-const ENABLE_BOARD_REALTIME_SYNC = false;
+const ENABLE_BOARD_REALTIME_SYNC = true;
 
 window.trelloBoard = function(config) {
   return {
@@ -415,6 +415,7 @@ window.trelloBoard = function(config) {
         content: c.body || c.content,
         created_at: c.created_at,
         time_ago: this.timeAgo(c.created_at),
+        reactions: c.reactions || [],
         original: c
       }));
 
@@ -435,10 +436,54 @@ window.trelloBoard = function(config) {
       }));
 
       return [...comments, ...acts].sort((a, b) => {
-        const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
-        const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
-        return dateB - dateA; // Newest first
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        const diff = dateB - dateA;
+        if (diff !== 0) return diff; // Newest first
+
+        // If timestamps are exactly the same, put activities ABOVE comments
+        if (a._type === 'activity' && b._type === 'comment') return -1;
+        if (a._type === 'comment' && b._type === 'activity') return 1;
+
+        // Fallback to ID sorting
+        return String(b.id).localeCompare(String(a.id));
       });
+    },
+
+    getReactionGroups(reactions) {
+      if (!reactions) return [];
+      const groups = {};
+      reactions.forEach(r => {
+        if (!groups[r.emoji]) groups[r.emoji] = { count: 0, users: [], emoji: r.emoji, hasReacted: false };
+        groups[r.emoji].count++;
+        groups[r.emoji].users.push(r.user?.name || 'User');
+        if (r.user_id === this.currentUserId) groups[r.emoji].hasReacted = true;
+      });
+      return Object.values(groups).sort((a, b) => b.count - a.count);
+    },
+
+    async toggleReaction(commentId, emoji) {
+      if (!this.activeCard || this.isUpdatingComment) return;
+      this.isUpdatingComment = true;
+      
+      try {
+        const res = await this.api(`/boards/cards/comments/${commentId}/react`, 'POST', { emoji: emoji }, { silentErrors: true });
+        
+        if (res._ok) {
+          const commentIdx = this.activeCard.comments?.findIndex(c => c.id === commentId);
+          if (commentIdx !== -1) {
+            const newComments = [...this.activeCard.comments];
+            newComments[commentIdx] = { ...newComments[commentIdx], reactions: res.reactions };
+            this.activeCard = { ...this.activeCard, comments: newComments };
+          }
+        } else {
+          console.error("Reaction failed:", res);
+        }
+      } catch (err) {
+        console.error('Failed to toggle reaction', err);
+      } finally {
+        this.isUpdatingComment = false;
+      }
     },
 
     // ── Context menu ─────────────────────────────────────────────────────────
@@ -2569,7 +2614,7 @@ window.trelloBoard = function(config) {
       try {
         const res = await this.api(`/boards/cards/${this.activeCard.id}`, 'GET', null, { silentErrors: true });
         if (res.card && JSON.stringify(this.activeCard) !== JSON.stringify(res.card)) {
-          Object.assign(this.activeCard, res.card);
+          this.activeCard = { ...res.card };
         }
         if (res.activities && JSON.stringify(this.cardActivities) !== JSON.stringify(res.activities)) {
           this.cardActivities = res.activities;
@@ -2582,7 +2627,10 @@ window.trelloBoard = function(config) {
       try {
         const res = await this.api(`/boards/cards/${this.activeCard.id}`, 'GET');
         if (res.activities) this.cardActivities = res.activities;
-        if (res.card?.comments) this.activeCard.comments = res.card.comments;
+        if (res.card?.comments) {
+          this.activeCard.comments = res.card.comments;
+          this.activeCard = { ...this.activeCard };
+        }
       } catch (_) {}
     },
 
@@ -3119,7 +3167,7 @@ window.trelloBoard = function(config) {
       const value = board?.background_value || '#0f172a';
       if (board?.background_type === 'image') {
         const safeUrl = String(value).replace(/"/g, '\\"');
-        return `background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url("${safeUrl}"); background-size: cover; background-position: center;`;
+        return `background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url("${safeUrl}"); background-color: #0f172a; background-size: cover; background-position: center;`;
       }
 
       return `background: ${value};`;
@@ -3219,6 +3267,31 @@ window.trelloBoard = function(config) {
     },
     
     handleCommentKeydown(e) {
+      this.handleTextareaKeydown(e);
+    },
+
+    handleTextareaKeydown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        this.insertMarkdownFormatting(e.target, '**');
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        this.insertMarkdownFormatting(e.target, '*');
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          document.execCommand('redo');
+        } else {
+          document.execCommand('undo');
+        }
+        e.target.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+
       if (!this.mentionState.show) return;
       
       if (e.key === 'ArrowDown') {
@@ -3234,6 +3307,34 @@ window.trelloBoard = function(config) {
         }
       } else if (e.key === 'Escape') {
         this.mentionState.show = false;
+      }
+    },
+
+    insertMarkdownFormatting(textarea, syntax) {
+      if (!textarea || typeof textarea.selectionStart !== 'number') return;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+      const selected = text.substring(start, end);
+      
+      const replacement = syntax + selected + syntax;
+      textarea.focus();
+      
+      // Use execCommand so undo history is preserved
+      if (!document.execCommand('insertText', false, replacement)) {
+        // Fallback for browsers where execCommand is disabled
+        textarea.setRangeText(replacement, start, end, 'select');
+      }
+      
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      // Select the word inside formatting or place cursor inside
+      if (selected.length > 0) {
+        textarea.selectionStart = start + syntax.length;
+        textarea.selectionEnd = end + syntax.length;
+      } else {
+        textarea.selectionStart = start + syntax.length;
+        textarea.selectionEnd = start + syntax.length;
       }
     },
     
@@ -4087,8 +4188,7 @@ window.trelloBoard = function(config) {
     },
 
     bindRealtimeBoardUpdates() {
-      console.log('[Board] Realtime board sync is DISABLED.');
-      return;
+      this.connectBoardRealtimeChannel();
     },
 
     connectBoardRealtimeChannel() {

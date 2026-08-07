@@ -226,6 +226,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/cards/{card}/comments', [BoardCardController::class, 'storeComment'])->name('cards.comments.store');
             Route::patch('/cards/{card}/comments/{comment}', [BoardCardController::class, 'updateComment'])->name('cards.comments.update');
             Route::delete('/cards/{card}/comments/{comment}', [BoardCardController::class, 'destroyComment'])->name('cards.comments.destroy');
+            Route::post('/cards/comments/{comment}/react', [\App\Http\Controllers\Board\CommentReactionController::class, 'toggle'])->name('cards.comments.react');
 
             // File uploads — Trello Board
             Route::post('/cards/{card}/files', [BoardCardController::class, 'uploadFile'])->name('cards.files.store');

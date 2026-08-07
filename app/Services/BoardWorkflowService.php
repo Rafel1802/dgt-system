@@ -209,11 +209,10 @@ class BoardWorkflowService
             // If the target state is "Approved" and the twin board is a Planning board,
             // we do NOT move it to an "Approved" list. We just update its status to Approved!
             if (strtolower($targetListName) === 'approved' && 
-                (stripos($twinBoard->name, 'Planning board') !== false || $twinBoard->is_template)) {
+                (stripos($twinBoard->name, 'Planning board') !== false || stripos($twinBoard->name, 'planning') !== false || $twinBoard->is_template)) {
                 
                 $twin->update(['status' => 'approved']);
                 
-
                 continue; // Skip the list moving logic!
             }
 

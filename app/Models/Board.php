@@ -98,7 +98,7 @@ class Board extends Model
     public function backgroundStyle(): string
     {
         if ($this->background_type === 'image' && $this->background_value) {
-            return "background-image: url('{$this->background_value}'); background-size: cover; background-position: center;";
+            return "background-image: url('{$this->background_value}'); background-color: #6366f1; background-size: cover; background-position: center;";
         }
         if ($this->background_type === 'color' && $this->background_value) {
             return "background-color: {$this->background_value};";
@@ -112,7 +112,7 @@ class Board extends Model
         $val = $this->cover_value ?? $this->background_value;
 
         if ($type === 'image' && $val) {
-            return "background-image: url('{$val}'); background-size: cover; background-position: center;";
+            return "background-image: url('{$val}'); background-color: #6366f1; background-size: cover; background-position: center;";
         }
         if ($type === 'color' && $val) {
             return "background-color: {$val};";

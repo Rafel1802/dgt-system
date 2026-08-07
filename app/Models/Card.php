@@ -97,7 +97,11 @@ class Card extends Model
                     $toUpdate = [];
                     foreach ($syncFields as $field) {
                         if (array_key_exists($field, $dirty)) {
-                            $toUpdate[$field] = $card->$field;
+                            $val = $card->$field;
+                            if ($val instanceof \BackedEnum) {
+                                $val = $val->value;
+                            }
+                            $toUpdate[$field] = $val;
                         }
                     }
 

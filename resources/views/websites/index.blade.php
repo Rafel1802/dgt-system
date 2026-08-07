@@ -2741,8 +2741,6 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    // Flatpickr relies on x-init on the specific inputs instead of this global script now
-</script>
 <script>
 function websitesApp() {
     return {

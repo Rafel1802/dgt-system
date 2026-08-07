@@ -5,7 +5,7 @@
            cardTransferBoards(), cardTransferAvailableLists(), ensureCardTransferSelection()
 --}}
 <div x-show="cardTransferModal.open" x-cloak
-     class="fixed inset-0 flex items-start justify-center px-4 py-8 sm:py-12"
+     class="fixed inset-0 flex items-center justify-center px-4 py-8 sm:py-12"
      style="z-index: 75;"
      @keydown.escape.window="closeCardTransferModal()">
 

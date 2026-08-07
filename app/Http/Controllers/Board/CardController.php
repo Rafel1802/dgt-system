@@ -40,6 +40,7 @@ class CardController extends Controller
             'labels',
             'checklists.items',
             'comments.user',
+            'comments.reactions.user',
             'files',
             'creator:id,name,avatar,username',
             'boardList:id,name',
@@ -96,6 +97,16 @@ class CardController extends Controller
                 'avatar_initials' => $c->user->avatar_initials,
                 'avatar_color' => $c->user->avatar_color,
             ] : null,
+            'reactions'  => $c->reactions ? $c->reactions->map(fn($r) => [
+                'id' => $r->id,
+                'emoji' => $r->emoji,
+                'user_id' => $r->user_id,
+                'user' => $r->user ? [
+                    'id' => $r->user->id,
+                    'name' => $r->user->name,
+                    'avatar_url' => $r->user->avatar_url,
+                ] : null,
+            ])->values()->all() : [],
         ])->values()->all();
 
         return response()->json([
@@ -814,6 +825,7 @@ class CardController extends Controller
                     'avatar_initials' => $comment->user->avatar_initials,
                     'avatar_color' => $comment->user->avatar_color,
                 ] : null,
+                'reactions'  => [],
             ],
             'card_moved' => $cardMoved,
             'card' => $this->formatCardForBoard($card),
@@ -873,6 +885,16 @@ class CardController extends Controller
                     'name'   => $comment->user->name,
                     'avatar' => $comment->user->avatar_url,
                 ] : null,
+                'reactions'  => $comment->reactions ? $comment->reactions->map(fn($r) => [
+                    'id' => $r->id,
+                    'emoji' => $r->emoji,
+                    'user_id' => $r->user_id,
+                    'user' => $r->user ? [
+                        'id' => $r->user->id,
+                        'name' => $r->user->name,
+                        'avatar_url' => $r->user->avatar_url,
+                    ] : null,
+                ])->values()->all() : [],
             ],
         ]);
     }

@@ -2,6 +2,9 @@
 @section('title', $board->name)
 
 @push('head')
+@if ($board->background_type === 'image' && $board->background_value)
+    <link rel="preload" href="{{ str_replace('"', '\"', $board->background_value) }}" as="image">
+@endif
 <meta name="turbo-visit-control" content="reload">
 <!-- Quill Theme -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
@@ -138,37 +141,75 @@
 		color: #4338ca;
 	}
 
-	/* Dark mode overrides using [data-theme="dark"] */
+	/* Dark mode overrides */
+	[data-theme="dark"] .kanban-comment-bubble {
+		background-color: #1e293b !important;
+		border-color: #334155 !important;
+	}
+	[data-theme="dark"] .kanban-comment-text {
+		color: #e2e8f0 !important;
+	}
+	[data-theme="dark"] .board-wrap[data-bg-type="color"],
+	[data-theme="dark"] .board-wrap:not([data-bg-type="image"]) {
+		background: #0f172a !important;
+	}
 	[data-theme="dark"] .zoom-container {
-		background-color: #1e293b;
-		border-color: #334155;
+		background-color: #1e293b !important;
+		border-color: #334155 !important;
 	}
 	[data-theme="dark"] .zoom-label {
-		color: #94a3b8;
+		color: #94a3b8 !important;
 	}
 	[data-theme="dark"] .zoom-pill {
-		background-color: #000000;
-		border-color: #1e293b;
-		color: #ffffff;
+		background-color: #000000 !important;
+		border-color: #1e293b !important;
+		color: #ffffff !important;
 	}
 	[data-theme="dark"] .zoom-btn {
-		color: #ffffff;
+		color: #ffffff !important;
 	}
 	[data-theme="dark"] .zoom-btn:hover {
-		background-color: rgba(255, 255, 255, 0.15);
+		background-color: rgba(255, 255, 255, 0.15) !important;
 	}
 	[data-theme="dark"] .zoom-reset {
-		color: #818cf8;
+		color: #818cf8 !important;
 	}
 	[data-theme="dark"] .zoom-reset:hover {
-		color: #a5b4fc;
+		color: #a5b4fc !important;
+	}
+	[data-theme="dark"] .board-list {
+		background: rgba(30, 41, 59, 0.95);
+		border-color: rgba(255, 255, 255, 0.08);
+	}
+	[data-theme="dark"] .list-header {
+		background: rgba(15, 23, 42, 0.5);
+		border-bottom-color: rgba(255, 255, 255, 0.05);
+	}
+	[data-theme="dark"] .list-header span.text-slate-700 {
+		color: #f8fafc !important;
+	}
+	[data-theme="dark"] .kanban-card {
+		background: #0f172a;
+		border-color: rgba(255, 255, 255, 0.08);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+	}
+	[data-theme="dark"] .kanban-card-title {
+		color: #f1f5f9;
+	}
+	[data-theme="dark"] .add-list-btn {
+		background: rgba(15, 23, 42, 0.4);
+		color: #94a3b8;
+	}
+	[data-theme="dark"] .add-list-btn:hover {
+		background: rgba(15, 23, 42, 0.6);
+		color: #f8fafc;
 	}
 	</style>
 	@endpush
 
 @section('content')
 {{-- Board takes full width – no max-width constraint --}}
-<div x-data='trelloBoard(@json($boardData))' x-init="init()" x-cloak>
+<div x-data='trelloBoard(@json($boardData))' x-init="init()">
 
 {{-- ── Board header ────────────── --}}
 <div class="relative z-30 flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-nowrap lg:flex-nowrap bg-white/65 backdrop-blur-md p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/60 shadow-sm board-header-mobile">
@@ -419,7 +460,16 @@
 </div>
 
 {{-- ── Lists row ─────────────────────────────────────────────────────── --}}
-<div class="board-wrap" id="board-wrap" :style="sbmBoardPreviewStyle(board)">
+@php
+  $bgValue = $board->background_value ?: '#0f172a';
+  if ($board->background_type === 'image') {
+      $safeUrl = str_replace('"', '\"', $bgValue);
+      $serverStyle = "background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url(\"{$safeUrl}\"); background-color: #0f172a; background-size: cover; background-position: center;";
+  } else {
+      $serverStyle = "background: {$bgValue};";
+  }
+@endphp
+<div class="board-wrap" id="board-wrap" style="{{ $serverStyle }}" :style="sbmBoardPreviewStyle(board)" data-bg-type="{{ $board->background_type }}">
 
   <template x-for="(list, li) in lists" :key="list.id">
     <div class="board-list" :id="'list-'+list.id" :style="'zoom: ' + (zoomLevel / 100)">
