@@ -80,9 +80,8 @@ class BoardActivityNotification extends Notification
             'created_at'   => now()->toIso8601String(),
         ];
 
-        // Board-channel broadcast disabled to prevent board UI auto-refresh/blink.
-        // Notifications still arrive via per-user private channel ($member->notify below).
-        // event(new BoardUpdated($board->id, $board->slug, $action, $card?->id, $actor->id));
+        // Board-channel broadcast triggers real-time UI sync for active viewers
+        event(new BoardUpdated($board->id, $board->slug, $action, $card?->id, $actor->id));
 
         if (!$force && $board->notifications_enabled === false) {
             return;

@@ -120,6 +120,7 @@ class ApprovalController extends Controller
                     'qc'      => $cards->filter(fn($c) =>
                         $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
                     )->count(),
+                    'smm'     => $cards->filter(fn($c) => $this->matchesTeam($c, 'SMM'))->count(),
                 ];
             };
 
@@ -149,13 +150,7 @@ class ApprovalController extends Controller
                     ->whereHas('boardList', fn($bl) => $bl->where('name', 'like', '%Approved%'));
 
                 if ($start && $end) {
-                    $q->where(function($sub) use ($start, $end) {
-                        $sub->whereBetween('approved_at', [$start, $end])
-                            ->orWhere(function($inner) use ($start, $end) {
-                                $inner->whereNull('approved_at')
-                                      ->whereBetween('updated_at', [$start, $end]);
-                            });
-                    });
+                    $q->whereBetween('approved_at', [$start, $end]);
                 }
                 return $q->get();
             };
@@ -221,13 +216,7 @@ class ApprovalController extends Controller
         $approvedCards = Card::with(['boardList', 'labels', 'board.workspace'])
             ->whereIn('board_id', $boardIds)
             ->whereHas('boardList', fn($q) => $q->where('name', 'like', '%Approved%'))
-            ->where(function($q) use ($start, $end) {
-                $q->whereBetween('approved_at', [$start, $end])
-                  ->orWhere(function($inner) use ($start, $end) {
-                      $inner->whereNull('approved_at')
-                            ->whereBetween('updated_at', [$start, $end]);
-                  });
-            })
+            ->whereBetween('approved_at', [$start, $end])
             ->get();
 
         return response()->json([
@@ -239,6 +228,7 @@ class ApprovalController extends Controller
             'qc'      => $approvedCards->filter(fn($c) =>
                 $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
             )->count(),
+            'smm'     => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'SMM'))->count(),
         ]);
     }
 }

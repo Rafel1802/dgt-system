@@ -103,14 +103,6 @@
                       <span class="text-xs text-slate-400 italic">None</span>
                     </template>
                   </div>
-                </div>
-              </div>
-
-              {{-- ASSIGNMENT --}}
-              <div>
-                <p class="text-[11px] font-bold text-slate-800 uppercase tracking-widest mb-3 border-b border-slate-200 pb-1">Assignment</p>
-                <div class="flex flex-wrap gap-6">
-
                   {{-- Assign By --}}
                   <div class="min-w-[100px]">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Assign By</p>
@@ -122,13 +114,12 @@
                         <template x-if="!avatarUrl(activeCard.creator)">
                           <span class="w-6 h-6 rounded-full bg-slate-200 text-[9px] flex items-center justify-center font-black text-slate-600 shadow-sm ring-1 ring-slate-100" x-text="avatarInitials(activeCard.creator)" :title="activeCard.creator.name"></span>
                         </template>
-                        <span class="text-[11px] font-semibold text-slate-700" x-text="activeCard.creator.name"></span>
+                        <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-200" x-text="activeCard.creator.name"></span>
                       </div>
                     </template>
                     <template x-if="!activeCard?.creator">
                       <span class="text-xs text-slate-400 italic">None</span>
                     </template>
-                  </div>
                   </div>
                 </div>
               </div>
@@ -292,13 +283,13 @@
                 <div id="card-desc-editor" class="w-full"></div>
                 
                 <div class="px-3 py-2 bg-slate-50/50 dark:bg-slate-800 dark:border-slate-700 border-t border-slate-100 flex items-center gap-2">
+                  <button @click="isEditingDesc = false"
+                          class="btn px-3 py-1.5 bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 btn-cancel-hover transition-all">
+                    Cancel
+                  </button>
                   <button @click="updateCardField({ description: activeCard.description }); isEditingDesc = false;"
                           class="btn btn-primary px-3 py-1.5">
                     Save Description
-                  </button>
-                  <button @click="isEditingDesc = false"
-                          class="btn btn-secondary px-3 py-1.5">
-                    Cancel
                   </button>
                 </div>
               </div>
@@ -499,7 +490,7 @@
 
                   <div class="relative">
                     <textarea x-ref="commentInput" x-model="newComment" rows="2" placeholder="Write a comment… or paste a screenshot (⌘+V)"
-                              class="w-full p-3 pr-10 text-xs bg-white border border-slate-200 focus:bg-white rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none transition-all shadow-sm resize-none"
+                              class="w-full p-3 pr-10 text-xs bg-white border border-slate-200 focus:bg-white rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none transition-all shadow-sm resize-none kanban-comment-bubble kanban-comment-text"
                               @keydown.ctrl.enter="submitComment()"
                               @keydown.meta.enter="pastedImage ? sendScreenshot() : submitComment()"
                               @focus="commentFocused = true"
@@ -639,7 +630,7 @@
                               <textarea x-model="editBody" rows="2" class="w-full p-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none" @keydown="if(typeof handleCommentKeydown === 'function') handleCommentKeydown($event)"></textarea>
                               <div class="flex gap-2 mt-2">
                                 <button @click="updateComment(item.original.id, editBody); editingCommentId = null" class="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">Save</button>
-                                <button @click="editingCommentId = null" class="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-200">Cancel</button>
+                                <button @click="editingCommentId = null" class="px-3 py-1 bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-semibold btn-cancel-hover transition-all">Cancel</button>
                               </div>
                             </div>
                           </template>
@@ -840,21 +831,21 @@
           {{-- Card Options (Bottom as row) --}}
           <div>
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none mb-2">Card Options</p>
-            <button @click="openCardTransferModal('copy', activeCard, lists.find(l => l.id === activeCard.board_list_id))" type="button" class="w-full bg-white text-indigo-600 border border-indigo-200/60 rounded-xl text-xs justify-center gap-2 py-2.5 px-3 flex items-center hover:bg-indigo-50 hover:border-indigo-300 transition-all mb-2 shadow-sm">
+            <button @click="openCardTransferModal('copy', activeCard, lists.find(l => l.id === activeCard.board_list_id))" type="button" class="w-full bg-white text-indigo-600 border border-indigo-200/60 rounded-xl text-xs justify-center gap-2 py-2.5 px-3 flex items-center hover:bg-indigo-50 hover:border-indigo-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white dark:hover:border-indigo-600 transition-all mb-2 shadow-sm">
               <span class="text-[11px]">📄</span>
               <span class="font-bold">Copy / duplicate</span>
             </button>
             <div class="flex flex-row gap-2 w-full">
-              <button @click="archiveCard()" type="button" class="bg-white text-amber-600 border border-amber-200/60 rounded-xl text-xs flex-1 flex items-center justify-center gap-1.5 py-2 shadow-sm hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all">
+              <button @click="archiveCard()" type="button" class="bg-white text-amber-600 border border-amber-200/60 rounded-xl text-xs flex-1 flex items-center justify-center gap-1.5 py-2 shadow-sm hover:bg-amber-500 hover:text-white hover:border-amber-500 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white dark:hover:border-indigo-600 transition-all">
                 <span class="text-[11px]">📦</span>
                 <span class="font-bold">Archive</span>
               </button>
-              <button @click="deleteCard()" type="button" class="bg-white hover:bg-rose-600 hover:text-white text-rose-500 border border-rose-200/60 hover:border-rose-600 rounded-xl text-xs flex-1 flex items-center justify-center gap-1.5 py-2 shadow-sm hover:shadow transition-all">
+              <button @click="deleteCard()" type="button" class="bg-white hover:bg-rose-600 hover:text-white text-rose-500 border border-rose-200/60 hover:border-rose-600 rounded-xl text-xs flex-1 flex items-center justify-center gap-1.5 py-2 shadow-sm hover:shadow dark:bg-slate-800 dark:border-slate-700 btn-cancel-hover transition-all">
                 <span class="text-[11px]">🗑</span>
                 <span class="font-bold">Delete</span>
               </button>
             </div>
-            <button @click="closeCard()" type="button" class="w-full bg-white text-slate-600 border border-slate-200 rounded-xl text-xs justify-center gap-2 py-2 px-3 flex items-center hover:bg-slate-100 transition-all mt-2 shadow-sm">
+            <button @click="closeCard()" type="button" class="w-full bg-white text-slate-600 border border-slate-200 rounded-xl text-xs justify-center gap-2 py-2 px-3 flex items-center hover:bg-slate-100 transition-all mt-2 shadow-sm dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 btn-cancel-hover">
               <span class="text-sm">✕</span>
               <span class="font-semibold">Close Card</span>
             </button>

@@ -194,6 +194,11 @@
         <p class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-500 mb-1">QC</p>
         <p class="text-2xl font-black text-emerald-700">{{ $breakdown['qc'] }}</p>
       </div>
+      {{-- SMM --}}
+      <div class="rounded-xl p-4 text-center border border-rose-100 bg-rose-50">
+        <p class="text-[11px] font-extrabold uppercase tracking-wider text-rose-500 mb-1">SMM</p>
+        <p class="text-2xl font-black text-rose-700">{{ $breakdown['smm'] ?? 0 }}</p>
+      </div>
     </div>
 
     {{-- Mini comparison row --}}
@@ -209,6 +214,7 @@
             <span class="text-amber-600">L:{{ $stats['approved_today']['listing'] }}</span>
             <span class="text-fuchsia-600">C:{{ $stats['approved_today']['content'] }}</span>
             <span class="text-emerald-600">Q:{{ $stats['approved_today']['qc'] }}</span>
+            <span class="text-rose-600">S:{{ $stats['approved_today']['smm'] ?? 0 }}</span>
           </div>
         </div>
         <div class="text-center border-x border-slate-100">
@@ -220,6 +226,7 @@
             <span class="text-amber-600">L:{{ $stats['approved_week']['listing'] }}</span>
             <span class="text-fuchsia-600">C:{{ $stats['approved_week']['content'] }}</span>
             <span class="text-emerald-600">Q:{{ $stats['approved_week']['qc'] }}</span>
+            <span class="text-rose-600">S:{{ $stats['approved_week']['smm'] ?? 0 }}</span>
           </div>
         </div>
         <div class="text-center">
@@ -231,6 +238,7 @@
             <span class="text-amber-600">L:{{ $stats['approved_month']['listing'] }}</span>
             <span class="text-fuchsia-600">C:{{ $stats['approved_month']['content'] }}</span>
             <span class="text-emerald-600">Q:{{ $stats['approved_month']['qc'] }}</span>
+            <span class="text-rose-600">S:{{ $stats['approved_month']['smm'] ?? 0 }}</span>
           </div>
         </div>
       </div>

@@ -143,11 +143,14 @@
 
 	/* Dark mode overrides */
 	[data-theme="dark"] .kanban-comment-bubble {
-		background-color: #1e293b !important;
-		border-color: #334155 !important;
+		background-color: #475569 !important;
+		border-color: #9E9E9E !important;
 	}
 	[data-theme="dark"] .kanban-comment-text {
-		color: #e2e8f0 !important;
+		color: #f1f5f9 !important;
+	}
+	[data-theme="dark"] .kanban-comment-text::placeholder {
+		color: #cbd5e1 !important;
 	}
 	[data-theme="dark"] .board-wrap[data-bg-type="color"],
 	[data-theme="dark"] .board-wrap:not([data-bg-type="image"]) {
@@ -159,6 +162,20 @@
 	}
 	[data-theme="dark"] .zoom-label {
 		color: #94a3b8 !important;
+	}
+
+	/* Guaranteed red hover for Cancel/Delete buttons */
+	button.btn-cancel-hover.btn-cancel-hover:hover, 
+	button.btn-cancel-hover.btn-cancel-hover:active {
+		background-color: #ef4444 !important;
+		color: #ffffff !important;
+		border-color: #ef4444 !important;
+	}
+	[data-theme="dark"] button.btn-cancel-hover.btn-cancel-hover:hover, 
+	[data-theme="dark"] button.btn-cancel-hover.btn-cancel-hover:active {
+		background-color: #dc2626 !important;
+		color: #ffffff !important;
+		border-color: #dc2626 !important;
 	}
 	[data-theme="dark"] .zoom-pill {
 		background-color: #000000 !important;

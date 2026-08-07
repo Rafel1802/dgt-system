@@ -464,23 +464,44 @@ window.trelloBoard = function(config) {
 
     async toggleReaction(commentId, emoji) {
       if (!this.activeCard || this.isUpdatingComment) return;
-      this.isUpdatingComment = true;
       
+      const commentIdx = this.activeCard.comments?.findIndex(c => c.id === commentId);
+      if (commentIdx === -1) return;
+      
+      const comment = this.activeCard.comments[commentIdx];
+      const originalReactions = [...(comment.reactions || [])];
+      let newReactions = [...originalReactions];
+      
+      const existingReactionIndex = newReactions.findIndex(r => r.emoji === emoji && r.user_id === this.currentUserId);
+      if (existingReactionIndex !== -1) {
+        newReactions.splice(existingReactionIndex, 1);
+      } else {
+        newReactions.push({ id: 'temp-'+Date.now(), emoji: emoji, user_id: this.currentUserId, user: { id: this.currentUserId, name: this.currentUser?.name, avatar_url: this.currentUser?.avatar_url } });
+      }
+      
+      const optimisticComments = [...this.activeCard.comments];
+      optimisticComments[commentIdx] = { ...comment, reactions: newReactions };
+      this.activeCard = { ...this.activeCard, comments: optimisticComments };
+      
+      this.isUpdatingComment = true;
       try {
         const res = await this.api(`/boards/cards/comments/${commentId}/react`, 'POST', { emoji: emoji }, { silentErrors: true });
         
         if (res._ok) {
-          const commentIdx = this.activeCard.comments?.findIndex(c => c.id === commentId);
-          if (commentIdx !== -1) {
-            const newComments = [...this.activeCard.comments];
-            newComments[commentIdx] = { ...newComments[commentIdx], reactions: res.reactions };
-            this.activeCard = { ...this.activeCard, comments: newComments };
-          }
+            const finalComments = [...this.activeCard.comments];
+            finalComments[commentIdx] = { ...finalComments[commentIdx], reactions: res.reactions };
+            this.activeCard = { ...this.activeCard, comments: finalComments };
         } else {
-          console.error("Reaction failed:", res);
+            console.error("Reaction failed:", res);
+            const rollbackComments = [...this.activeCard.comments];
+            rollbackComments[commentIdx] = { ...comment, reactions: originalReactions };
+            this.activeCard = { ...this.activeCard, comments: rollbackComments };
         }
       } catch (err) {
         console.error('Failed to toggle reaction', err);
+        const rollbackComments = [...this.activeCard.comments];
+        rollbackComments[commentIdx] = { ...comment, reactions: originalReactions };
+        this.activeCard = { ...this.activeCard, comments: rollbackComments };
       } finally {
         this.isUpdatingComment = false;
       }
@@ -1963,7 +1984,7 @@ window.trelloBoard = function(config) {
       }
 
       const donePrefix = status === 'done' ? '✓ ' : '';
-      return `${donePrefix}${dateLabel}${timeLabel ? ` - ${timeLabel}` : ''}`;
+      return `${donePrefix}End: ${dateLabel}${timeLabel ? ` - ${timeLabel}` : ''}`;
     },
 
     isOverdue(card) {

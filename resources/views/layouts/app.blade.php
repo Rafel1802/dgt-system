@@ -30,7 +30,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <meta name="kiuq-user-id" content="{{ auth()->id() }}">
             <meta name="kiuq-pusher-key" content="{{ config('broadcasting.connections.pusher.key') }}">
             <meta name="kiuq-pusher-cluster" content="{{ config('broadcasting.connections.pusher.options.cluster') }}">
-            <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+            <script defer src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
         @endif
     @endauth
 
@@ -46,9 +46,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <link rel="apple-touch-icon" href="{{ $appleTouchIcon }}">
     <link rel="shortcut icon" href="{{ $faviconIco }}">
 
-    <!-- Fonts preconnect -->
+    <!-- Fonts preconnect and async load -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+    <noscript>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+    </noscript>
 
     <!-- Turbo 8: Drive navigation with speculative prefetch for instant loading. -->
     <meta name="turbo-prefetch" content="true">
@@ -261,7 +266,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             });
         })();
     </script>
-    <script src="{{ asset('js/workspace-alpine.js') }}?v={{ file_exists(public_path('js/workspace-alpine.js')) ? filemtime(public_path('js/workspace-alpine.js')) : '1.0.0' }}"></script>
+    <script defer src="{{ asset('js/workspace-alpine.js') }}?v={{ file_exists(public_path('js/workspace-alpine.js')) ? filemtime(public_path('js/workspace-alpine.js')) : '1.0.0' }}"></script>
     <!-- Vite assets (Tailwind CSS + Alpine.js + Livewire, bundled manually so Livewire's JS
          is not injected into <body> where Turbo would re-execute it on every navigation) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -2245,12 +2250,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         // Deliberately no auto-dismiss timer — stays until the user closes it.
     };
 
-    // Global Browser Native Notification Helper (with custom icon support)
     window.sendBrowserNotification = function(title, body, iconUrl = null) {
         if (!("Notification" in window)) return;
+        const audioSrc = document.getElementById('notif-sound')?.src;
+        
         const options = {
             body: body,
-            icon: iconUrl || window.dgtInitialsAvatar('KQ', '#4f46e5')
+            icon: iconUrl || window.dgtInitialsAvatar('KQ', '#4f46e5'),
+            silent: true, // Prevent OS default sound so we only hear our custom sound
+            sound: audioSrc, // For custom app wrappers (e.g. macOS WKWebView) that might support this
+            data: { sound: audioSrc }
         };
 
         if (Notification.permission === "granted") {
@@ -2390,7 +2399,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             initNotifications() {
                 this.refreshBrowserPermission();
-                this.fetchData();
+                this.fetchData(true);
 
                 // Always points at the fetchData() of whichever component instance
                 // most recently initialized — kept up to date below rather than
@@ -2465,7 +2474,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 window.showToast(this.notificationsMuted ? "In-app popups muted" : "In-app popups enabled");
             },
 
-            async fetchData() {
+            async fetchData(isInitialLoad = false) {
                 if (this.fetchInFlight) return;
                 this.fetchInFlight = true;
                 try {
@@ -2478,16 +2487,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     const data = await res.json();
                     const unread = (data.notifications || []).filter(n => !n.read_at);
 
-                    // First time this browser has ever fetched notifications (no
-                    // shown-ids recorded yet): silently remember today's existing
-                    // backlog without popping cards for all of it, then pop normally
-                    // from here on — including across page navigations, since this
-                    // dedupe is keyed by localStorage, not this component's
-                    // (per-page-load) in-memory state.
-                    const neverFetchedBefore = localStorage.getItem('dgt_notifications_seeded') !== 'true';
-                    if (neverFetchedBefore) {
+                    // If it's the first load of the page, NEVER blast the user with
+                    // popups for notifications that were already sitting in the database.
+                    // Just silently mark them all as "shown" so they only appear in the dropdown.
+                    if (isInitialLoad) {
                         unread.forEach(n => window.dgtMarkNotificationShown(n.id));
-                        localStorage.setItem('dgt_notifications_seeded', 'true');
                     } else {
                         unread.filter(n => !window.dgtWasNotificationShown(n.id)).forEach(newNotif => {
                             window.dgtMarkNotificationShown(newNotif.id);
@@ -2501,7 +2505,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     );
                                 }
                             } else {
-                                // Content fingerprint blocks Pusher+poll double-pop within seconds.
                                 if (window.dgtShouldSuppressDuplicateContent?.(newNotif.data)) return;
                                 window.showCrmNotificationCard(newNotif.data, newNotif.id);
                                 window.sendBrowserNotification("KIUQ SYSTEM Update", newNotif.data.message || "New update");
@@ -2813,9 +2816,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             
             if (closestIndex !== activeIndex) {
                 activeIndex = closestIndex;
-                setTimeout(() => {
-                    handleNavAction(selectedItem);
-                }, 250);
+                handleNavAction(selectedItem);
             }
         });
         
@@ -2870,9 +2871,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 bubble.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
                 bubble.style.transform = `translateX(${currentX}px)`;
                 
-                setTimeout(() => {
-                    handleNavAction(item);
-                }, 250);
+                handleNavAction(item);
             });
         });
         
