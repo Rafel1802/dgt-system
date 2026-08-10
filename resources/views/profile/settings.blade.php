@@ -94,10 +94,13 @@
         <span class="font-medium text-slate-700">{{ $user->last_login_at?->diffForHumans() ?? 'N/A' }}</span>
       </div>
     </div>
+    </div>
     <div class="mt-4">
       <a href="{{ route('profile.show') }}" class="btn btn-secondary text-sm">✏️ Edit Profile</a>
     </div>
   </div>
+
+
 
 </div>
 @endsection

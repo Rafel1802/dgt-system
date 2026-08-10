@@ -167,6 +167,24 @@ class KanbanController extends Controller
     }
 
     /**
+     * Toggle approval of a card (Supervisor).
+     */
+    public function toggleApprove(Card $card): JsonResponse
+    {
+        // Note: Reusing the 'approve' gate logic. A supervisor who can approve can also toggle.
+        $this->authorize('approve', $card);
+
+        $card = $this->kanbanService->toggleApproveCard($card, auth()->user());
+
+        $status = $card->status->value === 'approved' ? 'approved' : 'unapproved';
+        return response()->json([
+            'success' => true,
+            'message' => "Task {$status}! Notifications sent.",
+            'card'    => $card,
+        ]);
+    }
+
+    /**
      * Reject a card (Supervisor).
      */
     public function reject(Request $request, Card $card): JsonResponse

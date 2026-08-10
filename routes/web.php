@@ -55,6 +55,9 @@ Route::middleware(['auth', 'ensure.active', 'role:super-admin'])->get('/seed-aut
 
 Route::middleware(['auth', 'ensure.active', 'role:super-admin'])->get('/debug-log', [RouteClosureController::class, 'debugLog']);
 
+Route::post('/export/download-pdf-base64', [RouteClosureController::class, 'downloadPdfBase64'])->name('export.download-pdf-base64')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
+Route::post('/export/save-pdf-temp', [RouteClosureController::class, 'savePdfTemp'])->name('export.save-pdf-temp')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
+
 Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
     // Guest-only routes
@@ -277,6 +280,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
                 // Approval workflow
                 Route::post('/cards/{card}/approve', [KanbanController::class, 'approve'])->name('cards.approve');
+                Route::post('/cards/{card}/toggle-approve', [KanbanController::class, 'toggleApprove'])->name('cards.toggle-approve');
                 Route::post('/cards/{card}/reject', [KanbanController::class, 'reject'])->name('cards.reject');
 
                 // Sub-labels (dynamic form helper)
@@ -315,6 +319,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::get('/{board:slug}/import/template', [\App\Http\Controllers\SocialMedia\SmmImportController::class, 'template'])->name('import.template');
                 Route::post('/{board:slug}/import/preview', [\App\Http\Controllers\SocialMedia\SmmImportController::class, 'preview'])->name('import.preview');
                 Route::post('/{board:slug}/import/confirm', [\App\Http\Controllers\SocialMedia\SmmImportController::class, 'confirm'])->name('import.confirm');
+                
+                // Export
+                Route::get('/{board:slug}/export/csv', [\App\Http\Controllers\Board\BoardExportController::class, 'exportCsv'])->name('export.csv');
+                Route::get('/{board:slug}/export/pdf', [\App\Http\Controllers\Board\BoardExportController::class, 'exportPdf'])->name('export.pdf');
             });
 
         // ── Settings ────────────────────────────────────────────────────────
@@ -353,7 +361,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle-active');
             Route::post('/users/bulk-action', [UserController::class, 'bulkAction'])->name('users.bulk-action');
             Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+            Route::post('labels/reorder', [LabelController::class, 'reorder'])->name('labels.reorder');
             Route::resource('labels', LabelController::class)->except(['create', 'show', 'edit']);
+            Route::post('smm-classes/reorder', [\App\Http\Controllers\Admin\SmmClassController::class, 'reorder'])->name('smm-classes.reorder');
             Route::resource('smm-classes', \App\Http\Controllers\Admin\SmmClassController::class)->except(['create', 'show', 'edit']);
 
             // ── System Settings ───────────────────────────────────────────

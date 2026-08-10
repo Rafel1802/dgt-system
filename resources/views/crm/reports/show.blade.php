@@ -287,13 +287,7 @@ async function initStaffReportCharts() {
 }
 
 function scheduleStaffReportCharts() {
-    const run = () => initStaffReportCharts();
-
-    if ('requestIdleCallback' in window) {
-        requestIdleCallback(run, { timeout: 1200 });
-    } else {
-        setTimeout(run, 80);
-    }
+    setTimeout(() => initStaffReportCharts(), 10);
 }
 
 document.addEventListener('DOMContentLoaded', scheduleStaffReportCharts);

@@ -59,8 +59,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <meta name="turbo-prefetch" content="true">
     <style>
         .turbo-progress-bar {
-            height: 3px;
-            background-color: #2563eb;
+            display: none !important;
+            height: 0px !important;
+        }
+        
+        /* Hide Livewire wire:navigate progress bar */
+        #nprogress .bar {
+            display: none !important;
+        }
+        #nprogress .peg {
+            display: none !important;
+        }
+        #nprogress .spinner {
+            display: none !important;
         }
         
         /* Disable manual fade-in to prevent SPA blinking/flashing during transitions */
@@ -181,7 +192,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 }
             });
 
-            // Re-enable buttons if retrieved from Turbo cache (back/forward navigation)
+            // Re-enable buttons and clean up charts before Turbo cache (back/forward navigation)
             document.addEventListener('turbo:before-cache', () => {
                 document.querySelectorAll('form button[type="submit"], form input[type="submit"]').forEach(button => {
                     if (button.disabled && button.dataset.originalHtml) {
@@ -190,6 +201,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         button.innerHTML = button.dataset.originalHtml;
                     }
                 });
+
+                // Destroy any Chart.js instances to revert canvases back to pristine state,
+                // otherwise Turbo restores them with fixed inline sizes and breaks them.
+                if (window.Chart) {
+                    document.querySelectorAll('canvas').forEach(canvas => {
+                        const chart = Chart.getChart(canvas);
+                        if (chart) chart.destroy();
+                    });
+                }
             });
 
             // Keep sidebar scroll + active item in sync when the sidebar is

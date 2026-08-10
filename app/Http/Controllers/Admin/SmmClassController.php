@@ -15,7 +15,7 @@ class SmmClassController extends Controller
      */
     public function index(): View
     {
-        $classes = SocialMediaClass::orderBy('name')->get(['id', 'name', 'color', 'external_link']);
+        $classes = SocialMediaClass::orderBy('position')->orderBy('name')->get(['id', 'name', 'color', 'external_link']);
 
         return view('admin.smm-classes.index', compact('classes'));
     }
@@ -65,9 +65,27 @@ class SmmClassController extends Controller
      */
     public function destroy(SocialMediaClass $smm_class): RedirectResponse
     {
+        $name = $smm_class->name;
         $smm_class->delete();
 
         return redirect()->route('admin.smm-classes.index')
-            ->with('success', 'Class Label deleted successfully.');
+            ->with('success', "Class Label \"{$name}\" deleted successfully.");
+    }
+
+    /**
+     * Reorder SMM classes based on drag and drop.
+     */
+    public function reorder(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'ordered_ids'   => ['required', 'array'],
+            'ordered_ids.*' => ['integer', 'exists:social_media_classes,id'],
+        ]);
+
+        foreach ($request->ordered_ids as $index => $id) {
+            SocialMediaClass::where('id', $id)->update(['position' => $index]);
+        }
+
+        return response()->json(['success' => true]);
     }
 }

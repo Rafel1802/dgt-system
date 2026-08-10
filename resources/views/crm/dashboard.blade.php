@@ -268,16 +268,19 @@ async function initCrmDashboardCharts() {
 }
 
 function scheduleCrmDashboardCharts() {
-    const run = () => initCrmDashboardCharts();
-
-    if ('requestIdleCallback' in window) {
-        requestIdleCallback(run, { timeout: 1200 });
-    } else {
-        setTimeout(run, 80);
-    }
+    setTimeout(() => initCrmDashboardCharts(), 10);
 }
 
 document.addEventListener('DOMContentLoaded', scheduleCrmDashboardCharts);
 document.addEventListener('turbo:load', scheduleCrmDashboardCharts);
+document.addEventListener('turbo:before-cache', () => {
+    if (window.Chart) {
+        const statusChart = Chart.getChart('crmStatusChart');
+        if (statusChart) statusChart.destroy();
+        
+        const shipmentChart = Chart.getChart('crmShipmentChart');
+        if (shipmentChart) shipmentChart.destroy();
+    }
+});
 </script>
 @endpush

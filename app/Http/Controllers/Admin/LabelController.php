@@ -9,6 +9,7 @@ use App\Models\Board;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 
 class LabelController extends Controller
 {
@@ -18,7 +19,7 @@ class LabelController extends Controller
     public function index(): View
     {
         // Load all labels with their workspace and board relationships
-        $labels = Label::with(['workspace', 'board'])->orderBy('name')->get();
+        $labels = Label::with(['workspace', 'board'])->orderBy('position')->orderBy('name')->get();
         $workspaces = Workspace::orderBy('name')->get();
         // Only fetch boards that aren't archived for the dropdown
         $boards = Board::where('is_archived', false)->orderBy('name')->get();
@@ -72,5 +73,21 @@ class LabelController extends Controller
 
         return redirect()->route('admin.labels.index')
             ->with('success', "Label \"{$name}\" deleted successfully.");
+    }
+    /**
+     * Reorder labels based on drag and drop.
+     */
+    public function reorder(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ordered_ids'   => ['required', 'array'],
+            'ordered_ids.*' => ['integer', 'exists:labels,id'],
+        ]);
+
+        foreach ($request->ordered_ids as $index => $id) {
+            Label::where('id', $id)->update(['position' => $index]);
+        }
+
+        return response()->json(['success' => true]);
     }
 }

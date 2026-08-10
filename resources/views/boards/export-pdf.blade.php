@@ -25,6 +25,11 @@
             --danger-light: #fee2e2;
         }
 
+        html {
+            overflow: auto !important;
+            height: auto !important;
+        }
+        
         body {
             font-family: 'Inter', sans-serif;
             color: var(--text-dark);
@@ -34,6 +39,8 @@
             line-height: 1.5;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            overflow: auto !important;
+            height: auto !important;
         }
 
         h1, h2, h3, .font-display {
@@ -263,6 +270,7 @@
         .print-btn-container {
             display: flex;
             justify-content: center;
+            gap: 15px;
             margin-bottom: 20px;
         }
 
@@ -279,13 +287,27 @@
             box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
             transition: transform 0.15s, opacity 0.15s;
         }
+        
+        .btn-copy {
+            background-color: #10b981;
+            color: white;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 8px 18px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+            transition: transform 0.15s, opacity 0.15s;
+        }
 
-        .btn-print:hover {
+        .btn-print:hover, .btn-copy:hover {
             opacity: 0.95;
             transform: translateY(-1px);
         }
 
-        .btn-print:active {
+        .btn-print:active, .btn-copy:active {
             transform: translateY(0);
         }
 
@@ -386,10 +408,85 @@
     </style>
 </head>
 <body>
+    @php
+        $statusStats = [];
+        $isWorkflowList = function($name) {
+            return stripos($name, 'Approved') !== false
+                || stripos($name, 'Urgent') !== false
+                || stripos($name, 'Block') !== false
+                || stripos($name, 'Supervisor') !== false
+                || stripos($name, 'QC') !== false
+                || stripos($name, 'Text') !== false
+                || stripos($name, 'Head Review') !== false
+                || stripos($name, 'Drafting') !== false
+                || stripos($name, 'Draft') !== false;
+        };
 
-    <!-- Print Button overlay (hidden when printing) -->
-    <div class="print-btn-container no-print">
-        <button class="btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+        foreach ($cards as $c) {
+            if ($c->is_archived) {
+                $statusName = 'Archived';
+                $statusHtml = '<span class="status-badge status-archived">Archived</span>';
+            } else {
+                $effectiveList = $c->boardList;
+                if ($c->sync_group_id && !$isWorkflowList($effectiveList?->name ?? '')) {
+                    $syncedCards = \App\Models\Card::with('boardList')
+                        ->where('sync_group_id', $c->sync_group_id)
+                        ->get();
+                        
+                    $approvedCard = $syncedCards->first(fn($sc) => stripos($sc->boardList?->name ?? '', 'Approved') !== false);
+                    if ($approvedCard) {
+                        $effectiveList = $approvedCard->boardList;
+                    } else {
+                        $workflowCard = $syncedCards->first(fn($sc) => $isWorkflowList($sc->boardList?->name ?? ''));
+                        if ($workflowCard) {
+                            $effectiveList = $workflowCard->boardList;
+                        }
+                    }
+                }
+                
+                $listName = $effectiveList?->name ?? '';
+                
+                if (stripos($listName, 'Approved') !== false) {
+                    $statusName = 'Approved ✓';
+                    $statusHtml = '<span class="status-badge status-approved">Approved ✓</span>';
+                } elseif (stripos($listName, 'Urgent') !== false) {
+                    $statusName = 'Urgent';
+                    $statusHtml = '<span class="status-badge" style="background:#fee2e2;color:#b91c1c;">Urgent</span>';
+                } elseif (stripos($listName, 'Block') !== false) {
+                    $statusName = 'Blocked';
+                    $statusHtml = '<span class="status-badge" style="background:#e2e8f0;color:#475569;">Blocked</span>';
+                } elseif (stripos($listName, 'Supervisor') !== false) {
+                    $statusName = 'Supervisor Review';
+                    $statusHtml = '<span class="status-badge status-review">Supervisor Review</span>';
+                } elseif (stripos($listName, 'QC') !== false || stripos($listName, 'Text') !== false) {
+                    $statusName = 'QC Review';
+                    $statusHtml = '<span class="status-badge status-in_progress">QC Review</span>';
+                } elseif (stripos($listName, 'Head Review') !== false) {
+                    $statusName = 'Head Review';
+                    $statusHtml = '<span class="status-badge status-in_progress">Head Review</span>';
+                } elseif (stripos($listName, 'Drafting') !== false || stripos($listName, 'Draft') !== false) {
+                    $statusName = 'Drafting';
+                    $statusHtml = '<span class="status-badge status-todo">Drafting</span>';
+                } else {
+                    $statusName = 'Fail';
+                    $statusHtml = '<span class="status-badge" style="background:#fee2e2;color:#b91c1c;">Fail</span>';
+                }
+            }
+            
+            $c->computed_status = $statusName;
+            $c->computed_status_html = $statusHtml;
+            $statusStats[$statusName] = ($statusStats[$statusName] ?? 0) + 1;
+        }
+    @endphp
+
+    <!-- Hidden textarea for copy -->
+    <textarea id="copy-text" style="display:none;">{{ $copyText ?? '' }}</textarea>
+
+    <!-- Top action buttons -->
+    <div class="print-btn-container no-print" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; align-items: center;">
+        <button class="btn-print" style="background-color: #64748b; margin-right: 15px;" onclick="goBack()">⬅️ Go Back</button>
+        <button class="btn-print" id="pdf-btn" onclick="generatePDF()">🖨️ Print / Save PDF</button>
+        <button class="btn-copy" onclick="copyToClipboard()" id="copy-btn">📋 Copy Report</button>
     </div>
 
     <!-- Header -->
@@ -460,6 +557,52 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Label Summary Section -->
+    @if(isset($labelStats) && count($labelStats) > 0)
+    <div class="section-container">
+        <h2 class="section-title">🏷️ Label Summary</h2>
+        <table style="max-width: 400px;">
+            <thead>
+                <tr>
+                    <th>Label Name</th>
+                    <th style="width: 120px; text-align: center;">Total Tasks</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($labelStats as $name => $count)
+                <tr>
+                    <td><strong>{{ $name }}</strong></td>
+                    <td style="text-align: center; font-weight: 600;">{{ $count }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    @endif
+
+    <!-- Status Summary Section -->
+    @if(isset($statusStats) && count($statusStats) > 0)
+    <div class="section-container">
+        <h2 class="section-title">📊 Status Summary</h2>
+        <table style="max-width: 400px;">
+            <thead>
+                <tr>
+                    <th>Status Name</th>
+                    <th style="width: 120px; text-align: center;">Total Tasks</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($statusStats as $name => $count)
+                <tr>
+                    <td><strong>{{ $name }}</strong></td>
+                    <td style="text-align: center; font-weight: 600;">{{ $count }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    @endif
 
     <!-- Task Details Section -->
     <div class="section-container">
@@ -550,27 +693,7 @@
                         @endif
                     </td>
                     <td style="text-align: center;">
-                        @if($c->is_archived)
-                            <span class="status-badge status-archived">Archived</span>
-                        @elseif(stripos($c->boardList?->name ?? '', 'Approved') !== false)
-                            <span class="status-badge status-approved">Approved ✓</span>
-                        @elseif(stripos($c->boardList?->name ?? '', 'Urgent') !== false)
-                            <span class="status-badge" style="background:#fee2e2;color:#b91c1c;">Urgent</span>
-                        @elseif(stripos($c->boardList?->name ?? '', 'Block') !== false)
-                            <span class="status-badge" style="background:#e2e8f0;color:#475569;">Blocked</span>
-                        @elseif(stripos($c->boardList?->name ?? '', 'Supervisor') !== false)
-                            <span class="status-badge status-review">Supervisor Review</span>
-                        @elseif(stripos($c->boardList?->name ?? '', 'QC') !== false || stripos($c->boardList?->name ?? '', 'Text') !== false)
-                            <span class="status-badge status-in_progress">QC Review</span>
-                        @elseif(stripos($c->boardList?->name ?? '', 'Head Review') !== false)
-                            <span class="status-badge status-in_progress">Head Review</span>
-                        @elseif(stripos($c->boardList?->name ?? '', 'Drafting') !== false || stripos($c->boardList?->name ?? '', 'Draft') !== false)
-                            <span class="status-badge status-todo">Drafting</span>
-                        @elseif($c->boardList)
-                            <span class="status-badge status-todo">{{ $c->boardList->name }}</span>
-                        @else
-                            <span class="status-badge status-todo">To Do</span>
-                        @endif
+                        {!! $c->computed_status_html !!}
                     </td>
                     <td>
                         {{ $c->assignees->pluck('name')->join(', ') ?: 'Unassigned' }}
@@ -666,7 +789,7 @@
         </div>
     </div>
 
-    <!-- Auto-trigger Browser Printing -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         window.addEventListener('load', function() {
             // Auto open print dialog
@@ -674,6 +797,42 @@
                 window.print();
             }, 500);
         });
+
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+                window.Telegram.WebApp.close();
+            } else {
+                window.location.href = '/';
+            }
+        }
+
+        function copyToClipboard() {
+            var copyText = document.getElementById("copy-text");
+            var btn = document.getElementById("copy-btn");
+            var originalText = btn.innerText;
+            
+            // Un-hide the textarea but keep it off-screen to avoid jumping
+            copyText.style.display = 'block';
+            copyText.style.position = 'absolute';
+            copyText.style.left = '-9999px';
+            
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                document.execCommand("copy");
+                btn.innerText = "✅ Copied!";
+                setTimeout(function() {
+                    btn.innerText = originalText;
+                }, 2000);
+            } catch (err) {
+                alert('Failed to copy text. Please try again.');
+            }
+            
+            copyText.style.display = 'none';
+        }
     </script>
 </body>
 </html>

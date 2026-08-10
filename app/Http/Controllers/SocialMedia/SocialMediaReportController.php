@@ -31,7 +31,7 @@ class SocialMediaReportController extends Controller
         $posts = $this->buildQuery($user, $isQc, $dateFrom, $dateTo, $classId, $userId, $qcStatus, $postStatus)->get();
 
         // Classes visible to user
-        $classQuery = SocialMediaClass::orderBy('name');
+        $classQuery = SocialMediaClass::orderBy('position')->orderBy('name');
         if (!$isQc) {
             $classQuery->whereHas('assignedUsers', fn ($q) => $q->where('user_id', $user->id));
         }

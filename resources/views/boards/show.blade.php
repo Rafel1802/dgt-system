@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <style>
 [x-cloak]{display:none!important}
-.board-wrap{display:flex;gap:1rem;overflow-x:auto;padding:1rem;align-items:flex-start;min-height:calc(100vh - 180px);border-radius:1.25rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 18px 50px rgba(15,23,42,.08);transition:background .25s ease,box-shadow .25s ease}
+.board-wrap{display:flex;gap:1rem;overflow-x:auto;padding:1rem;align-items:flex-start;min-height:calc(100vh - 180px);border-radius:1.25rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 18px 50px rgba(15,23,42,.08);transition:box-shadow .25s ease}
 .board-list{flex-shrink:0;width:272px;background:rgba(241,245,249,.9);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.54);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 180px)}
 .list-header{padding:.75rem 1rem;font-weight:600;font-size:.875rem;color:#334155;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
 .list-cards{padding:.5rem;flex:1;overflow-y:auto;min-height:40px}
@@ -379,6 +379,7 @@
                 <select x-model="filterStatus" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
                   <option value="">All Statuses</option>
                   <option value="approved">Approved Only</option>
+                  <option value="unapproved">Unapproved</option>
                 </select>
               </label>
             </div>
@@ -649,10 +650,24 @@
                 <div class="flex items-start justify-between gap-2 mb-2">
                   <p class="kanban-card-title !mb-0 !pr-0"
                      x-text="card.title"></p>
-                  <svg x-show="list.name.toLowerCase().includes('approved') || card.status === 'Approved' || card.status === 'approved'" 
-                       class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
+                  <template x-if="board?.name?.toLowerCase().includes('smm') && list.name === 'Final Captions'">
+                    <button type="button"
+                            @click.stop="toggleSupervisorApprove(card, list)"
+                            :class="card.status === 'Approved' || card.status === 'approved'
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white'
+                              : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400 hover:text-emerald-500'"
+                            class="w-5 h-5 rounded-full border flex flex-shrink-0 items-center justify-center mt-0.5 transition"
+                            :title="card.status === 'Approved' || card.status === 'approved' ? 'Untick for unapproved' : 'Tick for approve'">
+                      <svg x-show="card.status !== 'Approved' && card.status !== 'approved'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor"><circle cx="12" cy="12" r="8.5" /></svg>
+                      <svg x-show="card.status === 'Approved' || card.status === 'approved'" x-cloak class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    </button>
+                  </template>
+                  <template x-if="!(board?.name?.toLowerCase().includes('smm') && list.name === 'Final Captions')">
+                    <svg x-show="list.name.toLowerCase().includes('approved') || card.status === 'Approved' || card.status === 'approved'" 
+                         class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                  </template>
                   <button type="button"
                           x-show="isBlockList(list) && currentUser.can_manage_blocked_cards"
                           x-cloak
@@ -947,7 +962,7 @@
 <!-- Quill JS -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 @php
-    $trelloBoardVersion = file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0';
+    $trelloBoardVersion = '2.0.0'; // Hardcoded version to forcefully bypass App cache, but remain fast on subsequent loads
     $dragScrollVersion = file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0';
 @endphp
 <script src="{{ asset('js/trello-board.js') }}?v={{ $trelloBoardVersion }}"></script>

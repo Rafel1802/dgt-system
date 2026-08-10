@@ -36,8 +36,10 @@ class BoardController extends Controller
     {
         $user = auth()->user();
 
-        // Retrieve workspace list per user
-        $workspaces = $this->getAuthorizedWorkspaces($user);
+        // Retrieve workspace list per user, but exclude SMM from this main view
+        $workspaces = $this->getAuthorizedWorkspaces($user)
+            ->filter(fn($ws) => $ws->name !== 'Social Media Management')
+            ->values();
 
         // Retrieve possible members
         $possibleWorkspaceMembers = User::active()
@@ -232,16 +234,14 @@ class BoardController extends Controller
         ]);
 
         $board->load(['activeLists.cards' => function ($query) {
-            $query->withCount('comments')
-                  ->withCount('files')
-                  ->with([
-                      'creator:id,name,avatar,username',
-                      'assignees:id,name,avatar,username',
-                      'labels',
-                      'checklists.items:id,card_checklist_id,name,is_completed,position',
-                      'files',
-                      'comments.user:id,name,avatar,username',
-                  ]);
+            $query->with([
+                'creator:id,name,avatar,username',
+                'assignees:id,name,avatar,username',
+                'labels',
+                'checklists.items:id,card_checklist_id,name,is_completed,position',
+                'comments:id,card_id',
+                'files:id,card_id',
+            ]);
         }]);
 
         $user = auth()->user();
@@ -304,7 +304,7 @@ class BoardController extends Controller
             'boardSlug' => $board->slug,
             'boardType' => $board->type,
             'baseRoute' => $board->type === 'smm' ? 'smm-boards' : 'boards',
-            'smmClasses' => \App\Models\SocialMediaClass::active()->get(['id', 'name', 'color'])->toArray(),
+            'smmClasses' => \App\Models\SocialMediaClass::active()->orderBy('position')->get(['id', 'name', 'color'])->toArray(),
             'csrfToken' => csrf_token(),
             'currentUserId' => $user->id,
             'currentUser' => [
@@ -345,8 +345,8 @@ class BoardController extends Controller
                     ]),
                     'checklist_total' => $c->checklists->flatMap->items->count(),
                     'checklist_done'  => $c->checklists->flatMap->items->where('is_completed',true)->count(),
-                    'has_files'       => $c->files_count > 0,
-                    'comment_count'   => $c->comments_count ?? 0,
+                    'has_files'       => $c->files->isNotEmpty(),
+                    'comment_count'   => $c->comments->count(),
                     'creator' => $c->creator ? [
                         'id' => $c->creator->id,
                         'name' => $c->creator->name,
@@ -355,29 +355,7 @@ class BoardController extends Controller
                         'avatar_color' => $c->creator->avatar_color,
                     ] : null,
                     'description' => $c->description,
-                    'files' => $c->files->map(fn($f) => [
-                        'id' => $f->id,
-                        'name' => $f->file_name,
-                        'url' => \Illuminate\Support\Facades\Storage::disk('public')->url($f->file_path),
-                        'size' => $f->file_size,
-                        'mime_type' => $f->mime_type,
-                        'created_at' => $f->created_at?->toISOString(),
-                    ])->values()->all(),
-                    'comments' => $c->comments->map(fn($comment) => [
-                        'id'         => $comment->id,
-                        'body'       => $comment->body ?? $comment->content,
-                        'content'    => $comment->body ?? $comment->content,
-                        'user_id'    => $comment->user_id,
-                        'created_at' => $comment->created_at?->toISOString(),
-                        'user'       => $comment->user ? [
-                            'id'     => $comment->user->id,
-                            'name'   => $comment->user->name,
-                            'username' => $comment->user->username,
-                            'avatar' => $comment->user->avatar_url,
-                            'avatar_initials' => $comment->user->avatar_initials,
-                            'avatar_color' => $comment->user->avatar_color,
-                        ] : null,
-                    ])->values()->all(),
+                    // files and comments are loaded async when opening a card
                     'checklists' => $c->checklists->map(fn($cl) => [
                          'id' => $cl->id,
                          'title' => $cl->title,
@@ -394,7 +372,7 @@ class BoardController extends Controller
                 $q->whereNull('workspace_id')->whereNull('board_id')
                   ->orWhere('workspace_id', $board->workspace_id)
                   ->orWhere('board_id', $board->id);
-            })->orderBy('name')
+            })->orderBy('position')->orderBy('name')
             ->get()
             ->unique(function ($item) {
                 return strtolower($item->name);
@@ -685,10 +663,11 @@ class BoardController extends Controller
         if (array_key_exists('background_type', $validated) || array_key_exists('background_value', $validated)) {
             $user = auth()->user();
             $prefs = $user->board_backgrounds ?? [];
-            $prefs[$board->id] = [
-                'background_type' => $backgroundType ?? $board->background_type,
-                'background_value' => $backgroundValue ?? $board->background_value,
-            ];
+            if (!isset($prefs[$board->id])) {
+                $prefs[$board->id] = [];
+            }
+            $prefs[$board->id]['background_type'] = $backgroundType ?? $board->background_type;
+            $prefs[$board->id]['background_value'] = $backgroundValue ?? $board->background_value;
             $user->board_backgrounds = $prefs;
             $user->save();
 
@@ -794,41 +773,47 @@ class BoardController extends Controller
         $this->authorizeBoard($board);
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'background_type' => ['required', 'in:color,image'],
-            'background_value' => ['nullable', 'string', 'max:2048'],
-            'background_image_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:8192'],
+            'name' => ['nullable', 'string', 'max:100'],
+            'cover_type' => ['required', 'in:color,image'],
+            'cover_value' => ['nullable', 'string', 'max:2048'],
+            'cover_image_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:8192'],
         ]);
 
-        $backgroundValue = $validated['background_value'] ?? '';
+        $coverValue = $validated['cover_value'] ?? '';
 
-        if ($validated['background_type'] === 'image') {
-            if ($request->hasFile('background_image_file')) {
-                $uploadedUrl = $this->handleBackgroundImageUpload($request->file('background_image_file'));
+        if ($validated['cover_type'] === 'image') {
+            if ($request->hasFile('cover_image_file')) {
+                $uploadedUrl = $this->handleBackgroundImageUpload($request->file('cover_image_file'));
                 if ($uploadedUrl) {
-                    $backgroundValue = $uploadedUrl;
+                    $coverValue = $uploadedUrl;
                 }
-            } elseif (! $this->isAllowedBackgroundImageValue($backgroundValue)) {
-                return back()->withErrors(['background_value' => 'Enter a valid background image URL.']);
+            } elseif (! $this->isAllowedBackgroundImageValue($coverValue)) {
+                return back()->withErrors(['cover_value' => 'Enter a valid cover image URL.']);
             }
-        } elseif ($validated['background_type'] === 'color' && ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $backgroundValue)) {
-            return back()->withErrors(['background_value' => 'Choose a valid hex background color.']);
+        } elseif ($validated['cover_type'] === 'color' && ! preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $coverValue)) {
+            return back()->withErrors(['cover_value' => 'Choose a valid hex cover color.']);
         }
 
         $user = auth()->user();
         $prefs = $user->board_backgrounds ?? [];
-        $prefs[$board->id] = [
-            'background_type' => $validated['background_type'],
-            'background_value' => $backgroundValue,
-        ];
+        // Ensure the array structure exists
+        if (!isset($prefs[$board->id])) {
+            $prefs[$board->id] = [];
+        }
+        
+        $prefs[$board->id]['cover_type'] = $validated['cover_type'];
+        $prefs[$board->id]['cover_value'] = $coverValue;
+        
         $user->board_backgrounds = $prefs;
         $user->save();
 
-        $board->update([
-            'name' => $validated['name'],
-        ]);
+        if (!empty($validated['name']) && ($user->canManageBoards() || $board->workspace->owner_id === $user->id)) {
+            $board->update([
+                'name' => $validated['name'],
+            ]);
+        }
 
-        return back()->with('success', 'Board updated successfully.');
+        return back()->with('success', 'Board cover updated successfully.');
     }
 
     /** Upload and apply a board background image. */
@@ -852,10 +837,11 @@ class BoardController extends Controller
 
         $user = auth()->user();
         $prefs = $user->board_backgrounds ?? [];
-        $prefs[$board->id] = [
-            'background_type' => 'image',
-            'background_value' => $uploadedUrl,
-        ];
+        if (!isset($prefs[$board->id])) {
+            $prefs[$board->id] = [];
+        }
+        $prefs[$board->id]['background_type'] = 'image';
+        $prefs[$board->id]['background_value'] = $uploadedUrl;
         $user->board_backgrounds = $prefs;
         $user->save();
 
@@ -1426,8 +1412,8 @@ class BoardController extends Controller
             'activeLists.cards.assignees',
             'activeLists.cards.labels',
             'activeLists.cards.checklists.items',
-            'activeLists.cards.files',
-            'activeLists.cards.comments',
+            'activeLists.cards.files:id,card_id',
+            'activeLists.cards.comments:id,card_id',
             'members',
         ]);
 
@@ -1477,7 +1463,7 @@ class BoardController extends Controller
                     ])->values()->all(),
                     'checklist_total' => $card->checklists->flatMap->items->count(),
                     'checklist_done' => $card->checklists->flatMap->items->where('is_completed', true)->count(),
-                    'has_files' => $card->files->count() > 0,
+                    'has_files' => $card->files->isNotEmpty(),
                     'comment_count' => $card->comments->count(),
                 ])->values()->all(),
             ])->values()->all(),
@@ -1486,6 +1472,7 @@ class BoardController extends Controller
                     ->orWhere('workspace_id', $board->workspace_id)
                     ->orWhere('board_id', $board->id);
             })
+                ->orderBy('position')
                 ->orderBy('name')
                 ->get()
                 ->unique(fn($label) => strtolower($label->name))
@@ -1747,6 +1734,10 @@ class BoardController extends Controller
     /** Helper to get all workspaces and boards a user can access. */
     private function getAuthorizedWorkspaces(\App\Models\User $user)
     {
+        $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
+        $isHead = str_contains(strtolower($user->team_role ?? ''), 'head');
+        $canSeeSMM = $user->hasRole('admin-digital') || $isQc || $isHead;
+
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
@@ -1755,7 +1746,7 @@ class BoardController extends Controller
                 'members:id,name,avatar',
             ])
                 ->where('is_active', true)
-                ->where('name', '!=', 'Social Media Management')
+                ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
                 ->orderBy('position')
                 ->orderBy('id')
                 ->get();
@@ -1767,7 +1758,7 @@ class BoardController extends Controller
                 'members:id,name,avatar',
             ])
                 ->where('is_active', true)
-                ->where('name', '!=', 'Social Media Management')
+                ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
                 ->orderBy('position')
                 ->orderBy('id')
                 ->get();

@@ -15,20 +15,24 @@ class MemberController extends Controller
      */
     public function index(): View
     {
-        $members = User::active()
+        $baseQuery = User::active()->whereDoesntHave('roles', function ($q) {
+            $q->where('name', 'super-admin');
+        });
+
+        $members = (clone $baseQuery)
             ->with('roles')
             ->orderBy('name')
             ->get();
 
         $stats = [
-            'total'        => $members->count(),
-            'online_today' => User::active()
+            'total'        => (clone $baseQuery)->count(),
+            'online_today' => (clone $baseQuery)
                 ->where('last_login_at', '>=', now()->startOfDay())
                 ->count(),
-            'online_now'   => User::active()
+            'online_now'   => (clone $baseQuery)
                 ->where('last_login_at', '>=', now()->subMinutes(30))
                 ->count(),
-            'new_month'    => User::active()
+            'new_month'    => (clone $baseQuery)
                 ->whereYear('created_at', now()->year)
                 ->whereMonth('created_at', now()->month)
                 ->count(),
@@ -42,7 +46,12 @@ class MemberController extends Controller
      */
     public function search(\Illuminate\Http\Request $request): JsonResponse
     {
-        $query = User::active()->with('roles')->orderBy('name');
+        $query = User::active()
+            ->whereDoesntHave('roles', function ($q) {
+                $q->where('name', 'super-admin');
+            })
+            ->with('roles')
+            ->orderBy('name');
 
         if ($q = $request->input('q')) {
             $query->where(function ($sub) use ($q) {

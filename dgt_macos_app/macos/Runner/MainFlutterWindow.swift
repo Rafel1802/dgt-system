@@ -94,6 +94,7 @@ class MainFlutterWindow: NSWindow {
     let body = args["body"] as? String ?? "New notification"
     let link = args["link"] as? String ?? ""
     let avatarUrl = args["avatarUrl"] as? String ?? ""
+    let soundUrl = args["soundUrl"] as? String ?? ""
 
     UNUserNotificationCenter.current().getNotificationSettings { settings in
       if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
@@ -104,6 +105,7 @@ class MainFlutterWindow: NSWindow {
           body: body,
           link: link,
           avatarUrl: avatarUrl,
+          soundUrl: soundUrl,
           result: result
         )
       } else {
@@ -113,13 +115,48 @@ class MainFlutterWindow: NSWindow {
           subtitle: subtitle,
           body: body,
           link: link,
-          avatarUrl: avatarUrl
+          avatarUrl: avatarUrl,
+          soundUrl: soundUrl
         )
         DispatchQueue.main.async {
           result(true)
         }
       }
     }
+  }
+
+  private func getSoundsDirectory() -> URL {
+    let fileManager = FileManager.default
+    let libraryUrl = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first!
+    let soundsUrl = libraryUrl.appendingPathComponent("Sounds")
+    if !fileManager.fileExists(atPath: soundsUrl.path) {
+        try? fileManager.createDirectory(at: soundsUrl, withIntermediateDirectories: true, attributes: nil)
+    }
+    return soundsUrl
+  }
+
+  private func prepareNotificationSound(from urlString: String, completion: @escaping (UNNotificationSound?) -> Void) {
+    guard let url = URL(string: urlString), !urlString.isEmpty else {
+        completion(.default)
+        return
+    }
+    let fileName = url.lastPathComponent
+    let soundsDir = getSoundsDirectory()
+    let fileUrl = soundsDir.appendingPathComponent(fileName)
+    
+    if FileManager.default.fileExists(atPath: fileUrl.path) {
+        completion(UNNotificationSound(named: UNNotificationSoundName(rawValue: fileName)))
+        return
+    }
+    
+    URLSession.shared.dataTask(with: url) { data, response, error in
+        if let data = data {
+            try? data.write(to: fileUrl, options: [.atomic])
+            completion(UNNotificationSound(named: UNNotificationSoundName(rawValue: fileName)))
+        } else {
+            completion(.default)
+        }
+    }.resume()
   }
 
   private func showUserNotification(
@@ -129,42 +166,47 @@ class MainFlutterWindow: NSWindow {
     body: String,
     link: String,
     avatarUrl: String,
+    soundUrl: String,
     result: @escaping FlutterResult
   ) {
     let content = UNMutableNotificationContent()
     content.title = title
     content.subtitle = subtitle
     content.body = body
-    content.sound = .default
     content.userInfo = ["link": link]
 
-    makeNotificationAttachment(from: avatarUrl) { attachment in
-      if let attachment = attachment {
-        content.attachments = [attachment]
-      }
+    prepareNotificationSound(from: soundUrl) { sound in
+      content.sound = sound
+      
+      self.makeNotificationAttachment(from: avatarUrl) { attachment in
+        if let attachment = attachment {
+          content.attachments = [attachment]
+        }
 
-      let request = UNNotificationRequest(
-        identifier: identifier,
-        content: content,
-        trigger: nil
-      )
+        let request = UNNotificationRequest(
+          identifier: identifier,
+          content: content,
+          trigger: nil
+        )
 
-      UNUserNotificationCenter.current().add(request) { error in
-        DispatchQueue.main.async {
-          if let error = error {
-            NSLog("DGT native notification show error: %@", error.localizedDescription)
-            self.showLegacyNotification(
-              identifier: identifier,
-              title: title,
-              subtitle: subtitle,
-              body: body,
-              link: link,
-              avatarUrl: avatarUrl
-            )
-            result(true)
-          } else {
-            NSLog("DGT native notification scheduled: %@", identifier)
-            result(true)
+        UNUserNotificationCenter.current().add(request) { error in
+          DispatchQueue.main.async {
+            if let error = error {
+              NSLog("DGT native notification show error: %@", error.localizedDescription)
+              self.showLegacyNotification(
+                identifier: identifier,
+                title: title,
+                subtitle: subtitle,
+                body: body,
+                link: link,
+                avatarUrl: avatarUrl,
+                soundUrl: soundUrl
+              )
+              result(true)
+            } else {
+              NSLog("DGT native notification scheduled: %@", identifier)
+              result(true)
+            }
           }
         }
       }
@@ -177,7 +219,8 @@ class MainFlutterWindow: NSWindow {
     subtitle: String,
     body: String,
     link: String,
-    avatarUrl: String
+    avatarUrl: String,
+    soundUrl: String
   ) {
     let notification = NSUserNotification()
     notification.identifier = identifier

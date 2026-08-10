@@ -17,6 +17,7 @@ class SocialMediaController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $classes = SocialMediaClass::with(['items', 'assignedUsers:id,name,avatar'])
+            ->orderBy('position')
             ->orderBy('name')
             ->get();
 

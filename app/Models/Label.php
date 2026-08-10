@@ -12,7 +12,7 @@ class Label extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['workspace_id', 'board_id', 'name', 'color'];
+    protected $fillable = ['workspace_id', 'board_id', 'name', 'color', 'position'];
 
     // ── Relationships ─────────────────────────────────────────────────────────
 

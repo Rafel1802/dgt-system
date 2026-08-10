@@ -355,7 +355,7 @@
 <div x-show="imagePreview.open" x-cloak
      class="fixed inset-0 bg-slate-950/95 flex flex-col w-screen h-screen overflow-hidden"
      style="z-index: 99999;"
-     @keydown.escape.window="closeImagePreview()"
+     @keydown.escape.window="if(imagePreview.open) { $event.preventDefault(); closeImagePreview(); }"
      @click="closeImagePreview()">
   <div class="flex items-center justify-between border-b border-white/10 px-6 pb-3.5 text-white bg-slate-900/90 backdrop-blur-md flex-shrink-0 w-full"
        style="padding-top: calc(14px + env(safe-area-inset-top, 0px));"
@@ -376,7 +376,7 @@
 <div x-show="videoPreview.open" x-cloak
      class="fixed inset-0 flex items-center justify-center bg-slate-950/80 p-4"
      style="z-index: 110;"
-     @keydown.escape.window="closeVideoPreview()"
+     @keydown.escape.window="if(videoPreview.open) { $event.preventDefault(); closeVideoPreview(); }"
      @click="closeVideoPreview()">
   <div class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl flex flex-col" @click.stop>
     <div class="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white bg-slate-900/50 backdrop-blur-md">

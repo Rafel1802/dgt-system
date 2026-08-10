@@ -27,11 +27,14 @@
             <th class="px-4 py-4 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-50">
+        <tbody class="divide-y divide-slate-50" id="labels-table-body">
           @forelse($labels as $label)
-          <tr class="hover:bg-slate-50/70 transition-colors group">
+          <tr class="hover:bg-slate-50/70 transition-colors group" data-id="{{ $label->id }}">
             <td class="px-5 py-3">
               <div class="flex items-center gap-3">
+                <div class="cursor-move text-slate-400 hover:text-slate-600 handle px-1">
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg>
+                </div>
                 <span class="inline-flex items-center h-4 w-12 rounded-full shadow-sm" style="background:{{ $label->color }}"></span>
                 <span class="font-bold text-slate-800">{{ $label->name }}</span>
               </div>
@@ -169,6 +172,32 @@
             this.showModal = true;
         }
     }));
+    
+        // Initialize Sortable
+        const el = document.getElementById('labels-table-body');
+        if (el && typeof Sortable !== 'undefined') {
+            Sortable.create(el, {
+                handle: '.handle',
+                animation: 150,
+                onEnd: function (evt) {
+                    const itemEl = evt.item;
+                    const ids = Array.from(el.children).map(tr => tr.getAttribute('data-id')).filter(id => id);
+                    
+                    fetch('{{ route('admin.labels.reorder') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ ordered_ids: ids })
+                    }).then(res => res.json()).then(data => {
+                        if (data.success) {
+                            window.showToast?.('Labels reordered successfully');
+                        }
+                    });
+                }
+            });
+        }
     };
 
     if (window.Alpine) {

@@ -26,7 +26,7 @@ class RouteClosureController extends Controller
      */
     public function downloadMacApp()
     {
-        $version = '1.0.9';
+        $version = '1.0.0';
         return redirect(asset("downloads/KIUQ-SYSTEM-{$version}.dmg"));
     }
 
@@ -98,7 +98,44 @@ class RouteClosureController extends Controller
                 }
             }
         }
-        return 'Automations seeded for ' . $count . ' rules across ' . $boards->count() . ' boards.';
+        return 'Added ' . $count . ' automation rules (wiping existing ones on Workflow boards to prevent duplicates).';
+    }
+
+    public function downloadPdfBase64(Request $request)
+    {
+        $base64 = $request->input('pdf_base64');
+        $base64 = preg_replace('#^data:application/pdf.*?;base64,#i', '', $base64);
+        $pdfData = base64_decode($base64);
+        $filename = 'Report_Export_' . date('Y-m-d_His') . '.pdf';
+
+        return response($pdfData)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    /**
+     * Save PDF from base64 string to public storage and return URL.
+     */
+    public function savePdfTemp(Request $request)
+    {
+        $base64 = $request->input('pdf_base64');
+        $base64 = preg_replace('#^data:application/pdf.*?;base64,#i', '', $base64);
+        $pdfData = base64_decode($base64);
+        
+        $filename = 'Report_Export_' . date('Y-m-d_His') . '_' . uniqid() . '.pdf';
+        
+        // Ensure temp directory exists
+        $tempPath = storage_path('app/public/temp');
+        if (!file_exists($tempPath)) {
+            mkdir($tempPath, 0777, true);
+        }
+        
+        file_put_contents($tempPath . '/' . $filename, $pdfData);
+        
+        return response()->json([
+            'success' => true,
+            'url' => asset('storage/temp/' . $filename)
+        ]);
     }
 
     /**

@@ -184,6 +184,50 @@ class KanbanService
     }
 
     /**
+     * Supervisor toggles approval of a card.
+     * Sends email notification to QC and assigned members.
+     */
+    public function toggleApproveCard(Card $card, User $supervisor): Card
+    {
+        $isApproved = $card->status === CardStatus::Approved;
+
+        $card = DB::transaction(function () use ($card, $supervisor, $isApproved) {
+            if ($isApproved) {
+                // Revert to InProgress
+                $card->update([
+                    'status'      => CardStatus::InProgress->value,
+                    'approved_by' => null,
+                    'approved_at' => null,
+                    'reviewed_by' => $supervisor->id,
+                    'reviewed_at' => now(),
+                ]);
+                $this->addSystemComment($card, $supervisor, "❌ Task **un-approved** by {$supervisor->name}.");
+            } else {
+                // Approve
+                $card->update([
+                    'status'      => CardStatus::Approved->value,
+                    'approved_by' => $supervisor->id,
+                    'approved_at' => now(),
+                    'reviewed_by' => $supervisor->id,
+                    'reviewed_at' => now(),
+                ]);
+                $this->addSystemComment($card, $supervisor, "✅ Task **approved** by {$supervisor->name}.");
+            }
+
+            return $card;
+        });
+
+        // Dispatch notification job
+        try {
+            \App\Jobs\SendTaskToggledNotificationJob::dispatchSync($card, $supervisor, !$isApproved);
+        } catch (\Throwable $e) {
+            Log::error("SendTaskToggledNotificationJob failed synchronously for card #{$card->id}: {$e->getMessage()}");
+        }
+
+        return $card;
+    }
+
+    /**
      * Supervisor rejects a card and notifies the creator.
      */
     public function rejectCard(Card $card, User $supervisor, string $reason): Card

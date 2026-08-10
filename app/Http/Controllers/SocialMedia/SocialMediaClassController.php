@@ -13,7 +13,7 @@ class SocialMediaClassController extends Controller
     /** Admin management page */
     public function index()
     {
-        $classes   = SocialMediaClass::with(['items', 'creator', 'assignedUsers'])->withCount('items')->orderBy('name')->get();
+        $classes   = SocialMediaClass::with(['items', 'creator', 'assignedUsers'])->withCount('items')->orderBy('position')->orderBy('name')->get();
         // Only show active users in the 'digital-team' role
         $allUsers  = User::with('roles')->role('digital-team')->where('is_active', true)->orderBy('name')->get();
 

@@ -3,7 +3,7 @@
      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 pt-16 pb-32 lg:pb-16 overflow-y-auto"
      style="z-index: 70;"
      @click.self="closeCard()"
-     @keydown.escape.window="if(!imagePreview.open && !attachmentModal?.open && !exportModal?.open && !switchBoardsModal?.open && !importModal?.open && !cardTransferModal?.open) closeCard()">
+     @keydown.escape.window="if(activeCard !== null && !imagePreview.open && !attachmentModal?.open && !exportModal?.open && !switchBoardsModal?.open && !importModal?.open && !cardTransferModal?.open) { $event.preventDefault(); closeCard(); }">
 
   <div class="trello-card-modal bg-white rounded-2xl shadow-2xl w-full max-w-4xl mb-8 overflow-hidden border border-slate-100 flex flex-col"
        x-show="activeCard"
@@ -26,7 +26,9 @@
             <input type="text" :value="activeCard?.title"
                    @change="updateCardField({ title: $event.target.value })"
                    @keydown.enter="$event.target.blur()"
-                   class="card-detail-title font-display font-bold text-slate-800 text-xl w-full bg-transparent border-0 focus:ring-2 focus:ring-indigo-500/20 focus:bg-white rounded px-2 -ml-2 py-0.5 transition-all truncate">
+                   :readonly="!{{ auth()->user()->canManageBoards() ? 'true' : 'false' }}"
+                   :class="!{{ auth()->user()->canManageBoards() ? 'true' : 'false' }} ? 'cursor-default' : 'focus:ring-2 focus:ring-indigo-500/20 focus:bg-white'"
+                   class="card-detail-title font-display font-bold text-slate-800 text-xl w-full bg-transparent border-0 rounded px-2 -ml-2 py-0.5 transition-all truncate">
             
             {{-- Stage/List selector dropdown trigger --}}
             <div class="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5" x-data="{ openListSelect: false }">
@@ -306,7 +308,7 @@
                     <span x-show="!isEditingClTitle" x-text="cl.name || cl.title" class="truncate"></span>
                     <input x-show="isEditingClTitle" x-ref="clTitleInput" x-model="editClTitle"
                            @keydown.enter="editChecklistInline(cl, editClTitle); isEditingClTitle = false"
-                           @keydown.escape="isEditingClTitle = false"
+                           @keydown.escape="$event.preventDefault(); isEditingClTitle = false"
                            @blur="editChecklistInline(cl, editClTitle); isEditingClTitle = false"
                            class="w-full text-sm font-bold border-slate-300 rounded px-1.5 py-0.5 focus:ring-indigo-500 focus:border-indigo-500">
                   </h3>
@@ -340,7 +342,7 @@
                                 x-text="item.title || item.content"></span>
                           <input x-show="isEditingItemTitle" x-ref="itemTitleInput" x-model="editItemTitle"
                                  @keydown.enter="editChecklistItemInline(cl, item, editItemTitle); isEditingItemTitle = false"
-                                 @keydown.escape="isEditingItemTitle = false"
+                                 @keydown.escape="$event.preventDefault(); isEditingItemTitle = false"
                                  @blur="editChecklistItemInline(cl, item, editItemTitle); isEditingItemTitle = false"
                                  class="w-full text-xs border-slate-300 rounded px-1.5 py-0.5 focus:ring-indigo-500 focus:border-indigo-500">
                         </label>

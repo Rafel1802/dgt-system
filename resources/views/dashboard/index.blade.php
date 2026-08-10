@@ -516,16 +516,19 @@ async function initDashboardCharts() {
 }
 
 function scheduleDashboardCharts() {
-    const run = () => initDashboardCharts();
-
-    if ('requestIdleCallback' in window) {
-        requestIdleCallback(run, { timeout: 1200 });
-    } else {
-        setTimeout(run, 80);
-    }
+    setTimeout(() => initDashboardCharts(), 10);
 }
 
 document.addEventListener('DOMContentLoaded', scheduleDashboardCharts);
 document.addEventListener('turbo:load', scheduleDashboardCharts);
+document.addEventListener('turbo:before-cache', () => {
+    if (window.Chart) {
+        const userChart = Chart.getChart('dashboardUserChart');
+        if (userChart) userChart.destroy();
+        
+        const activityChart = Chart.getChart('dashboardActivityChart');
+        if (activityChart) activityChart.destroy();
+    }
+});
 </script>
 @endpush

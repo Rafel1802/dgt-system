@@ -336,6 +336,8 @@ window.trelloBoard = function(config) {
         }
       });
 
+      // Preload removed to restore performance
+
       // Auto-open card if passed in query param
       const urlParams = new URLSearchParams(window.location.search);
       const cardId = urlParams.get('card');
@@ -481,7 +483,7 @@ window.trelloBoard = function(config) {
       
       const optimisticComments = [...this.activeCard.comments];
       optimisticComments[commentIdx] = { ...comment, reactions: newReactions };
-      this.activeCard = { ...this.activeCard, comments: optimisticComments };
+      this.activeCard.comments = optimisticComments;
       
       this.isUpdatingComment = true;
       try {
@@ -490,18 +492,18 @@ window.trelloBoard = function(config) {
         if (res._ok) {
             const finalComments = [...this.activeCard.comments];
             finalComments[commentIdx] = { ...finalComments[commentIdx], reactions: res.reactions };
-            this.activeCard = { ...this.activeCard, comments: finalComments };
+            this.activeCard.comments = finalComments;
         } else {
             console.error("Reaction failed:", res);
             const rollbackComments = [...this.activeCard.comments];
             rollbackComments[commentIdx] = { ...comment, reactions: originalReactions };
-            this.activeCard = { ...this.activeCard, comments: rollbackComments };
+            this.activeCard.comments = rollbackComments;
         }
       } catch (err) {
         console.error('Failed to toggle reaction', err);
         const rollbackComments = [...this.activeCard.comments];
         rollbackComments[commentIdx] = { ...comment, reactions: originalReactions };
-        this.activeCard = { ...this.activeCard, comments: rollbackComments };
+        this.activeCard.comments = rollbackComments;
       } finally {
         this.isUpdatingComment = false;
       }
@@ -1210,22 +1212,12 @@ window.trelloBoard = function(config) {
                }
             }
 
-            if (window.showRichNotificationToast) {
-              const automationNote = res.automation_triggered
-                ? ` Automation then ${res.automation?.action_type === 'copy' ? 'copied' : 'moved'} the card (${res.automation?.reason || 'matching rule'}).`
-                : '';
+            const automationNote = res.automation_triggered
+              ? ` Automation then ${res.automation?.action_type === 'copy' ? 'copied' : 'moved'} the card (${res.automation?.reason || 'matching rule'}).`
+              : '';
 
-              window.showRichNotificationToast({
-                actor_name: currentUser.name || 'You',
-                actor_avatar: currentUser.avatar_url || currentUser.avatar || this.avatarUrl(currentUser) || '',
-                actor_initials: currentUser.initials || currentUser.avatar_initials || '',
-                actor_avatar_color: currentUser.avatar_color || '#64748b',
-                card_title: res.card.title,
-                description: `moved this card from **${fromList}** to **${toList}**.${automationNote}`,
-                created_at: new Date().toISOString()
-              });
-            } else {
-              window.showToast(`${currentUser.name || 'You'} moved "${res.card.title}" from ${fromList} to ${toList}.`);
+            if (automationNote) {
+              window.showToast(`${currentUser.name || 'You'} moved "${res.card.title}" from ${fromList} to ${toList}.${automationNote}`);
             }
 
             if (this.activityOpen || (this.boardMenu.open && this.boardMenu.view === 'activity')) {
@@ -1321,7 +1313,7 @@ window.trelloBoard = function(config) {
       if (this.filterAssignee) count++;
       if (this.filterAssignBy) count++;
       if (this.filterLabel) count++;
-      if (this.filterStatus) count++;
+      if (this.filterStatus && this.filterStatus !== 'all') count++;
       if (this.filterDateFrom) count++;
       if (this.filterDateTo) count++;
       if (this.filterTeamLabel) count++;
@@ -1405,8 +1397,15 @@ window.trelloBoard = function(config) {
         }
 
         // Status
-        if (this.filterStatus) {
-          if (c.status !== this.filterStatus && (!c.status || this.filterStatus !== 'approved' || c.status.toLowerCase() !== 'approved')) return false;
+        if (this.filterStatus && this.filterStatus !== 'all') {
+          const s = (c.status || '').toLowerCase();
+          if (this.filterStatus === 'approved') {
+            if (s !== 'approved') return false;
+          } else if (this.filterStatus === 'unapproved') {
+            if (s === 'approved') return false;
+          } else {
+            if (s !== this.filterStatus) return false;
+          }
         }
 
         if (this.filterDateFrom || this.filterDateTo) {
@@ -1461,6 +1460,27 @@ window.trelloBoard = function(config) {
       if (res.card) {
         Object.assign(card, res.card);
         window.showToast(res.message || 'Blocked card updated.');
+      }
+    },
+
+    async toggleSupervisorApprove(card, list) {
+      const wasApproved = (card.status === 'Approved' || card.status === 'approved');
+      const oldStatus = card.status;
+      
+      // Optimistic UI update
+      card.status = wasApproved ? 'in_progress' : 'approved';
+      
+      try {
+        const res = await this.api(`/cards/${card.id}/toggle-approve`, 'POST', {});
+        if (res.card) {
+          Object.assign(card, res.card);
+          window.showToast(res.message || 'Task approval toggled.');
+        } else {
+          card.status = oldStatus;
+        }
+      } catch (err) {
+        card.status = oldStatus;
+        window.showToast('Failed to toggle approval.', 'error');
       }
     },
 
@@ -2236,6 +2256,9 @@ window.trelloBoard = function(config) {
       // Display options
       params.append('include_comments', em.includeComments ? '1' : '0');
       params.append('include_desc', em.includeDesc ? '1' : '0');
+      
+      // Cache buster for Mac App Webview
+      params.append('_t', new Date().getTime());
 
       const route = em.format === 'pdf' ? 'export/pdf' : 'export/csv';
       const url = `/${this.baseRoute || 'boards'}/${this.boardSlug}/${route}?${params.toString()}`;
@@ -2635,7 +2658,7 @@ window.trelloBoard = function(config) {
       try {
         const res = await this.api(`/boards/cards/${this.activeCard.id}`, 'GET', null, { silentErrors: true });
         if (res.card && JSON.stringify(this.activeCard) !== JSON.stringify(res.card)) {
-          this.activeCard = { ...res.card };
+          Object.assign(this.activeCard, res.card);
         }
         if (res.activities && JSON.stringify(this.cardActivities) !== JSON.stringify(res.activities)) {
           this.cardActivities = res.activities;
@@ -2650,7 +2673,6 @@ window.trelloBoard = function(config) {
         if (res.activities) this.cardActivities = res.activities;
         if (res.card?.comments) {
           this.activeCard.comments = res.card.comments;
-          this.activeCard = { ...this.activeCard };
         }
       } catch (_) {}
     },
@@ -2813,20 +2835,24 @@ window.trelloBoard = function(config) {
 
       if (this.memberPicker.mode === 'assignBy') {
         // Optimistic UI for Assign By
-        card.created_by = user.id;
-        card.creator = user;
+        const isAlreadyCreator = (card.created_by === user.id) || (card.creator?.id === user.id);
+        const newCreatorId = isAlreadyCreator ? null : user.id;
+        const newCreator = isAlreadyCreator ? null : user;
+
+        card.created_by = newCreatorId;
+        card.creator = newCreator;
         this.lists.forEach(l => {
           const c = l.cards.find(x => x.id === card.id);
           if (c) {
-            c.created_by = user.id;
-            c.creator = user;
+            c.created_by = newCreatorId;
+            c.creator = newCreator;
           }
         });
         this.mpSeparateMembers(card);
         this.closeMemberPicker();
 
         // Background update
-        const res = await this.api(`/boards/cards/${card.id}`, 'PATCH', { created_by: user.id });
+        const res = await this.api(`/boards/cards/${card.id}`, 'PATCH', { created_by: newCreatorId });
         if (res.card) {
           window.showToast("Assign By updated");
           this.refreshCardActivities();

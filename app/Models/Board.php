@@ -148,6 +148,28 @@ class Board extends Model
         return $value;
     }
 
+    public function getCoverTypeAttribute($value)
+    {
+        if (auth()->check()) {
+            $prefs = auth()->user()->board_backgrounds ?? [];
+            if (isset($prefs[$this->id]['cover_type'])) {
+                return $prefs[$this->id]['cover_type'];
+            }
+        }
+        return $value;
+    }
+
+    public function getCoverValueAttribute($value)
+    {
+        if (auth()->check()) {
+            $prefs = auth()->user()->board_backgrounds ?? [];
+            if (isset($prefs[$this->id]['cover_value'])) {
+                return $prefs[$this->id]['cover_value'];
+            }
+        }
+        return $value;
+    }
+
     public function getNameAttribute($value)
     {
         // If the stored name already has a month suffix, extract and preserve it

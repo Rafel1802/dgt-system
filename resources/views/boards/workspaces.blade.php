@@ -157,14 +157,12 @@
             </div>
             
             {{-- Edit Board Button --}}
-            @if(auth()->user()->hasAnyRole(['super-admin', 'admin', 'admin-digital']) || $workspace->owner_id === auth()->id())
-              <button type="button" 
-                      @click.stop.prevent="openEditBoard({{ $board->id }}, '{{ addslashes($board->name) }}', '{{ $board->cover_type ?? $board->background_type }}', '{{ $board->cover_value ?? $board->background_value }}')"
-                      class="absolute top-2 left-2 p-1.5 rounded-lg bg-black/30 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50"
-                      title="Edit Board Cover">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-              </button>
-            @endif
+            <button type="button" 
+                    @click.stop.prevent="openEditBoard({{ $board->id }}, '{{ addslashes($board->name) }}', '{{ $board->cover_type ?? $board->background_type }}', '{{ $board->cover_value ?? $board->background_value }}')"
+                    class="absolute top-2 left-2 p-1.5 rounded-lg bg-black/30 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50"
+                    title="Change cover color">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            </button>
 
             {{-- Three-dot menu (superadmin/admin-digital on hover) --}}
             @if(auth()->user()->canManageBoards())
@@ -683,24 +681,26 @@
         @csrf
         <div>
           <label class="form-label">Board Name <span class="text-red-500">*</span></label>
-          <input type="text" name="name" x-model="editBoardModal.name" class="form-input" required>
+          <input type="text" name="name" x-model="editBoardModal.name" class="form-input" 
+                 {{ auth()->user()->canManageBoards() ? 'required' : 'readonly disabled' }} 
+                 :class="{ 'bg-slate-50 text-slate-500': !{{ auth()->user()->canManageBoards() ? 'true' : 'false' }} }">
         </div>
 
         <div>
-          <label class="form-label">Background Type</label>
+          <label class="form-label">Cover Type</label>
           <div class="flex gap-4 mt-1 mb-3">
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="background_type" value="color" x-model="editBoardModal.bgType" class="text-indigo-600 focus:ring-indigo-500">
+              <input type="radio" name="cover_type" value="color" x-model="editBoardModal.bgType" class="text-indigo-600 focus:ring-indigo-500">
               <span class="text-sm text-slate-700">Color</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="background_type" value="image" x-model="editBoardModal.bgType" class="text-indigo-600 focus:ring-indigo-500">
+              <input type="radio" name="cover_type" value="image" x-model="editBoardModal.bgType" class="text-indigo-600 focus:ring-indigo-500">
               <span class="text-sm text-slate-700">Image</span>
             </label>
           </div>
 
           <div x-show="editBoardModal.bgType === 'color'" x-cloak>
-            <label class="form-label">Background Color</label>
+            <label class="form-label">Cover Color</label>
             <div class="flex items-center gap-3 mt-2">
               <label class="cursor-pointer relative group flex-shrink-0" title="Choose any color">
                 <input type="color" x-model="editBoardModal.customColor" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" @input="$refs.editCustomRadio.checked = true">
@@ -709,7 +709,7 @@
                       x-bind:style="'background: conic-gradient(#ef4444, #f59e0b, #10b981, #06b6d4, #3b82f6, #8b5cf6, #d946ef, #ef4444); --tw-ring-color: ' + editBoardModal.customColor">
                     <span class="block w-4 h-4 rounded-full border-2 border-white shadow-md" x-bind:style="'background-color: ' + editBoardModal.customColor"></span>
                 </span>
-                <input type="hidden" name="background_value" x-model="editBoardModal.customColor" :disabled="editBoardModal.bgType !== 'color'">
+                <input type="hidden" name="cover_value" x-model="editBoardModal.customColor" :disabled="editBoardModal.bgType !== 'color'">
               </label>
 
               <div class="relative">
@@ -721,7 +721,7 @@
           <div x-show="editBoardModal.bgType === 'image'" x-cloak class="space-y-3">
             <div>
               <label class="form-label">Upload Image (Auto-converts to WebP)</label>
-              <input type="file" name="background_image_file" accept="image/*" class="form-input !p-1.5 text-sm file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100" :disabled="editBoardModal.bgType !== 'image'">
+              <input type="file" name="cover_image_file" accept="image/*" class="form-input !p-1.5 text-sm file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100" :disabled="editBoardModal.bgType !== 'image'">
             </div>
             
             <div class="relative flex items-center py-2">
@@ -732,7 +732,7 @@
 
             <div>
               <label class="form-label">Image URL</label>
-              <input type="url" name="background_value" x-model="editBoardModal.customImage" class="form-input" placeholder="https://images.unsplash.com/..." :disabled="editBoardModal.bgType !== 'image'">
+              <input type="url" name="cover_value" x-model="editBoardModal.customImage" class="form-input" placeholder="https://images.unsplash.com/..." :disabled="editBoardModal.bgType !== 'image'">
               <p class="text-[10px] text-slate-500 mt-1">Provide a valid image URL if not uploading a file.</p>
             </div>
           </div>

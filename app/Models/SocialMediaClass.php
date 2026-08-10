@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SocialMediaClass extends Model
 {
-    protected $fillable = ['name', 'description', 'icon', 'color', 'status', 'created_by', 'external_link'];
+    protected $fillable = ['name', 'description', 'icon', 'color', 'status', 'created_by', 'external_link', 'position'];
 
     // ─── Relationships ────────────────────────────────────────────────────────
 

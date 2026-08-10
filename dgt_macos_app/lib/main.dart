@@ -216,6 +216,28 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
             event.preventDefault();
           }, { capture: true });
           document.documentElement.classList.add('dgt-macos-app');
+          
+          // Remove scrollbars without layout thrashing
+          const style = document.createElement('style');
+          style.innerHTML = `
+            ::-webkit-scrollbar { display: none; }
+            body { background-color: #f4f7fb !important; -ms-overflow-style: none; scrollbar-width: none; }
+          `;
+          document.head.appendChild(style);
+
+          // Intercept external links and downloads since we disabled shouldOverrideUrlLoading for performance
+          document.addEventListener('click', function(e) {
+            var a = e.target.closest('a');
+            if (!a || !a.href) return;
+            
+            if (a.hasAttribute('download') || a.href.toLowerCase().endsWith('.pdf')) {
+               e.preventDefault();
+               window.flutter_inappwebview.callHandler('DgtNativeDownload', a.href);
+            } else if (a.host !== window.location.host && a.host !== '') {
+               e.preventDefault();
+               window.flutter_inappwebview.callHandler('DgtOpenExternal', a.href);
+            }
+          }, true);
         }
 
         const blurAccidentalColorPicker = () => {
@@ -499,7 +521,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     javaScriptEnabled: true,
                     transparentBackground: false,
                     cacheEnabled: true,
-                    useShouldOverrideUrlLoading: true,
+                    useShouldOverrideUrlLoading: false,
                     useOnDownloadStart: true,
                     allowsBackForwardNavigationGestures: true,
                     isInspectable: false,
@@ -512,6 +534,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     supportZoom: true,
                     // Performance: hardware acceleration
                     hardwareAcceleration: true,
+                    supportMultipleWindows: true,
                   ),
                   onWebViewCreated: (webViewController) {
                     controller = webViewController;
@@ -520,6 +543,24 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                       callback: (args) {
                         if (args.isNotEmpty) {
                           _handleNativeNotificationMessage(args[0].toString());
+                        }
+                      },
+                    );
+                    controller?.addJavaScriptHandler(
+                      handlerName: 'DgtNativeDownload',
+                      callback: (args) async {
+                        if (args.isNotEmpty) {
+                          final uri = Uri.parse(args[0].toString());
+                          await _openExternalUrl(uri);
+                        }
+                      },
+                    );
+                    controller?.addJavaScriptHandler(
+                      handlerName: 'DgtOpenExternal',
+                      callback: (args) async {
+                        if (args.isNotEmpty) {
+                          final uri = Uri.parse(args[0].toString());
+                          await _openExternalUrl(uri);
                         }
                       },
                     );
@@ -562,22 +603,14 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                       setState(() => loadError = error.description);
                     }
                   },
-                  shouldOverrideUrlLoading:
-                      (controller, navigationAction) async {
-                        final uri = navigationAction.request.url;
-                        if (uri != null) {
-                          if (_isDownloadUrl(uri)) {
-                            await _openExternalUrl(uri);
-                            return NavigationActionPolicy.CANCEL;
-                          }
-                          if (_isInternalUrl(uri)) {
-                            return NavigationActionPolicy.ALLOW;
-                          }
-                          await _openExternalUrl(uri);
-                          return NavigationActionPolicy.CANCEL;
-                        }
-                        return NavigationActionPolicy.ALLOW;
-                      },
+                  onCreateWindow: (controller, createWindowAction) async {
+                    final uri = createWindowAction.request.url;
+                    if (uri != null) {
+                      await _openExternalUrl(uri);
+                      return true;
+                    }
+                    return false;
+                  },
                   onDownloadStartRequest: (controller, request) async {
                     await _openExternalUrl(request.url);
                   },
@@ -675,7 +708,7 @@ class NativeNotificationPoller {
     }
   }
 
-  Duration get _pollInterval => const Duration(seconds: 30);
+  Duration get _pollInterval => const Duration(seconds: 120);
 
   Future<void> poll() async {
     if (_isPolling) {

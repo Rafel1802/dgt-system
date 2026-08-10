@@ -8,6 +8,7 @@ use App\Models\Board;
 use App\Models\Card;
 use App\Enums\CardStatus;
 use App\Enums\CardPriority;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -263,7 +264,7 @@ class BoardExportController extends Controller
                     $q->whereHas('assignees', function($qa) use ($userId) {
                         $qa->where('users.id', $userId);
                     })
-                    ->orWhereHas('activityLogs', function($qal) use ($userId) {
+                    ->orWhereHas('activities', function($qal) use ($userId) {
                         $qal->where('user_id', $userId)
                             ->where('action', 'card.moved')
                             ->where('description', 'like', '%to **Supervisor%');
@@ -438,7 +439,7 @@ class BoardExportController extends Controller
             $assignees = $c->assignees;
             if ($assignees->isEmpty()) {
                 if (!isset($memberStats['Unassigned'])) {
-                    $memberStats['Unassigned'] = ['completed' => 0, 'pending' => 0, 'total' => 0];
+                    $memberStats['Unassigned'] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'team_role' => 'ZZ_Unassigned'];
                 }
                 if (($c->status === CardStatus::Done || $c->status === CardStatus::Approved) && !$c->is_archived) {
                     $memberStats['Unassigned']['completed']++;
@@ -449,7 +450,7 @@ class BoardExportController extends Controller
             } else {
                 foreach ($assignees as $u) {
                     if (!isset($memberStats[$u->name])) {
-                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0];
+                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'team_role' => $u->team_role ?? 'ZZ_Other'];
                     }
                     if (($c->status === CardStatus::Done || $c->status === CardStatus::Approved) && !$c->is_archived) {
                         $memberStats[$u->name]['completed']++;
@@ -460,6 +461,15 @@ class BoardExportController extends Controller
                 }
             }
         }
+        
+        uksort($memberStats, function($a, $b) use ($memberStats) {
+            $teamA = $memberStats[$a]['team_role'] ?? '';
+            $teamB = $memberStats[$b]['team_role'] ?? '';
+            if ($teamA === $teamB) {
+                return strcmp($a, $b);
+            }
+            return strcmp($teamA, $teamB);
+        });
 
         // Get report period string
         $period = 'All Time';
@@ -477,6 +487,55 @@ class BoardExportController extends Controller
             }
         }
 
+        $labelStats = [];
+        foreach ($cards as $c) {
+            if ($c->is_archived) continue;
+            
+            $validLabels = $c->labels->filter(fn($l) => strtoupper($l->name) !== 'SMM');
+            
+            if ($validLabels->isEmpty()) {
+                $labelStats['No Label'] = ($labelStats['No Label'] ?? 0) + 1;
+            } else {
+                foreach ($validLabels as $label) {
+                    $name = $label->name;
+                    $labelStats[$name] = ($labelStats[$name] ?? 0) + 1;
+                }
+            }
+        }
+
+        $copyText = '';
+        if (auth()->user()->isQc()) {
+            $groupedByLabel = [];
+            foreach ($cards as $c) {
+                if ($c->is_archived) continue;
+                
+                $validLabels = $c->labels->filter(fn($l) => strtoupper($l->name) !== 'SMM');
+                
+                if ($validLabels->isEmpty()) {
+                    $groupedByLabel['No Label'][] = $c->title;
+                } else {
+                    foreach ($validLabels as $label) {
+                        $groupedByLabel[$label->name][] = $c->title;
+                    }
+                }
+            }
+            foreach ($groupedByLabel as $labelName => $titles) {
+                $copyText .= $labelName . ' (total ' . count($titles) . ")\n";
+                foreach ($titles as $idx => $title) {
+                    $copyText .= ($idx + 1) . '.' . $title . "\n";
+                }
+                $copyText .= "\n";
+            }
+        } else {
+            $count = 0;
+            foreach ($cards as $c) {
+                if ($c->is_archived) continue;
+                $count++;
+                $copyText .= $count . '.' . $c->title . "\n";
+            }
+            $copyText .= "Total: " . $count . "\n";
+        }
+
         // PDF display option
         $includeDesc = $request->boolean('include_desc', false);
         $includeComments = $request->boolean('include_comments', false);
@@ -491,6 +550,9 @@ class BoardExportController extends Controller
             'overdueTasks' => $overdueTasks,
             'archivedTasks' => $archivedTasks,
             'memberStats' => $memberStats,
+            'labelStats' => $labelStats,
+            'copyText' => $copyText,
+            'includeDesc' => $includeDesc,
             'includeDesc' => $includeDesc,
             'includeComments' => $includeComments,
             'exportDate' => now()->format('M d, Y g:i A'),
@@ -641,19 +703,77 @@ class BoardExportController extends Controller
             $assignees = $c->assignees;
             if ($assignees->isEmpty()) {
                 if (!isset($memberStats['Unassigned'])) {
-                    $memberStats['Unassigned'] = ['completed' => 0, 'pending' => 0, 'total' => 0];
+                    $memberStats['Unassigned'] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'team_role' => 'ZZ_Unassigned'];
                 }
                 $done ? $memberStats['Unassigned']['completed']++ : $memberStats['Unassigned']['pending']++;
                 $memberStats['Unassigned']['total']++;
             } else {
                 foreach ($assignees as $u) {
                     if (!isset($memberStats[$u->name])) {
-                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0];
+                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'team_role' => $u->team_role ?? 'ZZ_Other'];
                     }
                     $done ? $memberStats[$u->name]['completed']++ : $memberStats[$u->name]['pending']++;
                     $memberStats[$u->name]['total']++;
                 }
             }
+        }
+        
+        uksort($memberStats, function($a, $b) use ($memberStats) {
+            $teamA = $memberStats[$a]['team_role'] ?? '';
+            $teamB = $memberStats[$b]['team_role'] ?? '';
+            if ($teamA === $teamB) {
+                return strcmp($a, $b);
+            }
+            return strcmp($teamA, $teamB);
+        });
+
+        $labelStats = [];
+        foreach ($cards as $c) {
+            if ($c->is_archived) continue;
+            
+            $validLabels = $c->labels->filter(fn($l) => strtoupper($l->name) !== 'SMM');
+            
+            if ($validLabels->isEmpty()) {
+                $labelStats['No Label'] = ($labelStats['No Label'] ?? 0) + 1;
+            } else {
+                foreach ($validLabels as $label) {
+                    $name = $label->name;
+                    $labelStats[$name] = ($labelStats[$name] ?? 0) + 1;
+                }
+            }
+        }
+
+        $copyText = '';
+        if (auth()->user()->isQc()) {
+            $groupedByLabel = [];
+            foreach ($cards as $c) {
+                if ($c->is_archived) continue;
+                
+                $validLabels = $c->labels->filter(fn($l) => strtoupper($l->name) !== 'SMM');
+                
+                if ($validLabels->isEmpty()) {
+                    $groupedByLabel['No Label'][] = $c->title;
+                } else {
+                    foreach ($validLabels as $label) {
+                        $groupedByLabel[$label->name][] = $c->title;
+                    }
+                }
+            }
+            foreach ($groupedByLabel as $labelName => $titles) {
+                $copyText .= $labelName . ' (total ' . count($titles) . ")\n";
+                foreach ($titles as $idx => $title) {
+                    $copyText .= ($idx + 1) . '.' . $title . "\n";
+                }
+                $copyText .= "\n";
+            }
+        } else {
+            $count = 0;
+            foreach ($cards as $c) {
+                if ($c->is_archived) continue;
+                $count++;
+                $copyText .= $count . '.' . $c->title . "\n";
+            }
+            $copyText .= "Total: " . $count . "\n";
         }
 
         return view('boards.export-pdf', [
@@ -667,6 +787,8 @@ class BoardExportController extends Controller
             'archivedTasks' => $archivedTasks,
             'errorTasks'    => $errorTasks,
             'memberStats'   => $memberStats,
+            'labelStats'    => $labelStats,
+            'copyText'      => $copyText,
             'includeDesc'   => $includeDesc,
             'includeComments'=> $includeComments,
             'exportDate'    => now()->format('M d, Y g:i A'),
@@ -674,6 +796,5 @@ class BoardExportController extends Controller
             'isQcReport'    => auth()->user()->isQc(),
             'reportUrl'     => request()->fullUrl(),
         ]);
-
     }
 }

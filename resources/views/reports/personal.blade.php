@@ -3,7 +3,7 @@
 @section('page_title', 'Personal Report')
 
 @section('content')
-<div class="animate-fade-in space-y-8" x-data="{ 
+<div class="animate-fade-in space-y-8 pb-32" x-data="{ 
     dateRange: 'all_time',
     reportType: 'kanban',
     selectAll(workspaceId, checked) {
@@ -17,10 +17,18 @@
     }
 }">
 
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-display font-bold text-slate-800 dark:text-white">Personal Report</h1>
-      <p class="text-sm text-slate-400 dark:text-slate-400 mt-0.5">Consolidated multi-department report compilation for QC and Supervisors.</p>
+  <div class="flex items-center justify-between mb-2">
+    <div class="flex items-start gap-4">
+      <a wire:navigate.hover href="{{ route('dashboard') }}" class="btn btn-secondary py-2 px-3 mt-1 flex items-center gap-2 text-sm shadow-sm rounded-xl">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+          Back
+      </a>
+      <div>
+        <h1 class="text-2xl font-display font-bold text-slate-800 dark:text-white">Personal Report</h1>
+        <p class="text-sm text-slate-400 dark:text-slate-400 mt-0.5">Consolidated multi-department report compilation for QC and Supervisors.</p>
+      </div>
     </div>
   </div>
 

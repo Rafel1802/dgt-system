@@ -45,6 +45,7 @@ class User extends Authenticatable
         'crm_role',
         'notification_sound',
         'board_backgrounds',
+        'theme',
     ];
 
     /**

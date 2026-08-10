@@ -15,7 +15,7 @@ class SocialMediaAnalyticsController extends Controller
     /** List all analytics uploads — admin-digital & social_qc only */
     public function index(Request $request)
     {
-        $classes   = SocialMediaClass::orderBy('name')->get();
+        $classes   = SocialMediaClass::orderBy('position')->orderBy('name')->get();
         $classId   = $request->input('class_id');
         $dateFrom  = $request->input('date_from');
         $dateTo    = $request->input('date_to');
@@ -50,7 +50,7 @@ class SocialMediaAnalyticsController extends Controller
         ]);
 
         $classIds = collect($validated['class_ids'])->map(fn ($id) => (int) $id)->unique()->values();
-        $classes = SocialMediaClass::whereIn('id', $classIds)->orderBy('name')->get();
+        $classes = SocialMediaClass::whereIn('id', $classIds)->orderBy('position')->orderBy('name')->get();
         $dateFrom = $validated['date_from'];
         $dateTo = $validated['date_to'];
         $filename = 'analytics-' . $dateFrom . '-to-' . $dateTo . '-' . Str::uuid() . '.pdf';

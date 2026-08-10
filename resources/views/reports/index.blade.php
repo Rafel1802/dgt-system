@@ -284,13 +284,7 @@ mkChart('chartStaffTasks', 'bar', {
 }
 
 function scheduleAdminReportCharts() {
-  const run = () => initAdminReportCharts();
-
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(run, { timeout: 1200 });
-  } else {
-    setTimeout(run, 80);
-  }
+  setTimeout(() => initAdminReportCharts(), 10);
 }
 
 document.addEventListener('DOMContentLoaded', scheduleAdminReportCharts);

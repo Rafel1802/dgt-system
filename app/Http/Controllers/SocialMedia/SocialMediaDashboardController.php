@@ -24,7 +24,7 @@ class SocialMediaDashboardController extends Controller
         $canSeeAllClasses = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss', 'digital-team']);
         // Remove the restriction so everyone sees all classes (unassigned users will see them in view-only mode)
 
-        $classes = $classQuery->orderBy('name')->get();
+        $classes = $classQuery->orderBy('position')->orderBy('name')->get();
 
         // Compute summary stats per class
         $classesWithStats = $classes->map(function (SocialMediaClass $class) {
