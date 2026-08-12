@@ -249,6 +249,8 @@
         @media print {
             body {
                 padding: 15mm 15mm 15mm 15mm !important;
+                background-color: #fff !important;
+                color: #0f172a !important;
             }
             .no-print {
                 display: none !important;
@@ -258,6 +260,92 @@
             }
             .section-container {
                 page-break-inside: avoid;
+            }
+        }
+
+        /* Screen Dark Mode */
+        @media screen and (prefers-color-scheme: dark) {
+            body {
+                background-color: #0f172a;
+                color: #e2e8f0;
+            }
+            .header {
+                background-color: #1e293b;
+                color: #f1f5f9;
+            }
+            .header-right .badge {
+                background-color: #3730a3;
+                color: #e0e7ff;
+            }
+            .stat-card {
+                background-color: #1e293b;
+                border-color: #334155;
+            }
+            .stat-card .label { color: #94a3b8; }
+            .stat-card .value { color: #f1f5f9; }
+            .stat-card.completed { background-color: rgba(16, 185, 129, 0.1); border-color: #059669; }
+            .stat-card.completed .value { color: #34d399; }
+            .stat-card.pending { background-color: rgba(245, 158, 11, 0.1); border-color: #d97706; }
+            .stat-card.pending .value { color: #fbbf24; }
+            .stat-card.overdue { background-color: rgba(239, 68, 68, 0.1); border-color: #dc2626; }
+            .stat-card.overdue .value { color: #f87171; }
+            
+            .section-title {
+                color: #e2e8f0;
+                border-bottom-color: #334155;
+            }
+            table th {
+                background-color: #1e293b;
+                color: #94a3b8;
+                border-bottom-color: #334155;
+            }
+            table td {
+                border-bottom-color: #334155;
+                color: #cbd5e1;
+            }
+            table tbody tr:nth-child(even) {
+                background-color: #161921;
+            }
+            
+            .task-title { color: #f1f5f9; }
+            .task-desc {
+                background-color: #1e293b;
+                border-color: #334155;
+                color: #cbd5e1;
+            }
+            
+            .task-images {
+                background-color: #1e293b;
+                border-color: #334155;
+            }
+            .images-header { color: #94a3b8; }
+            .image-item {
+                background-color: #0f172a;
+                border-color: #334155;
+            }
+            
+            .comment-item {
+                border-left-color: #334155;
+            }
+            .comment-header { color: #94a3b8; }
+            .comment-body { color: #cbd5e1; }
+            
+            .status-todo { background-color: #334155; color: #cbd5e1; }
+            .status-in_progress { background-color: rgba(37, 99, 235, 0.2); color: #93c5fd; }
+            .status-review { background-color: rgba(217, 119, 6, 0.2); color: #fcd34d; }
+            .status-approved { background-color: rgba(5, 150, 105, 0.2); color: #6ee7b7; }
+            .status-rejected { background-color: rgba(220, 38, 38, 0.2); color: #fca5a5; }
+            .status-done { background-color: rgba(124, 58, 237, 0.2); color: #c4b5fd; }
+            .status-archived { background-color: #1e293b; color: #94a3b8; border-color: #475569; }
+
+            .priority-urgent { background-color: rgba(220, 38, 38, 0.2); color: #fca5a5; }
+            .priority-high { background-color: rgba(234, 88, 12, 0.2); color: #fdba74; }
+            .priority-medium { background-color: rgba(67, 56, 202, 0.2); color: #a5b4fc; }
+            .priority-low { background-color: #1e293b; color: #94a3b8; }
+            
+            .tag-label {
+                background-color: #3730a3;
+                color: #c7d2fe;
             }
         }
 

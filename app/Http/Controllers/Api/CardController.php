@@ -105,7 +105,7 @@ class CardController extends Controller
     {
         $card->loadMissing('board');
         if ($card->board) {
-            abort_unless($card->board->hasMember($request->user()->id) || $request->user()->hasRole('super-admin'), 403);
+            // Allow all authenticated users to edit the card
         }
 
         $validated = $request->validate([

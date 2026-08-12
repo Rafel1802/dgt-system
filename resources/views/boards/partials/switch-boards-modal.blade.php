@@ -152,26 +152,26 @@
           <template x-for="b in sbmFilteredBoards()" :key="b.id">
             <article x-data="{ menuOpen: false }"
                      class="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
-              <button type="button"
-                      @click="switchToBoard(b)"
-                      class="block h-28 w-full overflow-hidden bg-slate-200 text-left"
-                      :style="sbmCoverStyle(b)"
-                      :aria-label="'Switch to ' + b.name">
+              <a :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
+                 @click="b.id === boardId ? (closeSwitchBoardsModal(), $event.preventDefault()) : null"
+                 class="block h-28 w-full overflow-hidden bg-slate-200 text-left"
+                 :style="sbmCoverStyle(b)"
+                 :aria-label="'Switch to ' + b.name">
                 <div class="relative h-full w-full bg-slate-950/15 transition group-hover:bg-slate-950/5">
                   <div class="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] items-center gap-2">
                     <span class="rounded-md bg-white/90 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700 shadow-sm" x-text="sbmBoardWorkspaceName(b)"></span>
                   </div>
 
                 </div>
-              </button>
+              </a>
 
               <div class="space-y-3 p-3">
                 <div class="flex items-start gap-3">
-                  <button type="button"
-                          @click="switchToBoard(b)"
-                          class="min-w-0 flex-1 text-left">
+                  <a :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
+                     @click="b.id === boardId ? (closeSwitchBoardsModal(), $event.preventDefault()) : null"
+                     class="min-w-0 flex-1 text-left">
                     <span class="block text-sm font-black text-slate-900 transition hover:text-sky-700" x-text="b.name"></span>
-                  </button>
+                  </a>
 
                   <button type="button"
                           @click.stop="toggleStarDirect(b.id)"

@@ -132,12 +132,16 @@
       <div class="board-sort-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4"
            data-workspace-id="{{ $workspace->id }}">
         @foreach($workspace->boards as $board)
-          <div data-board-id="{{ $board->id }}"
+          <a href="{{ route('boards.show', $board->slug) }}" 
+               data-turbo="false"
+               draggable="false"
+               data-board-id="{{ $board->id }}"
                x-data="{ openBoardMenu: false }"
                :class="{ 'z-50': openBoardMenu, 'z-10': !openBoardMenu }"
-               @click="if(!window.isDraggingBoard && !openBoardMenu) window.location.href='{{ route('boards.show', $board->slug) }}'"
+               @click="if(window.isDraggingBoard || openBoardMenu) { $event.preventDefault(); }"
+               @mouseenter="if ('{{ $board->background_type === 'image' && $board->background_value ? 1 : 0 }}' === '1' && !window['_preloaded_bg_' + {{ $board->id }}]) { const img = new Image(); img.src = '{{ str_replace('\'', '\\\'', $board->background_value) }}'; window['_preloaded_bg_' + {{ $board->id }}] = true; }"
                title="Drag to move this board left or right"
-               class="group relative h-28 cursor-grab active:cursor-grabbing rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
+               class="group block relative h-28 cursor-grab active:cursor-grabbing rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
                style="{{ $board->coverStyle() }}">
             {{-- Overlay --}}
             <div class="absolute inset-0 rounded-xl bg-black/20 group-hover:bg-black/10 transition-colors pointer-events-none"></div>
@@ -187,7 +191,7 @@
                 </div>
               </div>
             @endif
-          </div>
+          </a>
         @endforeach
 
         {{-- Create new board tile --}}
@@ -747,4 +751,5 @@
   </div>
 
 </div>
+
 @endsection

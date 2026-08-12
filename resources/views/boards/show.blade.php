@@ -962,7 +962,7 @@
 <!-- Quill JS -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 @php
-    $trelloBoardVersion = '2.0.0'; // Hardcoded version to forcefully bypass App cache, but remain fast on subsequent loads
+    $trelloBoardVersion = file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0';
     $dragScrollVersion = file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0';
 @endphp
 <script src="{{ asset('js/trello-board.js') }}?v={{ $trelloBoardVersion }}"></script>

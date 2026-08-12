@@ -47,16 +47,21 @@ class NotificationController extends Controller
                 'created_at' => $n->created_at,
             ]);
 
-        $unreadQuery = $this->scopeToUserModules($user->unreadNotifications(), $modules)->get();
+        $counts = $this->scopeToUserModules($user->unreadNotifications(), $modules)
+            ->toBase()
+            ->selectRaw("JSON_UNQUOTE(JSON_EXTRACT(data, '$.module')) as module, count(*) as aggregate")
+            ->groupBy('module')
+            ->pluck('aggregate', 'module');
+
         $unreadByModule = [
-            'boards' => $unreadQuery->where('data.module', 'kanban')->count(),
-            'smm' => $unreadQuery->where('data.module', 'social-media')->count(),
-            'websites' => $unreadQuery->where('data.module', 'websites')->count(),
+            'boards' => $counts['kanban'] ?? 0,
+            'smm' => $counts['social-media'] ?? 0,
+            'websites' => $counts['websites'] ?? 0,
         ];
 
         return response()->json([
             'notifications' => $notifications,
-            'unread_count' => $unreadQuery->count(),
+            'unread_count' => $counts->sum(),
             'unread_by_module' => $unreadByModule,
         ]);
     }
@@ -79,7 +84,9 @@ class NotificationController extends Controller
     public function markAllAsRead(): JsonResponse
     {
         $user = auth()->user();
-        $this->scopeToUserModules($user->unreadNotifications(), $user->notificationModules())->get()->markAsRead();
+        $this->scopeToUserModules($user->unreadNotifications(), $user->notificationModules())
+            ->update(['read_at' => now()]);
+            
         return response()->json(['success' => true]);
     }
 }

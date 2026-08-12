@@ -58,6 +58,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <!-- Turbo 8: Drive navigation with speculative prefetch for instant loading. -->
     <meta name="turbo-prefetch" content="true">
     <style>
+        [x-cloak] { display: none !important; }
+
         .turbo-progress-bar {
             display: none !important;
             height: 0px !important;
@@ -97,6 +99,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <script type="module">
         // Self-hosted Turbo — avoid unpkg RTT on every cold load (Hostinger users often far from CDN).
         import * as Turbo from "{{ asset('js/turbo.es2017-esm.js') }}?v={{ file_exists(public_path('js/turbo.es2017-esm.js')) ? filemtime(public_path('js/turbo.es2017-esm.js')) : '8.0.4' }}";
+        window.Turbo = Turbo;
         Turbo.setProgressBarDelay(0);
         
         // Prevent Turbo from conflicting with Livewire's wire:navigate.
@@ -129,6 +132,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </script>
     <script>
         (function() {
+            // Revert submit buttons when Turbo completes the request
+            document.addEventListener('turbo:submit-end', function(e) {
+                const form = e.target;
+                const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+                submitButtons.forEach(button => {
+                    if (button.dataset.originalHtml) {
+                        button.disabled = false;
+                        button.classList.remove('opacity-75', 'cursor-not-allowed');
+                        button.innerHTML = button.dataset.originalHtml;
+                        delete button.dataset.originalHtml;
+                    }
+                });
+            });
+
             // Keep scroll position on form submissions & show processing spinner
             document.addEventListener('submit', (e) => {
                 if (e.defaultPrevented) return;
@@ -145,6 +162,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 // Show spinner and disable buttons to prevent double clicks
                 setTimeout(() => {
                     if (e.defaultPrevented) return;
+                    
+                    // Skip forms that explicitly opt-out of the processing spinner
+                    if (form.hasAttribute('data-no-processing')) return;
                     
                     const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
                     submitButtons.forEach(button => {
@@ -301,6 +321,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
     @if($isDesktopOrMobileApp)
         <style>
+        [x-cloak] { display: none !important; }
+
             .turbo-progress-bar {
                 display: none !important;
                 visibility: hidden !important;
@@ -421,6 +443,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
     <!-- ── Sidebar Overlay (mobile) ───────────────────────────────────── -->
     <style>
+        [x-cloak] { display: none !important; }
+
         #dgt-app-wrapper.not-ready .sidebar,
         #dgt-app-wrapper.not-ready .main-wrapper {
             transition: none !important;
@@ -1280,6 +1304,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         x-transition:leave-end="opacity-0 scale-95"
                         class="dropdown-menu absolute bottom-full left-0 right-0 mb-2"
                         x-cloak
+                        style="display: none;"
                         role="menu"
                     >
                         <a wire:navigate.hover href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-profile">
@@ -1433,7 +1458,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
 
-                    <div class="relative" x-data="notificationSystem()" x-init="initNotifications()">
+                    <div class="relative" x-data="notificationSystem()" x-init="initNotifications()" @kiuq:realtime-notification.window="open = false">
                         <button class="btn btn-secondary btn-icon relative hover:!bg-blue-600 hover:!text-white hover:!border-blue-600 transition-all duration-150"
                                 @click="toggleOpen()"
                                 aria-label="Open notifications"
@@ -1446,7 +1471,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </template>
                         </button>
 
-                        <div x-show="open" @click.outside="open = false" x-cloak
+                        <div x-show="open" @click.outside="open = false" x-cloak style="display: none;"
                              class="notif-panel absolute right-0 mt-2 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl z-50 sm:w-96"
                              x-transition:enter="transition ease-out duration-150"
                              x-transition:enter-start="opacity-0 scale-95"
@@ -1557,7 +1582,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             )
                         );
                     @endphp
-                    <div class="relative" x-data="dropdown">
+                    <div class="relative" x-data="dropdown" @kiuq:realtime-notification.window="open = false">
                         <button type="button"
                                 @click="toggle"
                                 class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-left shadow-sm transition hover:border-indigo-600 hover:bg-indigo-50 dark-user-btn"
@@ -1592,6 +1617,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                              x-transition:leave-end="opacity-0 scale-95"
                              class="dropdown-menu absolute right-0 mt-2 w-64"
                              x-cloak
+                             style="display: none;"
                              role="menu">
                             <div class="flex items-center gap-3 border-b border-slate-100 px-2 py-2.5">
                                 <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->name }}" onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()->name, auth()->user()->avatar_color) }}';" class="avatar avatar-md">
@@ -2513,23 +2539,38 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     if (isInitialLoad) {
                         unread.forEach(n => window.dgtMarkNotificationShown(n.id));
                     } else {
-                        unread.filter(n => !window.dgtWasNotificationShown(n.id)).forEach(newNotif => {
+                        const newNotifs = unread.filter(n => !window.dgtWasNotificationShown(n.id));
+                        newNotifs.forEach((newNotif, index) => {
                             window.dgtMarkNotificationShown(newNotif.id);
-                            if (newNotif.data && newNotif.data.actor_name) {
-                                window.showRichNotificationToast(newNotif.data);
-                                if (newNotif.data.browser_notifications_enabled !== false) {
-                                    window.sendBrowserNotification(
-                                        "KIUQ Board Update",
-                                        `${newNotif.data.actor_name} ${newNotif.data.description.replace(/\*\*/g, '')}`,
-                                        newNotif.data.actor_avatar
-                                    );
+                            
+                            // Prevent browser freeze from a flood of toasts on wake-up
+                            if (index < 3) {
+                                if (newNotif.data && newNotif.data.actor_name) {
+                                    window.showRichNotificationToast(newNotif.data);
+                                    if (newNotif.data.browser_notifications_enabled !== false) {
+                                        window.sendBrowserNotification(
+                                            "KIUQ Board Update",
+                                            `${newNotif.data.actor_name} ${newNotif.data.description.replace(/\*\*/g, '')}`,
+                                            newNotif.data.actor_avatar
+                                        );
+                                    }
+                                } else {
+                                    if (window.dgtShouldSuppressDuplicateContent?.(newNotif.data)) return;
+                                    window.showCrmNotificationCard(newNotif.data, newNotif.id);
+                                    window.sendBrowserNotification("KIUQ SYSTEM Update", newNotif.data.message || "New update");
                                 }
-                            } else {
-                                if (window.dgtShouldSuppressDuplicateContent?.(newNotif.data)) return;
-                                window.showCrmNotificationCard(newNotif.data, newNotif.id);
-                                window.sendBrowserNotification("KIUQ SYSTEM Update", newNotif.data.message || "New update");
                             }
                         });
+                        
+                        if (newNotifs.length > 3) {
+                            window.sendBrowserNotification("KIUQ SYSTEM", `You have ${newNotifs.length} new notifications.`);
+                            if (window.showRichNotificationToast) {
+                                window.showRichNotificationToast({
+                                    actor_name: 'KIUQ SYSTEM',
+                                    description: `You have ${newNotifs.length} new updates.`
+                                });
+                            }
+                        }
                     }
 
                     this.notifications = data.notifications || [];
@@ -2843,7 +2884,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         const handleNavAction = (item) => {
             const href = item.getAttribute('href');
             if (href && href !== '#' && !item.hasAttribute('x-data')) {
-                window.location.href = href;
+                if (window.Turbo) {
+                    window.Turbo.visit(href);
+                } else {
+                    window.location.href = href;
+                }
             } else if (item.hasAttribute('x-data')) {
                 // Use a proper MouseEvent so AlpineJS catches it natively
                 const clickEvent = new MouseEvent('click', {
@@ -2906,6 +2951,38 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             }
         }, { passive: true, capture: true });
     });
+        // Fix for "not real time fast" menu feeling:
+        // Provide immediate visual feedback when clicking sidebar links.
+        document.addEventListener('click', function(e) {
+            const sidebarLink = e.target.closest('.sidebar-item');
+            if (sidebarLink && sidebarLink.getAttribute('href') && sidebarLink.getAttribute('href') !== '#') {
+                // Instantly highlight the clicked link
+                document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+                sidebarLink.classList.add('active');
+                
+                // If on mobile, instantly close the sidebar to feel faster
+                if (window.innerWidth < 1024) {
+                    // Alpine.js usually handles this, but forcing it instantly makes it feel better
+                    document.dispatchEvent(new CustomEvent('close-mobile-menu'));
+                }
+            }
+        });
+
+        // Aggressive background prefetch for sidebar links to ensure instantaneous 0ms navigation
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.querySelectorAll('a.sidebar-item').forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href && href !== '#' && !href.includes('javascript:')) {
+                        const prefetch = document.createElement('link');
+                        prefetch.rel = 'prefetch';
+                        prefetch.as = 'document';
+                        prefetch.href = href;
+                        document.head.appendChild(prefetch);
+                    }
+                });
+            }, 1000); // Delay to prioritize main page load
+        });
     </script>
 </body>
 </html>

@@ -43,10 +43,7 @@ class BoardController extends Controller
 
         // Retrieve possible members
         $possibleWorkspaceMembers = User::active()
-            ->with('roles')
-            ->orderBy('name')
-            ->get()
-            ->filter(fn ($member) => $member->hasAnyRole([
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', [
                 'digital-team',
                 'admin-digital',
                 'super-admin',
@@ -58,6 +55,8 @@ class BoardController extends Controller
                 'Video head',
                 'Listing head',
             ]))
+            ->orderBy('name')
+            ->get()
             ->values();
 
         $hiddenBoards = collect();
@@ -239,9 +238,7 @@ class BoardController extends Controller
                 'assignees:id,name,avatar,username',
                 'labels',
                 'checklists.items:id,card_checklist_id,name,is_completed,position',
-                'comments:id,card_id',
-                'files:id,card_id',
-            ]);
+            ])->withCount(['files', 'comments']);
         }]);
 
         $user = auth()->user();
@@ -270,10 +267,9 @@ class BoardController extends Controller
         $possibleBoardUsers = $board->workspace->members
             ->concat(
                 User::active()
-                    ->with('roles')
+                    ->whereHas('roles', fn($q) => $q->whereIn('name', ['digital-team', 'admin-digital', 'admin', 'boss', 'supervisor', 'staff']))
                     ->orderBy('name')
                     ->get()
-                    ->filter(fn ($member) => $member->hasAnyRole(['digital-team', 'admin-digital', 'admin', 'boss', 'supervisor', 'staff']))
             )
             ->unique('id')
             ->sortBy(fn ($member) => ($boardMemberIds->contains($member->id) ? '0_' : '1_') . strtolower($member->name))
@@ -345,8 +341,8 @@ class BoardController extends Controller
                     ]),
                     'checklist_total' => $c->checklists->flatMap->items->count(),
                     'checklist_done'  => $c->checklists->flatMap->items->where('is_completed',true)->count(),
-                    'has_files'       => $c->files->isNotEmpty(),
-                    'comment_count'   => $c->comments->count(),
+                    'has_files'       => $c->files_count > 0,
+                    'comment_count'   => $c->comments_count,
                     'creator' => $c->creator ? [
                         'id' => $c->creator->id,
                         'name' => $c->creator->name,
@@ -410,6 +406,7 @@ class BoardController extends Controller
                     'id' => $b->id,
                     'name' => $b->name,
                     'slug' => $b->slug,
+                    'type' => $b->type,
                     'workspace_id' => $b->workspace_id,
                     'is_starred' => (bool) $b->is_starred,
                     'background_type' => $b->background_type,
@@ -1507,6 +1504,7 @@ class BoardController extends Controller
                     'id' => $workspaceBoard->id,
                     'name' => $workspaceBoard->name,
                     'slug' => $workspaceBoard->slug,
+                    'type' => $workspaceBoard->type,
                     'workspace_id' => $workspaceBoard->workspace_id,
                     'is_starred' => (bool) $workspaceBoard->is_starred,
                     'background_type' => $workspaceBoard->background_type,

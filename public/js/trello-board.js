@@ -1975,6 +1975,26 @@ window.trelloBoard = function(config) {
       });
     },
 
+    formatInputDate(dateStr) {
+      const d = this.parseCardDate(dateStr);
+      if (!d) return '';
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: this.khTimeZone
+      });
+      const parts = formatter.formatToParts(d);
+      const year = parts.find(p => p.type === 'year')?.value;
+      const month = parts.find(p => p.type === 'month')?.value;
+      const day = parts.find(p => p.type === 'day')?.value;
+      if (year && month && day) {
+        return `${year}-${month}-${day}`;
+      }
+      // Fallback
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
     formatDueBadge(dateStr, dueTime = '', status = '') {
       const d = this.parseCardDate(dateStr, dueTime);
       if (!d) return 'Set due date';
@@ -3246,7 +3266,14 @@ window.trelloBoard = function(config) {
         this.closeSwitchBoardsModal();
         return;
       }
-      window.location.href = `/boards/${board.slug}`;
+      
+      const routePrefix = board.type === 'smm' ? '/smm-boards' : '/boards';
+      
+      if (window.Turbo) {
+        window.Turbo.visit(`${routePrefix}/${board.slug}`);
+      } else {
+        window.location.href = `${routePrefix}/${board.slug}`;
+      }
     },
 
     sbmOpenBoardMembers(board) {

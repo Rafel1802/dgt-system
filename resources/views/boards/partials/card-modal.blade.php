@@ -26,9 +26,7 @@
             <input type="text" :value="activeCard?.title"
                    @change="updateCardField({ title: $event.target.value })"
                    @keydown.enter="$event.target.blur()"
-                   :readonly="!{{ auth()->user()->canManageBoards() ? 'true' : 'false' }}"
-                   :class="!{{ auth()->user()->canManageBoards() ? 'true' : 'false' }} ? 'cursor-default' : 'focus:ring-2 focus:ring-indigo-500/20 focus:bg-white'"
-                   class="card-detail-title font-display font-bold text-slate-800 text-xl w-full bg-transparent border-0 rounded px-2 -ml-2 py-0.5 transition-all truncate">
+                   class="card-detail-title font-display font-bold text-slate-800 text-xl w-full bg-transparent border-0 rounded px-2 -ml-2 py-0.5 transition-all truncate focus:ring-2 focus:ring-indigo-500/20 focus:bg-white">
             
             {{-- Stage/List selector dropdown trigger --}}
             <div class="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5" x-data="{ openListSelect: false }">
@@ -95,15 +93,13 @@
                   {{-- Content Public Date --}}
                   <div class="min-w-[100px]">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Content Public</p>
-                    <template x-if="activeCard?.content_public_date">
-                      <span class="px-2.5 py-1 rounded-md text-amber-700 bg-amber-50 font-bold text-[10px] shadow-sm border border-amber-100 flex items-center gap-1">
-                        <i class="fi fi-rr-calendar text-[10px]"></i>
-                        <span x-text="formatDateShort(activeCard?.content_public_date)"></span>
-                      </span>
-                    </template>
-                    <template x-if="!activeCard?.content_public_date">
-                      <span class="text-xs text-slate-400 italic">None</span>
-                    </template>
+                    <div class="relative flex items-center">
+                      <input type="date" 
+                             :value="formatInputDate(activeCard?.content_public_date)" 
+                             @change="updateCardField({ content_public_date: $event.target.value })" 
+                             class="px-2.5 py-1 rounded-md text-amber-700 bg-amber-50 font-bold text-[10px] shadow-sm border border-amber-100 focus:ring-1 focus:ring-amber-300 focus:border-amber-300 w-[110px] cursor-pointer"
+                             title="Click to edit public date" />
+                    </div>
                   </div>
                   {{-- Assign By --}}
                   <div class="min-w-[100px]">
@@ -812,7 +808,7 @@
               <input type="date"
                      x-ref="publicDateInput"
                      class="absolute w-0 h-0 opacity-0 pointer-events-none"
-                     :value="activeCard?.content_public_date ? String(activeCard.content_public_date).substring(0,10) : ''"
+                     :value="formatInputDate(activeCard?.content_public_date)"
                      @change="updatePublicDate(activeCard, $event.target.value)">
               <button type="button" @click="$refs.publicDateInput.showPicker ? $refs.publicDateInput.showPicker() : $refs.publicDateInput.click()"
                       class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl relative">

@@ -32,7 +32,7 @@
     </div>
   </div>
 
-  <form :action="getExportUrl()" method="GET" target="_blank" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  <form :action="getExportUrl()" method="GET" target="_blank" data-turbo="false" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       
       {{-- Main Content Area (Left) --}}
       <div class="lg:col-span-2 space-y-6">

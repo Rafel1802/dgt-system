@@ -84,7 +84,9 @@ class CardController extends Controller
             'initials'    => $card->creator->avatar_initials,
             'avatar_color'=> $card->creator->avatar_color,
         ] : null;
-        $cardData['comments'] = $card->comments->map(fn($c) => [
+        $cardData['comments'] = $card->comments
+            ->reject(fn($c) => $c->is_system)
+            ->map(fn($c) => [
             'id'         => $c->id,
             'body'       => $c->body ?? $c->content,
             'content'    => $c->body ?? $c->content,
@@ -1234,6 +1236,9 @@ class CardController extends Controller
 
         // Create for current card
         ActivityLog::create(array_merge($logData, ['subject_id' => $card->id]));
+        
+        // Removed duplicate system comment creation.
+        // The frontend UI now renders ActivityLog entries directly.
 
         // Sync to other cards in the same group
         if ($card->sync_group_id) {

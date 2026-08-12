@@ -2,6 +2,12 @@
 @section('title', 'All Websites')
 @section('page_title', 'All Websites')
 
+@push('head')
+    <meta name="turbo-refresh-method" content="morph">
+    <meta name="turbo-refresh-scroll" content="preserve">
+@endpush
+
+
 @push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <style>
@@ -199,6 +205,13 @@
             @endforeach
         </select>
         
+                    @if(auth()->user()->canUpdateWebsiteProgress())
+            <button type="button" @click="showManageClassesModal = true" class="btn btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm flex-shrink-0">
+                <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
+                <span class="hidden sm:inline">Manage Classes</span>
+                <span class="sm:hidden">Classes</span>
+            </button>
+            @endif
         {{-- Export button --}}
         <button type="button" @click="showExportModal = true"
            class="btn btn-primary px-3 py-1.5 text-sm flex-shrink-0">
@@ -263,10 +276,7 @@
                 Manage Members
             </button>
             @endif
-            <button type="button" @click="showManageClassesModal = true" class="btn btn-secondary flex items-center gap-2 text-sm">
-                <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
-                Manage Classes
-            </button>
+
             @if(!auth()->user()->isWebsiteViewer() && !auth()->user()->hasRole('boss'))
             <button type="button" @click="showCreateModal = true"
                     class="btn btn-primary flex items-center gap-2 text-sm">
@@ -316,9 +326,14 @@
                         @method('PUT')
                         <input type="hidden" name="category" value="{{ $groupName }}">
                         <input type="hidden" name="direction" value="up">
-                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors" title="Move Up">
+                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors relative group"  aria-label="Move Up">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Move Up
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                     @if($catIndex < count($realCats) - 1)
@@ -327,9 +342,14 @@
                         @method('PUT')
                         <input type="hidden" name="category" value="{{ $groupName }}">
                         <input type="hidden" name="direction" value="down">
-                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors" title="Move Down">
+                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors relative group"  aria-label="Move Down">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Move Down
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -390,7 +410,11 @@
                     </form>
                     @if(auth()->user()->canUpdateWebsiteProgress())
                     <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="Edit">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Edit
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
@@ -398,9 +422,14 @@
                     <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Delete
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -466,9 +495,14 @@
                         @method('PUT')
                         <input type="hidden" name="category" value="{{ $groupName }}">
                         <input type="hidden" name="direction" value="up">
-                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors" title="Move Up">
+                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors relative group"  aria-label="Move Up">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Move Up
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                     @if($catIndex < count($realCats) - 1)
@@ -477,9 +511,14 @@
                         @method('PUT')
                         <input type="hidden" name="category" value="{{ $groupName }}">
                         <input type="hidden" name="direction" value="down">
-                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors" title="Move Down">
+                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors relative group"  aria-label="Move Down">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Move Down
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -622,13 +661,21 @@
                     @endif
                     @endif
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'build')"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'build')"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        View History
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
                     @if(auth()->user()->canUpdateWebsiteProgress())
                     <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="Edit">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Edit
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
@@ -636,9 +683,14 @@
                     <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Delete
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -704,9 +756,14 @@
                         @method('PUT')
                         <input type="hidden" name="category" value="{{ $groupName }}">
                         <input type="hidden" name="direction" value="up">
-                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors" title="Move Up">
+                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors relative group"  aria-label="Move Up">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Move Up
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                     @if($catIndex < count($realCats) - 1)
@@ -715,9 +772,14 @@
                         @method('PUT')
                         <input type="hidden" name="category" value="{{ $groupName }}">
                         <input type="hidden" name="direction" value="down">
-                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors" title="Move Down">
+                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors relative group"  aria-label="Move Down">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Move Down
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -799,7 +861,7 @@
                     </button>
                     @endif
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance')"
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance')"
                             class="relative group btn btn-secondary text-xs py-1.5 px-2.5" aria-label="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                         <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-950 dark:bg-slate-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md shadow-md z-50 whitespace-nowrap">
@@ -821,9 +883,14 @@
                     <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Delete
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -873,7 +940,7 @@
             $catIndex = array_search($groupName, $realCats);
             $isRealCat = ($catIndex !== false);
         @endphp
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($f) => ['name' => $f->website->name ?? '', 'url' => $f->website->url ?? '', 'handled_by' => $f->website->handled_by ?? null])->values()) }})">
+        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()) }})">
             <h3 @click="toggleGroup('maintenance-{{ addslashes($groupName) }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
                 <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('maintenance-{{ addslashes($groupName) }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -889,9 +956,14 @@
                         @method('PUT')
                         <input type="hidden" name="category" value="{{ $groupName }}">
                         <input type="hidden" name="direction" value="up">
-                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors" title="Move Up">
+                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors relative group"  aria-label="Move Up">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Move Up
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                     @if($catIndex < count($realCats) - 1)
@@ -900,9 +972,14 @@
                         @method('PUT')
                         <input type="hidden" name="category" value="{{ $groupName }}">
                         <input type="hidden" name="direction" value="down">
-                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors" title="Move Down">
+                        <button type="submit" class="p-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 rounded transition-colors relative group"  aria-label="Move Down">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Move Down
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -1046,13 +1123,21 @@
                     @endif
                     <div class="flex items-center gap-1.5 shrink-0">
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance')"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance')"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        View History
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
                     @if(auth()->user()->canUpdateWebsiteProgress())
                     <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="Edit">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Edit
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
@@ -1060,9 +1145,14 @@
                     <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Delete
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                     </div>
@@ -1184,28 +1274,36 @@
                     @else
                         @if(auth()->user()->canApproveWebsiteQc())
                         <button type="button"
-                                @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
-                                class="btn text-xs py-1.5 px-3 flex-1 bg-amber-500 hover:bg-amber-600 text-white">
-                            ✓ QC Approve
-                        </button>
+                            @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            class="btn text-xs py-1.5 px-3 flex-1 bg-amber-500 hover:bg-amber-600 text-white">
+                        ✓ QC Approve
+                    </button>
                         <button type="button"
-                                @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
-                                class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
-                            ✗ QC Error
-                        </button>
+                            @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
+                        ✗ QC Error
+                    </button>
                         @else
                         <span class="text-xs text-amber-500 font-semibold flex-1 text-center">Awaiting QC Check</span>
                         @endif
                     @endif
                     
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR ? 'maintenance' : 'build' }}')"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR ? 'maintenance' : 'build' }}')"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        View History
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
                     @if(auth()->user()->canUpdateWebsiteProgress())
                     <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="Edit">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Edit
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
@@ -1213,9 +1311,14 @@
                     <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Delete
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -1332,28 +1435,36 @@
                     @else
                         @if(auth()->user()->canApproveWebsiteSupervisor())
                         <button type="button"
-                                @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
-                                class="btn text-xs py-1.5 px-3 flex-1 bg-cyan-500 hover:bg-cyan-600 text-white">
-                            ✓ Supervisor Approve
-                        </button>
+                            @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            class="btn text-xs py-1.5 px-3 flex-1 bg-cyan-500 hover:bg-cyan-600 text-white">
+                        ✓ Supervisor Approve
+                    </button>
                         <button type="button"
-                                @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
-                                class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
-                            ✗ Sup. Error
-                        </button>
+                            @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
+                        ✗ Sup. Error
+                    </button>
                         @else
                         <span class="text-xs text-cyan-500 font-semibold flex-1 text-center">Awaiting Sup. Check</span>
                         @endif
                     @endif
                     
                     <button type="button"
-                            @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR ? 'maintenance' : 'build' }}')"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="View History">
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR ? 'maintenance' : 'build' }}')"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        View History
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                     </button>
                     @if(auth()->user()->canUpdateWebsiteProgress())
                     <button type="button" @click="openEditModal({{ $website->id }}, {{ json_encode($website->only(['name', 'url', 'category', 'logo_url', 'handled_by', 'start_date', 'deadline', 'notes'])) }})"
-                            class="btn btn-secondary text-xs py-1.5 px-2.5" title="Edit">
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="Edit">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Edit
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
@@ -1361,9 +1472,14 @@
                     <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500" title="Delete">
+                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Delete
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                     @endif
                 </div>
@@ -1411,18 +1527,7 @@
     <form method="GET" action="{{ route('websites.index', ['tab' => 'follow-up']) }}" class="card border border-slate-200 dark:border-slate-700 p-4 mb-5">
         <input type="hidden" name="tab" value="follow-up">
         <div class="flex flex-wrap gap-3 items-end">
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Class</label>
-                <select name="fu_class" class="form-select text-sm rounded-lg py-1.5 min-w-[140px]" onchange="this.form.submit()">
-                    <option value="">All Classes</option>
-                    @foreach($allClasses as $cls)
-                    <option value="{{ $cls }}" {{ ($followUpFilter['fu_class'] ?? '') === $cls ? 'selected' : '' }}>{{ $cls }}</option>
-                    @endforeach
-                    @if(\App\Models\Website::where('is_archived', false)->whereNull('category')->exists())
-                    <option value="__none__" {{ ($followUpFilter['fu_class'] ?? '') === '__none__' ? 'selected' : '' }}>Uncategorized</option>
-                    @endif
-                </select>
-            </div>
+
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Website</label>
                 <select name="fu_website" class="form-select text-sm rounded-lg py-1.5 min-w-[140px]" onchange="this.form.submit()">
@@ -1462,19 +1567,13 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
-                <input type="date" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? '' }}" class="form-input text-base font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 [&::-webkit-calendar-picker-indicator]:scale-150 [&::-webkit-calendar-picker-indicator]:mr-1" onchange="this.form.submit()">
+                <input type="text" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? date('Y-m-d') }}" x-init="flatpickr($el, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'd M, Y', allowInput: true, onChange: function(selectedDates, dateStr, instance) { instance.element.closest('form').submit(); } })" class="form-input text-sm font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
             </div>
             <div class="flex items-center">
                 <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}" class="btn btn-secondary text-sm py-1.5 px-3">Clear</a>
             </div>
             
-            @if(!empty($followUpFilter['fu_class']))
-            <div class="ml-2 flex items-center gap-1.5 text-xs text-slate-500">
-                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                Showing: <strong class="text-indigo-600 dark:text-indigo-400">{{ $followUpFilter['fu_class'] === '__none__' ? 'Uncategorized' : $followUpFilter['fu_class'] }}</strong>
-                <span class="text-slate-400">({{ $fuWebsitesList->count() }} sites)</span>
-            </div>
-            @endif
+
         </div>
     </form>
 
@@ -1485,82 +1584,89 @@
         <p class="text-slate-500 text-sm">Add your first follow-up entry above.</p>
     </div>
     @else
-    @php
-        $fuGroups = [];
-        foreach ($orderArray as $cat) {
-            $fuGroups[$cat] = $followUps->filter(fn($f) => $f->website && $f->website->category === $cat);
-        }
-        $fuGroups['Uncategorized'] = $followUps->filter(fn($f) => !$f->website || empty($f->website->category));
-    @endphp
-    @foreach($fuGroups as $groupName => $groupFollowUps)
-        @if($groupFollowUps->isNotEmpty())
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupFollowUps->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()) }})">
-            @if($groupName !== 'Uncategorized')
-            <h3 @click="toggleGroup('followup-{{ addslashes($groupName) }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
-                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('followup-{{ addslashes($groupName) }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
-                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
-                <span class="truncate">{{ $groupName }}</span>
-                <span class="text-xs font-normal text-slate-400">({{ $groupFollowUps->count() }})</span>
-            </h3>
-            @endif
-            <div x-show="{{ $groupName === 'Uncategorized' ? 'true' : '!isGroupCollapsed(\'followup-\'.addslashes($groupName))' }}" class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-4">
-                <table class="w-full text-left border-collapse text-sm">
-                    <thead>
-                        <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Website</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">URL</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">QC By</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Handle by</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
-                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
-                        @foreach($groupFollowUps as $fu)
-                        <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}')" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                                <div>{{ $fu->website?->name ?? '–' }}</div>
-                                @if($fu->website)
-                                    <div class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-normal">Status: {{ ucfirst(str_replace('_', ' ', $fu->website->status)) }}</div>
+        <div class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-8" x-show="hasMatchingWebsites({{ json_encode($followUps->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()) }})">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Website</th>
+                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
+                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">URL</th>
+                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">QC By</th>
+                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Upload by</th>
+                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
+                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    @foreach($followUps as $fu)
+                    <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}')" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                            <div>{{ $fu->website?->name ?? '–' }}</div>
+                            @if($fu->website)
+                                <div class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-normal">Status: {{ ucfirst(str_replace('_', ' ', $fu->website->status)) }}</div>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3">
+                            @php
+                                $typeColors = ['blog_post' => 'bg-blue-100 text-blue-700', 'indexed_page' => 'bg-violet-100 text-violet-700', 'website_page' => 'bg-slate-100 text-slate-700', 'other' => 'bg-stone-100 text-stone-700'];
+                            @endphp
+                            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $typeColors[$fu->type] ?? 'bg-slate-100 text-slate-600' }}">{{ $fu->getTypeLabel() }}</span>
+                        </td>
+                        <td class="px-4 py-3 max-w-xs">
+                            @if($fu->url) <a href="{{ $fu->url }}" target="_blank" class="text-indigo-500 hover:text-indigo-700 text-xs truncate block">{{ Str::limit($fu->url, 40) }}</a> @endif
+                            @if($fu->note) <p class="text-xs text-slate-400 mt-0.5">{{ Str::limit($fu->note, 60) }}</p> @endif
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="flex flex-col items-start gap-1">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $fu->getQcStatusBadgeClass() }} leading-none">{{ ucfirst($fu->qc_status) }}</span>
+                                @if($fu->qc_checked_at)
+                                    <div class="flex flex-col">
+                                        <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $fu->qcChecker?->name ?? 'System' }}</span>
+                                        <span class="text-[10px] text-slate-400">{{ $fu->qc_checked_at->format('d M, Y') }}</span>
+                                    </div>
                                 @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                @php
-                                    $typeColors = ['blog_post' => 'bg-blue-100 text-blue-700', 'indexed_page' => 'bg-violet-100 text-violet-700', 'website_page' => 'bg-slate-100 text-slate-700', 'other' => 'bg-stone-100 text-stone-700'];
-                                @endphp
-                                <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $typeColors[$fu->type] ?? 'bg-slate-100 text-slate-600' }}">{{ $fu->getTypeLabel() }}</span>
-                            </td>
-                            <td class="px-4 py-3 max-w-xs">
-                                @if($fu->url) <a href="{{ $fu->url }}" target="_blank" class="text-indigo-500 hover:text-indigo-700 text-xs truncate block">{{ Str::limit($fu->url, 40) }}</a> @endif
-                                @if($fu->note) <p class="text-xs text-slate-400 mt-0.5">{{ Str::limit($fu->note, 60) }}</p> @endif
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <div class="flex flex-col items-start gap-1">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $fu->getQcStatusBadgeClass() }} leading-none">{{ ucfirst($fu->qc_status) }}</span>
-                                    @if($fu->qc_checked_at)
-                                        <div class="flex flex-col">
-                                            <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $fu->qcChecker?->name ?? 'System' }}</span>
-                                            <span class="text-[10px] text-slate-400">{{ $fu->qc_checked_at->format('d M, Y') }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ $fu->assignee?->name ?? '–' }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{{ $fu->created_at->format('d M Y') }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                @if((auth()->user()->hasAnyRole(['super-admin','admin-digital','boss','supervisor']) || auth()->user()->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->where('role', 'QC')->exists()) && !in_array($fu->qc_status, ['checked', 'approved']))
+                                <form action="{{ route('websites.followups.qc', $fu) }}" method="POST" class="inline-block" data-no-processing="true" x-data="{ ticked: false }" @submit="ticked = true">
+                                    @csrf
+                                    <input type="hidden" name="qc_status" value="checked">
+                                    
+                                    <button x-show="!ticked" type="submit" class="group relative flex items-center justify-center w-7 h-7 rounded border-2 border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all cursor-pointer shadow-sm" aria-label="Approve QC">
+                                        <svg class="w-4 h-4 text-emerald-500 opacity-20 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                            Approve QC
+                                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
                                         </div>
-                                    @endif
+                                    </button>
+                                    
+                                    <div x-cloak x-show="ticked" class="relative group inline-block">
+                                        <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                        </div>
+                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                            QC Checked
+                                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                        </div>
+                                    </div>
+                                </form>
+                                @elseif(in_array($fu->qc_status, ['checked', 'approved']))
+                                <div class="relative group inline-block">
+                                    <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                    </div>
+                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                        QC Checked by {{ $fu->qcChecker?->name ?? 'System' }}
+                                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                    </div>
                                 </div>
-                            </td>
-                            <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ $fu->assignee?->name ?? '–' }}</td>
-                            <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{{ $fu->created_at->format('d M Y') }}</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right">
-                                <div class="flex items-center justify-end gap-1">
-                                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']) && $fu->qc_status !== 'approved')
-                                    <form action="{{ route('websites.followups.qc', $fu) }}" method="POST">
-                                        @csrf
-                                        <input type="hidden" name="qc_status" value="approved">
-                                        <button type="submit" class="btn btn-secondary text-xs py-1 px-1.5" title="Approve QC">✓</button>
-                                    </form>
-                                    @endif
-                                    @if(!auth()->user()->isWebsiteViewer() && !auth()->user()->hasRole('boss'))
-                                    <button type="button" 
+                                @endif
+                                @if((auth()->user()->canUpdateWebsiteProgress() || auth()->user()->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->whereIn('role', ['QC', 'Developer', 'Supervisor'])->exists()) && !auth()->user()->hasRole('boss'))
+                                <button type="button" 
                                             @click="openEditFollowUpModal({{ $fu->id }}, {{ json_encode([
                                                 'website_id' => $fu->website_id,
                                                 'type' => $fu->type,
@@ -1569,35 +1675,43 @@
                                                 'note' => $fu->note,
                                                 'created_at' => $fu->created_at->format('Y-m-d')
                                             ]) }})"
-                                            class="btn btn-secondary text-xs py-1 px-1.5 text-indigo-500 hover:text-indigo-700 animate-pulse-slow" 
-                                            title="Edit">
-                                        ✎
+                                            class="group relative flex items-center justify-center w-7 h-7 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer text-indigo-500" 
+                                            aria-label="Edit">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>
+                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                            Edit
+                                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                        </div>
                                     </button>
-                                    @endif
-                                    <form action="{{ route('websites.followups.destroy', $fu) }}" method="POST" data-confirm="Are you sure you want to delete this follow-up?" data-confirm-title="Delete Follow-up">
+                                    <form action="{{ route('websites.followups.destroy', $fu) }}" method="POST" data-confirm="Are you sure you want to delete this follow-up?" data-confirm-title="Delete Follow-up" class="inline-block">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-secondary text-xs py-1 px-1.5 text-rose-500 hover:text-rose-700" title="Delete">×</button>
+                                        <button type="submit" class="group relative flex items-center justify-center w-7 h-7 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all cursor-pointer text-rose-500" aria-label="Delete">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                Delete
+                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                            </div>
+                                        </button>
                                     </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
                         @endforeach
                     </tbody>
                 </table>
-            </div>
         </div>
-        @endif
-    @endforeach
     @endif
 </div>
 @endif
+
 
 {{-- ════════════════════════════════════════════════════════════════
      MODALS
 ════════════════════════════════════════════════════════════════ --}}
 
 {{-- Manage Classes Modal --}}
-<div x-show="showManageClassesModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-manage-classes-modal" data-turbo-permanent x-show="showManageClassesModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-4xl max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -1646,7 +1760,11 @@
             <div data-id="{{ $cat }}" x-show="!classSearchQuery || '{{ addslashes($cat) }}'.toLowerCase().includes(classSearchQuery.toLowerCase())" class="flex items-center justify-between bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm px-3 py-2 w-full group hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-colors">
                 
                 <div class="flex items-center gap-2 overflow-hidden flex-1">
-                    <div class="class-drag-handle cursor-move p-1 text-slate-300 hover:text-slate-500 dark:hover:text-slate-400 transition-colors" title="Drag to reorder">
+                    <div class="class-drag-handle cursor-move p-1 text-slate-300 hover:text-slate-500 dark:hover:text-slate-400 transition-colors relative group" aria-label="Drag to reorder">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Drag to reorder
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg>
                     </div>
                     <span x-show="editingClass !== '{{ addslashes($cat) }}'" class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate pr-4">{{ $cat }}</span>
@@ -1655,25 +1773,45 @@
                     @csrf @method('PUT')
                     <input type="hidden" name="old_category" value="{{ $cat }}">
                     <input type="text" name="new_category" x-model="editingClassName" required class="form-input w-full text-xs py-1 px-2 rounded-md border-slate-300 dark:border-slate-600 focus:ring-indigo-500 h-7" @keydown.escape="editingClass = null">
-                    <button type="submit" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors" title="Save">
+                    <button type="submit" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors relative group"  aria-label="Save">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                    </button>
-                    <button type="button" @click="editingClass = null" class="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors" title="Cancel">
+                    
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Save
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
+                    <button type="button" @click="editingClass = null" class="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors relative group"  aria-label="Cancel">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-                    </button>
+                    
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Cancel
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                 </form>
                 </div>
 
                 <div x-show="editingClass !== '{{ addslashes($cat) }}'" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                    <button type="button" @click="editingClass = '{{ addslashes($cat) }}'; editingClassName = '{{ addslashes($cat) }}'" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="Edit Class">
+                    <button type="button" @click="editingClass = '{{ addslashes($cat) }}'; editingClassName = '{{ addslashes($cat) }}'" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors relative group"  aria-label="Edit Class">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
-                    </button>
+                    
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Edit Class
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     <form :id="'delete-class-' + '{{ md5($cat) }}'" action="{{ route('websites.destroyCategory') }}" method="POST" class="inline">
                         @csrf @method('DELETE')
                         <input type="hidden" name="category" value="{{ $cat }}">
-                        <button type="button" @click="classToDelete = '{{ addslashes($cat) }}'; classToDeleteId = 'delete-class-' + '{{ md5($cat) }}'; showDeleteClassModal = true;" class="p-1.5 text-slate-400 hover:text-rose-500 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors" title="Remove Class">
+                        <button type="button" @click="classToDelete = '{{ addslashes($cat) }}'; classToDeleteId = 'delete-class-' + '{{ md5($cat) }}'; showDeleteClassModal = true;" class="p-1.5 text-slate-400 hover:text-rose-500 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors relative group"  aria-label="Remove Class">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-                        </button>
+                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Remove Class
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                     </form>
                 </div>
             </div>
@@ -1685,7 +1823,7 @@
 </div>
 
 {{-- Delete Class Confirmation Modal --}}
-<div x-show="showDeleteClassModal" x-cloak class="fixed inset-0 z-[110] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
+<div id="show-delete-class-modal" data-turbo-permanent x-show="showDeleteClassModal" x-cloak class="fixed inset-0 z-[110] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
     <div class="card border border-rose-200 dark:border-rose-800 w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden" @click.stop>
         <div class="p-6">
             <div class="flex items-center justify-center w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-500 mb-4">
@@ -1709,7 +1847,7 @@
 </div>
 
 {{-- Manage Website Members Modal --}}
-<div x-show="showManageMembersModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-manage-members-modal" data-turbo-permanent x-show="showManageMembersModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-6xl max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -1817,25 +1955,44 @@
                                             <option value="Supervisor">Supervisor</option>
                                             <option value="Viewer">Viewer</option>
                                         </select>
-                                        <button type="submit" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors" title="Save">
+                                        <button type="submit" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors relative group"  aria-label="Save">
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                                        </button>
-                                        <button type="button" @click="editingMemberId = null" class="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors" title="Cancel">
+                                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Save
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
+                                        <button type="button" @click="editingMemberId = null" class="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors relative group"  aria-label="Cancel">
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-                                        </button>
+                                        
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Cancel
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                                     </form>
                                 </td>
                                 <td class="p-3 text-right">
                                     <div class="inline-flex items-center gap-2 justify-end">
-                                        <button x-show="editingMemberId !== {{ $m->id }}" type="button" @click="editingMemberId = {{ $m->id }}; editingMemberRole = '{{ addslashes($m->role) }}'" class="btn text-xs py-1 px-2.5 border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-600 hover:text-indigo-600 rounded transition-colors bg-white dark:bg-slate-800" title="Edit Role">
+                                        <button x-show="editingMemberId !== {{ $m->id }}" type="button" @click="editingMemberId = {{ $m->id }}; editingMemberRole = '{{ addslashes($m->role) }}'" class="btn text-xs py-1 px-2.5 border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-600 hover:text-indigo-600 rounded transition-colors bg-white dark:bg-slate-800 relative group" aria-label="Edit Role">
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Edit Role
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
                                             Edit
                                         </button>
                                         <form action="{{ route('websites.members.destroy', $m->id) }}" method="POST" data-confirm="Are you sure you want to remove member {{ addslashes($m->user?->name ?? '') }}?" data-confirm-title="Remove Member">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn text-xs py-1 px-2 border border-rose-200 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-500 rounded transition-colors bg-white dark:bg-slate-800" title="Remove">
+                                            <button type="submit" class="btn text-xs py-1 px-2 border border-rose-200 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-500 rounded transition-colors bg-white dark:bg-slate-800 relative group"  aria-label="Remove">
                                                 Remove
-                                            </button>
+                                            
+    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        Remove
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+</button>
                                         </form>
                                     </div>
                                 </td>
@@ -1857,7 +2014,7 @@
 </div>
 
 {{-- Create Website Modal --}}
-<div x-show="showCreateModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-create-modal" data-turbo-permanent x-show="showCreateModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Add New Website</h3>
@@ -1920,7 +2077,7 @@
 </div>
 
 {{-- Edit Website Modal --}}
-<div x-show="showEditModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-edit-modal" data-turbo-permanent x-show="showEditModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Edit Website</h3>
@@ -1985,7 +2142,7 @@
 </div>
 
 {{-- Progress Update Modal --}}
-<div x-show="showProgressModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-progress-modal" data-turbo-permanent x-show="showProgressModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div>
@@ -2030,7 +2187,7 @@
 </div>
 
 {{-- QC Approval Modal --}}
-<div x-show="showQcModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-qc-modal" data-turbo-permanent x-show="showQcModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-amber-200 dark:border-amber-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-amber-100 dark:border-amber-800 flex items-center justify-between bg-amber-50/50 dark:bg-amber-900/20">
             <div>
@@ -2041,7 +2198,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="qcModalAction" method="POST" class="p-5 space-y-4">
+        <form :action="qcModalAction" method="POST" class="p-5 space-y-4" data-no-processing @submit="showQcModal = false">
             @csrf
             <div class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-300">
                 <p class="font-semibold">This will:</p>
@@ -2066,7 +2223,7 @@
 </div>
 
 {{-- Supervisor Approval Modal --}}
-<div x-show="showSupervisorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-supervisor-modal" data-turbo-permanent x-show="showSupervisorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-cyan-200 dark:border-cyan-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-cyan-100 dark:border-cyan-800 flex items-center justify-between bg-cyan-50/50 dark:bg-cyan-900/20">
             <div>
@@ -2077,7 +2234,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="supervisorModalAction" method="POST" class="p-5 space-y-4">
+        <form :action="supervisorModalAction" method="POST" class="p-5 space-y-4" data-no-processing @submit="showSupervisorModal = false">
             @csrf
             <div class="bg-cyan-50 dark:bg-cyan-900/20 rounded-xl p-4 text-sm text-cyan-700 dark:text-cyan-300">
                 <p class="font-semibold">This will:</p>
@@ -2102,7 +2259,7 @@
 </div>
 
 {{-- Start Maintenance Modal --}}
-<div x-show="showMaintenanceModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-maintenance-modal" data-turbo-permanent x-show="showMaintenanceModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-orange-200 dark:border-orange-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-orange-100 dark:border-orange-800 flex items-center justify-between bg-orange-50/50 dark:bg-orange-900/20">
             <div>
@@ -2133,7 +2290,7 @@
 </div>
 
 {{-- QC Error Modal --}}
-<div x-show="showQcErrorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
+<div id="show-qc-error-modal" data-turbo-permanent x-show="showQcErrorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
     <div class="card border border-red-300 dark:border-red-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-red-100 dark:border-red-800 flex items-center justify-between bg-red-50/50 dark:bg-red-900/20">
             <div>
@@ -2183,7 +2340,7 @@
 </div>
 
 {{-- Supervisor Error Modal --}}
-<div x-show="showSupervisorErrorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
+<div id="show-supervisor-error-modal" data-turbo-permanent x-show="showSupervisorErrorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
     <div class="card border border-red-300 dark:border-red-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-red-100 dark:border-red-800 flex items-center justify-between bg-red-50/50 dark:bg-red-900/20">
             <div>
@@ -2233,7 +2390,7 @@
 </div>
 
 {{-- Error Fix Progress Modal --}}
-<div x-show="showErrorProgressModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
+<div id="show-error-progress-modal" data-turbo-permanent x-show="showErrorProgressModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div>
@@ -2278,7 +2435,7 @@
 </div>
 
 {{-- Follow Up Modal --}}
-<div x-show="showFollowUpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-follow-up-modal" data-turbo-permanent x-show="showFollowUpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Add Follow Up</h3>
@@ -2286,7 +2443,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4">
+        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true">
             @csrf
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
@@ -2319,11 +2476,11 @@
                     <input type="text" name="custom_type" x-show="selectedType === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="selectedType === 'other'">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Page URL</label>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Blog URL</label>
                     <input type="url" name="url" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Handle by</label>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Upload by</label>
                     <select name="assigned_to" class="form-select w-full rounded-xl text-sm">
                         <option value="">None</option>
                         @foreach($websiteTeamMembers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
@@ -2347,7 +2504,7 @@
 </div>
 
 {{-- Edit Follow Up Modal --}}
-<div x-show="showEditFollowUpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-edit-follow-up-modal" data-turbo-permanent x-show="showEditFollowUpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Edit Follow Up</h3>
@@ -2355,7 +2512,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="editFollowUpAction" method="POST" class="p-5 space-y-4">
+        <form :action="editFollowUpAction" method="POST" class="p-5 space-y-4" data-no-processing="true">
             @csrf
             @method('PUT')
             <div class="grid grid-cols-2 gap-4">
@@ -2394,11 +2551,11 @@
                     <input type="text" name="custom_type" x-model="editFollowUpForm.custom_type" x-show="editFollowUpForm.type === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="editFollowUpForm.type === 'other'">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Page URL</label>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Blog URL</label>
                     <input type="url" name="url" x-model="editFollowUpForm.url" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Handle by</label>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Upload by</label>
                     <select name="assigned_to" x-model="editFollowUpForm.assigned_to" class="form-select w-full rounded-xl text-sm">
                         <option value="">None</option>
                         @foreach($websiteTeamMembers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
@@ -2422,7 +2579,7 @@
 </div>
 
 {{-- Export Modal --}}
-<div x-show="showExportModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-export-modal" data-turbo-permanent x-show="showExportModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Export Websites Report</h3>
@@ -2518,7 +2675,7 @@
 </div>
 
 {{-- History Modal --}}
-<div x-show="showHistoryModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-history-modal" data-turbo-permanent x-show="showHistoryModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div>
@@ -2649,7 +2806,7 @@
              :class="previewZoom > 100 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'"
              draggable="false"
              @load="handlePreviewImageLoad($event)">
-        <div x-show="previewLoading" class="fixed inset-0 z-[10045] flex items-center justify-center pointer-events-none">
+        <div id="preview-loading-modal" data-turbo-permanent x-show="previewLoading" class="fixed inset-0 z-[10045] flex items-center justify-center pointer-events-none">
             <div class="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white"></div>
         </div>
     </div>
@@ -2657,7 +2814,7 @@
 
 <template x-teleport="body">
     {{-- PDF / Document Preview Modal --}}
-    <div x-show="showAttachmentPreview && !previewIsImage" x-cloak style="display:none; z-index:10040" class="fixed inset-0 flex items-center justify-center p-4 sm:p-6" aria-modal="true" role="dialog" @keydown.escape.window="closeAttachmentPreview()">
+    <div id="show-attachment-preview-modal" data-turbo-permanent x-show="showAttachmentPreview && !previewIsImage" x-cloak style="display:none; z-index:10040" class="fixed inset-0 flex items-center justify-center p-4 sm:p-6" aria-modal="true" role="dialog" @keydown.escape.window="closeAttachmentPreview()">
         <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="closeAttachmentPreview()"></div>
         <div x-ref="previewPanel" class="relative flex h-[76vh] max-h-[760px] min-h-[420px] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-900 dark:ring-white/10">
             <div class="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
@@ -2682,7 +2839,7 @@
 
 <template x-teleport="body">
     {{-- History Edit Modal --}}
-    <div x-show="showHistoryEditModal" x-cloak style="display:none; z-index:10060" class="fixed inset-0 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" @keydown.escape.window="closeHistoryEditModal()" @click.self="closeHistoryEditModal()">
+    <div id="show-history-edit-modal" data-turbo-permanent x-show="showHistoryEditModal" x-cloak style="display:none; z-index:10060" class="fixed inset-0 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" @keydown.escape.window="closeHistoryEditModal()" @click.self="closeHistoryEditModal()">
         <div x-ref="historyEditPanel" tabindex="-1" class="card relative z-10 w-full max-w-lg border border-slate-200 shadow-2xl dark:border-slate-700" @click.stop>
             <div class="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-700">
                 <div>
@@ -2742,6 +2899,32 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
+    // Real-time synchronization: When a notification arrives about a website update,
+    // seamlessly refresh the page using Turbo Morphing to show the latest data without a hard reload.
+    window.addEventListener('kiuq:realtime-notification', function(e) {
+        if (e.detail && e.detail.data && e.detail.data.module === 'digital') {
+            if (window.Turbo) {
+                // Do not morph if any modal is open to prevent Alpine state loss and Idiomorph bugs
+                const alpineEl = document.querySelector('[x-data="websitesApp()"]');
+                if (alpineEl && typeof Alpine !== 'undefined') {
+                    const data = Alpine.$data(alpineEl);
+                    const isAnyModalOpen = data.showCreateModal || data.showEditModal || data.showProgressModal || data.showQcModal || data.showSupervisorModal || data.showMaintenanceModal || data.showQcErrorModal || data.showSupervisorErrorModal || data.showErrorProgressModal || data.showFollowUpModal || data.showEditFollowUpModal || data.showExportModal || data.showHistoryModal || data.showManageClassesModal || data.showDeleteClassModal || data.showManageMembersModal || data.showAttachmentPreview || data.showHistoryEditModal;
+                    
+                    if (isAnyModalOpen) {
+                        console.log('Realtime update skipped because a modal is open.');
+                        return; // Abort refresh
+                    }
+                }
+
+                if (typeof window.Turbo.refresh === 'function') {
+                    window.Turbo.refresh();
+                } else {
+                    window.Turbo.visit(window.location.href, { action: "replace" });
+                }
+            }
+        }
+    });
+
 function websitesApp() {
     return {
         // Search state
@@ -2806,6 +2989,46 @@ function websitesApp() {
         },
         showHistoryModal:     false,
         historyLoading:       false,
+        prefetchedHistories: {},
+        prefetchingHistories: {},
+
+        prefetchHistory(websiteId) {
+            if (this.prefetchedHistories[websiteId]) {
+                return Promise.resolve(this.prefetchedHistories[websiteId]);
+            }
+            if (!this.prefetchingHistories[websiteId]) {
+                this.prefetchingHistories[websiteId] = fetch(`/websites/${websiteId}/history`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Failed to load history');
+                        return response.json();
+                    })
+                    .then(parsedLogs => {
+                        parsedLogs = parsedLogs.map(log => {
+                            if (!log.attachment_path && log.note && log.note.includes(' | File: ')) {
+                                const parts = log.note.split(' | File: ');
+                                log.note = parts[0];
+                                log.attachment_name = parts[1];
+                                log.attachment_path = 'website-error-references/' + parts[1];
+                            }
+                            if (!Array.isArray(log.attachments)) log.attachments = [];
+                            if (!log.attachments.length && log.attachment_path) {
+                                log.attachments = [{
+                                    id: 'legacy', path: log.attachment_path, name: log.attachment_name || 'Attached File'
+                                }];
+                            }
+                            return log;
+                        });
+                        parsedLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                        this.prefetchedHistories[websiteId] = parsedLogs;
+                        return parsedLogs;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        this.prefetchingHistories[websiteId] = null; // allow retry
+                    });
+            }
+            return this.prefetchingHistories[websiteId];
+        },
 
         // Collapsible groups state
         collapsedGroups: {},
@@ -3062,38 +3285,18 @@ function websitesApp() {
             this.historyWebsiteName = websiteName;
             this.historyType = type;
             this.historyLogs = [];
-            this.historyLoading = true;
             this.showHistoryModal = true;
             
-            try {
-                const response = await fetch(`/websites/${websiteId}/history`);
-                if (!response.ok) throw new Error('Failed to load history');
-                let parsedLogs = await response.json();
-                
-                // Retrofit old logs that stored files as text "| File: filename.ext"
-                parsedLogs = parsedLogs.map(log => {
-                    if (!log.attachment_path && log.note && log.note.includes(' | File: ')) {
-                        const parts = log.note.split(' | File: ');
-                        log.note = parts[0];
-                        log.attachment_name = parts[1];
-                        log.attachment_path = 'website-error-references/' + parts[1];
-                    }
-                    if (!Array.isArray(log.attachments)) {
-                        log.attachments = [];
-                    }
-                    if (!log.attachments.length && log.attachment_path) {
-                        log.attachments = [{
-                            id: 'legacy',
-                            path: log.attachment_path,
-                            name: log.attachment_name || 'Attached File'
-                        }];
-                    }
-                    return log;
-                });
+            if (this.prefetchedHistories[websiteId]) {
+                this.historyLoading = false;
+                this.historyLogs = [...this.prefetchedHistories[websiteId]];
+                return;
+            }
 
-                // Sort logs by created_at descending just to be safe
-                parsedLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                this.historyLogs = parsedLogs;
+            this.historyLoading = true;
+            try {
+                await this.prefetchHistory(websiteId);
+                this.historyLogs = [...(this.prefetchedHistories[websiteId] || [])];
             } catch (err) {
                 console.error(err);
                 window.showToast('Failed to load website history.', 'error');

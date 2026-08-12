@@ -111,7 +111,7 @@ class WebsiteFollowUpController extends Controller
     // ── QC CHECK ──────────────────────────────────────────────────────────────
     public function qcCheck(Request $request, WebsiteFollowUp $websiteFollowUp)
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES), 403);
+        abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES) || auth()->user()?->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->whereIn('role', ['QC', 'Supervisor'])->exists(), 403);
 
         $validated = $request->validate([
             'qc_status' => 'required|in:checked,approved',

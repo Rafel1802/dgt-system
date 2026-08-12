@@ -9,8 +9,6 @@ class WebsiteFollowUp extends Model
 {
     const TYPES = [
         'blog_post'    => 'Blog Post',
-        'indexed_page' => 'Indexed Page',
-        'website_page' => 'Website Page',
         'other'        => 'Other',
     ];
 

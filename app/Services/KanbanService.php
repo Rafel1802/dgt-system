@@ -26,9 +26,8 @@ class KanbanService
             'creator:id,name,avatar',
             'assignees:id,name,avatar',
             'checklists.items',
-            'files',
-            'comments',
-        ])->orderBy('position');
+        ])->withCount(['comments', 'files'])
+        ->orderBy('position');
 
         // Staff/digital-team only see their own cards + assigned cards
         if ($user->hasAnyRole(['staff', 'digital-team', 'sales-crm'])) {

@@ -11,6 +11,7 @@ use App\Models\ActivityLog;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\WebsiteMember;
+use App\Notifications\WebsiteActivityNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
@@ -102,6 +103,11 @@ class WebsiteController extends Controller
         if (!empty($followUpFilter['fu_member'])) {
             $followUpsQuery->where('assigned_to', $followUpFilter['fu_member']);
         }
+        // Default date to today if not provided
+        if (!isset($followUpFilter['fu_date'])) {
+            $followUpFilter['fu_date'] = now()->format('Y-m-d');
+        }
+
         if (!empty($followUpFilter['fu_date'])) {
             $followUpsQuery->whereDate('created_at', $followUpFilter['fu_date']);
         }
@@ -112,7 +118,7 @@ class WebsiteController extends Controller
         $stats = [
             'total'       => $allWebsites->count(),
             'building'    => $allWebsites->filter(fn($w) => $w->isBuilding())->count(),
-            'live'        => $allWebsites->where('status', Website::STATUS_LIVE)->count(),
+            'live'        => $allWebsites->filter(fn($w) => $w->isLiveOrMaintenance())->count(),
             'maintenance' => $allWebsites->filter(fn($w) => $w->isMaintenance())->count(),
             'qc_pending'  => $allWebsites->where('status', Website::STATUS_QC_CHECKING)->count(),
             'follow_ups'  => $followUps->count(),
@@ -217,6 +223,8 @@ class WebsiteController extends Controller
 
         $this->logActivity('website_created', "Website \"{$website->name}\" created.");
 
+        WebsiteActivityNotification::send($website, 'website_created', "New website \"{$website->name}\" created.");
+
         return redirect()->route('websites.index', ['tab' => 'build'])
             ->with('success', "Website \"{$website->name}\" created successfully.");
     }
@@ -251,6 +259,8 @@ class WebsiteController extends Controller
             'notes'      => $validated['notes'] ?? null,
             'updated_by' => auth()->id(),
         ]);
+
+        WebsiteActivityNotification::send($website, 'website_updated', "Website \"{$website->name}\" details updated.");
 
         return back()->with('success', "Website \"{$website->name}\" updated.");
     }
@@ -308,6 +318,8 @@ class WebsiteController extends Controller
 
         $this->logActivity('progress_updated', "Build progress for \"{$website->name}\" updated to {$newPercent}%.");
 
+        WebsiteActivityNotification::send($website, 'progress_updated', "Build progress for \"{$website->name}\" updated to {$newPercent}%.", $validated['note'] ?? null);
+
         return redirect()->route('websites.index', ['tab' => 'build-progress'])
             ->with('success', "Build progress updated to {$newPercent}% for \"{$website->name}\".");
     }
@@ -359,6 +371,8 @@ class WebsiteController extends Controller
 
         $this->logActivity('qc_approved', "QC approved for \"{$website->name}\". Pending Supervisor approval.");
 
+        WebsiteActivityNotification::send($website, 'qc_approved', "QC approved for \"{$website->name}\". Pending Supervisor approval.", $validated['qc_note'] ?? null);
+
         return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
             ->with('success', "\"{$website->name}\" QC Approved. Now pending Supervisor approval.");
     }
@@ -405,6 +419,8 @@ class WebsiteController extends Controller
         ]);
 
         $this->logActivity('qc_reverted', "QC approval reverted for \"{$website->name}\".");
+
+        WebsiteActivityNotification::send($website, 'qc_reverted', "QC approval reverted for \"{$website->name}\".");
 
         return redirect()->back()
             ->with('success', "\"{$website->name}\" QC Approval Reverted. Sent back to QC Checking.");
@@ -474,6 +490,9 @@ class WebsiteController extends Controller
 
         $this->logActivity('qc_error', "QC flagged error for \"{$website->name}\".");
 
+        $attachmentUrl = $attachment['path'] ? asset('storage/' . $attachment['path']) : null;
+        WebsiteActivityNotification::send($website, 'qc_error', "QC Error flagged for \"{$website->name}\".", $validated['error_note'] ?? null, $attachmentUrl);
+
         return redirect()->route('websites.index', ['tab' => 'qc-error'])
             ->with('success', "\"{$website->name}\" flagged as QC Error. Team must fix and complete before re-approval.");
     }
@@ -542,6 +561,9 @@ class WebsiteController extends Controller
 
         $this->logActivity('supervisor_error', "Supervisor flagged error for \"{$website->name}\".");
 
+        $attachmentUrl = $attachment['path'] ? asset('storage/' . $attachment['path']) : null;
+        WebsiteActivityNotification::send($website, 'supervisor_error', "Supervisor Error flagged for \"{$website->name}\".", $validated['error_note'] ?? null, $attachmentUrl);
+
         return redirect()->route('websites.index', ['tab' => 'supervisor-error'])
             ->with('success', "\"{$website->name}\" flagged as Supervisor Error. Team must fix before re-approval.");
     }
@@ -589,6 +611,8 @@ class WebsiteController extends Controller
         ]);
 
         $tab = in_array($oldStatus, [Website::STATUS_QC_ERROR, Website::STATUS_MAINTENANCE_QC_ERROR]) ? 'qc-error' : 'supervisor-error';
+
+        WebsiteActivityNotification::send($website, 'error_progress_updated', "Error fix progress for \"{$website->name}\" updated to {$newPercent}%.", $validated['note'] ?? null);
 
         return back()->with('success', "Error fix progress updated to {$newPercent}% for \"{$website->name}\".");
     }
@@ -639,6 +663,8 @@ class WebsiteController extends Controller
         ]);
 
         $this->logActivity('qc_error_completed', "QC error fix completed for \"{$website->name}\". Sent back to QC Checking.");
+
+        WebsiteActivityNotification::send($website, 'qc_error_completed', "QC error fix completed for \"{$website->name}\". Sent back to QC Checking.");
 
         return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
             ->with('success', "\"{$website->name}\" error fix completed! QC must approve again.");
@@ -691,6 +717,8 @@ class WebsiteController extends Controller
 
         $this->logActivity('supervisor_error_completed', "Supervisor error fix completed for \"{$website->name}\". Sent back to QC Checking.");
 
+        WebsiteActivityNotification::send($website, 'supervisor_error_completed', "Supervisor error fix completed for \"{$website->name}\". Sent back to QC Checking.");
+
         return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
             ->with('success', "\"{$website->name}\" Supervisor error fix done! QC must approve first.");
     }
@@ -739,6 +767,8 @@ class WebsiteController extends Controller
 
         $this->logActivity('supervisor_approved', "Supervisor approved for \"{$website->name}\". Website is now LIVE.");
 
+        WebsiteActivityNotification::send($website, 'supervisor_approved', "Supervisor approved for \"{$website->name}\". Website is now LIVE.", $validated['supervisor_note'] ?? null);
+
         return redirect()->route('websites.index', ['tab' => 'live'])
             ->with('success', "\"{$website->name}\" Supervisor approved and is now LIVE.");
     }
@@ -783,6 +813,8 @@ class WebsiteController extends Controller
         ]);
 
         $this->logActivity('maintenance_started', "Maintenance started for \"{$website->name}\".");
+
+        WebsiteActivityNotification::send($website, 'maintenance_started', "Maintenance started for \"{$website->name}\".", $validated['maintenance_note'] ?? null);
 
         return redirect()->route('websites.index', ['tab' => 'maintenance'])
             ->with('success', "Maintenance started for \"{$website->name}\".");
@@ -835,6 +867,8 @@ class WebsiteController extends Controller
             $newPercent === 100 ? 'maintenance_qc_pending' : 'maintenance_progress_updated',
             "Maintenance for \"{$website->name}\" updated to {$newPercent}%." . ($newPercent === 100 ? ' Pending QC Check.' : '')
         );
+
+        WebsiteActivityNotification::send($website, 'maintenance_progress_updated', "Maintenance for \"{$website->name}\" updated to {$newPercent}%." . ($newPercent === 100 ? ' Pending QC Check.' : ''), $validated['note'] ?? null);
 
         $msg = $newPercent === 100
             ? "\"{$website->name}\" maintenance completed and is pending QC check."

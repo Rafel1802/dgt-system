@@ -115,6 +115,25 @@ class Card extends Model
                 }
             }
         });
+
+        static::deleted(function ($card) {
+            if (self::$isSyncing) {
+                return;
+            }
+            if ($card->sync_group_id) {
+                self::$isSyncing = true;
+                try {
+                    $replicas = self::where('sync_group_id', $card->sync_group_id)
+                                    ->where('id', '!=', $card->id)
+                                    ->get();
+                    foreach ($replicas as $replica) {
+                        $replica->delete();
+                    }
+                } finally {
+                    self::$isSyncing = false;
+                }
+            }
+        });
     }
 
     public function replicateRelationally(int $targetBoardId, int $targetListId, ?string $newTitle = null, ?int $createdBy = null, bool $enableSync = true)

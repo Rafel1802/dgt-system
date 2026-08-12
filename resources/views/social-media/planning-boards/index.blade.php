@@ -81,7 +81,7 @@
                 {{ $board->workspace->name ?? 'No Workspace' }}
             </div>
             <h3 class="text-lg font-bold text-slate-800 dark:text-white leading-tight mb-2">
-                <a href="{{ route('boards.show', $board->slug) }}" class="hover:text-indigo-500 transition-colors">
+                <a href="{{ route('boards.show', $board->slug) }}" data-turbo="false" class="hover:text-indigo-500 transition-colors">
                     {{ $board->name }}
                 </a>
             </h3>
