@@ -336,6 +336,10 @@ window.trelloBoard = function(config) {
         }
       });
 
+      this.$watch('switchBoardsModal.search', () => this.updateSbmFilteredBoards());
+      this.$watch('switchBoardsModal.tab', () => this.updateSbmFilteredBoards());
+      this.$watch('switchBoardsModal.selectedWorkspace', () => this.updateSbmFilteredBoards());
+
       // Preload removed to restore performance
 
       // Auto-open card if passed in query param
@@ -3130,6 +3134,7 @@ window.trelloBoard = function(config) {
       this.switchBoardsModal.creating = false;
       this.switchBoardsModal.createBoardName = '';
       this.switchBoardsModal.open = true;
+      this.updateSbmFilteredBoards();
     },
 
     closeSwitchBoardsModal() {
@@ -3146,7 +3151,7 @@ window.trelloBoard = function(config) {
       return ws ? ws.name : 'Workspace boards';
     },
 
-    sbmFilteredBoards() {
+    updateSbmFilteredBoards() {
       const s = this.switchBoardsModal.search.trim().toLowerCase();
       let boards = s ? this.sbmAllBoards() : this.sbmBoardsForTab(this.switchBoardsModal.tab);
       if (s) {
@@ -3156,7 +3161,7 @@ window.trelloBoard = function(config) {
         });
       }
 
-      return this.sbmUniqueBoards(boards);
+      this.switchBoardsModal.filteredBoards = this.sbmUniqueBoards(boards);
     },
 
     sbmAllBoards() {

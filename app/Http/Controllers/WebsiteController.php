@@ -33,9 +33,9 @@ class WebsiteController extends Controller
         // that the ACTIVE tab's Blade template actually uses.
         $tabRelations = match($tab) {
             'build'            => ['handler'],
-            'build-progress'   => ['handler', 'latestProgressLog'],
-            'live'             => ['handler', 'latestMaintenanceLog'],
-            'maintenance'      => ['handler', 'latestMaintenanceLog'],
+            'build-progress'   => ['handler', 'latestProgressLog.user'],
+            'live'             => ['handler', 'latestMaintenanceLog.user'],
+            'maintenance'      => ['handler', 'latestMaintenanceLog.user'],
             'qc-error'         => ['handler'],
             'supervisor-error' => ['handler'],
             default            => ['handler'],
@@ -151,7 +151,7 @@ class WebsiteController extends Controller
                 $groupedWebsites->put($categoryName, $inCat);
             }
         }
-        $uncategorized = $buildWebsites->where('category', null)->values();
+        $uncategorized = $buildWebsites->filter(fn($w) => empty($w->category))->values();
         if ($uncategorized->count() > 0) {
             $groupedWebsites->put('Uncategorized', $uncategorized);
         }
@@ -320,6 +320,9 @@ class WebsiteController extends Controller
 
         WebsiteActivityNotification::send($website, 'progress_updated', "Build progress for \"{$website->name}\" updated to {$newPercent}%.", $validated['note'] ?? null);
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->route('websites.index', ['tab' => 'build-progress'])
             ->with('success', "Build progress updated to {$newPercent}% for \"{$website->name}\".");
     }
@@ -331,7 +334,13 @@ class WebsiteController extends Controller
 
         $validated = $request->validate([
             'qc_note' => 'nullable|string|max:2000',
+            'qc_files' => 'nullable|array|max:8',
+            'qc_files.*' => 'file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         ]);
+
+        $files = $request->hasFile('qc_files') ? $request->file('qc_files') : [];
+        $attachments = collect($files)->filter()->map(fn ($file) => $this->storeHistoryAttachmentFile($file))->values()->all();
+        $attachment = $attachments[0] ?? ['path' => null, 'name' => null];
 
         $oldStatus = $website->status;
         $isMaintenanceFlow = in_array($oldStatus, [
@@ -355,6 +364,8 @@ class WebsiteController extends Controller
             'user_id'    => auth()->id(),
             'percent'    => $isMaintenanceFlow ? $website->maintenance_percent : $website->progress_percent,
             'note'       => 'QC Approved. Pending Supervisor approval.' . ($validated['qc_note'] ? " Note: {$validated['qc_note']}" : ''),
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
             'created_at' => now(),
         ]);
 
@@ -367,12 +378,23 @@ class WebsiteController extends Controller
             'new_status'  => $newStatus,
             'old_progress'=> $website->progress_percent,
             'new_progress'=> $website->progress_percent,
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
+            'attachments' => $attachments,
         ]);
 
         $this->logActivity('qc_approved', "QC approved for \"{$website->name}\". Pending Supervisor approval.");
 
-        WebsiteActivityNotification::send($website, 'qc_approved', "QC approved for \"{$website->name}\". Pending Supervisor approval.", $validated['qc_note'] ?? null);
+        $attachmentUrl = $attachment['path'] ? asset('storage/' . $attachment['path']) : null;
+        WebsiteActivityNotification::send($website, 'qc_approved', "QC approved for \"{$website->name}\". Pending Supervisor approval.", $validated['qc_note'] ?? null, $attachmentUrl);
 
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "\"{$website->name}\" QC Approved. Now pending Supervisor approval."]);
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
             ->with('success', "\"{$website->name}\" QC Approved. Now pending Supervisor approval.");
     }
@@ -382,8 +404,19 @@ class WebsiteController extends Controller
     {
         abort_unless(auth()->user()?->canApproveWebsiteQc(), 403);
 
+        $validated = $request->validate([
+            'revert_note' => 'nullable|string|max:2000',
+            'revert_files' => 'nullable|array|max:8',
+            'revert_files.*' => 'file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        ]);
+
+        $files = $request->hasFile('revert_files') ? $request->file('revert_files') : [];
+        $attachments = collect($files)->filter()->map(fn ($file) => $this->storeHistoryAttachmentFile($file))->values()->all();
+        $attachment = $attachments[0] ?? ['path' => null, 'name' => null];
+
         $oldStatus = $website->status;
         $isMaintenanceFlow = in_array($oldStatus, [
+            Website::STATUS_MAINTENANCE_QC_ERROR,
             Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
             Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR
         ]);
@@ -398,12 +431,16 @@ class WebsiteController extends Controller
             'updated_by'     => auth()->id(),
         ]);
 
+        $note = 'QC Approval Reverted. Sent back to QC Checking.' . (isset($validated['revert_note']) && $validated['revert_note'] ? " Note: {$validated['revert_note']}" : '');
+
         WebsiteProgressLog::create([
             'website_id' => $website->id,
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
             'percent'    => $isMaintenanceFlow ? $website->maintenance_percent : $website->progress_percent,
-            'note'       => 'QC Approval Reverted. Sent back to QC Checking.',
+            'note'       => $note,
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
             'created_at' => now(),
         ]);
 
@@ -411,17 +448,28 @@ class WebsiteController extends Controller
             'website_id'  => $website->id,
             'user_id'     => auth()->id(),
             'action'      => 'qc_reverted',
-            'note'        => 'QC approval reverted. Sent back to QC Checking.',
+            'note'        => $note,
             'old_status'  => $oldStatus,
             'new_status'  => $newStatus,
             'old_progress'=> $website->progress_percent,
             'new_progress'=> $website->progress_percent,
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
+            'attachments' => $attachments,
         ]);
 
         $this->logActivity('qc_reverted', "QC approval reverted for \"{$website->name}\".");
 
-        WebsiteActivityNotification::send($website, 'qc_reverted', "QC approval reverted for \"{$website->name}\".");
+        $attachmentUrl = $attachment['path'] ? asset('storage/' . $attachment['path']) : null;
+        WebsiteActivityNotification::send($website, 'qc_reverted', "QC approval reverted for \"{$website->name}\".", $validated['revert_note'] ?? null, $attachmentUrl);
 
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "\"{$website->name}\" QC Approval Reverted. Sent back to QC Checking."]);
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->back()
             ->with('success', "\"{$website->name}\" QC Approval Reverted. Sent back to QC Checking.");
     }
@@ -493,8 +541,15 @@ class WebsiteController extends Controller
         $attachmentUrl = $attachment['path'] ? asset('storage/' . $attachment['path']) : null;
         WebsiteActivityNotification::send($website, 'qc_error', "QC Error flagged for \"{$website->name}\".", $validated['error_note'] ?? null, $attachmentUrl);
 
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "\"{$website->name}\" flagged as QC Error. Team must fix before re-approval."]);
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->route('websites.index', ['tab' => 'qc-error'])
-            ->with('success', "\"{$website->name}\" flagged as QC Error. Team must fix and complete before re-approval.");
+            ->with('success', "\"{$website->name}\" flagged as QC Error. Team must fix before re-approval.");
     }
 
     // ── SUPERVISOR ERROR ────────────────────────────────────────────────────────
@@ -564,6 +619,13 @@ class WebsiteController extends Controller
         $attachmentUrl = $attachment['path'] ? asset('storage/' . $attachment['path']) : null;
         WebsiteActivityNotification::send($website, 'supervisor_error', "Supervisor Error flagged for \"{$website->name}\".", $validated['error_note'] ?? null, $attachmentUrl);
 
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "\"{$website->name}\" flagged as Supervisor Error. Team must fix before re-approval."]);
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->route('websites.index', ['tab' => 'supervisor-error'])
             ->with('success', "\"{$website->name}\" flagged as Supervisor Error. Team must fix before re-approval.");
     }
@@ -666,6 +728,12 @@ class WebsiteController extends Controller
 
         WebsiteActivityNotification::send($website, 'qc_error_completed', "QC error fix completed for \"{$website->name}\". Sent back to QC Checking.");
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
             ->with('success', "\"{$website->name}\" error fix completed! QC must approve again.");
     }
@@ -719,6 +787,9 @@ class WebsiteController extends Controller
 
         WebsiteActivityNotification::send($website, 'supervisor_error_completed', "Supervisor error fix completed for \"{$website->name}\". Sent back to QC Checking.");
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
             ->with('success', "\"{$website->name}\" Supervisor error fix done! QC must approve first.");
     }
@@ -730,27 +801,40 @@ class WebsiteController extends Controller
 
         $validated = $request->validate([
             'supervisor_note' => 'nullable|string|max:2000',
+            'supervisor_files' => 'nullable|array|max:8',
+            'supervisor_files.*' => 'file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         ]);
+
+        $files = $request->hasFile('supervisor_files') ? $request->file('supervisor_files') : [];
+        $attachments = collect($files)->filter()->map(fn ($file) => $this->storeHistoryAttachmentFile($file))->values()->all();
+        $attachment = $attachments[0] ?? ['path' => null, 'name' => null];
 
         $oldStatus = $website->status;
         $isMaintenanceFlow = in_array($oldStatus, [
             Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
             Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR
         ]);
+        $newStatus = $isMaintenanceFlow 
+            ? Website::STATUS_MAINTENANCE 
+            : Website::STATUS_LIVE;
 
         $website->update([
-            'status'         => Website::STATUS_LIVE,
-            'live_at'        => $website->live_at ?? now(),
-            'updated_by'     => auth()->id(),
-            'maintenance_completed_at' => $isMaintenanceFlow ? now() : $website->maintenance_completed_at,
+            'status'                 => $newStatus,
+            'supervisor_approved_by' => auth()->id(),
+            'supervisor_approved_at' => now(),
+            'live_at'                => $website->live_at ?? now(),
+            'updated_by'             => auth()->id(),
+            'error_progress_percent' => 0,
         ]);
 
         WebsiteProgressLog::create([
             'website_id' => $website->id,
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
-            'percent'    => $isMaintenanceFlow ? $website->maintenance_percent : $website->progress_percent,
-            'note'       => 'Supervisor Approved. Website is now LIVE.' . ($validated['supervisor_note'] ? " Note: {$validated['supervisor_note']}" : ''),
+            'percent'    => 100,
+            'note'       => 'Supervisor Approved. Website is now ' . ($isMaintenanceFlow ? 'Maintenance' : 'Live') . '.' . ($validated['supervisor_note'] ? " Note: {$validated['supervisor_note']}" : ''),
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
             'created_at' => now(),
         ]);
 
@@ -758,19 +842,30 @@ class WebsiteController extends Controller
             'website_id'  => $website->id,
             'user_id'     => auth()->id(),
             'action'      => 'supervisor_approved',
-            'note'        => 'Supervisor approved. Website is now LIVE.' . ($validated['supervisor_note'] ? " Note: {$validated['supervisor_note']}" : ''),
+            'note'        => 'Supervisor approved. Website is now Live.' . ($validated['supervisor_note'] ? " Note: {$validated['supervisor_note']}" : ''),
             'old_status'  => $oldStatus,
-            'new_status'  => Website::STATUS_LIVE,
+            'new_status'  => $newStatus,
             'old_progress'=> $website->progress_percent,
-            'new_progress'=> $website->progress_percent,
+            'new_progress'=> 100,
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
+            'attachments' => $attachments,
         ]);
 
-        $this->logActivity('supervisor_approved', "Supervisor approved for \"{$website->name}\". Website is now LIVE.");
+        $this->logActivity('supervisor_approved', "Supervisor approved \"{$website->name}\". Website is Live.");
 
-        WebsiteActivityNotification::send($website, 'supervisor_approved', "Supervisor approved for \"{$website->name}\". Website is now LIVE.", $validated['supervisor_note'] ?? null);
+        $attachmentUrl = $attachment['path'] ? asset('storage/' . $attachment['path']) : null;
+        WebsiteActivityNotification::send($website, 'supervisor_approved', "Supervisor approved \"{$website->name}\". Website is Live.", $validated['supervisor_note'] ?? null, $attachmentUrl);
 
-        return redirect()->route('websites.index', ['tab' => 'live'])
-            ->with('success', "\"{$website->name}\" Supervisor approved and is now LIVE.");
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "\"{$website->name}\" Supervisor Approved. Website is now Live!"]);
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
+        return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'live'])
+            ->with('success', "\"{$website->name}\" Supervisor Approved. Website is now Live!");
     }
 
     // ── START MAINTENANCE ─────────────────────────────────────────────────────
@@ -816,6 +911,9 @@ class WebsiteController extends Controller
 
         WebsiteActivityNotification::send($website, 'maintenance_started', "Maintenance started for \"{$website->name}\".", $validated['maintenance_note'] ?? null);
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->route('websites.index', ['tab' => 'maintenance'])
             ->with('success', "Maintenance started for \"{$website->name}\".");
     }
@@ -1493,7 +1591,15 @@ class WebsiteController extends Controller
             $setting->update(['value' => json_encode($orderArray)]);
         }
 
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "Group '{$validated['category']}' removed."]);
+        }
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return redirect()->route('websites.index')
+            
             ->with('success', "Group '{$validated['category']}' removed.");
     }
 
@@ -1515,6 +1621,58 @@ class WebsiteController extends Controller
     }
 
     // ── HISTORY LOGS ──────────────────────────────────────────────────────────
+
+
+    public function addHistoryComment(Request $request, Website $website)
+    {
+        try {
+            abort_unless(auth()->user()?->hasWebsiteAccess(), 403);
+
+            $validated = $request->validate([
+                'note'          => 'nullable|string|max:2000',
+                'attachments'   => 'nullable|array|max:8',
+                'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            ]);
+
+            $noteText = trim($validated['note'] ?? '');
+            if ($noteText === '' && !$request->hasFile('attachments')) {
+                return response()->json(['success' => false, 'message' => 'Please enter a comment or attach a file.'], 422);
+            }
+
+            $files = $request->hasFile('attachments') ? $request->file('attachments') : [];
+            $attachments = collect($files)
+                ->filter()
+                ->map(fn ($file) => $this->storeHistoryAttachmentFile($file))
+                ->values()
+                ->all();
+
+            $firstAttachment = $attachments[0] ?? null;
+
+            // Save to WebsiteMaintenanceLog — this is what getHistory() reads
+            $log = WebsiteMaintenanceLog::create([
+                'website_id'      => $website->id,
+                'user_id'         => auth()->id(),
+                'action'          => 'comment',
+                'note'            => $noteText ?: null,
+                'new_status'      => $website->status,
+                'new_progress'    => $website->progress_percent ?? 0,
+                'attachments'     => $attachments ?: null,
+                'attachment_path' => $firstAttachment['path'] ?? null,
+                'attachment_name' => $firstAttachment['name'] ?? null,
+            ]);
+
+            $this->logActivity('history_comment', "Comment added to history for \"{$website->name}\".");
+
+            return response()->json(['success' => true, 'log' => $log->id, 'message' => 'Comment added.']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'line'    => $e->getLine(),
+                'file'    => basename($e->getFile()),
+            ], 500);
+        }
+    }
 
     public function updateHistoryLog(Request $request, $id)
     {
@@ -1763,7 +1921,12 @@ class WebsiteController extends Controller
         $namesStr = implode(', ', $names);
         $this->logActivity('website_member_added', "Added user(s) \"{$namesStr}\" to websites with role \"{$validated['role']}\".");
 
-        return redirect()->back()->with('success', "Website member(s) added/updated successfully.");
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "Website member(s) added/updated successfully."]);
+        }
+
+        return redirect()->back()
+            ->with('success', "Website member(s) added/updated successfully.");
     }
 
     // ── DESTROY WEBSITE MEMBER ────────────────────────────────────────────────
@@ -1777,6 +1940,11 @@ class WebsiteController extends Controller
 
         $this->logActivity('website_member_removed', "Removed user \"{$userName}\" from websites members.");
 
-        return redirect()->back()->with('success', "Website member removed successfully.");
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "Website member removed successfully."]);
+        }
+
+        return redirect()->back()
+            ->with('success', "Website member removed successfully.");
     }
 }

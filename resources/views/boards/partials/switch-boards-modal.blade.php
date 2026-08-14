@@ -141,15 +141,15 @@
           <div class="min-w-0">
             <h3 class="truncate text-xl font-black tracking-tight text-slate-900" x-text="sbmCurrentTitle()"></h3>
             <p class="text-xs font-semibold text-slate-500">
-              <span x-text="sbmFilteredBoards().length"></span>
-              <span x-text="sbmFilteredBoards().length === 1 ? 'board' : 'boards'"></span>
+              <span x-text="switchBoardsModal.filteredBoards ? switchBoardsModal.filteredBoards.length : 0"></span>
+              <span x-text="(switchBoardsModal.filteredBoards && switchBoardsModal.filteredBoards.length === 1) ? 'board' : 'boards'"></span>
             </p>
           </div>
 
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <template x-for="b in sbmFilteredBoards()" :key="b.id">
+          <template x-for="b in switchBoardsModal.filteredBoards" :key="b.id">
             <article x-data="{ menuOpen: false }"
                      class="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
               <a :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
@@ -191,7 +191,7 @@
           </template>
 
 
-          <template x-if="sbmFilteredBoards().length === 0">
+          <template x-if="!switchBoardsModal.filteredBoards || switchBoardsModal.filteredBoards.length === 0">
             <div class="col-span-full flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
               <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                 <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">

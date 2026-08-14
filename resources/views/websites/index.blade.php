@@ -298,11 +298,16 @@
     <div>
             @php
         $groups = [];
-        foreach ($orderArray as $cat) {
+        $realCats = is_array($orderArray) ? array_values($orderArray) : [];
+        foreach ($realCats as $cat) {
             $groups[$cat] = $buildWebsites->where('category', $cat);
         }
-        $groups['Uncategorized'] = $buildWebsites->whereNull('category');
-        $realCats = array_values($orderArray);
+        foreach ($buildWebsites->pluck('category')->filter()->unique() as $cat) {
+            if (!in_array($cat, $realCats)) {
+                $groups[$cat] = $buildWebsites->where('category', $cat);
+            }
+        }
+        $groups['Uncategorized'] = $buildWebsites->filter(fn($w) => empty($w->category))->values();
     @endphp
     @foreach($groups as $groupName => $groupWebsites)
         @if($groupWebsites->isNotEmpty())
@@ -400,7 +405,7 @@
                     </div>
                 </div>
                 <div class="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center gap-2 w-full">
-                    <form action="{{ route('websites.progress.update', $website) }}" method="POST" class="flex-1" data-confirm="Are you sure you want to start building {{ addslashes($website->name) }}?" data-confirm-title="Start Build Progress">
+                    <form action="{{ route('websites.progress.update', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Are you sure you want to start building {{ addslashes($website->name) }}?" data-confirm-title="Start Build Progress">
                         @csrf
                         <input type="hidden" name="percent" value="10">
                         <input type="hidden" name="note" value="Build Progress Started">
@@ -467,11 +472,16 @@
     <div>
             @php
         $groups = [];
-        foreach ($orderArray as $cat) {
+        $realCats = is_array($orderArray) ? array_values($orderArray) : [];
+        foreach ($realCats as $cat) {
             $groups[$cat] = $buildProgressWebsites->where('category', $cat);
         }
-        $groups['Uncategorized'] = $buildProgressWebsites->whereNull('category');
-        $realCats = array_values($orderArray);
+        foreach ($buildProgressWebsites->pluck('category')->filter()->unique() as $cat) {
+            if (!in_array($cat, $realCats)) {
+                $groups[$cat] = $buildProgressWebsites->where('category', $cat);
+            }
+        }
+        $groups['Uncategorized'] = $buildProgressWebsites->filter(fn($w) => empty($w->category))->values();
     @endphp
     @foreach($groups as $groupName => $groupWebsites)
         @if($groupWebsites->isNotEmpty())
@@ -649,7 +659,7 @@
                         <span class="text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-1 text-center">Awaiting Supervisor Approval</span>
                         @if(auth()->user()->canApproveWebsiteQc())
                         <div class="flex items-center gap-1.5 w-full">
-                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-confirm="Revert QC approval for {{ addslashes($website->name) }}? It will go back to QC Checking stage.">
+                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Revert QC approval for {{ addslashes($website->name) }}? It will go back to QC Checking stage.">
                                 @csrf
                                 <button type="submit" class="btn text-xs py-1.5 px-2.5 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center justify-center gap-1">
                                     ✓ Fix Approved
@@ -728,11 +738,16 @@
     <div>
             @php
         $groups = [];
-        foreach ($orderArray as $cat) {
+        $realCats = is_array($orderArray) ? array_values($orderArray) : [];
+        foreach ($realCats as $cat) {
             $groups[$cat] = $liveWebsites->where('category', $cat);
         }
-        $groups['Uncategorized'] = $liveWebsites->whereNull('category');
-        $realCats = array_values($orderArray);
+        foreach ($liveWebsites->pluck('category')->filter()->unique() as $cat) {
+            if (!in_array($cat, $realCats)) {
+                $groups[$cat] = $liveWebsites->where('category', $cat);
+            }
+        }
+        $groups['Uncategorized'] = $liveWebsites->filter(fn($w) => empty($w->category))->values();
     @endphp
     @foreach($groups as $groupName => $groupWebsites)
         @if($groupWebsites->isNotEmpty())
@@ -928,11 +943,16 @@
     <div>
             @php
         $groups = [];
-        foreach ($orderArray as $cat) {
+        $realCats = is_array($orderArray) ? array_values($orderArray) : [];
+        foreach ($realCats as $cat) {
             $groups[$cat] = $maintenanceWebsites->where('category', $cat);
         }
-        $groups['Uncategorized'] = $maintenanceWebsites->whereNull('category');
-        $realCats = array_values($orderArray);
+        foreach ($maintenanceWebsites->pluck('category')->filter()->unique() as $cat) {
+            if (!in_array($cat, $realCats)) {
+                $groups[$cat] = $maintenanceWebsites->where('category', $cat);
+            }
+        }
+        $groups['Uncategorized'] = $maintenanceWebsites->filter(fn($w) => empty($w->category))->values();
     @endphp
     @foreach($groups as $groupName => $groupWebsites)
         @if($groupWebsites->isNotEmpty())
@@ -1110,7 +1130,7 @@
                         <span class="text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-1 text-center">Awaiting Supervisor Approval</span>
                         @if(auth()->user()->canApproveWebsiteQc())
                         <div class="flex items-center gap-1.5 w-full">
-                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-confirm="Revert QC approval for {{ addslashes($website->name) }}? It will go back to QC Checking stage.">
+                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Revert QC approval for {{ addslashes($website->name) }}? It will go back to QC Checking stage.">
                                 @csrf
                                 <button type="submit" class="btn text-xs py-1.5 px-2.5 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center justify-center gap-1">
                                     ✓ Fix Approved
@@ -2153,7 +2173,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="progressModalAction" method="POST" class="p-5 space-y-4">
+        <form :action="progressModalAction" method="POST" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
             @csrf
             <div>
                 <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-2">New Percentage *</label>
@@ -2270,7 +2290,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="maintenanceModalAction" method="POST" class="p-5 space-y-4">
+        <form :action="maintenanceModalAction" method="POST" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
             @csrf
             <p class="text-sm text-slate-500">The website will remain visible as Live but with a Maintenance label. It will also appear in the Maintenance Progress tab.</p>
             <div>
@@ -2303,7 +2323,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="qcErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4">
+        <form :action="qcErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
             @csrf
             <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-xs text-red-700 dark:text-red-300">
                 The website will move to the <strong>QC Error</strong> tab. The team must fix the issues and mark complete (0→100%) before this website returns to QC Checking.
@@ -2353,7 +2373,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="supervisorErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4">
+        <form :action="supervisorErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
             @csrf
             <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-xs text-red-700 dark:text-red-300">
                 The website will move to the <strong>Supervisor Error</strong> tab. The team must fix and complete before it goes back to QC → Supervisor approval.
@@ -2401,7 +2421,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="errorProgressModalAction" method="POST" class="p-5 space-y-4">
+        <form :action="errorProgressModalAction" method="POST" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
             @csrf
             <div>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
@@ -2702,17 +2722,22 @@
                 <p class="text-center text-sm text-slate-500 py-4">No history records found.</p>
             </template>
             <template x-for="log in historyLogs" :key="log.id">
-                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm" :class="log.action === 'comment' ? 'border-l-4 border-l-teal-400' : ''">
                     <div class="flex items-start justify-between gap-3 mb-2">
-                        <div class="flex items-center gap-2">
-                            <template x-if="log.new_status">
-                                <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 rounded uppercase tracking-wider" x-text="formatStatusLabel(log.new_status)"></span>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <template x-if="log.action === 'comment'">
+                                <span class="text-[10px] font-bold px-2 py-0.5 bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 rounded uppercase tracking-wider">💬 Comment</span>
                             </template>
-                            <span class="text-xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-md" x-text="(log.percent !== undefined ? log.percent : (log.new_progress !== undefined ? log.new_progress : '0')) + '%'"></span>
+                            <template x-if="log.action !== 'comment' && log.new_status">
+                                <span class="text-[11px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider shadow-sm" :class="formatStatusColor(log.new_status)" x-text="formatStatusLabel(log.new_status)"></span>
+                            </template>
+                            <template x-if="log.action !== 'comment'">
+                                <span class="text-xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-md" x-text="(log.percent !== undefined ? log.percent : (log.new_progress !== undefined ? log.new_progress : '0')) + '%'"></span>
+                            </template>
                         </div>
-                        <span class="text-[10px] text-slate-400 shrink-0 pt-0.5" x-text="new Date(log.created_at).toLocaleString()"></span>
+                        <span class="text-xs text-slate-400 shrink-0 pt-0.5" x-text="new Date(log.created_at).toLocaleString()"></span>
                     </div>
-                    <p class="text-sm text-slate-700 dark:text-slate-300 mb-2 leading-relaxed" x-html="formatNoteText(log.note)"></p>
+                    <p class="text-[15px] text-slate-700 dark:text-slate-200 mb-2 leading-relaxed" x-html="formatNoteText(log.note)"></p>
                     
                     <!-- Show extracted link if note has | Link: -->
                     <template x-if="extractLink(log.note)">
@@ -2775,8 +2800,33 @@
                 </div>
             </template>
         </div>
-        <div class="p-4 border-t border-slate-100 dark:border-slate-700 text-right">
-            <button type="button" @click="showHistoryModal = false" class="btn btn-secondary text-sm">Close</button>
+        <div class="p-4 border-t border-slate-100 dark:border-slate-700">
+            <div class="flex flex-col gap-2">
+                <textarea x-model="newHistoryComment" @paste="handlePasteRef($event, 'newHistoryFiles')" rows="2" class="form-textarea w-full resize-none rounded-xl border border-slate-200 text-sm px-4 py-3 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800/50" placeholder="Type a comment or CMD+V to paste a screenshot..."></textarea>
+                <div x-show="newHistoryFilesPreviews.length > 0" class="flex flex-wrap gap-2 mt-1 px-2" style="display: none;">
+                    <template x-for="(preview, index) in newHistoryFilesPreviews" :key="index">
+                        <div class="relative w-12 h-12 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden group">
+                            <img :src="preview.url" class="w-full h-full object-cover" :alt="preview.name">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <button type="button" @click="$refs.newHistoryFiles.value = ''; updateNewHistoryFilesCount()" class="text-white hover:text-red-400">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <div class="flex items-center justify-between gap-3 mt-1">
+                    <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" x-ref="newHistoryFiles" @change="updateNewHistoryFilesCount()" class="hidden">
+                    <button type="button" @click="$refs.newHistoryFiles.click()" class="btn btn-secondary text-xs flex items-center justify-center gap-1.5 whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                        <span x-text="newHistoryFilesCount > 0 ? newHistoryFilesCount + ' file(s)' : 'Attach Files'"></span>
+                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" @click="showHistoryModal = false" class="btn btn-secondary text-sm">Close</button>
+                        <button type="button" x-ref="historyCommentBtn" @click="submitHistoryComment(historyWebsiteId)" class="btn text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-1.5 rounded-xl shadow-md shadow-indigo-500/20 active:scale-95 transition-all">Comment</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -2853,7 +2903,7 @@
             <div class="space-y-4 p-5">
                 <div>
                     <label class="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Error Text</label>
-                    <textarea x-model="historyEditNote" rows="4" class="form-textarea w-full resize-none rounded-xl border border-slate-200 text-sm dark:border-slate-700 dark:bg-slate-800/50"></textarea>
+                    <textarea x-model="historyEditNote" @paste="handlePasteRef($event, 'historyEditFiles')" rows="4" class="form-textarea w-full resize-none rounded-xl border border-slate-200 text-sm dark:border-slate-700 dark:bg-slate-800/50"></textarea>
                 </div>
                 <template x-if="visibleHistoryEditAttachments().length">
                     <div>
@@ -2985,12 +3035,13 @@ function websitesApp() {
         showExportModal:      false,
         editFollowUpAction:   '',
         editFollowUpForm: {
-            website_id: '', type: '', title: '', url: '', google_indexed: '', assigned_to: '', note: '', created_at: ''
+        website_id: '', type: '', title: '', url: '', google_indexed: '', assigned_to: '', note: '', created_at: ''
         },
         showHistoryModal:     false,
         historyLoading:       false,
         prefetchedHistories: {},
         prefetchingHistories: {},
+
 
         prefetchHistory(websiteId) {
             if (this.prefetchedHistories[websiteId]) {
@@ -3045,6 +3096,7 @@ function websitesApp() {
 
         // History modal
         historyLogs: [],
+        historyWebsiteId: null,
         historyWebsiteName: '',
         historyType: '',
         canManageErrorHistory: @json(auth()->user()?->canApproveWebsiteQc() || auth()->user()?->canApproveWebsiteSupervisor()),
@@ -3069,6 +3121,28 @@ function websitesApp() {
         previewIsPanning: false,
         showHistoryEditModal: false,
         historyEditLog: null,
+        newHistoryComment: '',
+        newHistoryFilesCount: 0,
+        newHistoryFilesPreviews: [],
+        updateNewHistoryFilesCount() {
+            const files = this.$refs.newHistoryFiles?.files || [];
+            this.newHistoryFilesCount = files.length;
+            
+            // Clean up old previews to avoid memory leaks
+            this.newHistoryFilesPreviews.forEach(p => URL.revokeObjectURL(p.url));
+            this.newHistoryFilesPreviews = [];
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.type.startsWith('image/')) {
+                    this.newHistoryFilesPreviews.push({
+                        url: URL.createObjectURL(file),
+                        name: file.name
+                    });
+                }
+            }
+        },
+        },
         historyEditNote: '',
         historyEditRemoveIds: [],
         historyEditSelectedFileNames: [],
@@ -3282,6 +3356,7 @@ function websitesApp() {
         },
 
         async openHistoryModal(websiteId, websiteName, type) {
+            this.historyWebsiteId = websiteId;
             this.historyWebsiteName = websiteName;
             this.historyType = type;
             this.historyLogs = [];
@@ -3483,6 +3558,82 @@ function websitesApp() {
             ].join(';') + ';';
         },
 
+        // Handle CMD+V paste of screenshots into file input refs
+        handlePasteRef(event, refName) {
+            const items = event.clipboardData?.items;
+            if (!items) return;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    event.preventDefault();
+                    const blob = items[i].getAsFile();
+                    if (!blob) continue;
+                    const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+                    const file = new File([blob], `screenshot-${Date.now()}.${ext}`, { type: blob.type });
+                    const dt = new DataTransfer();
+                    // Keep existing files
+                    const existing = this.$refs[refName]?.files || [];
+                    [...existing].forEach(f => dt.items.add(f));
+                    dt.items.add(file);
+                    if (this.$refs[refName]) {
+                        this.$refs[refName].files = dt.files;
+                        // Update count state
+                        if (refName === 'newHistoryFiles') {
+                            this.newHistoryFilesCount = dt.files.length;
+                        }
+                        if (refName === 'historyEditFiles') {
+                            this.historyEditSelectedFileNames = [...dt.files].map(f => f.name);
+                        }
+                    }
+                    break;
+                }
+            }
+        },
+
+        async submitHistoryComment(websiteId) {
+            const note = (this.newHistoryComment || '').trim();
+            const files = this.$refs.newHistoryFiles?.files || [];
+            if (!note && files.length === 0) return;
+
+            const submitBtn = this.$refs.historyCommentBtn;
+            const originalText = submitBtn ? submitBtn.innerHTML : 'Comment';
+            if (submitBtn) { submitBtn.innerHTML = '...'; submitBtn.disabled = true; }
+
+            const formData = new FormData();
+            formData.append('note', note || ' ');
+            [...files].forEach(file => formData.append('attachments[]', file));
+
+            try {
+                const response = await fetch(`/websites/${websiteId}/history-logs/comment`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        this.newHistoryComment = '';
+                        this.newHistoryFilesCount = 0;
+                        if (this.$refs.newHistoryFiles) this.$refs.newHistoryFiles.value = '';
+                        this.showHistoryModal = false;
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + result.message);
+                    }
+                } else {
+                    const result = await response.json().catch(() => ({}));
+                    alert('Error: ' + (result.message || 'Server error. Please try again.'));
+                }
+            } catch (error) {
+                alert('Network Error: ' + error.message);
+                console.error(error);
+            } finally {
+                if (submitBtn) { submitBtn.innerHTML = originalText; submitBtn.disabled = false; }
+            }
+        },
+
         openHistoryEditModal(log) {
             if (!this.canManageLog(log)) return;
             this.historyEditLog = log;
@@ -3589,6 +3740,54 @@ function websitesApp() {
             form.submit();
         },
 
+        async submitAjaxStatus(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn ? submitBtn.innerHTML : '';
+            
+            if (submitBtn) {
+                submitBtn.innerHTML = '...';
+                submitBtn.disabled = true;
+            }
+
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: form.method || 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    // Close any open modals
+                    this.showProgressModal = false;
+                    this.showErrorProgressModal = false;
+                    this.showQCErrorModal = false;
+                    this.showSupervisorErrorModal = false;
+                    this.showMaintenanceModal = false;
+                    
+                    // The server just broadcasted a Pusher event (WebsiteUpdated).
+                    // We don't need to manually morph the DOM here.
+                    // The global Pusher listener will catch it and call Turbo.visit for everyone (including us)!
+                } else {
+                    alert('Error updating status.');
+                    if (submitBtn) {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    }
+                }
+            } catch (err) {
+                alert('Network error.');
+                if (submitBtn) {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            }
+        },
+
         saveHistoryLogEdit() {
             const log = this.historyEditLog;
             if (!this.canManageLog(log)) return;
@@ -3622,6 +3821,7 @@ function websitesApp() {
         },
         formatStatusLabel(status) {
             const map = {
+                'comment': '💬 Comment',
                 'build': 'Build Progress',
                 'qc_checking': 'QC Checking',
                 'qc_error': 'QC Error',
@@ -3636,6 +3836,16 @@ function websitesApp() {
             };
             return map[status] || status;
         },
+        formatStatusColor(status) {
+            if (!status) return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+            
+            if (status.includes('error')) return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800';
+            if (status.includes('maintenance')) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800';
+            if (status === 'live') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
+            if (status.includes('qc') || status.includes('supervisor')) return 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 border border-purple-200 dark:border-purple-800';
+            
+            return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800';
+        }
     };
 }
 
@@ -3668,6 +3878,22 @@ document.addEventListener('submit', function(e) {
                 submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
                 submitBtn.innerHTML = submitBtn.dataset.originalText;
             }, 8000);
+        }
+    }
+});
+
+// Real-time updates via Pusher
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.kiuqGetPusherClient) {
+        const pusher = window.kiuqGetPusherClient();
+        if (pusher) {
+            const channel = pusher.subscribe('private-websites');
+            channel.bind('WebsiteUpdated', function(data) {
+                // Ignore if we triggered it (optional, but Turbo morph is fast enough)
+                if (window.Turbo) {
+                    window.Turbo.visit(window.location.href, { action: 'replace' });
+                }
+            });
         }
     }
 });

@@ -1,0 +1,51 @@
+import re
+
+file_path = '/Applications/XAMPP/xamppfiles/htdocs/dgt-system/app/Http/Controllers/WebsiteController.php'
+with open(file_path, 'r') as f:
+    content = f.read()
+
+# Add addHistoryComment method
+add_history_comment_method = """
+    public function addHistoryComment(Request $request, Website $website)
+    {
+        $validated = $request->validate([
+            'note' => 'required|string|max:2000',
+            'attachments' => 'nullable|array|max:8',
+            'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        ]);
+
+        $files = $request->hasFile('attachments') ? $request->file('attachments') : [];
+        $attachments = collect($files)->filter()->map(fn ($file) => $this->storeHistoryAttachmentFile($file))->values()->all();
+        $attachment = $attachments[0] ?? ['path' => null, 'name' => null];
+
+        $isMaintenanceFlow = in_array($website->status, Website::MAINTENANCE_STATUSES);
+
+        $log = WebsiteProgressLog::create([
+            'website_id' => $website->id,
+            'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
+            'user_id'    => auth()->id(),
+            'percent'    => $isMaintenanceFlow ? $website->maintenance_percent : $website->progress_percent,
+            'note'       => 'Comment: ' . $validated['note'],
+            'attachment_path' => $attachment['path'],
+            'attachment_name' => $attachment['name'],
+            'attachments' => $attachments,
+            'created_at' => now(),
+        ]);
+
+        $this->logActivity('history_comment', "Comment added to history for \\"{$website->name}\\".");
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'log' => $log, 'message' => 'Comment added.']);
+        }
+
+        return redirect()->back()->with('success', 'Comment added.');
+    }
+"""
+
+if "public function addHistoryComment" not in content:
+    content = content.replace(
+        "    public function updateHistoryLog(Request $request, $id)",
+        add_history_comment_method + "\n    public function updateHistoryLog(Request $request, $id)"
+    )
+    with open(file_path, 'w') as f:
+        f.write(content)

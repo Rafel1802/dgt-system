@@ -99,6 +99,21 @@ class Website extends Model
         'is_archived'              => 'boolean',
     ];
 
+    protected static function booted()
+    {
+        static::created(function ($website) {
+            if (class_exists('\App\Events\WebsiteUpdated')) {
+                event(new \App\Events\WebsiteUpdated($website));
+            }
+        });
+
+        static::updated(function ($website) {
+            if (class_exists('\App\Events\WebsiteUpdated')) {
+                event(new \App\Events\WebsiteUpdated($website));
+            }
+        });
+    }
+
     // ── Relationships ─────────────────────────────────────────────────────────
 
     public function handler(): BelongsTo

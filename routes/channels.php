@@ -20,3 +20,8 @@ Broadcast::channel('boards.{boardId}', function ($user, $boardId) {
 
     return $board->hasMember($user->id) || $board->workspace?->hasMember($user->id);
 });
+
+Broadcast::channel('websites', function ($user) {
+    return $user->hasWebsiteAccess();
+});
+

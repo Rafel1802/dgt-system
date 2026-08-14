@@ -135,6 +135,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/websites/history-logs/{id}/attachment', [\App\Http\Controllers\WebsiteController::class, 'updateHistoryAttachment'])->name('websites.history-logs.attachment.update');
             Route::delete('/websites/history-logs/{id}/attachment', [\App\Http\Controllers\WebsiteController::class, 'destroyHistoryAttachment'])->name('websites.history-logs.attachment.destroy');
             Route::get('/websites/{website}/history', [\App\Http\Controllers\WebsiteController::class, 'getHistory'])->name('websites.history');
+            Route::post('/websites/{website}/history-logs/comment', [\App\Http\Controllers\WebsiteController::class, 'addHistoryComment'])->name('websites.history-logs.comment.store');
 
             // Website CRUD resource
             Route::resource('websites', \App\Http\Controllers\WebsiteController::class)->except(['create', 'show', 'edit']);
