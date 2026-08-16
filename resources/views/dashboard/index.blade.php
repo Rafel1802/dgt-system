@@ -521,6 +521,10 @@ function scheduleDashboardCharts() {
 
 document.addEventListener('DOMContentLoaded', scheduleDashboardCharts);
 document.addEventListener('turbo:load', scheduleDashboardCharts);
+// Execute immediately for Turbo Drive navigations where DOMContentLoaded has already passed
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    scheduleDashboardCharts();
+}
 document.addEventListener('turbo:before-cache', () => {
     if (window.Chart) {
         const userChart = Chart.getChart('dashboardUserChart');

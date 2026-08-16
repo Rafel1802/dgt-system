@@ -128,7 +128,7 @@
         <button type="submit" form="delete-customer-form" class="btn btn-danger text-sm">Delete Customer</button>
         @endcan
         <div class="flex gap-3">
-          <a href="{{ route('crm.customers.show', $customer) }}" class="btn btn-secondary">Cancel</a>
+          <a href="{{ route('crm.customers.show', $customer) }}" class="btn btn-cancel btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
         </div>
       </div>

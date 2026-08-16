@@ -152,7 +152,7 @@
           <template x-for="b in switchBoardsModal.filteredBoards" :key="b.id">
             <article x-data="{ menuOpen: false }"
                      class="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
-              <a :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
+              <a wire:navigate.hover :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
                  @click="b.id === boardId ? (closeSwitchBoardsModal(), $event.preventDefault()) : null"
                  class="block h-28 w-full overflow-hidden bg-slate-200 text-left"
                  :style="sbmCoverStyle(b)"
@@ -167,7 +167,7 @@
 
               <div class="space-y-3 p-3">
                 <div class="flex items-start gap-3">
-                  <a :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
+                  <a wire:navigate.hover :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
                      @click="b.id === boardId ? (closeSwitchBoardsModal(), $event.preventDefault()) : null"
                      class="min-w-0 flex-1 text-left">
                     <span class="block text-sm font-black text-slate-900 transition hover:text-sky-700" x-text="b.name"></span>

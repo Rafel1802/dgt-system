@@ -330,7 +330,7 @@
           </div>
         </div>
         <div class="flex gap-3 pt-2">
-          <button @click="showFollowUp = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="showFollowUp = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button @click="submitFollowUp()" :disabled="fuLoading" class="btn btn-primary flex-1">
             <span x-show="!fuLoading">Save Follow-Up</span>
             <span x-show="fuLoading" x-cloak>Saving…</span>
@@ -377,7 +377,7 @@
         </datalist>
         <button type="button" @click="addLine()" class="btn btn-secondary text-xs">+ Add Another Product</button>
         <div class="flex gap-3 pt-2">
-          <button @click="showOrderModal = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="showOrderModal = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button @click="confirmOrder()" :disabled="statusLoading || orderLoading" class="btn btn-primary flex-1">
             <span x-show="!statusLoading && !orderLoading" x-text="orderModalPurpose === 'successful' ? 'Save & Mark Successful' : (orderModalPurpose === 'edit' ? 'Save Changes' : 'Save Order')"></span>
             <span x-show="statusLoading || orderLoading" x-cloak>Saving…</span>
@@ -403,7 +403,7 @@
           <textarea x-model="techNote" rows="4" class="form-input" placeholder="What's the technical issue?"></textarea>
         </div>
         <div class="flex gap-3 pt-2">
-          <button @click="showTechNoteModal = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="showTechNoteModal = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button @click="confirmTechSupport()" :disabled="statusLoading" class="btn btn-primary flex-1">
             <span x-show="!statusLoading">Save & Mark Technical Support</span>
             <span x-show="statusLoading" x-cloak>Saving…</span>

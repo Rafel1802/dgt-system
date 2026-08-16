@@ -11,15 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('comment_reactions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('card_comment_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('emoji');
-            $table->timestamps();
+        if (!Schema::hasTable('comment_reactions')) {
+            Schema::create('comment_reactions', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('card_comment_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->string('emoji');
+                $table->timestamps();
 
-            $table->unique(['card_comment_id', 'user_id', 'emoji']);
-        });
+                $table->unique(['card_comment_id', 'user_id', 'emoji']);
+            });
+        }
     }
 
     /**

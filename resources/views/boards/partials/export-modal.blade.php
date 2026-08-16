@@ -166,7 +166,7 @@
 
     {{-- Modal Footer --}}
     <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
-      <button @click="exportModal.open = false" class="btn btn-secondary py-2 px-4 text-xs font-semibold rounded-xl">
+      <button @click="exportModal.open = false" class="btn btn-cancel btn-secondary py-2 px-4 text-xs font-semibold rounded-xl">
         Cancel
       </button>
       <button @click="triggerExport()" class="btn btn-primary py-2 px-4 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md">

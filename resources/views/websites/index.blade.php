@@ -188,13 +188,13 @@
 
 {{-- ── Tab Navigation ──────────────────────────────────────────────────────── --}}
 @if($tab !== 'follow-up')
-<div class="flex items-center justify-end mb-4">
-    <div class="flex items-center gap-2 w-full sm:w-auto">
-        <div class="relative flex-1 sm:flex-none">
-            <input type="text" x-model="searchQuery" placeholder="Search websites..." class="form-input text-xs py-1.5 pl-8 pr-3 rounded-lg w-full sm:w-56 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all">
-            <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
-        </div>
-        <select x-model="filterMember" class="form-select text-xs py-1.5 px-3 rounded-lg w-full sm:w-48 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all ml-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+    <div class="relative w-full md:w-64">
+        <input type="text" x-model="searchQuery" placeholder="Search websites..." class="form-input text-xs py-1.5 pl-8 pr-3 rounded-lg w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all">
+        <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <select x-model="filterMember" class="form-select text-xs py-1.5 px-3 rounded-lg min-w-[140px] shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
             <option value="">All Members</option>
             @php
                 $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
@@ -204,8 +204,24 @@
                 <option value="{{ $u->id }}">{{ $u->name }}</option>
             @endforeach
         </select>
+        <select x-model="filterClass" class="form-select text-xs py-1.5 px-3 rounded-lg min-w-[130px] shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+            <option value="">All Classes</option>
+            @foreach($orderArray as $cat)
+                <option value="{{ $cat }}">{{ $cat }}</option>
+            @endforeach
+        </select>
+
+        @if(in_array($tab, ['maintenance', 'build-progress']))
+            @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'boss', 'supervisor']) || auth()->user()->isQcOrSupervisor())
+            <select x-model="filterApprovalStatus" class="form-select text-xs py-1.5 px-3 rounded-lg min-w-[150px] shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                <option value="">All Statuses</option>
+                <option value="qc-approved">QC Approved</option>
+                <option value="supervisor-approved">Supervisor Approved</option>
+            </select>
+            @endif
+        @endif
         
-                    @if(auth()->user()->canUpdateWebsiteProgress())
+        @if(auth()->user()->canUpdateWebsiteProgress())
             <button type="button" @click="showManageClassesModal = true" class="btn btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm flex-shrink-0">
                 <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
                 <span class="hidden sm:inline">Manage Classes</span>
@@ -229,9 +245,10 @@
             'build-progress' => ['label' => 'Build Progress',      'count' => $buildProgressWebsites->count(),    'icon' => 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z', 'color' => 'blue'],
             'live'           => ['label' => 'Live Websites',        'count' => $liveWebsites->count(),             'icon' => 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',                                'color' => 'emerald'],
             'maintenance'    => ['label' => 'Update / Maintenance', 'count' => $maintenanceWebsites->count(),      'icon' => 'M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l5.654-4.654', 'color' => 'orange'],
-            'qc-error'       => ['label' => 'QC Error',             'count' => $qcErrorWebsites->count(),          'icon' => 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z', 'color' => 'red'],
-            'supervisor-error'=> ['label' => 'Supervisor Error',    'count' => $supervisorErrorWebsites->count(),  'icon' => 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z', 'color' => 'rose'],
         ];
+
+        $tabs['qc-error'] = ['label' => 'QC Error', 'count' => $qcErrorWebsites->count(), 'icon' => 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z', 'color' => 'red'];
+        $tabs['supervisor-error'] = ['label' => 'Supervisor Error', 'count' => $supervisorErrorWebsites->count(), 'icon' => 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z', 'color' => 'rose'];
         $colorMap = [
             'slate'   => ['active' => 'border-slate-600 text-slate-700 dark:text-slate-200',   'dot' => 'bg-slate-500'],
             'blue'    => ['active' => 'border-blue-600 text-blue-700 dark:text-blue-300',       'dot' => 'bg-blue-500'],
@@ -250,9 +267,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="{{ $tabInfo['icon'] }}" />
         </svg>
         {{ $tabInfo['label'] }}
-        @if($tabInfo['count'] > 0)
         <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold {{ $isActive ? 'bg-current/10' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' }}">{{ $tabInfo['count'] }}</span>
-        @endif
     </a>
     @endforeach
 </div>
@@ -316,8 +331,8 @@
             $isRealCat = ($catIndex !== false);
         @endphp
         <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()) }})">
-            <h3 @click="toggleGroup('build-{{ addslashes($groupName) }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
-                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('build-{{ addslashes($groupName) }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <h3 @click="toggleGroup('build-{{ addslashes($groupName ?? "") }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('build-{{ addslashes($groupName ?? "") }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
                 <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
@@ -360,9 +375,9 @@
                 </div>
                 @endif
             </h3>
-            <div x-show="!isGroupCollapsed('build-{{ addslashes($groupName) }}')" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div x-show="!isGroupCollapsed('build-{{ addslashes($groupName ?? "") }}')" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 @foreach($groupWebsites as $website)
-        <div class="card flex flex-col w-full border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all duration-200 overflow-hidden" x-show="matchesSearch('{{ addslashes($website->name) }}', '{{ addslashes($website->url) }}', '{{ $website->handled_by }}')">
+        <div class="card flex flex-col w-full border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all duration-200 overflow-hidden" x-show="matchesSearch('{{ addslashes($website->name ?? '') }}', '{{ addslashes($website->url ?? '') }}', '{{ addslashes($website->category ?? '') }}', '{{ $website->handled_by }}', '{{ $website->status ?? '' }}')">
             <div class="h-1 w-full bg-gradient-to-r from-slate-400 to-slate-600"></div>
             <div class="p-5 flex flex-col flex-1 w-full">
                 <div class="flex items-start gap-3 mb-4">
@@ -405,7 +420,7 @@
                     </div>
                 </div>
                 <div class="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center gap-2 w-full">
-                    <form action="{{ route('websites.progress.update', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Are you sure you want to start building {{ addslashes($website->name) }}?" data-confirm-title="Start Build Progress">
+                    <form action="{{ route('websites.progress.update', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Are you sure you want to start building {{ addslashes($website->name ?? "") }}?" data-confirm-title="Start Build Progress">
                         @csrf
                         <input type="hidden" name="percent" value="10">
                         <input type="hidden" name="note" value="Build Progress Started">
@@ -424,10 +439,10 @@
                     </button>
                     @endif
                     @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                         
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -489,9 +504,9 @@
             $catIndex = array_search($groupName, $realCats);
             $isRealCat = ($catIndex !== false);
         @endphp
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()) }})">
-            <h3 @click="toggleGroup('progress-{{ addslashes($groupName) }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
-                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('progress-{{ addslashes($groupName) }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by, 'status' => $w->status])->values()) }})">
+            <h3 @click="toggleGroup('progress-{{ addslashes($groupName ?? "") }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('progress-{{ addslashes($groupName ?? "") }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
                 <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
@@ -534,7 +549,7 @@
                 </div>
                 @endif
             </h3>
-            <div x-show="!isGroupCollapsed('progress-{{ addslashes($groupName) }}')" class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div x-show="!isGroupCollapsed('progress-{{ addslashes($groupName ?? "") }}')" class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 @foreach($groupWebsites as $website)
         @php
             $pct = $website->progress_percent;
@@ -548,7 +563,7 @@
                 default     => '#94a3b8',
             };
         @endphp
-        <div class="card flex flex-col w-full border {{ $isQc ? 'border-amber-300 dark:border-amber-700 shadow-amber-100 dark:shadow-amber-900/20 shadow-md' : ($isSupervisor ? 'border-cyan-300 dark:border-cyan-700 shadow-cyan-100 dark:shadow-cyan-900/20 shadow-md' : 'border-slate-200 dark:border-slate-700') }} overflow-hidden transition-all hover:shadow-lg" x-show="matchesSearch('{{ addslashes($website->name) }}', '{{ addslashes($website->url) }}', '{{ $website->handled_by }}')">
+        <div class="card flex flex-col w-full border {{ $isQc ? 'border-amber-300 dark:border-amber-700 shadow-amber-100 dark:shadow-amber-900/20 shadow-md' : ($isSupervisor ? 'border-cyan-300 dark:border-cyan-700 shadow-cyan-100 dark:shadow-cyan-900/20 shadow-md' : 'border-slate-200 dark:border-slate-700') }} overflow-hidden transition-all hover:shadow-lg" x-show="matchesSearch('{{ addslashes($website->name ?? '') }}', '{{ addslashes($website->url ?? '') }}', '{{ addslashes($website->category ?? '') }}', '{{ $website->handled_by }}', '{{ $website->status ?? '' }}')">
             <div class="h-1 w-full" style="background: linear-gradient(90deg, {{ $progressColor }}, {{ $progressColor }}88);"></div>
             <div class="p-5 flex flex-col flex-1 w-full">
                 {{-- Header --}}
@@ -623,19 +638,19 @@
                 <div class="mt-auto pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center gap-2 w-full">
                     @if(!$isQc && !$isSupervisor)
                     <button type="button"
-                            @click="openProgressModal({{ $website->id }}, '{{ addslashes($website->name) }}', {{ $pct }}, 'build')"
+                            @click="openProgressModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', {{ $pct }}, 'build')"
                             class="btn btn-primary text-xs py-1.5 px-3 flex-1">
                         Update Progress
                     </button>
                     @elseif($isQc)
                     @if(auth()->user()->canApproveWebsiteQc())
                     <button type="button"
-                            @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', $event)"
                             class="btn text-xs py-1.5 px-3 flex-1 bg-amber-500 hover:bg-amber-600 text-white">
                         ✓ QC Approve
                     </button>
                     <button type="button"
-                            @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
                         ✗ QC Error
                     </button>
@@ -645,12 +660,12 @@
                     @elseif($isSupervisor)
                     @if(auth()->user()->canApproveWebsiteSupervisor())
                     <button type="button"
-                            @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-3 flex-1 bg-cyan-500 hover:bg-cyan-600 text-white">
                         ✓ Supervisor Approve
                     </button>
                     <button type="button"
-                            @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
                         ✗ Sup. Error
                     </button>
@@ -659,7 +674,7 @@
                         <span class="text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-1 text-center">Awaiting Supervisor Approval</span>
                         @if(auth()->user()->canApproveWebsiteQc())
                         <div class="flex items-center gap-1.5 w-full">
-                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Revert QC approval for {{ addslashes($website->name) }}? It will go back to QC Checking stage.">
+                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Revert QC approval for {{ addslashes($website->name ?? "") }}? It will go back to QC Checking stage.">
                                 @csrf
                                 <button type="submit" class="btn text-xs py-1.5 px-2.5 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center justify-center gap-1">
                                     ✓ Fix Approved
@@ -671,7 +686,7 @@
                     @endif
                     @endif
                     <button type="button"
-                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'build')"
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', 'build')"
                             class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
         View History
@@ -690,10 +705,10 @@
                     </button>
                     @endif
                     @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                         
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -756,8 +771,8 @@
             $isRealCat = ($catIndex !== false);
         @endphp
         <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()) }})">
-            <h3 @click="toggleGroup('live-{{ addslashes($groupName) }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
-                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('live-{{ addslashes($groupName) }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <h3 @click="toggleGroup('live-{{ addslashes($groupName ?? "") }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('live-{{ addslashes($groupName ?? "") }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
                 <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
@@ -800,32 +815,32 @@
                 </div>
                 @endif
             </h3>
-            <div x-show="!isGroupCollapsed('live-{{ addslashes($groupName) }}')" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div x-show="!isGroupCollapsed('live-{{ addslashes($groupName ?? "") }}')" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 @foreach($groupWebsites as $website)
-        @php $isUnderMaintenance = $website->isMaintenance(); @endphp
-        <div class="card flex flex-col w-full border {{ $isUnderMaintenance ? 'border-orange-300 dark:border-orange-500/40 bg-orange-50/50 dark:bg-orange-900/20 shadow-[0_0_15px_rgba(249,115,22,0.1)] dark:shadow-[0_0_20px_rgba(249,115,22,0.1)]' : 'border-slate-200 dark:border-slate-700' }} overflow-hidden transition-all hover:shadow-lg" x-show="matchesSearch('{{ addslashes($website->name) }}', '{{ addslashes($website->url) }}', '{{ $website->handled_by }}')">
-            <div class="h-1 w-full {{ $isUnderMaintenance ? 'bg-orange-400' : 'bg-gradient-to-r from-emerald-400 to-emerald-600' }}"></div>
+        <div class="card flex flex-col w-full border {{ $website->isMaintenance() ? 'border-orange-200 dark:border-orange-800 bg-orange-50/20 dark:bg-orange-900/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800' }} overflow-hidden transition-all hover:shadow-lg" x-show="matchesSearch('{{ addslashes($website->name ?? '') }}', '{{ addslashes($website->url ?? '') }}', '{{ addslashes($website->category ?? '') }}', '{{ $website->handled_by }}', '{{ $website->status ?? '' }}')">
+            <div class="h-1 w-full bg-gradient-to-r {{ $website->isMaintenance() ? 'from-orange-400 to-orange-600' : 'from-emerald-400 to-emerald-600' }}"></div>
             <div class="p-5 flex flex-col flex-1 w-full">
                 <div class="flex items-start gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                    <div class="w-10 h-10 rounded-xl {{ $website->isMaintenance() ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-slate-100 dark:bg-slate-800' }} flex items-center justify-center flex-shrink-0">
                         @if($website->logo_path)
                             <img src="{{ $website->logo_src }}" alt="" class="w-8 h-8 object-contain rounded">
                         @else
-                            <span class="text-xl">🌐</span>
+                            <span class="text-xl">{{ $website->isMaintenance() ? '🔧' : '🌐' }}</span>
                         @endif
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <h3 class="font-bold text-slate-800 dark:text-slate-100 truncate">{{ $website->name }}</h3>
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                LIVE
-                            </span>
-                            @if($isUnderMaintenance)
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">
-                                <span class="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
-                                Maintenance
-                            </span>
+                            @if($website->isMaintenance())
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                                    Maintenance
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    Status: Live
+                                </span>
                             @endif
                         </div>
                         <a href="{{ $website->url }}" target="_blank" class="text-xs text-indigo-500 hover:text-indigo-700 truncate block">{{ $website->clean_domain }}</a>
@@ -846,17 +861,6 @@
                 </div>
                 @endif
 
-                @if($isUnderMaintenance)
-                <div class="mb-4">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-xs font-semibold text-orange-600 dark:text-orange-400">Maintenance Progress</span>
-                        <span class="text-xs font-bold text-orange-600 dark:text-orange-400">{{ $website->maintenance_percent }}%</span>
-                    </div>
-                    <div class="h-2 bg-orange-100 dark:bg-orange-900/50 rounded-full overflow-hidden">
-                        <div class="h-full bg-orange-500 rounded-full" style="width: {{ $website->maintenance_percent }}%"></div>
-                    </div>
-                </div>
-                @endif
 
                 <div class="mt-auto pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center gap-2 w-full">
                     <a href="{{ $website->url }}" target="_blank"
@@ -864,9 +868,9 @@
                         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
                         Visit Site
                     </a>
-                        @if(!$isUnderMaintenance && auth()->user()->canUpdateWebsiteProgress())
+                        @if(auth()->user()->canUpdateWebsiteProgress())
                         <button type="button"
-                                @click="openMaintenanceModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                                @click="openMaintenanceModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="relative group btn btn-secondary text-xs py-1.5 px-2.5 hover:bg-amber-500 hover:text-white hover:border-amber-500 dark:hover:bg-amber-600 transition-colors" aria-label="Start Maintenance">
                         <svg class="w-4 h-4 text-amber-500 dark:text-amber-400 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75a4.5 4.5 0 0 1-4.884 4.484c-1.076-.091-2.264.071-2.95.904l-7.152 8.684a2.548 2.548 0 1 1-3.586-3.586l8.684-7.152c.833-.686.995-1.874.904-2.95a4.5 4.5 0 0 1 6.336-4.486l-3.276 3.276a3.004 3.004 0 0 0 2.25 2.25l3.276-3.276c.256.565.398 1.192.398 1.852Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M4.867 19.125h.008v.008h-.008v-.008Z" /></svg>
                         <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-950 dark:bg-slate-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md shadow-md z-50 whitespace-nowrap">
@@ -876,7 +880,7 @@
                     </button>
                     @endif
                     <button type="button"
-                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance')"
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', 'maintenance')"
                             class="relative group btn btn-secondary text-xs py-1.5 px-2.5" aria-label="View History">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                         <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-slate-950 dark:bg-slate-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md shadow-md z-50 whitespace-nowrap">
@@ -895,10 +899,10 @@
                     </button>
                     @endif
                     @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                         
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -960,9 +964,9 @@
             $catIndex = array_search($groupName, $realCats);
             $isRealCat = ($catIndex !== false);
         @endphp
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()) }})">
-            <h3 @click="toggleGroup('maintenance-{{ addslashes($groupName) }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
-                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('maintenance-{{ addslashes($groupName) }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by, 'status' => $w->status])->values()) }})">
+            <h3 @click="toggleGroup('maintenance-{{ addslashes($groupName ?? "") }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('maintenance-{{ addslashes($groupName ?? "") }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
                 <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
@@ -1005,7 +1009,7 @@
                 </div>
                 @endif
             </h3>
-            <div x-show="!isGroupCollapsed('maintenance-{{ addslashes($groupName) }}')" class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div x-show="!isGroupCollapsed('maintenance-{{ addslashes($groupName ?? "") }}')" class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 @foreach($groupWebsites as $website)
         @php
             $pct = $website->maintenance_percent;
@@ -1019,7 +1023,7 @@
                 default     => '#fb923c',
             };
         @endphp
-        <div class="card flex flex-col w-full border {{ $isMaintQc ? 'border-amber-300 dark:border-amber-700 bg-amber-50/10 dark:bg-amber-900/5 shadow-amber-100 dark:shadow-amber-900/20 shadow-md' : ($isMaintSupervisor ? 'border-cyan-300 dark:border-cyan-700 bg-cyan-50/10 dark:bg-cyan-900/5 shadow-cyan-100 dark:shadow-cyan-900/20 shadow-md' : 'border-orange-200 dark:border-orange-800 bg-orange-50/20 dark:bg-orange-900/10') }} overflow-hidden transition-all hover:shadow-lg" x-show="matchesSearch('{{ addslashes($website->name) }}', '{{ addslashes($website->url) }}', '{{ $website->handled_by }}')">
+        <div class="card flex flex-col w-full border {{ $isMaintQc ? 'border-amber-300 dark:border-amber-700 bg-amber-50/10 dark:bg-amber-900/5 shadow-amber-100 dark:shadow-amber-900/20 shadow-md' : ($isMaintSupervisor ? 'border-cyan-300 dark:border-cyan-700 bg-cyan-50/10 dark:bg-cyan-900/5 shadow-cyan-100 dark:shadow-cyan-900/20 shadow-md' : 'border-orange-200 dark:border-orange-800 bg-orange-50/20 dark:bg-orange-900/10') }} overflow-hidden transition-all hover:shadow-lg" x-show="matchesSearch('{{ addslashes($website->name ?? '') }}', '{{ addslashes($website->url ?? '') }}', '{{ addslashes($website->category ?? '') }}', '{{ $website->handled_by }}', '{{ $website->status ?? '' }}')">
             <div class="h-1 w-full" style="background: linear-gradient(90deg, {{ $maintColor }}, {{ $maintColor }}88);"></div>
             <div class="p-5 flex flex-col flex-1 w-full">
                 <div class="flex items-start gap-3 mb-4">
@@ -1033,10 +1037,7 @@
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <h3 class="font-bold text-slate-800 dark:text-slate-100 truncate">{{ $website->name }}</h3>
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 flex-shrink-0">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                LIVE
-                            </span>
+
                             @if($isMaintQc)
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 flex-shrink-0">
                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -1094,19 +1095,19 @@
                 <div class="mt-auto pt-3 border-t border-orange-100 dark:border-orange-800 flex items-center justify-center gap-2 w-full">
                     @if(!$isMaintQc && !$isMaintSupervisor)
                     <button type="button"
-                            @click="openProgressModal({{ $website->id }}, '{{ addslashes($website->name) }}', {{ $pct }}, 'maintenance')"
+                            @click="openProgressModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', {{ $pct }}, 'maintenance')"
                             class="btn text-xs py-1.5 px-3 flex-1 bg-orange-500 hover:bg-orange-600 text-white">
                         Update Maintenance
                     </button>
                     @elseif($isMaintQc)
                     @if(auth()->user()->canApproveWebsiteQc())
                     <button type="button"
-                            @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', $event)"
                             class="btn text-xs py-1.5 px-3 flex-1 bg-amber-500 hover:bg-amber-600 text-white">
                         ✓ QC Approve
                     </button>
                     <button type="button"
-                            @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
                         ✗ QC Error
                     </button>
@@ -1116,12 +1117,12 @@
                     @elseif($isMaintSupervisor)
                     @if(auth()->user()->canApproveWebsiteSupervisor())
                     <button type="button"
-                            @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-3 flex-1 bg-cyan-500 hover:bg-cyan-600 text-white">
                         ✓ Supervisor Approve
                     </button>
                     <button type="button"
-                            @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
                         ✗ Sup. Error
                     </button>
@@ -1130,7 +1131,7 @@
                         <span class="text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-1 text-center">Awaiting Supervisor Approval</span>
                         @if(auth()->user()->canApproveWebsiteQc())
                         <div class="flex items-center gap-1.5 w-full">
-                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Revert QC approval for {{ addslashes($website->name) }}? It will go back to QC Checking stage.">
+                            <form action="{{ route('websites.qc.revert', $website) }}" method="POST" class="flex-1" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)" data-confirm="Revert QC approval for {{ addslashes($website->name ?? "") }}? It will go back to QC Checking stage.">
                                 @csrf
                                 <button type="submit" class="btn text-xs py-1.5 px-2.5 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center justify-center gap-1">
                                     ✓ Fix Approved
@@ -1143,7 +1144,7 @@
                     @endif
                     <div class="flex items-center gap-1.5 shrink-0">
                     <button type="button"
-                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', 'maintenance')"
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', 'maintenance')"
                             class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
         View History
@@ -1162,10 +1163,10 @@
                     </button>
                     @endif
                     @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                         
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -1184,6 +1185,204 @@
         </div>
         @endif
     @endforeach
+    </div>
+    @endif
+</div>
+@endif
+
+{{-- ════════════════════════════════════════════════════════════════
+     TAB: QC CHECKING
+════════════════════════════════════════════════════════════════ --}}
+@if($tab === 'qc-checking')
+<div>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div>
+            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <span class="text-amber-500">✓</span> QC Approved
+            </h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Websites awaiting QC approval.</p>
+        </div>
+    </div>
+    @if($qcCheckingWebsites->isEmpty())
+    <div class="card border border-dashed border-slate-200 dark:border-slate-700 p-16 text-center">
+        <div class="text-5xl mb-4">✅</div>
+        <h3 class="text-lg font-bold text-slate-700 dark:text-slate-200 mb-2">No Websites</h3>
+        <p class="text-slate-500 text-sm">No websites are currently awaiting QC approval.</p>
+    </div>
+    @else
+    <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        @foreach($qcCheckingWebsites as $website)
+        @php
+            $pct = $website->progress_percent;
+            if ($website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_CHECKING) {
+                $pct = $website->maintenance_percent;
+            }
+            $isMaintenance = $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_CHECKING;
+        @endphp
+        <div class="card flex flex-col w-full border-2 border-amber-300 dark:border-amber-600 bg-amber-50/10 dark:bg-amber-900/10 overflow-hidden shadow-md hover:shadow-lg transition-all" x-show="matchesSearch('{{ addslashes($website->name ?? '') }}', '{{ addslashes($website->url ?? '') }}', '{{ addslashes($website->category ?? '') }}', '{{ $website->handled_by }}', '{{ $website->status ?? '' }}')">
+            <div class="h-1 w-full bg-gradient-to-r from-amber-400 to-amber-500"></div>
+            <div class="p-5 flex flex-col flex-1 w-full">
+                <div class="flex items-start gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                        @if($website->logo_path)
+                            <img src="{{ $website->logo_src }}" alt="" class="w-8 h-8 object-contain rounded">
+                        @else
+                            <span class="text-xl">🌐</span>
+                        @endif
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h3 class="font-bold text-slate-800 dark:text-slate-100 truncate">{{ $website->name }}</h3>
+                            @if($isMaintenance)
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 flex-shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                LIVE
+                            </span>
+                            @endif
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 flex-shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                QC Checking {{ $isMaintenance ? '· Maint' : '' }}
+                            </span>
+                        </div>
+                        <a href="{{ $website->url }}" target="_blank" class="text-xs text-indigo-500 hover:text-indigo-700 truncate block">{{ $website->clean_domain }}</a>
+                    </div>
+                </div>
+
+                {{-- Progress Bar --}}
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-bold text-slate-600 dark:text-slate-300">Progress</span>
+                        <span class="text-sm font-black text-amber-500">{{ $pct }}%</span>
+                    </div>
+                    <div class="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-500 bg-amber-500" style="width: {{ $pct }}%;"></div>
+                    </div>
+                </div>
+
+                {{-- Actions --}}
+                <div class="mt-auto pt-3 border-t border-amber-200 dark:border-amber-800/50 flex items-center justify-center gap-2 w-full">
+                    @if(auth()->user()->canApproveWebsiteQc())
+                    <button type="button"
+                            @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', $event)"
+                            class="btn text-xs py-1.5 px-3 flex-1 bg-amber-500 hover:bg-amber-600 text-white">
+                        ✓ QC Approve
+                    </button>
+                    <button type="button"
+                            @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
+                            class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
+                        ✗ QC Error
+                    </button>
+                    @else
+                    <span class="text-xs text-amber-500 font-semibold flex-1 text-center">Awaiting QC Check</span>
+                    @endif
+                    <button type="button"
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', '{{ $isMaintenance ? 'maintenance' : 'build' }}')"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        @endforeach
+    </div>
+    @endif
+</div>
+@endif
+
+{{-- ════════════════════════════════════════════════════════════════
+     TAB: SUPERVISOR CHECKING
+════════════════════════════════════════════════════════════════ --}}
+@if($tab === 'supervisor-checking')
+<div>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div>
+            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <span class="text-cyan-500">✓</span> Supervisor Approved
+            </h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Websites awaiting Supervisor approval.</p>
+        </div>
+    </div>
+    @if($supervisorCheckingWebsites->isEmpty())
+    <div class="card border border-dashed border-slate-200 dark:border-slate-700 p-16 text-center">
+        <div class="text-5xl mb-4">✅</div>
+        <h3 class="text-lg font-bold text-slate-700 dark:text-slate-200 mb-2">No Websites</h3>
+        <p class="text-slate-500 text-sm">No websites are currently awaiting Supervisor approval.</p>
+    </div>
+    @else
+    <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        @foreach($supervisorCheckingWebsites as $website)
+        @php
+            $pct = $website->progress_percent;
+            if ($website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING) {
+                $pct = $website->maintenance_percent;
+            }
+            $isMaintenance = $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING;
+        @endphp
+        <div class="card flex flex-col w-full border-2 border-cyan-300 dark:border-cyan-600 bg-cyan-50/10 dark:bg-cyan-900/10 overflow-hidden shadow-md hover:shadow-lg transition-all" x-show="matchesSearch('{{ addslashes($website->name ?? '') }}', '{{ addslashes($website->url ?? '') }}', '{{ addslashes($website->category ?? '') }}', '{{ $website->handled_by }}', '{{ $website->status ?? '' }}')">
+            <div class="h-1 w-full bg-gradient-to-r from-cyan-400 to-cyan-500"></div>
+            <div class="p-5 flex flex-col flex-1 w-full">
+                <div class="flex items-start gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center flex-shrink-0">
+                        @if($website->logo_path)
+                            <img src="{{ $website->logo_src }}" alt="" class="w-8 h-8 object-contain rounded">
+                        @else
+                            <span class="text-xl">🌐</span>
+                        @endif
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h3 class="font-bold text-slate-800 dark:text-slate-100 truncate">{{ $website->name }}</h3>
+                            @if($isMaintenance)
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 flex-shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                LIVE
+                            </span>
+                            @endif
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-700 flex-shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
+                                Sup. Checking {{ $isMaintenance ? '· Maint' : '' }}
+                            </span>
+                        </div>
+                        <a href="{{ $website->url }}" target="_blank" class="text-xs text-indigo-500 hover:text-indigo-700 truncate block">{{ $website->clean_domain }}</a>
+                    </div>
+                </div>
+
+                {{-- Progress Bar --}}
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-bold text-slate-600 dark:text-slate-300">Progress</span>
+                        <span class="text-sm font-black text-cyan-500">{{ $pct }}%</span>
+                    </div>
+                    <div class="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-500 bg-cyan-500" style="width: {{ $pct }}%;"></div>
+                    </div>
+                </div>
+
+                {{-- Actions --}}
+                <div class="mt-auto pt-3 border-t border-cyan-200 dark:border-cyan-800/50 flex items-center justify-center gap-2 w-full">
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital','boss','supervisor']))
+                    <button type="button"
+                            @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
+                            class="btn text-xs py-1.5 px-3 flex-1 bg-cyan-500 hover:bg-cyan-600 text-white">
+                        ✓ Sup. Approve
+                    </button>
+                    <button type="button"
+                            @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
+                            class="btn text-xs py-1.5 px-2.5 bg-rose-500 hover:bg-rose-600 text-white">
+                        ✗ Sup. Error
+                    </button>
+                    @else
+                    <span class="text-xs text-cyan-500 font-semibold flex-1 text-center">Awaiting Sup. Check</span>
+                    @endif
+                    <button type="button"
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', '{{ $isMaintenance ? 'maintenance' : 'build' }}')"
+                            class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        @endforeach
     </div>
     @endif
 </div>
@@ -1284,7 +1483,7 @@
                     @if($errPct < 100)
                         @if(auth()->user()->canUpdateWebsiteProgress())
                         <button type="button"
-                                @click="openErrorProgressModal({{ $website->id }}, '{{ addslashes($website->name) }}', {{ $errPct }})"
+                                @click="openErrorProgressModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', {{ $errPct }})"
                                 class="btn text-xs py-1.5 px-3 flex-1 bg-indigo-500 hover:bg-indigo-600 text-white">
                             Update Fix Progress
                         </button>
@@ -1294,12 +1493,12 @@
                     @else
                         @if(auth()->user()->canApproveWebsiteQc())
                         <button type="button"
-                            @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openQcModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', $event)"
                             class="btn text-xs py-1.5 px-3 flex-1 bg-amber-500 hover:bg-amber-600 text-white">
                         ✓ QC Approve
                     </button>
                         <button type="button"
-                            @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openQcErrorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
                         ✗ QC Error
                     </button>
@@ -1309,7 +1508,7 @@
                     @endif
                     
                     <button type="button"
-                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR ? 'maintenance' : 'build' }}')"
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR ? 'maintenance' : 'build' }}')"
                             class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
         View History
@@ -1328,10 +1527,10 @@
                     </button>
                     @endif
                     @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                         
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -1358,7 +1557,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
             <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <span class="text-orange-500">⚠</span> Supervisor Error
+                <span class="text-red-500">⚠</span> Supervisor Error
             </h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">Websites flagged with Supervisor errors. Fix, update progress to 100%, then click Complete.</p>
         </div>
@@ -1376,12 +1575,12 @@
             $errPct = $website->error_progress_percent ?? 0;
             $isMaintenanceError = $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR;
         @endphp
-        <div class="card flex flex-col w-full border-2 border-orange-300 dark:border-orange-600 bg-orange-50/30 dark:bg-orange-900/10 overflow-hidden shadow-md hover:shadow-lg transition-all">
-            <div class="h-1.5 w-full bg-gradient-to-r from-orange-500 to-amber-500"></div>
+        <div class="card flex flex-col w-full border-2 border-red-300 dark:border-red-600 bg-red-50/30 dark:bg-red-900/10 overflow-hidden shadow-md hover:shadow-lg transition-all">
+            <div class="h-1.5 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
             <div class="p-5 flex flex-col flex-1 w-full">
                 {{-- Header --}}
                 <div class="flex items-start gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                    <div class="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
                         @if($website->logo_path)
                             <img src="{{ $website->logo_src }}" alt="" class="w-8 h-8 object-contain rounded">
                         @else
@@ -1397,8 +1596,8 @@
                                 LIVE
                             </span>
                             @endif
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 flex-shrink-0">
-                                <span class="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 flex-shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
                                 Sup. Error {{ $isMaintenanceError ? '· Maintenance' : '· Build' }}
                             </span>
                         </div>
@@ -1407,8 +1606,8 @@
                 </div>
                 {{-- Error Info --}}
                 @if($website->error_note)
-                <div class="mb-4 bg-orange-50 dark:bg-orange-900/30 rounded-lg p-3 border border-orange-100 dark:border-orange-700">
-                    <div class="text-[10px] font-bold text-orange-400 uppercase tracking-wide mb-1">Error Description</div>
+                <div class="mb-4 bg-red-50 dark:bg-red-900/30 rounded-lg p-3 border border-red-100 dark:border-red-700">
+                    <div class="text-[10px] font-bold text-red-400 uppercase tracking-wide mb-1">Error Description</div>
                     <p class="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">{{ $website->error_note }}</p>
                     @if($website->error_link)
                     <a href="{{ $website->error_link }}" target="_blank" class="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold text-indigo-500 hover:text-indigo-700">
@@ -1418,7 +1617,7 @@
                     @endif
                     @if($website->error_attachment_path)
                     <div class="inline-flex items-center gap-2 mt-2 ml-2 align-middle">
-                        <button type="button" @click="openGenericAttachmentPreview(@js($website->error_attachment_name ?? 'Reference file'), @js(route('websites.error-attachment.view', $website)), @js(route('websites.error-attachment.download', $website)))" class="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-500 hover:text-orange-700">
+                        <button type="button" @click="openGenericAttachmentPreview(@js($website->error_attachment_name ?? 'Reference file'), @js(route('websites.error-attachment.view', $website)), @js(route('websites.error-attachment.download', $website)))" class="inline-flex items-center gap-1 text-[10px] font-semibold text-red-500 hover:text-red-700">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25A2.25 2.25 0 0 0 6 4.5v15A2.25 2.25 0 0 0 8.25 21h7.5A2.25 2.25 0 0 0 18 18.75M15 2.25V6a2.25 2.25 0 0 0 2.25 2.25H21"/></svg>
                             {{ Str::limit($website->error_attachment_name ?? 'Reference file', 22) }}
                         </button>
@@ -1434,18 +1633,18 @@
                 <div class="mb-4">
                     <div class="flex items-center justify-between mb-1.5">
                         <span class="text-xs font-bold text-slate-600 dark:text-slate-300">Fix Progress</span>
-                        <span class="text-sm font-black text-orange-500">{{ $errPct }}%</span>
+                        <span class="text-sm font-black text-red-500">{{ $errPct }}%</span>
                     </div>
-                    <div class="h-3 bg-orange-100 dark:bg-orange-900/30 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-orange-500 to-amber-400" style="width: {{ $errPct }}%"></div>
+                    <div class="h-3 bg-red-100 dark:bg-red-900/30 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-red-500 to-red-600" style="width: {{ $errPct }}%"></div>
                     </div>
                 </div>
                 {{-- Actions --}}
-                <div class="mt-auto pt-3 border-t border-orange-100 dark:border-orange-800 flex items-center justify-center gap-2 w-full">
+                <div class="mt-auto pt-3 border-t border-red-100 dark:border-red-800 flex items-center justify-center gap-2 w-full">
                     @if($errPct < 100)
                         @if(auth()->user()->canUpdateWebsiteProgress())
                         <button type="button"
-                                @click="openErrorProgressModal({{ $website->id }}, '{{ addslashes($website->name) }}', {{ $errPct }})"
+                                @click="openErrorProgressModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', {{ $errPct }})"
                                 class="btn text-xs py-1.5 px-3 flex-1 bg-indigo-500 hover:bg-indigo-600 text-white">
                             Update Fix Progress
                         </button>
@@ -1455,12 +1654,12 @@
                     @else
                         @if(auth()->user()->canApproveWebsiteSupervisor())
                         <button type="button"
-                            @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openSupervisorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-3 flex-1 bg-cyan-500 hover:bg-cyan-600 text-white">
                         ✓ Supervisor Approve
                     </button>
                         <button type="button"
-                            @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name) }}')"
+                            @click="openSupervisorErrorModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}')"
                             class="btn text-xs py-1.5 px-2.5 bg-red-500 hover:bg-red-600 text-white">
                         ✗ Sup. Error
                     </button>
@@ -1470,7 +1669,7 @@
                     @endif
                     
                     <button type="button"
-                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name) }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR ? 'maintenance' : 'build' }}')"
+                            @mouseenter.once="prefetchHistory({{ $website->id }})" @click="openHistoryModal({{ $website->id }}, '{{ addslashes($website->name ?? "") }}', '{{ $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR ? 'maintenance' : 'build' }}')"
                             class="btn btn-secondary text-xs py-1.5 px-2.5 relative group" aria-label="View History">
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
         View History
@@ -1489,10 +1688,10 @@
                     </button>
                     @endif
                     @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name) }}?" data-confirm-title="Delete Website">
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                         
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -1544,13 +1743,13 @@
     </div>
 
     {{-- Filters --}}
-    <form method="GET" action="{{ route('websites.index', ['tab' => 'follow-up']) }}" class="card border border-slate-200 dark:border-slate-700 p-4 mb-5">
+    <form id="followUpFilterForm" method="GET" action="{{ route('websites.index') }}" class="card border border-slate-200 dark:border-slate-700 p-4 mb-5" data-turbo="true" data-turbo-action="replace">
         <input type="hidden" name="tab" value="follow-up">
         <div class="flex flex-wrap gap-3 items-end">
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Website</label>
-                <select name="fu_website" class="form-select text-sm rounded-lg py-1.5 min-w-[140px]" onchange="this.form.submit()">
+                <select name="fu_website" class="form-select text-sm rounded-lg py-1.5 min-w-[140px]" @change="$el.form.requestSubmit()">
                     <option value="">All Websites</option>
                     @php
                         $fuWebsitesList = $allWebsites;
@@ -1569,7 +1768,7 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</label>
-                <select name="fu_type" class="form-select text-sm rounded-lg py-1.5 min-w-[130px]" onchange="this.form.submit()">
+                <select name="fu_type" class="form-select text-sm rounded-lg py-1.5 min-w-[130px]" @change="$el.form.requestSubmit()">
                     <option value="">All Types</option>
                     @foreach(\App\Models\WebsiteFollowUp::TYPES as $key => $label)
                     <option value="{{ $key }}" {{ ($followUpFilter['fu_type'] ?? '') === $key ? 'selected' : '' }}>{{ $label }}</option>
@@ -1578,7 +1777,7 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Member</label>
-                <select name="fu_member" class="form-select text-sm rounded-lg py-1.5 min-w-[140px]" onchange="this.form.submit()">
+                <select name="fu_member" class="form-select text-sm rounded-lg py-1.5 min-w-[140px]" @change="$el.form.requestSubmit()">
                     <option value="">All Members</option>
                     @foreach($websiteTeamMembers as $u)
                     <option value="{{ $u->id }}" {{ ($followUpFilter['fu_member'] ?? '') == $u->id ? 'selected' : '' }}>{{ $u->name }}</option>
@@ -1587,7 +1786,9 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
-                <input type="text" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? date('Y-m-d') }}" x-init="flatpickr($el, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'd M, Y', allowInput: true, onChange: function(selectedDates, dateStr, instance) { instance.element.closest('form').submit(); } })" class="form-input text-sm font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
+                <input type="date" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? now()->format('Y-m-d') }}" 
+                    @change="$el.form.requestSubmit()" 
+                    class="form-input text-sm font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
             </div>
             <div class="flex items-center">
                 <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}" class="btn btn-secondary text-sm py-1.5 px-3">Clear</a>
@@ -1597,6 +1798,7 @@
         </div>
     </form>
 
+    <div id="followUpTableContainer" class="transition-opacity duration-200">
     @if($followUps->isEmpty())
     <div class="card border border-dashed border-slate-200 dark:border-slate-700 p-16 text-center">
         <div class="text-5xl mb-4">📝</div>
@@ -1604,7 +1806,8 @@
         <p class="text-slate-500 text-sm">Add your first follow-up entry above.</p>
     </div>
     @else
-        <div class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-8" x-show="hasMatchingWebsites({{ json_encode($followUps->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()) }})">
+        @php $fuItems = $followUps instanceof \Illuminate\Pagination\LengthAwarePaginator ? $followUps->getCollection() : $followUps; @endphp
+        <div class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-8" x-init="filterMember = ''; filterClass = ''; filterApprovalStatus = '';" x-show="hasMatchingWebsites({{ json_encode($fuItems->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()) }}, true)">
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
                     <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
@@ -1619,7 +1822,7 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
                     @foreach($followUps as $fu)
-                    <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}')" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ addslashes($fu->website?->category ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}', '{{ $fu->website?->status ?? '' }}', true)" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                         <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
                             <div>{{ $fu->website?->name ?? '–' }}</div>
                             @if($fu->website)
@@ -1633,16 +1836,25 @@
                             <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $typeColors[$fu->type] ?? 'bg-slate-100 text-slate-600' }}">{{ $fu->getTypeLabel() }}</span>
                         </td>
                         <td class="px-4 py-3 max-w-xs">
-                            @if($fu->url) <a href="{{ $fu->url }}" target="_blank" class="text-indigo-500 hover:text-indigo-700 text-xs truncate block">{{ Str::limit($fu->url, 40) }}</a> @endif
-                            @if($fu->note) <p class="text-xs text-slate-400 mt-0.5">{{ Str::limit($fu->note, 60) }}</p> @endif
+                            <div class="flex items-start gap-3">
+                                @if($fu->image_url)
+                                    <a href="{{ $fu->url }}" target="_blank" data-turbo="false" class="flex-shrink-0">
+                                        <img src="{{ $fu->image_url }}" alt="Preview" class="w-12 h-12 object-cover rounded-md shadow-sm border border-slate-200 dark:border-slate-700 hover:scale-105 transition-transform">
+                                    </a>
+                                @endif
+                                <div class="flex-1 min-w-0">
+                                    @if($fu->url) <a href="{{ $fu->url }}" target="_blank" data-turbo="false" class="text-indigo-500 hover:text-indigo-700 text-xs truncate block">{{ Str::limit($fu->url, 40) }}</a> @endif
+                                    @if($fu->note) <p class="text-xs text-slate-400 mt-0.5 whitespace-pre-wrap">{{ Str::limit($fu->note, 60) }}</p> @endif
+                                </div>
+                            </div>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
                             <div class="flex flex-col items-start gap-1">
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $fu->getQcStatusBadgeClass() }} leading-none">{{ ucfirst($fu->qc_status) }}</span>
+                                <span class="badge-status px-2 py-0.5 rounded-full text-[10px] font-bold {{ $fu->qc_status === 'checked' ? 'bg-emerald-100 text-emerald-700' : $fu->getQcStatusBadgeClass() }} leading-none">{{ ucfirst($fu->qc_status) }}</span>
                                 @if($fu->qc_checked_at)
-                                    <div class="flex flex-col">
-                                        <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $fu->qcChecker?->name ?? 'System' }}</span>
-                                        <span class="text-[10px] text-slate-400">{{ $fu->qc_checked_at->format('d M, Y') }}</span>
+                                    <div class="flex flex-col mt-0.5">
+                                        <span class="text-[10px] font-medium text-slate-500 dark:text-slate-400">{{ $fu->qcChecker?->name ?? 'System' }}</span>
+                                        <span class="text-[9px] text-slate-400">{{ $fu->qc_checked_at->format('d M, Y') }}</span>
                                     </div>
                                 @endif
                             </div>
@@ -1652,28 +1864,69 @@
                         <td class="px-4 py-3 whitespace-nowrap text-right">
                             <div class="flex items-center justify-end gap-1">
                                 @if((auth()->user()->hasAnyRole(['super-admin','admin-digital','boss','supervisor']) || auth()->user()->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->where('role', 'QC')->exists()) && !in_array($fu->qc_status, ['checked', 'approved']))
-                                <form action="{{ route('websites.followups.qc', $fu) }}" method="POST" class="inline-block" data-no-processing="true" x-data="{ ticked: false }" @submit="ticked = true">
-                                    @csrf
-                                    <input type="hidden" name="qc_status" value="checked">
+                                <div class="inline-block" data-no-processing="true" x-data="{ 
+                                    ticked: false, 
+                                    loading: false,
+                                    submitQc() {
+                                        if (this.ticked || this.loading) return;
+                                        this.loading = true;
+                                        
+                                        let formData = new FormData();
+                                        formData.append('qc_status', 'checked');
+                                        formData.append('_token', '{{ csrf_token() }}');
+                                        
+                                        fetch('{{ route('websites.followups.qc', $fu) }}', {
+                                            method: 'POST',
+                                            body: formData,
+                                            headers: {
+                                                'Accept': 'application/json'
+                                            }
+                                        }).then(async res => {
+                                            if (res.ok) {
+                                                this.ticked = true;
+                                                const tr = $el.closest('tr');
+                                                const badge = tr.querySelector('.badge-status');
+                                                if (badge) {
+                                                    badge.textContent = 'Checked';
+                                                    badge.className = 'badge-status px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 leading-none';
+                                                    let subtext = document.createElement('div');
+                                                    subtext.className = 'flex flex-col mt-0.5';
+                                                    subtext.innerHTML = `<span class='text-[10px] font-medium text-slate-500 dark:text-slate-400'>{{ auth()->user()->name }}</span><span class='text-[9px] text-slate-400'>{{ now()->format('d M, Y') }}</span>`;
+                                                    badge.parentNode.appendChild(subtext);
+                                                }
+                                            } else {
+                                                console.error('Error submitting QC check');
+                                            }
+                                        }).catch(err => {
+                                            console.error(err);
+                                        }).finally(() => {
+                                            this.loading = false;
+                                        });
+                                    }
+                                }">
+                                    <template x-if="!ticked">
+                                        <button @click="submitQc()" :disabled="loading" type="button" class="group relative flex items-center justify-center w-7 h-7 rounded border-2 border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all cursor-pointer shadow-sm" aria-label="Approve QC">
+                                            <svg x-show="!loading" class="w-4 h-4 text-emerald-500 opacity-20 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                            <svg x-show="loading" x-cloak class="animate-spin w-4 h-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                Approve QC
+                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                            </div>
+                                        </button>
+                                    </template>
                                     
-                                    <button x-show="!ticked" type="submit" class="group relative flex items-center justify-center w-7 h-7 rounded border-2 border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all cursor-pointer shadow-sm" aria-label="Approve QC">
-                                        <svg class="w-4 h-4 text-emerald-500 opacity-20 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                            Approve QC
-                                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                    <template x-if="ticked">
+                                        <div class="relative group inline-block">
+                                            <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                            </div>
+                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                QC Checked
+                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                            </div>
                                         </div>
-                                    </button>
-                                    
-                                    <div x-cloak x-show="ticked" class="relative group inline-block">
-                                        <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                                        </div>
-                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                            QC Checked
-                                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                                        </div>
-                                    </div>
-                                </form>
+                                    </template>
+                                </div>
                                 @elseif(in_array($fu->qc_status, ['checked', 'approved']))
                                 <div class="relative group inline-block">
                                     <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
@@ -1721,7 +1974,14 @@
                     </tbody>
                 </table>
         </div>
+        
+        @if(method_exists($followUps, 'links'))
+        <div class="px-4 pb-4">
+            {{ $followUps->appends(request()->query())->links() }}
+        </div>
+        @endif
     @endif
+    </div>
 </div>
 @endif
 
@@ -1777,7 +2037,7 @@
                 }
              ">
             @foreach($orderArray as $cat)
-            <div data-id="{{ $cat }}" x-show="!classSearchQuery || '{{ addslashes($cat) }}'.toLowerCase().includes(classSearchQuery.toLowerCase())" class="flex items-center justify-between bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm px-3 py-2 w-full group hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-colors">
+            <div data-id="{{ $cat }}" x-show="!classSearchQuery || '{{ addslashes($cat ?? "") }}'.toLowerCase().includes(classSearchQuery.toLowerCase())" class="flex items-center justify-between bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm px-3 py-2 w-full group hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-colors">
                 
                 <div class="flex items-center gap-2 overflow-hidden flex-1">
                     <div class="class-drag-handle cursor-move p-1 text-slate-300 hover:text-slate-500 dark:hover:text-slate-400 transition-colors relative group" aria-label="Drag to reorder">
@@ -1787,9 +2047,9 @@
     </div>
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg>
                     </div>
-                    <span x-show="editingClass !== '{{ addslashes($cat) }}'" class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate pr-4">{{ $cat }}</span>
+                    <span x-show="editingClass !== '{{ addslashes($cat ?? "") }}'" class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate pr-4">{{ $cat }}</span>
                     
-                    <form x-show="editingClass === '{{ addslashes($cat) }}'" action="{{ route('websites.renameCategory') }}" method="POST" class="flex-1 flex items-center gap-2 mr-2" style="display: none;">
+                    <form x-show="editingClass === '{{ addslashes($cat ?? "") }}'" action="{{ route('websites.renameCategory') }}" method="POST" class="flex-1 flex items-center gap-2 mr-2" style="display: none;">
                     @csrf @method('PUT')
                     <input type="hidden" name="old_category" value="{{ $cat }}">
                     <input type="text" name="new_category" x-model="editingClassName" required class="form-input w-full text-xs py-1 px-2 rounded-md border-slate-300 dark:border-slate-600 focus:ring-indigo-500 h-7" @keydown.escape="editingClass = null">
@@ -1812,8 +2072,8 @@
                 </form>
                 </div>
 
-                <div x-show="editingClass !== '{{ addslashes($cat) }}'" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                    <button type="button" @click="editingClass = '{{ addslashes($cat) }}'; editingClassName = '{{ addslashes($cat) }}'" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors relative group"  aria-label="Edit Class">
+                <div x-show="editingClass !== '{{ addslashes($cat ?? "") }}'" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                    <button type="button" @click="editingClass = '{{ addslashes($cat ?? "") }}'; editingClassName = '{{ addslashes($cat ?? "") }}'" class="p-1.5 text-slate-400 hover:text-indigo-500 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors relative group"  aria-label="Edit Class">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                     
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -1824,7 +2084,7 @@
                     <form :id="'delete-class-' + '{{ md5($cat) }}'" action="{{ route('websites.destroyCategory') }}" method="POST" class="inline">
                         @csrf @method('DELETE')
                         <input type="hidden" name="category" value="{{ $cat }}">
-                        <button type="button" @click="classToDelete = '{{ addslashes($cat) }}'; classToDeleteId = 'delete-class-' + '{{ md5($cat) }}'; showDeleteClassModal = true;" class="p-1.5 text-slate-400 hover:text-rose-500 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors relative group"  aria-label="Remove Class">
+                        <button type="button" @click="classToDelete = '{{ addslashes($cat ?? "") }}'; classToDeleteId = 'delete-class-' + '{{ md5($cat) }}'; showDeleteClassModal = true;" class="p-1.5 text-slate-400 hover:text-rose-500 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors relative group"  aria-label="Remove Class">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                         
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -1860,7 +2120,7 @@
             </p>
         </div>
         <div class="p-4 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-            <button @click="showDeleteClassModal = false; classToDelete = ''; classToDeleteId = '';" type="button" class="btn btn-secondary text-sm px-4">Cancel</button>
+            <button @click="showDeleteClassModal = false; classToDelete = ''; classToDeleteId = '';" type="button" class="btn btn-cancel btn-secondary text-sm px-4">Cancel</button>
             <button @click="document.getElementById(classToDeleteId).submit()" type="button" class="btn btn-danger text-sm px-4">Yes, Remove</button>
         </div>
     </div>
@@ -1995,7 +2255,7 @@
                                 </td>
                                 <td class="p-3 text-right">
                                     <div class="inline-flex items-center gap-2 justify-end">
-                                        <button x-show="editingMemberId !== {{ $m->id }}" type="button" @click="editingMemberId = {{ $m->id }}; editingMemberRole = '{{ addslashes($m->role) }}'" class="btn text-xs py-1 px-2.5 border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-600 hover:text-indigo-600 rounded transition-colors bg-white dark:bg-slate-800 relative group" aria-label="Edit Role">
+                                        <button x-show="editingMemberId !== {{ $m->id }}" type="button" @click="editingMemberId = {{ $m->id }}; editingMemberRole = '{{ addslashes($m->role ?? "") }}'" class="btn text-xs py-1 px-2.5 border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-600 hover:text-indigo-600 rounded transition-colors bg-white dark:bg-slate-800 relative group" aria-label="Edit Role">
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
         Edit Role
         <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
@@ -2028,7 +2288,7 @@
             </div>
         </div>
         <div class="p-4 border-t border-slate-100 dark:border-slate-700 text-right bg-slate-50/50 dark:bg-slate-900/20">
-            <button type="button" @click="showManageMembersModal = false; selectedUserIds = []; memberUserSearch = ''; isEditing = false;" class="btn btn-secondary text-sm">Close</button>
+            <button type="button" @click="showManageMembersModal = false; selectedUserIds = []; memberUserSearch = ''; isEditing = false;" class="btn btn-cancel btn-secondary text-sm">Close</button>
         </div>
     </div>
 </div>
@@ -2042,7 +2302,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.store') }}" method="POST" enctype="multipart/form-data" class="p-5 space-y-4">
+        <form action="{{ route('websites.store') }}" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitAjaxForm($event, 'showCreateModal')">
             @csrf
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
@@ -2085,11 +2345,11 @@
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Notes</label>
-                    <textarea name="notes" rows="3" class="form-textarea w-full rounded-xl text-sm resize-none" placeholder="Project notes..."></textarea>
+                    <textarea name="notes" rows="3" class="form-textarea w-full rounded-xl text-sm p-3 resize-none" placeholder="Project notes..."></textarea>
                 </div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showCreateModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showCreateModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary text-sm">Create Website</button>
             </div>
         </form>
@@ -2150,11 +2410,11 @@
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Notes</label>
-                    <textarea name="notes" x-model="editForm.notes" rows="3" class="form-textarea w-full rounded-xl text-sm resize-none" placeholder="Project notes..."></textarea>
+                    <textarea name="notes" x-model="editForm.notes" rows="3" class="form-textarea w-full rounded-xl text-sm p-3 resize-none" placeholder="Project notes..."></textarea>
                 </div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showEditModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showEditModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary text-sm">Save Changes</button>
             </div>
         </form>
@@ -2173,7 +2433,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="progressModalAction" method="POST" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
+        <form :action="progressModalAction" method="POST" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitProgress($event)">
             @csrf
             <div>
                 <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-2">New Percentage *</label>
@@ -2199,7 +2459,7 @@
                           placeholder="e.g. Homepage layout completed. Navigation menu added..."></textarea>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showProgressModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showProgressModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary text-sm" x-text="progressModalType === 'maintenance' ? 'Update Maintenance' : 'Update Progress'"></button>
             </div>
         </form>
@@ -2218,7 +2478,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="qcModalAction" method="POST" class="p-5 space-y-4" data-no-processing @submit="showQcModal = false">
+        <form :action="qcModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitQcApprove($event)">
             @csrf
             <div class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-300">
                 <p class="font-semibold">This will:</p>
@@ -2231,12 +2491,25 @@
             <div>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">QC Note <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional)</span></label>
                 <textarea name="qc_note" rows="3" 
-                          class="form-textarea w-full rounded-xl text-sm resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-amber-500 focus:ring focus:ring-amber-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-150 shadow-sm" 
-                          placeholder="e.g. All pages checked, mobile responsive, no broken links..."></textarea>
+                          @paste="handlePasteRef($event, 'qcApproveFiles')"
+                          class="form-textarea w-full rounded-xl text-sm p-3 resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-amber-500 focus:ring focus:ring-amber-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-150 shadow-sm" 
+                          placeholder="e.g. All pages checked, mobile responsive, no broken links... (CMD+V to paste screenshot)"></textarea>
+                <input type="file" name="qc_files[]" x-ref="qcApproveFiles" accept="image/*" multiple class="hidden" @change="updateQcApproveFilesCount()">
+                
+                <div x-show="qcApproveFilesPreviews && qcApproveFilesPreviews.length > 0" class="flex flex-wrap gap-2 mt-2" style="display: none;">
+                    <template x-for="(preview, index) in qcApproveFilesPreviews" :key="index">
+                        <div class="relative w-16 h-16 group">
+                            <img :src="preview.url" class="w-full h-full object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <button type="button" @click.prevent="removeQcApproveFile(index)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showQcModal = false" class="btn btn-secondary text-sm">Cancel</button>
-                <button type="submit" class="btn text-sm bg-amber-500 hover:bg-amber-600 text-white">✓ Approve QC</button>
+                <button type="button" @click="showQcModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
+                <button type="submit" id="qcApproveSubmitBtn" class="btn text-sm bg-amber-500 hover:bg-amber-600 text-white">✓ Approve QC</button>
             </div>
         </form>
     </div>
@@ -2254,7 +2527,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="supervisorModalAction" method="POST" class="p-5 space-y-4" data-no-processing @submit="showSupervisorModal = false">
+        <form :action="supervisorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitSupervisorApprove($event)">
             @csrf
             <div class="bg-cyan-50 dark:bg-cyan-900/20 rounded-xl p-4 text-sm text-cyan-700 dark:text-cyan-300">
                 <p class="font-semibold">This will:</p>
@@ -2267,11 +2540,24 @@
             <div>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Supervisor Note <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional)</span></label>
                 <textarea name="supervisor_note" rows="3" 
-                          class="form-textarea w-full rounded-xl text-sm resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-cyan-500 focus:ring focus:ring-cyan-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-150 shadow-sm" 
-                          placeholder="e.g. Final checklist verified, site ready for release."></textarea>
+                          @paste="handlePasteRef($event, 'supervisorApproveFiles')"
+                          class="form-textarea w-full rounded-xl text-sm p-3 resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-cyan-500 focus:ring focus:ring-cyan-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-150 shadow-sm" 
+                          placeholder="e.g. Final checklist verified, site ready for release. (CMD+V to paste screenshot)"></textarea>
+                <input type="file" name="supervisor_files[]" x-ref="supervisorApproveFiles" accept="image/*" multiple class="hidden" @change="updateSupervisorApproveFilesCount()">
+                
+                <div x-show="supervisorApproveFilesPreviews && supervisorApproveFilesPreviews.length > 0" class="flex flex-wrap gap-2 mt-2" style="display: none;">
+                    <template x-for="(preview, index) in supervisorApproveFilesPreviews" :key="index">
+                        <div class="relative w-16 h-16 group">
+                            <img :src="preview.url" class="w-full h-full object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <button type="button" @click.prevent="removeSupervisorApproveFile(index)" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showSupervisorModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showSupervisorModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn text-sm bg-cyan-500 hover:bg-cyan-600 text-white">✓ Approve & Go Live</button>
             </div>
         </form>
@@ -2290,7 +2576,42 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="maintenanceModalAction" method="POST" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
+        <form :action="maintenanceModalAction" method="POST" class="p-5 space-y-4" @submit.prevent="
+            let form = $el;
+            let btn = form.querySelector('button[type=submit]');
+            let originalText = btn.innerHTML;
+            btn.innerHTML = '...';
+            btn.disabled = true;
+            
+            fetch(maintenanceModalAction, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    'Accept': 'application/json'
+                },
+                body: new FormData(form)
+            })
+            .then(r => {
+                if(r.ok || r.status === 302 || r.status === 200 || r.redirected) {
+                    showMaintenanceModal = false;
+                    if(window.showToast) window.showToast('Maintenance started successfully!', 'success');
+                    if (window.Turbo) {
+                        Turbo.visit(window.location.pathname + '?tab=maintenance');
+                    } else {
+                        window.location.href = window.location.pathname + '?tab=maintenance';
+                    }
+                } else {
+                    if(window.showToast) window.showToast('Error starting maintenance', 'error');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            })
+            .catch(err => {
+                if(window.showToast) window.showToast('Network error', 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            })
+        ">
             @csrf
             <p class="text-sm text-slate-500">The website will remain visible as Live but with a Maintenance label. It will also appear in the Maintenance Progress tab.</p>
             <div>
@@ -2298,11 +2619,11 @@
                     Reason for Maintenance <span class="text-rose-500 font-extrabold">*</span>
                 </label>
                 <textarea name="maintenance_note" rows="3" required minlength="5" 
-                          class="form-textarea w-full rounded-xl text-sm resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-orange-500 focus:ring focus:ring-orange-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-150 shadow-sm" 
+                          class="form-textarea w-full rounded-xl text-sm p-3 resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-orange-500 focus:ring focus:ring-orange-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-150 shadow-sm" 
                           placeholder="e.g. Plugin updates and SEO improvements needed..."></textarea>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showMaintenanceModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showMaintenanceModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn text-sm bg-orange-500 hover:bg-orange-600 text-white">Start Maintenance</button>
             </div>
         </form>
@@ -2323,7 +2644,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="qcErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
+        <form :action="qcErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitErrorForm($event, 'qc-error')">
             @csrf
             <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-xs text-red-700 dark:text-red-300">
                 The website will move to the <strong>QC Error</strong> tab. The team must fix the issues and mark complete (0→100%) before this website returns to QC Checking.
@@ -2333,8 +2654,9 @@
                     Error Description <span class="text-rose-500 font-extrabold">*</span>
                 </label>
                 <textarea name="error_note" rows="3" required minlength="5"
-                          class="form-textarea w-full rounded-xl text-sm resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-red-500 focus:ring focus:ring-red-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
-                          placeholder="e.g. Mobile layout is broken on homepage, images not optimised..."></textarea>
+                          @paste="handlePasteImage($event, 'qcErrorFiles')"
+                          class="form-textarea w-full rounded-xl text-sm p-3 resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-red-500 focus:ring focus:ring-red-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
+                          placeholder="e.g. Mobile layout is broken on homepage, images not optimised... (You can paste screenshots here)"></textarea>
             </div>
             <div>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
@@ -2348,11 +2670,37 @@
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                     Reference Files <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional PDFs or images)</span>
                 </label>
-                <input type="file" name="error_files[]" accept=".pdf,image/png,image/jpeg,image/webp" multiple
-                       class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 file:mr-3 file:rounded-lg file:border-0 file:bg-red-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-red-600">
+                <div 
+                    tabindex="0"
+                    class="relative rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-4 flex flex-col items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                    @click="$refs.qcErrorFiles.click()"
+                    @paste="handlePasteImage($event, 'qcErrorFiles'); updateQcErrorFilesCount()"
+                    @dragover.prevent="$el.classList.add('border-red-500', 'bg-red-50', 'dark:bg-red-900/20')"
+                    @dragleave.prevent="$el.classList.remove('border-red-500', 'bg-red-50', 'dark:bg-red-900/20')"
+                    @drop.prevent="$el.classList.remove('border-red-500', 'bg-red-50', 'dark:bg-red-900/20'); $refs.qcErrorFiles.files = $event.dataTransfer.files; updateQcErrorFilesCount()"
+                >
+                    <input type="file" name="error_files[]" x-ref="qcErrorFiles" accept=".pdf,image/png,image/jpeg,image/webp" multiple @change="updateQcErrorFilesCount()" class="hidden">
+                    
+                    <div class="text-slate-400 mb-2">
+                        <svg class="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+                    </div>
+                    
+                    <template x-if="qcErrorFilesCount > 0">
+                        <div class="text-center w-full px-2">
+                            <p class="font-bold text-slate-700 dark:text-slate-300" x-text="qcErrorFilesCount + ' file(s) selected'"></p>
+                            <p class="mt-1 text-[11px] text-slate-500 truncate max-w-full mx-auto" x-text="qcErrorFileNames.join(', ')"></p>
+                        </div>
+                    </template>
+                    <template x-if="qcErrorFilesCount === 0">
+                        <div class="text-center w-full">
+                            <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">Click to upload or drag & drop</p>
+                            <p class="mt-1.5 text-[10px] text-slate-500">You can also press <kbd class="px-1 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 font-mono text-[9px] text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 shadow-sm mx-0.5">CMD+V</kbd> to paste a screenshot.</p>
+                        </div>
+                    </template>
+                </div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showQcErrorModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showQcErrorModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn text-sm bg-red-500 hover:bg-red-600 text-white">⚠ Flag as QC Error</button>
             </div>
         </form>
@@ -2373,7 +2721,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="supervisorErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
+        <form :action="supervisorErrorModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitErrorForm($event, 'supervisor-error')">
             @csrf
             <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-xs text-red-700 dark:text-red-300">
                 The website will move to the <strong>Supervisor Error</strong> tab. The team must fix and complete before it goes back to QC → Supervisor approval.
@@ -2383,8 +2731,9 @@
                     Error Description <span class="text-rose-500 font-extrabold">*</span>
                 </label>
                 <textarea name="error_note" rows="3" required minlength="5"
-                          class="form-textarea w-full rounded-xl text-sm resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-red-500 focus:ring focus:ring-red-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
-                          placeholder="e.g. Content doesn't meet brand guidelines, SEO structure needs rework..."></textarea>
+                          @paste="handlePasteImage($event, 'supervisorErrorFiles')"
+                          class="form-textarea w-full rounded-xl text-sm p-3 resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-red-500 focus:ring focus:ring-red-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
+                          placeholder="e.g. Content doesn't meet brand guidelines, SEO structure needs rework... (You can paste screenshots here)"></textarea>
             </div>
             <div>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
@@ -2398,11 +2747,37 @@
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                     Reference Files <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional PDFs or images)</span>
                 </label>
-                <input type="file" name="error_files[]" accept=".pdf,image/png,image/jpeg,image/webp" multiple
-                       class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 file:mr-3 file:rounded-lg file:border-0 file:bg-orange-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-orange-600">
+                <div 
+                    tabindex="0"
+                    class="relative rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-4 flex flex-col items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                    @click="$refs.supervisorErrorFiles.click()"
+                    @paste="handlePasteImage($event, 'supervisorErrorFiles'); updateSupervisorErrorFilesCount()"
+                    @dragover.prevent="$el.classList.add('border-red-500', 'bg-red-50', 'dark:bg-red-900/20')"
+                    @dragleave.prevent="$el.classList.remove('border-red-500', 'bg-red-50', 'dark:bg-red-900/20')"
+                    @drop.prevent="$el.classList.remove('border-red-500', 'bg-red-50', 'dark:bg-red-900/20'); $refs.supervisorErrorFiles.files = $event.dataTransfer.files; updateSupervisorErrorFilesCount()"
+                >
+                    <input type="file" name="error_files[]" x-ref="supervisorErrorFiles" accept=".pdf,image/png,image/jpeg,image/webp" multiple @change="updateSupervisorErrorFilesCount()" class="hidden">
+                    
+                    <div class="text-slate-400 mb-2">
+                        <svg class="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+                    </div>
+                    
+                    <template x-if="supervisorErrorFilesCount > 0">
+                        <div class="text-center w-full px-2">
+                            <p class="font-bold text-slate-700 dark:text-slate-300" x-text="supervisorErrorFilesCount + ' file(s) selected'"></p>
+                            <p class="mt-1 text-[11px] text-slate-500 truncate max-w-full mx-auto" x-text="supervisorErrorFileNames.join(', ')"></p>
+                        </div>
+                    </template>
+                    <template x-if="supervisorErrorFilesCount === 0">
+                        <div class="text-center w-full">
+                            <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">Click to upload or drag & drop</p>
+                            <p class="mt-1.5 text-[10px] text-slate-500">You can also press <kbd class="px-1 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 font-mono text-[9px] text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 shadow-sm mx-0.5">CMD+V</kbd> to paste a screenshot.</p>
+                        </div>
+                    </template>
+                </div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showSupervisorErrorModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showSupervisorErrorModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn text-sm bg-red-500 hover:bg-red-600 text-white">⚠ Flag as Supervisor Error</button>
             </div>
         </form>
@@ -2421,7 +2796,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="errorProgressModalAction" method="POST" class="p-5 space-y-4" data-no-processing="true" @submit="setTimeout(() => { let b = $el.querySelector('button[type=submit]'); b.innerHTML = '...'; b.disabled = true; }, 0)">
+        <form :action="errorProgressModalAction" method="POST" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitAjaxForm($event, 'showErrorProgressModal')">
             @csrf
             <div>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
@@ -2443,11 +2818,11 @@
                     Update Note <span class="text-rose-500 font-extrabold">*</span>
                 </label>
                 <textarea name="note" rows="3" required minlength="5"
-                          class="form-textarea w-full rounded-xl text-sm resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-indigo-500 focus:ring focus:ring-indigo-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
+                          class="form-textarea w-full rounded-xl text-sm p-3 resize-none border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-indigo-500 focus:ring focus:ring-indigo-500/20 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
                           placeholder="Describe what was fixed..."></textarea>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showErrorProgressModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showErrorProgressModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary text-sm">Update Progress</button>
             </div>
         </form>
@@ -2480,7 +2855,7 @@
                             <ul class="py-1">
                                 <li class="px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer" @click="selectedId = ''; selectedName = 'Select website...'; open = false">Select website...</li>
                                 @foreach($allWebsites as $ws)
-                                <li x-show="search === '' || '{{ strtolower(addslashes($ws->name)) }}'.includes(search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 cursor-pointer" @click="selectedId = '{{ $ws->id }}'; selectedName = '{{ addslashes($ws->name) }}'; open = false">{{ $ws->name }}</li>
+                                <li x-show="search === '' || '{{ strtolower(addslashes($ws->name ?? "")) }}'.includes(search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 cursor-pointer" @click="selectedId = '{{ $ws->id }}'; selectedName = '{{ addslashes($ws->name ?? "") }}'; open = false">{{ $ws->name }}</li>
                                 @endforeach
                             </ul>
                         </div>
@@ -2512,11 +2887,11 @@
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Note</label>
-                    <textarea name="note" rows="3" class="form-textarea w-full rounded-xl text-sm resize-none" placeholder="Optional notes..."></textarea>
+                    <textarea name="note" rows="3" class="form-textarea w-full rounded-xl text-sm p-3 resize-none" placeholder="Optional notes..."></textarea>
                 </div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showFollowUpModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showFollowUpModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary text-sm">Add Follow Up</button>
             </div>
         </form>
@@ -2555,7 +2930,7 @@
                             <ul class="py-1">
                                 <li class="px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer" @click="editFollowUpForm.website_id = ''; open = false">Select website...</li>
                                 @foreach($allWebsites as $ws)
-                                <li data-id="{{ $ws->id }}" x-show="search === '' || '{{ strtolower(addslashes($ws->name)) }}'.includes(search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 cursor-pointer" @click="editFollowUpForm.website_id = '{{ $ws->id }}'; open = false">{{ $ws->name }}</li>
+                                <li data-id="{{ $ws->id }}" x-show="search === '' || '{{ strtolower(addslashes($ws->name ?? "")) }}'.includes(search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 cursor-pointer" @click="editFollowUpForm.website_id = '{{ $ws->id }}'; open = false">{{ $ws->name }}</li>
                                 @endforeach
                             </ul>
                         </div>
@@ -2587,11 +2962,11 @@
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Note</label>
-                    <textarea name="note" x-model="editFollowUpForm.note" rows="3" class="form-textarea w-full rounded-xl text-sm resize-none" placeholder="Optional notes..."></textarea>
+                    <textarea name="note" x-model="editFollowUpForm.note" rows="3" class="form-textarea w-full rounded-xl text-sm p-3 resize-none" placeholder="Optional notes..."></textarea>
                 </div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showEditFollowUpModal = false" class="btn btn-secondary text-sm">Cancel</button>
+                <button type="button" @click="showEditFollowUpModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                 <button type="submit" class="btn btn-primary text-sm">Save Changes</button>
             </div>
         </form>
@@ -2665,26 +3040,20 @@
                     <div>
                         <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5">Start Date</label>
                         <div class="relative">
-                            <input type="text" name="start_date" placeholder="Select Start Date" x-init="flatpickr($el, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'F j, Y', allowInput: true, disableMobile: true })" class="form-input w-full rounded-xl text-base py-3 pl-4 pr-10 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer">
-                            <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z"/></svg>
-                            </div>
+                            <input type="date" name="start_date" class="form-input w-full rounded-xl text-base py-3 px-4 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer" aria-label="Start Date">
                         </div>
                     </div>
                     <div>
                         <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5">End Date</label>
                         <div class="relative">
-                            <input type="text" name="end_date" placeholder="Select End Date" x-init="flatpickr($el, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'F j, Y', allowInput: true, disableMobile: true })" class="form-input w-full rounded-xl text-base py-3 pl-4 pr-10 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer">
-                            <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z"/></svg>
-                            </div>
+                            <input type="date" name="end_date" class="form-input w-full rounded-xl text-base py-3 px-4 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer" aria-label="End Date">
                         </div>
                     </div>
                 </div>
             </div>
             
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showExportModal = false" class="btn btn-secondary text-sm px-5">Cancel</button>
+                <button type="button" @click="showExportModal = false" class="btn btn-cancel btn-secondary text-sm px-5">Cancel</button>
                 <button type="submit" class="btn btn-primary text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-200" @click="setTimeout(() => showExportModal = false, 300)">
                     <svg class="w-4 h-4 mr-1.5 inline" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                     <span x-text="format === 'pdf' ? 'Download PDF' : 'Download CSV'"></span>
@@ -2792,9 +3161,14 @@
                             Updated by: <span x-text="log.user ? log.user.name : 'Unknown'"></span>
                         </div>
                         <template x-if="canManageLog(log) && (!log.attachments || !log.attachments.length)">
-                            <button type="button" @click="openHistoryEditModal(log)" class="text-[10px] uppercase tracking-wider font-bold text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md px-2 py-1 shrink-0">
-                                Edit
-                            </button>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button" @click="openHistoryEditModal(log)" class="text-[10px] uppercase tracking-wider font-bold text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md px-2 py-1">
+                                    Edit
+                                </button>
+                                <button type="button" @click="deleteHistoryLog(log)" class="text-[10px] uppercase tracking-wider font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 rounded-md px-2 py-1">
+                                    Delete
+                                </button>
+                            </div>
                         </template>
                     </div>
                 </div>
@@ -2803,13 +3177,13 @@
         <div class="p-4 border-t border-slate-100 dark:border-slate-700">
             <div class="flex flex-col gap-2">
                 <textarea x-model="newHistoryComment" @paste="handlePasteRef($event, 'newHistoryFiles')" rows="2" class="form-textarea w-full resize-none rounded-xl border border-slate-200 text-sm px-4 py-3 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800/50" placeholder="Type a comment or CMD+V to paste a screenshot..."></textarea>
-                <div x-show="newHistoryFilesPreviews.length > 0" class="flex flex-wrap gap-2 mt-1 px-2" style="display: none;">
+                <div x-show="newHistoryFilesPreviews.length > 0" class="flex flex-wrap gap-2 mt-2 px-2" style="display: none;">
                     <template x-for="(preview, index) in newHistoryFilesPreviews" :key="index">
-                        <div class="relative w-12 h-12 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden group">
+                        <div class="relative w-14 h-14 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden group shadow-sm">
                             <img :src="preview.url" class="w-full h-full object-cover" :alt="preview.name">
-                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button type="button" @click="$refs.newHistoryFiles.value = ''; updateNewHistoryFilesCount()" class="text-white hover:text-red-400">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <button type="button" @click="removeNewHistoryFile(index)" class="w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 hover:scale-110 transition-transform">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                             </div>
                         </div>
@@ -2822,7 +3196,7 @@
                         <span x-text="newHistoryFilesCount > 0 ? newHistoryFilesCount + ' file(s)' : 'Attach Files'"></span>
                     </button>
                     <div class="flex gap-2">
-                        <button type="button" @click="showHistoryModal = false" class="btn btn-secondary text-sm">Close</button>
+                        <button type="button" @click="showHistoryModal = false" class="btn btn-cancel btn-secondary text-sm">Close</button>
                         <button type="button" x-ref="historyCommentBtn" @click="submitHistoryComment(historyWebsiteId)" class="btn text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-1.5 rounded-xl shadow-md shadow-indigo-500/20 active:scale-95 transition-all">Comment</button>
                     </div>
                 </div>
@@ -2831,7 +3205,6 @@
     </div>
 </div>
 
-<template x-teleport="body">
     {{-- Attachment Preview Modal --}}
     <div x-show="showAttachmentPreview && previewIsImage"
          x-cloak
@@ -2840,11 +3213,11 @@
          aria-modal="true"
          role="dialog"
          @click.self="closeAttachmentPreview()"
-         @keydown.escape.window="closeAttachmentPreview()"
+         @keydown.escape.window="typeof closeAttachmentPreview === 'function' && closeAttachmentPreview()"
          @wheel.prevent="handlePreviewWheel($event)"
          @mousedown.prevent="startPreviewPan($event)"
-         @mousemove.window="movePreviewPan($event)"
-         @mouseup.window="endPreviewPan()"
+         @mousemove.window="typeof movePreviewPan === 'function' && movePreviewPan($event)"
+         @mouseup.window="typeof endPreviewPan === 'function' && endPreviewPan()"
          @touchstart="handlePreviewTouchStart($event)"
          @touchmove="handlePreviewTouchMove($event)"
          @touchend="endPreviewPan()"
@@ -2856,15 +3229,13 @@
              :class="previewZoom > 100 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'"
              draggable="false"
              @load="handlePreviewImageLoad($event)">
-        <div id="preview-loading-modal" data-turbo-permanent x-show="previewLoading" class="fixed inset-0 z-[10045] flex items-center justify-center pointer-events-none">
+        <div id="preview-loading-modal" x-show="previewLoading" class="fixed inset-0 z-[10045] flex items-center justify-center pointer-events-none">
             <div class="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white"></div>
         </div>
     </div>
-</template>
 
-<template x-teleport="body">
     {{-- PDF / Document Preview Modal --}}
-    <div id="show-attachment-preview-modal" data-turbo-permanent x-show="showAttachmentPreview && !previewIsImage" x-cloak style="display:none; z-index:10040" class="fixed inset-0 flex items-center justify-center p-4 sm:p-6" aria-modal="true" role="dialog" @keydown.escape.window="closeAttachmentPreview()">
+    <div id="show-attachment-preview-modal" x-show="showAttachmentPreview && !previewIsImage" x-cloak style="display:none; z-index:10040" class="fixed inset-0 flex items-center justify-center p-4 sm:p-6" aria-modal="true" role="dialog" @keydown.escape.window="closeAttachmentPreview()">
         <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="closeAttachmentPreview()"></div>
         <div x-ref="previewPanel" class="relative flex h-[76vh] max-h-[760px] min-h-[420px] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-900 dark:ring-white/10">
             <div class="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
@@ -2885,11 +3256,9 @@
             </div>
         </div>
     </div>
-</template>
 
-<template x-teleport="body">
     {{-- History Edit Modal --}}
-    <div id="show-history-edit-modal" data-turbo-permanent x-show="showHistoryEditModal" x-cloak style="display:none; z-index:10060" class="fixed inset-0 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" @keydown.escape.window="closeHistoryEditModal()" @click.self="closeHistoryEditModal()">
+    <div id="show-history-edit-modal" x-show="showHistoryEditModal" x-cloak style="display:none; z-index:10060" class="fixed inset-0 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" @keydown.escape.window="closeHistoryEditModal()" @click.self="closeHistoryEditModal()">
         <div x-ref="historyEditPanel" tabindex="-1" class="card relative z-10 w-full max-w-lg border border-slate-200 shadow-2xl dark:border-slate-700" @click.stop>
             <div class="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-700">
                 <div>
@@ -2903,7 +3272,7 @@
             <div class="space-y-4 p-5">
                 <div>
                     <label class="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Error Text</label>
-                    <textarea x-model="historyEditNote" @paste="handlePasteRef($event, 'historyEditFiles')" rows="4" class="form-textarea w-full resize-none rounded-xl border border-slate-200 text-sm dark:border-slate-700 dark:bg-slate-800/50"></textarea>
+                    <textarea x-model="historyEditNote" @paste="handlePasteRef($event, 'historyEditFiles')" rows="4" class="form-textarea w-full p-3 resize-none rounded-xl border border-slate-200 text-sm dark:border-slate-700 dark:bg-slate-800/50"></textarea>
                 </div>
                 <template x-if="visibleHistoryEditAttachments().length">
                     <div>
@@ -2922,27 +3291,42 @@
                 </template>
                 <div>
                     <label class="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Replace / Add Files</label>
-                    <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" x-ref="historyEditFiles" @change="updateHistoryEditSelectedFiles()" class="form-input w-full rounded-xl text-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50">
-                    <div class="mt-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-800/50">
+                    <div 
+                        tabindex="0"
+                        class="relative rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-6 flex flex-col items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        @click="$refs.historyEditFiles.click()"
+                        @paste="handlePasteRef($event, 'historyEditFiles')"
+                        @dragover.prevent="$el.classList.add('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20')"
+                        @dragleave.prevent="$el.classList.remove('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20')"
+                        @drop.prevent="$el.classList.remove('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20'); $refs.historyEditFiles.files = $event.dataTransfer.files; updateHistoryEditSelectedFiles()"
+                    >
+                        <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" x-ref="historyEditFiles" @change="updateHistoryEditSelectedFiles()" class="hidden">
+                        
+                        <div class="text-slate-400 mb-3">
+                            <svg class="w-10 h-10 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+                        </div>
+                        
                         <template x-if="historyEditSelectedFileNames.length">
-                            <div>
-                                <p class="font-bold text-slate-600 dark:text-slate-300" x-text="historyEditSelectedFileNames.length + ' file(s) selected'"></p>
-                                <p class="mt-1 truncate" x-text="historyEditSelectedFileNames.join(', ')"></p>
+                            <div class="text-center">
+                                <p class="font-bold text-slate-700 dark:text-slate-300" x-text="historyEditSelectedFileNames.length + ' file(s) selected'"></p>
+                                <p class="mt-1 text-[11px] text-slate-500 truncate max-w-[250px] mx-auto" x-text="historyEditSelectedFileNames.join(', ')"></p>
                             </div>
                         </template>
                         <template x-if="!historyEditSelectedFileNames.length">
-                            <p>Choose one or many image/PDF files to add.</p>
+                            <div class="text-center">
+                                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Click to upload or drag & drop</p>
+                                <p class="mt-1.5 text-[11px] text-slate-500">You can also press <kbd class="px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 font-mono text-[9px] text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 shadow-sm mx-0.5">CMD+V</kbd> anywhere in this box.</p>
+                            </div>
                         </template>
                     </div>
                 </div>
                 <div class="flex items-center justify-end gap-3 pt-2">
-                    <button type="button" @click="closeHistoryEditModal()" class="btn btn-secondary text-sm">Cancel</button>
+                    <button type="button" @click="closeHistoryEditModal()" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
                     <button type="button" @click="saveHistoryLogEdit()" class="btn text-sm bg-indigo-600 text-white hover:bg-indigo-700">Save Edit</button>
                 </div>
             </div>
         </div>
     </div>
-</template>
 
 </div>{{-- /x-data --}}
 
@@ -2980,32 +3364,67 @@ function websitesApp() {
         // Search state
         searchQuery: '',
         filterMember: '',
-        matchesSearch(name, url, handlerId = '') {
-            let matchSearch = true;
-            if (this.searchQuery) {
-                const q = this.searchQuery.toLowerCase();
-                matchSearch = (name && name.toLowerCase().includes(q)) || (url && url.toLowerCase().includes(q));
-            }
+        filterClass: '',
+        filterApprovalStatus: '',
+        matchesSearch(name, url, category, handlerId, status, isFollowUpTab = false) {
+            let matchText = true;
             let matchMember = true;
-            if (this.filterMember) {
-                matchMember = (handlerId == this.filterMember);
+            let matchClass = true;
+            let matchStatus = true;
+            if (this.searchQuery) {
+                let q = this.searchQuery.toLowerCase();
+                matchText = (name && name.toLowerCase().includes(q)) || (url && url.toLowerCase().includes(q));
             }
-            return matchSearch && matchMember;
+            if (!isFollowUpTab) {
+                if (this.filterMember) {
+                    matchMember = (handlerId == this.filterMember);
+                }
+                if (this.filterClass) {
+                    matchClass = (category == this.filterClass);
+                }
+                if (this.filterApprovalStatus) {
+                    if (this.filterApprovalStatus === 'qc-approved') {
+                        matchStatus = (status === 'Maintenance QC Checking' || status === 'QC Checking');
+                    } else if (this.filterApprovalStatus === 'supervisor-approved') {
+                        matchStatus = (status === 'Maintenance Supervisor Checking' || status === 'Supervisor Checking');
+                    }
+                }
+            }
+            return matchText && matchMember && matchClass && matchStatus;
         },
-        hasMatchingWebsites(websites) {
-            if (!this.searchQuery && !this.filterMember) return true;
+        hasMatchingWebsites(websites, isFollowUpTab = false) {
+            if (isFollowUpTab) {
+                if (!this.searchQuery) return true;
+            } else {
+                if (!this.searchQuery && !this.filterMember && !this.filterClass && !this.filterApprovalStatus) return true;
+            }
             return websites.some(w => {
-                let matchSearch = true;
+                let matchText = true;
+                let matchMember = true;
+                let matchClass = true;
+                let matchStatus = true;
+                
                 if (this.searchQuery) {
                     const q = this.searchQuery.toLowerCase();
-                    matchSearch = (w.name && w.name.toLowerCase().includes(q)) || 
+                    matchText = (w.name && w.name.toLowerCase().includes(q)) || 
                                   (w.url && w.url.toLowerCase().includes(q));
                 }
-                let matchMember = true;
-                if (this.filterMember) {
-                    matchMember = (w.handled_by == this.filterMember);
+                if (!isFollowUpTab) {
+                    if (this.filterMember) {
+                        matchMember = (w.handled_by == this.filterMember);
+                    }
+                    if (this.filterClass && w.category !== undefined) {
+                        matchClass = (w.category == this.filterClass);
+                    }
+                    if (this.filterApprovalStatus && w.status !== undefined) {
+                        if (this.filterApprovalStatus === 'qc-approved') {
+                            matchStatus = (w.status === 'Maintenance QC Checking' || w.status === 'QC Checking');
+                        } else if (this.filterApprovalStatus === 'supervisor-approved') {
+                            matchStatus = (w.status === 'Maintenance Supervisor Checking' || w.status === 'Supervisor Checking');
+                        }
+                    }
                 }
-                return matchSearch && matchMember;
+                return matchText && matchMember && matchClass && matchStatus;
             });
         },
 
@@ -3041,6 +3460,7 @@ function websitesApp() {
         historyLoading:       false,
         prefetchedHistories: {},
         prefetchingHistories: {},
+        currentUserId: {{ auth()->id() ?? 'null' }},
 
 
         prefetchHistory(websiteId) {
@@ -3142,6 +3562,48 @@ function websitesApp() {
                 }
             }
         },
+        removeNewHistoryFile(index) {
+            const inputEl = this.$refs.newHistoryFiles;
+            if (!inputEl || !inputEl.files) return;
+            const dt = new DataTransfer();
+            const files = inputEl.files;
+            for (let i = 0; i < files.length; i++) {
+                if (i !== index) {
+                    dt.items.add(files[i]);
+                }
+            }
+            inputEl.files = dt.files;
+            this.updateNewHistoryFilesCount();
+        },
+        handlePasteImage(e, inputRefName) {
+            const files = e.clipboardData?.files;
+            if (!files || !files.length) return;
+            
+            let hasImage = false;
+            const dataTransfer = new DataTransfer();
+            
+            const inputEl = this.$refs[inputRefName];
+            if (!inputEl) return;
+            
+            if (inputEl.files) {
+                for (let i = 0; i < inputEl.files.length; i++) {
+                    dataTransfer.items.add(inputEl.files[i]);
+                }
+            }
+
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type.startsWith('image/')) {
+                    const ext = files[i].type.split('/')[1] || 'png';
+                    const file = new File([files[i]], `pasted-image-${Date.now()}-${i}.${ext}`, { type: files[i].type });
+                    dataTransfer.items.add(file);
+                    hasImage = true;
+                }
+            }
+
+            if (hasImage) {
+                inputEl.files = dataTransfer.files;
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         },
         historyEditNote: '',
         historyEditRemoveIds: [],
@@ -3166,10 +3628,59 @@ function websitesApp() {
         // QC modal
         qcModalName:   '',
         qcModalAction: '',
+        qcErrorFilesCount: 0,
+        qcErrorFileNames: [],
+        qcApproveFilesPreviews: [],
+        updateQcApproveFilesCount() {
+            const files = this.$refs.qcApproveFiles?.files || [];
+            this.qcApproveFilesPreviews.forEach(p => URL.revokeObjectURL(p.url));
+            this.qcApproveFilesPreviews = [];
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type.startsWith('image/')) {
+                    this.qcApproveFilesPreviews.push({ url: URL.createObjectURL(files[i]), name: files[i].name });
+                }
+            }
+        },
+        removeQcApproveFile(index) {
+            const inputEl = this.$refs.qcApproveFiles;
+            if (!inputEl || !inputEl.files) return;
+            const dt = new DataTransfer();
+            for (let i = 0; i < inputEl.files.length; i++) {
+                if (i !== index) dt.items.add(inputEl.files[i]);
+            }
+            inputEl.files = dt.files;
+            this.updateQcApproveFilesCount();
+        },
+        updateQcErrorFilesCount() {
+            const files = this.$refs.qcErrorFiles?.files || [];
+            this.qcErrorFilesCount = files.length;
+            this.qcErrorFileNames = Array.from(files).map(f => f.name);
+        },
 
         // Supervisor modal
         supervisorModalName:   '',
         supervisorModalAction: '',
+        supervisorApproveFilesPreviews: [],
+        updateSupervisorApproveFilesCount() {
+            const files = this.$refs.supervisorApproveFiles?.files || [];
+            this.supervisorApproveFilesPreviews.forEach(p => URL.revokeObjectURL(p.url));
+            this.supervisorApproveFilesPreviews = [];
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type.startsWith('image/')) {
+                    this.supervisorApproveFilesPreviews.push({ url: URL.createObjectURL(files[i]), name: files[i].name });
+                }
+            }
+        },
+        removeSupervisorApproveFile(index) {
+            const inputEl = this.$refs.supervisorApproveFiles;
+            if (!inputEl || !inputEl.files) return;
+            const dt = new DataTransfer();
+            for (let i = 0; i < inputEl.files.length; i++) {
+                if (i !== index) dt.items.add(inputEl.files[i]);
+            }
+            inputEl.files = dt.files;
+            this.updateSupervisorApproveFilesCount();
+        },
 
         // Maintenance modal
         maintenanceModalName:   '',
@@ -3264,10 +3775,214 @@ function websitesApp() {
             this.showProgressModal = true;
         },
 
-        openQcModal(websiteId, websiteName) {
+        qcModalTriggerEvent: null,
+        openQcModal(websiteId, websiteName, event = null) {
             this.qcModalName   = websiteName;
             this.qcModalAction = `/websites/${websiteId}/approve-qc`;
+            this.qcModalTriggerEvent = event;
             this.showQcModal   = true;
+            // Reset button text just in case it was used before
+            setTimeout(() => {
+                let btn = document.getElementById('qcApproveSubmitBtn');
+                if (btn) {
+                    btn.innerHTML = '✓ Approve QC';
+                    btn.disabled = false;
+                    btn.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+                    btn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+                }
+            }, 50);
+        },
+
+        async submitProgress(e) {
+            let form = e.target;
+            let btn = form.querySelector('button[type=submit]');
+            let originalText = btn.innerHTML;
+            btn.innerHTML = '...';
+            btn.disabled = true;
+            
+            let formData = new FormData(form);
+            try {
+                let res = await fetch(this.progressModalAction, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                let data = await res.json();
+                if (data.success) {
+                    btn.innerHTML = '✓ Complete';
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600', 'text-white', 'border-emerald-500');
+                    setTimeout(() => {
+                        this.showProgressModal = false;
+                        window.location.reload();
+                    }, 300);
+                } else {
+                    alert(data.message || 'Error occurred');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        },
+
+        async submitAjaxForm(e, modalProp) {
+            let form = e.target;
+            let btn = form.querySelector('button[type=submit]');
+            let originalText = btn.innerHTML;
+            btn.innerHTML = '...';
+            btn.disabled = true;
+            
+            let formData = new FormData(form);
+            try {
+                let res = await fetch(form.action, {
+                    method: form.method || 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                
+                let data = await res.json();
+                if (data.success || res.ok) {
+                    btn.innerHTML = '✓ Complete';
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600', 'text-white', 'border-emerald-500');
+                    setTimeout(() => {
+                        this[modalProp] = false;
+                        window.location.reload();
+                    }, 300);
+                } else {
+                    let errs = data.errors ? Object.values(data.errors).flat().join('\n') : (data.message || 'Error occurred');
+                    alert(errs);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred while submitting.');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        },
+
+        async submitQcApprove(e) {
+            let form = e.target;
+            let btn = form.querySelector('button[type=submit]');
+            let originalText = btn.innerHTML;
+            btn.innerHTML = `<span class='flex items-center justify-center gap-2'><svg class='animate-spin h-4 w-4' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'><circle class='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' stroke-width='4'></circle><path class='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path></svg> Progressing...</span>`;
+            btn.disabled = true;
+            
+            let formData = new FormData(form);
+            try {
+                let res = await fetch(this.qcModalAction, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                let data = await res.json();
+                if (data.success) {
+                    btn.innerHTML = '✓ Complete';
+                    btn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                    btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+                    
+                    if (this.qcModalTriggerEvent) {
+                        let actionsDiv = this.qcModalTriggerEvent.target.closest('div.mt-auto.pt-3') || this.qcModalTriggerEvent.target.closest('.flex');
+                        if (actionsDiv) {
+                            actionsDiv.innerHTML = `<span class="text-xs font-bold text-amber-600 px-3 py-1.5 flex-1 text-center bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800 w-full block">Awaiting Supervisor Approval</span>`;
+                        }
+                    }
+                    setTimeout(() => {
+                        this.showQcModal = false;
+                        if (window.Turbo) {
+                            Turbo.visit(window.location.pathname + '?tab=' + (new URLSearchParams(window.location.search).get('tab') || 'build-progress'));
+                        }
+                    }, 500);
+                } else {
+                    alert(data.message || 'Error occurred');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        },
+
+        async submitSupervisorApprove(e) {
+            let form = e.target;
+            let btn = form.querySelector('button[type=submit]');
+            let originalText = btn.innerHTML;
+            btn.innerHTML = `<span class='flex items-center justify-center gap-2'><svg class='animate-spin h-4 w-4' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'><circle class='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' stroke-width='4'></circle><path class='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path></svg> Progressing...</span>`;
+            btn.disabled = true;
+            
+            let formData = new FormData(form);
+            try {
+                let res = await fetch(this.supervisorModalAction, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                let data = await res.json();
+                if (data.success) {
+                    btn.innerHTML = '✓ Live!';
+                    btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+                    setTimeout(() => {
+                        this.showSupervisorModal = false;
+                        if (window.Turbo) {
+                            Turbo.visit(window.location.pathname + '?tab=live');
+                        } else {
+                            window.location.href = window.location.pathname + '?tab=live';
+                        }
+                    }, 500);
+                } else {
+                    alert(data.message || 'Error occurred');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        },
+
+        async submitErrorForm(e, tabName) {
+            let form = e.target;
+            let btn = form.querySelector('button[type=submit]');
+            let originalText = btn.innerHTML;
+            btn.innerHTML = '...';
+            btn.disabled = true;
+            
+            let formData = new FormData(form);
+            try {
+                let res = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                let data = await res.json();
+                if (data.success) {
+                    btn.innerHTML = '✓ Flagged';
+                    btn.classList.add('bg-emerald-500', 'text-white');
+                    setTimeout(() => {
+                        window.location.href = '?tab=' + tabName;
+                    }, 500);
+                } else {
+                    alert(data.message || 'Error occurred');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         },
 
         openSupervisorModal(websiteId, websiteName) {
@@ -3409,6 +4124,9 @@ function websitesApp() {
         },
 
         canManageLog(log) {
+            if (log?.action === 'comment') {
+                return this.canManageErrorHistory || log?.user_id === this.currentUserId;
+            }
             return this.canManageErrorHistory && ['qc_error', 'supervisor_error'].includes(log?.action);
         },
 
@@ -3617,19 +4335,30 @@ function websitesApp() {
                         this.newHistoryComment = '';
                         this.newHistoryFilesCount = 0;
                         if (this.$refs.newHistoryFiles) this.$refs.newHistoryFiles.value = '';
-                        this.showHistoryModal = false;
-                        window.location.reload();
+                        
+                        delete this.prefetchedHistories[websiteId];
+                        delete this.prefetchingHistories[websiteId];
+                        await this.prefetchHistory(websiteId);
+                        this.historyLogs = [...(this.prefetchedHistories[websiteId] || [])];
+                        
+                        setTimeout(() => {
+                            let container = document.querySelector('#show-history-modal .overflow-y-auto');
+                            if (container) container.scrollTop = container.scrollHeight;
+                        }, 100);
+                        
+                        if (submitBtn) { submitBtn.innerHTML = originalText; submitBtn.disabled = false; }
                     } else {
                         alert('Error: ' + result.message);
+                        if (submitBtn) { submitBtn.innerHTML = originalText; submitBtn.disabled = false; }
                     }
                 } else {
                     const result = await response.json().catch(() => ({}));
                     alert('Error: ' + (result.message || 'Server error. Please try again.'));
+                    if (submitBtn) { submitBtn.innerHTML = originalText; submitBtn.disabled = false; }
                 }
             } catch (error) {
-                alert('Network Error: ' + error.message);
                 console.error(error);
-            } finally {
+                alert('An error occurred while submitting.');
                 if (submitBtn) { submitBtn.innerHTML = originalText; submitBtn.disabled = false; }
             }
         },
@@ -3805,6 +4534,19 @@ function websitesApp() {
                 },
                 { 'attachments[]': this.$refs.historyEditFiles?.files || [] }
             );
+        },
+
+        async deleteHistoryLog(log) {
+            if (!this.canManageLog(log)) return;
+            const ok = await window.confirmModal({
+                title: 'Delete History Log',
+                message: 'Are you sure you want to completely delete this log/comment? This action cannot be undone.',
+                confirmText: 'Delete Log',
+                tone: 'danger'
+            });
+            if (ok) {
+                this.submitDynamicForm(`/websites/history-logs/${log.id}`, 'DELETE');
+            }
         },
 
         async deleteHistoryAttachment(log, file) {

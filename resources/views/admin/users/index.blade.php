@@ -274,7 +274,7 @@
           </div>
         </div>
         <div class="flex gap-3 pt-2">
-          <button @click="showResetModal=false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="showResetModal=false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button @click="submitResetPassword()" class="btn btn-primary flex-1">Reset</button>
         </div>
       </div>

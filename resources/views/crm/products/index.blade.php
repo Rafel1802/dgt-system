@@ -122,7 +122,7 @@
         <p class="text-xs text-slate-400 mt-1">Review the result before products are added to CRM.</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <a href="{{ route('crm.products.index') }}" class="btn btn-secondary">Cancel</a>
+        <a href="{{ route('crm.products.index') }}" class="btn btn-cancel btn-secondary">Cancel</a>
         <form method="POST" action="{{ route('crm.products.import') }}" data-confirm="Import the ready products now? Duplicates and failed rows will not be saved.">
           @csrf
           <input type="hidden" name="confirm_import" value="1">

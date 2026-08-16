@@ -342,7 +342,7 @@
         </div>
         <div class="space-y-3">
           {{-- SMM Specific Filters --}}
-          <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.template === 'workflow'">
+          <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow'">
             <div class="space-y-3">
               <label class="block">
                 <span class="block text-[11px] font-bold text-slate-500 mb-1">Assign By</span>
@@ -386,7 +386,7 @@
           </template>
 
           {{-- Standard Filters --}}
-          <template x-if="!(board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.template === 'workflow')">
+          <template x-if="!(board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow')">
             <label class="block">
               <span class="block text-[11px] font-bold text-slate-500 mb-1">Member</span>
               <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs">
@@ -568,76 +568,8 @@
               </svg>
             </button>
 
-            {{-- SMM Specific Vertical Layout --}}
-            <template x-if="card.smm_team_label || card.smm_class_label">
-              <div class="flex flex-col gap-1.5 w-full mt-1">
-                <div class="flex flex-col border-b border-slate-100 pb-1.5">
-                  <div class="flex items-center justify-between w-full">
-                    <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Title</span>
-                    <svg x-show="list.name.toLowerCase().includes('approved') || card.status === 'Approved'" 
-                         class="w-4 h-4 text-emerald-500 flex-shrink-0 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                  </div>
-                  <p class="kanban-card-title !mb-0 !text-sm mt-0.5" x-text="card.title"></p>
-                </div>
-                
-                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Team Label</span>
-                  <span class="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded" x-text="card.smm_team_label || 'None'"></span>
-                </div>
-                
-                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">SMM Class</span>
-                  <span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded" x-text="card.smm_class_label || 'None'"></span>
-                </div>
-
-                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Assign By</span>
-                  <div class="flex items-center gap-1.5">
-                    <template x-if="card.creator">
-                      <div class="flex items-center gap-1.5">
-                        <img x-show="avatarUrl(card.creator)" :src="avatarUrl(card.creator)" class="w-4 h-4 rounded-full object-cover">
-                        <span x-show="!avatarUrl(card.creator)" class="w-4 h-4 rounded-full bg-slate-200 text-[8px] flex items-center justify-center font-bold text-slate-600" x-text="avatarInitials(card.creator)"></span>
-                        <span class="text-[11px] font-semibold text-slate-600" x-text="card.creator.name"></span>
-                      </div>
-                    </template>
-                    <span x-show="!card.creator" class="text-[11px] text-slate-400">None</span>
-                  </div>
-                </div>
-
-                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Assign To</span>
-                  <div class="flex items-center gap-1">
-                    <template x-if="card.assignees && card.assignees.length">
-                      <div class="flex -space-x-1">
-                        <template x-for="u in card.assignees" :key="u.id">
-                          <span>
-                            <img x-show="avatarUrl(u)" :src="avatarUrl(u)" :title="u.name" class="w-4 h-4 rounded-full object-cover border border-white ring-1 ring-slate-100">
-                            <span x-show="!avatarUrl(u)" class="w-4 h-4 rounded-full bg-slate-200 text-[8px] flex items-center justify-center font-bold text-slate-600 border border-white ring-1 ring-slate-100" x-text="avatarInitials(u)" :title="u.name"></span>
-                          </span>
-                        </template>
-                      </div>
-                    </template>
-                    <span x-show="!card.assignees || !card.assignees.length" class="text-[11px] text-slate-400">None</span>
-                  </div>
-                </div>
-
-                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Publish Date</span>
-                  <span class="text-[11px] font-semibold text-slate-600" x-text="card.start_date ? formatDate(card.start_date) : 'N/A'"></span>
-                </div>
-
-                <div class="flex items-center justify-between pb-0.5">
-                  <span class="text-[9px] uppercase font-black text-slate-400 tracking-widest">Deadline</span>
-                  <span class="text-[11px] font-semibold" :class="isOverdue(card) ? 'text-red-600 font-bold bg-red-50 px-1 rounded' : 'text-slate-600'" x-text="card.due_at ? formatDate(card.due_at) : 'N/A'"></span>
-                </div>
-              </div>
-            </template>
-
             {{-- Standard Trello Layout --}}
-            <template x-if="!card.smm_team_label && !card.smm_class_label">
-              <div>
+            <div>
                 {{-- Labels --}}
                 <div x-show="card.labels && card.labels.length" class="flex flex-wrap gap-1 mb-2.5 mt-1">
                   <template x-for="lbl in card.labels" :key="lbl.id">
@@ -734,7 +666,6 @@
                   </div>
                 </div>
               </div>
-            </template>
           </div>
         </template>
       </div>

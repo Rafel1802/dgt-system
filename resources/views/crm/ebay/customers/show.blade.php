@@ -240,7 +240,7 @@
         <div x-show="showFollowUp" x-cloak class="mt-3 space-y-3">
           <textarea x-model="fuNotes" rows="3" class="form-input" placeholder="What did you discuss? What was the outcome?"></textarea>
           <div class="flex gap-3">
-            <button @click="showFollowUp = false" class="btn btn-secondary flex-1">Cancel</button>
+            <button @click="showFollowUp = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
             <button @click="submitFollowUp()" :disabled="fuLoading" class="btn btn-primary flex-1">
               <span x-show="!fuLoading">Save Note</span>
               <span x-show="fuLoading" x-cloak>Saving…</span>
@@ -296,7 +296,7 @@
           <button type="button" @click="addProduct()" class="btn btn-secondary text-xs mt-2">+ Add Another Product</button>
         </div>
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="showAddOrder = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button type="button" @click="showAddOrder = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button type="submit" :disabled="orderLoading" class="btn btn-primary flex-1">
             <span x-show="!orderLoading">Save Order</span>
             <span x-show="orderLoading" x-cloak>Saving…</span>

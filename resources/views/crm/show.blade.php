@@ -120,7 +120,7 @@
             <input type="number" x-model="editTotalOrders" step="1" min="0" class="form-input text-sm">
           </div>
           <div class="flex gap-2">
-            <button @click="editingPurchase = false" class="btn btn-secondary text-xs py-1.5 w-full">Cancel</button>
+            <button @click="editingPurchase = false" class="btn btn-cancel btn-secondary text-xs py-1.5 w-full">Cancel</button>
             <button @click="savePurchaseSummary()" class="btn btn-primary text-xs py-1.5 w-full">Save</button>
           </div>
         </div>

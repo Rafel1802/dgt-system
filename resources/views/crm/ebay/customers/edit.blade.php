@@ -178,7 +178,7 @@
 
       <div class="px-6 py-4 flex items-center justify-between bg-slate-50">
         @if(auth()->user()->canDeleteCrmRecords('ebay'))
-        <button type="submit" form="delete-ebay-record-form" class="btn btn-secondary text-red-500 hover:text-red-600 text-sm">Delete</button>
+        <button type="submit" form="delete-ebay-record-form" class="btn btn-cancel btn-secondary text-red-500 hover:text-red-600 text-sm">Delete</button>
         @else
         <div></div>
         @endif

@@ -150,6 +150,7 @@
                       <label class="block text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-2">Date Range</label>
                       <select name="date_range" x-model="dateRange" class="w-full bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-600 dark:text-white focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-xl py-2 px-3 text-sm text-slate-700">
                           <option value="all_time">All Time</option>
+                          <option value="today">Today</option>
                           <option value="this_week">This Week</option>
                           <option value="this_month">This Month</option>
                           <option value="last_month">Last Month</option>

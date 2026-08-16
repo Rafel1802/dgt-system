@@ -93,7 +93,7 @@
         <div></div>
         @endif
         <div class="flex gap-3">
-          <a href="{{ route('crm.logistics.shipments.show', $shipment) }}" class="btn btn-secondary">Cancel</a>
+          <a href="{{ route('crm.logistics.shipments.show', $shipment) }}" class="btn btn-cancel btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save Changes</button>
         </div>
       </div>

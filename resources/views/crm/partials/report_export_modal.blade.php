@@ -74,7 +74,7 @@
 
                 {{-- Actions --}}
                 <div class="flex gap-3 justify-end pt-4 border-t border-slate-100 mt-5">
-                    <button type="button" @click="open = false" class="btn btn-secondary py-2">Cancel</button>
+                    <button type="button" @click="open = false" class="btn btn-cancel btn-secondary py-2">Cancel</button>
                     <button type="submit" class="btn btn-primary py-2 px-4">Generate Report</button>
                 </div>
             </form>

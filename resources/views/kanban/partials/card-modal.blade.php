@@ -75,7 +75,7 @@
                 <label class="form-label text-rose-700">Rejection Reason <span class="text-red-500">*</span></label>
                 <textarea x-model="rejectReason" rows="2" class="form-input text-sm" placeholder="Explain why…"></textarea>
                 <div class="flex gap-2">
-                  <button @click="showRejectModal=false; rejectReason=''" class="btn btn-secondary text-xs py-1">Cancel</button>
+                  <button @click="showRejectModal=false; rejectReason=''" class="btn btn-cancel btn-secondary text-xs py-1">Cancel</button>
                   <button @click="rejectCard(detailCard.card.id)" class="btn btn-danger text-xs py-1">Confirm Reject</button>
                 </div>
               </div>

@@ -105,7 +105,7 @@
       </div>
 
       <div class="px-6 py-4 flex gap-3 justify-end bg-slate-50">
-        <a href="{{ route('crm.logistics.shipments.index') }}" class="btn btn-secondary">Cancel</a>
+        <a href="{{ route('crm.logistics.shipments.index') }}" class="btn btn-cancel btn-secondary">Cancel</a>
         <button type="submit" class="btn btn-primary">
           <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
           Save Shipment

@@ -108,7 +108,7 @@
     </div>
 
     <div class="flex justify-end gap-3 mt-6">
-      <a href="{{ route('crm.logistics.processTrucking') }}" class="btn btn-secondary text-sm">Cancel</a>
+      <a href="{{ route('crm.logistics.processTrucking') }}" class="btn btn-cancel btn-secondary text-sm">Cancel</a>
       <button type="submit" class="btn btn-primary text-sm" :disabled="rows.length === 0" x-text="'Confirm Import (' + rows.length + ')'"></button>
     </div>
   </form>

@@ -396,6 +396,10 @@ class SocialMediaReportController extends Controller
 
         if ($request->filled('date_range') && $request->date_range !== 'all_time') {
             switch ($request->date_range) {
+                case 'today':
+                    $dateFrom = now()->startOfDay()->toDateString();
+                    $dateTo   = now()->endOfDay()->toDateString();
+                    break;
                 case 'this_week':
                     $dateFrom = now()->startOfWeek()->toDateString();
                     $dateTo   = now()->endOfWeek()->toDateString();

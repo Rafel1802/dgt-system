@@ -13,10 +13,10 @@
         :root {
             --primary: #4f46e5;
             --primary-light: #e0e7ff;
-            --text-dark: #0f172a;
-            --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            --bg-light: #f8fafc;
+            --text-dark: #000000;
+            --text-muted: #333333;
+            --border-color: #000000;
+            --bg-light: #ffffff;
             --success: #10b981;
             --success-light: #d1fae5;
             --warning: #f59e0b;

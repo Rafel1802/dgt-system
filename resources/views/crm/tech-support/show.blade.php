@@ -322,7 +322,7 @@
             <input type="file" name="attachment" class="form-input text-sm" accept=".pdf,.jpg,.jpeg,.png,.gif">
           </div>
           <div class="flex gap-2">
-            <button type="button" @click="showFollowUp = false" class="btn btn-secondary text-sm flex-1">Cancel</button>
+            <button type="button" @click="showFollowUp = false" class="btn btn-cancel btn-secondary text-sm flex-1">Cancel</button>
             <button type="submit" :disabled="followUpLoading" class="btn btn-primary text-sm flex-1">
               <span x-show="!followUpLoading">Save Log</span>
               <span x-show="followUpLoading" x-cloak>Saving…</span>
@@ -349,7 +349,7 @@
           <p class="text-xs text-slate-400 mt-1">Required — this is what the CRM Website team will see when they make the call.</p>
         </div>
         <div class="flex gap-3 pt-2">
-          <button @click="showRequestCall = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="showRequestCall = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button @click="requestCall()" :disabled="requestCallLoading" class="btn btn-primary flex-1">
             <span x-show="!requestCallLoading">Send Request</span>
             <span x-show="requestCallLoading" x-cloak>Sending…</span>

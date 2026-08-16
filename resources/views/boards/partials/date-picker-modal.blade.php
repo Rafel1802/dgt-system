@@ -15,7 +15,7 @@
        @click="closeDatePicker()"></div>
 
   {{-- Panel --}}
-  <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-80 overflow-hidden"
+  <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-80 [.dgt-macos-app_&]:w-96 overflow-hidden"
        x-transition:enter="transition ease-out duration-150"
        x-transition:enter-start="opacity-0 scale-95"
        x-transition:enter-end="opacity-100 scale-100"
@@ -64,7 +64,7 @@
           <button
             :disabled="!cell.day"
             @click="cell.day && dpSelectDay(cell)"
-            class="h-8 w-full rounded-lg text-xs font-medium transition-all"
+            class="h-8 [.dgt-macos-app_&]:h-10 w-full rounded-lg text-xs [.dgt-macos-app_&]:text-sm font-medium transition-all"
             :class="dpDayClass(cell)">
             <span x-text="cell.day || ''"></span>
           </button>

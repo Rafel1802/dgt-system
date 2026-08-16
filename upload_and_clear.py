@@ -123,6 +123,8 @@ if __name__ == "__main__":
             + PHP + " artisan optimize:clear && "
             + tinker_sync
             + tinker_clean
+            + PHP + " artisan smm:fix-labels && "
+            + PHP + " artisan cards:restore-block-smm && "
             + PHP + " artisan migrate --force && "
             + PHP + " artisan optimize && "
             + PHP + " artisan view:cache && "

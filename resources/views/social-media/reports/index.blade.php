@@ -187,7 +187,7 @@
             <div class="px-6 pb-6 flex gap-3">
                 <button type="button"
                     onclick="document.getElementById('export-modal').classList.add('hidden')"
-                    class="flex-1 btn btn-secondary text-sm py-2.5">
+                    class="flex-1 btn btn-cancel btn-secondary text-sm py-2.5">
                     Cancel
                 </button>
                 <button type="submit" id="btn-export-submit"

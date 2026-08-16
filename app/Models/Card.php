@@ -73,6 +73,7 @@ class Card extends Model
 
     protected $appends = [
         'smm_cluster_link',
+        'smm_class_link',
     ];
 
     public static $isSyncing = false;
@@ -323,6 +324,11 @@ class Card extends Model
         return $this->hasMany(CardChecklist::class)->orderBy('position');
     }
 
+    public function checklistItems(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(CardChecklistItem::class, CardChecklist::class, 'card_id', 'checklist_id');
+    }
+
     public function files(): HasMany
     {
         return $this->hasMany(CardFile::class)->where('is_comment_image', false)->orderBy('created_at');
@@ -351,6 +357,18 @@ class Card extends Model
         }
         
         return $clusterLinks[$this->smm_cluster_label] ?? null;
+    }
+
+    public function getSmmClassLinkAttribute()
+    {
+        if (!$this->smm_class_label) return null;
+        
+        static $classLinks = null;
+        if ($classLinks === null) {
+            $classLinks = \App\Models\SocialMediaClass::pluck('external_link', 'name')->toArray();
+        }
+        
+        return $classLinks[$this->smm_class_label] ?? null;
     }
 
     public function getLabelBgAttribute(): string

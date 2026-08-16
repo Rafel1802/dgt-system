@@ -11,11 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('cards', function (Blueprint $table) {
-            $table->dropForeign(['created_by']);
-            $table->unsignedBigInteger('created_by')->nullable()->change();
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
-        });
+        try {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE cards DROP FOREIGN KEY cards_created_by_foreign');
+        } catch (\Exception $e) {}
+        
+        \Illuminate\Support\Facades\DB::statement('ALTER TABLE cards MODIFY created_by BIGINT UNSIGNED NULL');
+        
+        try {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE cards ADD CONSTRAINT cards_created_by_foreign FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL');
+        } catch (\Exception $e) {}
     }
 
     /**
@@ -23,10 +27,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('cards', function (Blueprint $table) {
-            $table->dropForeign(['created_by']);
-            $table->unsignedBigInteger('created_by')->nullable(false)->change();
-            $table->foreign('created_by')->references('id')->on('users')->cascadeOnDelete();
-        });
+        try {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE cards DROP FOREIGN KEY cards_created_by_foreign');
+        } catch (\Exception $e) {}
+        
+        \Illuminate\Support\Facades\DB::statement('ALTER TABLE cards MODIFY created_by BIGINT UNSIGNED NOT NULL');
+        
+        try {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE cards ADD CONSTRAINT cards_created_by_foreign FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE');
+        } catch (\Exception $e) {}
     }
 };

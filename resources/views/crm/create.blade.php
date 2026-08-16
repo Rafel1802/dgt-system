@@ -175,7 +175,7 @@
 
       {{-- Actions --}}
       <div class="px-6 py-4 flex gap-3 justify-end bg-slate-50">
-        <a href="{{ route('crm.customers.index') }}" class="btn btn-secondary">Cancel</a>
+        <a href="{{ route('crm.customers.index') }}" class="btn btn-cancel btn-secondary">Cancel</a>
         <button type="submit" class="btn btn-primary" id="btn-save-customer">
           Create Customer
         </button>

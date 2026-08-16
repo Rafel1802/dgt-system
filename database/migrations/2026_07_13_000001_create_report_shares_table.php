@@ -16,15 +16,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('report_shares', function (Blueprint $table) {
-            $table->id();
-            $table->string('token', 64)->unique();
-            $table->enum('report_type', ['staff', 'team']);
-            $table->foreignId('user_id')->nullable()->constrained('users')->cascadeOnDelete();
-            $table->json('filters')->nullable();
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('report_shares')) {
+            Schema::create('report_shares', function (Blueprint $table) {
+                $table->id();
+                $table->string('token', 64)->unique();
+                $table->enum('report_type', ['staff', 'team']);
+                $table->foreignId('user_id')->nullable()->constrained('users')->cascadeOnDelete();
+                $table->json('filters')->nullable();
+                $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

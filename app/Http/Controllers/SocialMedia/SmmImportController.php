@@ -209,8 +209,8 @@ class SmmImportController extends Controller
             $preview[] = [
                 'row' => $idx + 2,
                 'title' => $title,
-                'smm_cluster_label' => $cluster,
-                'smm_class_label' => $contentType,
+                'smm_class_label' => $cluster,
+                'smm_cluster_label' => $contentType,
                 'smm_team_label' => $teamLabel,
                 'description' => $desc,
                 'attachment' => $attachment,
@@ -310,8 +310,8 @@ class SmmImportController extends Controller
             $importedKeys[] = $compositeKey;
 
             // Auto-create class if it doesn't exist (Class = Cluster/Brand)
-            $clusterName = $row['smm_cluster_label'] ?? '';
-            $className = $row['smm_class_label'] ?? '';
+            $clusterName = $row['smm_class_label'] ?? '';
+            $className = $row['smm_cluster_label'] ?? '';
             if (!empty($clusterName) && !in_array(strtolower($clusterName), $existingClasses)) {
                 SocialMediaClass::create([
                     'name' => $clusterName,

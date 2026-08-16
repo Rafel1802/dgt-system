@@ -215,6 +215,19 @@ class BoardWorkflowService
                 
                 continue; // Skip the list moving logic!
             }
+            
+            // If the target state is "Block/Waiting" and the twin board is a Planning board,
+            // we do NOT move it to the "Block/Waiting" list. It should stay in its current week.
+            if (str_contains(strtolower($targetListName), 'block') && 
+                (stripos($twinBoard->name, 'Planning board') !== false || stripos($twinBoard->name, 'planning') !== false || $twinBoard->is_template)) {
+                
+                $twin->comments()->create([
+                    'user_id' => auth()->id() ?? 1,
+                    'content' => "Card on the connected Workflow board was moved to **Block/Waiting**.",
+                    'is_system' => true,
+                ]);
+                continue; // Skip the list moving logic!
+            }
 
             $twinList = $twinBoard->lists()->where('name', 'like', "%{$targetListName}%")->first();
             

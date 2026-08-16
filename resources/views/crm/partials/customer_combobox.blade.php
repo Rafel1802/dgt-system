@@ -181,7 +181,7 @@
           </div>
         </div>
         <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4">
-          <button type="button" id="{{ $fieldId }}-modal-cancel" class="btn btn-secondary text-sm">Cancel</button>
+          <button type="button" id="{{ $fieldId }}-modal-cancel" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
           <button type="button" id="{{ $fieldId }}-modal-save" class="btn btn-primary text-sm">
             <span>Add Customer</span>
             <span id="{{ $fieldId }}-modal-spin" class="hidden ml-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>

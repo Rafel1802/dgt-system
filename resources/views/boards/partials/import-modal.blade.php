@@ -373,7 +373,7 @@
       {{-- Right side --}}
       <div class="flex items-center gap-2.5">
         <button x-show="importModal.step !== 3" @click="closeImportModal()"
-                class="btn btn-secondary text-xs py-2 px-4 rounded-xl font-semibold">
+                class="btn btn-cancel btn-secondary text-xs py-2 px-4 rounded-xl font-semibold">
           Cancel
         </button>
 

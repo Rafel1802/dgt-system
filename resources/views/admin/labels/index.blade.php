@@ -131,7 +131,7 @@
         </div>
 
         <div class="pt-2 flex justify-end gap-2">
-            <button type="button" @click="showModal=false" class="btn btn-secondary py-2 text-xs">Cancel</button>
+            <button type="button" @click="showModal=false" class="btn btn-cancel btn-secondary py-2 text-xs">Cancel</button>
             <button type="submit" class="btn btn-primary py-2 text-xs shadow-md" x-text="editId ? 'Save Changes' : 'Create Label'"></button>
         </div>
       </form>

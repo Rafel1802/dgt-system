@@ -36,45 +36,49 @@ class WebsiteController extends Controller
             'build-progress'   => ['handler', 'latestProgressLog.user'],
             'live'             => ['handler', 'latestMaintenanceLog.user'],
             'maintenance'      => ['handler', 'latestMaintenanceLog.user'],
+            'qc-checking'      => ['handler'],
+            'supervisor-checking' => ['handler'],
             'qc-error'         => ['handler'],
             'supervisor-error' => ['handler'],
             default            => ['handler'],
         };
 
-        $allWebsites = Website::with($tabRelations)
-            ->where('is_archived', false)
+        // --- OPTIMIZATION: Fetch lightweight websites. Relationships are lazy-loaded below for the ACTIVE tab only! ---
+        $allWebsites = Website::where('is_archived', false)
             ->orderBy('name')
             ->get();
 
 
 
-        // ── Build Website Tab ─────────────────────────────────────────────────
         $buildWebsites = $allWebsites->where('status', Website::STATUS_BUILD_WEBSITE)->values();
-
-        // ── Build Progress Tab ────────────────────────────────────────────────
         $buildProgressWebsites = $allWebsites->whereIn('status', [
             Website::STATUS_BUILD_PROGRESS,
             Website::STATUS_QC_CHECKING,
             Website::STATUS_SUPERVISOR_CHECKING,
         ])->values();
-
-        // ── QC Error Tab ──────────────────────────────────────────────────────────────
         $qcErrorWebsites = $allWebsites->whereIn('status', [
             Website::STATUS_QC_ERROR,
             Website::STATUS_MAINTENANCE_QC_ERROR,
         ])->values();
-
-        // ── Supervisor Error Tab ────────────────────────────────────────────────────
+        $qcCheckingWebsites = $allWebsites->whereIn('status', [
+            Website::STATUS_QC_CHECKING,
+            Website::STATUS_MAINTENANCE_QC_CHECKING,
+        ])->values();
         $supervisorErrorWebsites = $allWebsites->whereIn('status', [
             Website::STATUS_SUPERVISOR_ERROR,
             Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR,
         ])->values();
-
-        // ── Live Websites Tab ─────────────────────────────────────────────────
+        $supervisorCheckingWebsites = $allWebsites->whereIn('status', [
+            Website::STATUS_SUPERVISOR_CHECKING,
+            Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
+        ])->values();
         $liveWebsites = $allWebsites->filter(fn($w) => $w->isLiveOrMaintenance())->values();
-
-        // ── Maintenance Progress Tab ──────────────────────────────────────────
-        $maintenanceWebsites = $allWebsites->filter(fn($w) => $w->isMaintenance())->values();
+        $maintenanceWebsites = $allWebsites->whereIn('status', [
+            Website::STATUS_MAINTENANCE,
+            Website::STATUS_MAINTENANCE_PROGRESS,
+            Website::STATUS_MAINTENANCE_QC_CHECKING,
+            Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
+        ])->values();
 
         // ── Follow Up Tab ─────────────────────────────────────────────────────
         $followUpFilter = $request->only(['fu_class', 'fu_website', 'fu_type', 'fu_qc', 'fu_member', 'fu_date']);
@@ -109,19 +113,23 @@ class WebsiteController extends Controller
         }
 
         if (!empty($followUpFilter['fu_date'])) {
-            $followUpsQuery->whereDate('created_at', $followUpFilter['fu_date']);
+            $followUpsQuery->whereDate('website_follow_ups.created_at', $followUpFilter['fu_date']);
         }
         
-        $followUps = $followUpsQuery->get();
+        if ($tab === 'follow-up') {
+            $followUps = $followUpsQuery->paginate(50);
+        } else {
+            $followUps = collect();
+        }
 
         // ── KPI Stats ─────────────────────────────────────────────────────────
         $stats = [
-            'total'       => $allWebsites->count(),
-            'building'    => $allWebsites->filter(fn($w) => $w->isBuilding())->count(),
-            'live'        => $allWebsites->filter(fn($w) => $w->isLiveOrMaintenance())->count(),
-            'maintenance' => $allWebsites->filter(fn($w) => $w->isMaintenance())->count(),
-            'qc_pending'  => $allWebsites->where('status', Website::STATUS_QC_CHECKING)->count(),
-            'follow_ups'  => $followUps->count(),
+            'total'       => Website::where('is_archived', false)->count(),
+            'building'    => Website::where('is_archived', false)->whereIn('status', [Website::STATUS_BUILD_WEBSITE, Website::STATUS_BUILD_PROGRESS, Website::STATUS_QC_CHECKING, Website::STATUS_SUPERVISOR_CHECKING])->count(),
+            'live'        => Website::where('is_archived', false)->whereIn('status', [Website::STATUS_LIVE, Website::STATUS_MAINTENANCE, Website::STATUS_MAINTENANCE_PROGRESS, Website::STATUS_MAINTENANCE_QC_CHECKING, Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING])->count(),
+            'maintenance' => Website::where('is_archived', false)->whereIn('status', [Website::STATUS_MAINTENANCE, Website::STATUS_MAINTENANCE_PROGRESS, Website::STATUS_MAINTENANCE_QC_CHECKING, Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING])->count(),
+            'qc_pending'  => Website::where('is_archived', false)->whereIn('status', [Website::STATUS_QC_CHECKING, Website::STATUS_MAINTENANCE_QC_CHECKING])->count(),
+            'follow_ups'  => WebsiteFollowUp::count(),
         ];
 
         // ── All classes for the filter dropdown ───────────────────────────────
@@ -168,11 +176,32 @@ class WebsiteController extends Controller
 
         $reportUsers = $users->concat($websiteTeamMembers)->unique('id')->sortBy('name')->values();
 
+        // --- PERFORMANCE OPTIMIZATION: Lazy load heavy relationships ONLY for the active tab ---
+        if ($tab === 'build') {
+            $buildWebsites->load($tabRelations);
+            $groupedWebsites->each(function($group) use ($tabRelations) { $group->load($tabRelations); });
+        } elseif ($tab === 'build-progress') {
+            $buildProgressWebsites->load($tabRelations);
+        } elseif ($tab === 'qc-checking') {
+            $qcCheckingWebsites->load($tabRelations);
+        } elseif ($tab === 'supervisor-checking') {
+            $supervisorCheckingWebsites->load($tabRelations);
+        } elseif ($tab === 'qc-error') {
+            $qcErrorWebsites->load($tabRelations);
+        } elseif ($tab === 'supervisor-error') {
+            $supervisorErrorWebsites->load($tabRelations);
+        } elseif ($tab === 'live') {
+            $liveWebsites->load($tabRelations);
+        } elseif ($tab === 'maintenance') {
+            $maintenanceWebsites->load($tabRelations);
+        }
+
         return view('websites.index', compact(
             'tab', 'stats', 'allWebsites', 'groupedWebsites', 'orderArray',
             'buildWebsites', 'buildProgressWebsites', 'liveWebsites',
             'maintenanceWebsites', 'followUps', 'followUpFilter', 'users',
             'allClasses', 'websiteMembers', 'memberRolesMap',
+            'qcCheckingWebsites', 'supervisorCheckingWebsites',
             'qcErrorWebsites', 'supervisorErrorWebsites', 'websiteTeamMembers', 'reportUsers'
         ));
     }
@@ -224,6 +253,14 @@ class WebsiteController extends Controller
         $this->logActivity('website_created', "Website \"{$website->name}\" created.");
 
         WebsiteActivityNotification::send($website, 'website_created', "New website \"{$website->name}\" created.");
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Website \"{$website->name}\" created successfully.",
+                'website' => $website
+            ], 201);
+        }
 
         return redirect()->route('websites.index', ['tab' => 'build'])
             ->with('success', "Website \"{$website->name}\" created successfully.");
@@ -676,6 +713,14 @@ class WebsiteController extends Controller
 
         WebsiteActivityNotification::send($website, 'error_progress_updated', "Error fix progress for \"{$website->name}\" updated to {$newPercent}%.", $validated['note'] ?? null);
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Error fix progress updated to {$newPercent}% for \"{$website->name}\".",
+                'website' => $website
+            ]);
+        }
+
         return back()->with('success', "Error fix progress updated to {$newPercent}% for \"{$website->name}\".");
     }
 
@@ -689,8 +734,8 @@ class WebsiteController extends Controller
         $oldStatus = $website->status;
         $isMaintenanceFlow = ($oldStatus === Website::STATUS_MAINTENANCE_QC_ERROR);
         $newStatus = $isMaintenanceFlow
-            ? Website::STATUS_MAINTENANCE_QC_CHECKING
-            : Website::STATUS_QC_CHECKING;
+            ? Website::STATUS_MAINTENANCE
+            : Website::STATUS_BUILDING;
 
         $website->update([
             'status'                 => $newStatus,
@@ -709,7 +754,7 @@ class WebsiteController extends Controller
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
             'percent'    => 100,
-            'note'       => 'QC Error fix completed. Sent back to QC Checking.',
+            'note'       => 'QC Error fix completed. Sent back to ' . ($isMaintenanceFlow ? 'Maintenance' : 'Build Progress') . '.',
             'created_at' => now(),
         ]);
 
@@ -717,16 +762,16 @@ class WebsiteController extends Controller
             'website_id'   => $website->id,
             'user_id'      => auth()->id(),
             'action'       => 'qc_error_completed',
-            'note'         => 'QC Error fix completed. Sent back to QC Checking.',
+            'note'         => 'QC Error fix completed. Sent back to ' . ($isMaintenanceFlow ? 'Maintenance' : 'Build Progress') . '.',
             'old_status'   => $oldStatus,
             'new_status'   => $newStatus,
             'old_progress' => 100,
             'new_progress' => 100,
         ]);
 
-        $this->logActivity('qc_error_completed', "QC error fix completed for \"{$website->name}\". Sent back to QC Checking.");
+        $this->logActivity('qc_error_completed', "QC error fix completed for \"{$website->name}\". Sent back to " . ($isMaintenanceFlow ? 'Maintenance' : 'Build Progress') . ".");
 
-        WebsiteActivityNotification::send($website, 'qc_error_completed', "QC error fix completed for \"{$website->name}\". Sent back to QC Checking.");
+        WebsiteActivityNotification::send($website, 'qc_error_completed', "QC error fix completed for \"{$website->name}\". Sent back to " . ($isMaintenanceFlow ? 'Maintenance' : 'Build Progress') . ".");
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json(["success" => true]);
@@ -735,7 +780,7 @@ class WebsiteController extends Controller
             return response()->json(["success" => true]);
         }
         return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
-            ->with('success', "\"{$website->name}\" error fix completed! QC must approve again.");
+            ->with('success', "\"{$website->name}\" error fix completed! Website is back to " . ($isMaintenanceFlow ? 'Maintenance' : 'Build Progress') . ".");
     }
 
     // ── COMPLETE SUPERVISOR ERROR (send back to Supervisor Checking) ──────────────
@@ -747,9 +792,7 @@ class WebsiteController extends Controller
 
         $oldStatus = $website->status;
         $isMaintenanceFlow = ($oldStatus === Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR);
-        $newStatus = $isMaintenanceFlow
-            ? Website::STATUS_MAINTENANCE_QC_CHECKING
-            : Website::STATUS_QC_CHECKING;
+        $newStatus = Website::STATUS_LIVE;
 
         $website->update([
             'status'                 => $newStatus,
@@ -768,7 +811,7 @@ class WebsiteController extends Controller
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
             'percent'    => 100,
-            'note'       => 'Supervisor Error fix completed. Sent back to QC Checking for re-check.',
+            'note'       => 'Supervisor Error fix completed. Sent directly to Live.',
             'created_at' => now(),
         ]);
 
@@ -776,22 +819,22 @@ class WebsiteController extends Controller
             'website_id'   => $website->id,
             'user_id'      => auth()->id(),
             'action'       => 'supervisor_error_completed',
-            'note'         => 'Supervisor Error fix completed. Sent back to QC Checking for re-check.',
+            'note'         => 'Supervisor Error fix completed. Sent directly to Live.',
             'old_status'   => $oldStatus,
             'new_status'   => $newStatus,
             'old_progress' => 100,
             'new_progress' => 100,
         ]);
 
-        $this->logActivity('supervisor_error_completed', "Supervisor error fix completed for \"{$website->name}\". Sent back to QC Checking.");
+        $this->logActivity('supervisor_error_completed', "Supervisor error fix completed for \"{$website->name}\". Sent directly to Live.");
 
-        WebsiteActivityNotification::send($website, 'supervisor_error_completed', "Supervisor error fix completed for \"{$website->name}\". Sent back to QC Checking.");
+        WebsiteActivityNotification::send($website, 'supervisor_error_completed', "Supervisor error fix completed for \"{$website->name}\". Sent directly to Live.");
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json(["success" => true]);
         }
-        return redirect()->route('websites.index', ['tab' => $isMaintenanceFlow ? 'maintenance' : 'build-progress'])
-            ->with('success', "\"{$website->name}\" Supervisor error fix done! QC must approve first.");
+        return redirect()->route('websites.index', ['tab' => 'live'])
+            ->with('success', "\"{$website->name}\" Supervisor error fix done! Website is now Live.");
     }
 
     // ── APPROVE SUPERVISOR ────────────────────────────────────────────────────
@@ -972,6 +1015,9 @@ class WebsiteController extends Controller
             ? "\"{$website->name}\" maintenance completed and is pending QC check."
             : "Maintenance progress updated to {$newPercent}% for \"{$website->name}\".";
 
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(["success" => true]);
+        }
         return back()->with('success', $msg);
     }
 
@@ -997,14 +1043,22 @@ class WebsiteController extends Controller
                     $q->where('is_archived', false);
                 });
 
-            if ($startDate) {
-                $query->whereDate('created_at', '>=', $startDate);
-            }
-            if ($endDate) {
-                $query->whereDate('created_at', '<=', $endDate);
-            }
-            if ($memberId) {
-                $query->where('assigned_to', $memberId);
+            $targetUser = $memberId ? \App\Models\User::find($memberId) : auth()->user();
+            $isQcReport = $targetUser && $targetUser->isQc();
+
+            if ($isQcReport) {
+                $query->whereNotNull('qc_checked_at');
+                if ($startDate) $query->whereDate('qc_checked_at', '>=', $startDate);
+                if ($endDate) $query->whereDate('qc_checked_at', '<=', $endDate);
+                if ($memberId) $query->where('qc_checked_by', $memberId);
+            } else {
+                if ($startDate) $query->whereDate('created_at', '>=', $startDate);
+                if ($endDate) $query->whereDate('created_at', '<=', $endDate);
+                if ($memberId) {
+                    $query->where(function($q) use ($memberId) {
+                        $q->where('created_by', $memberId)->orWhere('assigned_to', $memberId);
+                    });
+                }
             }
 
             $followUps = $query->latest()->get();
@@ -1033,7 +1087,27 @@ class WebsiteController extends Controller
             $query->where('handled_by', $memberId);
         }
         
-        // Removed the website created_at filter so that we can fetch all websites and filter their activity logs by the date range instead.
+        if ($startDate || $endDate) {
+            $query->where(function ($group) use ($startDate, $endDate) {
+                $group->where(function ($q) use ($startDate, $endDate) {
+                    // If a website was just created in this period
+                    if ($startDate) $q->where('created_at', '>=', $startDate);
+                    if ($endDate) $q->where('created_at', '<=', $endDate);
+                })->orWhereHas('progressLogs', function ($q) use ($startDate, $endDate) {
+                    if ($startDate) $q->where('created_at', '>=', $startDate);
+                    if ($endDate) $q->where('created_at', '<=', $endDate);
+                })->orWhereHas('maintenanceLogs', function ($q) use ($startDate, $endDate) {
+                    if ($startDate) $q->where('created_at', '>=', $startDate);
+                    if ($endDate) $q->where('created_at', '<=', $endDate);
+                })->orWhereHas('activityLogs', function ($q) use ($startDate, $endDate) {
+                    if ($startDate) $q->where('created_at', '>=', $startDate);
+                    if ($endDate) $q->where('created_at', '<=', $endDate);
+                })->orWhereHas('followUps', function ($q) use ($startDate, $endDate) {
+                    if ($startDate) $q->where('created_at', '>=', $startDate);
+                    if ($endDate) $q->where('created_at', '<=', $endDate);
+                });
+            });
+        }
 
         $websites = $query->get();
 
@@ -1064,6 +1138,10 @@ class WebsiteController extends Controller
 
         if ($request->filled('date_range') && $request->date_range !== 'all_time') {
             switch ($request->date_range) {
+                case 'today':
+                    $dateFrom = now()->startOfDay()->toDateString();
+                    $dateTo   = now()->endOfDay()->toDateString();
+                    break;
                 case 'this_week':
                     $dateFrom = now()->startOfWeek()->toDateString();
                     $dateTo   = now()->endOfWeek()->toDateString();
@@ -1116,7 +1194,39 @@ class WebsiteController extends Controller
                 ];
             });
 
-        $activities = $progressLogs->concat($maintenanceLogs)->sortBy('date');
+        $activityLogs = \App\Models\WebsiteActivityLog::with(['website', 'user'])
+            ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+            ->when($userId, fn($q) => $q->where('user_id', $userId))
+            ->get()
+            ->map(function($log) {
+                return [
+                    'date' => $log->created_at,
+                    'website' => $log->website->name ?? 'Unknown',
+                    'action' => 'Activity Log',
+                    'details' => strip_tags($log->description),
+                    'user' => $log->user->name ?? '',
+                ];
+            });
+
+        $followUpQc = collect();
+        if (auth()->user()?->isQcOrSupervisor()) {
+             $followUpQc = \App\Models\WebsiteFollowUp::with(['website', 'qcChecker'])
+                ->whereNotNull('qc_checked_at')
+                ->whereBetween('qc_checked_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
+                ->when($userId, fn($q) => $q->where('qc_checked_by', $userId))
+                ->get()
+                ->map(function($fu) {
+                    return [
+                        'date' => $fu->qc_checked_at,
+                        'website' => $fu->website->name ?? 'Unknown',
+                        'action' => 'Follow-up QC (' . ucfirst($fu->qc_status) . ')',
+                        'details' => $fu->title,
+                        'user' => $fu->qcChecker->name ?? '',
+                    ];
+                });
+        }
+
+        $activities = $progressLogs->concat($maintenanceLogs)->concat($activityLogs)->concat($followUpQc)->sortBy('date');
 
         if ($format === 'pdf') {
             $userModel = $userId ? \App\Models\User::find($userId) : null;
@@ -1227,12 +1337,57 @@ class WebsiteController extends Controller
             ]);
 
             foreach ($websites as $ws) {
-                // ── Filter progress logs by date range ────────────────────────────
-                $allProgressLogs = $ws->progressLogs->sortBy('created_at');
-                $filteredProgressLogs = $allProgressLogs;
+                // ── Combine History ───────────────────────────────────────────────
+                $historyRecords = collect();
+
+                // Progress Logs
+                foreach ($ws->progressLogs as $log) {
+                    $historyRecords->push([
+                        'date' => $log->created_at,
+                        'user' => $log->user?->name ?? 'System',
+                        'type' => strtoupper($log->type ?? 'BUILD'),
+                        'detail' => $log->percent . '%',
+                        'note' => strip_tags($log->note ?? ''),
+                    ]);
+                }
+
+                // Maintenance Logs
+                foreach ($ws->maintenanceLogs as $log) {
+                    $historyRecords->push([
+                        'date' => $log->created_at,
+                        'user' => $log->user?->name ?? 'System',
+                        'type' => strtoupper($log->type ?? 'MAINTENANCE'),
+                        'detail' => $log->percent . '%',
+                        'note' => strip_tags($log->note ?? ''),
+                    ]);
+                }
+
+                // Activity Logs (Status Changes etc)
+                foreach ($ws->activityLogs as $log) {
+                    $detail = '';
+                    if ($log->old_status && $log->new_status && $log->old_status !== $log->new_status) {
+                        $detail .= $log->old_status . ' -> ' . $log->new_status;
+                    }
+                    if ($log->old_progress !== null && $log->new_progress !== null && $log->old_progress !== $log->new_progress) {
+                        $detail .= ($detail ? ' | ' : '') . $log->old_progress . '% -> ' . $log->new_progress . '%';
+                    }
+                    $historyRecords->push([
+                        'date' => $log->created_at,
+                        'user' => $log->user?->name ?? 'System',
+                        'type' => strtoupper($log->action ?? 'ACTIVITY'),
+                        'detail' => $detail ?: '-',
+                        'note' => strip_tags($log->note ?? ''),
+                    ]);
+                }
+
+                // Sort history chronologically
+                $historyRecords = $historyRecords->sortBy('date');
+
+                // Filter by date if necessary
+                $filteredHistory = $historyRecords;
                 if ($startDate || $endDate) {
-                    $filteredProgressLogs = $allProgressLogs->filter(function($log) use ($startDate, $endDate) {
-                        $logDate = $log->created_at->startOfDay();
+                    $filteredHistory = $historyRecords->filter(function($record) use ($startDate, $endDate) {
+                        $logDate = $record['date']->startOfDay();
                         if ($startDate && $logDate < \Carbon\Carbon::parse($startDate)->startOfDay()) return false;
                         if ($endDate && $logDate > \Carbon\Carbon::parse($endDate)->endOfDay()) return false;
                         return true;
@@ -1260,41 +1415,42 @@ class WebsiteController extends Controller
                     $ws->qc_approved_at?->format('d/m/Y H:i') ?? '',
                     $ws->error_link ?? '',
                     strip_tags($ws->error_note ?? ''),
-                    $allProgressLogs->count(),
-                    $filteredProgressLogs->count(),
+                    $historyRecords->count(),
+                    $filteredHistory->count(),
                     strip_tags($ws->notes ?? ''),
                     $ws->created_at->format('d/m/Y H:i'),
                 ]);
 
-                // ── History Update Rows (per percentage step) ─────────────────────
-                // Header for this website's history
-                fputcsv($handle, [
-                    '  [HISTORY]',
-                    'Date & Time',
-                    'Updated By',
-                    'Type',
-                    'Percentage',
-                    'Update Reason / Note',
-                    '', '', '', '', '', '', '', '', '', '', '', ''
-                ]);
-
-                foreach ($allProgressLogs as $log) {
-                    $inRange = true;
-                    if ($startDate || $endDate) {
-                        $logDate = $log->created_at->startOfDay();
-                        if ($startDate && $logDate < \Carbon\Carbon::parse($startDate)->startOfDay()) $inRange = false;
-                        if ($endDate && $logDate > \Carbon\Carbon::parse($endDate)->endOfDay()) $inRange = false;
-                    }
-
+                // ── History Update Rows ───────────────────────────────────────────
+                if ($historyRecords->count() > 0) {
                     fputcsv($handle, [
-                        $inRange ? '  → Update' : '  → Update (outside range)',
-                        $log->created_at->format('d/m/Y H:i'),
-                        $log->user?->name ?? 'System',
-                        strtoupper($log->type ?? 'build'),
-                        $log->percent . '%',
-                        $log->note,
+                        '  [HISTORY]',
+                        'Date & Time',
+                        'Updated By',
+                        'Type',
+                        'Detail / Percentage',
+                        'Update Reason / Note',
                         '', '', '', '', '', '', '', '', '', '', '', ''
                     ]);
+
+                    foreach ($historyRecords as $record) {
+                        $inRange = true;
+                        if ($startDate || $endDate) {
+                            $logDate = $record['date']->startOfDay();
+                            if ($startDate && $logDate < \Carbon\Carbon::parse($startDate)->startOfDay()) $inRange = false;
+                            if ($endDate && $logDate > \Carbon\Carbon::parse($endDate)->endOfDay()) $inRange = false;
+                        }
+
+                        fputcsv($handle, [
+                            $inRange ? '  -> Update' : '  -> Update (outside range)',
+                            $record['date']->format('d/m/Y H:i'),
+                            $record['user'],
+                            $record['type'],
+                            $record['detail'],
+                            $record['note'],
+                            '', '', '', '', '', '', '', '', '', '', '', ''
+                        ]);
+                    }
                 }
 
                 // ── Follow Up Rows ─────────────────────────────────────────────────
@@ -1414,9 +1570,13 @@ class WebsiteController extends Controller
 
     private function storeHistoryAttachmentFile($file): array
     {
+        $path = $file->store('website-error-references', 'public');
+        
+        \App\Jobs\ConvertImageToWebp::dispatch(null, null, null, $path, null)->delay(now()->addMinutes(2));
+
         return [
             'id' => (string) \Illuminate\Support\Str::uuid(),
-            'path' => $file->store('website-error-references', 'public'),
+            'path' => $path,
             'name' => $file->getClientOriginalName(),
             'mime' => $file->getClientMimeType(),
             'size' => $file->getSize(),
@@ -1436,12 +1596,22 @@ class WebsiteController extends Controller
     private function authorizeWebsiteErrorHistoryManagement(WebsiteMaintenanceLog $log): void
     {
         $user = auth()->user();
-        $allowedAction = in_array($log->action, ['qc_error', 'supervisor_error'], true);
+        $isAuthor = $user->id === $log->user_id;
+        $canManage = $user?->canApproveWebsiteQc() || $user?->canApproveWebsiteSupervisor() || $user?->hasRole('super-admin');
+        
+        $allowedAction = in_array($log->action, ['qc_error', 'supervisor_error', 'comment'], true);
+        
+        $hasPermission = false;
+        if ($log->action === 'comment') {
+            $hasPermission = $isAuthor || $canManage;
+        } else {
+            $hasPermission = $canManage;
+        }
 
         abort_unless(
-            $allowedAction && ($user?->canApproveWebsiteQc() || $user?->canApproveWebsiteSupervisor()),
+            $allowedAction && $hasPermission,
             403,
-            'Only QC, Supervisor, or super-admin can manage QC/Supervisor error history.'
+            'You do not have permission to manage this log.'
         );
     }
 
@@ -1672,6 +1842,45 @@ class WebsiteController extends Controller
                 'file'    => basename($e->getFile()),
             ], 500);
         }
+    }
+
+    public function destroyHistoryLog(Request $request, $id)
+    {
+        $log = WebsiteMaintenanceLog::findOrFail($id);
+        
+        $user = auth()->user();
+        $isAuthor = $user->id === $log->user_id;
+        $canManage = $user?->canApproveWebsiteQc() || $user?->canApproveWebsiteSupervisor() || $user?->hasRole('super-admin');
+        
+        $allowedAction = in_array($log->action, ['qc_error', 'supervisor_error', 'comment'], true);
+        
+        $hasPermission = false;
+        if ($log->action === 'comment') {
+            $hasPermission = $isAuthor || $canManage;
+        } else {
+            $hasPermission = $canManage;
+        }
+        
+        abort_unless(
+            $allowedAction && $hasPermission,
+            403,
+            'You do not have permission to delete this log.'
+        );
+
+        if ($log->attachment_path) {
+            Storage::disk('public')->delete($log->attachment_path);
+        }
+        
+        $attachments = $this->normalizedHistoryAttachments($log);
+        foreach ($attachments as $file) {
+            if (!empty($file['path'])) {
+                Storage::disk('public')->delete($file['path']);
+            }
+        }
+
+        $log->delete();
+
+        return response()->json(['success' => true]);
     }
 
     public function updateHistoryLog(Request $request, $id)
@@ -1946,5 +2155,30 @@ class WebsiteController extends Controller
 
         return redirect()->back()
             ->with('success', "Website member removed successfully.");
+    }
+
+    /**
+     * Check website availability
+     */
+    public function ping(Website $website)
+    {
+        if (empty($website->url)) {
+            return response()->json(['status' => 'Error', 'http_code' => null, 'message' => 'No URL']);
+        }
+        
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(5)->get($website->url);
+            
+            if ($response->successful()) {
+                return response()->json(['status' => 'Available', 'http_code' => $response->status()]);
+            }
+            
+            return response()->json(['status' => 'Unavailable', 'http_code' => $response->status()]);
+            
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            return response()->json(['status' => 'Timeout', 'http_code' => null]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'Error', 'http_code' => null]);
+        }
     }
 }

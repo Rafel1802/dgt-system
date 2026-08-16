@@ -132,7 +132,7 @@
       <div class="board-sort-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4"
            data-workspace-id="{{ $workspace->id }}">
         @foreach($workspace->boards as $board)
-          <a href="{{ route('boards.show', $board->slug) }}" 
+          <a wire:navigate.hover href="{{ route('boards.show', $board->slug) }}" 
                data-turbo="false"
                draggable="false"
                data-board-id="{{ $board->id }}"
@@ -350,7 +350,7 @@
         @endif
 
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="showCreateBoard = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button type="button" @click="showCreateBoard = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button type="submit" class="btn btn-primary flex-1">Create Board</button>
         </div>
       </form>
@@ -386,7 +386,7 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="showCreateWorkspace = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button type="button" @click="showCreateWorkspace = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button type="submit" class="btn btn-primary flex-1">Create Workspace</button>
         </div>
       </form>
@@ -422,7 +422,7 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="editWorkspaceModal.open = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button type="button" @click="editWorkspaceModal.open = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button type="submit" class="btn btn-primary flex-1">Save Changes</button>
         </div>
       </form>
@@ -743,7 +743,7 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="editBoardModal.open = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button type="button" @click="editBoardModal.open = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button type="submit" class="btn btn-primary flex-1">Save Changes</button>
         </div>
       </form>

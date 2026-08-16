@@ -237,8 +237,14 @@ class BoardController extends Controller
                 'creator:id,name,avatar,username',
                 'assignees:id,name,avatar,username',
                 'labels',
-                'checklists.items:id,card_checklist_id,name,is_completed,position',
-            ])->withCount(['files', 'comments']);
+            ])->withCount([
+                'files', 
+                'comments',
+                'checklistItems as checklist_total',
+                'checklistItems as checklist_done' => function($q) {
+                    $q->where('card_checklist_items.is_completed', true);
+                }
+            ]);
         }]);
 
         $user = auth()->user();
@@ -330,6 +336,10 @@ class BoardController extends Controller
                     'status'     => $c->status?->value ?? (string) $c->status,
                     'block_completed_at' => $c->block_completed_at?->toISOString(),
                     'block_completed_by' => $c->block_completed_by,
+                    'smm_class_label'    => $c->smm_class_label,
+                    'smm_team_label'     => $c->smm_team_label,
+                    'smm_cluster_label'  => $c->smm_cluster_label,
+                    'content_public_date'=> $c->content_public_date?->format('Y-m-d'),
                     'labels'   => $c->labels->map(fn($lb) => ['id'=>$lb->id,'name'=>$lb->name,'color'=>$lb->color]),
                     'assignees'=> $c->assignees->map(fn($u) => [
                         'id' => $u->id,
@@ -339,8 +349,8 @@ class BoardController extends Controller
                         'initials' => $u->avatar_initials,
                         'avatar_color' => $u->avatar_color,
                     ]),
-                    'checklist_total' => $c->checklists->flatMap->items->count(),
-                    'checklist_done'  => $c->checklists->flatMap->items->where('is_completed',true)->count(),
+                    'checklist_total' => $c->checklist_total ?? 0,
+                    'checklist_done'  => $c->checklist_done ?? 0,
                     'has_files'       => $c->files_count > 0,
                     'comment_count'   => $c->comments_count,
                     'creator' => $c->creator ? [
@@ -351,17 +361,7 @@ class BoardController extends Controller
                         'avatar_color' => $c->creator->avatar_color,
                     ] : null,
                     'description' => $c->description,
-                    // files and comments are loaded async when opening a card
-                    'checklists' => $c->checklists->map(fn($cl) => [
-                         'id' => $cl->id,
-                         'title' => $cl->title,
-                         'position' => $cl->position,
-                         'items' => $cl->items->map(fn($item) => [
-                              'id' => $item->id,
-                              'title' => $item->title,
-                              'is_completed' => (bool)$item->is_completed,
-                         ])->values()->all(),
-                    ])->values()->all(),
+                    // files, comments, and checklists are loaded async when opening a card
                 ])->values()->all(),
             ])->values()->all(),
             'labels'           => \App\Models\Label::where(function($q) use ($board) {
@@ -1740,7 +1740,6 @@ class BoardController extends Controller
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
                 'boards.members:id,name,avatar',
-                'boards.activeLists:id,board_id,name,position',
                 'members:id,name,avatar',
             ])
                 ->where('is_active', true)
@@ -1752,7 +1751,6 @@ class BoardController extends Controller
             $allActiveWorkspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
                 'boards.members:id,name,avatar',
-                'boards.activeLists:id,board_id,name,position',
                 'members:id,name,avatar',
             ])
                 ->where('is_active', true)
@@ -1760,7 +1758,8 @@ class BoardController extends Controller
                 ->orderBy('position')
                 ->orderBy('id')
                 ->get();
-            $workspaces = $allActiveWorkspaces->filter(function ($ws) use ($user) {
+            $workspaces = $allActiveWorkspaces->filter(function ($ws) use ($user, $canSeeSMM) {
+                if ($canSeeSMM && $ws->name === 'Social Media Management') return true;
                 if ($ws->hasMember($user->id)) return true;
                 foreach ($ws->boards as $board) {
                     if ($board->hasMember($user->id)) return true;
@@ -1770,7 +1769,12 @@ class BoardController extends Controller
         }
 
         foreach ($workspaces as $workspace) {
-            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($user, $workspace) {
+            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($user, $workspace, $canSeeSMM) {
+                // If they can see SMM module, they can see all SMM boards
+                if ($canSeeSMM && $workspace->name === 'Social Media Management') {
+                    return true;
+                }
+
                 // If they are a member of the workspace, they can see all its boards
                 if ($workspace->hasMember($user->id)) {
                     return true;

@@ -160,7 +160,7 @@
 
         {{-- Actions --}}
         <div class="flex gap-3 pt-2">
-          <button @click="createModal = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="createModal = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button @click="submitCreate()" :disabled="formLoading" class="btn btn-primary flex-1">
             <svg x-show="formLoading" class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" x-cloak>
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>

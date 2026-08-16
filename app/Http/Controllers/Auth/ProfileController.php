@@ -33,7 +33,7 @@ class ProfileController extends Controller
     {
         $user = auth()->user();
 
-        $isPrivileged = $user->can_edit_profile || $user->hasAnyRole(['super-admin', 'admin']);
+        $isPrivileged = $user->can_edit_profile || $user->hasAnyRole(['super-admin', 'admin-digital']);
 
         $rules = [
             'name'               => ['required', 'string', 'max:255'],
@@ -64,7 +64,7 @@ class ProfileController extends Controller
 
         $lockedSetting = \App\Models\Setting::where('key', 'lock_profile_images')->value('value');
         $isLocked = in_array(strtolower((string)$lockedSetting), ['1', 'true', 'yes']);
-        $canChangeAvatar = !$isLocked || $user->hasAnyRole(['super-admin']);
+        $canChangeAvatar = (!$isLocked && $user->can_edit_profile) || $user->hasAnyRole(['super-admin', 'admin-digital']);
 
         if ($canChangeAvatar) {
             if ($request->boolean('remove_avatar')) {
@@ -139,7 +139,7 @@ class ProfileController extends Controller
     public function updatePassword(Request $request): RedirectResponse
     {
         $user = auth()->user();
-        $isPrivileged = $user->can_edit_profile || $user->hasAnyRole(['super-admin', 'admin']);
+        $isPrivileged = $user->can_edit_profile || $user->hasAnyRole(['super-admin', 'admin-digital']);
 
         if (!$isPrivileged) {
             return back()->with('error', 'You do not have permission to change your password. Please contact an administrator.');

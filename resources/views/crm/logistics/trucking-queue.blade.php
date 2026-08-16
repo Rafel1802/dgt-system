@@ -292,7 +292,7 @@
         </div>
       </div>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
-        <button type="button" onclick="document.getElementById('importCustomersModal').classList.add('hidden')" class="btn btn-secondary text-sm">Cancel</button>
+        <button type="button" onclick="document.getElementById('importCustomersModal').classList.add('hidden')" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
         <button type="submit" class="btn btn-primary text-sm">Preview Import</button>
       </div>
     </form>

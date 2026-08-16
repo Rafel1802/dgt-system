@@ -523,9 +523,7 @@ class CardController extends Controller
 
         $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$newList}**");
 
-        if (str_contains(strtolower($newList), 'block/waiting')) {
-            app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Block/Waiting');
-        } elseif (str_contains(strtolower($newList), 'approved')) {
+        if (str_contains(strtolower($newList), 'approved')) {
             $card->update(['status' => 'approved']);
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Approved');
         } elseif (str_contains(strtolower($oldList), 'approved') && !str_contains(strtolower($newList), 'approved')) {
@@ -578,9 +576,8 @@ class CardController extends Controller
 
         $copy = $card->replicateRelationally($targetBoard->id, $targetListId, $request->title, auth()->id(), true);
 
-        if (str_contains(strtolower($targetList->name), 'block/waiting')) {
-            app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($copy, 'Block/Waiting');
-        } elseif (str_contains(strtolower($targetList->name), 'approved')) {
+        // We no longer sync Block/Waiting across boards
+        if (str_contains(strtolower($targetList->name), 'approved')) {
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($copy, 'Approved');
         }
 

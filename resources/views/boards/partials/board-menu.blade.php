@@ -551,7 +551,7 @@
             :disabled="(!newAutomation.trigger_word && !newAutomation.trigger_list_id) || !newAutomation.target_board_id || !newAutomation.target_list_id || boardMenu.busy" 
             class="btn btn-primary w-full justify-center" x-text="newAutomation.id ? 'Update Automation' : 'Add Automation'">
           </button>
-          <button type="button" x-show="newAutomation.id" @click="resetAutomationForm()" class="btn btn-secondary w-full justify-center">
+          <button type="button" x-show="newAutomation.id" @click="resetAutomationForm()" class="btn btn-cancel btn-secondary w-full justify-center">
             Cancel Edit
           </button>
         </div>

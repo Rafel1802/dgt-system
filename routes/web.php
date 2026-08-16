@@ -57,7 +57,6 @@ Route::middleware(['auth', 'ensure.active', 'role:super-admin'])->get('/debug-lo
 
 Route::post('/export/download-pdf-base64', [RouteClosureController::class, 'downloadPdfBase64'])->name('export.download-pdf-base64')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
 Route::post('/export/save-pdf-temp', [RouteClosureController::class, 'savePdfTemp'])->name('export.save-pdf-temp')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
-
 Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
     // Guest-only routes
@@ -129,11 +128,13 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
             Route::get('/websites/history-logs/{id}/attachment/view', [\App\Http\Controllers\WebsiteController::class, 'viewHistoryAttachment'])->name('websites.history-logs.attachment.view');
             Route::get('/websites/history-logs/{id}/attachment/download', [\App\Http\Controllers\WebsiteController::class, 'downloadHistoryAttachment'])->name('websites.history-logs.attachment.download');
+            Route::delete('/websites/history-logs/{id}', [\App\Http\Controllers\WebsiteController::class, 'destroyHistoryLog'])->name('websites.history-logs.destroy');
             Route::put('/websites/history-logs/{id}', [\App\Http\Controllers\WebsiteController::class, 'updateHistoryLog'])->name('websites.history-logs.update');
             Route::post('/websites/history-logs/{id}/attachments', [\App\Http\Controllers\WebsiteController::class, 'addHistoryAttachments'])->name('websites.history-logs.attachments.store');
             Route::delete('/websites/history-logs/{id}/attachments/{fileId}', [\App\Http\Controllers\WebsiteController::class, 'destroyHistoryAttachment'])->name('websites.history-logs.attachments.destroy');
             Route::post('/websites/history-logs/{id}/attachment', [\App\Http\Controllers\WebsiteController::class, 'updateHistoryAttachment'])->name('websites.history-logs.attachment.update');
             Route::delete('/websites/history-logs/{id}/attachment', [\App\Http\Controllers\WebsiteController::class, 'destroyHistoryAttachment'])->name('websites.history-logs.attachment.destroy');
+            Route::get('/websites/{website}/ping', [\App\Http\Controllers\WebsiteController::class, 'ping'])->name('websites.ping');
             Route::get('/websites/{website}/history', [\App\Http\Controllers\WebsiteController::class, 'getHistory'])->name('websites.history');
             Route::post('/websites/{website}/history-logs/comment', [\App\Http\Controllers\WebsiteController::class, 'addHistoryComment'])->name('websites.history-logs.comment.store');
 

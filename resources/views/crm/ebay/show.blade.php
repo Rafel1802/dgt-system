@@ -372,7 +372,7 @@
         </div>
 
         <div class="flex gap-3 pt-2">
-          <button @click="showAuthPanel = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button @click="showAuthPanel = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button @click="submitAuth()" :disabled="loading"
                   :class="authDecision === 'rejected' ? 'bg-red-600 hover:bg-red-700 text-white' : authDecision === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'"
                   class="btn flex-1" id="btn-confirm-auth">
@@ -424,7 +424,7 @@
           </select>
         </div>
         <div class="flex gap-3 pt-2">
-          <button type="button" @click="showConvert = false" class="btn btn-secondary flex-1">Cancel</button>
+          <button type="button" @click="showConvert = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
           <button type="submit" class="btn flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" id="btn-confirm-order">
             Confirm Order
           </button>

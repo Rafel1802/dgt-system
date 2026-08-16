@@ -21,6 +21,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-touch-fullscreen" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="KIUQ SYSTEM">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
@@ -60,20 +61,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <style>
         [x-cloak] { display: none !important; }
 
+        /* We previously hid the progress bars, but re-enabling them provides crucial visual feedback on slow networks */
         .turbo-progress-bar {
-            display: none !important;
-            height: 0px !important;
-        }
-        
-        /* Hide Livewire wire:navigate progress bar */
-        #nprogress .bar {
-            display: none !important;
-        }
-        #nprogress .peg {
-            display: none !important;
-        }
-        #nprogress .spinner {
-            display: none !important;
+            background-color: #4f46e5;
+            height: 3px;
         }
         
         /* Disable manual fade-in to prevent SPA blinking/flashing during transitions */
@@ -307,6 +298,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         })();
     </script>
     <script defer src="{{ asset('js/workspace-alpine.js') }}?v={{ file_exists(public_path('js/workspace-alpine.js')) ? filemtime(public_path('js/workspace-alpine.js')) : '1.0.0' }}"></script>
+    <script defer src="{{ asset('js/trello-board.js') }}?v={{ file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0' }}"></script>
+    <script defer src="{{ asset('js/drag-scroll.js') }}?v={{ file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0' }}"></script>
     <!-- Vite assets (Tailwind CSS + Alpine.js + Livewire, bundled manually so Livewire's JS
          is not injected into <body> where Turbo would re-execute it on every navigation) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -439,7 +432,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         })();
     </script>
 </head>
-<body class="h-full bg-[var(--bg-page)]" x-data="themeSystem()" x-init="initTheme()">
+<body class="h-full bg-[var(--bg-page)] overscroll-none touch-manipulation" x-data="themeSystem()" x-init="initTheme()">
 
     <!-- ── Sidebar Overlay (mobile) ───────────────────────────────────── -->
     <style>

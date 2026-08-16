@@ -195,7 +195,7 @@
         </div>
       </div>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl shrink-0">
-        <button type="button" onclick="document.getElementById('logCallModal').classList.add('hidden')" class="btn btn-secondary text-sm">Cancel</button>
+        <button type="button" onclick="document.getElementById('logCallModal').classList.add('hidden')" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
         <button type="submit" class="btn btn-primary text-sm">Save</button>
       </div>
     </form>
@@ -235,7 +235,7 @@
         </div>
       </div>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 rounded-b-xl shrink-0">
-        <button type="button" onclick="document.getElementById('exportCallReportsModal').classList.add('hidden')" class="btn btn-secondary text-sm">Cancel</button>
+        <button type="button" onclick="document.getElementById('exportCallReportsModal').classList.add('hidden')" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
         <button type="submit" class="btn btn-primary text-sm">Generate Export</button>
       </div>
     </form>

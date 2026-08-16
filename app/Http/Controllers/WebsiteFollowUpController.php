@@ -35,11 +35,26 @@ class WebsiteFollowUpController extends Controller
                         ? $validated['custom_type'] 
                         : $validated['type'];
 
+        $imageUrl = null;
+        if (!empty($validated['url'])) {
+            try {
+                $html = @file_get_contents($validated['url'], false, stream_context_create(['http' => ['timeout' => 2]]));
+                if ($html) {
+                    if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
+                        $imageUrl = $matches[1];
+                    } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
+                        $imageUrl = $matches[1];
+                    }
+                }
+            } catch (\Exception $e) {}
+        }
+
         $followUp = new WebsiteFollowUp([
             'website_id'     => $validated['website_id'],
             'type'           => $finalType,
             'title'          => $validated['title'] ?? null,
             'url'            => $validated['url'] ?? null,
+            'image_url'      => $imageUrl,
             'google_indexed' => $validated['google_indexed'] ?? 'pending',
             'note'           => $validated['note'] ?? null,
             'assigned_to'    => $validated['assigned_to'] ?? null,
@@ -48,7 +63,8 @@ class WebsiteFollowUpController extends Controller
         ]);
 
         if (!empty($validated['created_at'])) {
-            $followUp->created_at = \Carbon\Carbon::parse($validated['created_at']);
+            // Parse with app timezone so the stored UTC timestamp aligns with the date filter
+            $followUp->created_at = \Carbon\Carbon::parse($validated['created_at'], config('app.timezone', 'UTC'))->startOfDay()->utc();
         }
         $followUp->save();
 
@@ -79,10 +95,25 @@ class WebsiteFollowUpController extends Controller
                         ? $validated['custom_type'] 
                         : $validated['type'];
 
-        $websiteFollowUp->fill([
+        $imageUrl = $websiteFollowUp->image_url;
+        if (!empty($validated['url']) && $validated['url'] !== $websiteFollowUp->url) {
+            try {
+                $html = @file_get_contents($validated['url'], false, stream_context_create(['http' => ['timeout' => 2]]));
+                if ($html) {
+                    if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
+                        $imageUrl = $matches[1];
+                    } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
+                        $imageUrl = $matches[1];
+                    }
+                }
+            } catch (\Exception $e) {}
+        }
+
+        $websiteFollowUp->update([
             'type'           => $finalType,
             'title'          => $validated['title'] ?? null,
             'url'            => $validated['url'] ?? null,
+            'image_url'      => $imageUrl,
             'google_indexed' => $validated['google_indexed'] ?? 'pending',
             'note'           => $validated['note'] ?? null,
             'assigned_to'    => $validated['assigned_to'] ?? null,
@@ -157,6 +188,10 @@ class WebsiteFollowUpController extends Controller
 
         if ($request->filled('date_range') && $request->date_range !== 'all_time') {
             switch ($request->date_range) {
+                case 'today':
+                    $dateFrom = now()->startOfDay()->toDateString();
+                    $dateTo   = now()->endOfDay()->toDateString();
+                    break;
                 case 'this_week':
                     $dateFrom = now()->startOfWeek()->toDateString();
                     $dateTo   = now()->endOfWeek()->toDateString();

@@ -156,6 +156,11 @@ class BoardExportController extends Controller
             }, 'comments.user']);
         }
 
+        $isPersonalExport = $request->boolean('is_personal_report', false)
+            || request()->routeIs('*.personal.export')
+            || request()->routeIs('reports.personal.export')
+            || request()->routeIs('boards.reports.personal.export');
+
         // 1. Date Range Filtering
         if ($request->filled('date_range') && $request->date_range !== 'all_time') {
             $now = Carbon::now();
@@ -163,6 +168,10 @@ class BoardExportController extends Controller
             $endDate = null;
 
             switch ($request->date_range) {
+                case 'today':
+                     $startDate = $now->copy()->startOfDay();
+                     $endDate = $now->copy()->endOfDay();
+                     break;
                 case 'this_week':
                      $startDate = $now->copy()->startOfWeek();
                      $endDate = $now->copy()->endOfWeek();
@@ -186,11 +195,19 @@ class BoardExportController extends Controller
                      break;
             }
 
-            if ($startDate) {
-                $query->where('created_at', '>=', $startDate);
-            }
-            if ($endDate) {
-                $query->where('created_at', '<=', $endDate);
+            if ($isPersonalExport) {
+                // Personal exports handle their own date filtering in the role-based section
+            } else if ($startDate || $endDate) {
+                $query->where(function($q) use ($startDate, $endDate) {
+                    $q->whereHas('activities', function($qa) use ($startDate, $endDate) {
+                        if ($startDate) $qa->where('created_at', '>=', $startDate);
+                        if ($endDate) $qa->where('created_at', '<=', $endDate);
+                    })->orWhereHas('comments', function($qc) use ($startDate, $endDate) {
+                        $qc->where('is_system', false);
+                        if ($startDate) $qc->where('created_at', '>=', $startDate);
+                        if ($endDate) $qc->where('created_at', '<=', $endDate);
+                    });
+                });
             }
         }
 
@@ -246,11 +263,6 @@ class BoardExportController extends Controller
 
         // 4. Role-based QC / Supervisor Personal Report Filtering
         // 4. Role-based QC / Supervisor Personal Report filtering
-        $isPersonalExport = $request->boolean('is_personal_report', false)
-            || request()->routeIs('*.personal.export')
-            || request()->routeIs('reports.personal.export')
-            || request()->routeIs('boards.reports.personal.export');
-
         if ($isPersonalExport) {
             $user = auth()->user();
 
@@ -260,19 +272,16 @@ class BoardExportController extends Controller
                 //  • OR cards this QC member moved to Supervisor
                 //  • OR cards where THIS QC user has commented "QC approved"
                 $userId = $user->id;
-                $query->where(function($q) use ($userId) {
-                    $q->whereHas('assignees', function($qa) use ($userId) {
-                        $qa->where('users.id', $userId);
+                $query->where(function($q) use ($userId, $startDate, $endDate) {
+                    $q->whereHas('comments', function($qc) use ($userId, $startDate, $endDate) {
+                        $qc->where('user_id', $userId);
+                        if (isset($startDate)) $qc->where('created_at', '>=', $startDate);
+                        if (isset($endDate)) $qc->where('created_at', '<=', $endDate);
                     })
-                    ->orWhereHas('activities', function($qal) use ($userId) {
-                        $qal->where('user_id', $userId)
-                            ->where('action', 'card.moved')
-                            ->where('description', 'like', '%to **Supervisor%');
-                    })
-                    ->orWhereHas('comments', function($qc) use ($userId) {
-                        $qc->where('user_id', $userId)
-                           ->where('is_system', false)
-                           ->whereRaw("LOWER(content) LIKE '%qc approved%'");
+                    ->orWhereHas('activities', function($qal) use ($userId, $startDate, $endDate) {
+                        $qal->where('user_id', $userId);
+                        if (isset($startDate)) $qal->where('created_at', '>=', $startDate);
+                        if (isset($endDate)) $qal->where('created_at', '<=', $endDate);
                     });
                 });
 
@@ -291,17 +300,16 @@ class BoardExportController extends Controller
                 //  • Cards approved by Supervisor
                 //  • Cards marked as errors by Supervisor
                 $userId = $user->id;
-                $query->where(function($q) use ($userId) {
-                    $q->where('approved_by', $userId)
-                      ->orWhere('block_completed_by', $userId)
-                      ->orWhereHas('activityLogs', function($qal) use ($userId) {
-                          $qal->where('user_id', $userId)
-                              ->where('action', 'card.moved')
-                              ->where(function($qald) {
-                                  $qald->where('description', 'like', '%to **Approved%')
-                                       ->orWhere('description', 'like', '%to **Block%');
-                              });
-                      });
+                $query->where(function($q) use ($userId, $startDate, $endDate) {
+                    $q->whereHas('activities', function($qal) use ($userId, $startDate, $endDate) {
+                        $qal->where('user_id', $userId);
+                        if (isset($startDate)) $qal->where('created_at', '>=', $startDate);
+                        if (isset($endDate)) $qal->where('created_at', '<=', $endDate);
+                    })->orWhereHas('comments', function($qc) use ($userId, $startDate, $endDate) {
+                        $qc->where('user_id', $userId);
+                        if (isset($startDate)) $qc->where('created_at', '>=', $startDate);
+                        if (isset($endDate)) $qc->where('created_at', '<=', $endDate);
+                    });
                 });
             }
         }
@@ -473,16 +481,39 @@ class BoardExportController extends Controller
 
         // Get report period string
         $period = 'All Time';
+        $filterStartDate = null;
+        $filterEndDate = null;
+        $now = Carbon::now();
+        
         if ($request->filled('date_range')) {
             switch ($request->date_range) {
-                case 'this_week': $period = 'This Week'; break;
-                case 'this_month': $period = 'This Month'; break;
-                case 'last_month': $period = 'Last Month'; break;
+                case 'today': 
+                    $period = 'Today'; 
+                    $filterStartDate = $now->copy()->startOfDay();
+                    $filterEndDate = $now->copy()->endOfDay();
+                    break;
+                case 'this_week': 
+                    $period = 'This Week'; 
+                    $filterStartDate = $now->copy()->startOfWeek();
+                    $filterEndDate = $now->copy()->endOfWeek();
+                    break;
+                case 'this_month': 
+                    $period = 'This Month'; 
+                    $filterStartDate = $now->copy()->startOfMonth();
+                    $filterEndDate = $now->copy()->endOfMonth();
+                    break;
+                case 'last_month': 
+                    $period = 'Last Month'; 
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
+                    break;
                 case 'custom':
                 case 'custom_period':
                     $start = $request->start_date ? Carbon::parse($request->start_date)->format('M d, Y') : 'Beginning';
                     $end = $request->end_date ? Carbon::parse($request->end_date)->format('M d, Y') : 'End';
                     $period = "$start - $end";
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date)->startOfDay();
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date)->endOfDay();
                     break;
             }
         }
@@ -553,10 +584,12 @@ class BoardExportController extends Controller
             'labelStats' => $labelStats,
             'copyText' => $copyText,
             'includeDesc' => $includeDesc,
-            'includeDesc' => $includeDesc,
             'includeComments' => $includeComments,
             'exportDate' => now()->format('M d, Y g:i A'),
             'reportUrl' => request()->fullUrl(),
+            'isQcReport' => true,
+            'startDate' => $filterStartDate,
+            'endDate' => $filterEndDate,
         ]);
     }
 
@@ -586,16 +619,39 @@ class BoardExportController extends Controller
         $includeComments = $request->boolean('include_comments', false);
 
         $period = 'All Time';
+        $filterStartDate = null;
+        $filterEndDate = null;
+        $now = Carbon::now();
+        
         if ($request->filled('date_range')) {
             switch ($request->date_range) {
-                case 'this_week': $period = 'This Week'; break;
-                case 'this_month': $period = 'This Month'; break;
-                case 'last_month': $period = 'Last Month'; break;
+                case 'today': 
+                    $period = 'Today'; 
+                    $filterStartDate = $now->copy()->startOfDay();
+                    $filterEndDate = $now->copy()->endOfDay();
+                    break;
+                case 'this_week': 
+                    $period = 'This Week'; 
+                    $filterStartDate = $now->copy()->startOfWeek();
+                    $filterEndDate = $now->copy()->endOfWeek();
+                    break;
+                case 'this_month': 
+                    $period = 'This Month'; 
+                    $filterStartDate = $now->copy()->startOfMonth();
+                    $filterEndDate = $now->copy()->endOfMonth();
+                    break;
+                case 'last_month': 
+                    $period = 'Last Month'; 
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
+                    break;
                 case 'custom':
                 case 'custom_period':
                     $start = $request->start_date ? Carbon::parse($request->start_date)->format('M d, Y') : 'Beginning';
                     $end = $request->end_date ? Carbon::parse($request->end_date)->format('M d, Y') : 'End';
                     $period = "$start - $end";
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date)->startOfDay();
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date)->endOfDay();
                     break;
             }
         }
@@ -795,6 +851,8 @@ class BoardExportController extends Controller
             // QC-specific: show revision count column
             'isQcReport'    => auth()->user()->isQc(),
             'reportUrl'     => request()->fullUrl(),
+            'startDate'     => $filterStartDate ?? null,
+            'endDate'       => $filterEndDate ?? null,
         ]);
     }
 }

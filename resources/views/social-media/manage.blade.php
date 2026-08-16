@@ -304,7 +304,7 @@
                                         </select>
                                     </div>
                                     <div class="flex gap-2 justify-end mt-2 sm:mt-0">
-                                        <button type="button" @click="editing = false" class="btn btn-secondary text-xs py-1.5 px-3">Cancel</button>
+                                        <button type="button" @click="editing = false" class="btn btn-cancel btn-secondary text-xs py-1.5 px-3">Cancel</button>
                                         <button type="submit" class="btn btn-primary text-xs py-1.5 px-3">Save</button>
                                     </div>
                                 </div>
@@ -387,7 +387,7 @@
                             </div>
                         </div>
                         <div class="pt-2 flex justify-end gap-3">
-                            <button type="button" @click="showCreateModal = false" class="btn btn-secondary">Cancel</button>
+                            <button type="button" @click="showCreateModal = false" class="btn btn-cancel btn-secondary">Cancel</button>
                             <button type="submit" class="btn btn-primary">Create Class</button>
                         </div>
                     </div>
@@ -447,7 +447,7 @@
                     </div>
                 </div>
                 <div class="p-4 border-t border-slate-100 bg-slate-50 shrink-0 flex justify-end gap-3">
-                    <button type="button" @click="showRolesModal = false" class="btn btn-secondary">Cancel</button>
+                    <button type="button" @click="showRolesModal = false" class="btn btn-cancel btn-secondary">Cancel</button>
                     <button type="submit" class="btn btn-primary px-6">Save All Roles</button>
                 </div>
             </form>

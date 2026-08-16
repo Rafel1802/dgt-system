@@ -29,6 +29,7 @@ class WebsiteFollowUp extends Model
         'type',
         'title',
         'url',
+        'image_url',
         'google_indexed',
         'note',
         'assigned_to',

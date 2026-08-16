@@ -108,14 +108,14 @@
 
       <div class="px-6 py-4 flex items-center justify-between bg-slate-50">
         @if(auth()->user()->canDeleteCrmRecords('website'))
-        <button type="submit" form="delete-product-form" class="btn btn-secondary text-red-500 hover:text-red-600 text-sm">
+        <button type="submit" form="delete-product-form" class="btn btn-cancel btn-secondary text-red-500 hover:text-red-600 text-sm">
           Delete Product
         </button>
         @else
         <div></div>
         @endif
         <div class="flex gap-3">
-          <a href="{{ route('crm.products.index') }}" class="btn btn-secondary">Cancel</a>
+          <a href="{{ route('crm.products.index') }}" class="btn btn-cancel btn-secondary">Cancel</a>
           <button type="submit" form="update-product-form" class="btn btn-primary">Save Changes</button>
         </div>
       </div>
