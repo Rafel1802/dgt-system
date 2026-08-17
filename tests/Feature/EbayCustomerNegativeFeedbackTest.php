@@ -311,10 +311,45 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
         $row = $directory->firstWhere('id', $record->id);
 
         $this->assertNotNull($row);
-        $this->assertEquals('shipment_delay', $row['category']);
-        $this->assertEquals('Logistic issues', $row['status_label']);
+        $this->assertContains('shipment_delay', $row['categories']);
+        $this->assertContains('negative_feedback', $row['categories']);
+        $this->assertCount(2, $row['status_badges']);
 
         $this->actingAs($this->user)->get(route('crm.logistics.issues.index'))->assertSee('Logistic Cause Customer');
+    }
+
+    public function test_dual_status_badges_and_resolved_state_on_customer_directory(): void
+    {
+        $record = EbayCustomerRecord::create([
+            'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
+            'username' => 'dual_badge_user',
+            'buyer_name' => 'Dual Badge User',
+            'negative_feedback_causes' => ['Logistic issues'],
+            'shipment_delay' => true,
+        ]);
+
+        $directory = app(CrmCustomerMatchService::class)->buildUnifiedDirectory();
+        $row = $directory->firstWhere('id', $record->id);
+
+        $this->assertNotNull($row);
+        $this->assertContains('shipment_delay', $row['categories']);
+        $this->assertContains('negative_feedback', $row['categories']);
+
+        $badgeLabels = collect($row['status_badges'])->pluck('label')->all();
+        $this->assertContains('Logistic issues', $badgeLabels);
+        $this->assertContains('Negatives Feedbacks', $badgeLabels);
+
+        // When resolved
+        $record->update([
+            'tab_type' => EbayCustomerRecord::TAB_RESOLVED,
+            'negative_feedback_resolved' => true,
+            'shipment_delay' => false,
+        ]);
+
+        CrmCustomerMatchService::forgetUnifiedDirectoryCache();
+        $updatedRow = app(CrmCustomerMatchService::class)->buildUnifiedDirectory()->firstWhere('id', $record->id);
+        $this->assertContains('resolved', $updatedRow['categories']);
+        $this->assertEquals('Resolved', $updatedRow['status_badges'][0]['label']);
     }
 
     /** Unchecking the cause (or moving off the negative-feedback status) must stop matching — it's computed live, not a stored flag. */
@@ -338,6 +373,6 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
         );
 
         $row = app(CrmCustomerMatchService::class)->buildUnifiedDirectory()->firstWhere('id', $record->id);
-        $this->assertEquals('negative_feedback', $row['category']);
+        $this->assertContains('negative_feedback', $row['categories']);
     }
 }

@@ -715,15 +715,35 @@ class CrmCustomerMatchService
                 'handler'     => $lead->handler?->name,
                 'handler_id'  => $lead->handled_by,
                 'link'        => route('crm.website.show', $lead),
-                // Two distinct dates: when this lead first came in (always
-                // set) vs. their most recent actual purchase (only set if
-                // they've bought something — a fresh inquiry with no order
-                // yet has no purchase date at all, not today's date).
                 'created_date'  => $lead->received_at ?? $lead->created_at,
                 'purchase_date' => $lead->latestOrder?->order_date,
+                'status_label'  => $lead->status?->label() ?? '',
+                'status_color'  => $lead->status?->color() ?? '#94a3b8',
+                'status_badges' => match (true) {
+                    $lead->status === WebsiteLeadStatus::TechnicalSupport => [
+                        ['label' => 'Technical Support', 'color' => '#8b5cf6', 'category' => 'technical']
+                    ],
+                    $lead->status === WebsiteLeadStatus::DelayedShipment => [
+                        ['label' => 'Delayed Shipment', 'color' => '#f59e0b', 'category' => 'shipment_delay']
+                    ],
+                    $lead->status === WebsiteLeadStatus::Successful || $lead->status === WebsiteLeadStatus::Lost => [
+                        ['label' => $lead->status?->label() ?? 'Resolved', 'color' => '#10b981', 'category' => 'resolved']
+                    ],
+                    default => [
+                        ['label' => $lead->status?->label() ?? '', 'color' => $lead->status?->color() ?? '#94a3b8', 'category' => null]
+                    ],
+                },
+                'categories'   => match (true) {
+                    $lead->status === WebsiteLeadStatus::TechnicalSupport => ['technical'],
+                    $lead->status === WebsiteLeadStatus::DelayedShipment  => ['shipment_delay'],
+                    $lead->status === WebsiteLeadStatus::Successful || $lead->status === WebsiteLeadStatus::Lost => ['resolved'],
+                    default => [],
+                },
+                'occurrence_label' => $lead->techSupportCase?->occurrence_label,
                 'category'    => match (true) {
                     $lead->status === WebsiteLeadStatus::TechnicalSupport => 'technical',
                     $lead->status === WebsiteLeadStatus::DelayedShipment  => 'shipment_delay',
+                    $lead->status === WebsiteLeadStatus::Successful || $lead->status === WebsiteLeadStatus::Lost => 'resolved',
                     default => null,
                 },
             ]);
@@ -734,6 +754,7 @@ class CrmCustomerMatchService
             ->select([
                 'id', 'customer_id', 'tab_type', 'buyer_name', 'username', 'email', 'phone',
                 'shipment_delay', 'shipment_delivered', 'negative_feedback_causes', 'created_at',
+                'negative_feedback_resolved',
             ])
             ->with([
                 'handlerHistory' => fn ($q) => $q->whereNull('ended_at')->with('user:id,name'),
@@ -748,14 +769,46 @@ class CrmCustomerMatchService
                 return;
             }
             $reserve($k);
-            // A negative-feedback report caused by "Logistic issues" belongs
-            // on the real Logistic Issues page the same way an active
-            // shipment problem already does — computed live from the tab +
-            // cause rather than a stored flag, so it never goes stale
-            // (unchecking the cause or moving off the negative-feedback
-            // status just stops matching here, no separate cleanup needed).
+
             $hasLogisticCause = in_array($record->tab_type, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true)
                 && in_array('Logistic issues', $record->negative_feedback_causes ?? [], true);
+            $hasLogisticIssue = ($record->shipment_delay || $hasLogisticCause) && ! $record->shipment_delivered;
+            $isNegativeFeedback = in_array($record->tab_type, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true) && ! $record->negative_feedback_resolved;
+            $isTechnical = $record->tab_type === EbayCustomerRecord::TAB_TECHNICAL;
+            $isResolved = $record->tab_type === EbayCustomerRecord::TAB_RESOLVED || ($record->negative_feedback_resolved && ! $hasLogisticIssue);
+
+            $badges = [];
+            $categories = [];
+
+            if ($isResolved) {
+                $badges[] = ['label' => 'Resolved', 'color' => '#10b981', 'category' => 'resolved'];
+                $categories[] = 'resolved';
+            } else {
+                if ($hasLogisticIssue) {
+                    $badges[] = ['label' => 'Logistic issues', 'color' => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR, 'category' => 'shipment_delay'];
+                    $categories[] = 'shipment_delay';
+                }
+                if ($isNegativeFeedback) {
+                    $badges[] = ['label' => EbayCustomerRecord::tabs()[$record->tab_type] ?? 'Negative feedback', 'color' => EbayCustomerRecord::tabColor($record->tab_type), 'category' => 'negative_feedback'];
+                    $categories[] = 'negative_feedback';
+                }
+                if ($isTechnical) {
+                    $badges[] = ['label' => 'Technical issues', 'color' => '#8b5cf6', 'category' => 'technical'];
+                    $categories[] = 'technical';
+                }
+                if ($record->shipment_delivered && empty($badges)) {
+                    $badges[] = ['label' => 'Delivered', 'color' => EbayCustomerRecord::DELIVERED_COLOR, 'category' => 'delivered'];
+                    $categories[] = 'delivered';
+                }
+                if (empty($badges)) {
+                    $label = EbayCustomerRecord::tabs()[$record->tab_type] ?? $record->tab_type;
+                    $color = EbayCustomerRecord::tabColor($record->tab_type);
+                    $badges[] = ['label' => $label, 'color' => $color, 'category' => null];
+                }
+            }
+
+            $primaryBadge = $badges[0];
+
             $out->push([
                 'source'      => 'eBay',
                 'source_icon' => '🛒',
@@ -764,16 +817,10 @@ class CrmCustomerMatchService
                 'name'        => $record->buyer_name ?: $record->username,
                 'email'       => $record->email,
                 'phone'       => $record->phone,
-                'status_label'=> match (true) {
-                    $record->shipment_delay || $hasLogisticCause => 'Logistic issues',
-                    $record->shipment_delivered  => 'Delivered',
-                    default                       => EbayCustomerRecord::tabs()[$record->tab_type] ?? $record->tab_type,
-                },
-                'status_color'=> match (true) {
-                    $record->shipment_delay || $hasLogisticCause => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
-                    $record->shipment_delivered  => EbayCustomerRecord::DELIVERED_COLOR,
-                    default                       => EbayCustomerRecord::tabColor($record->tab_type),
-                },
+                'status_label'=> $primaryBadge['label'],
+                'status_color'=> $primaryBadge['color'],
+                'status_badges' => $badges,
+                'categories'  => $categories,
                 'occurrence_label' => $record->techSupportCase?->occurrence_label,
                 'handler'     => $record->current_handler?->name,
                 'handler_id'  => $record->current_handler?->id,
@@ -781,12 +828,7 @@ class CrmCustomerMatchService
                 // latestOrder is the most recent purchase — null if none logged yet.
                 'created_date'  => $record->created_at,
                 'purchase_date' => $record->latestOrder?->ordered_at,
-                'category'    => match (true) {
-                    $record->tab_type === EbayCustomerRecord::TAB_TECHNICAL => 'technical',
-                    $record->shipment_delay || $hasLogisticCause => 'shipment_delay',
-                    in_array($record->tab_type, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES]) => 'negative_feedback',
-                    default => null,
-                },
+                'category'    => $categories[0] ?? null,
             ]);
         });
 
@@ -804,6 +846,11 @@ class CrmCustomerMatchService
                     return;
                 }
                 $reserve($k);
+                $isProblem = $sc->status === ShipmentCustomer::STATUS_PROBLEM;
+                $badges = $isProblem
+                    ? [['label' => 'Logistic issues', 'color' => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR, 'category' => 'shipment_delay']]
+                    : [['label' => ShipmentCustomer::statuses()[$sc->status] ?? $sc->status, 'color' => '#10b981', 'category' => 'resolved']];
+
                 $out->push([
                     'source'      => 'Logistics',
                     'source_icon' => '🚚',
@@ -812,27 +859,20 @@ class CrmCustomerMatchService
                     'name'        => $sc->recipient_name,
                     'email'       => $sc->recipient_email,
                     'phone'       => $sc->recipient_phone,
-                    'status_label'=> 'Logistic issues',
-                    'status_color'=> EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
+                    'status_label'=> $badges[0]['label'],
+                    'status_color'=> $badges[0]['color'],
+                    'status_badges' => $badges,
+                    'categories'  => $isProblem ? ['shipment_delay'] : ['resolved'],
                     'handler'     => null,
                     'handler_id'  => null,
-                    // Prefer the actual customer's own profile over the shipment
-                    // page — a customer can have several shipments (some fine,
-                    // some not), so landing on one specific delivery is less
-                    // useful than landing on the person. Falls back to the
-                    // shipment page, or — for a Process Trucking import not yet
-                    // assigned to any shipment — the Process Trucking tab itself,
-                    // since shipment_id can be null there.
                     'link'        => match (true) {
                         (bool) $sc->customer_id => route('crm.customers.show', $sc->customer_id),
                         (bool) $sc->shipment_id  => route('crm.logistics.shipments.show', $sc->shipment_id),
                         default                  => route('crm.logistics.shipments.index', ['status' => 'processing']),
                     },
-                    // No purchase concept at this level — a Logistics-flagged
-                    // row is a shipment problem, not a sale.
                     'created_date'  => $sc->shipment?->created_at ?? $sc->created_at,
                     'purchase_date' => null,
-                    'category'    => 'shipment_delay',
+                    'category'    => $isProblem ? 'shipment_delay' : 'resolved',
                 ]);
             });
 
@@ -847,25 +887,35 @@ class CrmCustomerMatchService
             ])
             ->get()
             ->each(function (Customer $customer) use (&$out, $keysFor, $anySeen, $reserve) {
-            // Reserving/checking its own id alongside email+phone means this
-            // correctly cross-matches an earlier row whether that row was
-            // linked via customer_id or only matched by contact info.
             $k = $keysFor($customer->email, $customer->phone, 'customer-' . $customer->id, $customer->id);
             if ($anySeen($k)) {
                 return;
             }
             $reserve($k);
-            // A Customer row with no matching Lead/eBay record falls back to
-            // this branch — shown as "eBay" or "Logistics" if the Customer
-            // itself is tagged that way (e.g. auto-created by a Process
-            // Trucking import), otherwise "Website", since those two plus a
-            // plain website inquiry cover every acquisition channel this
-            // business actually has today.
             $sourceLabel = match ($customer->source) {
                 \App\Enums\CustomerSource::Ebay->value     => 'eBay',
                 \App\Enums\CustomerSource::Logistic->value => 'Logistics',
                 default                                     => 'Website',
             };
+            $badges = [];
+            $categories = [];
+            if ($customer->shipment_delay) {
+                $badges[] = ['label' => 'Logistic issues', 'color' => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR, 'category' => 'shipment_delay'];
+                $categories[] = 'shipment_delay';
+            }
+            if ($customer->shipment_delivered && empty($badges)) {
+                $badges[] = ['label' => 'Delivered', 'color' => EbayCustomerRecord::DELIVERED_COLOR, 'category' => 'delivered'];
+                $categories[] = 'delivered';
+            }
+            if (empty($badges)) {
+                $badges[] = [
+                    'label' => $customer->status?->label() ?? (string) $customer->status,
+                    'color' => $customer->status?->color() ?? '#10b981',
+                    'category' => 'resolved',
+                ];
+                $categories[] = 'resolved';
+            }
+
             $out->push([
                 'source'      => $sourceLabel,
                 'source_icon' => match ($sourceLabel) { 'eBay' => '🛒', 'Logistics' => '🚚', default => '🌐' },
@@ -874,26 +924,17 @@ class CrmCustomerMatchService
                 'name'        => $customer->name,
                 'email'       => $customer->email,
                 'phone'       => $customer->phone,
-                'status_label'=> match (true) {
-                    $customer->shipment_delay     => 'Logistic issues',
-                    $customer->shipment_delivered => 'Delivered',
-                    default                        => $customer->status?->label() ?? $customer->status,
-                },
-                'status_color'=> match (true) {
-                    $customer->shipment_delay     => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
-                    $customer->shipment_delivered => EbayCustomerRecord::DELIVERED_COLOR,
-                    default                        => $customer->status?->color() ?? '#94a3b8',
-                },
+                'status_label'=> $badges[0]['label'],
+                'status_color'=> $badges[0]['color'],
+                'status_badges' => $badges,
+                'categories'  => $categories,
                 'occurrence_label' => $customer->latestTechSupportCase?->occurrence_label,
                 'handler'     => $customer->assignee?->name,
                 'handler_id'  => $customer->assigned_to,
                 'link'        => route('crm.customers.show', $customer),
-                // A bare Customer row (no matching Lead/eBay record) has no
-                // order history reachable from here — only Leads and eBay
-                // records track purchases directly.
                 'created_date'  => $customer->created_at,
                 'purchase_date' => null,
-                'category'    => $customer->shipment_delay ? 'shipment_delay' : null,
+                'category'    => $categories[0] ?? null,
             ]);
         });
 

@@ -182,14 +182,23 @@
               </span>
             </td>
             <td class="px-4 py-3">
-              <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $customer['status_color'] ?? '#94a3b8' }}22; color:{{ $customer['status_color'] ?? '#94a3b8' }}">
-                {{ $customer['status_label'] }}
-              </span>
-              @if($customer['occurrence_label'] ?? null)
-                <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">
-                  🔁 {{ $customer['occurrence_label'] }}
-                </span>
-              @endif
+              <div class="flex flex-wrap gap-1 items-center">
+                @php
+                  $badges = $customer['status_badges'] ?? [
+                    ['label' => $customer['status_label'] ?? '', 'color' => $customer['status_color'] ?? '#94a3b8']
+                  ];
+                @endphp
+                @foreach($badges as $badge)
+                  <span class="badge text-xs px-2.5 py-0.5 rounded-full font-medium" style="background:{{ $badge['color'] }}22; color:{{ $badge['color'] }}; border: 1px solid {{ $badge['color'] }}33;">
+                    {{ $badge['label'] }}
+                  </span>
+                @endforeach
+                @if($customer['occurrence_label'] ?? null)
+                  <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">
+                    🔁 {{ $customer['occurrence_label'] }}
+                  </span>
+                @endif
+              </div>
             </td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ $customer['created_date']?->format('d/m/Y') ?? '—' }}</td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ $customer['purchase_date']?->format('d/m/Y') ?? '—' }}</td>

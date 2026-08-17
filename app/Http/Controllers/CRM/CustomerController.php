@@ -160,8 +160,11 @@ class CustomerController extends Controller
             $category, $sourceFilter, $customerStatusFilter, $newSinceTs,
             $assignedToId, $purchaseFromTs, $purchaseToTs, $createdFromTs, $createdToTs
         ) {
-            if ($category !== null && ($c['category'] ?? null) !== $category) {
-                return false;
+            if ($category !== null) {
+                $itemCategories = $c['categories'] ?? (isset($c['category']) ? [$c['category']] : []);
+                if (! in_array($category, $itemCategories, true)) {
+                    return false;
+                }
             }
 
             if ($sourceFilter === 'eBay' && ($c['source'] ?? null) !== 'eBay') {
