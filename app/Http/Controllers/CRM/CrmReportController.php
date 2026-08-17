@@ -145,7 +145,7 @@ class CrmReportController extends Controller
             'website_count'           => 0,
             'logistics_count'         => 0,
             'in_delivery_count'       => ShipmentCustomer::whereIn('status', ['in_transit', 'shipped', 'out_for_delivery', 'active'])->count(),
-            'delivered_count'         => ShipmentCustomer::where('status', 'delivered')->orWhere('shipment_delivered', true)->count(),
+            'delivered_count'         => ShipmentCustomer::where('status', 'delivered')->count(),
             'waiting_pickup_count'    => ShipmentCustomer::whereIn('status', ['ready_for_pickup', 'waiting_pickup', 'pending'])->count(),
             'logistic_issues_count'   => ShipmentCustomer::where('status', 'problem')->count() + EbayCustomerRecord::where('shipment_delay', true)->count(),
             'negative_feedback_count' => EbayCustomerRecord::whereIn('tab_type', ['potential_negatives', 'negatives_feedbacks'])->count(),
