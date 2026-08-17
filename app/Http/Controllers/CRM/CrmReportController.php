@@ -67,7 +67,7 @@ class CrmReportController extends Controller
                 break;
 
             case 'website':
-                $query = Lead::with(['customer', 'product', 'handler', 'source', 'status', 'temperature']);
+                $query = Lead::with(['customer', 'product', 'handler', 'assignee']);
                 if ($startDate) $query->where('received_at', '>=', $startDate);
                 if ($endDate) $query->where('received_at', '<=', $endDate);
                 if ($memberId !== 'All') $query->where('assigned_to', $memberId);
@@ -77,10 +77,9 @@ class CrmReportController extends Controller
                 break;
 
             case 'ebay':
-                $query = EbayCustomerRecord::with(['customer', 'store', 'handler']);
+                $query = EbayCustomerRecord::with(['customer', 'store', 'creator']);
                 if ($startDate) $query->where(fn ($q) => $q->where('date', '>=', $startDate)->orWhere('created_at', '>=', $startDate));
                 if ($endDate) $query->where(fn ($q) => $q->where('date', '<=', $endDate)->orWhere('created_at', '<=', $endDate));
-                if ($memberId !== 'All') $query->where('handled_by', $memberId);
                 $data = $query->latest()->get();
                 if ($data->isEmpty()) {
                     $offQuery = EbayOffer::with(['customer', 'product', 'handler', 'store']);
