@@ -599,10 +599,6 @@ class CrmCustomerMatchService
         // Logistics-only customers rank below Website & eBay customers.
         $sortBy = $filters['sort_by'] ?? null;
 
-        if ($sortBy === 'created') {
-            return $out->sortByDesc(fn (array $c) => $c['created_ts'] ?? -1)->values();
-        }
-
         if ($sortBy === 'purchase') {
             return $out->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? -1)->values();
         }

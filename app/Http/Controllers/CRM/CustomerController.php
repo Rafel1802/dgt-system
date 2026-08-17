@@ -218,8 +218,8 @@ class CustomerController extends Controller
         })->values();
 
         // Sort filtered set only (cheaper than sorting the full directory first).
+        // Website & eBay customers always rank ON TOP of Logistics-only customers by created date.
         $customers = match ($sortBy) {
-            'created'  => $customers->sortByDesc(fn (array $c) => $c['created_ts'] ?? -1)->values(),
             'purchase' => $customers->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? -1)->values(),
             default    => $customers->sort(function (array $a, array $b) {
                 $aIsLogistics = ($a['source'] ?? '') === 'Logistics';
