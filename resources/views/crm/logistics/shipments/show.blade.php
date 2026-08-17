@@ -296,6 +296,10 @@
                             <label class="form-label">Tracking Number <span class="text-slate-400 normal-case font-normal">(optional)</span></label>
                             <input type="text" name="tracking_number" value="{{ $sc->tracking_number }}" class="form-input" placeholder="Leave blank if not available">
                           </div>
+                          <div x-show="status === 'problem'" x-cloak>
+                            <label class="form-label">Issue Date <span class="text-red-500">*</span></label>
+                            <input type="date" name="issue_date" value="{{ now()->toDateString() }}" class="form-input" x-bind:required="status === 'problem'">
+                          </div>
                           <div>
                             <label class="form-label">Note <span class="text-red-500" x-show="status === 'problem'" x-cloak>*</span></label>
                             <textarea name="notes" rows="2" class="form-input">{{ $sc->notes }}</textarea>

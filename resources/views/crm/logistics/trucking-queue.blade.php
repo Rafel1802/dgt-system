@@ -82,6 +82,7 @@
     selected: [],
     bulkStatus: '{{ $nextStatus }}',
     bulkNotes: '',
+    bulkIssueDate: '{{ now()->toDateString() }}',
     bulkShipmentId: '',
     newShipmentCode: '',
     statusLabels: {{ Js::from($statusLabels) }},
@@ -207,7 +208,7 @@
       <div class="flex flex-wrap items-center gap-3">
         {{-- Change status --}}
         <form method="POST" action="{{ route('crm.logistics.shipments.customers.bulkStatus') }}" class="flex flex-wrap items-center gap-2"
-              @submit="if (bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}' && !bulkNotes.trim()) { $event.preventDefault(); alert('A note is required for Logistic issues (Problem status).'); }">
+              @submit="if (bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}') { if (!bulkNotes.trim()) { $event.preventDefault(); alert('A note is required for Logistic issues (Problem status).'); } else if (!bulkIssueDate) { $event.preventDefault(); alert('An issue date is required for Logistic issues (Problem status).'); } }">
           @csrf
           <template x-for="id in selected" :key="id">
             <input type="hidden" name="customer_ids[]" :value="id">
@@ -218,6 +219,7 @@
             <option value="{{ $val }}">{{ $lbl }}</option>
             @endforeach
           </select>
+          <input type="date" name="issue_date" x-model="bulkIssueDate" x-show="bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}'" class="form-input py-1.5 text-sm w-36">
           <input type="text" name="notes" x-model="bulkNotes" x-show="bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}'"
                  placeholder="Note explaining the issue (required)" class="form-input py-1.5 text-sm w-48">
           <button type="submit" class="btn btn-primary text-sm py-1.5" x-text="actionLabel"></button>

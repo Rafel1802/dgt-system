@@ -554,12 +554,23 @@ class ShipmentController extends Controller
             return back()->withErrors(['recipient_name' => 'Recipient name is required.'])->withInput();
         }
 
-        // Only the Problem status (Logistic issues) requires a note — routine
+        // Only the Problem status (Logistic issues) requires a note and issue date — routine
         // transitions like Pending → In Transit → Delivered don't need one.
-        if ($validated['status'] === ShipmentCustomer::STATUS_PROBLEM && empty($validated['notes'])) {
-            return redirect()->route('crm.logistics.shipments.show', $shipment)
-                ->withErrors(['notes' => 'A note is required for Logistic issues (Problem status).'])
-                ->withInput();
+        if ($validated['status'] === ShipmentCustomer::STATUS_PROBLEM) {
+            if (empty($validated['notes'])) {
+                return redirect()->route('crm.logistics.shipments.show', $shipment)
+                    ->withErrors(['notes' => 'A note is required for Logistic issues (Problem status).'])
+                    ->withInput();
+            }
+            if (empty($request->input('issue_date'))) {
+                return redirect()->route('crm.logistics.shipments.show', $shipment)
+                    ->withErrors(['issue_date' => 'An issue date is required for Logistic issues (Problem status).'])
+                    ->withInput();
+            }
+            $formattedDate = date('d M Y', strtotime($request->input('issue_date')));
+            if (!str_contains($validated['notes'], 'Issue Date:')) {
+                $validated['notes'] .= " (Issue Date: {$formattedDate})";
+            }
         }
 
         $validated['shipping_address'] = $validated['shipping_address'] ?? '';
@@ -662,10 +673,19 @@ class ShipmentController extends Controller
             'redirect_shipment_id'=> ['nullable', 'exists:shipments,id'],
         ]);
 
-        // Same rule as the single-customer update: Problem needs a note
+        // Same rule as the single-customer update: Problem needs a note and issue date
         // explaining the issue, applied to every selected customer.
-        if ($validated['status'] === ShipmentCustomer::STATUS_PROBLEM && empty($validated['notes'])) {
-            return back()->withErrors(['notes' => 'A note is required for Logistic issues (Problem status).']);
+        if ($validated['status'] === ShipmentCustomer::STATUS_PROBLEM) {
+            if (empty($validated['notes'])) {
+                return back()->withErrors(['notes' => 'A note is required for Logistic issues (Problem status).']);
+            }
+            if (empty($request->input('issue_date'))) {
+                return back()->withErrors(['issue_date' => 'An issue date is required for Logistic issues (Problem status).']);
+            }
+            $formattedDate = date('d M Y', strtotime($request->input('issue_date')));
+            if (!str_contains($validated['notes'], 'Issue Date:')) {
+                $validated['notes'] .= " (Issue Date: {$formattedDate})";
+            }
         }
 
         $customers = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->get();

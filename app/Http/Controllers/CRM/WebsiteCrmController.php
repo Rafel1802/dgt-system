@@ -323,6 +323,7 @@ class WebsiteCrmController extends Controller
             'status'                  => ['required', Rule::enum(WebsiteLeadStatus::class)],
             'note'                    => ['nullable', 'string'],
             'order_date'              => ['required_if:status,successful', 'nullable', 'date'],
+            'issue_date'              => ['required_if:status,technical_support', 'nullable', 'date'],
             'products'                => ['nullable', 'array'],
             'products.*.product_id'   => ['nullable', 'exists:products,id'],
             'products.*.product_name' => ['nullable', 'string', 'max:255'],
@@ -339,14 +340,25 @@ class WebsiteCrmController extends Controller
             ], 422);
         }
 
-        if ($newStatus === WebsiteLeadStatus::TechnicalSupport && empty(trim($validated['note'] ?? ''))) {
-            return response()->json([
-                'message' => 'A note explaining the technical issue is required to mark this lead as Technical Support.',
-            ], 422);
+        if ($newStatus === WebsiteLeadStatus::TechnicalSupport) {
+            if (empty(trim($validated['note'] ?? ''))) {
+                return response()->json([
+                    'message' => 'A note explaining the technical issue is required to mark this lead as Technical Support.',
+                ], 422);
+            }
+            if (empty($validated['issue_date'])) {
+                return response()->json([
+                    'message' => 'An issue date is required to mark this lead as Technical Support.',
+                ], 422);
+            }
         }
 
         if ($lead->status !== $newStatus) {
             $noteText = trim($validated['note'] ?? '');
+            if (!empty($validated['issue_date'])) {
+                $formattedDate = date('d M Y', strtotime($validated['issue_date']));
+                $noteText = $noteText ? "{$noteText} (Issue Date: {$formattedDate})" : "Issue Date: {$formattedDate}";
+            }
 
             // Carried through to TechSupportCaseService::createCaseFor() by
             // Lead's booted() hook, so the note staff typed here becomes the
@@ -362,12 +374,13 @@ class WebsiteCrmController extends Controller
             // through the follow-up modal, so the history timeline is complete.
             // A user-supplied note replaces the generic message when one is
             // required (currently: Technical Support) or was optionally given.
+            $contactedAt = !empty($validated['issue_date']) ? \Illuminate\Support\Carbon::parse($validated['issue_date']) : now();
             LeadFollowUp::create([
                 'lead_id'           => $lead->id,
                 'user_id'           => auth()->id(),
                 'notes'             => $noteText !== '' ? $noteText : 'Status changed to ' . $newStatus->label() . '.',
                 'status_changed_to' => $newStatus,
-                'contacted_at'      => now(),
+                'contacted_at'      => $contactedAt,
             ]);
         }
 

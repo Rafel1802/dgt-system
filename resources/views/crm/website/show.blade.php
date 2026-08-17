@@ -399,6 +399,10 @@
       <div class="p-6 space-y-4">
         <p class="text-xs text-slate-400">A note explaining the technical issue is required to mark this lead as Technical Support.</p>
         <div>
+          <label class="form-label">Issue Date <span class="text-red-500">*</span></label>
+          <input type="date" x-model="techIssueDate" class="form-input">
+        </div>
+        <div>
           <label class="form-label">Note <span class="text-red-500">*</span></label>
           <textarea x-model="techNote" rows="4" class="form-input" placeholder="What's the technical issue?"></textarea>
         </div>
@@ -428,6 +432,7 @@ function leadProfile(leadId, catalog) {
     orderDate: '',
     showTechNoteModal: false,
     techNote: '',
+    techIssueDate: new Date().toISOString().slice(0, 10),
     pendingStatus: null,
     fuLoading: false,
     statusLoading: false,
@@ -545,11 +550,15 @@ function leadProfile(leadId, catalog) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A note explaining the technical issue is required.', type: 'error' } }));
         return;
       }
+      if (!this.techIssueDate) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'An issue date is required.', type: 'error' } }));
+        return;
+      }
       this.showTechNoteModal = false;
-      await this._patchStatus(this.pendingStatus, null, this.techNote, null);
+      await this._patchStatus(this.pendingStatus, null, this.techNote, null, this.techIssueDate);
     },
 
-    async _patchStatus(newStatus, lines, note, orderDate) {
+    async _patchStatus(newStatus, lines, note, orderDate, issueDate) {
       this.statusLoading = true;
       try {
         const body = { status: newStatus };
@@ -558,6 +567,7 @@ function leadProfile(leadId, catalog) {
           body.order_date = orderDate;
         }
         if (note) body.note = note;
+        if (issueDate) body.issue_date = issueDate;
         await api(`/crm/website/${leadId}/status`, {
           method: 'PATCH',
           body: JSON.stringify(body),

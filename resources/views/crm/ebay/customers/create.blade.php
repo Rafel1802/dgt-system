@@ -152,6 +152,15 @@
         </div>
 
         <div>
+          <label class="form-label">
+            Issue / Feedback Date
+            <span class="text-red-500" x-show="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)" x-cloak>*</span>
+          </label>
+          <input type="date" name="date" value="{{ old('date', now()->toDateString()) }}" class="form-input"
+                 x-bind:required="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)">
+        </div>
+
+        <div>
           <label class="form-label">Note <span class="text-red-500" x-show="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)" x-cloak>*</span></label>
           <textarea name="informations" rows="3" class="form-input" x-bind:required="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)">{{ old('informations') }}</textarea>
         </div>
