@@ -138,6 +138,51 @@ class CrmReportController extends Controller
             ? $startDate->format('d M Y') . ' to ' . $endDate->format('d M Y')
             : 'All Time';
 
+        $summaryStats = [
+            'total_customers'         => $data->count(),
+            'total_sales'             => 0.0,
+            'ebay_count'              => 0,
+            'website_count'           => 0,
+            'logistics_count'         => 0,
+            'in_delivery_count'       => ShipmentCustomer::whereIn('status', ['in_transit', 'shipped', 'out_for_delivery', 'active'])->count(),
+            'delivered_count'         => ShipmentCustomer::where('status', 'delivered')->orWhere('shipment_delivered', true)->count(),
+            'waiting_pickup_count'    => ShipmentCustomer::whereIn('status', ['ready_for_pickup', 'waiting_pickup', 'pending'])->count(),
+            'logistic_issues_count'   => ShipmentCustomer::where('status', 'problem')->count() + EbayCustomerRecord::where('shipment_delay', true)->count(),
+            'negative_feedback_count' => EbayCustomerRecord::whereIn('tab_type', ['potential_negatives', 'negatives_feedbacks'])->count(),
+            'technical_issues_count'  => \App\Models\TechSupportCase::where('status', '!=', 'resolved')->count(),
+        ];
+
+        foreach ($data as $row) {
+            if (is_array($row)) {
+                $val = (float)($row['lifetime_value'] ?? 0);
+                $summaryStats['total_sales'] += $val;
+
+                $src = strtolower($row['source'] ?? '');
+                if (str_contains($src, 'ebay')) {
+                    $summaryStats['ebay_count']++;
+                } elseif (str_contains($src, 'website')) {
+                    $summaryStats['website_count']++;
+                } else {
+                    $summaryStats['logistics_count']++;
+                }
+            } elseif ($row instanceof \App\Models\Customer) {
+                $summaryStats['total_sales'] += (float)$row->lifetime_value;
+                $src = strtolower($row->source ? (is_object($row->source) ? $row->source->label() : (string)$row->source) : '');
+                if (str_contains($src, 'ebay')) $summaryStats['ebay_count']++;
+                elseif (str_contains($src, 'website')) $summaryStats['website_count']++;
+                else $summaryStats['logistics_count']++;
+            }
+        }
+
+        if ($summaryStats['total_sales'] == 0) {
+            $summaryStats['total_sales'] = (float)Customer::sum('lifetime_value');
+        }
+        if ($summaryStats['ebay_count'] == 0 && $summaryStats['website_count'] == 0 && $summaryStats['logistics_count'] == 0) {
+            $summaryStats['ebay_count'] = EbayCustomerRecord::count();
+            $summaryStats['website_count'] = Lead::count();
+            $summaryStats['logistics_count'] = ShipmentCustomer::count();
+        }
+
         // 2. Export as CSV
         if ($format === 'csv') {
             $filename = strtolower(str_replace(' ', '_', $title)) . '_' . now()->format('Ymd_His') . '.csv';
@@ -276,7 +321,7 @@ class CrmReportController extends Controller
         // 3. Export as PDF
         $filename = strtolower(str_replace(' ', '_', $title)) . '_' . now()->format('Ymd_His') . '.pdf';
         
-        $pdf = Pdf::loadView('reports.crm_export', compact('title', 'type', 'data', 'headers', 'formattedMember', 'dateRangeStr'));
+        $pdf = Pdf::loadView('reports.crm_export', compact('title', 'type', 'data', 'headers', 'formattedMember', 'dateRangeStr', 'summaryStats'));
         return $pdf->download($filename);
     }
 }

@@ -101,6 +101,49 @@
             color: #94a3b8;
             border-top: 1px solid #e2e8f0;
             padding-top: 5px;
+        .kpi-cards {
+            width: 100%;
+            margin-bottom: 15px;
+            border-spacing: 8px;
+            border-collapse: separate;
+        }
+        .kpi-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            vertical-align: top;
+        }
+        .kpi-title {
+            font-size: 9px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+        }
+        .kpi-value {
+            font-size: 18px;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.1;
+        }
+        .kpi-sub {
+            font-size: 9px;
+            color: #64748b;
+            margin-top: 3px;
+        }
+        .chart-bar-container {
+            background-color: #e2e8f0;
+            border-radius: 4px;
+            height: 8px;
+            width: 100%;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .chart-bar-fill {
+            height: 100%;
+            float: left;
         }
     </style>
 </head>
@@ -110,6 +153,65 @@
         <h1 class="header-title">{{ $title }}</h1>
         <div class="header-meta">Generated on {{ now()->format('d M Y \a\t H:i:s') }} by {{ auth()->user()?->name ?? 'System' }}</div>
     </div>
+
+    @if(isset($summaryStats))
+    {{-- Executive Summary KPI Header Cards --}}
+    <table class="kpi-cards" style="margin-left:-8px; margin-right:-8px;">
+        <tr>
+            <td class="kpi-card" style="width: 30%;">
+                <div class="kpi-title">👥 Total Customers</div>
+                <div class="kpi-value" style="color: #4338ca;">{{ number_format($summaryStats['total_customers'] ?? 0) }}</div>
+                <div class="kpi-sub">Deduplicated across all CRM channels</div>
+            </td>
+            <td class="kpi-card" style="width: 35%;">
+                <div class="kpi-title">💰 Total Sales / Revenue</div>
+                <div class="kpi-value" style="color: #059669;">${{ number_format($summaryStats['total_sales'] ?? 0, 2) }}</div>
+                <div class="kpi-sub">Lifetime customer order revenue</div>
+            </td>
+            <td class="kpi-card" style="width: 35%;">
+                <div class="kpi-title">🌐 Channel Distribution</div>
+                <div class="kpi-sub" style="margin-top: 2px;">
+                    <span style="color:#0ea5e9; font-weight:bold;">eBay:</span> {{ $summaryStats['ebay_count'] ?? 0 }} &nbsp;|&nbsp;
+                    <span style="color:#8b5cf6; font-weight:bold;">Website:</span> {{ $summaryStats['website_count'] ?? 0 }} &nbsp;|&nbsp;
+                    <span style="color:#f59e0b; font-weight:bold;">Logistics:</span> {{ $summaryStats['logistics_count'] ?? 0 }}
+                </div>
+                @php
+                    $totCh = max(1, ($summaryStats['ebay_count'] ?? 0) + ($summaryStats['website_count'] ?? 0) + ($summaryStats['logistics_count'] ?? 0));
+                    $ebayPct = round((($summaryStats['ebay_count'] ?? 0) / $totCh) * 100);
+                    $webPct  = round((($summaryStats['website_count'] ?? 0) / $totCh) * 100);
+                    $logPct  = max(0, 100 - $ebayPct - $webPct);
+                @endphp
+                <div class="chart-bar-container">
+                    <div class="chart-bar-fill" style="width: {{ $ebayPct }}%; background-color: #0ea5e9;"></div>
+                    <div class="chart-bar-fill" style="width: {{ $webPct }}%; background-color: #8b5cf6;"></div>
+                    <div class="chart-bar-fill" style="width: {{ $logPct }}%; background-color: #f59e0b;"></div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    {{-- Delivery Status & Issues Health KPI Grid --}}
+    <table class="kpi-cards" style="margin-left:-8px; margin-right:-8px; margin-top:-8px;">
+        <tr>
+            <td class="kpi-card" style="width: 45%; background-color: #f0f9ff; border-color: #bae6fd;">
+                <div class="kpi-title" style="color: #0369a1;">🚚 Delivery & Shipping Status</div>
+                <div class="kpi-sub" style="color: #0f172a; font-size: 10px; margin-top:4px;">
+                    <b>In Delivery:</b> <span class="badge badge-indigo">{{ $summaryStats['in_delivery_count'] ?? 0 }}</span> &nbsp;
+                    <b>Delivered:</b> <span class="badge badge-emerald">{{ $summaryStats['delivered_count'] ?? 0 }}</span> &nbsp;
+                    <b>Waiting Pick Up:</b> <span class="badge badge-amber">{{ $summaryStats['waiting_pickup_count'] ?? 0 }}</span>
+                </div>
+            </td>
+            <td class="kpi-card" style="width: 55%; background-color: #fff1f2; border-color: #fecdd3;">
+                <div class="kpi-title" style="color: #9f1239;">⚠️ Issues & Feedback Health</div>
+                <div class="kpi-sub" style="color: #0f172a; font-size: 10px; margin-top:4px;">
+                    <b>Logistic Issues:</b> <span class="badge badge-amber" style="background-color: #ffedd5; color: #c2410c;">{{ $summaryStats['logistic_issues_count'] ?? 0 }}</span> &nbsp;
+                    <b>Negative Feedback:</b> <span class="badge badge-rose">{{ $summaryStats['negative_feedback_count'] ?? 0 }}</span> &nbsp;
+                    <b>Technical Issues:</b> <span class="badge badge-indigo" style="background-color: #f3e8ff; color: #6b21a8;">{{ $summaryStats['technical_issues_count'] ?? 0 }}</span>
+                </div>
+            </td>
+        </tr>
+    </table>
+    @endif
 
     <div class="filter-summary">
         <table class="filter-grid">
