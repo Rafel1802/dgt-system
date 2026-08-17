@@ -594,17 +594,38 @@ class CrmCustomerMatchService
             }
         }
 
-        // Default: newest customers first, ranked by whichever is more recent
-        // between their purchase date and their created date (a repeat
-        // buyer's new order re-surfaces them at the top even if they first
-        // came in long ago; a brand new inquiry with no purchase yet still
-        // ranks by when they showed up). The customer list page can instead
-        // request an explicit 'created' or 'purchase' sort.
-        return match ($filters['sort_by'] ?? null) {
-            'created'  => $out->sortByDesc(fn (array $c) => $c['created_ts'] ?? -1)->values(),
-            'purchase' => $out->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? -1)->values(),
-            default    => $out->sortByDesc(fn (array $c) => max((int) ($c['purchase_ts'] ?? 0), (int) ($c['created_ts'] ?? 0)))->values(),
-        };
+        // Default sorting:
+        // Website & eBay customers (non-Logistics sources) rank ON TOP sorted by created_ts descending.
+        // Logistics-only customers rank below Website & eBay customers.
+        $sortBy = $filters['sort_by'] ?? null;
+
+        if ($sortBy === 'created') {
+            return $out->sortByDesc(fn (array $c) => $c['created_ts'] ?? -1)->values();
+        }
+
+        if ($sortBy === 'purchase') {
+            return $out->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? -1)->values();
+        }
+
+        return $out->sort(function (array $a, array $b) {
+            $aIsLogistics = ($a['source'] ?? '') === 'Logistics';
+            $bIsLogistics = ($b['source'] ?? '') === 'Logistics';
+
+            if ($aIsLogistics !== $bIsLogistics) {
+                return $aIsLogistics ? 1 : -1;
+            }
+
+            $aTs = (int) ($a['created_ts'] ?? 0);
+            $bTs = (int) ($b['created_ts'] ?? 0);
+
+            if ($aTs !== $bTs) {
+                return $bTs <=> $aTs;
+            }
+
+            $aPur = (int) ($a['purchase_ts'] ?? 0);
+            $bPur = (int) ($b['purchase_ts'] ?? 0);
+            return $bPur <=> $aPur;
+        })->values();
     }
 
     /**
@@ -852,7 +873,7 @@ class CrmCustomerMatchService
                 'customer:id,email,phone,lifetime_value',
                 'shipment:id,created_at',
             ])
-            ->where('status', ShipmentCustomer::STATUS_PROBLEM)
+            ->latest('created_at')
             ->get()
             ->each(function (ShipmentCustomer $sc) use (&$out, $keysFor, $anySeen, $reserve) {
                 $k = $keysFor($sc->recipient_email, $sc->recipient_phone, 'shipment-' . $sc->id, $sc->customer_id);
@@ -860,34 +881,52 @@ class CrmCustomerMatchService
                     return;
                 }
                 $reserve($k);
-                $isProblem = $sc->status === ShipmentCustomer::STATUS_PROBLEM;
-                $badges = $isProblem
-                    ? [['label' => 'Logistic issues', 'color' => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR, 'category' => 'shipment_delay']]
-                    : [['label' => ShipmentCustomer::statuses()[$sc->status] ?? $sc->status, 'color' => '#10b981', 'category' => 'resolved']];
+                $statusLabel = match ($sc->status) {
+                    ShipmentCustomer::STATUS_PROBLEM     => 'Logistic issues',
+                    ShipmentCustomer::STATUS_IN_TRANSIT  => 'In Transit',
+                    ShipmentCustomer::STATUS_IN_DELIVERY => 'In Delivery',
+                    ShipmentCustomer::STATUS_DELIVERED   => 'Delivered',
+                    default                              => 'Pending',
+                };
+                $statusColor = match ($sc->status) {
+                    ShipmentCustomer::STATUS_PROBLEM     => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
+                    ShipmentCustomer::STATUS_IN_TRANSIT  => '#3b82f6',
+                    ShipmentCustomer::STATUS_IN_DELIVERY => '#6366f1',
+                    ShipmentCustomer::STATUS_DELIVERED   => EbayCustomerRecord::DELIVERED_COLOR,
+                    default                              => '#64748b',
+                };
+                $category = match ($sc->status) {
+                    ShipmentCustomer::STATUS_PROBLEM     => 'shipment_delay',
+                    ShipmentCustomer::STATUS_DELIVERED   => 'delivered',
+                    ShipmentCustomer::STATUS_IN_TRANSIT  => 'in_transit',
+                    ShipmentCustomer::STATUS_IN_DELIVERY => 'in_delivery',
+                    default                              => 'pending',
+                };
+                $badges = [['label' => $statusLabel, 'color' => $statusColor, 'category' => $category]];
 
                 $out->push([
                     'source'      => 'Logistics',
                     'source_icon' => '🚚',
                     'source_color'=> '#0ea5e9',
-                    'id'          => $sc->shipment_id,
+                    'id'          => $sc->shipment_id ?: $sc->id,
                     'name'        => $sc->recipient_name,
                     'email'       => $sc->recipient_email,
                     'phone'       => $sc->recipient_phone,
                     'lifetime_value' => (float) ($sc->customer?->lifetime_value ?? 0),
-                    'status_label'=> $badges[0]['label'],
-                    'status_color'=> $badges[0]['color'],
+                    'status_label'=> $statusLabel,
+                    'status_color'=> $statusColor,
                     'status_badges' => $badges,
-                    'categories'  => $isProblem ? ['shipment_delay'] : ['resolved'],
+                    'categories'  => [$category],
                     'handler'     => null,
                     'handler_id'  => null,
                     'link'        => match (true) {
                         (bool) $sc->customer_id => route('crm.customers.show', $sc->customer_id),
                         (bool) $sc->shipment_id  => route('crm.logistics.shipments.show', $sc->shipment_id),
-                        default                  => route('crm.logistics.shipments.index', ['status' => 'processing']),
+                        default                  => route('crm.logistics.processTrucking'),
                     },
                     'created_date'  => $sc->shipment?->created_at ?? $sc->created_at,
                     'purchase_date' => null,
-                    'category'    => $isProblem ? 'shipment_delay' : 'resolved',
+                    'category'    => $category,
                 ]);
             });
 
@@ -899,6 +938,7 @@ class CrmCustomerMatchService
             ->with([
                 'assignee:id,name',
                 'latestTechSupportCase',
+                'shipmentCustomers' => fn ($q) => $q->latest('updated_at'),
             ])
             ->get()
             ->each(function (Customer $customer) use (&$out, $keysFor, $anySeen, $reserve) {
@@ -914,14 +954,23 @@ class CrmCustomerMatchService
             };
             $badges = [];
             $categories = [];
-            if ($customer->shipment_delay) {
+            $latestSc = $customer->shipmentCustomers->first();
+            $scStatus = $latestSc?->status;
+
+            if ($customer->shipment_delay || $scStatus === ShipmentCustomer::STATUS_PROBLEM) {
                 $badges[] = ['label' => 'Logistic issues', 'color' => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR, 'category' => 'shipment_delay'];
                 $categories[] = 'shipment_delay';
-            }
-            if ($customer->shipment_delivered && empty($badges)) {
+            } elseif ($scStatus === ShipmentCustomer::STATUS_IN_TRANSIT) {
+                $badges[] = ['label' => 'In Transit', 'color' => '#3b82f6', 'category' => 'in_transit'];
+                $categories[] = 'in_transit';
+            } elseif ($scStatus === ShipmentCustomer::STATUS_IN_DELIVERY) {
+                $badges[] = ['label' => 'In Delivery', 'color' => '#6366f1', 'category' => 'in_delivery'];
+                $categories[] = 'in_delivery';
+            } elseif ($customer->shipment_delivered || $scStatus === ShipmentCustomer::STATUS_DELIVERED) {
                 $badges[] = ['label' => 'Delivered', 'color' => EbayCustomerRecord::DELIVERED_COLOR, 'category' => 'delivered'];
                 $categories[] = 'delivered';
             }
+
             if (empty($badges)) {
                 $badges[] = [
                     'label' => $customer->status?->label() ?? (string) $customer->status,

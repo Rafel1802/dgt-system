@@ -678,6 +678,7 @@ class ShipmentController extends Controller
         $this->matcher->syncShipmentDelayFlags($customer);
         $this->matcher->syncDeliveryStatus($customer);
         $this->matcher->syncEditedShipmentCustomer($customer);
+        CrmCustomerMatchService::forgetUnifiedDirectoryCache();
 
         if ($customer->shipment) {
             $this->syncShipmentCompletionStatus($customer->shipment);
@@ -785,6 +786,8 @@ class ShipmentController extends Controller
             $this->matcher->syncShipmentDelayFlags($customer);
             $this->matcher->syncDeliveryStatus($customer);
         }
+
+        CrmCustomerMatchService::forgetUnifiedDirectoryCache();
 
         foreach ($customers->pluck('shipment_id')->filter()->unique() as $shipmentId) {
             $shipment = Shipment::find($shipmentId);

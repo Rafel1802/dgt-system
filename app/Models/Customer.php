@@ -90,6 +90,11 @@ class Customer extends Model
         return $this->hasMany(Logistic::class);
     }
 
+    public function shipmentCustomers(): HasMany
+    {
+        return $this->hasMany(ShipmentCustomer::class);
+    }
+
     /** This customer's most recent shipping order — drives the "most recent order" product autofill when adding them to a shipment. */
     public function latestLogistic(): HasOne
     {

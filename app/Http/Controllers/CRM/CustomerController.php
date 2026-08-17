@@ -122,7 +122,7 @@ class CustomerController extends Controller
 
         $stats = $this->crmService->getDashboardStats();
 
-        $sortBy = in_array($request->get('sort_by'), ['created', 'purchase'], true) ? $request->get('sort_by') : 'created';
+        $sortBy = in_array($request->get('sort_by'), ['created', 'purchase'], true) ? $request->get('sort_by') : 'default';
         $statusFilter = $request->get('status_filter', 'All');
         $sourceFilter = $request->get('source_filter', 'All');
         $customerStatusFilter = $request->get('customer_status_filter', 'All');
@@ -219,8 +219,27 @@ class CustomerController extends Controller
 
         // Sort filtered set only (cheaper than sorting the full directory first).
         $customers = match ($sortBy) {
+            'created'  => $customers->sortByDesc(fn (array $c) => $c['created_ts'] ?? -1)->values(),
             'purchase' => $customers->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? -1)->values(),
-            default    => $customers->sortByDesc(fn (array $c) => $c['created_ts'] ?? -1)->values(),
+            default    => $customers->sort(function (array $a, array $b) {
+                $aIsLogistics = ($a['source'] ?? '') === 'Logistics';
+                $bIsLogistics = ($b['source'] ?? '') === 'Logistics';
+
+                if ($aIsLogistics !== $bIsLogistics) {
+                    return $aIsLogistics ? 1 : -1;
+                }
+
+                $aTs = (int) ($a['created_ts'] ?? 0);
+                $bTs = (int) ($b['created_ts'] ?? 0);
+
+                if ($aTs !== $bTs) {
+                    return $bTs <=> $aTs;
+                }
+
+                $aPur = (int) ($a['purchase_ts'] ?? 0);
+                $bPur = (int) ($b['purchase_ts'] ?? 0);
+                return $bPur <=> $aPur;
+            })->values(),
         };
 
         // Paginate, then hydrate Carbon only for the 50 rows in the HTML response.

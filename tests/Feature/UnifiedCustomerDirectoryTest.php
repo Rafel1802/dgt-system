@@ -317,4 +317,55 @@ class UnifiedCustomerDirectoryTest extends TestCase
         $response->assertDontSee('Purchased Out Of Range');
         $response->assertDontSee('No Purchase Yet');
     }
+
+    public function test_website_and_ebay_customers_sort_on_top_of_logistics_customers_by_default(): void
+    {
+        $logisticsCustomer = Customer::create([
+            'name' => 'Logistics First Customer',
+            'email' => 'logistics@example.com',
+            'source' => CustomerSource::Logistic->value,
+            'status' => CustomerStatus::Active->value,
+            'created_by' => $this->user->id,
+            'created_at' => now(),
+        ]);
+
+        $websiteLead = Lead::create([
+            'handled_by' => $this->user->id,
+            'client_name' => 'Website Second Customer',
+            'client_email' => 'website@example.com',
+            'source' => InquirySource::Website->value,
+            'status' => WebsiteLeadStatus::NewLead->value,
+            'received_at' => now()->subHour(),
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('crm.customers.index'));
+        $response->assertOk();
+        $response->assertSeeInOrder(['Website Second Customer', 'Logistics First Customer']);
+    }
+
+    public function test_logistics_status_syncs_to_customer_directory(): void
+    {
+        $customer = Customer::create([
+            'name' => 'In Transit Recipient',
+            'email' => 'intransit@example.com',
+            'source' => CustomerSource::Logistic->value,
+            'status' => CustomerStatus::Active->value,
+            'created_by' => $this->user->id,
+        ]);
+
+        $shipment = Shipment::create(['shipment_code' => 'SHP-TRANSIT-1']);
+        $shipmentCustomer = $shipment->shipmentCustomers()->create([
+            'customer_id' => $customer->id,
+            'recipient_name' => 'In Transit Recipient',
+            'recipient_email' => 'intransit@example.com',
+            'shipping_address' => '',
+            'status' => ShipmentCustomer::STATUS_IN_TRANSIT,
+        ]);
+
+        \App\Services\CrmCustomerMatchService::forgetUnifiedDirectoryCache();
+
+        $response = $this->actingAs($this->user)->get(route('crm.customers.index'));
+        $response->assertOk();
+        $response->assertSee('In Transit');
+    }
 }
