@@ -101,12 +101,16 @@ class WebsiteCrmController extends Controller
                 ->take(50)
                 ->get()
                 ->map(fn (Customer $c) => [
-                    'id'          => $c->id,
-                    'name'        => $c->name,
-                    'email'       => $c->email,
-                    'phone'       => $c->phone,
-                    'link'        => route('crm.customers.show', $c),
-                    'created_date'=> $c->created_at,
+                    'id'           => $c->id,
+                    'name'         => $c->name,
+                    'email'        => $c->email,
+                    'phone'        => $c->phone,
+                    'source_icon'  => '🌐',
+                    'source'       => 'Website',
+                    'status_label' => $c->status?->label() ?? ucfirst((string) $c->status),
+                    'handler'      => null,
+                    'link'         => route('crm.customers.show', $c),
+                    'created_date' => $c->created_at,
                 ]);
         }
 

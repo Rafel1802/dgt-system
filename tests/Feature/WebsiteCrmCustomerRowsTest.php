@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\CustomerSource;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,9 +28,10 @@ class WebsiteCrmCustomerRowsTest extends TestCase
     public function test_website_sourced_customers_without_a_lead_appear_on_the_leads_page(): void
     {
         Customer::create([
-            'name' => 'Chrisjen Avasarala',
-            'email' => 'chrisjen@example.com',
-            'status' => 'lead',
+            'name'       => 'Chrisjen Avasarala',
+            'email'      => 'chrisjen@example.com',
+            'source'     => CustomerSource::Website->value,
+            'status'     => 'lead',
             'created_by' => $this->user->id,
         ]);
 
@@ -58,9 +60,10 @@ class WebsiteCrmCustomerRowsTest extends TestCase
     public function test_customer_only_rows_hidden_while_filtering(): void
     {
         Customer::create([
-            'name' => 'Chrisjen Avasarala',
-            'email' => 'chrisjen@example.com',
-            'status' => 'lead',
+            'name'       => 'Chrisjen Avasarala',
+            'email'      => 'chrisjen@example.com',
+            'source'     => CustomerSource::Website->value,
+            'status'     => 'lead',
             'created_by' => $this->user->id,
         ]);
 
