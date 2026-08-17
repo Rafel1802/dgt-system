@@ -118,39 +118,47 @@ class User extends Authenticatable
     {
         $avatar = trim((string) $this->avatar);
 
-        if ($avatar !== '') {
-            if (Str::startsWith($avatar, ['http://', 'https://', 'data:image/'])) {
-                return $avatar;
-            }
+        if ($avatar === '') {
+            return self::initialsAvatarDataUri($this->name ?: $this->email ?: 'User', $this->avatar_color);
+        }
 
-            $normalized = ltrim($avatar, '/');
+        static $avatarCache = [];
 
-            if (Str::startsWith($normalized, 'storage/')) {
-                $relativePath = Str::after($normalized, 'storage/');
+        if (isset($avatarCache[$avatar])) {
+            return $avatarCache[$avatar];
+        }
 
-                if (Storage::disk('public')->exists($relativePath)) {
-                    return asset($normalized);
-                }
-            }
+        if (Str::startsWith($avatar, ['http://', 'https://', 'data:image/'])) {
+            return $avatarCache[$avatar] = $avatar;
+        }
 
-            if (Storage::disk('public')->exists($normalized)) {
-                return asset('storage/' . $normalized);
-            }
+        $normalized = ltrim($avatar, '/');
 
-            if (is_file(public_path('storage/' . $normalized))) {
-                return asset('storage/' . $normalized);
-            }
+        if (Str::startsWith($normalized, 'storage/')) {
+            $relativePath = Str::after($normalized, 'storage/');
 
-            if (is_file(base_path('storage/' . $normalized))) {
-                return asset('storage/' . $normalized);
-            }
-
-            if (is_file(public_path($normalized))) {
-                return asset($normalized);
+            if (Storage::disk('public')->exists($relativePath)) {
+                return $avatarCache[$avatar] = asset($normalized);
             }
         }
 
-        return self::initialsAvatarDataUri($this->name ?: $this->email ?: 'User', $this->avatar_color);
+        if (Storage::disk('public')->exists($normalized)) {
+            return $avatarCache[$avatar] = asset('storage/' . $normalized);
+        }
+
+        if (is_file(public_path('storage/' . $normalized))) {
+            return $avatarCache[$avatar] = asset('storage/' . $normalized);
+        }
+
+        if (is_file(base_path('storage/' . $normalized))) {
+            return $avatarCache[$avatar] = asset('storage/' . $normalized);
+        }
+
+        if (is_file(public_path($normalized))) {
+            return $avatarCache[$avatar] = asset($normalized);
+        }
+
+        return $avatarCache[$avatar] = self::initialsAvatarDataUri($this->name ?: $this->email ?: 'User', $this->avatar_color);
     }
 
     /**
