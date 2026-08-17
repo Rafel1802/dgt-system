@@ -256,20 +256,27 @@ class CrmService
     }
 
     /**
-     * Real total revenue: eBay + Website sales (order-item prices), not the
-     * unmaintained Customer.lifetime_value field — mirrors the "Total Sales"
-     * calculation used on the Team Report page.
+     * Total revenue across all orders and customer lifetime values,
+     * excluding cancelled or refunded customers/records.
      */
     private function totalSales(): float
     {
-        $ebaySales = (float) EbayCustomerOrderItem::sum('price');
+        $customerLtv = (float) Customer::query()
+            ->whereNotIn('status', ['cancelled', 'refunded', 'lost'])
+            ->sum('lifetime_value');
 
-        // SQL aggregate — never hydrate every LeadProduct row into PHP.
-        $websiteSales = (float) LeadProduct::whereHas(
-            'lead',
-            fn ($q) => $q->where('status', WebsiteLeadStatus::Successful)
-        )->sum(DB::raw('price * quantity'));
+        $ebayOrderSales = (float) EbayCustomerOrderItem::whereHas('order', function ($q) {
+            $q->whereHas('record', fn ($r) => $r->whereNotIn('tab_type', ['cancelled', 'refunded']));
+        })->whereDoesntHave('order.record.customer', fn ($c) => $c->where('lifetime_value', '>', 0))
+        ->sum('price');
 
-        return $ebaySales + $websiteSales;
+        $websiteLeadSales = (float) LeadProduct::whereHas('lead', function ($q) {
+            $q->whereNotIn('status', [WebsiteLeadStatus::Lost, 'cancelled', 'refunded']);
+        })->whereDoesntHave('lead.customer', fn ($c) => $c->where('lifetime_value', '>', 0))
+        ->sum(DB::raw('price * quantity'));
+
+        $total = $customerLtv + $ebayOrderSales + $websiteLeadSales;
+
+        return $total > 0 ? $total : (float) Customer::sum('lifetime_value');
     }
 }
