@@ -277,8 +277,28 @@
                             <td>{{ $row['email'] ?? '—' }}</td>
                             <td class="nowrap">{{ $row['phone'] ?? '—' }}</td>
                             <td class="nowrap">
-                                <span class="badge badge-slate">
-                                    {{ $row['status_label'] ?? ($row['status'] ?? '—') }}
+                                @php
+                                    $statusText = $row['status_label'] ?? ($row['status'] ?? '—');
+                                    $sStr = strtolower((string)$statusText);
+                                    $badgeStyle = match(true) {
+                                        str_contains($sStr, 'success') || str_contains($sStr, 'delivered') || str_contains($sStr, 'resolved') || str_contains($sStr, 'approved')
+                                            => 'background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0;',
+                                        str_contains($sStr, 'logistic') || str_contains($sStr, 'delay') || str_contains($sStr, 'problem')
+                                            => 'background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;',
+                                        str_contains($sStr, 'negative') || str_contains($sStr, 'urgent') || str_contains($sStr, 'cancel') || str_contains($sStr, 'lost')
+                                            => 'background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;',
+                                        str_contains($sStr, 'tech')
+                                            => 'background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;',
+                                        str_contains($sStr, 'new') || str_contains($sStr, 'contact')
+                                            => 'background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;',
+                                        str_contains($sStr, 'nurtur') || str_contains($sStr, 'warm') || str_contains($sStr, 'pending')
+                                            => 'background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;',
+                                        default
+                                            => 'background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;',
+                                    };
+                                @endphp
+                                <span class="badge" style="{{ $badgeStyle }}">
+                                    {{ $statusText }}
                                 </span>
                             </td>
                             <td class="nowrap">
@@ -299,8 +319,28 @@
                             <td>{{ $row->email ?? '—' }}</td>
                             <td class="nowrap">{{ $row->phone ?? '—' }}</td>
                             <td class="nowrap">
-                                <span class="badge {{ is_object($row->status) ? $row->status->badgeClass() : 'badge-slate' }}">
-                                    {{ is_object($row->status) ? $row->status->label() : ($row->status ?? '—') }}
+                                @php
+                                    $statusText = is_object($row->status) ? $row->status->label() : ($row->status ?? '—');
+                                    $sStr = strtolower((string)$statusText);
+                                    $badgeStyle = match(true) {
+                                        str_contains($sStr, 'success') || str_contains($sStr, 'delivered') || str_contains($sStr, 'resolved') || str_contains($sStr, 'approved')
+                                            => 'background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0;',
+                                        str_contains($sStr, 'logistic') || str_contains($sStr, 'delay') || str_contains($sStr, 'problem')
+                                            => 'background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;',
+                                        str_contains($sStr, 'negative') || str_contains($sStr, 'urgent') || str_contains($sStr, 'cancel') || str_contains($sStr, 'lost')
+                                            => 'background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;',
+                                        str_contains($sStr, 'tech')
+                                            => 'background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;',
+                                        str_contains($sStr, 'new') || str_contains($sStr, 'contact')
+                                            => 'background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;',
+                                        str_contains($sStr, 'nurtur') || str_contains($sStr, 'warm') || str_contains($sStr, 'pending')
+                                            => 'background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;',
+                                        default
+                                            => 'background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;',
+                                    };
+                                @endphp
+                                <span class="badge" style="{{ $badgeStyle }}">
+                                    {{ $statusText }}
                                 </span>
                             </td>
                             <td class="nowrap">
