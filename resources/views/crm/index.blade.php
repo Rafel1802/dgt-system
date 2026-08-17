@@ -2,6 +2,7 @@
 @section('title', 'CRM — Customers')
 @section('page_title', 'Customer Database')
 @section('meta_description', 'All customers across CRM Website, eBay, and Logistics, deduplicated and searchable.')
+@section('hide_back', true)
 
 @section('content')
 <div class="animate-fade-in">

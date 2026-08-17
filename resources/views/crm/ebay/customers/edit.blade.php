@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Edit eBay Customer Record')
 @section('page_title', 'eBay Manage Customer — Edit')
+@section('back_url', route('crm.ebay.customers.index', ['tab_type' => $record->tab_type]))
 
 @section('content')
 <div class="max-w-2xl animate-fade-in" x-data="{
@@ -11,8 +12,7 @@
   removeProduct(i) { if (this.products.length > 1) this.products.splice(i, 1); },
   get showOrderBlock() { return this.status === 'new_order' && this.originalStatus !== 'new_order'; },
 }">
-  <div class="mb-5 flex items-center justify-between">
-    <a href="{{ route('crm.ebay.customers.index', ['tab_type' => $record->tab_type]) }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Records</a>
+  <div class="mb-5 flex items-center justify-end">
     <a href="{{ route('crm.ebay.customers.show', $record) }}" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">View Details →</a>
   </div>
 

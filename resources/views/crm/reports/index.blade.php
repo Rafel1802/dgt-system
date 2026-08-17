@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Team Report')
 @section('page_title', 'Team Report')
+@section('hide_back', true)
 
 @section('content')
 <div class="animate-fade-in" x-data="{ reportTab: '{{ $activeTab }}' }">

@@ -1,13 +1,13 @@
 @extends('layouts.app')
 @section('title', ($record->buyer_name ?: $record->username) . ' — eBay Customer')
 @section('page_title', 'eBay Customer — Detail')
+@section('back_url', route('crm.ebay.customers.index', ['tab_type' => $record->tab_type]))
 
 @section('content')
 {{-- Alpine logic lives in a script (not inline x-data="{...}") so quotes / => never break the HTML attribute. --}}
 <div class="animate-fade-in" x-data="ebayCustomerShow(@js(route('crm.ebay.customers.follow-up', $record)))">
 
-  <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
-    <a href="{{ route('crm.ebay.customers.index', ['tab_type' => $record->tab_type]) }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Records</a>
+  <div class="mb-5 flex items-center justify-end flex-wrap gap-3">
     <a href="{{ route('crm.ebay.customers.edit', $record) }}" class="btn btn-secondary text-sm">Edit Record</a>
   </div>
 

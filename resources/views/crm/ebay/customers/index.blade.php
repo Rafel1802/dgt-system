@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'eBay — Manage Customer')
 @section('page_title', 'eBay Manage Customer')
+@section('hide_back', true)
 
 @push('styles')
 <style>

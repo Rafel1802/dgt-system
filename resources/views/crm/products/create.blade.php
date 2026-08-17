@@ -1,12 +1,10 @@
 @extends('layouts.app')
 @section('title', 'New Product')
 @section('page_title', 'Create Product')
+@section('back_url', route('crm.products.index'))
 
 @section('content')
 <div class="max-w-2xl animate-fade-in">
-  <div class="mb-5">
-    <a href="{{ route('crm.products.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Products</a>
-  </div>
 
   <div class="card">
     <div class="px-6 pt-6 pb-4 border-b border-slate-100">

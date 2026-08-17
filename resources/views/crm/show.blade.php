@@ -1,14 +1,10 @@
 @extends('layouts.app')
 @section('title', $customer->name . ' — Customer Profile')
 @section('page_title', $customer->name)
+@section('back_url', route('crm.customers.index'))
 
 @section('content')
 <div x-data="customerProfile({{ $customer->id }}, {{ $customer->lifetime_value }}, {{ $customer->total_orders }})" class="animate-fade-in">
-
-  {{-- Back --}}
-  <a href="{{ route('crm.customers.index') }}" class="text-sm text-slate-400 hover:text-indigo-600 flex items-center gap-1 mb-5">
-    ← Back to Customers
-  </a>
 
   <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
 

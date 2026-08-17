@@ -1,12 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Edit ' . $customer->name)
 @section('page_title', 'Edit Customer')
+@section('back_url', route('crm.customers.show', $customer))
 
 @section('content')
 <div class="max-w-3xl animate-fade-in">
-  <div class="mb-5">
-    <a href="{{ route('crm.customers.show', $customer) }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Profile</a>
-  </div>
   <div class="card">
     <div class="px-6 pt-6 pb-4 border-b border-slate-100">
       <h2 class="font-display font-bold text-slate-800 text-lg">Edit: {{ $customer->name }}</h2>

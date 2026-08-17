@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Log New Inquiry')
 @section('page_title', 'New Client Inquiry')
+@section('back_url', route('crm.website.index'))
 
 @push('scripts')
 <script>
@@ -10,9 +11,6 @@ window.__DGT_CUSTOMERS__ = {!! $customers->map(fn($c) => ['id'=>$c->id,'name'=>$
 
 @section('content')
 <div class="max-w-2xl animate-fade-in">
-  <div class="mb-5">
-    <a href="{{ route('crm.website.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Website CRM</a>
-  </div>
 
   <div class="card">
     <div class="px-6 pt-6 pb-4 border-b border-slate-100">

@@ -1,12 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Edit Shipment')
 @section('page_title', 'Edit Shipment')
+@section('back_url', route('crm.logistics.shipments.show', $shipment))
 
 @section('content')
 <div class="max-w-2xl animate-fade-in">
-  <div class="mb-5 flex justify-between">
-    <a href="{{ route('crm.logistics.shipments.show', $shipment) }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Shipment</a>
-  </div>
 
   <div class="card">
     <div class="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center gap-3">

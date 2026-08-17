@@ -40,6 +40,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
                 'username' => 'nancy_d',
                 'buyer_name' => 'Nancy Drew',
                 'informations' => 'Buyer left negative feedback about shipping delay.',
+                'date' => '2026-08-17',
                 'negative_feedback_causes' => ['Logistic issues'],
                 'negative_feedback_resolved' => '1',
             ]
@@ -62,6 +63,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             [
                 'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
                 'username' => 'cause_tech',
+                'date' => '2026-08-17',
                 'informations' => 'Buyer says the machine does not turn on.',
                 'negative_feedback_causes' => ['Technical'],
             ]
@@ -77,6 +79,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             [
                 'tab_type' => EbayCustomerRecord::TAB_POT_NEGATIVES,
                 'username' => 'cause_logistic',
+                'date' => '2026-08-17',
                 'informations' => 'Buyer says the package never arrived.',
                 'negative_feedback_causes' => ['Logistic issues'],
             ]
@@ -93,6 +96,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             [
                 'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
                 'username' => 'cause_cs',
+                'date' => '2026-08-17',
                 'informations' => 'Buyer unhappy with how the last email was handled.',
                 'negative_feedback_causes' => ['Customer service'],
             ]
@@ -109,6 +113,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             [
                 'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
                 'username' => 'cause_none',
+                'date' => '2026-08-17',
                 'informations' => 'General negative feedback, cause not yet identified.',
             ]
         )->assertRedirect(route('crm.ebay.customers.index', ['tab_type' => EbayCustomerRecord::TAB_NEGATIVES]));
@@ -124,6 +129,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             [
                 'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
                 'username' => 'cause_multi',
+                'date' => '2026-08-17',
                 'informations' => 'Multiple issues reported.',
                 'negative_feedback_causes' => ['Customer service', 'Logistic issues', 'Technical'],
             ]
@@ -139,6 +145,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             [
                 'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
                 'username' => 'cause_multi2',
+                'date' => '2026-08-17',
                 'informations' => 'Multiple issues reported.',
                 'negative_feedback_causes' => ['Customer service', 'Logistic issues'],
             ]
@@ -165,6 +172,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
         $this->actingAs($this->user)->post(route('crm.ebay.customers.store'), [
             'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
             'username' => 'new_negative',
+            'date' => '2026-08-17',
             'informations' => 'Immediate negative feedback on creation.',
             'negative_feedback_causes' => ['Technical'],
         ])->assertRedirect(route('crm.tech-support.index'));
@@ -260,6 +268,7 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
             [
                 'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
                 'username' => 'real_case_tech',
+                'date' => '2026-08-17',
                 'informations' => 'Machine does not power on.',
                 'negative_feedback_causes' => ['Technical'],
             ]

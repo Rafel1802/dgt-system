@@ -135,6 +135,7 @@ class ShipmentControllerTest extends TestCase
 
         $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment, $customer]), [
             'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PROBLEM, 'notes' => 'Customer reported a damaged item.',
+            'issue_date' => '2026-08-17',
         ]);
 
         $this->assertEquals(Shipment::STATUS_PROBLEM, $shipment->fresh()->status);
@@ -177,6 +178,7 @@ class ShipmentControllerTest extends TestCase
             'recipient_name' => 'Marady', 'customer_id' => $customer->id,
             'recipient_email' => 'someone-else@example.com', 'status' => ShipmentCustomer::STATUS_PROBLEM,
             'notes' => 'Package damaged in transit.',
+            'issue_date' => '2026-08-17',
         ]);
 
         $this->assertTrue($ebayRecord->fresh()->shipment_delay);
@@ -198,6 +200,7 @@ class ShipmentControllerTest extends TestCase
             'recipient_email' => 'problem@example.com',
             'status' => ShipmentCustomer::STATUS_PROBLEM,
             'notes' => 'Address could not be located.',
+            'issue_date' => '2026-08-17',
         ]);
 
         $response = $this->actingAs($this->user)->get(route('crm.customers.index', ['status_filter' => 'Logistic issues']));

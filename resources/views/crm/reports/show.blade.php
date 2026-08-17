@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', $user->name . ' — Staff Report')
 @section('page_title', 'Staff Report')
+@section('back_url', route('crm.reports.index'))
 
 @section('content')
 <div class="animate-fade-in">
@@ -37,9 +38,8 @@
   </div>
   @endif
 
-  {{-- ── Top bar: back link + period controls + export ─────────────────────── --}}
-  <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
-    <a href="{{ route('crm.reports.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Reports</a>
+  {{-- ── Top bar: period controls + export ─────────────────────── --}}
+  <div class="mb-5 flex items-center justify-end flex-wrap gap-3">
     <div class="flex items-center gap-3 flex-wrap">
       <div class="flex gap-1">
         @foreach(['day' => 'Day', 'week' => 'Week', 'month' => 'Month'] as $key => $label)

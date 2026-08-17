@@ -1,6 +1,7 @@
 @extends('layouts.app')
-@section('title', 'Technical Support Case')
-@section('page_title', 'Tech Support — Case Detail')
+@section('title', 'Case #' . $case->id . ' — Tech Support')
+@section('page_title', 'Tech Support Case #' . $case->id)
+@section('back_url', route('crm.tech-support.index'))
 
 @section('content')
 @php
@@ -100,9 +101,7 @@
   },
 }">
 
-  <div class="mb-5 flex items-center justify-between">
-    <a href="{{ route('crm.tech-support.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Tech Support</a>
-  </div>
+
 
   <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
 

@@ -1,15 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Add Customer')
 @section('page_title', 'Add Customer')
+@section('back_url', route('crm.customers.index'))
 
 @section('content')
 <div class="max-w-3xl animate-fade-in">
-
-  <div class="mb-5">
-    <a href="{{ route('crm.customers.index') }}" class="text-sm text-slate-400 hover:text-indigo-600 flex items-center gap-1">
-      ← Back to Customers
-    </a>
-  </div>
 
   <div class="card">
     <div class="px-6 pt-6 pb-4 border-b border-slate-100">

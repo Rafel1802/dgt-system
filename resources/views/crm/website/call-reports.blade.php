@@ -1,13 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Website CRM — Call Reports')
 @section('page_title', 'Call Reports')
+@section('back_url', route('crm.website.index'))
 
 @section('content')
 <div class="animate-fade-in">
-
-  <div class="mb-5">
-    <a href="{{ route('crm.website.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Leads</a>
-  </div>
 
   @if(session('success'))
   <div class="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm font-medium">

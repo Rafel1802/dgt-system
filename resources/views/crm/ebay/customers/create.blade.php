@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'New eBay Customer Record')
 @section('page_title', 'eBay Manage Customer — Add Record')
+@section('back_url', route('crm.ebay.customers.index'))
 
 @section('content')
 <div class="max-w-2xl animate-fade-in" x-data="{
@@ -9,9 +10,6 @@
   addProduct() { this.products.push({ name: '', price: '' }); },
   removeProduct(i) { if (this.products.length > 1) this.products.splice(i, 1); },
 }">
-  <div class="mb-5 flex items-center gap-2">
-    <a href="{{ route('crm.ebay.customers.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Records</a>
-  </div>
 
   <div class="card">
     <div class="px-6 pt-6 pb-4 border-b border-slate-100">

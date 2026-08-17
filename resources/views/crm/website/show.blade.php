@@ -1,12 +1,12 @@
 @extends('layouts.app')
 @section('title', $lead->client_name . ' — Lead Profile')
 @section('page_title', 'Lead Profile')
+@section('back_url', route('crm.website.index'))
 
 @section('content')
 <div x-data="leadProfile({{ $lead->id }}, {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }})" class="animate-fade-in">
 
-  <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
-    <a href="{{ route('crm.website.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Website CRM</a>
+  <div class="mb-5 flex items-center justify-end flex-wrap gap-3">
     <div class="flex gap-2">
       @if(auth()->user()->canDeleteCrmRecords('website'))
       <a href="{{ route('crm.website.edit', $lead) }}" class="btn btn-secondary text-sm">Edit Lead</a>

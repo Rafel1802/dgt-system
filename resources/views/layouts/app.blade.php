@@ -1396,6 +1396,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
 
+                    @if(!View::hasSection('hide_back'))
                     <button type="button"
                             @if(View::hasSection('back_url'))
                                 onclick="window.Livewire ? Livewire.navigate('@yield('back_url')') : window.location.href='@yield('back_url')'"
@@ -1410,6 +1411,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                         <span class="hidden sm:inline text-xs font-bold">Back</span>
                     </button>
+                    @endif
                     <!-- Page Title (visible on all screens) -->
                     <div class="mobile-topbar-title">
                         <p class="mobile-topbar-title-text">@yield('title', 'KIUQ SYSTEM')</p>

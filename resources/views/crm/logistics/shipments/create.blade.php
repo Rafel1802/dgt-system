@@ -1,12 +1,10 @@
 @extends('layouts.app')
 @section('title', 'New Shipment')
 @section('page_title', 'Create Shipment')
+@section('back_url', route('crm.logistics.shipments.index'))
 
 @section('content')
 <div class="max-w-2xl animate-fade-in">
-  <div class="mb-5">
-    <a href="{{ route('crm.logistics.shipments.index') }}" class="text-sm text-slate-400 hover:text-indigo-600">← Back to Shipments</a>
-  </div>
 
   <div class="card">
     <div class="px-6 pt-6 pb-4 border-b border-slate-100">

@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Shipments')
 @section('page_title', 'Shipment Management')
+@section('hide_back', true)
 
 @section('content')
 <div class="animate-fade-in">

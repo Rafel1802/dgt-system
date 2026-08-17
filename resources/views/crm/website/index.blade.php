@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Website CRM — Leads')
 @section('page_title', 'Website CRM')
+@section('hide_back', true)
 
 @section('content')
 <div class="animate-fade-in">

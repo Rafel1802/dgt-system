@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Products')
 @section('page_title', 'Products')
+@section('hide_back', true)
 
 @push('styles')
 <style>
