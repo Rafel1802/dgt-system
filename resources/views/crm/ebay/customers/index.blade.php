@@ -111,7 +111,10 @@
       <div class="flex items-center gap-2">
         @if(auth()->user()->canDeleteCrmRecords('ebay'))
         <form method="POST" action="{{ route('crm.ebay.customers.bulk-destroy') }}"
-              onsubmit="return confirm('Delete all ' + selected.length + ' selected record(s)? Linked customer profiles will also be deleted.')" class="inline">
+              data-confirm="Delete the selected record(s)? Linked customer profiles will also be deleted."
+              data-confirm-title="Delete Selected Records"
+              data-confirm-text="Delete Records"
+              data-confirm-tone="danger" class="inline">
           @csrf
           <input type="hidden" name="tab_type" value="{{ $tabType }}">
           <template x-for="id in selected" :key="id">
@@ -201,7 +204,10 @@
                       : 'Delete this record?';
                 @endphp
                 <form method="POST" action="{{ route('crm.ebay.customers.destroy', $record) }}"
-                      onsubmit="return confirm({{ \Illuminate\Support\Js::from($ebayDeleteConfirmMsg) }})" class="inline">
+                      data-confirm="{{ $ebayDeleteConfirmMsg }}"
+                      data-confirm-title="{{ $record->customer ? 'Delete Record & Linked Customer?' : 'Delete Record?' }}"
+                      data-confirm-text="Delete"
+                      data-confirm-tone="danger" class="inline">
                   @csrf @method('DELETE')
                   <button type="submit" class="btn btn-secondary btn-icon text-red-400 hover:text-red-600"
                           style="width:28px;height:28px;" title="Delete">
