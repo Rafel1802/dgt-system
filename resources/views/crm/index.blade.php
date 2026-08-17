@@ -36,7 +36,12 @@
   <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
     <div class="flex gap-2 flex-wrap">
       @foreach(['All', 'Technical issues', 'Logistic issues', 'Negative feedback'] as $val)
-      <a href="{{ route('crm.customers.index', array_merge(request()->query(), ['status_filter' => $val])) }}"
+      @php
+        $pillUrl = $val === 'All'
+          ? route('crm.customers.index', ['clear_filters' => 1])
+          : route('crm.customers.index', array_merge(request()->query(), ['status_filter' => $val]));
+      @endphp
+      <a href="{{ $pillUrl }}"
          class="btn text-xs py-1.5 px-3 {{ $statusFilter === $val ? 'btn-primary' : 'btn-secondary' }}">
         {{ $val }}
       </a>

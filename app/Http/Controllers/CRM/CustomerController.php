@@ -109,12 +109,13 @@ class CustomerController extends Controller
             return redirect()->route('crm.customers.index');
         }
 
-        // Remember the last-applied filters in session so they persist while
-        // browsing (e.g. navigating to a customer and back) — a request with
-        // none of the recognized filter params present re-hydrates from
-        // whatever was last saved instead of resetting to "All".
+        // Remember filters in session only when explicit filter query parameters are sent.
+        // If the page is accessed directly with no query parameters (e.g. sidebar menu link),
+        // clear old session filters so the main page displays all customers.
         if ($request->hasAny(self::REMEMBERED_FILTER_KEYS)) {
             session(['crm.customers.filters' => $request->only(self::REMEMBERED_FILTER_KEYS)]);
+        } elseif (empty($request->query())) {
+            session()->forget('crm.customers.filters');
         } else {
             $request->merge(session('crm.customers.filters', []));
         }
