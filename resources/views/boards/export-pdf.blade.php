@@ -701,7 +701,7 @@
                     <th style="width: {{ ($isQcReport ?? false) ? '26%' : '30%' }};">Task / Title</th>
                     <th style="width: 12%; text-align: center;">Status</th>
                     <th style="width: 16%;">Assigned Members</th>
-                    <th style="width: 9%;">Created Date</th>
+                    <th style="width: 9%;">Activity Date</th>
                     <th style="width: 9%;">Due Date</th>
                     <th style="width: 9%;">Completed Date</th>
                     @if($isQcReport ?? false)
@@ -787,7 +787,7 @@
                         {{ $c->assignees->pluck('name')->join(', ') ?: 'Unassigned' }}
                     </td>
                     <td>
-                        {{ $c->created_at ? $c->created_at->format('Y-m-d') : 'N/A' }}
+                        {{ $c->computed_activity_date ? $c->computed_activity_date->format('Y-m-d H:i') : ($c->created_at ? $c->created_at->format('Y-m-d') : 'N/A') }}
                     </td>
                     <td>
                         @php
@@ -885,6 +885,10 @@
                 window.print();
             }, 500);
         });
+
+        function generatePDF() {
+            window.print();
+        }
 
         function goBack() {
             if (window.history.length > 1) {

@@ -1735,12 +1735,11 @@ class BoardController extends Controller
         $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
         $isHead = str_contains(strtolower($user->team_role ?? ''), 'head');
         $canSeeSMM = $user->hasRole('admin-digital') || $isQc || $isHead;
+        $userId = $user->id;
 
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
-                'boards.members:id,name,avatar',
-                'members:id,name,avatar',
             ])
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
@@ -1750,47 +1749,40 @@ class BoardController extends Controller
         } else {
             $allActiveWorkspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
-                'boards.members:id,name,avatar',
-                'members:id,name,avatar',
+                'boards.members' => fn($q) => $q->where('users.id', $userId)->select('users.id', 'users.name'),
+                'members' => fn($q) => $q->where('users.id', $userId)->select('users.id', 'users.name'),
             ])
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
                 ->orderBy('position')
                 ->orderBy('id')
                 ->get();
-            $workspaces = $allActiveWorkspaces->filter(function ($ws) use ($user, $canSeeSMM) {
+                
+            $workspaces = $allActiveWorkspaces->filter(function ($ws) use ($userId, $canSeeSMM) {
                 if ($canSeeSMM && $ws->name === 'Social Media Management') return true;
-                if ($ws->hasMember($user->id)) return true;
+                if ($ws->members->isNotEmpty() || $ws->owner_id === $userId) return true;
                 foreach ($ws->boards as $board) {
-                    if ($board->hasMember($user->id)) return true;
+                    if ($board->members->isNotEmpty() || $board->created_by === $userId) return true;
                 }
                 return false;
             });
         }
 
         foreach ($workspaces as $workspace) {
-            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($user, $workspace, $canSeeSMM) {
-                // If they can see SMM module, they can see all SMM boards
+            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($userId, $workspace, $canSeeSMM) {
                 if ($canSeeSMM && $workspace->name === 'Social Media Management') {
                     return true;
                 }
-
-                // If they are a member of the workspace, they can see all its boards
-                if ($workspace->hasMember($user->id)) {
+                if ($workspace->members->isNotEmpty() || $workspace->owner_id === $userId) {
                     return true;
                 }
-                
-                // If they created the board, they can see it
-                if ($board->created_by === $user->id) {
+                if ($board->created_by === $userId) {
                     return true;
                 }
-
-                // Otherwise, they must be explicitly added to the board
-                return $board->hasMember($user->id);
+                return $board->members->isNotEmpty();
             }));
         }
 
-        $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
         $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
         if (!$isBypassed && $user->hasRole('digital-team')) {
             $workspaces = $workspaces->filter(function ($ws) {

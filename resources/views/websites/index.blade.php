@@ -267,7 +267,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="{{ $tabInfo['icon'] }}" />
         </svg>
         {{ $tabInfo['label'] }}
-        <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold {{ $isActive ? 'bg-current/10' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' }}">{{ $tabInfo['count'] }}</span>
+        <span class="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold {{ $isActive ? 'bg-current/10' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' }}" x-text="countTab('{{ $key }}')">{{ $tabInfo['count'] }}</span>
     </a>
     @endforeach
 </div>
@@ -2838,13 +2838,13 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true">
+        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ isSubmitting: false, selectedId: '' }" @submit="if(!selectedId) { alert('Please select a website first.'); $event.preventDefault(); return; } if(isSubmitting) { $event.preventDefault(); return; } isSubmitting = true;">
             @csrf
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Website *</label>
-                    <div x-data="{ open: false, search: '', selectedId: '', selectedName: 'Select website...' }" class="relative">
-                        <input type="hidden" name="website_id" x-model="selectedId" required>
+                    <div x-data="{ open: false, search: '', selectedName: 'Select website...' }" class="relative">
+                        <input type="hidden" name="website_id" x-model="selectedId">
                         <button type="button" @click="open = !open" @click.outside="open = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
                             <span x-text="selectedName" :class="{ 'text-slate-400': !selectedId }"></span>
                         </button>
@@ -2892,7 +2892,7 @@
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
                 <button type="button" @click="showFollowUpModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm">Add Follow Up</button>
+                <button type="submit" class="btn btn-primary text-sm" x-bind:disabled="isSubmitting" x-text="isSubmitting ? 'Adding...' : 'Add Follow Up'">Add Follow Up</button>
             </div>
         </form>
     </div>
@@ -2907,7 +2907,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="editFollowUpAction" method="POST" class="p-5 space-y-4" data-no-processing="true">
+        <form :action="editFollowUpAction" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ isSubmitting: false }" @submit="if(isSubmitting) { $event.preventDefault(); return; } isSubmitting = true;">
             @csrf
             @method('PUT')
             <div class="grid grid-cols-2 gap-4">
@@ -2967,7 +2967,7 @@
             </div>
             <div class="flex items-center justify-end gap-3 pt-2">
                 <button type="button" @click="showEditFollowUpModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm">Save Changes</button>
+                <button type="submit" class="btn btn-primary text-sm" x-bind:disabled="isSubmitting" x-text="isSubmitting ? 'Saving...' : 'Save Changes'">Save Changes</button>
             </div>
         </form>
     </div>
@@ -2982,7 +2982,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.export') }}" method="GET" x-data="{ format: 'csv' }" data-turbo="false" class="p-6 space-y-6">
+        <form action="{{ route('websites.export') }}" method="GET" target="_blank" x-data="{ format: 'csv' }" data-turbo="false" data-no-processing="true" class="p-6 space-y-6">
             <input type="hidden" name="tab" value="{{ $tab }}">
             {{-- Format Selection --}}
             <div>
@@ -3359,13 +3359,65 @@
         }
     });
 
+@php
+    $mappedWebsites = $allWebsites->map(fn($w) => [
+        'id' => $w->id,
+        'name' => $w->name,
+        'url' => $w->url,
+        'handled_by' => $w->handled_by,
+        'category' => $w->category,
+        'status' => $w->status
+    ])->values();
+@endphp
 function websitesApp() {
+    const allWebsites = @json($mappedWebsites);
+
     return {
+        allWebsites: allWebsites,
         // Search state
         searchQuery: '',
         filterMember: '',
         filterClass: '',
         filterApprovalStatus: '',
+        countTab(tabKey) {
+            let pool = this.allWebsites;
+            if (tabKey === 'build') pool = pool.filter(w => w.status === 'Build Website');
+            else if (tabKey === 'build-progress') pool = pool.filter(w => ['Build Progress', 'QC Checking', 'Supervisor Checking'].includes(w.status));
+            else if (tabKey === 'live') pool = pool.filter(w => ['Live', 'Maintenance', 'Maintenance Progress', 'Maintenance QC Checking', 'Maintenance Supervisor Checking'].includes(w.status));
+            else if (tabKey === 'maintenance') pool = pool.filter(w => ['Maintenance', 'Maintenance Progress', 'Maintenance QC Checking', 'Maintenance Supervisor Checking'].includes(w.status));
+            else if (tabKey === 'qc-error') pool = pool.filter(w => ['QC Error', 'Maintenance QC Error'].includes(w.status));
+            else if (tabKey === 'supervisor-error') pool = pool.filter(w => ['Supervisor Error', 'Maintenance Supervisor Error'].includes(w.status));
+            
+            return this.countMatchingWebsites(pool);
+        },
+        countMatchingWebsites(websites) {
+            let count = 0;
+            websites.forEach(w => {
+                let matchText = true;
+                let matchMember = true;
+                let matchClass = true;
+                let matchStatus = true;
+                if (this.searchQuery) {
+                    let q = this.searchQuery.toLowerCase();
+                    matchText = (w.name && w.name.toLowerCase().includes(q)) || (w.url && w.url.toLowerCase().includes(q));
+                }
+                if (this.filterMember) {
+                    matchMember = (w.handled_by == this.filterMember);
+                }
+                if (this.filterClass && w.category !== undefined) {
+                    matchClass = (w.category == this.filterClass);
+                }
+                if (this.filterApprovalStatus && w.status !== undefined) {
+                    if (this.filterApprovalStatus === 'qc-approved') {
+                        matchStatus = (w.status === 'Maintenance QC Checking' || w.status === 'QC Checking');
+                    } else if (this.filterApprovalStatus === 'supervisor-approved') {
+                        matchStatus = (w.status === 'Maintenance Supervisor Checking' || w.status === 'Supervisor Checking');
+                    }
+                }
+                if (matchText && matchMember && matchClass && matchStatus) count++;
+            });
+            return count;
+        },
         matchesSearch(name, url, category, handlerId, status, isFollowUpTab = false) {
             let matchText = true;
             let matchMember = true;
@@ -3687,6 +3739,17 @@ function websitesApp() {
         maintenanceModalAction: '',
 
         init() {
+            // Restore filters from sessionStorage if they exist
+            this.searchQuery = sessionStorage.getItem('filterSearchQuery') || '';
+            this.filterMember = sessionStorage.getItem('filterMember') || '';
+            this.filterClass = sessionStorage.getItem('filterClass') || '';
+            this.filterApprovalStatus = sessionStorage.getItem('filterApprovalStatus') || '';
+
+            this.$watch('searchQuery', v => sessionStorage.setItem('filterSearchQuery', v));
+            this.$watch('filterMember', v => sessionStorage.setItem('filterMember', v));
+            this.$watch('filterClass', v => sessionStorage.setItem('filterClass', v));
+            this.$watch('filterApprovalStatus', v => sessionStorage.setItem('filterApprovalStatus', v));
+
             // Initialize collapsedGroups from localStorage
             try {
                 this.collapsedGroups = JSON.parse(localStorage.getItem('collapsedGroups') || '{}');
@@ -4596,6 +4659,7 @@ document.addEventListener('submit', function(e) {
     if (e.target && e.target.tagName === 'FORM') {
         const submitBtn = e.target.querySelector('button[type="submit"]');
         if (submitBtn) {
+            if (e.target.dataset.noProcessing) return;
             // If already submitting, prevent duplicate submission
             if (e.target.dataset.submitting) {
                 e.preventDefault();
@@ -4633,12 +4697,30 @@ document.addEventListener('DOMContentLoaded', () => {
             channel.bind('WebsiteUpdated', function(data) {
                 // Ignore if we triggered it (optional, but Turbo morph is fast enough)
                 if (window.Turbo) {
-                    window.Turbo.visit(window.location.href, { action: 'replace' });
+                    if (typeof window.Turbo.refresh === 'function') {
+                        window.Turbo.refresh();
+                    } else {
+                        window.Turbo.visit(window.location.href, { action: 'replace' });
+                    }
                 }
             });
         }
     }
 });
+
+function initWebsitesFlatpickr() {
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr('input[type="date"]', {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d / m / Y", // This matches the format in the user's screenshot
+            disableMobile: true // Ensure native picker isn't used on mobile so it looks consistent, or keep false to let mobile use native. The user's screenshot is desktop.
+        });
+    }
+}
+document.addEventListener('DOMContentLoaded', initWebsitesFlatpickr);
+document.addEventListener('turbo:load', initWebsitesFlatpickr);
+document.addEventListener('turbo:render', initWebsitesFlatpickr);
 </script>
 @endpush
 

@@ -147,7 +147,7 @@ class BoardExportController extends Controller
             return Card::whereRaw('1 = 0');
         }
 
-        $query = Card::whereIn('board_id', $boardIds)->with(['board', 'boardList', 'assignees', 'labels', 'files']);
+        $query = Card::whereIn('board_id', $boardIds)->with(['board', 'boardList', 'assignees', 'labels', 'files', 'activities', 'comments']);
 
         // Load comments and comment user if comments are included
         if ($request->boolean('include_comments', false)) {
@@ -163,34 +163,34 @@ class BoardExportController extends Controller
 
         // 1. Date Range Filtering
         if ($request->filled('date_range') && $request->date_range !== 'all_time') {
-            $now = Carbon::now();
+            $now = Carbon::now('Asia/Phnom_Penh');
             $startDate = null;
             $endDate = null;
 
             switch ($request->date_range) {
                 case 'today':
-                     $startDate = $now->copy()->startOfDay();
-                     $endDate = $now->copy()->endOfDay();
+                     $startDate = $now->copy()->startOfDay()->setTimezone('UTC');
+                     $endDate = $now->copy()->endOfDay()->setTimezone('UTC');
                      break;
                 case 'this_week':
-                     $startDate = $now->copy()->startOfWeek();
-                     $endDate = $now->copy()->endOfWeek();
+                     $startDate = $now->copy()->startOfWeek()->setTimezone('UTC');
+                     $endDate = $now->copy()->endOfWeek()->setTimezone('UTC');
                      break;
                 case 'this_month':
-                     $startDate = $now->copy()->startOfMonth();
-                     $endDate = $now->copy()->endOfMonth();
+                     $startDate = $now->copy()->startOfMonth()->setTimezone('UTC');
+                     $endDate = $now->copy()->endOfMonth()->setTimezone('UTC');
                      break;
                 case 'last_month':
-                     $startDate = $now->copy()->subMonth()->startOfMonth();
-                     $endDate = $now->copy()->subMonth()->endOfMonth();
+                     $startDate = $now->copy()->subMonth()->startOfMonth()->setTimezone('UTC');
+                     $endDate = $now->copy()->subMonth()->endOfMonth()->setTimezone('UTC');
                      break;
                 case 'custom':
                 case 'custom_period':
                      if ($request->filled('start_date')) {
-                         $startDate = Carbon::parse($request->start_date)->startOfDay();
+                         $startDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC');
                      }
                      if ($request->filled('end_date')) {
-                         $endDate = Carbon::parse($request->end_date)->endOfDay();
+                         $endDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC');
                      }
                      break;
             }
@@ -200,6 +200,7 @@ class BoardExportController extends Controller
             } else if ($startDate || $endDate) {
                 $query->where(function($q) use ($startDate, $endDate) {
                     $q->whereHas('activities', function($qa) use ($startDate, $endDate) {
+                        $qa->where('action', '!=', 'created');
                         if ($startDate) $qa->where('created_at', '>=', $startDate);
                         if ($endDate) $qa->where('created_at', '<=', $endDate);
                     })->orWhereHas('comments', function($qc) use ($startDate, $endDate) {
@@ -217,6 +218,12 @@ class BoardExportController extends Controller
             $query->whereHas('assignees', function($q) use ($memberId) {
                 $q->where('users.id', $memberId);
             });
+        }
+        
+        // 2b. Assign By Filtering
+        if ($request->filled('assign_by_id') && $request->assign_by_id !== 'all') {
+            $assignById = (int)$request->assign_by_id;
+            $query->where('user_id', $assignById);
         }
 
         // 3. Status Filtering
@@ -268,20 +275,14 @@ class BoardExportController extends Controller
 
             if ($user->isQc()) {
                 // QC Personal Report scope:
-                //  • Cards assigned to this QC member
-                //  • OR cards this QC member moved to Supervisor
-                //  • OR cards where THIS QC user has commented "QC approved"
+                //  • ONLY cards where THIS QC user has commented "QC approved" within the selected date range
                 $userId = $user->id;
                 $query->where(function($q) use ($userId, $startDate, $endDate) {
                     $q->whereHas('comments', function($qc) use ($userId, $startDate, $endDate) {
-                        $qc->where('user_id', $userId);
+                        $qc->where('user_id', $userId)
+                           ->whereRaw("LOWER(content) LIKE '%qc approved%'");
                         if (isset($startDate)) $qc->where('created_at', '>=', $startDate);
                         if (isset($endDate)) $qc->where('created_at', '<=', $endDate);
-                    })
-                    ->orWhereHas('activities', function($qal) use ($userId, $startDate, $endDate) {
-                        $qal->where('user_id', $userId);
-                        if (isset($startDate)) $qal->where('created_at', '>=', $startDate);
-                        if (isset($endDate)) $qal->where('created_at', '<=', $endDate);
                     });
                 });
 
@@ -315,6 +316,73 @@ class BoardExportController extends Controller
         }
 
         return $query;
+    }
+
+    private function assignActivityDates($cards, $startDate, $endDate, $isPersonalExport, $isQc)
+    {
+        foreach ($cards as $card) {
+            $activityDate = null;
+            
+            // Collect all timestamps
+            $timestamps = collect();
+
+            if ($isPersonalExport && $isQc) {
+                // For QC Personal Report, ONLY look at "QC approved" comments by this user
+                $userId = auth()->id();
+                foreach ($card->comments as $comment) {
+                    if ($comment->user_id === $userId && stripos($comment->content ?? $comment->body, 'qc approved') !== false) {
+                        $timestamps->push($comment->created_at);
+                    }
+                }
+            } else {
+                // Regular report or other personal reports
+                foreach ($card->activities as $activity) {
+                    if ($activity->action !== 'created') {
+                        $timestamps->push($activity->created_at);
+                    }
+                }
+                foreach ($card->comments as $comment) {
+                    if (!$comment->is_system) {
+                        $timestamps->push($comment->created_at);
+                    }
+                }
+                // If there are no activities or comments, fallback to updated_at
+                if ($timestamps->isEmpty()) {
+                    $timestamps->push($card->updated_at);
+                }
+            }
+
+            // Filter timestamps within the requested date range
+            if ($startDate || $endDate) {
+                $filtered = $timestamps->filter(function($ts) use ($startDate, $endDate) {
+                    $valid = true;
+                    if ($startDate && $ts < $startDate) $valid = false;
+                    if ($endDate && $ts > $endDate) $valid = false;
+                    return $valid;
+                });
+                
+                // If we found activities in the range, use the most recent one in that range
+                if ($filtered->isNotEmpty()) {
+                    $activityDate = $filtered->max();
+                } else {
+                    // Fallback to the absolute latest activity (though this card shouldn't be here if strictly filtered)
+                    $activityDate = $timestamps->max();
+                }
+            } else {
+                // No date filter, just use the latest activity overall
+                $activityDate = $timestamps->max();
+            }
+
+            // Set the computed date as a virtual attribute on the card
+            // Use Cambodia timezone for display since that's what the user expects
+            if ($activityDate) {
+                $card->computed_activity_date = \Carbon\Carbon::parse($activityDate)->setTimezone('Asia/Phnom_Penh');
+            } else {
+                $card->computed_activity_date = $card->created_at ? \Carbon\Carbon::parse($card->created_at)->setTimezone('Asia/Phnom_Penh') : null;
+            }
+        }
+
+        return $cards;
     }
 
     /**
@@ -372,19 +440,44 @@ class BoardExportController extends Controller
         }
 
         $period = 'All Time';
+        $filterStartDate = null;
+        $filterEndDate = null;
+        $now = Carbon::now('Asia/Phnom_Penh');
+
         if ($request->filled('date_range')) {
             switch ($request->date_range) {
-                case 'this_week': $period = 'This Week'; break;
-                case 'this_month': $period = 'This Month'; break;
-                case 'last_month': $period = 'Last Month'; break;
+                case 'today': 
+                    $period = 'Today'; 
+                    $filterStartDate = $now->copy()->startOfDay()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfDay()->setTimezone('UTC');
+                    break;
+                case 'this_week': 
+                    $period = 'This Week';
+                    $filterStartDate = $now->copy()->startOfWeek()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfWeek()->setTimezone('UTC');
+                    break;
+                case 'this_month': 
+                    $period = 'This Month';
+                    $filterStartDate = $now->copy()->startOfMonth()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfMonth()->setTimezone('UTC');
+                    break;
+                case 'last_month': 
+                    $period = 'Last Month';
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth()->setTimezone('UTC');
+                    break;
                 case 'custom':
                 case 'custom_period':
-                    $start = $request->start_date ? Carbon::parse($request->start_date)->format('M d, Y') : 'Beginning';
-                    $end = $request->end_date ? Carbon::parse($request->end_date)->format('M d, Y') : 'End';
+                    $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
+                    $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
                     $period = "$start - $end";
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC');
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC');
                     break;
             }
         }
+
+        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, false, false);
 
         $headers = [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
@@ -483,40 +576,42 @@ class BoardExportController extends Controller
         $period = 'All Time';
         $filterStartDate = null;
         $filterEndDate = null;
-        $now = Carbon::now();
+        $now = Carbon::now('Asia/Phnom_Penh');
         
         if ($request->filled('date_range')) {
             switch ($request->date_range) {
                 case 'today': 
                     $period = 'Today'; 
-                    $filterStartDate = $now->copy()->startOfDay();
-                    $filterEndDate = $now->copy()->endOfDay();
+                    $filterStartDate = $now->copy()->startOfDay()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfDay()->setTimezone('UTC');
                     break;
                 case 'this_week': 
                     $period = 'This Week'; 
-                    $filterStartDate = $now->copy()->startOfWeek();
-                    $filterEndDate = $now->copy()->endOfWeek();
+                    $filterStartDate = $now->copy()->startOfWeek()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfWeek()->setTimezone('UTC');
                     break;
                 case 'this_month': 
                     $period = 'This Month'; 
-                    $filterStartDate = $now->copy()->startOfMonth();
-                    $filterEndDate = $now->copy()->endOfMonth();
+                    $filterStartDate = $now->copy()->startOfMonth()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfMonth()->setTimezone('UTC');
                     break;
                 case 'last_month': 
                     $period = 'Last Month'; 
-                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
-                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth()->setTimezone('UTC');
                     break;
                 case 'custom':
                 case 'custom_period':
-                    $start = $request->start_date ? Carbon::parse($request->start_date)->format('M d, Y') : 'Beginning';
-                    $end = $request->end_date ? Carbon::parse($request->end_date)->format('M d, Y') : 'End';
+                    $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
+                    $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
                     $period = "$start - $end";
-                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date)->startOfDay();
-                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date)->endOfDay();
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC');
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC');
                     break;
             }
         }
+
+        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, false, false);
 
         $labelStats = [];
         foreach ($cards as $c) {
@@ -621,40 +716,42 @@ class BoardExportController extends Controller
         $period = 'All Time';
         $filterStartDate = null;
         $filterEndDate = null;
-        $now = Carbon::now();
+        $now = Carbon::now('Asia/Phnom_Penh');
         
         if ($request->filled('date_range')) {
             switch ($request->date_range) {
                 case 'today': 
                     $period = 'Today'; 
-                    $filterStartDate = $now->copy()->startOfDay();
-                    $filterEndDate = $now->copy()->endOfDay();
+                    $filterStartDate = $now->copy()->startOfDay()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfDay()->setTimezone('UTC');
                     break;
                 case 'this_week': 
                     $period = 'This Week'; 
-                    $filterStartDate = $now->copy()->startOfWeek();
-                    $filterEndDate = $now->copy()->endOfWeek();
+                    $filterStartDate = $now->copy()->startOfWeek()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfWeek()->setTimezone('UTC');
                     break;
                 case 'this_month': 
                     $period = 'This Month'; 
-                    $filterStartDate = $now->copy()->startOfMonth();
-                    $filterEndDate = $now->copy()->endOfMonth();
+                    $filterStartDate = $now->copy()->startOfMonth()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->endOfMonth()->setTimezone('UTC');
                     break;
                 case 'last_month': 
                     $period = 'Last Month'; 
-                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
-                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth()->setTimezone('UTC');
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth()->setTimezone('UTC');
                     break;
                 case 'custom':
                 case 'custom_period':
-                    $start = $request->start_date ? Carbon::parse($request->start_date)->format('M d, Y') : 'Beginning';
-                    $end = $request->end_date ? Carbon::parse($request->end_date)->format('M d, Y') : 'End';
+                    $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
+                    $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
                     $period = "$start - $end";
-                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date)->startOfDay();
-                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date)->endOfDay();
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC');
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC');
                     break;
             }
         }
+
+        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, true, auth()->user()->isQc());
 
         if ($format === 'csv') {
             // A card is "completed" when physically in a list named "Approved" (Supervisor approved it).

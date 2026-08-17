@@ -124,6 +124,7 @@ window.trelloBoard = function(config) {
       startDate: '',
       endDate: '',
       memberId: 'all',
+      assignById: 'all',
       statuses: ['draft', 'in_progress', 'review', 'completed', 'archived'],
       includeDesc: false,
       includeComments: false
@@ -1475,7 +1476,7 @@ window.trelloBoard = function(config) {
       card.status = wasApproved ? 'in_progress' : 'approved';
       
       try {
-        const res = await this.api(`/cards/${card.id}/toggle-approve`, 'POST', {});
+        const res = await this.api(`/boards/cards/${card.id}/toggle-approve`, 'POST', {});
         if (res.card) {
           Object.assign(card, res.card);
           window.showToast(res.message || 'Task approval toggled.');
@@ -2267,6 +2268,9 @@ window.trelloBoard = function(config) {
 
       // Member
       params.append('member_id', em.memberId);
+      
+      // Assign By
+      params.append('assign_by_id', em.assignById);
 
       // Statuses
       if (em.statuses.length === 0) {

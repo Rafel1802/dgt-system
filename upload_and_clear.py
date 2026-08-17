@@ -110,7 +110,7 @@ if __name__ == "__main__":
         '" && '
     )
     tinker_clean = PHP + ' artisan tinker --execute="App\\Models\\SocialMediaClass::whereIn(\'name\', [\'Long Landscape\', \'Share Blog\', \'Short Reel\', \'Poster Design\', \'Reel\'])->delete();" && '
-
+    
     ssh_cmd = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
         (

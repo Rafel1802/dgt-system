@@ -589,6 +589,23 @@ class CardController extends Controller
         ], 201);
     }
 
+    public function toggleApprove(Card $card, \App\Services\KanbanService $kanbanService): JsonResponse
+    {
+        $this->authorize('approve', $card);
+
+        $card = $kanbanService->toggleApproveCard($card, auth()->user());
+
+        $status = $card->status->value === 'approved' ? 'approved' : 'unapproved';
+        return response()->json([
+            'success' => true,
+            'message' => "Task {$status}! Notifications sent.",
+            'card'    => $card,
+        ]);
+    }
+
+    /**
+     * Mark a blocked card as fixed/completed (Supervisor only)
+     */
     public function completeBlock(Card $card): JsonResponse
     {
         $user = auth()->user();
@@ -735,11 +752,7 @@ class CardController extends Controller
             'is_system' => false,
         ]);
 
-        // Move commented card to top of its list
-        Card::where('board_list_id', $card->board_list_id)
-            ->where('id', '!=', $card->id)
-            ->increment('position');
-        $card->update(['position' => 0]);
+        // Card no longer moves to top when commented
         
         // Parse @mentions — match by username OR by name-with-no-spaces (fallback)
         preg_match_all('/(?:^|\s)@([\w.\-]+)/', $validated['body'], $matches);

@@ -81,6 +81,11 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         // Dashboard
+        Route::get('/fix-followups', function () {
+            $count = \App\Models\WebsiteFollowUp::whereDate('created_at', '2026-08-14')->update(['created_at' => '2026-08-15 00:00:00']);
+            return "Updated $count";
+        });
+
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::view('/mac-app', 'downloads.mac-app')->name('downloads.mac-app');
         // Internal-only: validates Livewire + Turbo coexist safely. Not linked from any menu. Remove after Livewire rollout is verified stable.
@@ -216,6 +221,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/cards/{card}/move', [BoardCardController::class, 'move'])->name('cards.move');
             Route::post('/cards/{card}/copy', [BoardCardController::class, 'copy'])->name('cards.copy');
             Route::post('/cards/{card}/block-complete', [BoardCardController::class, 'completeBlock'])->name('cards.block-complete');
+            Route::post('/cards/{card}/toggle-approve', [BoardCardController::class, 'toggleApprove'])->name('cards.toggle-approve');
             Route::post('/cards/{card}/members', [BoardCardController::class, 'toggleMember'])->name('cards.members');
             Route::post('/cards/{card}/labels', [BoardCardController::class, 'toggleLabel'])->name('cards.labels');
 

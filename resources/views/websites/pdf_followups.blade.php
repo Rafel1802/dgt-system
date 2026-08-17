@@ -151,7 +151,7 @@
 <body>
 
     <div class="header-container">
-        <h1 class="header-title">Follow Ups Report</h1>
+        <h1 class="header-title"><img src="data:image/webp;base64,{{ base64_encode(file_get_contents(public_path('images/kiuqlogo.webp'))) }}" alt="Logo" style="height: 24px; vertical-align: text-bottom; margin-right: 8px;">Follow Ups Report</h1>
         <p class="header-subtitle">Website Build & SEO Tracking System</p>
     </div>
 

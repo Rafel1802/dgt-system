@@ -111,15 +111,26 @@
           </div>
         </div>
 
-        {{-- Assigned Members --}}
-        <div>
-          <label class="block font-semibold text-slate-600 mb-1">Assigned Member</label>
-          <select x-model="exportModal.memberId" class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200">
-            <option value="all">All Members</option>
-            <template x-for="m in allBoardMembers" :key="m.id">
-              <option :value="m.id" x-text="m.name"></option>
-            </template>
-          </select>
+        {{-- Assigned Members & Assign By --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Assigned Member</label>
+            <select x-model="exportModal.memberId" class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200">
+              <option value="all">All Members</option>
+              <template x-for="m in allBoardMembers" :key="m.id">
+                <option :value="m.id" x-text="m.name"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Assign By</label>
+            <select x-model="exportModal.assignById" class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200">
+              <option value="all">All Members</option>
+              <template x-for="m in allBoardMembers" :key="m.id">
+                <option :value="m.id" x-text="m.name"></option>
+              </template>
+            </select>
+          </div>
         </div>
 
         {{-- Task Status Checkboxes --}}

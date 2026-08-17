@@ -14,10 +14,18 @@ class WebsiteFollowUpController extends Controller
     const ALLOWED_ROLES = ['super-admin', 'admin-digital', 'digital-team', 'boss'];
     const ADMIN_ROLES   = ['super-admin', 'admin-digital'];
 
+    private function canManageFollowUp($user): bool
+    {
+        return $user?->hasAnyRole(self::ALLOWED_ROLES) || 
+               $user?->isQcOrSupervisor() || 
+               str_contains(strtolower($user?->name ?? ''), 'qc') ||
+               \App\Models\WebsiteMember::where('user_id', $user?->id)->whereIn('role', ['QC', 'Supervisor'])->exists();
+    }
+
     // ── STORE ─────────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ALLOWED_ROLES), 403);
+        abort_unless($this->canManageFollowUp(auth()->user()), 403);
 
         $validated = $request->validate([
             'website_id'     => 'required|exists:websites,id',
@@ -49,6 +57,18 @@ class WebsiteFollowUpController extends Controller
             } catch (\Exception $e) {}
         }
 
+        $recentDuplicate = WebsiteFollowUp::where('website_id', $validated['website_id'])
+            ->where('created_by', auth()->id())
+            ->where('type', $finalType)
+            ->where('url', $validated['url'] ?? null)
+            ->where('updated_at', '>=', now()->subSeconds(10))
+            ->first();
+
+        if ($recentDuplicate) {
+            return redirect()->route('websites.index', ['tab' => 'follow-up'])
+                ->with('success', "Follow-up added successfully.");
+        }
+
         $followUp = new WebsiteFollowUp([
             'website_id'     => $validated['website_id'],
             'type'           => $finalType,
@@ -63,8 +83,8 @@ class WebsiteFollowUpController extends Controller
         ]);
 
         if (!empty($validated['created_at'])) {
-            // Parse with app timezone so the stored UTC timestamp aligns with the date filter
-            $followUp->created_at = \Carbon\Carbon::parse($validated['created_at'], config('app.timezone', 'UTC'))->startOfDay()->utc();
+            // Parse with app timezone so the stored timestamp aligns with the date filter
+            $followUp->created_at = \Carbon\Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
         }
         $followUp->save();
 
@@ -78,7 +98,7 @@ class WebsiteFollowUpController extends Controller
     // ── UPDATE ────────────────────────────────────────────────────────────────
     public function update(Request $request, WebsiteFollowUp $websiteFollowUp)
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ALLOWED_ROLES), 403);
+        abort_unless($this->canManageFollowUp(auth()->user()), 403);
 
         $validated = $request->validate([
             'type'           => 'required|string|max:100',
@@ -120,7 +140,7 @@ class WebsiteFollowUpController extends Controller
         ]);
 
         if (!empty($validated['created_at'])) {
-            $websiteFollowUp->created_at = \Carbon\Carbon::parse($validated['created_at']);
+            $websiteFollowUp->created_at = \Carbon\Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
         }
         $websiteFollowUp->save();
 
@@ -128,10 +148,9 @@ class WebsiteFollowUpController extends Controller
             ->with('success', "Follow-up updated.");
     }
 
-    // ── DESTROY ───────────────────────────────────────────────────────────────
     public function destroy(WebsiteFollowUp $websiteFollowUp)
     {
-        abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES), 403);
+        abort_unless($this->canManageFollowUp(auth()->user()), 403);
 
         $websiteFollowUp->delete();
 

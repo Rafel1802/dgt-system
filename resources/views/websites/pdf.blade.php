@@ -227,7 +227,7 @@
 
     {{-- ── REPORT HEADER ──────────────────────────────────────────────── --}}
     <div class="report-header">
-        <h1>📊 All Websites Report</h1>
+        <h1><img src="data:image/webp;base64,{{ base64_encode(file_get_contents(public_path('images/kiuqlogo.webp'))) }}" alt="Logo" style="height: 24px; vertical-align: text-bottom; margin-right: 8px;">All Websites Report</h1>
         <div class="meta">
             <span>Generated: <strong>{{ now()->format('d M Y, g:i a') }}</strong></span>
             @if($startDate || $endDate)
@@ -239,6 +239,14 @@
             @endif
             <span>Total Websites: <strong>{{ $websites->count() }}</strong></span>
         </div>
+        @if(isset($qcStats))
+        <div style="margin-top: 10px; display: inline-block; background: #f8fafc; padding: 6px 10px; border-radius: 4px; border: 1px solid #e2e8f0;">
+            <span style="color: #4338ca; font-weight: bold; margin-right: 12px;">{{ $qcStats['checked'] }} <span style="color: #64748b; font-weight: normal;">Checked</span></span>
+            <span style="color: #047857; font-weight: bold; margin-right: 12px;">{{ $qcStats['approved'] }} <span style="color: #64748b; font-weight: normal;">Approved</span></span>
+            <span style="color: #be123c; font-weight: bold; margin-right: 12px;">{{ $qcStats['error'] }} <span style="color: #64748b; font-weight: normal;">Errors</span></span>
+            <span style="color: #b45309; font-weight: bold;">{{ $qcStats['comment'] }} <span style="color: #64748b; font-weight: normal;">Comments</span></span>
+        </div>
+        @endif
     </div>
 
     {{-- ── WEBSITES ────────────────────────────────────────────────────── --}}
@@ -264,11 +272,11 @@
         // Filter progress logs by date range
         $allProgressLogs = $ws->progressLogs->sortBy('created_at');
         $filteredProgressLogs = $allProgressLogs;
-        if (!empty($startDate) || !empty($endDate)) {
-            $filteredProgressLogs = $allProgressLogs->filter(function($log) use ($startDate, $endDate) {
-                $logDate = $log->created_at->startOfDay();
-                if (!empty($startDate) && $logDate < \Carbon\Carbon::parse($startDate)->startOfDay()) return false;
-                if (!empty($endDate) && $logDate > \Carbon\Carbon::parse($endDate)->endOfDay()) return false;
+        if (!empty($filterStart) || !empty($filterEnd)) {
+            $filteredProgressLogs = $allProgressLogs->filter(function($log) use ($filterStart, $filterEnd) {
+                $logDate = $log->created_at;
+                if (!empty($filterStart) && $logDate < $filterStart) return false;
+                if (!empty($filterEnd) && $logDate > $filterEnd) return false;
                 return true;
             });
         }
@@ -345,18 +353,18 @@
         @if($ws->error_note || $ws->error_link)
         <div class="error-box">
             @if($ws->error_note)
-            <div class="error-label">⚠ Current Error / Issue</div>
+            <div class="error-label">Current Error / Issue</div>
             <div class="error-note">{{ $ws->error_note }}</div>
             @endif
             @if($ws->error_link)
-            <div class="canva-link">📎 Reference / Canva Link: <a href="{{ $ws->error_link }}">{{ $ws->error_link }}</a></div>
+            <div class="canva-link">Reference / Canva Link: <a href="{{ $ws->error_link }}">{{ $ws->error_link }}</a></div>
             @endif
         </div>
         @endif
 
         {{-- Update History Section --}}
         <div class="history-title">
-            📋 Update History
+            Update History
             @if($startDate || $endDate)
                 — <span style="color:#4f46e5;">{{ $filteredProgressLogs->count() }} update(s) in selected date range</span>
                 ({{ $allProgressLogs->count() }} total all time)
@@ -377,17 +385,11 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($allProgressLogs as $log)
+                @foreach($filteredProgressLogs as $log)
                 @php
-                    $inRange = true;
-                    if (!empty($startDate) || !empty($endDate)) {
-                        $logDate = $log->created_at->startOfDay();
-                        if (!empty($startDate) && $logDate < \Carbon\Carbon::parse($startDate)->startOfDay()) $inRange = false;
-                        if (!empty($endDate) && $logDate > \Carbon\Carbon::parse($endDate)->endOfDay()) $inRange = false;
-                    }
                     $pillClass = $getPillClass((int)$log->percent);
                 @endphp
-                <tr class="{{ ($startDate || $endDate) && $inRange ? 'in-range' : '' }}">
+                <tr>
                     <td>{{ $log->created_at->format('d/m/Y H:i') }}</td>
                     <td>{{ $log->user?->name ?? 'System' }}</td>
                     <td>
@@ -410,7 +412,7 @@
         {{-- Follow Ups Section --}}
         @if($ws->followUps->count() > 0)
         <div class="history-title" style="background:#fefce8; color:#78350f;">
-            🔗 Follow Ups ({{ $ws->followUps->count() }})
+            Follow Ups ({{ $ws->followUps->count() }})
         </div>
         <table class="followups-table">
             <thead>

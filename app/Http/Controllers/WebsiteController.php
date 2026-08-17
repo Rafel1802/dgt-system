@@ -1028,9 +1028,12 @@ class WebsiteController extends Controller
 
         $format = $request->get('format', 'csv');
         $tab = $request->get('tab', 'build');
-        $startDate = $request->get('start_date');
-        $endDate = $request->get('end_date');
+        $startDateRaw = $request->get('start_date');
+        $endDateRaw = $request->get('end_date');
         $memberId = $request->get('member_id');
+        
+        $filterStart = $startDateRaw ? \Carbon\Carbon::parse($startDateRaw, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC') : null;
+        $filterEnd = $endDateRaw ? \Carbon\Carbon::parse($endDateRaw, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC') : null;
 
         $user = auth()->user();
         if (!$user?->hasAnyRole(['super-admin', 'admin-digital']) && !$user?->hasRole('boss')) {
@@ -1048,12 +1051,12 @@ class WebsiteController extends Controller
 
             if ($isQcReport) {
                 $query->whereNotNull('qc_checked_at');
-                if ($startDate) $query->whereDate('qc_checked_at', '>=', $startDate);
-                if ($endDate) $query->whereDate('qc_checked_at', '<=', $endDate);
+                if ($filterStart) $query->where('qc_checked_at', '>=', $filterStart);
+                if ($filterEnd) $query->where('qc_checked_at', '<=', $filterEnd);
                 if ($memberId) $query->where('qc_checked_by', $memberId);
             } else {
-                if ($startDate) $query->whereDate('created_at', '>=', $startDate);
-                if ($endDate) $query->whereDate('created_at', '<=', $endDate);
+                if ($filterStart) $query->where('created_at', '>=', $filterStart);
+                if ($filterEnd) $query->where('created_at', '<=', $filterEnd);
                 if ($memberId) {
                     $query->where(function($q) use ($memberId) {
                         $q->where('created_by', $memberId)->orWhere('assigned_to', $memberId);
@@ -1066,10 +1069,20 @@ class WebsiteController extends Controller
             if ($format === 'csv') {
                 return $this->exportFollowUpsCsv($followUps);
             }
-            if ($format === 'pdf') {
-                $this->logActivity('report_exported', 'Follow Ups report exported as PDF.');
+            if (in_array($format, ['pdf', 'html'])) {
+                $this->logActivity('report_exported', 'Follow Ups report exported as ' . strtoupper($format) . '.');
                 $memberName = $memberId ? (\App\Models\User::find($memberId)?->name) : null;
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('websites.pdf_followups', compact('followUps', 'startDate', 'endDate', 'memberName'))
+                $pdfView = view('websites.pdf_followups', [
+                    'followUps' => $followUps,
+                    'startDate' => $startDateRaw,
+                    'endDate' => $endDateRaw,
+                    'memberName' => $memberName
+                ]);
+                
+                if ($format === 'html') return $pdfView;
+                
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($pdfView->render())
+                    ->setOption(['isRemoteEnabled' => true])
                     ->setPaper('a4', 'landscape');
                 return $pdf->download('follow-ups-report-' . now()->format('Y-m-d') . '.pdf');
             }
@@ -1083,47 +1096,114 @@ class WebsiteController extends Controller
         ])->where('is_archived', false)
           ->orderBy('name');
 
+        $targetUser = $memberId ? \App\Models\User::find($memberId) : null;
+        $isQcReport = $targetUser && $targetUser->isQc();
+
         if ($memberId) {
-            $query->where('handled_by', $memberId);
+            if ($isQcReport) {
+                $query->where(function ($q) use ($memberId, $filterStart, $filterEnd) {
+                    $q->whereHas('activityLogs', function($logQ) use ($memberId, $filterStart, $filterEnd) {
+                        $logQ->where('user_id', $memberId);
+                        if ($filterStart) $logQ->where('created_at', '>=', $filterStart);
+                        if ($filterEnd)   $logQ->where('created_at', '<=', $filterEnd);
+                    })
+                    ->orWhereHas('followUps', function($fuQ) use ($memberId, $filterStart, $filterEnd) {
+                        $fuQ->where('qc_checked_by', $memberId);
+                        if ($filterStart) $fuQ->where('qc_checked_at', '>=', $filterStart);
+                        if ($filterEnd)   $fuQ->where('qc_checked_at', '<=', $filterEnd);
+                    })
+                    ->orWhere(function($wsQ) use ($memberId, $filterStart, $filterEnd) {
+                        $wsQ->where('qc_approved_by', $memberId);
+                        if ($filterStart) $wsQ->where('qc_approved_at', '>=', $filterStart);
+                        if ($filterEnd)   $wsQ->where('qc_approved_at', '<=', $filterEnd);
+                    });
+                });
+            } else {
+                $query->where('handled_by', $memberId);
+            }
         }
         
-        if ($startDate || $endDate) {
-            $query->where(function ($group) use ($startDate, $endDate) {
-                $group->where(function ($q) use ($startDate, $endDate) {
-                    // If a website was just created in this period
-                    if ($startDate) $q->where('created_at', '>=', $startDate);
-                    if ($endDate) $q->where('created_at', '<=', $endDate);
-                })->orWhereHas('progressLogs', function ($q) use ($startDate, $endDate) {
-                    if ($startDate) $q->where('created_at', '>=', $startDate);
-                    if ($endDate) $q->where('created_at', '<=', $endDate);
-                })->orWhereHas('maintenanceLogs', function ($q) use ($startDate, $endDate) {
-                    if ($startDate) $q->where('created_at', '>=', $startDate);
-                    if ($endDate) $q->where('created_at', '<=', $endDate);
-                })->orWhereHas('activityLogs', function ($q) use ($startDate, $endDate) {
-                    if ($startDate) $q->where('created_at', '>=', $startDate);
-                    if ($endDate) $q->where('created_at', '<=', $endDate);
-                })->orWhereHas('followUps', function ($q) use ($startDate, $endDate) {
-                    if ($startDate) $q->where('created_at', '>=', $startDate);
-                    if ($endDate) $q->where('created_at', '<=', $endDate);
+        if ($filterStart || $filterEnd) {
+            $query->where(function ($group) use ($filterStart, $filterEnd) {
+                $group->where(function ($q) use ($filterStart, $filterEnd) {
+                    if ($filterStart) $q->where('created_at', '>=', $filterStart);
+                    if ($filterEnd) $q->where('created_at', '<=', $filterEnd);
+                })->orWhereHas('progressLogs', function ($q) use ($filterStart, $filterEnd) {
+                    if ($filterStart) $q->where('created_at', '>=', $filterStart);
+                    if ($filterEnd) $q->where('created_at', '<=', $filterEnd);
+                })->orWhereHas('maintenanceLogs', function ($q) use ($filterStart, $filterEnd) {
+                    if ($filterStart) $q->where('created_at', '>=', $filterStart);
+                    if ($filterEnd) $q->where('created_at', '<=', $filterEnd);
+                })->orWhereHas('activityLogs', function ($q) use ($filterStart, $filterEnd) {
+                    if ($filterStart) $q->where('created_at', '>=', $filterStart);
+                    if ($filterEnd) $q->where('created_at', '<=', $filterEnd);
+                })->orWhereHas('followUps', function ($q) use ($filterStart, $filterEnd) {
+                    if ($filterStart) $q->where('created_at', '>=', $filterStart);
+                    if ($filterEnd) $q->where('created_at', '<=', $filterEnd);
                 });
             });
         }
 
         $websites = $query->get();
 
-        if ($format === 'csv') {
-            return $this->exportCsv($websites, $startDate, $endDate);
+        $qcStats = null;
+        if ($isQcReport && $memberId) {
+            $qcStats = [
+                'checked' => $websites->count(),
+                'approved' => 0,
+                'error' => 0,
+                'comment' => 0,
+            ];
+            foreach ($websites as $ws) {
+                $logs = $ws->activityLogs->where('user_id', $memberId);
+                if ($filterStart) $logs = $logs->where('created_at', '>=', $filterStart);
+                if ($filterEnd) $logs = $logs->where('created_at', '<=', $filterEnd);
+                
+                foreach ($logs as $log) {
+                    if ($log->action === 'qc_approved') $qcStats['approved']++;
+                    if ($log->action === 'qc_error') $qcStats['error']++;
+                    if ($log->action === 'history_comment' || str_contains(strtolower($log->action ?? ''), 'comment')) $qcStats['comment']++;
+                }
+            }
         }
 
-        if ($format === 'pdf') {
-            $this->logActivity('report_exported', 'All Websites report exported as PDF.');
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('websites.pdf', compact('websites', 'startDate', 'endDate'))
+        $download = $request->boolean('download');
+
+        if (!$download && in_array($format, ['pdf', 'csv', 'preview'])) {
+            return view('websites.reports.preview', [
+                'websites' => $websites,
+                'startDate' => $startDateRaw,
+                'endDate' => $endDateRaw,
+                'filterStart' => $filterStart,
+                'filterEnd' => $filterEnd,
+                'format' => $format,
+                'tab' => $tab,
+                'memberId' => $memberId,
+                'qcStats' => $qcStats
+            ]);
+        }
+
+        if (in_array($format, ['pdf', 'html'])) {
+            $this->logActivity('report_exported', 'All Websites report exported as ' . strtoupper($format) . '.');
+            $pdfView = view('websites.pdf', [
+                'websites' => $websites,
+                'startDate' => $startDateRaw,
+                'endDate' => $endDateRaw,
+                'filterStart' => $filterStart,
+                'filterEnd' => $filterEnd,
+                'qcStats' => $qcStats
+            ]);
+            
+            if ($format === 'html') return $pdfView;
+            
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($pdfView->render())
+                ->setOption(['isRemoteEnabled' => true])
                 ->setPaper('a4', 'landscape');
             return $pdf->download('all-websites-report-' . now()->format('Y-m-d') . '.pdf');
         }
 
         // CSV fallback
-        return $this->exportCsv($websites, $startDate, $endDate);
+        return $this->exportCsv($websites, $filterStart, $filterEnd, $qcStats);
     }
 
     public function exportPersonalReport(Request $request)
@@ -1302,7 +1382,7 @@ class WebsiteController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    private function exportCsv($websites, $startDate = null, $endDate = null)
+    private function exportCsv($websites, $startDate = null, $endDate = null, $qcStats = null)
     {
         $this->logActivity('report_exported', 'All Websites report exported as CSV.');
 
@@ -1311,8 +1391,15 @@ class WebsiteController extends Controller
             'Content-Disposition' => 'attachment; filename="all-websites-report-' . now()->format('Y-m-d') . '.csv"',
         ];
 
-        $callback = function () use ($websites, $startDate, $endDate) {
+        $callback = function () use ($websites, $startDate, $endDate, $qcStats) {
             $handle = fopen('php://output', 'w');
+
+            if (isset($qcStats)) {
+                fputcsv($handle, ['QC REPORT SUMMARY']);
+                fputcsv($handle, ['Total Checked', 'QC Approved', 'QC Errors', 'Comments']);
+                fputcsv($handle, [$qcStats['checked'], $qcStats['approved'], $qcStats['error'], $qcStats['comment']]);
+                fputcsv($handle, []);
+            }
 
             // ── SECTION 1: Website Summary Header ────────────────────────────────────
             fputcsv($handle, [
@@ -1387,9 +1474,9 @@ class WebsiteController extends Controller
                 $filteredHistory = $historyRecords;
                 if ($startDate || $endDate) {
                     $filteredHistory = $historyRecords->filter(function($record) use ($startDate, $endDate) {
-                        $logDate = $record['date']->startOfDay();
-                        if ($startDate && $logDate < \Carbon\Carbon::parse($startDate)->startOfDay()) return false;
-                        if ($endDate && $logDate > \Carbon\Carbon::parse($endDate)->endOfDay()) return false;
+                        $logDate = $record['date'];
+                        if ($startDate && $logDate < $startDate) return false;
+                        if ($endDate && $logDate > $endDate) return false;
                         return true;
                     });
                 }
@@ -1422,7 +1509,7 @@ class WebsiteController extends Controller
                 ]);
 
                 // ── History Update Rows ───────────────────────────────────────────
-                if ($historyRecords->count() > 0) {
+                if ($filteredHistory->count() > 0) {
                     fputcsv($handle, [
                         '  [HISTORY]',
                         'Date & Time',
@@ -1433,16 +1520,9 @@ class WebsiteController extends Controller
                         '', '', '', '', '', '', '', '', '', '', '', ''
                     ]);
 
-                    foreach ($historyRecords as $record) {
-                        $inRange = true;
-                        if ($startDate || $endDate) {
-                            $logDate = $record['date']->startOfDay();
-                            if ($startDate && $logDate < \Carbon\Carbon::parse($startDate)->startOfDay()) $inRange = false;
-                            if ($endDate && $logDate > \Carbon\Carbon::parse($endDate)->endOfDay()) $inRange = false;
-                        }
-
+                    foreach ($filteredHistory as $record) {
                         fputcsv($handle, [
-                            $inRange ? '  -> Update' : '  -> Update (outside range)',
+                            '  -> Update',
                             $record['date']->format('d/m/Y H:i'),
                             $record['user'],
                             $record['type'],
@@ -1878,9 +1958,10 @@ class WebsiteController extends Controller
             }
         }
 
-        $log->delete();
-
-        return response()->json(['success' => true]);
+        if ($request->filled('redirect_to')) {
+            return redirect($request->input('redirect_to'))->with('success', 'History log deleted.');
+        }
+        return back()->with('success', 'History log deleted.');
     }
 
     public function updateHistoryLog(Request $request, $id)

@@ -251,7 +251,7 @@
             <th style="width: 350px;">Task / Title</th>
             <th style="width: 100px; text-align: center;">Status</th>
             <th style="width: 150px;">Assigned Members</th>
-            <th style="width: 90px;">Created Date</th>
+            <th style="width: 90px;">Activity Date</th>
             <th style="width: 90px;">Due Date</th>
             <th style="width: 90px;">Completed Date</th>
             <th style="width: 120px;">Labels</th>
@@ -336,7 +336,7 @@
                 {{ $c->assignees->pluck('name')->join(', ') ?: 'Unassigned' }}
             </td>
             <td class="text-format">
-                {{ $c->created_at ? $c->created_at->format('Y-m-d') : 'N/A' }}
+                {{ $c->computed_activity_date ? $c->computed_activity_date->format('Y-m-d H:i') : ($c->created_at ? $c->created_at->format('Y-m-d') : 'N/A') }}
             </td>
             <td class="text-format">
                 {{ $c->due_at ? $c->due_at->format('Y-m-d') : 'None' }}

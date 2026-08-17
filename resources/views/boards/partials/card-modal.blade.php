@@ -385,7 +385,9 @@
               {{-- Files Card Grid --}}
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <template x-for="f in (activeCard?.files ?? [])" :key="f.id">
-                  <div class="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl hover:border-[#2F68ED]/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all group">
+                  <div class="relative w-full h-full flex flex-col">
+                    {{-- Normal View --}}
+                    <div x-show="attachmentModal.editingFileId !== f.id" class="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl hover:border-[#2F68ED]/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all group h-full">
                     <button type="button"
                             x-show="f.is_image"
                             @click.stop="previewAttachment(f)"
@@ -460,9 +462,36 @@
                               class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 16.5m0 0 4.5-4.5M12 16.5V3"/></svg>
                       </button>
+                      <button type="button"
+                              x-show="f.disk === 'url'"
+                              @click.stop="editAttachment(f)"
+                              title="Edit Link"
+                              class="p-2 text-[#2F68ED] hover:bg-blue-50 rounded-lg transition">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg>
+                      </button>
                       <button @click="deleteAttachment(f)" title="Remove" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916"/></svg>
                       </button>
+                    </div>
+                    </div>
+
+                    {{-- Edit Mode --}}
+                    <div x-show="attachmentModal.editingFileId === f.id" x-cloak class="p-3 bg-amber-50/50 border border-amber-200 rounded-xl h-full flex flex-col justify-center space-y-2.5">
+                      <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Name</label>
+                        <input type="text" x-model="attachmentModal.editName" @keydown.enter="amSaveEdit(f)" class="w-full text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 focus:outline-none transition-all">
+                      </div>
+                      <div x-show="f.disk === 'url'">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">URL</label>
+                        <input type="url" x-model="attachmentModal.editUrl" @keydown.enter="amSaveEdit(f)" class="w-full text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 focus:outline-none transition-all">
+                      </div>
+                      <div class="flex gap-2 pt-1">
+                        <button @click="amSaveEdit(f)" :disabled="attachmentModal.editSaving" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors">
+                          <span x-show="!attachmentModal.editSaving">Save</span>
+                          <span x-show="attachmentModal.editSaving">Saving…</span>
+                        </button>
+                        <button @click="attachmentModal.editingFileId = null" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300 transition-colors">Cancel</button>
+                      </div>
                     </div>
                   </div>
                 </template>

@@ -589,9 +589,15 @@
                               ? 'border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white'
                               : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400 hover:text-emerald-500'"
                             class="w-5 h-5 rounded-full border flex flex-shrink-0 items-center justify-center mt-0.5 transition"
-                            :title="card.status === 'Approved' || card.status === 'approved' ? 'Untick for unapproved' : 'Tick for approve'">
-                      <svg x-show="card.status !== 'Approved' && card.status !== 'approved'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor"><circle cx="12" cy="12" r="8.5" /></svg>
-                      <svg x-show="card.status === 'Approved' || card.status === 'approved'" x-cloak class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                            :title="card.status === 'Approved' || card.status === 'approved' ? 'Click to untick' : 'Click to approve'">
+                      <svg x-show="card.status !== 'Approved' && card.status !== 'approved'" class="w-3.5 h-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor">
+                        <title>Click to approve</title>
+                        <circle cx="12" cy="12" r="8.5" />
+                      </svg>
+                      <svg x-show="card.status === 'Approved' || card.status === 'approved'" x-cloak class="w-3.5 h-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                        <title>Click to untick</title>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                      </svg>
                     </button>
                   </template>
                   <template x-if="!(board?.name?.toLowerCase().includes('smm') && list.name === 'Final Captions')">
