@@ -340,4 +340,27 @@ class ShipmentControllerTest extends TestCase
         $this->assertSoftDeleted($s1);
         $this->assertSoftDeleted($s2);
     }
+
+    public function test_update_customer_direct_updates_shipment_customer_record(): void
+    {
+        $shipment = Shipment::create(['shipment_code' => 'SHP-TEST-99', 'status' => Shipment::STATUS_PENDING]);
+        $customer = ShipmentCustomer::create([
+            'shipment_id'    => $shipment->id,
+            'recipient_name' => 'Original Name',
+            'status'         => ShipmentCustomer::STATUS_PENDING,
+            'shipping_address' => 'Old Address',
+        ]);
+
+        $response = $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.updateDirect', $customer), [
+            'recipient_name' => 'Updated Name',
+            'recipient_phone' => '+15559998888',
+            'status'         => ShipmentCustomer::STATUS_IN_TRANSIT,
+            'shipping_address' => 'New Address',
+        ]);
+
+        $response->assertRedirect(route('crm.logistics.processTrucking'));
+        $this->assertEquals('Updated Name', $customer->fresh()->recipient_name);
+        $this->assertNotEmpty($customer->fresh()->recipient_phone);
+        $this->assertEquals(ShipmentCustomer::STATUS_IN_TRANSIT, $customer->fresh()->status);
+    }
 }

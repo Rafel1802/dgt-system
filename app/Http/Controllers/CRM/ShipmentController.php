@@ -119,8 +119,8 @@ class ShipmentController extends Controller
             'mode'              => $mode,
             'shipmentCustomers' => $shipmentCustomers,
             'sortBy'            => $sortBy,
-            // For the bulk "Add to Shipment" picker — active shipments only,
-            // since assigning into an already-Complete one isn't useful.
+            'crmUsers'          => CrmLookupCache::crmMembers(),
+            'customers'         => CrmLookupCache::customersCombobox(),
             'assignableShipments' => Shipment::where('status', '!=', Shipment::STATUS_COMPLETE)
                 ->latest()->limit(100)->get(['id', 'shipment_code']),
         ]);
@@ -615,6 +615,92 @@ class ShipmentController extends Controller
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Customer record updated.');
+    }
+
+    /** Direct update for a shipment customer from Process Trucking / Loaded / Delivered / Issues tabs */
+    public function updateCustomerDirect(Request $request, ShipmentCustomer $customer): RedirectResponse
+    {
+        $validated = $request->validate([
+            'customer_id'       => ['nullable', 'exists:customers,id'],
+            'recipient_name'    => ['nullable', 'string', 'max:255'],
+            'recipient_phone'   => ['nullable', 'string', 'max:50'],
+            'recipient_email'   => ['nullable', 'string', 'max:255'],
+            'shipping_address'  => ['nullable', 'string'],
+            'status'            => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
+            'handled_by'        => ['nullable', 'exists:users,id'],
+            'notes'             => ['nullable', 'string'],
+            'tracking_number'   => ['nullable', 'string', 'max:150'],
+            'shipment_id'       => ['nullable', 'exists:shipments,id'],
+            'products'          => ['nullable', 'array'],
+            'products.*.product_id'   => ['nullable', 'exists:products,id'],
+            'products.*.product_name' => ['nullable', 'string', 'max:255'],
+            'products.*.price'        => ['nullable', 'numeric', 'min:0'],
+            'products.*.quantity'     => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $productRows = $validated['products'] ?? [];
+        unset($validated['products']);
+
+        if (empty($validated['recipient_name']) && !empty($validated['customer_id'])) {
+            $cust = Customer::find($validated['customer_id']);
+            if ($cust) {
+                $validated['recipient_name'] = $cust->name;
+                $validated['recipient_phone'] = $validated['recipient_phone'] ?: ($cust->phone ?? '');
+                $validated['recipient_email'] = $validated['recipient_email'] ?: ($cust->email ?? '');
+                $validated['shipping_address'] = $validated['shipping_address'] ?: ($cust->address ?? '');
+            }
+        }
+
+        if (empty($validated['recipient_name'])) {
+            return back()->withErrors(['recipient_name' => 'Recipient name is required.'])->withInput();
+        }
+
+        if ($validated['status'] === ShipmentCustomer::STATUS_PROBLEM) {
+            if (empty($validated['notes'])) {
+                return back()->withErrors(['notes' => 'A note is required for Logistic issues (Problem status).'])->withInput();
+            }
+            if (empty($request->input('issue_date'))) {
+                return back()->withErrors(['issue_date' => 'An issue date is required for Logistic issues (Problem status).'])->withInput();
+            }
+            $formattedDate = date('d M Y', strtotime($request->input('issue_date')));
+            $prefix = "[Issue Date: {$formattedDate}] ";
+            if (! str_contains($validated['notes'], '[Issue Date:')) {
+                $validated['notes'] = $prefix . $validated['notes'];
+            }
+        }
+
+        $becameProblem = $validated['status'] === ShipmentCustomer::STATUS_PROBLEM
+            && $customer->status !== ShipmentCustomer::STATUS_PROBLEM;
+
+        $customer->update($validated);
+
+        $this->syncShipmentCustomerProducts($customer, $productRows);
+        $this->matcher->syncShipmentDelayFlags($customer);
+        $this->matcher->syncDeliveryStatus($customer);
+        $this->matcher->syncEditedShipmentCustomer($customer);
+
+        if ($customer->shipment) {
+            $this->syncShipmentCompletionStatus($customer->shipment);
+        }
+
+        if ($becameProblem) {
+            CrmTeamNotifier::notifyEbayAndSalesTeams(
+                'logistic_problem',
+                "Logistic issue · {$customer->recipient_name}",
+                route('crm.logistics.issues.index'),
+                auth()->id()
+            );
+        }
+
+        $redirectStatus = $request->input('redirect_status', 'processing');
+        $redirectRoute = match($redirectStatus) {
+            'loaded' => route('crm.logistics.loaded'),
+            'delivered' => route('crm.logistics.delivered'),
+            'issues' => route('crm.logistics.issues.index'),
+            default => route('crm.logistics.processTrucking'),
+        };
+
+        return redirect($redirectRoute)->with('success', 'Customer record updated successfully.');
     }
 
     /** Remove a customer from a shipment */

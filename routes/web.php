@@ -546,8 +546,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         // Bulk status change across multiple customers, spanning shipments — powers
                         // the Process Trucking / Loaded tabs on the shipments index.
                         Route::post('/customers/bulk-status', [ShipmentController::class, 'bulkUpdateCustomerStatus'])->name('customers.bulkStatus');
-                        // Direct delete from the Process Trucking / Loaded tabs — not nested under
-                        // {shipment} since these customers often aren't assigned to one yet.
+                        // Direct delete & edit from Process Trucking / Loaded / Delivered / Issues tabs
+                        Route::put('/customers/{customer}/direct', [ShipmentController::class, 'updateCustomerDirect'])->name('customers.updateDirect');
                         Route::delete('/customers/{customer}', [ShipmentController::class, 'destroyCustomer'])->name('customers.destroy');
                         // Bulk delete + bulk assign-to-shipment — same "spans shipments,
                         // possibly unassigned" reasoning as the bulk status route above.

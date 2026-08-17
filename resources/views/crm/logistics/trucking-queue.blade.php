@@ -67,9 +67,7 @@
     </div>
   </form>
 
-  {{-- ── Table (customer-grain: Process Trucking / Loaded / Delivered) ───────
-       Bulk-select customers — possibly from different shipments, or none yet
-       — and move them all to the next status, a shipment, or delete. --}}
+  {{-- ── Table (customer-grain: Process Trucking / Loaded / Delivered) ─────── --}}
   @php
     $nextStatus = match ($mode) {
       'processing' => \App\Models\ShipmentCustomer::STATUS_IN_TRANSIT,
@@ -86,6 +84,44 @@
     bulkShipmentId: '',
     newShipmentCode: '',
     statusLabels: {{ Js::from($statusLabels) }},
+    editModal: false,
+    editingCustomer: {
+      id: '',
+      recipient_name: '',
+      recipient_phone: '',
+      recipient_email: '',
+      shipping_address: '',
+      tracking_number: '',
+      status: 'pending',
+      handled_by: '',
+      shipment_id: '',
+      notes: '',
+      issue_date: '{{ now()->toDateString() }}',
+      products: [],
+    },
+    openEditModal(sc) {
+      this.editingCustomer = {
+        id: sc.id,
+        recipient_name: sc.recipient_name || '',
+        recipient_phone: sc.recipient_phone || '',
+        recipient_email: sc.recipient_email || '',
+        shipping_address: sc.shipping_address || '',
+        tracking_number: sc.tracking_number || '',
+        status: sc.status || 'pending',
+        handled_by: sc.handled_by || '',
+        shipment_id: sc.shipment_id || '',
+        notes: sc.notes || '',
+        issue_date: '{{ now()->toDateString() }}',
+        products: sc.products && sc.products.length ? JSON.parse(JSON.stringify(sc.products)) : [{ product_name: '', quantity: 1, price: 0 }],
+      };
+      this.editModal = true;
+    },
+    addProductRow() {
+      this.editingCustomer.products.push({ product_name: '', quantity: 1, price: 0 });
+    },
+    removeProductRow(index) {
+      this.editingCustomer.products.splice(index, 1);
+    },
     get allChecked() { return {{ $shipmentCustomers->count() }} > 0 && this.selected.length === {{ $shipmentCustomers->count() }}; },
     get actionLabel() { return 'Mark as ' + (this.statusLabels[this.bulkStatus] || this.bulkStatus); },
     toggleAll(e) { this.selected = e.target.checked ? {{ Js::from($shipmentCustomers->pluck('id')) }} : []; },
@@ -166,14 +202,19 @@
               </span>
             </td>
             <td class="px-4 py-3 text-right">
-              <form method="POST" action="{{ route('crm.logistics.shipments.customers.destroy', $sc) }}"
-                    data-confirm="Delete this customer record? This cannot be undone." data-confirm-tone="danger" class="inline">
-                @csrf @method('DELETE')
-                <input type="hidden" name="redirect_status" value="{{ $mode }}">
-                <button type="submit" class="btn btn-danger btn-icon" style="width:28px;height:28px;" title="Delete">
-                  <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+              <div class="flex justify-end items-center gap-1">
+                <button type="button" @click="openEditModal({{ Js::from($sc) }})" class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="Edit">
+                  <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg>
                 </button>
-              </form>
+                <form method="POST" action="{{ route('crm.logistics.shipments.customers.destroy', $sc) }}"
+                      data-confirm="Delete this customer record? This cannot be undone." data-confirm-tone="danger" class="inline">
+                  @csrf @method('DELETE')
+                  <input type="hidden" name="redirect_status" value="{{ $mode }}">
+                  <button type="submit" class="btn btn-danger btn-icon" style="width:28px;height:28px;" title="Delete">
+                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                  </button>
+                </form>
+              </div>
             </td>
           </tr>
           @empty
@@ -206,7 +247,6 @@
       <span class="text-xs font-semibold text-slate-600" x-text="selected.length + ' selected'"></span>
 
       <div class="flex flex-wrap items-center gap-3">
-        {{-- Change status --}}
         <form method="POST" action="{{ route('crm.logistics.shipments.customers.bulkStatus') }}" class="flex flex-wrap items-center gap-2"
               @submit="if (bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}') { if (!bulkNotes.trim()) { $event.preventDefault(); alert('A note is required for Logistic issues (Problem status).'); } else if (!bulkIssueDate) { $event.preventDefault(); alert('An issue date is required for Logistic issues (Problem status).'); } }">
           @csrf
@@ -227,7 +267,6 @@
 
         <div class="w-px h-6 bg-slate-200"></div>
 
-        {{-- Add to shipment — existing shipment, or create a new one on the spot --}}
         <form method="POST" action="{{ route('crm.logistics.shipments.customers.assign') }}" class="flex flex-wrap items-center gap-2"
               @submit="if (!bulkShipmentId) { $event.preventDefault(); alert('Pick a shipment, or choose to create a new one.'); }">
           @csrf
@@ -251,7 +290,6 @@
 
         <div class="w-px h-6 bg-slate-200"></div>
 
-        {{-- Delete --}}
         <form method="POST" action="{{ route('crm.logistics.shipments.customers.bulkDelete') }}"
               data-confirm="Delete the selected customer(s)? This cannot be undone." data-confirm-tone="danger">
           @csrf
@@ -263,6 +301,123 @@
         </form>
       </div>
     </div>
+
+    {{-- ── Edit Customer Modal ─────────────────────────────────────────────── --}}
+    <div x-show="editModal" x-cloak class="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden text-left my-8" @click.away="editModal = false">
+        <form :action="'{{ route('crm.logistics.shipments.customers.updateDirect', 0) }}'.replace('/0/', '/' + editingCustomer.id + '/')" method="POST">
+          @csrf
+          @method('PUT')
+          <input type="hidden" name="redirect_status" value="{{ $mode }}">
+
+          <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div>
+              <h3 class="font-bold text-lg text-slate-800">Edit Logistics Customer</h3>
+              <p class="text-xs text-slate-400">Update customer details, shipment, tracking, and status.</p>
+            </div>
+            <button type="button" @click="editModal = false" class="text-slate-400 hover:text-slate-600">
+              <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label text-xs font-semibold">Recipient Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="recipient_name" x-model="editingCustomer.recipient_name" required class="form-input text-sm">
+              </div>
+              <div>
+                <label class="form-label text-xs font-semibold">Recipient Phone</label>
+                <input type="text" name="recipient_phone" x-model="editingCustomer.recipient_phone" class="form-input text-sm">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label text-xs font-semibold">Recipient Email</label>
+                <input type="email" name="recipient_email" x-model="editingCustomer.recipient_email" class="form-input text-sm">
+              </div>
+              <div>
+                <label class="form-label text-xs font-semibold">Tracking #</label>
+                <input type="text" name="tracking_number" x-model="editingCustomer.tracking_number" class="form-input text-sm">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label text-xs font-semibold">Status <span class="text-rose-500">*</span></label>
+                <select name="status" x-model="editingCustomer.status" required class="form-input text-sm">
+                  @foreach(\App\Models\ShipmentCustomer::statuses() as $val => $lbl)
+                  <option value="{{ $val }}">{{ $lbl }}</option>
+                  @endforeach
+                </select>
+              </div>
+              <div>
+                <label class="form-label text-xs font-semibold">Handled By</label>
+                <select name="handled_by" x-model="editingCustomer.handled_by" class="form-input text-sm">
+                  <option value="">Unassigned</option>
+                  @foreach($crmUsers as $u)
+                  <option value="{{ $u->id }}">{{ $u->name }}</option>
+                  @endforeach
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="form-label text-xs font-semibold">Assigned Shipment</label>
+                <select name="shipment_id" x-model="editingCustomer.shipment_id" class="form-input text-sm">
+                  <option value="">Unassigned</option>
+                  @foreach($assignableShipments as $s)
+                  <option value="{{ $s->id }}">{{ $s->shipment_code }}</option>
+                  @endforeach
+                </select>
+              </div>
+              <div x-show="editingCustomer.status === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}'">
+                <label class="form-label text-xs font-semibold">Issue Date <span class="text-rose-500">*</span></label>
+                <input type="date" name="issue_date" x-model="editingCustomer.issue_date" class="form-input text-sm">
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label text-xs font-semibold">Shipping Address</label>
+              <textarea name="shipping_address" x-model="editingCustomer.shipping_address" rows="2" class="form-input text-sm"></textarea>
+            </div>
+
+            <div x-show="editingCustomer.status === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}'">
+              <label class="form-label text-xs font-semibold">Logistics Problem Notes <span class="text-rose-500">*</span></label>
+              <textarea name="notes" x-model="editingCustomer.notes" rows="2" placeholder="Required for Logistic issues" class="form-input text-sm"></textarea>
+            </div>
+
+            {{-- Product Items --}}
+            <div class="pt-3 border-t border-slate-100">
+              <div class="flex items-center justify-between mb-2">
+                <label class="form-label text-xs font-bold uppercase tracking-wider text-slate-500">Products</label>
+                <button type="button" @click="addProductRow()" class="text-xs text-indigo-600 hover:underline font-semibold">+ Add Product</button>
+              </div>
+              <div class="space-y-2">
+                <template x-for="(prod, idx) in editingCustomer.products" :key="idx">
+                  <div class="flex items-center gap-2">
+                    <input type="text" :name="'products[' + idx + '][product_name]'" x-model="prod.product_name" placeholder="Product name" class="form-input text-xs flex-1">
+                    <input type="number" :name="'products[' + idx + '][quantity]'" x-model="prod.quantity" placeholder="Qty" min="1" class="form-input text-xs w-16">
+                    <input type="number" step="0.01" :name="'products[' + idx + '][price]'" x-model="prod.price" placeholder="Price" class="form-input text-xs w-24">
+                    <button type="button" @click="removeProductRow(idx)" class="text-rose-500 hover:text-rose-700 p-1">
+                      <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
+            <button type="button" @click="editModal = false" class="btn btn-secondary text-sm">Cancel</button>
+            <button type="submit" class="btn btn-primary text-sm">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 </div>
 
