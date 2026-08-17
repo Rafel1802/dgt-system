@@ -198,22 +198,20 @@
                 <div class="kpi-card-sub">Lifetime customer order revenue</div>
             </td>
             <td class="kpi-card" style="width: 38%;">
-                <div class="kpi-card-title">CHANNEL BREAKDOWN</div>
+                <div class="kpi-card-title">CHANNEL SALES BREAKDOWN</div>
                 <div class="kpi-card-sub" style="margin-top:2px;">
-                    <span style="color:#0284c7; font-weight:bold;">eBay:</span> {{ $summaryStats['ebay_count'] ?? 0 }} &nbsp;|&nbsp;
-                    <span style="color:#8b5cf6; font-weight:bold;">Website:</span> {{ $summaryStats['website_count'] ?? 0 }} &nbsp;|&nbsp;
+                    <span style="color:#0284c7; font-weight:bold;">eBay:</span> {{ $summaryStats['ebay_count'] ?? 0 }} (${{ number_format($summaryStats['ebay_sales'] ?? 0, 2) }}) &nbsp;|&nbsp;
+                    <span style="color:#8b5cf6; font-weight:bold;">Website:</span> {{ $summaryStats['website_count'] ?? 0 }} (${{ number_format($summaryStats['website_sales'] ?? 0, 2) }}) &nbsp;|&nbsp;
                     <span style="color:#d97706; font-weight:bold;">Logistics:</span> {{ $summaryStats['logistics_count'] ?? 0 }}
                 </div>
                 @php
-                    $totCh = max(1, ($summaryStats['ebay_count'] ?? 0) + ($summaryStats['website_count'] ?? 0) + ($summaryStats['logistics_count'] ?? 0));
-                    $ebayPct = round((($summaryStats['ebay_count'] ?? 0) / $totCh) * 100);
-                    $webPct  = round((($summaryStats['website_count'] ?? 0) / $totCh) * 100);
-                    $logPct  = max(0, 100 - $ebayPct - $webPct);
+                    $totSales = max(1, ($summaryStats['ebay_sales'] ?? 0) + ($summaryStats['website_sales'] ?? 0));
+                    $ebayPct = round((($summaryStats['ebay_sales'] ?? 0) / $totSales) * 100);
+                    $webPct  = max(0, 100 - $ebayPct);
                 @endphp
                 <div class="chart-bar-bg">
                     <div class="chart-bar-seg" style="width: {{ $ebayPct }}%; background-color: #0284c7;"></div>
                     <div class="chart-bar-seg" style="width: {{ $webPct }}%; background-color: #8b5cf6;"></div>
-                    <div class="chart-bar-seg" style="width: {{ $logPct }}%; background-color: #d97706;"></div>
                 </div>
             </td>
         </tr>

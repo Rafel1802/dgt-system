@@ -144,12 +144,14 @@ class CrmReportController extends Controller
             'ebay_count'              => 0,
             'website_count'           => 0,
             'logistics_count'         => 0,
+            'ebay_sales'              => 0.0,
+            'website_sales'           => 0.0,
             'in_delivery_count'       => ShipmentCustomer::whereIn('status', ['in_transit', 'shipped', 'out_for_delivery', 'active'])->count(),
             'delivered_count'         => ShipmentCustomer::where('status', 'delivered')->count(),
             'waiting_pickup_count'    => ShipmentCustomer::whereIn('status', ['ready_for_pickup', 'waiting_pickup', 'pending'])->count(),
-            'logistic_issues_count'   => ShipmentCustomer::where('status', 'problem')->count() + EbayCustomerRecord::where('shipment_delay', true)->count(),
-            'negative_feedback_count' => EbayCustomerRecord::whereIn('tab_type', ['potential_negatives', 'negatives_feedbacks'])->count(),
-            'technical_issues_count'  => \App\Models\TechSupportCase::where('status', '!=', 'resolved')->count(),
+            'logistic_issues_count'   => 0,
+            'negative_feedback_count' => 0,
+            'technical_issues_count'  => 0,
         ];
 
         foreach ($data as $row) {
@@ -160,19 +162,60 @@ class CrmReportController extends Controller
                 $src = strtolower($row['source'] ?? '');
                 if (str_contains($src, 'ebay')) {
                     $summaryStats['ebay_count']++;
+                    $summaryStats['ebay_sales'] += $val;
                 } elseif (str_contains($src, 'website')) {
                     $summaryStats['website_count']++;
+                    $summaryStats['website_sales'] += $val;
                 } else {
                     $summaryStats['logistics_count']++;
                 }
+
+                $cats = $row['categories'] ?? [];
+                $statusLabel = strtolower($row['status_label'] ?? '');
+                if (in_array('shipment_delay', $cats, true) || str_contains($statusLabel, 'logistic')) {
+                    $summaryStats['logistic_issues_count']++;
+                }
+                if (in_array('negative_feedback', $cats, true) || str_contains($statusLabel, 'negative')) {
+                    $summaryStats['negative_feedback_count']++;
+                }
+                if (in_array('technical', $cats, true) || str_contains($statusLabel, 'technical')) {
+                    $summaryStats['technical_issues_count']++;
+                }
+                if (in_array('delivered', $cats, true) || str_contains($statusLabel, 'delivered')) {
+                    $summaryStats['delivered_count']++;
+                }
             } elseif ($row instanceof \App\Models\Customer) {
-                $summaryStats['total_sales'] += (float)$row->lifetime_value;
+                $val = (float)$row->lifetime_value;
+                $summaryStats['total_sales'] += $val;
                 $src = strtolower($row->source ? (is_object($row->source) ? $row->source->label() : (string)$row->source) : '');
-                if (str_contains($src, 'ebay')) $summaryStats['ebay_count']++;
-                elseif (str_contains($src, 'website')) $summaryStats['website_count']++;
-                else $summaryStats['logistics_count']++;
+                if (str_contains($src, 'ebay')) {
+                    $summaryStats['ebay_count']++;
+                    $summaryStats['ebay_sales'] += $val;
+                } elseif (str_contains($src, 'website')) {
+                    $summaryStats['website_count']++;
+                    $summaryStats['website_sales'] += $val;
+                } else {
+                    $summaryStats['logistics_count']++;
+                }
+                if ($row->shipment_delay) $summaryStats['logistic_issues_count']++;
+                if ($row->shipment_delivered) $summaryStats['delivered_count']++;
             }
         }
+
+        if ($summaryStats['logistic_issues_count'] == 0) {
+            $summaryStats['logistic_issues_count'] = ShipmentCustomer::where('status', 'problem')->count()
+                + EbayCustomerRecord::where(function ($q) {
+                    $q->where('shipment_delay', true)
+                      ->orWhere('negative_feedback_causes', 'like', '%Logistic issues%');
+                })->count();
+        }
+        if ($summaryStats['negative_feedback_count'] == 0) {
+            $summaryStats['negative_feedback_count'] = EbayCustomerRecord::whereIn('tab_type', ['potential_negatives', 'negatives_feedbacks'])->count();
+        }
+        if ($summaryStats['technical_issues_count'] == 0) {
+            $summaryStats['technical_issues_count'] = \App\Models\TechSupportCase::where('status', '!=', 'resolved')->count();
+        }
+
         if ($summaryStats['ebay_count'] == 0 && $summaryStats['website_count'] == 0 && $summaryStats['logistics_count'] == 0) {
             $summaryStats['ebay_count'] = EbayCustomerRecord::count();
             $summaryStats['website_count'] = Lead::count();
