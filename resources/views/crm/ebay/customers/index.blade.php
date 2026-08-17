@@ -55,11 +55,14 @@
   {{-- ── Toolbar ───────────────────────────────────────────────────────── --}}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="font-bold text-slate-800 text-base">{{ $tabType ? $tabs[$tabType] : 'All Records' }}</h2>
-    <a href="{{ route('crm.ebay.customers.create', $tabType ? ['tab_type' => $tabType] : []) }}"
-       class="btn btn-primary text-sm" id="btn-new-ebay-customer">
-      <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-      + New Record
-    </a>
+    <div class="flex items-center gap-2">
+      @include('crm.partials.report_export_modal', ['type' => 'ebay', 'btnClass' => 'btn btn-secondary text-sm py-1.5'])
+      <a href="{{ route('crm.ebay.customers.create', $tabType ? ['tab_type' => $tabType] : []) }}"
+         class="btn btn-primary text-sm" id="btn-new-ebay-customer">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        + New Record
+      </a>
+    </div>
   </div>
 
   {{-- ── Flash ─────────────────────────────────────────────────────────── --}}

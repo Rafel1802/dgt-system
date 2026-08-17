@@ -31,7 +31,7 @@
                 <button type="button" @click="open = false" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
             </div>
 
-            <form action="{{ route('crm.export', $type) }}" method="GET" target="_blank" @submit="setTimeout(() => { open = false; }, 500)">
+            <form action="{{ route('crm.export', $type) }}" method="GET" @submit="setTimeout(() => { open = false; }, 500)">
                 <div class="space-y-4">
                     {{-- Date Range --}}
                     <div class="grid grid-cols-2 gap-3">
