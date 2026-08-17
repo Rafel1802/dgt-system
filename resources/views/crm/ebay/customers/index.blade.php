@@ -97,11 +97,43 @@
   </form>
 
   {{-- ── Table ─────────────────────────────────────────────────────────── --}}
-  <div class="card p-0 overflow-hidden">
+  <div class="card p-0 overflow-hidden" x-data="{
+    selected: [],
+    get allChecked() { return {{ $records->count() }} > 0 && this.selected.length === {{ $records->count() }}; },
+    toggleAll(e) { this.selected = e.target.checked ? {{ Js::from($records->pluck('id')) }} : []; }
+  }">
+    {{-- Bulk Action Bar --}}
+    <div x-show="selected.length > 0" x-cloak class="flex items-center justify-between bg-slate-900 text-white px-5 py-3 border-b border-slate-800">
+      <div class="flex items-center gap-2 text-sm">
+        <span class="inline-flex items-center justify-center bg-indigo-500 text-white text-xs font-bold w-6 h-6 rounded-full" x-text="selected.length"></span>
+        <span class="font-medium" x-text="selected.length + ' eBay record(s) selected'"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        @if(auth()->user()->canDeleteCrmRecords('ebay'))
+        <form method="POST" action="{{ route('crm.ebay.customers.bulk-destroy') }}"
+              onsubmit="return confirm('Delete all ' + selected.length + ' selected record(s)? Linked customer profiles will also be deleted.')" class="inline">
+          @csrf
+          <input type="hidden" name="tab_type" value="{{ $tabType }}">
+          <template x-for="id in selected" :key="id">
+            <input type="hidden" name="record_ids[]" :value="id">
+          </template>
+          <button type="submit" class="btn btn-sm bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm">
+            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+            Delete Selected
+          </button>
+        </form>
+        @endif
+        <button type="button" @click="selected = []" class="text-xs text-slate-400 hover:text-white ml-2 underline">Clear selection</button>
+      </div>
+    </div>
+
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
           <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <th class="px-5 py-3 w-10">
+              <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" :checked="allChecked" @change="toggleAll($event)">
+            </th>
             <th class="px-4 py-3 text-left">Status</th>
             <th class="px-4 py-3 text-left">Customer</th>
             <th class="px-4 py-3 text-left">eBay Store</th>
@@ -114,6 +146,9 @@
         <tbody class="divide-y divide-slate-50">
           @forelse($records as $record)
           <tr class="hover:bg-slate-50/70 transition-colors">
+            <td class="px-5 py-3">
+              <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" value="{{ $record->id }}" x-model.number="selected">
+            </td>
             <td class="px-4 py-3">
               @php $tabColor = \App\Models\EbayCustomerRecord::tabColor($record->tab_type); @endphp
               <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $tabColor }}22; color:{{ $tabColor }}">

@@ -442,6 +442,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::post('/{lead}/orders', [WebsiteCrmController::class, 'storeOrder'])->name('orders.store');
                     Route::put('/{lead}/orders/{order}', [WebsiteCrmController::class, 'updateOrder'])->name('orders.update');
                     Route::delete('/{lead}/orders/{order}', [WebsiteCrmController::class, 'destroyOrder'])->name('orders.destroy');
+                    Route::post('/bulk-destroy', [WebsiteCrmController::class, 'bulkDestroy'])->name('bulk-destroy');
                 });
 
                 // ── eBay CRM ──────────────────────────────────────────────
@@ -481,6 +482,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::post('/{record}/follow-up', [EbayCustomerController::class, 'logFollowUp'])->name('follow-up');
                         Route::delete('/{record}/follow-up/{followUp}', [EbayCustomerController::class, 'destroyFollowUp'])->name('follow-up.destroy');
                         Route::post('/{record}/orders', [EbayCustomerController::class, 'storeOrder'])->name('orders.store');
+                        Route::post('/bulk-destroy', [EbayCustomerController::class, 'bulkDestroy'])->name('bulk-destroy');
                         Route::post('/handler-history/{entry}/confirm', [EbayCustomerController::class, 'confirmHandler'])->name('handler-history.confirm');
                     });
 
@@ -527,6 +529,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::get('/{shipment}/edit', [ShipmentController::class, 'edit'])->name('edit');
                         Route::put('/{shipment}', [ShipmentController::class, 'update'])->name('update');
                         Route::delete('/{shipment}', [ShipmentController::class, 'destroy'])->name('destroy');
+                        Route::post('/bulk-destroy', [ShipmentController::class, 'bulkDestroy'])->name('bulk-destroy');
                         // Customer sub-routes (edited via the inline modal on the shipment show page)
                         Route::post('/{shipment}/customers', [ShipmentController::class, 'addCustomer'])->name('customers.add');
                         Route::put('/{shipment}/customers/{customer}', [ShipmentController::class, 'updateCustomer'])->name('customers.update');

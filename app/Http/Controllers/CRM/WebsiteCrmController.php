@@ -527,6 +527,29 @@ class WebsiteCrmController extends Controller
         return redirect()->route('crm.website.index')->with('success', 'Lead deleted.');
     }
 
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor, eBay Supervisor, Logistic Supervisor, or Boss can delete leads.');
+
+        $validated = $request->validate([
+            'lead_ids'   => ['required', 'array', 'min:1'],
+            'lead_ids.*' => ['integer', 'exists:leads,id'],
+        ]);
+
+        $leads = Lead::whereIn('id', $validated['lead_ids'])->get();
+        $count = $leads->count();
+
+        foreach ($leads as $lead) {
+            if ($lead->customer) {
+                $this->crmService->deleteCascading($lead->customer);
+            } else {
+                $lead->delete();
+            }
+        }
+
+        return redirect()->route('crm.website.index')->with('success', "{$count} lead(s) deleted.");
+    }
+
     /** Log a standalone call (not tied to any existing lead) */
     public function storeCallReport(Request $request): RedirectResponse
     {

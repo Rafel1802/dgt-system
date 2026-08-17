@@ -322,4 +322,19 @@ class ShipmentControllerTest extends TestCase
         $this->actingAs($this->user)->get(route('crm.logistics.delivered'))->assertSee('Traveling Customer');
         $this->actingAs($this->user)->get(route('crm.logistics.loaded'))->assertDontSee('Traveling Customer');
     }
+
+    public function test_bulk_destroy_shipments(): void
+    {
+        $s1 = Shipment::create(['shipment_code' => 'SHP-DEL-1', 'status' => Shipment::STATUS_PENDING]);
+        $s2 = Shipment::create(['shipment_code' => 'SHP-DEL-2', 'status' => Shipment::STATUS_PENDING]);
+
+        $this->actingAs($this->user)
+            ->post(route('crm.logistics.shipments.bulk-destroy'), [
+                'shipment_ids' => [$s1->id, $s2->id],
+            ])
+            ->assertRedirect(route('crm.logistics.shipments.index'));
+
+        $this->assertSoftDeleted($s1);
+        $this->assertSoftDeleted($s2);
+    }
 }

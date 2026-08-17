@@ -295,6 +295,33 @@ class EbayCustomerController extends Controller
             ->with('success', 'Record deleted.');
     }
 
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, Logistic Supervisor, CRM Supervisor, or Boss can delete eBay records.');
+
+        $validated = $request->validate([
+            'record_ids'   => ['required', 'array', 'min:1'],
+            'record_ids.*' => ['integer', 'exists:ebay_customer_records,id'],
+            'tab_type'     => ['nullable', 'string'],
+        ]);
+
+        $records = EbayCustomerRecord::whereIn('id', $validated['record_ids'])->get();
+        $count = $records->count();
+
+        foreach ($records as $record) {
+            if ($record->customer) {
+                $this->crmService->deleteCascading($record->customer);
+            } else {
+                $record->delete();
+            }
+        }
+
+        $tabType = $validated['tab_type'] ?? 'all';
+
+        return redirect()->route('crm.ebay.customers.index', ['tab_type' => $tabType])
+            ->with('success', "{$count} eBay record(s) deleted.");
+    }
+
     /**
      * Close the current handler-history entry and open a new one for the
      * selected staff member. The new assignment starts unconfirmed —

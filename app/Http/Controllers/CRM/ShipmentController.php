@@ -410,6 +410,22 @@ class ShipmentController extends Controller
             ->with('success', 'Shipment deleted.');
     }
 
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, eBay Supervisor, CRM Supervisor, or Boss can delete shipments.');
+
+        $validated = $request->validate([
+            'shipment_ids'   => ['required', 'array', 'min:1'],
+            'shipment_ids.*' => ['integer', 'exists:shipments,id'],
+        ]);
+
+        $count = count($validated['shipment_ids']);
+        Shipment::whereIn('id', $validated['shipment_ids'])->delete();
+
+        return redirect()->route('crm.logistics.shipments.index')
+            ->with('success', "{$count} shipment(s) deleted.");
+    }
+
     // ── Shipment Customer sub-routes ─────────────────────────────────────────
 
     /** Add a customer to a shipment */
