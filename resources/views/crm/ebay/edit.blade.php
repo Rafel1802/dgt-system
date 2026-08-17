@@ -73,7 +73,7 @@
             <option value="">— None —</option>
             @foreach($products as $p)
               <option value="{{ $p->id }}" {{ old('product_id', $offer->product_id) == $p->id ? 'selected' : '' }}>
-                {{ $p->category?->icon() }} {{ $p->name }}
+                {{ $p->name }}{{ !empty($p->sku) ? " ({$p->sku})" : '' }}
               </option>
             @endforeach
           </select>

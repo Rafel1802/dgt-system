@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (\DB::connection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
         \DB::statement("DELETE FROM comment_reactions WHERE emoji = '?'");
         \DB::statement('ALTER TABLE comment_reactions MODIFY emoji VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL;');
     }

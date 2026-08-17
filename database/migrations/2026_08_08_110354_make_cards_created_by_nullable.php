@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
         try {
             \Illuminate\Support\Facades\DB::statement('ALTER TABLE cards DROP FOREIGN KEY cards_created_by_foreign');
         } catch (\Exception $e) {}
