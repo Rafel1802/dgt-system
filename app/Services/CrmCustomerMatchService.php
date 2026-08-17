@@ -689,6 +689,7 @@ class CrmCustomerMatchService
                 'source', 'status', 'received_at', 'created_at',
             ])
             ->with([
+                'customer:id,email,phone,lifetime_value',
                 'handler:id,name',
                 'techSupportCase',
                 // Do not column-restrict latestOfMany — SQLite/MySQL can error on ambiguous lead_id.
@@ -709,6 +710,7 @@ class CrmCustomerMatchService
                 'name'        => $lead->client_name,
                 'email'       => $lead->client_email,
                 'phone'       => $lead->client_phone,
+                'lifetime_value' => (float) ($lead->customer?->lifetime_value ?? 0),
                 'status_label'=> $lead->status?->label() ?? '',
                 'status_color'=> $lead->status?->color() ?? '#94a3b8',
                 'occurrence_label' => $lead->techSupportCase?->occurrence_label,
@@ -757,6 +759,7 @@ class CrmCustomerMatchService
                 'negative_feedback_resolved',
             ])
             ->with([
+                'customer:id,email,phone,lifetime_value',
                 'handlerHistory' => fn ($q) => $q->whereNull('ended_at')->with('user:id,name'),
                 'techSupportCase',
                 // Avoid column-restricting latestOfMany (ambiguous FK in nested subquery).
@@ -817,6 +820,7 @@ class CrmCustomerMatchService
                 'name'        => $record->buyer_name ?: $record->username,
                 'email'       => $record->email,
                 'phone'       => $record->phone,
+                'lifetime_value' => (float) ($record->customer?->lifetime_value ?? 0),
                 'status_label'=> $primaryBadge['label'],
                 'status_color'=> $primaryBadge['color'],
                 'status_badges' => $badges,
@@ -837,7 +841,10 @@ class CrmCustomerMatchService
                 'id', 'shipment_id', 'customer_id', 'recipient_name', 'recipient_email',
                 'recipient_phone', 'status', 'created_at',
             ])
-            ->with(['shipment:id,created_at'])
+            ->with([
+                'customer:id,email,phone,lifetime_value',
+                'shipment:id,created_at',
+            ])
             ->where('status', ShipmentCustomer::STATUS_PROBLEM)
             ->get()
             ->each(function (ShipmentCustomer $sc) use (&$out, $keysFor, $anySeen, $reserve) {
@@ -859,6 +866,7 @@ class CrmCustomerMatchService
                     'name'        => $sc->recipient_name,
                     'email'       => $sc->recipient_email,
                     'phone'       => $sc->recipient_phone,
+                    'lifetime_value' => (float) ($sc->customer?->lifetime_value ?? 0),
                     'status_label'=> $badges[0]['label'],
                     'status_color'=> $badges[0]['color'],
                     'status_badges' => $badges,
@@ -879,7 +887,7 @@ class CrmCustomerMatchService
         Customer::query()
             ->select([
                 'id', 'name', 'email', 'phone', 'status', 'source', 'assigned_to',
-                'shipment_delay', 'shipment_delivered', 'created_at',
+                'shipment_delay', 'shipment_delivered', 'created_at', 'lifetime_value',
             ])
             ->with([
                 'assignee:id,name',
@@ -924,6 +932,7 @@ class CrmCustomerMatchService
                 'name'        => $customer->name,
                 'email'       => $customer->email,
                 'phone'       => $customer->phone,
+                'lifetime_value' => (float) ($customer->lifetime_value ?? 0),
                 'status_label'=> $badges[0]['label'],
                 'status_color'=> $badges[0]['color'],
                 'status_badges' => $badges,

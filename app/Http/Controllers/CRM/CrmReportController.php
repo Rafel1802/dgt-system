@@ -155,6 +155,12 @@ class CrmReportController extends Controller
         foreach ($data as $row) {
             if (is_array($row)) {
                 $val = (float)($row['lifetime_value'] ?? 0);
+                if ($val == 0 && !empty($row['email'])) {
+                    $c = Customer::where('email', $row['email'])->orWhere('phone', $row['phone'] ?? '')->first();
+                    if ($c && $c->lifetime_value > 0) {
+                        $val = (float)$c->lifetime_value;
+                    }
+                }
                 $summaryStats['total_sales'] += $val;
 
                 $src = strtolower($row['source'] ?? '');
