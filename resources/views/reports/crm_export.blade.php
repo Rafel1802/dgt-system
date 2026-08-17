@@ -278,28 +278,37 @@
                             <td class="nowrap">{{ $row['phone'] ?? '—' }}</td>
                             <td class="nowrap">
                                 @php
-                                    $statusText = $row['status_label'] ?? ($row['status'] ?? '—');
-                                    $sStr = strtolower((string)$statusText);
-                                    $badgeStyle = match(true) {
-                                        str_contains($sStr, 'success') || str_contains($sStr, 'delivered') || str_contains($sStr, 'resolved') || str_contains($sStr, 'approved')
-                                            => 'background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0;',
-                                        str_contains($sStr, 'logistic') || str_contains($sStr, 'delay') || str_contains($sStr, 'problem')
-                                            => 'background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;',
-                                        str_contains($sStr, 'negative') || str_contains($sStr, 'urgent') || str_contains($sStr, 'cancel') || str_contains($sStr, 'lost')
-                                            => 'background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;',
-                                        str_contains($sStr, 'tech')
-                                            => 'background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;',
-                                        str_contains($sStr, 'new') || str_contains($sStr, 'contact')
-                                            => 'background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;',
-                                        str_contains($sStr, 'nurtur') || str_contains($sStr, 'warm') || str_contains($sStr, 'pending')
-                                            => 'background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;',
-                                        default
-                                            => 'background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;',
-                                    };
+                                    $badgesList = !empty($row['status_badges']) && is_array($row['status_badges'])
+                                        ? $row['status_badges']
+                                        : [['label' => $row['status_label'] ?? ($row['status'] ?? '—')]];
                                 @endphp
-                                <span class="badge" style="{{ $badgeStyle }}">
-                                    {{ $statusText }}
-                                </span>
+                                @foreach($badgesList as $b)
+                                    @php
+                                        $bLabel = is_array($b) ? ($b['label'] ?? '') : (string)$b;
+                                        $sStr = strtolower($bLabel);
+                                        $badgeStyle = match(true) {
+                                            str_contains($sStr, 'success') || str_contains($sStr, 'delivered') || str_contains($sStr, 'resolved') || str_contains($sStr, 'approved')
+                                                => 'background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0;',
+                                            str_contains($sStr, 'logistic') || str_contains($sStr, 'delay') || str_contains($sStr, 'problem')
+                                                => 'background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;',
+                                            str_contains($sStr, 'negative') || str_contains($sStr, 'urgent') || str_contains($sStr, 'cancel') || str_contains($sStr, 'lost')
+                                                => 'background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;',
+                                            str_contains($sStr, 'tech')
+                                                => 'background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;',
+                                            str_contains($sStr, 'new') || str_contains($sStr, 'contact')
+                                                => 'background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;',
+                                            str_contains($sStr, 'nurtur') || str_contains($sStr, 'warm') || str_contains($sStr, 'pending')
+                                                => 'background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;',
+                                            default
+                                                => 'background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;',
+                                        };
+                                    @endphp
+                                    <div style="margin-bottom: 2px;">
+                                        <span class="badge" style="{{ $badgeStyle }}">
+                                            {{ $bLabel }}
+                                        </span>
+                                    </div>
+                                @endforeach
                             </td>
                             <td class="nowrap">
                                 <span class="badge {{ str_contains(strtolower($row['source'] ?? ''), 'ebay') ? 'badge-cyan' : (str_contains(strtolower($row['source'] ?? ''), 'website') ? 'badge-indigo' : 'badge-amber') }}">
