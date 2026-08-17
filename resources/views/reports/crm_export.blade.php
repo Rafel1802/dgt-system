@@ -220,20 +220,20 @@
     {{-- Delivery Status & Health Indicators Grid --}}
     <table class="kpi-table" style="margin-left:-6px; margin-right:-6px; margin-top:-6px;">
         <tr>
-            <td class="kpi-card" style="width: 48%; background-color: #f0f9ff; border-color: #bae6fd;">
+            <td class="kpi-card" style="width: 50%;">
                 <div class="kpi-card-title" style="color: #0369a1;">DELIVERY & SHIPPING STATUS</div>
-                <div class="kpi-card-sub" style="color: #0f172a; font-size: 9px; margin-top:3px;">
-                    In Delivery: <span class="badge badge-indigo">{{ $summaryStats['in_delivery_count'] ?? 0 }}</span> &nbsp;
-                    Delivered: <span class="badge badge-emerald">{{ $summaryStats['delivered_count'] ?? 0 }}</span> &nbsp;
-                    Waiting Pickup: <span class="badge badge-amber">{{ $summaryStats['waiting_pickup_count'] ?? 0 }}</span>
+                <div class="kpi-card-sub" style="color: #334155; font-size: 8.5px; margin-top:4px;">
+                    In Delivery: <span class="badge" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">{{ $summaryStats['in_delivery_count'] ?? 0 }}</span> &nbsp;|&nbsp;
+                    Delivered: <span class="badge" style="background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0;">{{ $summaryStats['delivered_count'] ?? 0 }}</span> &nbsp;|&nbsp;
+                    Waiting Pickup: <span class="badge" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">{{ $summaryStats['waiting_pickup_count'] ?? 0 }}</span>
                 </div>
             </td>
-            <td class="kpi-card" style="width: 52%; background-color: #fff1f2; border-color: #fecdd3;">
-                <div class="kpi-card-title" style="color: #9f1239;">ISSUES & FEEDBACK HEALTH</div>
-                <div class="kpi-card-sub" style="color: #0f172a; font-size: 9px; margin-top:3px;">
-                    Logistic Issues: <span class="badge badge-amber" style="background-color: #ffedd5; color: #c2410c;">{{ $summaryStats['logistic_issues_count'] ?? 0 }}</span> &nbsp;
-                    Negative Feedback: <span class="badge badge-rose">{{ $summaryStats['negative_feedback_count'] ?? 0 }}</span> &nbsp;
-                    Tech Support: <span class="badge badge-indigo" style="background-color: #f3e8ff; color: #6b21a8;">{{ $summaryStats['technical_issues_count'] ?? 0 }}</span>
+            <td class="kpi-card" style="width: 50%;">
+                <div class="kpi-card-title" style="color: #be123c;">ISSUES & FEEDBACK HEALTH</div>
+                <div class="kpi-card-sub" style="color: #334155; font-size: 8.5px; margin-top:4px;">
+                    Logistic Issues: <span class="badge" style="background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;">{{ $summaryStats['logistic_issues_count'] ?? 0 }}</span> &nbsp;|&nbsp;
+                    Negative Feedback: <span class="badge" style="background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;">{{ $summaryStats['negative_feedback_count'] ?? 0 }}</span> &nbsp;|&nbsp;
+                    Tech Support: <span class="badge" style="background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;">{{ $summaryStats['technical_issues_count'] ?? 0 }}</span>
                 </div>
             </td>
         </tr>
