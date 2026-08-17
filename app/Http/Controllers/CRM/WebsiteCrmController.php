@@ -604,6 +604,19 @@ class WebsiteCrmController extends Controller
         return redirect()->route('crm.website.call-reports.index')->with('success', 'Call report deleted.');
     }
 
+    /** Delete multiple call reports in bulk */
+    public function bulkDestroyCallReports(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'report_ids'   => ['required', 'array'],
+            'report_ids.*' => ['required', 'exists:call_reports,id'],
+        ]);
+
+        $count = CallReport::whereIn('id', $validated['report_ids'])->delete();
+
+        return redirect()->route('crm.website.call-reports.index')->with('success', "{$count} call report(s) deleted.");
+    }
+
     /**
      * Mark a call request (raised from Tech Support) as called. Only Website
      * CRM — the team that actually makes the call — can complete this; a

@@ -83,4 +83,34 @@ class CallReportEditDeleteTest extends TestCase
             'id' => $report->id,
         ]);
     }
+
+    public function test_can_bulk_delete_call_reports(): void
+    {
+        $r1 = CallReport::create([
+            'name' => 'Report 1',
+            'phone' => '111',
+            'inquiry_type' => 'Inquiry',
+            'answered_by' => $this->user->id,
+            'occurred_at' => now(),
+            'created_by' => $this->user->id,
+        ]);
+        $r2 = CallReport::create([
+            'name' => 'Report 2',
+            'phone' => '222',
+            'inquiry_type' => 'Technical',
+            'answered_by' => $this->user->id,
+            'occurred_at' => now(),
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->actingAs($this->user)->post(route('crm.website.call-reports.bulk-destroy'), [
+            'report_ids' => [$r1->id, $r2->id],
+        ]);
+
+        $response->assertRedirect(route('crm.website.call-reports.index'));
+        $response->assertSessionHas('success', '2 call report(s) deleted.');
+
+        $this->assertDatabaseMissing('call_reports', ['id' => $r1->id]);
+        $this->assertDatabaseMissing('call_reports', ['id' => $r2->id]);
+    }
 }
