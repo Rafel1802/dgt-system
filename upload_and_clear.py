@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # excluding root-level *.php/*.py/*.sh/*.exp files is safe and closes this
     # class of leak for good, not just for the specific filenames seen so far.
     rsync_cmd = [
-        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "rsync", "-avz", "-e", "ssh -i /Users/phanithlim/.ssh/hostinger_mvillage -o StrictHostKeyChecking=no -p 65002",
         "--exclude", ".git/",
         "--exclude", "vendor/",
         "--exclude", "node_modules/",
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     # 1c. Sync user-uploaded files (QC error images, avatars, attachments, etc.)
     # These are stored in storage/app/public/ locally and served via storage symlink on server.
     rsync_storage_cmd = [
-        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "rsync", "-avz", "-e", "ssh -i /Users/phanithlim/.ssh/hostinger_mvillage -o StrictHostKeyChecking=no -p 65002",
         "--ignore-existing",  # Don't overwrite files that already exist on the server
         "storage/app/public/",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/storage/app/public/"
@@ -82,14 +82,14 @@ if __name__ == "__main__":
 
     # 1b. Upload assets directly to public_html/js/ (without public/ prefix) just in case public_html is the document root
     rsync_workspace_alpine_cmd = [
-        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "rsync", "-avz", "-e", "ssh -i /Users/phanithlim/.ssh/hostinger_mvillage -o StrictHostKeyChecking=no -p 65002",
         "public/js/workspace-alpine.js",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/js/"
     ]
     run_cmd(rsync_workspace_alpine_cmd)
 
     rsync_trello_board_cmd = [
-        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -p 65002",
+        "rsync", "-avz", "-e", "ssh -i /Users/phanithlim/.ssh/hostinger_mvillage -o StrictHostKeyChecking=no -p 65002",
         "public/js/trello-board.js",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/js/"
     ]
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     tinker_fix_colors = PHP + ' artisan tinker --execute="App\\Models\\BoardList::whereIn(\'name\', [\'Week 3\', \'Week 4\'])->update([\'color\' => null]);" && '
 
     ssh_cmd = [
-        "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
+        "ssh", "-i", "/Users/phanithlim/.ssh/hostinger_mvillage", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
         (
             "cd domains/lightcyan-weasel-711536.hostingersite.com/public_html && "
             + "mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions && "

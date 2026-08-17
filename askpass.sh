@@ -1,2 +1,2 @@
 #!/bin/bash
-echo 'Digital@PhnomPenh#!2027'
+printf "Digital@PhnomPenh#!2027"
