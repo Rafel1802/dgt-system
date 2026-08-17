@@ -702,6 +702,11 @@ class CrmCustomerMatchService
                 return;
             }
             $reserve($k);
+            $leadVal = (float) $lead->orders->flatMap->items->sum(fn ($i) => (float) $i->price * (int) $i->quantity);
+            if ($leadVal == 0) {
+                $leadVal = (float) ($lead->customer?->lifetime_value ?? 0);
+            }
+
             $out->push([
                 'source'      => $lead->source?->label() ?? 'Website',
                 'source_icon' => $lead->source?->icon() ?? '🌐',
@@ -710,7 +715,7 @@ class CrmCustomerMatchService
                 'name'        => $lead->client_name,
                 'email'       => $lead->client_email,
                 'phone'       => $lead->client_phone,
-                'lifetime_value' => (float) ($lead->orders()->sum('amount') ?: ($lead->customer?->lifetime_value ?? 0)),
+                'lifetime_value' => $leadVal,
                 'status_label'=> $lead->status?->label() ?? '',
                 'status_color'=> $lead->status?->color() ?? '#94a3b8',
                 'occurrence_label' => $lead->techSupportCase?->occurrence_label,
@@ -812,7 +817,7 @@ class CrmCustomerMatchService
 
             $primaryBadge = $badges[0];
 
-            $ebayValue = (float) ($record->orders()->sum('total_amount') ?: ($record->offers()->sum('final_amount') ?: ($record->customer?->lifetime_value ?? 0)));
+            $ebayValue = (float) ($record->offers()->sum('final_amount') ?: ($record->offers()->sum('offer_amount') ?: ($record->customer?->lifetime_value ?? 0)));
 
             $out->push([
                 'source'      => 'eBay',
