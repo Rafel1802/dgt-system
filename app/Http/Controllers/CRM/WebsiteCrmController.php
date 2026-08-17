@@ -94,12 +94,20 @@ class WebsiteCrmController extends Controller
         // customer-only rows made Website CRM feel like a multi-second hang.
         $customerOnlyRows = collect();
         if (! $request->get('search') && ! $request->get('status') && ! $request->get('source') && ! $request->get('handled_by')) {
-            $customerOnlyRows = $this->matcher->hydrateDirectoryDates(
-                $this->matcher->buildUnifiedDirectoryRaw()
-                    ->filter(fn (array $c) => ($c['source'] ?? null) === 'Website')
-                    ->take(50)
-                    ->values()
-            );
+            $customerOnlyRows = Customer::where('source', \App\Enums\CustomerSource::Website->value)
+                ->whereDoesntHave('leads')
+                ->select(['id', 'name', 'email', 'phone', 'created_at'])
+                ->latest()
+                ->take(50)
+                ->get()
+                ->map(fn (Customer $c) => [
+                    'id'          => $c->id,
+                    'name'        => $c->name,
+                    'email'       => $c->email,
+                    'phone'       => $c->phone,
+                    'link'        => route('crm.customers.show', $c),
+                    'created_date'=> $c->created_at,
+                ]);
         }
 
         return view('crm.website.index', compact('leads', 'statuses', 'sources', 'crmUsers', 'pendingCallRequestsCount', 'customerOnlyRows'));

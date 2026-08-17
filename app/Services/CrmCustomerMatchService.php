@@ -692,8 +692,8 @@ class CrmCustomerMatchService
                 'customer:id,email,phone,lifetime_value',
                 'handler:id,name',
                 'techSupportCase',
-                // Do not column-restrict latestOfMany — SQLite/MySQL can error on ambiguous lead_id.
                 'latestOrder',
+                'orders.items',
             ])
             ->get()
             ->each(function (Lead $lead) use (&$out, $keysFor, $anySeen, $reserve) {
@@ -767,8 +767,8 @@ class CrmCustomerMatchService
                 'customer:id,email,phone,lifetime_value',
                 'handlerHistory' => fn ($q) => $q->whereNull('ended_at')->with('user:id,name'),
                 'techSupportCase',
-                // Avoid column-restricting latestOfMany (ambiguous FK in nested subquery).
                 'latestOrder',
+                'orders',
             ])
             ->get()
             ->each(function (EbayCustomerRecord $record) use (&$out, $keysFor, $anySeen, $reserve) {
