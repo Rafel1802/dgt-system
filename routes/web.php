@@ -434,6 +434,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::post('/', [WebsiteCrmController::class, 'store'])->name('store');
                     Route::get('/call-reports', [WebsiteCrmController::class, 'callReportsIndex'])->name('call-reports.index');
                     Route::post('/call-reports', [WebsiteCrmController::class, 'storeCallReport'])->name('call-reports.store');
+                    Route::put('/call-reports/{callReport}', [WebsiteCrmController::class, 'updateCallReport'])->name('call-reports.update');
+                    Route::delete('/call-reports/{callReport}', [WebsiteCrmController::class, 'destroyCallReport'])->name('call-reports.destroy');
                     Route::post('/call-reports/export', [WebsiteCrmController::class, 'exportCallReports'])->name('call-reports.export');
                     Route::post('/call-reports/share', [WebsiteCrmController::class, 'shareCallReports'])->name('call-reports.share');
                     Route::get('/call-requests', [WebsiteCrmController::class, 'callRequestsIndex'])->name('call-requests.index');

@@ -573,6 +573,37 @@ class WebsiteCrmController extends Controller
         return redirect()->route('crm.website.call-reports.index')->with('success', 'Call report logged.');
     }
 
+    /** Update an existing call report */
+    public function updateCallReport(Request $request, CallReport $callReport): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name'             => ['nullable', 'string', 'max:255'],
+            'phone'            => ['required', 'string', 'max:30'],
+            'email'            => ['nullable', 'email', 'max:255'],
+            'inquiry_type'     => ['required', Rule::in(CallReport::INQUIRY_TYPES)],
+            'answered_by'      => ['required', 'exists:users,id'],
+            'occurred_at'      => ['required', 'date'],
+            'occurred_at_time' => ['nullable', 'date_format:H:i'],
+            'details'          => ['nullable', 'string'],
+        ]);
+
+        $occurredAtTime = $validated['occurred_at_time'] ?? ($callReport->occurred_at ? $callReport->occurred_at->format('H:i') : '00:00');
+        unset($validated['occurred_at_time']);
+        $validated['occurred_at'] = $validated['occurred_at'] . ' ' . $occurredAtTime;
+
+        $callReport->update($validated);
+
+        return redirect()->route('crm.website.call-reports.index')->with('success', 'Call report updated.');
+    }
+
+    /** Delete a call report */
+    public function destroyCallReport(CallReport $callReport): RedirectResponse
+    {
+        $callReport->delete();
+
+        return redirect()->route('crm.website.call-reports.index')->with('success', 'Call report deleted.');
+    }
+
     /**
      * Mark a call request (raised from Tech Support) as called. Only Website
      * CRM — the team that actually makes the call — can complete this; a
