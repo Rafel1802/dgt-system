@@ -40,12 +40,44 @@ class CrmReportController extends Controller
         // 1. Fetch filtered data based on export type
         switch ($type) {
             case 'customers':
-                $query = Customer::with(['assignee', 'interactions' => fn ($q) => $q->limit(1)]);
-                if ($startDate) $query->where('created_at', '>=', $startDate);
-                if ($endDate) $query->where('created_at', '<=', $endDate);
-                if ($memberId !== 'All') $query->where('assigned_to', $memberId);
-                $data = $query->latest()->get();
-                $title = 'CRM Customer Report';
+                $matcher = app(\App\Services\CrmCustomerMatchService::class);
+                $unified = $matcher->buildUnifiedDirectory([
+                    'search' => $request->get('search'),
+                ]);
+
+                // Filter unified rows by status, source, member, dates
+                $statusFilter = $request->get('status_filter', 'All');
+                $sourceFilter = $request->get('source_filter', 'All');
+                $category = match ($statusFilter) {
+                    'Technical issues'  => 'technical',
+                    'Logistic issues'   => 'shipment_delay',
+                    'Negative feedback' => 'negative_feedback',
+                    default => null,
+                };
+
+                $filtered = $unified->filter(function ($c) use ($category, $sourceFilter, $memberId, $startDate, $endDate) {
+                    if (is_array($c)) {
+                        if ($category !== null) {
+                            $cats = $c['categories'] ?? (isset($c['category']) ? [$c['category']] : []);
+                            if (!in_array($category, $cats, true)) return false;
+                        }
+                        if ($sourceFilter === 'eBay' && ($c['source'] ?? null) !== 'eBay') return false;
+                        if ($sourceFilter === 'Logistics' && ($c['source'] ?? null) !== 'Logistics') return false;
+                        if ($sourceFilter === 'Website' && in_array($c['source'] ?? null, ['eBay', 'Logistics'], true)) return false;
+                        if ($memberId !== 'All' && ($c['handler_id'] ?? null) != $memberId) return false;
+                    }
+                    return true;
+                });
+
+                $data = $filtered->values();
+                if ($data->isEmpty()) {
+                    $query = Customer::with(['assignee', 'interactions' => fn ($q) => $q->limit(1)]);
+                    if ($startDate) $query->where('created_at', '>=', $startDate);
+                    if ($endDate) $query->where('created_at', '<=', $endDate);
+                    if ($memberId !== 'All') $query->where('assigned_to', $memberId);
+                    $data = $query->latest()->get();
+                }
+                $title = 'CRM Unified Customer Report';
                 $headers = ['#', 'Customer ID', 'Name', 'Email', 'Phone', 'Address', 'Company', 'Status', 'Source', 'Pipeline Stage', 'Current Workflow', 'Purchase Date', 'Product', 'Value (USD)', 'Assigned To', 'Latest Follow-up', 'Created Date', 'Last Updated'];
                 break;
 
@@ -119,28 +151,53 @@ class CrmReportController extends Controller
                     $num = $index + 1;
 
                     if ($type === 'customers') {
-                        $interests = is_array($row->product_interests) ? implode('; ', $row->product_interests) : ($row->product_interests ?? '—');
-                        $src = is_object($row->source) ? ($row->source->label ?? (string)$row->source) : (is_array($row->source) ? implode(', ', $row->source) : ($row->source ?? '—'));
-                        $rowData = [
-                            $num,
-                            $row->id,
-                            $row->name,
-                            $row->email ?? '—',
-                            $row->phone ?? '—',
-                            $row->address ?? '—',
-                            $row->company ?? '—',
-                            $row->status ? (is_object($row->status) ? $row->status->label() : $row->status) : '—',
-                            $src,
-                            $row->pipeline_stage ? (is_object($row->pipeline_stage) ? $row->pipeline_stage->label() : $row->pipeline_stage) : '—',
-                            $row->current_queue ? (is_object($row->current_queue) ? $row->current_queue->label() : $row->current_queue) : '—',
-                            $row->first_purchase_date ? $row->first_purchase_date->format('Y-m-d') : '—',
-                            $interests,
-                            $row->lifetime_value ?? '0.00',
-                            $row->assignee ? $row->assignee->name : 'Unassigned',
-                            $row->interactions->first()?->content ?? '—',
-                            $row->created_at ? $row->created_at->format('Y-m-d H:i') : '—',
-                            $row->updated_at ? $row->updated_at->format('Y-m-d H:i') : '—',
-                        ];
+                        if (is_array($row)) {
+                            $purchDate = !empty($row['purchase_date']) ? (is_string($row['purchase_date']) ? $row['purchase_date'] : $row['purchase_date']->format('Y-m-d')) : '—';
+                            $creatDate = !empty($row['created_date']) ? (is_string($row['created_date']) ? $row['created_date'] : $row['created_date']->format('Y-m-d H:i')) : '—';
+                            $rowData = [
+                                $num,
+                                $row['id'] ?? '—',
+                                $row['name'] ?? '—',
+                                $row['email'] ?? '—',
+                                $row['phone'] ?? '—',
+                                $row['address'] ?? '—',
+                                $row['company'] ?? '—',
+                                $row['status_label'] ?? ($row['status'] ?? '—'),
+                                $row['source'] ?? '—',
+                                '—',
+                                '—',
+                                $purchDate,
+                                '—',
+                                number_format((float)($row['lifetime_value'] ?? 0), 2),
+                                $row['handler'] ?? ($row['assigned_to_name'] ?? 'Unassigned'),
+                                '—',
+                                $creatDate,
+                                '—',
+                            ];
+                        } else {
+                            $interests = is_array($row->product_interests) ? implode('; ', $row->product_interests) : ($row->product_interests ?? '—');
+                            $src = is_object($row->source) ? ($row->source->label ?? (string)$row->source) : (is_array($row->source) ? implode(', ', $row->source) : ($row->source ?? '—'));
+                            $rowData = [
+                                $num,
+                                $row->id,
+                                $row->name,
+                                $row->email ?? '—',
+                                $row->phone ?? '—',
+                                $row->address ?? '—',
+                                $row->company ?? '—',
+                                $row->status ? (is_object($row->status) ? $row->status->label() : $row->status) : '—',
+                                $src,
+                                $row->pipeline_stage ? (is_object($row->pipeline_stage) ? $row->pipeline_stage->label() : $row->pipeline_stage) : '—',
+                                $row->current_queue ? (is_object($row->current_queue) ? $row->current_queue->label() : $row->current_queue) : '—',
+                                $row->first_purchase_date ? $row->first_purchase_date->format('Y-m-d') : '—',
+                                $interests,
+                                $row->lifetime_value ?? '0.00',
+                                $row->assignee ? $row->assignee->name : 'Unassigned',
+                                $row->interactions->first()?->content ?? '—',
+                                $row->created_at ? $row->created_at->format('Y-m-d H:i') : '—',
+                                $row->updated_at ? $row->updated_at->format('Y-m-d H:i') : '—',
+                            ];
+                        }
                     } elseif ($type === 'logistics') {
                         if ($row instanceof ShipmentCustomer) {
                             $rowData = [

@@ -144,37 +144,63 @@
                     <td>{{ $index + 1 }}</td>
                     
                     @if($type === 'customers')
-                        <td>{{ $row->id }}</td>
-                        <td>
-                            <span class="font-semibold">{{ $row->name }}</span>
-                        </td>
-                        <td>{{ $row->email ?? '—' }}</td>
-                        <td>{{ $row->phone ?? '—' }}</td>
-                        <td>{{ $row->address ?? '—' }}</td>
-                        <td>{{ $row->company ?? '—' }}</td>
-                        <td>
-                            <span class="badge {{ is_object($row->status) ? $row->status->badgeClass() : 'badge-slate' }}">
-                                {{ is_object($row->status) ? $row->status->label() : ($row->status ?? '—') }}
-                            </span>
-                        </td>
-                        <td>{{ is_object($row->source) ? ($row->source->label ?? (string)$row->source) : (is_array($row->source) ? implode(', ', $row->source) : ($row->source ?? '—')) }}</td>
-                        <td>
-                            @if(is_object($row->pipeline_stage))
-                                <span class="badge" style="background-color: {{ $row->pipeline_stage->color() }}22; color: {{ $row->pipeline_stage->color() }}">
-                                    {{ $row->pipeline_stage->label() }}
+                        @if(is_array($row))
+                            <td>{{ $row['id'] ?? '—' }}</td>
+                            <td>
+                                <span class="font-semibold">{{ $row['name'] ?? '—' }}</span>
+                            </td>
+                            <td>{{ $row['email'] ?? '—' }}</td>
+                            <td>{{ $row['phone'] ?? '—' }}</td>
+                            <td>{{ $row['address'] ?? '—' }}</td>
+                            <td>{{ $row['company'] ?? '—' }}</td>
+                            <td>
+                                <span class="badge badge-slate">
+                                    {{ $row['status_label'] ?? ($row['status'] ?? '—') }}
                                 </span>
-                            @else
-                                {{ $row->pipeline_stage ?? '—' }}
-                            @endif
-                        </td>
-                        <td>{{ is_object($row->current_queue) ? $row->current_queue->label() : ($row->current_queue ?? '—') }}</td>
-                        <td>{{ $row->first_purchase_date ? $row->first_purchase_date->format('d M Y') : '—' }}</td>
-                        <td>{{ is_array($row->product_interests) ? implode('; ', $row->product_interests) : ($row->product_interests ?? '—') }}</td>
-                        <td class="text-right font-semibold">${{ number_format((float)($row->lifetime_value ?? 0), 2) }}</td>
-                        <td>{{ $row->assignee ? $row->assignee->name : 'Unassigned' }}</td>
-                        <td>{{ \Illuminate\Support\Str::limit($row->interactions->first()?->content ?? '—', 60) }}</td>
-                        <td>{{ $row->created_at ? $row->created_at->format('d M Y') : '—' }}</td>
-                        <td>{{ $row->updated_at ? $row->updated_at->format('d M Y') : '—' }}</td>
+                            </td>
+                            <td>{{ $row['source'] ?? '—' }}</td>
+                            <td>—</td>
+                            <td>—</td>
+                            <td>{{ !empty($row['purchase_date']) ? (is_string($row['purchase_date']) ? $row['purchase_date'] : $row['purchase_date']->format('d M Y')) : '—' }}</td>
+                            <td>—</td>
+                            <td class="text-right font-semibold">${{ number_format((float)($row['lifetime_value'] ?? 0), 2) }}</td>
+                            <td>{{ $row['handler'] ?? ($row['assigned_to_name'] ?? 'Unassigned') }}</td>
+                            <td>—</td>
+                            <td>{{ !empty($row['created_date']) ? (is_string($row['created_date']) ? $row['created_date'] : $row['created_date']->format('d M Y')) : '—' }}</td>
+                            <td>—</td>
+                        @else
+                            <td>{{ $row->id }}</td>
+                            <td>
+                                <span class="font-semibold">{{ $row->name }}</span>
+                            </td>
+                            <td>{{ $row->email ?? '—' }}</td>
+                            <td>{{ $row->phone ?? '—' }}</td>
+                            <td>{{ $row->address ?? '—' }}</td>
+                            <td>{{ $row->company ?? '—' }}</td>
+                            <td>
+                                <span class="badge {{ is_object($row->status) ? $row->status->badgeClass() : 'badge-slate' }}">
+                                    {{ is_object($row->status) ? $row->status->label() : ($row->status ?? '—') }}
+                                </span>
+                            </td>
+                            <td>{{ is_object($row->source) ? ($row->source->label ?? (string)$row->source) : (is_array($row->source) ? implode(', ', $row->source) : ($row->source ?? '—')) }}</td>
+                            <td>
+                                @if(is_object($row->pipeline_stage))
+                                    <span class="badge" style="background-color: {{ $row->pipeline_stage->color() }}22; color: {{ $row->pipeline_stage->color() }}">
+                                        {{ $row->pipeline_stage->label() }}
+                                    </span>
+                                @else
+                                    {{ $row->pipeline_stage ?? '—' }}
+                                @endif
+                            </td>
+                            <td>{{ is_object($row->current_queue) ? $row->current_queue->label() : ($row->current_queue ?? '—') }}</td>
+                            <td>{{ $row->first_purchase_date ? $row->first_purchase_date->format('d M Y') : '—' }}</td>
+                            <td>{{ is_array($row->product_interests) ? implode('; ', $row->product_interests) : ($row->product_interests ?? '—') }}</td>
+                            <td class="text-right font-semibold">${{ number_format((float)($row->lifetime_value ?? 0), 2) }}</td>
+                            <td>{{ $row->assignee ? $row->assignee->name : 'Unassigned' }}</td>
+                            <td>{{ \Illuminate\Support\Str::limit($row->interactions->first()?->content ?? '—', 60) }}</td>
+                            <td>{{ $row->created_at ? $row->created_at->format('d M Y') : '—' }}</td>
+                            <td>{{ $row->updated_at ? $row->updated_at->format('d M Y') : '—' }}</td>
+                        @endif
 
                     @elseif($type === 'logistics')
                         @if($row instanceof \App\Models\ShipmentCustomer)
