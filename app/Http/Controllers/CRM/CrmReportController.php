@@ -4,9 +4,11 @@ namespace App\Http\Controllers\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
-use App\Models\Logistic;
-use App\Models\Lead;
+use App\Models\EbayCustomerRecord;
 use App\Models\EbayOffer;
+use App\Models\Lead;
+use App\Models\Logistic;
+use App\Models\ShipmentCustomer;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -26,13 +28,13 @@ class CrmReportController extends Controller
             'format'     => ['required', 'string', 'in:pdf,csv'],
         ]);
 
-        $startDate = $validated['start_date'] ? Carbon::parse($validated['start_date'])->startOfDay() : null;
-        $endDate   = $validated['end_date'] ? Carbon::parse($validated['end_date'])->endOfDay() : null;
+        $startDate = !empty($validated['start_date']) ? Carbon::parse($validated['start_date'])->startOfDay() : null;
+        $endDate   = !empty($validated['end_date']) ? Carbon::parse($validated['end_date'])->endOfDay() : null;
         $memberId  = $validated['member_id'] ?? 'All';
         $format    = $validated['format'];
 
         $title = '';
-        $data = [];
+        $data = collect();
         $headers = [];
 
         // 1. Fetch filtered data based on export type
@@ -48,17 +50,24 @@ class CrmReportController extends Controller
                 break;
 
             case 'logistics':
-                $query = Logistic::with(['customer', 'product', 'assignee']);
+                $query = ShipmentCustomer::with(['customer', 'shipment', 'handler']);
                 if ($startDate) $query->where('created_at', '>=', $startDate);
                 if ($endDate) $query->where('created_at', '<=', $endDate);
-                if ($memberId !== 'All') $query->where('assigned_to', $memberId);
+                if ($memberId !== 'All') $query->where('handled_by', $memberId);
                 $data = $query->latest()->get();
+                if ($data->isEmpty()) {
+                    $legQuery = Logistic::with(['customer', 'product', 'assignee']);
+                    if ($startDate) $legQuery->where('created_at', '>=', $startDate);
+                    if ($endDate) $legQuery->where('created_at', '<=', $endDate);
+                    if ($memberId !== 'All') $legQuery->where('assigned_to', $memberId);
+                    $data = $legQuery->latest()->get();
+                }
                 $title = 'Logistics CRM Shipment Report';
-                $headers = ['#', 'Order ID', 'Customer', 'Product', 'Recipient', 'Address', 'Budget (USD)', 'Status', 'Pickup Time'];
+                $headers = ['#', 'Order/Shipment', 'Customer', 'Product', 'Recipient', 'Address', 'Budget/Status', 'Status', 'Date'];
                 break;
 
             case 'website':
-                $query = Lead::with(['customer', 'product', 'assignee']);
+                $query = Lead::with(['customer', 'product', 'handler', 'source', 'status', 'temperature']);
                 if ($startDate) $query->where('received_at', '>=', $startDate);
                 if ($endDate) $query->where('received_at', '<=', $endDate);
                 if ($memberId !== 'All') $query->where('assigned_to', $memberId);
@@ -68,13 +77,20 @@ class CrmReportController extends Controller
                 break;
 
             case 'ebay':
-                $query = EbayOffer::with(['customer', 'product', 'handler', 'store']);
-                if ($startDate) $query->where('received_at', '>=', $startDate);
-                if ($endDate) $query->where('received_at', '<=', $endDate);
+                $query = EbayCustomerRecord::with(['customer', 'store', 'handler']);
+                if ($startDate) $query->where(fn ($q) => $q->where('date', '>=', $startDate)->orWhere('created_at', '>=', $startDate));
+                if ($endDate) $query->where(fn ($q) => $q->where('date', '<=', $endDate)->orWhere('created_at', '<=', $endDate));
                 if ($memberId !== 'All') $query->where('handled_by', $memberId);
-                $data = $query->latest('received_at')->get();
-                $title = 'eBay CRM Offers Report';
-                $headers = ['#', 'Store', 'Customer Name', 'eBay Username', 'Product', 'Offer Amount (USD)', 'Final Amount (USD)', 'Status', 'Received At'];
+                $data = $query->latest()->get();
+                if ($data->isEmpty()) {
+                    $offQuery = EbayOffer::with(['customer', 'product', 'handler', 'store']);
+                    if ($startDate) $offQuery->where('received_at', '>=', $startDate);
+                    if ($endDate) $offQuery->where('received_at', '<=', $endDate);
+                    if ($memberId !== 'All') $offQuery->where('handled_by', $memberId);
+                    $data = $offQuery->latest('received_at')->get();
+                }
+                $title = 'eBay CRM Customer Report';
+                $headers = ['#', 'Store', 'Customer Name', 'eBay Username', 'Order ID', 'Summary', 'Category/Tab', 'Date'];
                 break;
 
             default:
@@ -104,6 +120,8 @@ class CrmReportController extends Controller
                     $num = $index + 1;
 
                     if ($type === 'customers') {
+                        $interests = is_array($row->product_interests) ? implode('; ', $row->product_interests) : ($row->product_interests ?? '—');
+                        $src = is_object($row->source) ? ($row->source->label ?? (string)$row->source) : (is_array($row->source) ? implode(', ', $row->source) : ($row->source ?? '—'));
                         $rowData = [
                             $num,
                             $row->id,
@@ -112,54 +130,81 @@ class CrmReportController extends Controller
                             $row->phone ?? '—',
                             $row->address ?? '—',
                             $row->company ?? '—',
-                            $row->status ? $row->status->label() : '—',
-                            $row->source ? $row->source : '—',
-                            $row->pipeline_stage ? $row->pipeline_stage->label() : '—',
-                            $row->current_queue ? $row->current_queue->label() : '—',
+                            $row->status ? (is_object($row->status) ? $row->status->label() : $row->status) : '—',
+                            $src,
+                            $row->pipeline_stage ? (is_object($row->pipeline_stage) ? $row->pipeline_stage->label() : $row->pipeline_stage) : '—',
+                            $row->current_queue ? (is_object($row->current_queue) ? $row->current_queue->label() : $row->current_queue) : '—',
                             $row->first_purchase_date ? $row->first_purchase_date->format('Y-m-d') : '—',
-                            $row->product_interests ? implode('; ', $row->product_interests) : '—',
-                            $row->lifetime_value,
+                            $interests,
+                            $row->lifetime_value ?? '0.00',
                             $row->assignee ? $row->assignee->name : 'Unassigned',
                             $row->interactions->first()?->content ?? '—',
-                            $row->created_at->format('Y-m-d H:i'),
-                            $row->updated_at->format('Y-m-d H:i'),
+                            $row->created_at ? $row->created_at->format('Y-m-d H:i') : '—',
+                            $row->updated_at ? $row->updated_at->format('Y-m-d H:i') : '—',
                         ];
                     } elseif ($type === 'logistics') {
-                        $rowData = [
-                            $num,
-                            $row->order_id ?? '—',
-                            $row->customer ? $row->customer->name : '—',
-                            $row->product ? $row->product->name : '—',
-                            $row->recipient_name,
-                            $row->shipping_address,
-                            $row->shipping_budget,
-                            $row->status ? $row->status->label() : '—',
-                            $row->pickup_datetime ? $row->pickup_datetime->format('Y-m-d H:i') : '—'
-                        ];
+                        if ($row instanceof ShipmentCustomer) {
+                            $rowData = [
+                                $num,
+                                $row->shipment ? $row->shipment->shipment_code : '—',
+                                $row->customer ? $row->customer->name : '—',
+                                $row->product_description ?? '—',
+                                $row->recipient_name,
+                                $row->shipping_address ?? '—',
+                                '—',
+                                ucfirst($row->status ?? 'pending'),
+                                $row->created_at ? $row->created_at->format('Y-m-d H:i') : '—'
+                            ];
+                        } else {
+                            $rowData = [
+                                $num,
+                                $row->order_id ?? '—',
+                                $row->customer ? $row->customer->name : '—',
+                                $row->product ? $row->product->name : '—',
+                                $row->recipient_name ?? '—',
+                                $row->shipping_address ?? '—',
+                                $row->shipping_budget ?? '0.00',
+                                $row->status ? (is_object($row->status) ? $row->status->label() : $row->status) : '—',
+                                $row->pickup_datetime ? $row->pickup_datetime->format('Y-m-d H:i') : '—'
+                            ];
+                        }
                     } elseif ($type === 'website') {
                         $rowData = [
                             $num,
-                            $row->client_name,
+                            $row->client_name ?? '—',
                             $row->client_email ?? '—',
                             $row->client_phone ?? '—',
-                            $row->source ? $row->source->label() : '—',
+                            $row->source ? (is_object($row->source) ? $row->source->label() : $row->source) : '—',
                             $row->product ? $row->product->name : ($row->product_interested ?? '—'),
-                            $row->status ? $row->status->label() : '—',
-                            $row->temperature ? $row->temperature->label() : '—',
-                            $row->received_at ? $row->received_at->format('Y-m-d H:i') : '—'
+                            $row->status ? (is_object($row->status) ? $row->status->label() : $row->status) : '—',
+                            $row->temperature ? (is_object($row->temperature) ? $row->temperature->label() : $row->temperature) : '—',
+                            $row->received_at ? $row->received_at->format('Y-m-d H:i') : ($row->created_at ? $row->created_at->format('Y-m-d H:i') : '—')
                         ];
                     } elseif ($type === 'ebay') {
-                        $rowData = [
-                            $num,
-                            $row->store ? $row->store->store_name : '—',
-                            $row->customer ? $row->customer->name : ($row->client_name ?? '—'),
-                            $row->ebay_username ?? '—',
-                            $row->product ? $row->product->name : '—',
-                            $row->offer_amount,
-                            $row->final_amount,
-                            $row->status ? $row->status->label() : '—',
-                            $row->received_at ? $row->received_at->format('Y-m-d H:i') : '—'
-                        ];
+                        if ($row instanceof EbayCustomerRecord) {
+                            $rowData = [
+                                $num,
+                                $row->store ? $row->store->store_name : '—',
+                                $row->buyer_name ?: ($row->username ?: '—'),
+                                $row->username ?? '—',
+                                $row->order_id ?? '—',
+                                $row->summary ?? '—',
+                                $row->tab_type ?? '—',
+                                ($row->date ?? $row->created_at)?->format('Y-m-d H:i') ?? '—'
+                            ];
+                        } else {
+                            $rowData = [
+                                $num,
+                                $row->store ? $row->store->store_name : '—',
+                                $row->customer ? $row->customer->name : ($row->client_name ?? '—'),
+                                $row->ebay_username ?? '—',
+                                $row->product ? $row->product->name : '—',
+                                $row->offer_amount,
+                                $row->final_amount,
+                                $row->status ? (is_object($row->status) ? $row->status->label() : $row->status) : '—',
+                                $row->received_at ? $row->received_at->format('Y-m-d H:i') : '—'
+                            ];
+                        }
                     }
 
                     fputcsv($file, $rowData);
