@@ -405,7 +405,19 @@ class ShipmentController extends Controller
     {
         abort_unless(auth()->user()->canDeleteCrmRecords('logistic'), 403, 'Only a Logistic Supervisor, eBay Supervisor, CRM Supervisor, or Boss can delete shipments.');
 
-        $shipment->delete();
+        DB::transaction(function () use ($shipment) {
+            foreach ($shipment->shipmentCustomers as $sc) {
+                $customerId = $sc->customer_id;
+                $sc->delete();
+                if ($customerId) {
+                    $this->matcher->maybeDeleteOrphanedCustomer($customerId);
+                }
+            }
+            $shipment->delete();
+        });
+
+        \App\Services\CrmService::forgetDashboardStats();
+
         return redirect()->route('crm.logistics.shipments.index')
             ->with('success', 'Shipment deleted.');
     }
@@ -419,11 +431,25 @@ class ShipmentController extends Controller
             'shipment_ids.*' => ['integer', 'exists:shipments,id'],
         ]);
 
-        $count = count($validated['shipment_ids']);
-        Shipment::whereIn('id', $validated['shipment_ids'])->delete();
+        $shipments = Shipment::whereIn('id', $validated['shipment_ids'])->with('shipmentCustomers')->get();
+
+        DB::transaction(function () use ($shipments) {
+            foreach ($shipments as $shipment) {
+                foreach ($shipment->shipmentCustomers as $sc) {
+                    $customerId = $sc->customer_id;
+                    $sc->delete();
+                    if ($customerId) {
+                        $this->matcher->maybeDeleteOrphanedCustomer($customerId);
+                    }
+                }
+                $shipment->delete();
+            }
+        });
+
+        \App\Services\CrmService::forgetDashboardStats();
 
         return redirect()->route('crm.logistics.shipments.index')
-            ->with('success', "{$count} shipment(s) deleted.");
+            ->with('success', count($validated['shipment_ids']) . ' shipment(s) deleted.');
     }
 
     // ── Shipment Customer sub-routes ─────────────────────────────────────────
