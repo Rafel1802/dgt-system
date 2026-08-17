@@ -182,21 +182,28 @@ class CrmService
     {
         DB::transaction(function () use ($customer) {
             $customer->attachments()->delete();
+            $customer->interactions()->delete();
+            \App\Models\CustomerWorkflowLog::where('customer_id', $customer->id)->delete();
+            \App\Models\ShipmentCustomer::where('customer_id', $customer->id)->delete();
 
             foreach ($customer->leads as $lead) {
                 $lead->attachments()->delete();
+                $lead->forceDelete();
             }
 
             foreach ($customer->ebayCustomerRecords as $record) {
                 $record->attachments()->delete();
+                $record->forceDelete();
             }
 
             foreach ($customer->ebayOffers as $offer) {
                 $offer->attachments()->delete();
+                $offer->forceDelete();
             }
 
             foreach ($customer->logistics as $logistic) {
                 $logistic->attachments()->delete();
+                $logistic->forceDelete();
             }
 
             foreach ($customer->techSupportCases as $case) {
@@ -204,6 +211,7 @@ class CrmService
                     $log->attachments()->delete();
                 }
                 $case->callRequests()->delete();
+                $case->forceDelete();
             }
 
             $customer->forceDelete();
