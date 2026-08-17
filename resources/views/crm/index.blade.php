@@ -43,12 +43,6 @@
     </div>
     <div class="flex gap-2 items-center flex-wrap">
       @include('crm.partials.report_export_modal', ['type' => 'customers', 'btnClass' => 'btn btn-secondary py-2'])
-      @can('crm.create')
-      <a href="{{ route('crm.customers.create') }}" class="btn btn-primary py-2" id="btn-add-customer">
-        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-        Add Customer
-      </a>
-      @endcan
     </div>
   </div>
 
