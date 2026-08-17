@@ -149,10 +149,10 @@
 
     @php
         $domainMeta = [
-            'website'      => ['label' => 'Website', 'icon' => '🌐', 'rows' => ['Handled' => $summary['website']['crm_handled'] ?? 0, 'Successful Leads' => $summary['website']['crm_sales'] ?? 0, 'Calls Answered' => $summary['website']['calls_answered'] ?? 0]],
-            'ebay'         => ['label' => 'eBay', 'icon' => '🛒', 'rows' => ['Handled' => $summary['ebay']['ebay_handled'] ?? 0]],
-            'tech_support' => ['label' => 'Technical Support', 'icon' => '🛠️', 'rows' => ['Cases Assigned' => $summary['tech_support']['assigned'] ?? 0, 'Cases Resolved' => $summary['tech_support']['resolved'] ?? 0]],
-            'logistic'     => ['label' => 'Logistic', 'icon' => '🚚', 'rows' => ['Number of Shipments' => $summary['logistic']['assigned'] ?? 0, 'Complete' => $summary['logistic']['complete'] ?? 0]],
+            'website'      => ['label' => 'Website Activity', 'tag' => 'WEBSITE', 'rows' => ['Handled' => $summary['website']['crm_handled'] ?? 0, 'Successful Leads' => $summary['website']['crm_sales'] ?? 0, 'Calls Answered' => $summary['website']['calls_answered'] ?? 0]],
+            'ebay'         => ['label' => 'eBay Activity', 'tag' => 'EBAY', 'rows' => ['Handled' => $summary['ebay']['ebay_handled'] ?? 0]],
+            'tech_support' => ['label' => 'Technical Support Activity', 'tag' => 'TECH SUPPORT', 'rows' => ['Cases Assigned' => $summary['tech_support']['assigned'] ?? 0, 'Cases Resolved' => $summary['tech_support']['resolved'] ?? 0]],
+            'logistic'     => ['label' => 'Logistic Activity', 'tag' => 'LOGISTIC', 'rows' => ['Number of Shipments' => $summary['logistic']['assigned'] ?? 0, 'Complete' => $summary['logistic']['complete'] ?? 0]],
         ];
         $headline = [
             'website'      => $summary['website']['crm_handled'] ?? 0,
@@ -166,7 +166,7 @@
     <!-- Executive Header -->
     <div class="brand-header">
         <div class="brand-logo-badge">KIUQ SYSTEM · STAFF PERFORMANCE</div>
-        <h1 class="header-title">Staff Activity Report — {{ $user->name }}</h1>
+        <h1 class="header-title">Staff Performance Report — {{ $user->name }}</h1>
         <div class="header-subtitle">
             Period: <strong>{{ $periodLabel }}</strong> &nbsp;|&nbsp; 
             Generated: <strong>{{ now()->format('d M Y \a\t H:i:s') }}</strong> &nbsp;|&nbsp; 
@@ -193,7 +193,7 @@
     @endphp
     <div class="domain-section">
         <div class="domain-header {{ $dhClass }}">
-            {{ $domainMeta[$d]['icon'] }} {{ $domainMeta[$d]['label'] }} Activity
+            {{ $domainMeta[$d]['label'] }}
         </div>
         <table>
             <thead>

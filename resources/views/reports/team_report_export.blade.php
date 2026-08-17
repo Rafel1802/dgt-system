@@ -193,8 +193,8 @@
         <div class="summary-title">Total Revenue Overview</div>
         <div class="summary-value">${{ number_format($totalSales, 2) }} <span style="font-size:12px; font-weight:600; color:#64748b;">(USD)</span></div>
         <div class="channel-pills">
-            <span class="pill pill-website">🌐 Website Revenue: ${{ number_format($websiteSales, 2) }}</span>
-            <span class="pill pill-ebay">🛒 eBay Revenue: ${{ number_format($ebaySales, 2) }}</span>
+            <span class="pill pill-website">Website Revenue: ${{ number_format($websiteSales, 2) }}</span>
+            <span class="pill pill-ebay">eBay Revenue: ${{ number_format($ebaySales, 2) }}</span>
         </div>
     </div>
 
@@ -211,7 +211,7 @@
     @endphp
     <div class="domain-section">
         <div class="domain-header {{ $dhClass }}">
-            {{ $domain['icon'] }} {{ $domain['label'] }} Overview
+            {{ $domain['label'] }} Overview
         </div>
         <table>
             <thead>
