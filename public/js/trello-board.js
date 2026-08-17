@@ -1126,6 +1126,50 @@ window.trelloBoard = function(config) {
               }
             });
           });
+
+          // Initialize list reordering
+          const sortableContainer = document.getElementById('sortable-lists-container');
+          if (sortableContainer) {
+            if (sortableContainer.sortableListInstance) {
+              sortableContainer.sortableListInstance.destroy();
+            }
+            sortableContainer.sortableListInstance = new Sortable(sortableContainer, {
+              group: 'board-lists',
+              draggable: '.board-list',
+              animation: 180,
+              ghostClass: 'opacity-50',
+              delay: 150,
+              delayOnTouchOnly: true,
+              touchStartThreshold: 5,
+              onMove: (evt) => {
+                // Ensure we don't drag over the "Add list" container which might not have an id
+                if (evt.related && !evt.related.classList.contains('board-list')) {
+                  return false;
+                }
+                return true;
+              },
+              onEnd: async (evt) => {
+                if (evt.oldIndex === evt.newIndex) return;
+
+                const listElements = Array.from(boardWrap.querySelectorAll('.board-list'));
+                const order = listElements
+                    .filter(el => el.id && el.id.startsWith('list-'))
+                    .map(el => parseInt(el.id.replace('list-', '')));
+
+                try {
+                  const res = await this.api(`/boards/${this.boardSlug}/lists/reorder`, 'POST', { order });
+                  if (res._ok === false) throw new Error('Failed to reorder lists');
+
+                  // Reorder local alpine state array
+                  const movedList = this.lists.splice(evt.oldIndex, 1)[0];
+                  this.lists.splice(evt.newIndex, 0, movedList);
+                } catch (e) {
+                  console.error(e);
+                  this.initSortable(); // Reset visual state if failed
+                }
+              }
+            });
+          }
         }, 100);
       });
     },

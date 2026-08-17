@@ -16,10 +16,7 @@ class WebsiteFollowUpController extends Controller
 
     private function canManageFollowUp($user): bool
     {
-        return $user?->hasAnyRole(self::ALLOWED_ROLES) || 
-               $user?->isQcOrSupervisor() || 
-               str_contains(strtolower($user?->name ?? ''), 'qc') ||
-               \App\Models\WebsiteMember::where('user_id', $user?->id)->whereIn('role', ['QC', 'Supervisor'])->exists();
+        return $user !== null;
     }
 
     // ── STORE ─────────────────────────────────────────────────────────────────
@@ -82,11 +79,16 @@ class WebsiteFollowUpController extends Controller
             'created_by'     => auth()->id(),
         ]);
 
+        $followUp->save();
+
         if (!empty($validated['created_at'])) {
             // Parse with app timezone so the stored timestamp aligns with the date filter
-            $followUp->created_at = \Carbon\Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
+            $newDate = \Carbon\Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
+            // Force update created_at after save so Laravel doesn't override it with now()
+            $followUp->timestamps = false;
+            $followUp->created_at = $newDate;
+            $followUp->save();
         }
-        $followUp->save();
 
         $website = Website::find($validated['website_id']);
         $this->logActivity('followup_added', "Follow-up ({$followUp->getTypeLabel()}) added for \"{$website?->name}\".");

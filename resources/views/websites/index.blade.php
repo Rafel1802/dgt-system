@@ -1733,12 +1733,10 @@
                 <span class="sm:hidden">Export</span>
             </button>
 
-            @if(!auth()->user()->isWebsiteViewer() && !auth()->user()->hasRole('boss'))
             <button type="button" @click="showFollowUpModal = true" class="btn btn-primary flex items-center gap-2 text-sm ml-2">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                 Add Follow Up
             </button>
-            @endif
         </div>
     </div>
 
@@ -1786,9 +1784,9 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
-                <input type="date" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? now()->format('Y-m-d') }}" 
+                <input type="text" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? now()->format('Y-m-d') }}" 
                     @change="$el.form.requestSubmit()" 
-                    class="form-input text-sm font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
+                    class="flatpickr-date form-input text-sm font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
             </div>
             <div class="flex items-center">
                 <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}" class="btn btn-secondary text-sm py-1.5 px-3">Clear</a>
@@ -2883,7 +2881,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Date *</label>
-                    <input type="date" name="created_at" required class="form-input w-full rounded-xl text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800" value="{{ now()->format('Y-m-d') }}">
+                    <input type="text" name="created_at" required class="flatpickr-date form-input w-full rounded-xl text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800" value="{{ now()->format('Y-m-d') }}">
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Note</label>
@@ -4710,7 +4708,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initWebsitesFlatpickr() {
     if (typeof flatpickr !== 'undefined') {
-        flatpickr('input[type="date"]', {
+        flatpickr('input[type="date"], .flatpickr-date', {
             dateFormat: "Y-m-d",
             altInput: true,
             altFormat: "d / m / Y", // This matches the format in the user's screenshot

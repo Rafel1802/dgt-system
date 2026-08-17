@@ -489,8 +489,9 @@
 @endphp
 <div class="board-wrap" id="board-wrap" style="{{ $serverStyle }}" :style="sbmBoardPreviewStyle(board)" data-bg-type="{{ $board->background_type }}">
 
-  <template x-for="(list, li) in lists" :key="list.id">
-    <div class="board-list" :id="'list-'+list.id" :style="'zoom: ' + (zoomLevel / 100)">
+  <div id="sortable-lists-container" class="flex items-start gap-4 h-full">
+    <template x-for="(list, li) in lists" :key="list.id">
+      <div class="board-list" :id="'list-'+list.id" :style="'zoom: ' + (zoomLevel / 100)">
 
       {{-- List header --}}
       <div class="list-header flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl" :style="list.color ? 'border-top:3px solid '+list.color : ''">
@@ -702,14 +703,15 @@
       </div>
     </div>
   </template>
+  </div>
 
   {{-- Add list button --}}
-  <div :style="'zoom: ' + (zoomLevel / 100)">
+  <div class="add-list-wrapper" :style="'zoom: ' + (zoomLevel / 100)">
     <div x-show="!addingList" class="add-list-btn border border-dashed border-slate-300 rounded-xl hover:border-slate-400 transition-colors" @click="addingList=true">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       Add another list
     </div>
-    <div x-show="addingList" x-cloak class="board-list p-3 border border-slate-200 shadow-sm">
+    <div x-show="addingList" x-cloak class="adding-list-container bg-slate-50 p-3 border border-slate-200 shadow-sm rounded-xl">
       <input x-model="newListName" type="text" placeholder="List name…"
              @keydown.enter="saveList" @keydown.escape="addingList=false"
              class="form-input text-xs mb-2 rounded-xl" autofocus>

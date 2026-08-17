@@ -111,18 +111,19 @@ if __name__ == "__main__":
     )
     tinker_clean = PHP + ' artisan tinker --execute="App\\Models\\SocialMediaClass::whereIn(\'name\', [\'Long Landscape\', \'Share Blog\', \'Short Reel\', \'Poster Design\', \'Reel\'])->delete();" && '
     
+    tinker_fix_colors = PHP + ' artisan tinker --execute="App\\Models\\BoardList::whereIn(\'name\', [\'Week 3\', \'Week 4\'])->update([\'color\' => null]);" && '
+
     ssh_cmd = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
         (
             "cd domains/lightcyan-weasel-711536.hostingersite.com/public_html && "
-            "mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions && "
-            "chmod -R 775 storage bootstrap/cache && "
-            "rm -f public/hot && "
-            "rm -f bootstrap/cache/*.php && "
-            "rm -f database/migrations/2026_08_07_075801_modify_unique_constraint_on_comment_reactions.php && "
+            + "mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions && "
+            + "chmod -R 775 storage bootstrap/cache && "
+            + "rm -f public/hot && rm -f bootstrap/cache/*.php && rm -f database/migrations/2026_08_07_075801_modify_unique_constraint_on_comment_reactions.php && "
             + PHP + " artisan optimize:clear && "
             + tinker_sync
             + tinker_clean
+            + tinker_fix_colors
             + PHP + " artisan smm:fix-labels && "
             + PHP + " artisan cards:restore-block-smm && "
             + PHP + " artisan migrate --force && "

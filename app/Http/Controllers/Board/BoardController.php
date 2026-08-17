@@ -237,19 +237,17 @@ class BoardController extends Controller
                 'creator:id,name,avatar,username',
                 'assignees:id,name,avatar,username',
                 'labels',
+                'checklists.items:id,checklist_id,is_completed',
             ])->withCount([
                 'files', 
                 'comments',
-                'checklistItems as checklist_total',
-                'checklistItems as checklist_done' => function($q) {
-                    $q->where('card_checklist_items.is_completed', true);
-                }
             ]);
         }]);
 
         $user = auth()->user();
         $workspaceBoards = $board->workspace
             ->boards()
+            ->with('members:id')
             ->where('is_archived', false)
             ->where('is_hidden', false)
             ->orderBy('position')
@@ -349,8 +347,8 @@ class BoardController extends Controller
                         'initials' => $u->avatar_initials,
                         'avatar_color' => $u->avatar_color,
                     ]),
-                    'checklist_total' => $c->checklist_total ?? 0,
-                    'checklist_done'  => $c->checklist_done ?? 0,
+                    'checklist_total' => $c->checklists->flatMap->items->count(),
+                    'checklist_done'  => $c->checklists->flatMap->items->where('is_completed', true)->count(),
                     'has_files'       => $c->files_count > 0,
                     'comment_count'   => $c->comments_count,
                     'creator' => $c->creator ? [
@@ -1740,6 +1738,7 @@ class BoardController extends Controller
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
+                'boards.members:id'
             ])
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
@@ -1749,7 +1748,7 @@ class BoardController extends Controller
         } else {
             $allActiveWorkspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
-                'boards.members' => fn($q) => $q->where('users.id', $userId)->select('users.id', 'users.name'),
+                'boards.members:id',
                 'members' => fn($q) => $q->where('users.id', $userId)->select('users.id', 'users.name'),
             ])
                 ->where('is_active', true)
