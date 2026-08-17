@@ -710,7 +710,7 @@ class CrmCustomerMatchService
                 'name'        => $lead->client_name,
                 'email'       => $lead->client_email,
                 'phone'       => $lead->client_phone,
-                'lifetime_value' => (float) ($lead->customer?->lifetime_value ?? 0),
+                'lifetime_value' => (float) ($lead->orders()->sum('amount') ?: ($lead->customer?->lifetime_value ?? 0)),
                 'status_label'=> $lead->status?->label() ?? '',
                 'status_color'=> $lead->status?->color() ?? '#94a3b8',
                 'occurrence_label' => $lead->techSupportCase?->occurrence_label,
@@ -812,6 +812,8 @@ class CrmCustomerMatchService
 
             $primaryBadge = $badges[0];
 
+            $ebayValue = (float) ($record->orders()->sum('total_amount') ?: ($record->offers()->sum('final_amount') ?: ($record->customer?->lifetime_value ?? 0)));
+
             $out->push([
                 'source'      => 'eBay',
                 'source_icon' => '🛒',
@@ -820,7 +822,7 @@ class CrmCustomerMatchService
                 'name'        => $record->buyer_name ?: $record->username,
                 'email'       => $record->email,
                 'phone'       => $record->phone,
-                'lifetime_value' => (float) ($record->customer?->lifetime_value ?? 0),
+                'lifetime_value' => $ebayValue,
                 'status_label'=> $primaryBadge['label'],
                 'status_color'=> $primaryBadge['color'],
                 'status_badges' => $badges,

@@ -155,12 +155,6 @@ class CrmReportController extends Controller
         foreach ($data as $row) {
             if (is_array($row)) {
                 $val = (float)($row['lifetime_value'] ?? 0);
-                if ($val == 0 && !empty($row['email'])) {
-                    $c = Customer::where('email', $row['email'])->orWhere('phone', $row['phone'] ?? '')->first();
-                    if ($c && $c->lifetime_value > 0) {
-                        $val = (float)$c->lifetime_value;
-                    }
-                }
                 $summaryStats['total_sales'] += $val;
 
                 $src = strtolower($row['source'] ?? '');
@@ -178,10 +172,6 @@ class CrmReportController extends Controller
                 elseif (str_contains($src, 'website')) $summaryStats['website_count']++;
                 else $summaryStats['logistics_count']++;
             }
-        }
-
-        if ($summaryStats['total_sales'] == 0) {
-            $summaryStats['total_sales'] = (float)Customer::sum('lifetime_value');
         }
         if ($summaryStats['ebay_count'] == 0 && $summaryStats['website_count'] == 0 && $summaryStats['logistics_count'] == 0) {
             $summaryStats['ebay_count'] = EbayCustomerRecord::count();
