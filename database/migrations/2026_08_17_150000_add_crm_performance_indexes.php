@@ -47,9 +47,8 @@ return new class extends Migration
         });
 
         Schema::table('call_reports', function (Blueprint $table) {
-            $table->index('lead_id', 'call_reports_lead_id_idx');
-            $table->index('user_id', 'call_reports_user_id_idx');
-            $table->index('report_date', 'call_reports_report_date_idx');
+            $table->index('answered_by', 'call_reports_answered_by_idx');
+            $table->index('created_by', 'call_reports_created_by_idx');
         });
 
         Schema::table('call_requests', function (Blueprint $table) {
@@ -104,9 +103,8 @@ return new class extends Migration
         });
 
         Schema::table('call_reports', function (Blueprint $table) {
-            $table->dropIndex('call_reports_lead_id_idx');
-            $table->dropIndex('call_reports_user_id_idx');
-            $table->dropIndex('call_reports_report_date_idx');
+            $table->dropIndex('call_reports_answered_by_idx');
+            $table->dropIndex('call_reports_created_by_idx');
         });
 
         Schema::table('call_requests', function (Blueprint $table) {
