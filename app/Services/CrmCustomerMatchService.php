@@ -817,7 +817,7 @@ class CrmCustomerMatchService
 
             $primaryBadge = $badges[0];
 
-            $ebayValue = (float) ($record->orders->sum('total_amount') ?: (\App\Models\EbayOffer::where('ebay_customer_record_id', $record->id)->sum('final_amount') ?: ($record->customer?->lifetime_value ?? 0)));
+            $ebayValue = (float) ($record->orders->sum('total_amount') ?: ($record->customer?->lifetime_value ?? 0));
 
             $out->push([
                 'source'      => 'eBay',
