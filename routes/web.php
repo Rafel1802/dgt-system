@@ -507,6 +507,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::prefix('logistics')->name('logistics.')->group(function () {
                     // Logistic Issues — every customer currently flagged with a shipment problem
                     Route::get('/issues', [ShipmentController::class, 'issues'])->name('issues.index');
+                    Route::post('/issues/{source}/{id}/resolve', [ShipmentController::class, 'resolveIssue'])->name('issues.resolve');
                     // Process Trucking / Loaded / Delivered — separate pages from Shipment
                     // Management, customer-grain queues (every ShipmentCustomer still
                     // Pending / already Loaded or In Delivery / already Delivered, across

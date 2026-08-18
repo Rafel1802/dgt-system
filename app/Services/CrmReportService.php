@@ -252,9 +252,10 @@ class CrmReportService
     /** One domain's row counts grouped by the day they were created, for building a daily trend chart. */
     private function dailyCountsByDay(string $domainKey, Carbon $since, Carbon $until)
     {
-        $byDay = fn ($query, string $column) => $query->get([$column])
-            ->groupBy(fn ($row) => Carbon::parse($row->{$column})->toDateString())
-            ->map->count();
+        $byDay = fn ($query, string $column) => $query->selectRaw("date($column) as day, count(*) as count")
+            ->groupByRaw("date($column)")
+            ->pluck('count', 'day')
+            ->toArray();
 
         $logisticUserIds = $this->getUserIdsByRoles(['logistic-team', 'logistic-supervisor', 'super-admin', 'boss', 'admin-crm']);
         $ebayUserIds = $this->getUserIdsByRoles(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm']);
@@ -397,9 +398,10 @@ class CrmReportService
         }
 
         $byDay = function ($query, string $column) {
-            return $query->get([$column])
-                ->groupBy(fn ($row) => Carbon::parse($row->{$column})->toDateString())
-                ->map->count();
+            return $query->selectRaw("date($column) as day, count(*) as count")
+                ->groupByRaw("date($column)")
+                ->pluck('count', 'day')
+                ->toArray();
         };
 
         $websiteByDay = $byDay(Lead::where('handled_by', $user->id)->whereBetween('created_at', [$since, $until]), 'created_at');

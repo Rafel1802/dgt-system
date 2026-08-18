@@ -188,6 +188,180 @@ class ShipmentController extends Controller
         return view('crm.logistics.issues', compact('customers'));
     }
 
+    public function resolveIssue(Request $request, string $source, int $id): RedirectResponse
+    {
+        $request->validate([
+            'notes' => ['required', 'string', 'min:3'],
+        ], [
+            'notes.required' => 'A resolution note is required to resolve this issue.',
+        ]);
+
+        $notes = $request->input('notes');
+        $resolvedDate = now()->format('d M Y');
+
+        // 1. Identify contact info based on source and ID
+        $email = null;
+        $phone = null;
+        $customerId = null;
+
+        $customerName = '';
+
+        if (strtolower($source) === 'ebay') {
+            $record = \App\Models\EbayCustomerRecord::findOrFail($id);
+            $email = $record->email;
+            $phone = $record->phone;
+            $customerId = $record->customer_id;
+            $customerName = $record->buyer_name ?: $record->username;
+        } elseif (strtolower($source) === 'website') {
+            $lead = Lead::findOrFail($id);
+            $email = $lead->client_email;
+            $phone = $lead->client_phone;
+            $customerId = $lead->customer_id;
+            $customerName = $lead->client_name;
+        } else {
+            $customer = Customer::findOrFail($id);
+            $email = $customer->email;
+            $phone = $customer->phone;
+            $customerId = $customer->id;
+            $customerName = $customer->name;
+        }
+
+        // 2. Resolve matching ShipmentCustomer problems
+        $shipmentCustomersQuery = ShipmentCustomer::where('status', ShipmentCustomer::STATUS_PROBLEM);
+        $shipmentCustomersQuery->where(function ($q) use ($email, $phone, $customerId) {
+            if ($customerId) {
+                $q->where('customer_id', $customerId);
+            }
+            if ($email) {
+                $q->orWhere('recipient_email', $email);
+            }
+            if ($phone) {
+                $q->orWhere('recipient_phone', $phone);
+            }
+        });
+
+        $scs = $shipmentCustomersQuery->get();
+        foreach ($scs as $sc) {
+            $newStatus = match ($sc->shipment?->status) {
+                Shipment::STATUS_COMPLETE => ShipmentCustomer::STATUS_DELIVERED,
+                default                   => ShipmentCustomer::STATUS_IN_TRANSIT,
+            };
+            $sc->status = $newStatus;
+            $sc->notes = trim(($sc->notes ?? '') . "\n[Resolved Date: {$resolvedDate}] " . $notes);
+            $sc->save();
+
+            // sync flags for this shipment customer
+            app(\App\Services\CrmCustomerMatchService::class)->syncShipmentDelayFlags($sc);
+        }
+
+        // 3. Resolve matching EbayCustomerRecord negative feedback/delay issues
+        $ebayQuery = \App\Models\EbayCustomerRecord::query();
+        $ebayQuery->where(function ($q) use ($email, $phone, $customerId) {
+            if ($customerId) {
+                $q->where('customer_id', $customerId);
+            }
+            if ($email) {
+                $q->orWhere('email', $email);
+            }
+            if ($phone) {
+                $q->orWhere('phone', $phone);
+            }
+        });
+
+        $ebayRecords = $ebayQuery->get();
+        foreach ($ebayRecords as $er) {
+            $updated = false;
+            if ($er->shipment_delay) {
+                $er->shipment_delay = false;
+                $updated = true;
+            }
+            if (in_array($er->tab_type, [\App\Models\EbayCustomerRecord::TAB_POT_NEGATIVES, \App\Models\EbayCustomerRecord::TAB_NEGATIVES])) {
+                $er->tab_type = \App\Models\EbayCustomerRecord::TAB_RESOLVED;
+                $er->negative_feedback_resolved = true;
+                $er->negative_feedback_resolved_at = now()->toDateString();
+                $updated = true;
+            }
+            if ($updated) {
+                $er->informations = trim(($er->informations ?? '') . "\n[Resolved Date: {$resolvedDate}] " . $notes);
+                $er->updated_by = auth()->id();
+                $er->save();
+
+                \App\Models\EbayCustomerStatusHistory::create([
+                    'ebay_customer_record_id' => $er->id,
+                    'status'                  => \App\Models\EbayCustomerRecord::TAB_RESOLVED,
+                    'changed_by'              => auth()->id(),
+                    'changed_at'              => now(),
+                ]);
+            }
+        }
+
+        // 4. Resolve matching Lead delayed_shipment status
+        $leadQuery = Lead::query();
+        $leadQuery->where(function ($q) use ($email, $phone, $customerId) {
+            if ($customerId) {
+                $q->where('customer_id', $customerId);
+            }
+            if ($email) {
+                $q->orWhere('client_email', $email);
+            }
+            if ($phone) {
+                $q->orWhere('client_phone', $phone);
+            }
+        });
+
+        $leads = $leadQuery->get();
+        foreach ($leads as $l) {
+            if ($l->status === \App\Enums\WebsiteLeadStatus::DelayedShipment) {
+                $l->status = \App\Enums\WebsiteLeadStatus::InDelivery;
+                $l->save();
+
+                \App\Models\LeadFollowUp::create([
+                    'lead_id'           => $l->id,
+                    'user_id'           => auth()->id(),
+                    'notes'             => '[Resolved Date: ' . $resolvedDate . '] ' . $notes,
+                    'status_changed_to' => \App\Enums\WebsiteLeadStatus::InDelivery,
+                    'contacted_at'      => now(),
+                ]);
+            }
+        }
+
+        // 5. Update base Customer shipment_delay flag
+        $customerQuery = Customer::query();
+        if ($customerId) {
+            $customerQuery->where('id', $customerId);
+        } else {
+            $customerQuery->where(function ($q) use ($email, $phone) {
+                if ($email) {
+                    $q->where('email', $email);
+                }
+                if ($phone) {
+                    $q->orWhere('phone', $phone);
+                }
+            });
+        }
+
+        $customers = $customerQuery->get();
+        foreach ($customers as $c) {
+            if ($c->shipment_delay) {
+                $c->shipment_delay = false;
+                $c->save();
+            }
+        }
+
+        // Notify eBay and Sales teams that the issue is resolved
+        \App\Support\CrmTeamNotifier::notifyEbayAndSalesTeams(
+            'logistic_resolved',
+            "Logistic resolved · {$customerName}",
+            route('crm.logistics.issues.index'),
+            auth()->id()
+        );
+
+        // Force clear cache
+        app(\App\Services\CrmCustomerMatchService::class)->forgetUnifiedDirectoryCache();
+
+        return redirect()->route('crm.logistics.issues.index')->with('success', 'Logistic issue resolved successfully.');
+    }
+
     public function create(): View
     {
         return view('crm.logistics.shipments.create', [

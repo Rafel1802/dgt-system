@@ -478,7 +478,6 @@
 
       {{-- Modal Body --}}
       <div class="overflow-y-auto flex-1 p-6 space-y-3 scrollbar-thin bg-white dark:bg-slate-900">
-        @defer
         @php $hiddenBoards = $hiddenBoardsFn(); @endphp
         @forelse($hiddenBoards as $hb)
           <div class="hidden-board-item flex items-center justify-between bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-violet-300 dark:hover:border-violet-600 transition-all duration-200">
@@ -510,11 +509,7 @@
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">You don't have any hidden boards. When you hide a board, it will appear here so you can restore it later.</p>
           </div>
         @endforelse
-        @placeholder
-          <div class="flex items-center justify-center py-12">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
-          </div>
-        @enddefer
+
       </div>
     </div>
   </div>
@@ -550,7 +545,6 @@
       </div>
 
       {{-- Bulk Actions Bar --}}
-      @defer
       @php 
         $trashedWorkspaces = $trashedWorkspacesFn(); 
         $trashedBoards = $trashedBoardsFn();
@@ -653,11 +647,7 @@
           </div>
         @endif
       </div>
-      @placeholder
-        <div class="flex items-center justify-center py-12">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600"></div>
-        </div>
-      @enddefer
+
     </div>
 
     {{-- Pretty Confirmation Popup (nested inside trash modal) --}}

@@ -81,6 +81,7 @@ class CrmTeamNotifierDiagTest extends TestCase
         $response = $this->actingAs($this->admin)->put(route('crm.ebay.customers.update', $record), [
             'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
             'username' => 'neg_buyer',
+            'date' => today()->toDateString(),
             'informations' => 'Customer left negative feedback about shipping delay.',
         ]);
         $response->assertSessionDoesntHaveErrors();
@@ -100,7 +101,11 @@ class CrmTeamNotifierDiagTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin)->put(route('crm.logistics.shipments.customers.update', [$shipment, $shipmentCustomer]), [
-            'recipient_name' => 'Logistic Test', 'recipient_email' => 'logistic-test@example.com', 'status' => ShipmentCustomer::STATUS_PROBLEM, 'notes' => 'Truck broke down.',
+            'recipient_name' => 'Logistic Test',
+            'recipient_email' => 'logistic-test@example.com',
+            'status' => ShipmentCustomer::STATUS_PROBLEM,
+            'notes' => 'Truck broke down.',
+            'issue_date' => today()->format('Y-m-d'),
         ]);
         $response->assertSessionDoesntHaveErrors();
 

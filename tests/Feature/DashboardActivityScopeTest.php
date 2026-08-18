@@ -49,7 +49,7 @@ class DashboardActivityScopeTest extends TestCase
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertOk();
-        $recent = $response->viewData('stats')['recent_activities'];
+        $recent = $response->viewData('recentActivitiesFn')();
 
         $this->assertTrue($recent->contains('id', $mine->id));
         $this->assertFalse($recent->contains('id', $theirs->id));
@@ -66,7 +66,7 @@ class DashboardActivityScopeTest extends TestCase
         $response = $this->actingAs($admin)->get(route('dashboard'));
 
         $response->assertOk();
-        $recent = $response->viewData('stats')['recent_activities'];
+        $recent = $response->viewData('recentActivitiesFn')();
 
         $this->assertTrue($recent->contains('id', $mine->id));
         $this->assertTrue($recent->contains('id', $theirs->id));
@@ -84,7 +84,7 @@ class DashboardActivityScopeTest extends TestCase
         $response = $this->actingAs($supervisor)->get(route('dashboard'));
 
         $response->assertOk();
-        $recent = $response->viewData('stats')['recent_activities'];
+        $recent = $response->viewData('recentActivitiesFn')();
 
         $this->assertTrue($recent->contains('id', $mine->id));
         $this->assertTrue($recent->contains('id', $theirs->id));

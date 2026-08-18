@@ -52,14 +52,20 @@ class CrmStaffReportController extends Controller
         $domainTabTrends = [];
         foreach (CrmReportService::DOMAIN_KEYS as $key) {
             $hasOwnFilter = $request->filled("{$key}_period") || $request->filled("{$key}_date_from") || $request->filled("{$key}_date_to");
-            $filters = $hasOwnFilter
-                ? ['period' => $request->get("{$key}_period"), 'date_from' => $request->get("{$key}_date_from"), 'date_to' => $request->get("{$key}_date_to")]
-                : $request->only(['date_from', 'date_to', 'period']);
-
-            [$dSince, $dUntil, $dLabel, $dGranularity] = $this->reports->resolvePeriodFromFilters($filters);
-            $domainPeriods[$key] = ['label' => $dLabel, 'granularity' => $dGranularity];
-            $domainTabReports[$key] = $this->reports->buildDomainReport($key, $dSince, $dUntil);
-            $domainTabTrends[$key] = $this->reports->buildDomainDailyTrend($key, $dSince, $dUntil);
+            if ($hasOwnFilter) {
+                $filters = ['period' => $request->get("{$key}_period"), 'date_from' => $request->get("{$key}_date_from"), 'date_to' => $request->get("{$key}_date_to")];
+                [$dSince, $dUntil, $dLabel, $dGranularity] = $this->reports->resolvePeriodFromFilters($filters);
+                $domainPeriods[$key] = ['label' => $dLabel, 'granularity' => $dGranularity];
+                $domainTabReports[$key] = $this->reports->buildDomainReport($key, $dSince, $dUntil);
+                $domainTabTrends[$key] = $this->reports->buildDomainDailyTrend($key, $dSince, $dUntil);
+            } else {
+                $domainPeriods[$key] = ['label' => $periodLabel, 'granularity' => $granularity];
+                $domainTabReports[$key] = $domainReports[$key];
+                $domainTabTrends[$key] = [
+                    'labels' => $trend['labels'],
+                    'data'   => $trend['series'][$key],
+                ];
+            }
         }
 
         return view('crm.reports.index', compact(

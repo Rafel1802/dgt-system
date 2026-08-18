@@ -363,4 +363,68 @@ class ShipmentControllerTest extends TestCase
         $this->assertNotEmpty($customer->fresh()->recipient_phone);
         $this->assertEquals(ShipmentCustomer::STATUS_IN_TRANSIT, $customer->fresh()->status);
     }
+
+    public function test_resolving_logistic_issue_from_issues_page(): void
+    {
+        $recipient = User::factory()->create(['is_active' => true]);
+        $recipient->assignRole('ebay-team');
+
+        $customer = \App\Models\Customer::create([
+            'name' => 'Kim Marady',
+            'phone' => '+1 (678) 543-9999',
+            'email' => 'marady@kiuq.com',
+            'status' => 'lead',
+            'source' => 'ebay',
+            'shipment_delay' => true,
+            'created_by' => $this->user->id,
+        ]);
+
+        $shipment = Shipment::create(['shipment_code' => 'SHP-PROBLEM-123', 'status' => Shipment::STATUS_IN_PROGRESS]);
+        $sc = ShipmentCustomer::create([
+            'shipment_id'    => $shipment->id,
+            'customer_id'    => $customer->id,
+            'recipient_name' => 'Kim Marady',
+            'recipient_phone' => '+1 (678) 543-9999',
+            'recipient_email' => 'marady@kiuq.com',
+            'status'         => ShipmentCustomer::STATUS_PROBLEM,
+            'notes'          => 'Carrier delay. (Issue Date: 18 Aug 2026)',
+            'shipping_address' => 'Test Address',
+        ]);
+
+        // Try without note (validation fails)
+        $response = $this->actingAs($this->user)->post(route('crm.logistics.issues.resolve', [
+            'source' => 'Logistics',
+            'id'     => $customer->id,
+        ]), [
+            'notes' => '',
+        ]);
+        $response->assertSessionHasErrors(['notes']);
+
+        \Illuminate\Support\Facades\Event::fake([\App\Events\InstantNotificationBroadcast::class]);
+
+        // Resolve with required note
+        $response = $this->actingAs($this->user)->post(route('crm.logistics.issues.resolve', [
+            'source' => 'Logistics',
+            'id'     => $customer->id,
+        ]), [
+            'notes' => 'Shipment has been recovered and is back in transit.',
+        ]);
+
+        $response->assertRedirect(route('crm.logistics.issues.index'));
+        $response->assertSessionHas('success');
+
+        \Illuminate\Support\Facades\Event::assertDispatched(\App\Events\InstantNotificationBroadcast::class, function ($e) {
+            return $e->payload['data']['type'] === 'logistic_resolved'
+                && str_contains($e->payload['data']['message'], 'Logistic resolved · Kim Marady');
+        });
+
+        // Verify status has updated and note was appended
+        $freshSc = $sc->fresh();
+        $this->assertEquals(ShipmentCustomer::STATUS_IN_TRANSIT, $freshSc->status);
+        $this->assertStringContainsString('Resolved Date:', $freshSc->notes);
+        $this->assertStringContainsString('Shipment has been recovered', $freshSc->notes);
+
+        // Verify customer shipment_delay flag is cleared
+        $this->assertFalse((bool) $customer->fresh()->shipment_delay);
+    }
 }

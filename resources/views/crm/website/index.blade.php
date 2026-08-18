@@ -254,8 +254,7 @@
           @endforelse
         </tbody>
 
-        @defer
-          @php $customerOnlyRows = $customerOnlyRowsFn(); @endphp
+        @php $customerOnlyRows = $customerOnlyRowsFn(); @endphp
           @if($customerOnlyRows->isEmpty() && $leads->isEmpty())
             <tbody class="bg-white">
               <tr>
@@ -324,16 +323,7 @@
           @endforeach
           </tbody>
           @endif
-        @placeholder
-          <tbody class="bg-white">
-            <tr>
-              <td colspan="9" class="text-center py-8 text-slate-400">
-                 <div class="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-indigo-600 rounded-full" role="status" aria-label="loading"></div>
-                 <p class="text-xs mt-2 font-medium">Loading customer records...</p>
-              </td>
-            </tr>
-          </tbody>
-        @enddefer
+
       </table>
     </div>
     @if($leads->hasPages())

@@ -344,7 +344,6 @@
                     </div>
                 </div>
 
-                @defer
                     @php $recentActivities = $recentActivitiesFn(); @endphp
                     @if($recentActivities->isEmpty())
                         <div class="dash-empty-box mt-6 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-10 text-center">
@@ -377,31 +376,7 @@
                             @endforeach
                         </div>
                     @endif
-                @placeholder
-                    <div class="mt-5 max-h-[400px] overflow-hidden pr-2">
-                        <div class="animate-pulse flex items-start gap-3 py-4">
-                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700"></div>
-                            <div class="flex-1 space-y-2 py-1">
-                                <div class="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
-                                <div class="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-1/3"></div>
-                            </div>
-                        </div>
-                        <div class="animate-pulse flex items-start gap-3 py-4 border-t border-slate-100 dark:border-slate-800">
-                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700"></div>
-                            <div class="flex-1 space-y-2 py-1">
-                                <div class="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-5/6"></div>
-                                <div class="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-1/4"></div>
-                            </div>
-                        </div>
-                        <div class="animate-pulse flex items-start gap-3 py-4 border-t border-slate-100 dark:border-slate-800">
-                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700"></div>
-                            <div class="flex-1 space-y-2 py-1">
-                                <div class="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
-                                <div class="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-2/5"></div>
-                            </div>
-                        </div>
-                    </div>
-                @enddefer
+
             </div>
         </div>
 
