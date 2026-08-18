@@ -62,6 +62,9 @@ class WebsiteFollowUpController extends Controller
             ->first();
 
         if ($recentDuplicate) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'message' => "Follow-up added successfully."]);
+            }
             return redirect()->route('websites.index', ['tab' => 'follow-up'])
                 ->with('success', "Follow-up added successfully.");
         }
@@ -92,6 +95,10 @@ class WebsiteFollowUpController extends Controller
 
         $website = Website::find($validated['website_id']);
         $this->logActivity('followup_added', "Follow-up ({$followUp->getTypeLabel()}) added for \"{$website?->name}\".");
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => "Follow-up added successfully."]);
+        }
 
         return redirect()->route('websites.index', ['tab' => 'follow-up'])
             ->with('success', "Follow-up added successfully.");

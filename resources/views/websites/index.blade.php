@@ -1784,9 +1784,9 @@
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
-                <input type="text" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? now()->format('Y-m-d') }}" 
+                <input type="date" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? now()->format('Y-m-d') }}" 
                     @change="$el.form.requestSubmit()" 
-                    class="flatpickr-date form-input text-sm font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
+                    class="form-input text-sm font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
             </div>
             <div class="flex items-center">
                 <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}" class="btn btn-secondary text-sm py-1.5 px-3">Clear</a>
@@ -2836,7 +2836,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ isSubmitting: false, selectedId: '' }" @submit="if(!selectedId) { alert('Please select a website first.'); $event.preventDefault(); return; } if(isSubmitting) { $event.preventDefault(); return; } isSubmitting = true;">
+        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ isSubmitting: false, selectedId: '' }" @submit.prevent="if(!selectedId) { alert('Please select a website first.'); return; } if(isSubmitting) { return; } isSubmitting = true; fetch($el.action, { method: 'POST', body: new FormData($el), headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }).then(res => res.json()).then(data => { if(data.success) { showFollowUpModal = false; if (window.Turbo) window.Turbo.refresh(); else window.location.reload(); } else { alert(data.message || 'Error occurred.'); } }).catch(err => alert('An error occurred.')).finally(() => { isSubmitting = false; });">
             @csrf
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
@@ -2881,7 +2881,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Date *</label>
-                    <input type="text" name="created_at" required class="flatpickr-date form-input w-full rounded-xl text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800" value="{{ now()->format('Y-m-d') }}">
+                    <input type="date" name="created_at" required class="form-input w-full rounded-xl text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800" value="{{ now()->format('Y-m-d') }}">
                 </div>
                 <div class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Note</label>

@@ -45,9 +45,10 @@ class WebsiteController extends Controller
 
         // --- OPTIMIZATION: Fetch lightweight stats and counts via DB grouping ---
         $statusCounts = Website::where('is_archived', false)
-            ->selectRaw('status, count(*) as count')
+            ->selectRaw('status, count(*) as total')
             ->groupBy('status')
-            ->pluck('count', 'status')
+            ->get()
+            ->pluck('total', 'status')
             ->toArray();
 
         $followUpsCount = WebsiteFollowUp::count();
