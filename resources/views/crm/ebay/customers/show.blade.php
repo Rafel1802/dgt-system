@@ -120,7 +120,11 @@
               {{ $entry->ended_at ? ' until '.$entry->ended_at->format('d M Y, g:ia') : '' }}
             </span>
             @unless($entry->ended_at)
-            <span class="badge badge-emerald text-xs">current</span>
+              @if($entry->confirmed_at)
+                <span class="badge badge-emerald text-xs">current</span>
+              @else
+                <span class="badge text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">pending confirmation</span>
+              @endif
             @endunless
           </div>
           @empty

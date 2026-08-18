@@ -233,7 +233,7 @@ class EbayCustomerRecord extends Model
 
     public function getCurrentHandlerAttribute(): ?User
     {
-        return $this->handlerHistory->firstWhere('ended_at', null)?->user;
+        return $this->handlerHistory->whereNotNull('confirmed_at')->firstWhere('ended_at', null)?->user;
     }
 
     // ── Scopes ────────────────────────────────────────────────────────────────

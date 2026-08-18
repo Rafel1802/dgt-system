@@ -113,6 +113,7 @@ class EbayCustomerController extends Controller
             'ebay_customer_record_id' => $record->id,
             'user_id'                 => auth()->id(),
             'started_at'              => now(),
+            'confirmed_at'            => now(),
         ]);
         Cache::forget('crm.pending_handler_confirms.' . auth()->id());
 
@@ -322,23 +323,18 @@ class EbayCustomerController extends Controller
             ->with('success', "{$count} eBay record(s) deleted.");
     }
 
-    /**
-     * Close the current handler-history entry and open a new one for the
-     * selected staff member. The new assignment starts unconfirmed —
-     * surfaced in the assignee's profile dropdown (not the notification
-     * bell) with a Confirm action, see confirmHandler() below.
-     */
     public function switchHandler(Request $request, EbayCustomerRecord $record): JsonResponse
     {
         $validated = $request->validate(['user_id' => ['required', 'exists:users,id']]);
 
-        $now = now();
-        $record->handlerHistory()->whereNull('ended_at')->update(['ended_at' => $now]);
+        // Clean up previous unconfirmed assignments so they don't pile up
+        $record->handlerHistory()->whereNull('confirmed_at')->delete();
 
         $entry = EbayCustomerHandlerHistory::create([
             'ebay_customer_record_id' => $record->id,
             'user_id'                 => $validated['user_id'],
-            'started_at'              => $now,
+            'started_at'              => now(),
+            'confirmed_at'            => null,
         ]);
         Cache::forget('crm.pending_handler_confirms.' . $validated['user_id']);
 
@@ -353,7 +349,20 @@ class EbayCustomerController extends Controller
     {
         abort_unless($entry->user_id === auth()->id(), 403, 'Only the assigned handler can confirm this assignment.');
 
-        $entry->update(['confirmed_at' => now()]);
+        $now = now();
+
+        // 1. Close the previous active confirmed assignment
+        $entry->record->handlerHistory()
+            ->where('id', '!=', $entry->id)
+            ->whereNull('ended_at')
+            ->update(['ended_at' => $now]);
+
+        // 2. Mark this assignment as started and confirmed
+        $entry->update([
+            'started_at'   => $now,
+            'confirmed_at' => $now,
+        ]);
+
         Cache::forget('crm.pending_handler_confirms.' . $entry->user_id);
 
         return redirect()->route('crm.ebay.customers.show', $entry->ebay_customer_record_id)

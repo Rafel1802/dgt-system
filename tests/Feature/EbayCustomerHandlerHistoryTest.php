@@ -45,17 +45,18 @@ class EbayCustomerHandlerHistoryTest extends TestCase
         $this->assertEquals($this->user->id, $record->current_handler->id);
     }
 
-    public function test_switching_handler_closes_the_previous_entry_and_opens_a_new_one(): void
+    public function test_switching_handler_keeps_previous_handler_active_until_new_one_confirms(): void
     {
         $record = EbayCustomerRecord::create([
             'tab_type' => EbayCustomerRecord::TAB_URGENT,
             'buyer_name' => 'Tom Baker',
         ]);
 
-        \App\Models\EbayCustomerHandlerHistory::create([
+        $firstHistory = \App\Models\EbayCustomerHandlerHistory::create([
             'ebay_customer_record_id' => $record->id,
             'user_id' => $this->user->id,
             'started_at' => now()->subDay(),
+            'confirmed_at' => now()->subDay(),
         ]);
 
         $response = $this->actingAs($this->user)->postJson(
@@ -66,9 +67,25 @@ class EbayCustomerHandlerHistoryTest extends TestCase
         $response->assertOk();
 
         $record->refresh();
-        $this->assertEquals($this->otherUser->id, $record->current_handler->id);
+        // The old handler remains the active handler since new one hasn't confirmed yet
+        $this->assertEquals($this->user->id, $record->current_handler->id);
         $this->assertEquals(2, $record->handlerHistory()->count());
-        $this->assertNotNull($record->handlerHistory()->where('user_id', $this->user->id)->first()->ended_at);
+
+        $newHistory = \App\Models\EbayCustomerHandlerHistory::where('user_id', $this->otherUser->id)
+            ->where('ebay_customer_record_id', $record->id)
+            ->firstOrFail();
+        $this->assertNull($newHistory->confirmed_at);
+        $this->assertNotNull($newHistory->started_at);
+
+        // B confirms assignment
+        $responseConfirm = $this->actingAs($this->otherUser)->post(
+            route('crm.ebay.customers.handler-history.confirm', $newHistory)
+        );
+        $responseConfirm->assertRedirect();
+
+        $record->refresh();
+        $this->assertEquals($this->otherUser->id, $record->current_handler->id);
+        $this->assertNotNull($firstHistory->fresh()->ended_at);
     }
 
     public function test_a_new_handler_assignment_starts_unconfirmed(): void
@@ -100,6 +117,7 @@ class EbayCustomerHandlerHistoryTest extends TestCase
 
         $response->assertRedirect(route('crm.ebay.customers.show', $record));
         $this->assertNotNull($entry->fresh()->confirmed_at);
+        $this->assertNotNull($entry->fresh()->started_at);
     }
 
     public function test_a_different_user_cannot_confirm_someone_elses_assignment(): void

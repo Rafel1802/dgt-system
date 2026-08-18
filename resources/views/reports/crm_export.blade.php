@@ -419,14 +419,14 @@
 
                     @elseif($type === 'ebay')
                         @if($row instanceof \App\Models\EbayCustomerRecord)
-                            <td class="nowrap font-bold">{{ $row->tab_type ? (EbayCustomerRecord::tabs()[$row->tab_type] ?? $row->tab_type) : '—' }}</td>
+                            <td class="nowrap font-bold">{{ $row->tab_type ? (\App\Models\EbayCustomerRecord::tabs()[$row->tab_type] ?? $row->tab_type) : '—' }}</td>
                             <td class="nowrap font-bold">{{ $row->buyer_name }}</td>
                             <td class="nowrap" style="color:#64748b;">{{ $row->username ?? '—' }}</td>
                             <td>{{ $row->email ?? '—' }}</td>
                             <td class="nowrap">{{ $row->phone ?? '—' }}</td>
                             <td class="nowrap">
                                 <span class="badge {{ $row->tab_type === 'resolved' ? 'badge-emerald' : ($row->shipment_delay ? 'badge-amber' : 'badge-rose') }}">
-                                    {{ $row->tab_type ? (EbayCustomerRecord::tabs()[$row->tab_type] ?? '—') : '—' }}
+                                    {{ $row->tab_type ? (\App\Models\EbayCustomerRecord::tabs()[$row->tab_type] ?? '—') : '—' }}
                                 </span>
                             </td>
                             <td class="nowrap" style="color:#64748b;">{{ $row->created_at ? $row->created_at->format('d M Y') : '—' }}</td>

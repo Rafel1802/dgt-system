@@ -657,7 +657,66 @@ class ProductController extends Controller
         $price = $this->normalizeImportPrice($data['price'] ?? null);
         $currency = strtoupper(trim((string) ($data['currency'] ?? ''))) ?: 'USD';
         $productImage = trim((string) ($data['product_image'] ?? ''));
+
+        // 1. Guess Category if not provided
+        if ($name !== '' && $categoryInput === '') {
+            $lowerName = str_replace(['-', '/'], ' ', strtolower($name));
+            
+            if (str_contains($lowerName, 'forklift')) {
+                $categoryInput = 'Forklift';
+            } else {
+                // Check if it is an attachment keyword
+                $attachmentKeywords = [
+                    'attachment', 'bucket', 'ripper', 'hitch', 'rake', 'grapple', 'pallet fork', 'forks',
+                    'blade', 'trimmer', 'auger', 'hammer', 'coupler', 'splitter', 'compactor', 
+                    'grabber', 'teeth bucket', 'mud bucket', 'rock bucket', 'wood grab', 'tool set', 
+                    'kit combo', 'bundle', 'teeth', 'thumb clip', 'plow', 'mower', 'mulcher', 'sweeper',
+                    'snow blower', 'wood split', 'rock bucket', 'quick hitch'
+                ];
+                $isAttachment = false;
+                foreach ($attachmentKeywords as $kw) {
+                    if (str_contains($lowerName, $kw)) {
+                        $isAttachment = true;
+                        break;
+                    }
+                }
+
+                if ($isAttachment) {
+                    $categoryInput = 'Attachment';
+                } elseif (str_contains($lowerName, 'excavator')) {
+                    $categoryInput = 'Mni Excavator';
+                } elseif (str_contains($lowerName, 'skid steer')) {
+                    $categoryInput = 'Skid Steer';
+                } elseif (str_contains($lowerName, 'wheel loader') || str_contains($lowerName, 'loader')) {
+                    $categoryInput = 'Wheel Loader';
+                } elseif (str_contains($lowerName, 'road roller') || str_contains($lowerName, 'roller')) {
+                    $categoryInput = 'Road Roller';
+                } elseif (str_contains($lowerName, 'scissor lift') || str_contains($lowerName, 'scissor')) {
+                    $categoryInput = 'Scissor Lift';
+                } else {
+                    $categoryInput = 'Attachment';
+                }
+            }
+        }
+
+        // 2. Match or auto-create category
         $category = $this->matchImportCategory($categoryInput, $categories);
+        if (!$category && $categoryInput !== '') {
+            $category = ProductCategory::firstOrCreate(
+                ['name' => $categoryInput],
+                [
+                    'slug' => Str::slug($categoryInput),
+                    'sort_order' => ((int) ProductCategory::max('sort_order')) + 1,
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        // 3. Default Brand to TYPHON if empty
+        if ($brand === '') {
+            $brand = 'TYPHON';
+        }
+
         $status = 'ready';
         $message = 'Ready to import.';
 
