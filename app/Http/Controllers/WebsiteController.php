@@ -43,42 +43,90 @@ class WebsiteController extends Controller
             default            => ['handler'],
         };
 
-        // --- OPTIMIZATION: Fetch lightweight websites. Relationships are lazy-loaded below for the ACTIVE tab only! ---
-        $allWebsites = Website::where('is_archived', false)
-            ->orderBy('name')
-            ->get();
+        // --- OPTIMIZATION: Fetch lightweight stats and counts via DB grouping ---
+        $statusCounts = Website::where('is_archived', false)
+            ->selectRaw('status, count(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
 
+        $followUpsCount = WebsiteFollowUp::count();
 
+        $tabCounts = [
+            'build'               => $statusCounts[Website::STATUS_BUILD_WEBSITE] ?? 0,
+            'build-progress'      => ($statusCounts[Website::STATUS_BUILD_PROGRESS] ?? 0) + ($statusCounts[Website::STATUS_QC_CHECKING] ?? 0) + ($statusCounts[Website::STATUS_SUPERVISOR_CHECKING] ?? 0),
+            'live'                => ($statusCounts[Website::STATUS_LIVE] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_PROGRESS] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_QC_CHECKING] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING] ?? 0),
+            'maintenance'         => ($statusCounts[Website::STATUS_MAINTENANCE] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_PROGRESS] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_QC_CHECKING] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING] ?? 0),
+            'qc-checking'         => ($statusCounts[Website::STATUS_QC_CHECKING] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_QC_CHECKING] ?? 0),
+            'supervisor-checking' => ($statusCounts[Website::STATUS_SUPERVISOR_CHECKING] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING] ?? 0),
+            'qc-error'            => ($statusCounts[Website::STATUS_QC_ERROR] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_QC_ERROR] ?? 0),
+            'supervisor-error'    => ($statusCounts[Website::STATUS_SUPERVISOR_ERROR] ?? 0) + ($statusCounts[Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR] ?? 0),
+            'follow-up'           => $followUpsCount,
+        ];
 
-        $buildWebsites = $allWebsites->where('status', Website::STATUS_BUILD_WEBSITE)->values();
-        $buildProgressWebsites = $allWebsites->whereIn('status', [
-            Website::STATUS_BUILD_PROGRESS,
-            Website::STATUS_QC_CHECKING,
-            Website::STATUS_SUPERVISOR_CHECKING,
-        ])->values();
-        $qcErrorWebsites = $allWebsites->whereIn('status', [
-            Website::STATUS_QC_ERROR,
-            Website::STATUS_MAINTENANCE_QC_ERROR,
-        ])->values();
-        $qcCheckingWebsites = $allWebsites->whereIn('status', [
-            Website::STATUS_QC_CHECKING,
-            Website::STATUS_MAINTENANCE_QC_CHECKING,
-        ])->values();
-        $supervisorErrorWebsites = $allWebsites->whereIn('status', [
-            Website::STATUS_SUPERVISOR_ERROR,
-            Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR,
-        ])->values();
-        $supervisorCheckingWebsites = $allWebsites->whereIn('status', [
-            Website::STATUS_SUPERVISOR_CHECKING,
-            Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
-        ])->values();
-        $liveWebsites = $allWebsites->filter(fn($w) => $w->isLiveOrMaintenance())->values();
-        $maintenanceWebsites = $allWebsites->whereIn('status', [
-            Website::STATUS_MAINTENANCE,
-            Website::STATUS_MAINTENANCE_PROGRESS,
-            Website::STATUS_MAINTENANCE_QC_CHECKING,
-            Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
-        ])->values();
+        // --- OPTIMIZATION: Fetch ONLY the websites for the active tab ---
+        $buildWebsites = collect();
+        $buildProgressWebsites = collect();
+        $qcErrorWebsites = collect();
+        $qcCheckingWebsites = collect();
+        $supervisorErrorWebsites = collect();
+        $supervisorCheckingWebsites = collect();
+        $liveWebsites = collect();
+        $maintenanceWebsites = collect();
+
+        $activeQuery = Website::where('is_archived', false)->orderBy('name')->with($tabRelations);
+
+        switch ($tab) {
+            case 'build':
+                $buildWebsites = (clone $activeQuery)->where('status', Website::STATUS_BUILD_WEBSITE)->get();
+                break;
+            case 'build-progress':
+                $buildProgressWebsites = (clone $activeQuery)->whereIn('status', [
+                    Website::STATUS_BUILD_PROGRESS,
+                    Website::STATUS_QC_CHECKING,
+                    Website::STATUS_SUPERVISOR_CHECKING,
+                ])->get();
+                break;
+            case 'qc-error':
+                $qcErrorWebsites = (clone $activeQuery)->whereIn('status', [
+                    Website::STATUS_QC_ERROR,
+                    Website::STATUS_MAINTENANCE_QC_ERROR,
+                ])->get();
+                break;
+            case 'qc-checking':
+                $qcCheckingWebsites = (clone $activeQuery)->whereIn('status', [
+                    Website::STATUS_QC_CHECKING,
+                    Website::STATUS_MAINTENANCE_QC_CHECKING,
+                ])->get();
+                break;
+            case 'supervisor-error':
+                $supervisorErrorWebsites = (clone $activeQuery)->whereIn('status', [
+                    Website::STATUS_SUPERVISOR_ERROR,
+                    Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR,
+                ])->get();
+                break;
+            case 'supervisor-checking':
+                $supervisorCheckingWebsites = (clone $activeQuery)->whereIn('status', [
+                    Website::STATUS_SUPERVISOR_CHECKING,
+                    Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
+                ])->get();
+                break;
+            case 'live':
+                $liveWebsites = (clone $activeQuery)->whereIn('status', [
+                    Website::STATUS_LIVE, Website::STATUS_MAINTENANCE, 
+                    Website::STATUS_MAINTENANCE_PROGRESS, Website::STATUS_MAINTENANCE_QC_CHECKING, 
+                    Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING
+                ])->get();
+                break;
+            case 'maintenance':
+                $maintenanceWebsites = (clone $activeQuery)->whereIn('status', [
+                    Website::STATUS_MAINTENANCE,
+                    Website::STATUS_MAINTENANCE_PROGRESS,
+                    Website::STATUS_MAINTENANCE_QC_CHECKING,
+                    Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
+                ])->get();
+                break;
+        }
 
         // ── Follow Up Tab ─────────────────────────────────────────────────────
         $followUpFilter = $request->only(['fu_class', 'fu_website', 'fu_type', 'fu_qc', 'fu_member', 'fu_date']);
@@ -88,11 +136,14 @@ class WebsiteController extends Controller
             
         // Apply fu_class filter
         if (!empty($followUpFilter['fu_class'])) {
-            $filteredWebsiteIds = $allWebsites->where('category', $followUpFilter['fu_class'])->pluck('id')->toArray();
-            if ($followUpFilter['fu_class'] === '__none__') {
-                $filteredWebsiteIds = $allWebsites->whereNull('category')->pluck('id')->toArray();
-            }
-            $followUpsQuery->whereIn('website_id', $filteredWebsiteIds);
+            $cat = $followUpFilter['fu_class'];
+            $followUpsQuery->whereHas('website', function($q) use ($cat) {
+                if ($cat === '__none__') {
+                    $q->whereNull('category');
+                } else {
+                    $q->where('category', $cat);
+                }
+            });
         }
 
         if (!empty($followUpFilter['fu_website'])) {
@@ -124,12 +175,12 @@ class WebsiteController extends Controller
 
         // ── KPI Stats ─────────────────────────────────────────────────────────
         $stats = [
-            'total'       => Website::where('is_archived', false)->count(),
-            'building'    => Website::where('is_archived', false)->whereIn('status', [Website::STATUS_BUILD_WEBSITE, Website::STATUS_BUILD_PROGRESS, Website::STATUS_QC_CHECKING, Website::STATUS_SUPERVISOR_CHECKING])->count(),
-            'live'        => Website::where('is_archived', false)->whereIn('status', [Website::STATUS_LIVE, Website::STATUS_MAINTENANCE, Website::STATUS_MAINTENANCE_PROGRESS, Website::STATUS_MAINTENANCE_QC_CHECKING, Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING])->count(),
-            'maintenance' => Website::where('is_archived', false)->whereIn('status', [Website::STATUS_MAINTENANCE, Website::STATUS_MAINTENANCE_PROGRESS, Website::STATUS_MAINTENANCE_QC_CHECKING, Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING])->count(),
-            'qc_pending'  => Website::where('is_archived', false)->whereIn('status', [Website::STATUS_QC_CHECKING, Website::STATUS_MAINTENANCE_QC_CHECKING])->count(),
-            'follow_ups'  => WebsiteFollowUp::count(),
+            'total'       => array_sum($statusCounts),
+            'building'    => $tabCounts['build'] + $tabCounts['build-progress'],
+            'live'        => $tabCounts['live'],
+            'maintenance' => $tabCounts['maintenance'],
+            'qc_pending'  => $tabCounts['qc-checking'],
+            'follow_ups'  => $followUpsCount,
         ];
 
         // ── All classes for the filter dropdown ───────────────────────────────
@@ -144,7 +195,7 @@ class WebsiteController extends Controller
         $setting    = Setting::where('key', 'website_classes_order')->first();
         $orderArray = $setting ? json_decode($setting->value, true) : [];
 
-        $existingCategories = $allWebsites->pluck('category')->filter()->unique()->values()->toArray();
+        $existingCategories = $allClasses->toArray();
         $newCategories      = array_diff($existingCategories, $orderArray);
         if (!empty($newCategories)) {
             $orderArray = array_merge($orderArray, $newCategories);
@@ -176,28 +227,10 @@ class WebsiteController extends Controller
 
         $reportUsers = $users->concat($websiteTeamMembers)->unique('id')->sortBy('name')->values();
 
-        // --- PERFORMANCE OPTIMIZATION: Lazy load heavy relationships ONLY for the active tab ---
-        if ($tab === 'build') {
-            $buildWebsites->load($tabRelations);
-            $groupedWebsites->each(function($group) use ($tabRelations) { $group->load($tabRelations); });
-        } elseif ($tab === 'build-progress') {
-            $buildProgressWebsites->load($tabRelations);
-        } elseif ($tab === 'qc-checking') {
-            $qcCheckingWebsites->load($tabRelations);
-        } elseif ($tab === 'supervisor-checking') {
-            $supervisorCheckingWebsites->load($tabRelations);
-        } elseif ($tab === 'qc-error') {
-            $qcErrorWebsites->load($tabRelations);
-        } elseif ($tab === 'supervisor-error') {
-            $supervisorErrorWebsites->load($tabRelations);
-        } elseif ($tab === 'live') {
-            $liveWebsites->load($tabRelations);
-        } elseif ($tab === 'maintenance') {
-            $maintenanceWebsites->load($tabRelations);
-        }
+        // --- PERFORMANCE OPTIMIZATION: Relationships are already eager loaded via with($tabRelations) above ---
 
         return view('websites.index', compact(
-            'tab', 'stats', 'allWebsites', 'groupedWebsites', 'orderArray',
+            'tab', 'tabCounts', 'stats', 'groupedWebsites', 'orderArray',
             'buildWebsites', 'buildProgressWebsites', 'liveWebsites',
             'maintenanceWebsites', 'followUps', 'followUpFilter', 'users',
             'allClasses', 'websiteMembers', 'memberRolesMap',

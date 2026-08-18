@@ -14,31 +14,45 @@ class SocialMediaDashboardController extends Controller
         $canManageClasses = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
         $isQc             = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss']);
 
-        // Build class query based on role
-        $classQuery = SocialMediaClass::with(['activeItems', 'assignedUsers', 'posts' => function ($query) use ($user, $isQc) {
-            if (!$isQc) {
-                $query->where('user_id', $user->id);
-            }
-        }])->withCount('activeItems as items_count');
+        // Build class query based on role, using withCount for DB-level aggregation instead of loading models
+        $classQuery = SocialMediaClass::with(['activeItems', 'assignedUsers'])
+            ->withCount('activeItems as items_count')
+            ->withCount([
+                'posts as total_posts' => function ($query) use ($user, $isQc) {
+                    if (!$isQc) $query->where('user_id', $user->id);
+                },
+                'posts as completed' => function ($query) use ($user, $isQc) {
+                    if (!$isQc) $query->where('user_id', $user->id);
+                    $query->where('is_completed', true);
+                },
+                'posts as pending' => function ($query) use ($user, $isQc) {
+                    if (!$isQc) $query->where('user_id', $user->id);
+                    $query->where('is_completed', false);
+                },
+                'posts as qc_checked' => function ($query) use ($user, $isQc) {
+                    if (!$isQc) $query->where('user_id', $user->id);
+                    $query->where('is_checked', true);
+                },
+                'posts as qc_pending' => function ($query) use ($user, $isQc) {
+                    if (!$isQc) $query->where('user_id', $user->id);
+                    $query->where('is_completed', true)->where('is_checked', false);
+                }
+            ]);
 
         $canSeeAllClasses = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss', 'digital-team']);
-        // Remove the restriction so everyone sees all classes (unassigned users will see them in view-only mode)
 
         $classes = $classQuery->orderBy('position')->orderBy('name')->get();
 
-        // Compute summary stats per class
+        // Compute summary stats per class directly from counts
         $classesWithStats = $classes->map(function (SocialMediaClass $class) {
-            // Posts are already eager-loaded and filtered based on the role
-            $posts = $class->posts;
-
             return [
                 'model'       => $class,
                 'total_items' => $class->items_count,
-                'total_posts' => $posts->count(),
-                'completed'   => $posts->where('is_completed', true)->count(),
-                'pending'     => $posts->where('is_completed', false)->count(),
-                'qc_checked'  => $posts->where('is_checked', true)->count(),
-                'qc_pending'  => $posts->where('is_completed', true)->where('is_checked', false)->count(),
+                'total_posts' => $class->total_posts ?? 0,
+                'completed'   => $class->completed ?? 0,
+                'pending'     => $class->pending ?? 0,
+                'qc_checked'  => $class->qc_checked ?? 0,
+                'qc_pending'  => $class->qc_pending ?? 0,
             ];
         });
 
