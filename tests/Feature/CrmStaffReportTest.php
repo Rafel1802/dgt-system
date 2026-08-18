@@ -160,7 +160,7 @@ class CrmStaffReportTest extends TestCase
         $response = $this->actingAs($this->user)->get(route('crm.reports.show', ['user' => $this->user, 'period' => 'bogus']));
 
         $response->assertOk();
-        $response->assertSee('Activity Breakdown by Domain');
+        $response->assertSee('Domain Activity Distribution');
     }
 
     public function test_export_streams_a_csv_for_the_current_period(): void
@@ -310,7 +310,7 @@ class CrmStaffReportTest extends TestCase
         $response = $this->actingAs($this->user)->get(route('crm.reports.index'));
 
         $response->assertOk();
-        $response->assertSee('📋 General Report', false);
+        $response->assertSee('📋 General Executive Report', false);
         $response->assertSee('🚚 Logistic', false);
         $response->assertSee('🛒 eBay', false);
         $response->assertSee('🌐 Website', false);
@@ -353,5 +353,36 @@ class CrmStaffReportTest extends TestCase
         // Each page links to the other.
         $teamResponse->assertSee(route('crm.reports.staff'), false);
         $staffResponse->assertSee(route('crm.reports.index'), false);
+    }
+
+    public function test_team_reports_exports_can_be_filtered_by_tab(): void
+    {
+        $record = EbayCustomerRecord::create(['tab_type' => EbayCustomerRecord::TAB_NEW_ORDER, 'buyer_name' => 'Grace Lee']);
+        $order = EbayCustomerOrder::create(['ebay_customer_record_id' => $record->id, 'order_id' => 'ORD-2']);
+        $order->items()->create(['product_name' => 'Part', 'price' => 100]);
+
+        $lead = Lead::create([
+            'handled_by' => $this->user->id, 'client_name' => 'Buyer',
+            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::Successful->value,
+            'received_at' => now(),
+        ]);
+        LeadProduct::create(['lead_id' => $lead->id, 'product_name' => 'Item', 'price' => 50, 'quantity' => 1]);
+
+        // PDF general report
+        $pdfGeneral = $this->actingAs($this->user)->get(route('crm.reports.export.pdf'));
+        $pdfGeneral->assertOk();
+
+        // PDF filtered by eBay
+        $pdfEbay = $this->actingAs($this->user)->get(route('crm.reports.export.pdf', ['tab' => 'ebay']));
+        $pdfEbay->assertOk();
+
+        // CSV filtered by eBay
+        $csvEbay = $this->actingAs($this->user)->get(route('crm.reports.export.csv', ['tab' => 'ebay']));
+        $csvEbay->assertOk();
+        $content = $csvEbay->streamedContent();
+
+        $this->assertStringContainsString('eBay', $content);
+        $this->assertStringNotContainsString('Website', $content);
+        $this->assertStringNotContainsString('Logistic', $content);
     }
 }

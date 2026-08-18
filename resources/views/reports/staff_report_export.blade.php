@@ -149,7 +149,7 @@
 
     @php
         $domainMeta = [
-            'website'      => ['label' => 'Website Activity', 'tag' => 'WEBSITE', 'rows' => ['Handled' => $summary['website']['crm_handled'] ?? 0, 'Successful Leads' => $summary['website']['crm_sales'] ?? 0, 'Calls Answered' => $summary['website']['calls_answered'] ?? 0]],
+            'website'      => ['label' => 'Website Activity', 'tag' => 'WEBSITE', 'rows' => ['Handled' => $summary['website']['crm_handled'] ?? 0, 'Total Order' => $summary['website']['crm_sales'] ?? 0, 'Calls Answered' => $summary['website']['calls_answered'] ?? 0]],
             'ebay'         => ['label' => 'eBay Activity', 'tag' => 'EBAY', 'rows' => ['Handled' => $summary['ebay']['ebay_handled'] ?? 0]],
             'tech_support' => ['label' => 'Technical Support Activity', 'tag' => 'TECH SUPPORT', 'rows' => ['Cases Assigned' => $summary['tech_support']['assigned'] ?? 0, 'Cases Resolved' => $summary['tech_support']['resolved'] ?? 0]],
             'logistic'     => ['label' => 'Logistic Activity', 'tag' => 'LOGISTIC', 'rows' => ['Number of Shipments' => $summary['logistic']['assigned'] ?? 0, 'Complete' => $summary['logistic']['complete'] ?? 0]],

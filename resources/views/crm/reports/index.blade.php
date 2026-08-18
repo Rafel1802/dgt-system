@@ -74,10 +74,10 @@
             <span>🔗</span> <span>Share Link</span>
           </button>
         </form>
-        <a href="{{ route('crm.reports.export.pdf', request()->query() + ['period' => $granularity]) }}" class="btn btn-secondary text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 hover:border-indigo-300">
+        <a :href="'{{ route('crm.reports.export.pdf', collect(request()->query())->except(['tab'])->merge(['period' => $granularity])->all()) }}' + (reportTab !== 'general' ? '&tab=' + reportTab : '')" class="btn btn-secondary text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 hover:border-indigo-300">
           <span>📄</span> <span>Export PDF</span>
         </a>
-        <a href="{{ route('crm.reports.export.csv', request()->query() + ['period' => $granularity]) }}" class="btn btn-secondary text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 hover:border-indigo-300">
+        <a :href="'{{ route('crm.reports.export.csv', collect(request()->query())->except(['tab'])->merge(['period' => $granularity])->all()) }}' + (reportTab !== 'general' ? '&tab=' + reportTab : '')" class="btn btn-secondary text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 hover:border-indigo-300">
           <span>📊</span> <span>Export CSV</span>
         </a>
       </div>
@@ -246,13 +246,13 @@
         {{-- Export Action Box --}}
         <div class="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-md text-center">
           <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-2xl mx-auto mb-3 border border-white/15">📑</div>
-          <h5 class="font-bold text-base text-white mb-1">Executive Report Export</h5>
+          <h5 class="font-bold text-base text-white mb-1" x-text="reportTab === 'general' ? 'Executive Report Export' : (reportTab === 'ebay' ? 'eBay' : reportTab === 'tech_support' ? 'Technical Support' : reportTab.charAt(0).toUpperCase() + reportTab.slice(1)) + ' Report Export'">Executive Report Export</h5>
           <p class="text-xs text-slate-300 mb-5">Download official PDF or CSV report for {{ $periodLabel }}.</p>
           <div class="flex flex-col gap-2.5">
-            <a href="{{ route('crm.reports.export.pdf', request()->query() + ['period' => $granularity]) }}" class="btn btn-primary text-xs py-2.5 w-full rounded-xl flex items-center justify-center gap-2 shadow-md">
+            <a :href="'{{ route('crm.reports.export.pdf', collect(request()->query())->except(['tab'])->merge(['period' => $granularity])->all()) }}' + (reportTab !== 'general' ? '&tab=' + reportTab : '')" class="btn btn-primary text-xs py-2.5 w-full rounded-xl flex items-center justify-center gap-2 shadow-md">
               <span>📄</span> <span>Download Official PDF</span>
             </a>
-            <a href="{{ route('crm.reports.export.csv', request()->query() + ['period' => $granularity]) }}" class="btn btn-secondary text-xs py-2.5 w-full rounded-xl flex items-center justify-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20">
+            <a :href="'{{ route('crm.reports.export.csv', collect(request()->query())->except(['tab'])->merge(['period' => $granularity])->all()) }}' + (reportTab !== 'general' ? '&tab=' + reportTab : '')" class="btn btn-secondary text-xs py-2.5 w-full rounded-xl flex items-center justify-center gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20">
               <span>📊</span> <span>Download Raw CSV</span>
             </a>
           </div>

@@ -230,7 +230,7 @@
               <span class="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Website</span>
             </div>
             <div class="space-y-1.5">
-              <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Successful leads</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['website']['crm_sales']) }}</b></div>
+              <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Total Order</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['website']['crm_sales']) }}</b></div>
               <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Calls answered</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['website']['calls_answered']) }}</b></div>
             </div>
           </div>

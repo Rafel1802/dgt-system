@@ -9,6 +9,7 @@ use App\Models\EbayCustomerOrder;
 use App\Models\EbayCustomerOrderItem;
 use App\Models\EbayCustomerRecord;
 use App\Models\Lead;
+use App\Models\LeadOrder;
 use App\Models\LeadProduct;
 use App\Models\Shipment;
 use App\Models\ShipmentCustomer;
@@ -38,7 +39,7 @@ class CrmReportService
         return [
             'user'           => $user,
             'crm_handled'    => $this->distinctLeadsHandled($user->id, $since, $until),
-            'crm_sales'      => Lead::where('handled_by', $user->id)->where('status', WebsiteLeadStatus::Successful)->whereBetween('updated_at', [$since, $until])->count(),
+            'crm_sales'      => LeadOrder::where('created_by', $user->id)->whereBetween('created_at', [$since, $until])->count(),
             'calls_answered' => CallReport::where('answered_by', $user->id)->whereBetween('occurred_at', [$since, $until])->count(),
         ];
     }
@@ -118,7 +119,8 @@ class CrmReportService
      */
     public function ebaySalesTotal(Carbon $since, Carbon $until): float
     {
-        return (float) EbayCustomerOrderItem::whereHas('order', fn ($q) => $q->whereBetween('created_at', [$since, $until]))
+        $ebayUserIds = User::role(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+        return (float) EbayCustomerOrderItem::whereHas('order', fn ($q) => $q->where(fn($o) => $o->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds))->whereBetween('created_at', [$since, $until]))
             ->sum('price');
     }
 
@@ -132,8 +134,10 @@ class CrmReportService
      */
     public function websiteSalesTotal(Carbon $since, Carbon $until): float
     {
+        $websiteUserIds = User::role(['sales-crm', 'admin-crm', 'super-admin', 'boss'])->pluck('id');
         // Same math as before (sum of price * quantity), done in SQL.
-        return (float) LeadProduct::whereBetween('created_at', [$since, $until])
+        return (float) LeadProduct::whereHas('lead', fn ($q) => $q->where(fn($l) => $l->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $websiteUserIds)->orWhereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $websiteUserIds)))
+            ->whereBetween('created_at', [$since, $until])
             ->sum(\Illuminate\Support\Facades\DB::raw('price * quantity'));
     }
 
@@ -149,23 +153,28 @@ class CrmReportService
      */
     public function buildDomainReport(string $domainKey, Carbon $since, Carbon $until): array
     {
+        $logisticUserIds = User::role(['logistic-team', 'logistic-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+        $ebayUserIds = User::role(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+        $websiteUserIds = User::role(['sales-crm', 'admin-crm', 'super-admin', 'boss'])->pluck('id');
+        $techUserIds = User::role(['tech-support', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+
         return match ($domainKey) {
             'logistic' => [
                 'label' => 'Logistic', 'color' => '#10b981', 'icon' => '🚚',
                 'metrics' => [
-                    'Number of Shipments'      => Shipment::whereBetween('created_at', [$since, $until])->count(),
-                    'Complete'                 => Shipment::where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
-                    'Total Customer Delivered' => ShipmentCustomer::where('status', ShipmentCustomer::STATUS_DELIVERED)->whereBetween('created_at', [$since, $until])->count(),
+                    'Number of Shipments'      => Shipment::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $logisticUserIds))->whereBetween('created_at', [$since, $until])->count(),
+                    'Complete'                 => Shipment::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $logisticUserIds))->where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
+                    'Total Customer Delivered' => ShipmentCustomer::where(fn($q) => $q->whereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $logisticUserIds))->where('status', ShipmentCustomer::STATUS_DELIVERED)->whereBetween('created_at', [$since, $until])->count(),
                 ],
                 'money_keys' => [],
             ],
             'ebay' => [
                 'label' => 'eBay', 'color' => '#f59e0b', 'icon' => '🛒',
                 'metrics' => [
-                    'Total Customer'    => EbayCustomerRecord::whereBetween('created_at', [$since, $until])->count(),
-                    'Negative Feedback' => EbayCustomerRecord::where('tab_type', EbayCustomerRecord::TAB_NEGATIVES)->whereBetween('created_at', [$since, $until])->count(),
-                    'Solved'            => EbayCustomerRecord::where('negative_feedback_resolved', true)->whereBetween('negative_feedback_resolved_at', [$since, $until])->count(),
-                    'Total Order'       => EbayCustomerOrder::whereBetween('ordered_at', [$since, $until])->count(),
+                    'Total Customer'    => EbayCustomerRecord::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds)->orWhereHas('handlerHistory', fn($h) => $h->whereIn('user_id', $ebayUserIds)))->whereBetween('created_at', [$since, $until])->count(),
+                    'Negative Feedback' => EbayCustomerRecord::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds)->orWhereHas('handlerHistory', fn($h) => $h->whereIn('user_id', $ebayUserIds)))->where('tab_type', EbayCustomerRecord::TAB_NEGATIVES)->whereBetween('created_at', [$since, $until])->count(),
+                    'Solved'            => EbayCustomerOrder::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds))->whereBetween('ordered_at', [$since, $until])->count(),
+                    'Total Order'       => EbayCustomerOrder::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds))->whereBetween('ordered_at', [$since, $until])->count(),
                     'Sales'             => $this->ebaySalesTotal($since, $until),
                 ],
                 'money_keys' => ['Sales'],
@@ -173,9 +182,9 @@ class CrmReportService
             'website' => [
                 'label' => 'Website', 'color' => '#6366f1', 'icon' => '🌐',
                 'metrics' => [
-                    'Total Customer'    => Lead::whereBetween('created_at', [$since, $until])->count(),
-                    'Successful Leads'  => Lead::where('status', WebsiteLeadStatus::Successful)->whereBetween('updated_at', [$since, $until])->count(),
-                    'Calls Answered'    => CallReport::whereBetween('occurred_at', [$since, $until])->count(),
+                    'Total Customer'    => Lead::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $websiteUserIds)->orWhereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $websiteUserIds))->whereBetween('created_at', [$since, $until])->count(),
+                    'Total Order'       => LeadOrder::whereHas('lead', fn($q) => $q->where(fn($l) => $l->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $websiteUserIds)->orWhereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $websiteUserIds)))->whereBetween('created_at', [$since, $until])->count(),
+                    'Calls Answered'    => CallReport::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $websiteUserIds))->whereBetween('occurred_at', [$since, $until])->count(),
                     'Sales'             => $this->websiteSalesTotal($since, $until),
                 ],
                 'money_keys' => ['Sales'],
@@ -183,10 +192,10 @@ class CrmReportService
             'tech_support' => [
                 'label' => 'Technical Support', 'color' => '#ef4444', 'icon' => '🛠️',
                 'metrics' => [
-                    'Cases Assigned' => TechSupportCase::whereBetween('created_at', [$since, $until])->count(),
-                    'Cases Resolved' => TechSupportCase::where('status', TechSupportCase::STATUS_RESOLVED)->whereBetween('resolved_at', [$since, $until])->count(),
-                    'Issues Reported' => Lead::where('status', WebsiteLeadStatus::TechnicalSupport)->whereBetween('created_at', [$since, $until])->count()
-                        + EbayCustomerRecord::where('tab_type', EbayCustomerRecord::TAB_TECHNICAL)->whereBetween('created_at', [$since, $until])->count(),
+                    'Cases Assigned' => TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->whereBetween('created_at', [$since, $until])->count(),
+                    'Cases Resolved' => TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->where('status', TechSupportCase::STATUS_RESOLVED)->whereBetween('resolved_at', [$since, $until])->count(),
+                    'Issues Reported' => Lead::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->where('status', WebsiteLeadStatus::TechnicalSupport)->whereBetween('created_at', [$since, $until])->count()
+                        + EbayCustomerRecord::whereHas('handlerHistory', fn($q) => $q->whereIn('user_id', $techUserIds))->where('tab_type', EbayCustomerRecord::TAB_TECHNICAL)->whereBetween('created_at', [$since, $until])->count(),
                 ],
                 'money_keys' => [],
             ],
@@ -232,11 +241,16 @@ class CrmReportService
             ->groupBy(fn ($row) => Carbon::parse($row->{$column})->toDateString())
             ->map->count();
 
+        $logisticUserIds = User::role(['logistic-team', 'logistic-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+        $ebayUserIds = User::role(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+        $websiteUserIds = User::role(['sales-crm', 'admin-crm', 'super-admin', 'boss'])->pluck('id');
+        $techUserIds = User::role(['tech-support', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+
         return match ($domainKey) {
-            'website'      => $byDay(Lead::whereBetween('created_at', [$since, $until]), 'created_at'),
-            'ebay'         => $byDay(EbayCustomerRecord::whereBetween('created_at', [$since, $until]), 'created_at'),
-            'tech_support' => $byDay(TechSupportCase::whereBetween('created_at', [$since, $until]), 'created_at'),
-            'logistic'     => $byDay(Shipment::whereBetween('created_at', [$since, $until]), 'created_at'),
+            'website'      => $byDay(Lead::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $websiteUserIds)->orWhereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $websiteUserIds))->whereBetween('created_at', [$since, $until]), 'created_at'),
+            'ebay'         => $byDay(EbayCustomerRecord::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds)->orWhereHas('handlerHistory', fn($h) => $h->whereIn('user_id', $ebayUserIds)))->whereBetween('created_at', [$since, $until]), 'created_at'),
+            'tech_support' => $byDay(TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->whereBetween('created_at', [$since, $until]), 'created_at'),
+            'logistic'     => $byDay(Shipment::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $logisticUserIds))->whereBetween('created_at', [$since, $until]), 'created_at'),
         };
     }
 

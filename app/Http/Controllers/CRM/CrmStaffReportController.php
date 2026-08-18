@@ -73,10 +73,22 @@ class CrmStaffReportController extends Controller
     {
         abort_unless(auth()->user()->hasAnyRole(self::REPORT_ADMIN_ROLES), 403);
 
-        [$since, $until, $periodLabel, $granularity] = $this->reports->resolvePeriodFromFilters($request->only(['date_from', 'date_to', 'period']));
+        $tab = $request->get('tab');
+        $hasOwnFilter = $tab && ($request->filled("{$tab}_period") || $request->filled("{$tab}_date_from") || $request->filled("{$tab}_date_to"));
+        $filters = $hasOwnFilter
+            ? ['period' => $request->get("{$tab}_period"), 'date_from' => $request->get("{$tab}_date_from"), 'date_to' => $request->get("{$tab}_date_to")]
+            : $request->only(['date_from', 'date_to', 'period']);
+
+        [$since, $until, $periodLabel, $granularity] = $this->reports->resolvePeriodFromFilters($filters);
         [$domainReports, $totalSales] = $this->reports->teamReportData($since, $until);
 
-        $filename = 'team-report-' . ($granularity ?? 'custom') . '-' . now()->format('Ymd_His') . '.pdf';
+        if ($tab && in_array($tab, CrmReportService::DOMAIN_KEYS)) {
+            $domainReports = [$tab => $domainReports[$tab]];
+            $totalSales = $domainReports[$tab]['metrics']['Sales'] ?? 0.0;
+            $filename = 'team-report-' . $tab . '-' . ($request->get("{$tab}_period") ?? $granularity ?? 'custom') . '-' . now()->format('Ymd_His') . '.pdf';
+        } else {
+            $filename = 'team-report-general-' . ($granularity ?? 'custom') . '-' . now()->format('Ymd_His') . '.pdf';
+        }
 
         return Pdf::loadView('reports.team_report_export', compact('domainReports', 'totalSales', 'periodLabel'))
             ->download($filename);
@@ -87,15 +99,34 @@ class CrmStaffReportController extends Controller
     {
         abort_unless(auth()->user()->hasAnyRole(self::REPORT_ADMIN_ROLES), 403);
 
-        [$since, $until, $periodLabel, $granularity] = $this->reports->resolvePeriodFromFilters($request->only(['date_from', 'date_to', 'period']));
+        $tab = $request->get('tab');
+        $hasOwnFilter = $tab && ($request->filled("{$tab}_period") || $request->filled("{$tab}_date_from") || $request->filled("{$tab}_date_to"));
+        $filters = $hasOwnFilter
+            ? ['period' => $request->get("{$tab}_period"), 'date_from' => $request->get("{$tab}_date_from"), 'date_to' => $request->get("{$tab}_date_to")]
+            : $request->only(['date_from', 'date_to', 'period']);
+
+        [$since, $until, $periodLabel, $granularity] = $this->reports->resolvePeriodFromFilters($filters);
         [$domainReports, $totalSales] = $this->reports->teamReportData($since, $until);
 
-        $filename = 'team-report-' . ($granularity ?? 'custom') . '-' . now()->format('Ymd_His') . '.csv';
+        if ($tab && in_array($tab, CrmReportService::DOMAIN_KEYS)) {
+            $domainReports = [$tab => $domainReports[$tab]];
+            $totalSales = $domainReports[$tab]['metrics']['Sales'] ?? 0.0;
+            $filename = 'team-report-' . $tab . '-' . ($request->get("{$tab}_period") ?? $granularity ?? 'custom') . '-' . now()->format('Ymd_His') . '.csv';
+        } else {
+            $filename = 'team-report-general-' . ($granularity ?? 'custom') . '-' . now()->format('Ymd_His') . '.csv';
+        }
 
         return response()->streamDownload(function () use ($domainReports, $totalSales, $periodLabel) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['Team Report', $periodLabel]);
-            fputcsv($out, ['Total Sales (eBay + Website)', number_format($totalSales, 2)]);
+            if (count($domainReports) > 1) {
+                fputcsv($out, ['Total Sales (eBay + Website)', number_format($totalSales, 2)]);
+            } else {
+                $firstKey = array_key_first($domainReports);
+                if (in_array('Sales', $domainReports[$firstKey]['money_keys'] ?? [])) {
+                    fputcsv($out, ['Total Sales (' . $domainReports[$firstKey]['label'] . ')', number_format($totalSales, 2)]);
+                }
+            }
             fputcsv($out, []);
             foreach ($domainReports as $domain) {
                 fputcsv($out, [$domain['label']]);
