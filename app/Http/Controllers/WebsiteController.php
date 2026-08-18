@@ -230,7 +230,8 @@ class WebsiteController extends Controller
 
         // --- PERFORMANCE OPTIMIZATION: Relationships are already eager loaded via with($tabRelations) above ---
 
-        $allWebsites = Website::where('is_archived', false)->orderBy('name')->get(['id', 'name']);
+        // Fetch all non-archived websites for modals and real-time frontend filtering
+        $allWebsites = Website::where('is_archived', false)->orderBy('name')->get(['id', 'name', 'url', 'handled_by', 'category', 'status']);
 
         return view('websites.index', compact(
             'tab', 'tabCounts', 'stats', 'groupedWebsites', 'orderArray',
