@@ -478,7 +478,9 @@
 
       {{-- Modal Body --}}
       <div class="overflow-y-auto flex-1 p-6 space-y-3 scrollbar-thin bg-white dark:bg-slate-900">
-        @forelse($hiddenBoards ?? [] as $hb)
+        @defer
+        @php $hiddenBoards = $hiddenBoardsFn(); @endphp
+        @forelse($hiddenBoards as $hb)
           <div class="hidden-board-item flex items-center justify-between bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-violet-300 dark:hover:border-violet-600 transition-all duration-200">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-inner"
@@ -508,6 +510,11 @@
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">You don't have any hidden boards. When you hide a board, it will appear here so you can restore it later.</p>
           </div>
         @endforelse
+        @placeholder
+          <div class="flex items-center justify-center py-12">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+          </div>
+        @enddefer
       </div>
     </div>
   </div>
@@ -543,12 +550,17 @@
       </div>
 
       {{-- Bulk Actions Bar --}}
-      @php $totalTrashed = (isset($trashedWorkspaces) ? $trashedWorkspaces->count() : 0) + (isset($trashedBoards) ? $trashedBoards->count() : 0); @endphp
+      @defer
+      @php 
+        $trashedWorkspaces = $trashedWorkspacesFn(); 
+        $trashedBoards = $trashedBoardsFn();
+        $totalTrashed = $trashedWorkspaces->count() + $trashedBoards->count(); 
+      @endphp
       @if($totalTrashed > 0)
       <div class="px-6 py-3 border-b border-slate-100 bg-white flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-3">
           <label class="flex items-center gap-2 cursor-pointer select-none group">
-            <input type="checkbox" @change="toggleSelectAll($event.target.checked, [{{ isset($trashedWorkspaces) ? $trashedWorkspaces->pluck('id')->implode(',') : '' }}], [{{ isset($trashedBoards) ? $trashedBoards->pluck('id')->implode(',') : '' }}])" :checked="selectedCount === {{ $totalTrashed }}" :indeterminate="selectedCount > 0 && selectedCount < {{ $totalTrashed }}"
+            <input type="checkbox" @change="toggleSelectAll($event.target.checked, [{{ $trashedWorkspaces->pluck('id')->implode(',') }}], [{{ $trashedBoards->pluck('id')->implode(',') }}])" :checked="selectedCount === {{ $totalTrashed }}" :indeterminate="selectedCount > 0 && selectedCount < {{ $totalTrashed }}"
                    class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 transition-colors cursor-pointer">
             <span class="text-sm font-medium text-slate-600 group-hover:text-slate-800 transition-colors">Select All</span>
           </label>
@@ -631,7 +643,7 @@
         </div>
         @endif
 
-        @if((!isset($trashedWorkspaces) || $trashedWorkspaces->count() === 0) && (!isset($trashedBoards) || $trashedBoards->count() === 0))
+        @if($totalTrashed === 0)
           <div class="text-center py-10">
             <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
               <svg class="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
@@ -641,6 +653,11 @@
           </div>
         @endif
       </div>
+      @placeholder
+        <div class="flex items-center justify-center py-12">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600"></div>
+        </div>
+      @enddefer
     </div>
 
     {{-- Pretty Confirmation Popup (nested inside trash modal) --}}

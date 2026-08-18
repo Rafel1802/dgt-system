@@ -93,11 +93,14 @@ class WebsiteCrmController extends Controller
         // Uses the cached unified directory so this is free after first CRM hit.
         // Cap HTML size: list pages already paginate leads (20); unlimited
         // customer-only rows made Website CRM feel like a multi-second hang.
-        $customerOnlyRows = collect();
-        if (! $request->get('search') && ! $request->get('status') && ! $request->get('source') && ! $request->get('handled_by')) {
-            $customerOnlyRows = Customer::where('source', \App\Enums\CustomerSource::Website->value)
+        $customerOnlyRowsFn = function () use ($request) {
+            if ($request->get('search') || $request->get('status') || $request->get('source') || $request->get('handled_by')) {
+                return collect();
+            }
+
+            return Customer::where('source', \App\Enums\CustomerSource::Website->value)
                 ->whereDoesntHave('leads')
-                ->select(['id', 'name', 'email', 'phone', 'created_at'])
+                ->select(['id', 'name', 'email', 'phone', 'created_at', 'status'])
                 ->latest()
                 ->take(50)
                 ->get()
@@ -113,12 +116,12 @@ class WebsiteCrmController extends Controller
                     'link'         => route('crm.customers.show', $c),
                     'created_date' => $c->created_at,
                 ]);
-        }
+        };
 
         // Duplicate detection: Flag records sharing a name+phone, name+email, phone-only, or email-only.
         $duplicateMap = $this->detectLeadDuplicates($leads);
 
-        return view('crm.website.index', compact('leads', 'statuses', 'sources', 'crmUsers', 'pendingCallRequestsCount', 'customerOnlyRows', 'duplicateMap'));
+        return view('crm.website.index', compact('leads', 'statuses', 'sources', 'crmUsers', 'pendingCallRequestsCount', 'customerOnlyRowsFn', 'duplicateMap'));
     }
 
     /** Standalone call log — a separate page under Website CRM */

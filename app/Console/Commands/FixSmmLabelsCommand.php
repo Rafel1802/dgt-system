@@ -7,10 +7,12 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Card;
 use App\Models\SocialMediaClass;
 
+use Illuminate\Support\Facades\Http;
+
 class FixSmmLabelsCommand extends Command
 {
-    protected $signature = 'smm:fix-labels';
-    protected $description = 'Fix SMM class and cluster labels that were swapped by the import script';
+    protected $signature = 'smm:fix-labels {--url= : Google Sheets URL to dynamically fetch the correct class mappings}';
+    protected $description = 'Fix SMM class and cluster labels that were swapped or overwritten by the import script';
 
     public function handle()
     {
@@ -28,25 +30,61 @@ class FixSmmLabelsCommand extends Command
         $contentTypes = ['poster design', 'short reel', 'long landscape', 'share blog', 'reel', 'tips & tricks'];
         
         $cards = Card::whereNotNull('smm_class_label')->orWhereNotNull('smm_cluster_label')->get();
-        
-        $titleMap = [
-            'TYPH-0113 + PA02' => 'ImpossibleMachinery',
-            'TYPH-0505 + TYPH-5015M' => 'ImpossibleMachinery',
-            'TYPH-V900B' => 'ImpossibleMachinery',
-            'TYPH-0501R' => 'ImpossibleMachinery',
-            'TYPH-0901' => 'ImpossibleMachinery',
-            'TYPH-0503R vs TYPH-1701proY' => 'ImpossibleMachinery',
-            'TYPH-0113 SMM Content' => 'ImpossibleMachinery',
-            'TYPH-0701 + TYPH-2013' => 'MachineryAsia.Online',
-            'TYPH-0121' => 'MachineryAsia.Online',
-            'TYPH-V900R' => 'MachineryAsia.Online',
-            'TYPH-1902 PRO + TYPH-2006' => 'MachineryAsia.Online',
-            'TYPH-0502R' => 'MachineryAsia.Online',
-            'TYPH-0702 PRO + TYPH-2008' => 'MachineryAsia.Online',
-            'TYPH-1701proR' => 'MachineryAsia.Online',
-            'TYPH-1702 Ebay Content' => 'ImpossibleMachinery',
-            'TYPH-1703' => 'MachineryAsia',
-        ];
+
+        $url = $this->option('url') ?: 'https://docs.google.com/spreadsheets/d/1MWtQwI-Xd0-SPBGYbmRerAEaUPXoDcsmzeaRBCdyfoY/edit?usp=sharing';
+        $titleMap = [];
+
+        if ($url) {
+            $this->info("Fetching data from Google Sheets...");
+            $csvContent = $this->fetchGoogleSheetsCsv($url);
+            if ($csvContent) {
+                $rows = $this->parseCsv($csvContent);
+                if (!empty($rows)) {
+                    $headerRow = array_map(function($h) { return strtolower(trim($h)); }, $rows[0]);
+                    
+                    // Find indices
+                    $classIdx = false;
+                    $titleIdx = false;
+                    $contentTypeIdx = false;
+                    
+                    foreach ($headerRow as $idx => $colName) {
+                        if ($colName === 'class' || $colName === 'cluster') $classIdx = $idx;
+                        if ($colName === 'title') $titleIdx = $idx;
+                        if (str_contains($colName, 'work task') || str_contains($colName, 'content type')) $contentTypeIdx = $idx;
+                    }
+                    
+                    if ($classIdx !== false) {
+                        foreach (array_slice($rows, 1) as $row) {
+                            $clusterName = trim($row[$classIdx] ?? '');
+                            $rawTitle = trim($row[$titleIdx] ?? '');
+                            $contentType = trim($row[$contentTypeIdx] ?? '');
+                            
+                            if (empty($rawTitle) && empty($contentType)) continue;
+                            
+                            if (empty($rawTitle)) {
+                                $title = $contentType;
+                            } elseif (stripos($rawTitle, $contentType) === false) {
+                                $title = $rawTitle . ' - ' . $contentType;
+                            } else {
+                                $title = $rawTitle;
+                            }
+                            
+                            if (!empty($title) && !empty($clusterName)) {
+                                $titleMap[strtolower($title)] = $clusterName;
+                                if (!empty($rawTitle)) {
+                                    $titleMap[strtolower($rawTitle)] = $clusterName;
+                                }
+                            }
+                        }
+                        $this->info("Successfully built mapping for " . count($titleMap) . " titles from the Google Sheet.");
+                    } else {
+                        $this->error("Could not find 'Class' or 'Cluster' column in the sheet.");
+                    }
+                }
+            } else {
+                $this->error("Failed to fetch CSV from the URL.");
+            }
+        }
 
         $fixedCount = 0;
         foreach ($cards as $card) {
@@ -54,12 +92,22 @@ class FixSmmLabelsCommand extends Command
             $clusterLabel = strtolower(trim($card->smm_cluster_label ?? ''));
             $cardTitle = trim($card->title);
 
+            $cardTitleLower = strtolower($cardTitle);
+
             // Attempt to deduce the actual class from the title
             $matchedClass = null;
-            foreach ($titleMap as $titlePart => $cluster) {
-                if (stripos($cardTitle, $titlePart) !== false) {
-                    $matchedClass = $cluster;
-                    break;
+            
+            // 1. Exact match
+            if (isset($titleMap[$cardTitleLower])) {
+                $matchedClass = $titleMap[$cardTitleLower];
+            } else {
+                // 2. Partial match if exact fails
+                foreach ($titleMap as $titleLower => $cluster) {
+                    if (str_contains($cardTitleLower, $titleLower)) {
+                        $matchedClass = $cluster;
+                        // Don't break immediately, find the longest match if possible, or just accept the first good one.
+                        break;
+                    }
                 }
             }
 
@@ -95,5 +143,36 @@ class FixSmmLabelsCommand extends Command
         
         $this->info("Done! Fixed $fixedCount cards.");
         return 0;
+    }
+
+    private function fetchGoogleSheetsCsv(string $url): ?string
+    {
+        if (preg_match('/\/d\/([a-zA-Z0-9-_]+)/', $url, $matches)) {
+            $fileId = $matches[1];
+            
+            $gidStr = '';
+            if (preg_match('/[#&]gid=([0-9]+)/', $url, $gidMatches)) {
+                $gidStr = '&gid=' . $gidMatches[1];
+            }
+            
+            $csvUrl = "https://docs.google.com/spreadsheets/d/{$fileId}/export?format=csv{$gidStr}";
+            $response = Http::get($csvUrl);
+            if ($response->successful()) {
+                return $response->body();
+            }
+        }
+        return null;
+    }
+
+    private function parseCsv(string $content): array
+    {
+        $rows = [];
+        $lines = explode("\n", $content);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) continue;
+            $rows[] = str_getcsv($line);
+        }
+        return $rows;
     }
 }

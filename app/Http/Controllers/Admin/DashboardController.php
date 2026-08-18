@@ -47,8 +47,21 @@ class DashboardController extends Controller
         $stats = [
             'total_users'        => User::active()->count(),
             'online_users'       => User::where('last_login_at', '>=', now()->subMinutes(30))->count(),
-            'recent_activities'  => $activityQuery->limit(50)->get(),
+            'recent_activities_count' => (clone $activityQuery)->count(),
         ];
+
+        $activityDays = collect(range(5, 0))->map(function ($daysAgo) use ($activityQuery) {
+            $date = now()->subDays($daysAgo);
+            return [
+                'label' => $date->format('D'),
+                'count' => (clone $activityQuery)->whereDate('created_at', $date)->count(),
+            ];
+        });
+
+        // Deferred loading of activities
+        $recentActivitiesFn = function () use ($activityQuery) {
+            return $activityQuery->limit(50)->get();
+        };
 
         $appearance = $this->dashboardAppearance($user);
         $dashboardUnreadCount = Cache::remember(
@@ -62,9 +75,11 @@ class DashboardController extends Controller
         return view('dashboard.index', compact(
             'user',
             'stats',
+            'activityDays',
             'appearance',
             'dashboardUnreadCount',
             'permissionsCount',
+            'recentActivitiesFn',
         ));
     }
 

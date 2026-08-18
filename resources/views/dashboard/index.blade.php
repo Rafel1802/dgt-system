@@ -6,18 +6,9 @@
 
 @section('content')
 @php
-    $recentActivities = $stats['recent_activities'];
     $totalUsers = (int) $stats['total_users'];
     $onlineUsers = (int) $stats['online_users'];
     $offlineUsers = max($totalUsers - $onlineUsers, 0);
-    $activityDays = collect(range(5, 0))->map(function ($daysAgo) use ($recentActivities) {
-        $date = now()->subDays($daysAgo);
-
-        return [
-            'label' => $date->format('D'),
-            'count' => $recentActivities->filter(fn($log) => $log->created_at?->isSameDay($date))->count(),
-        ];
-    });
     $dashboardUnreadCount = (int) ($dashboardUnreadCount ?? 0);
     $permissionsCount = (int) ($permissionsCount ?? 0);
     $appearance = $appearance ?? [
@@ -290,7 +281,7 @@
                 </div>
                 <span class="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black uppercase text-amber-700">Activity</span>
             </div>
-            <p class="mt-5 font-display text-3xl font-black text-slate-950">{{ $recentActivities->count() }}</p>
+            <p class="mt-5 font-display text-3xl font-black text-slate-950">{{ $stats['recent_activities_count'] }}</p>
             <p class="mt-1 text-sm font-bold text-slate-500">Recent system events</p>
         </article>
 
@@ -353,37 +344,64 @@
                     </div>
                 </div>
 
-                @if($recentActivities->isEmpty())
-                    <div class="dash-empty-box mt-6 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-10 text-center">
-                        <p class="text-sm font-black text-slate-700">No activity recorded yet</p>
-                        <p class="mt-1 text-xs font-semibold text-slate-400">Audited user actions will appear here.</p>
-                    </div>
-                @else
-                    <div class="mt-5 divide-y divide-slate-200/70 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
-                        @foreach($recentActivities as $log)
-                            <div class="flex items-start gap-3 py-4">
-                                <img src="{{ $log->user?->avatar_url ?? 'https://ui-avatars.com/api/?name=System&size=64&background=6366f1&color=fff' }}"
-                                     alt="{{ $log->user?->name ?? 'System' }}"
-                                     class="avatar avatar-sm mt-0.5">
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-sm font-semibold leading-6 text-slate-700">
-                                        <span class="font-black text-slate-950">{{ $log->user?->name ?? 'System' }}</span>
-                                        <span class="text-slate-400">-</span>
-                                        {{ $log->description }}
-                                    </p>
-                                    <p class="mt-1 text-xs font-bold text-slate-400">
-                                        {{ $log->created_at?->format('d M Y, H:i') ?? 'just now' }}
-                                        <span class="text-slate-300">·</span>
-                                        {{ $log->created_at?->diffForHumans() ?? 'live' }}
-                                    </p>
+                @defer
+                    @php $recentActivities = $recentActivitiesFn(); @endphp
+                    @if($recentActivities->isEmpty())
+                        <div class="dash-empty-box mt-6 rounded-2xl border border-dashed border-slate-300 bg-white/60 p-10 text-center">
+                            <p class="text-sm font-black text-slate-700">No activity recorded yet</p>
+                            <p class="mt-1 text-xs font-semibold text-slate-400">Audited user actions will appear here.</p>
+                        </div>
+                    @else
+                        <div class="mt-5 divide-y divide-slate-200/70 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
+                            @foreach($recentActivities as $log)
+                                <div class="flex items-start gap-3 py-4">
+                                    <img src="{{ $log->user?->avatar_url ?? 'https://ui-avatars.com/api/?name=System&size=64&background=6366f1&color=fff' }}"
+                                         alt="{{ $log->user?->name ?? 'System' }}"
+                                         class="avatar avatar-sm mt-0.5">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-semibold leading-6 text-slate-700">
+                                            <span class="font-black text-slate-950">{{ $log->user?->name ?? 'System' }}</span>
+                                            <span class="text-slate-400">-</span>
+                                            {{ $log->description }}
+                                        </p>
+                                        <p class="mt-1 text-xs font-bold text-slate-400">
+                                            {{ $log->created_at?->format('d M Y, H:i') ?? 'just now' }}
+                                            <span class="text-slate-300">·</span>
+                                            {{ $log->created_at?->diffForHumans() ?? 'live' }}
+                                        </p>
+                                    </div>
+                                    <span class="hidden rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 sm:inline-flex">
+                                        {{ $log->module ?: 'system' }}
+                                    </span>
                                 </div>
-                                <span class="hidden rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-500 sm:inline-flex">
-                                    {{ $log->module ?: 'system' }}
-                                </span>
+                            @endforeach
+                        </div>
+                    @endif
+                @placeholder
+                    <div class="mt-5 max-h-[400px] overflow-hidden pr-2">
+                        <div class="animate-pulse flex items-start gap-3 py-4">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+                            <div class="flex-1 space-y-2 py-1">
+                                <div class="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                <div class="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-1/3"></div>
                             </div>
-                        @endforeach
+                        </div>
+                        <div class="animate-pulse flex items-start gap-3 py-4 border-t border-slate-100 dark:border-slate-800">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+                            <div class="flex-1 space-y-2 py-1">
+                                <div class="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-5/6"></div>
+                                <div class="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-1/4"></div>
+                            </div>
+                        </div>
+                        <div class="animate-pulse flex items-start gap-3 py-4 border-t border-slate-100 dark:border-slate-800">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+                            <div class="flex-1 space-y-2 py-1">
+                                <div class="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
+                                <div class="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-2/5"></div>
+                            </div>
+                        </div>
                     </div>
-                @endif
+                @enddefer
             </div>
         </div>
 

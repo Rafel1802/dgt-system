@@ -246,17 +246,31 @@
             </td>
           </tr>
           @empty
-          @if($customerOnlyRows->isEmpty())
-          <tr>
-            <td colspan="9" class="text-center py-14">
-              <div class="text-4xl mb-3">🌐</div>
-              <p class="text-slate-500 font-medium">No leads found</p>
-              <p class="text-slate-400 text-xs mt-1">Try adjusting your filters or log a new inquiry</p>
-              <a href="{{ route('crm.website.create') }}" class="btn btn-primary text-sm mt-4 inline-flex">+ New Inquiry</a>
-            </td>
-          </tr>
+          @if(!isset($leads) || $leads->isEmpty())
+            <tr id="initial-empty-state" class="hidden">
+              <td colspan="9" class="text-center py-14"></td>
+            </tr>
           @endif
           @endforelse
+        </tbody>
+
+        @defer
+          @php $customerOnlyRows = $customerOnlyRowsFn(); @endphp
+          @if($customerOnlyRows->isEmpty() && $leads->isEmpty())
+            <tbody class="bg-white">
+              <tr>
+                <td colspan="9" class="text-center py-14">
+                  <div class="text-4xl mb-3">🌐</div>
+                  <p class="text-slate-500 font-medium">No leads found</p>
+                  <p class="text-slate-400 text-xs mt-1">Try adjusting your filters or log a new inquiry</p>
+                  <a href="{{ route('crm.website.create') }}" class="btn btn-primary text-sm mt-4 inline-flex">+ New Inquiry</a>
+                </td>
+              </tr>
+            </tbody>
+          @endif
+          
+          @if($customerOnlyRows->isNotEmpty())
+          <tbody class="divide-y divide-slate-100 bg-white">
 
           {{-- Customers with a Website-channel source but no Lead of their own yet
                (same "Website" bucket the All Customers page's source filter shows).
@@ -308,7 +322,18 @@
             </td>
           </tr>
           @endforeach
-        </tbody>
+          </tbody>
+          @endif
+        @placeholder
+          <tbody class="bg-white">
+            <tr>
+              <td colspan="9" class="text-center py-8 text-slate-400">
+                 <div class="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-indigo-600 rounded-full" role="status" aria-label="loading"></div>
+                 <p class="text-xs mt-2 font-medium">Loading customer records...</p>
+              </td>
+            </tr>
+          </tbody>
+        @enddefer
       </table>
     </div>
     @if($leads->hasPages())

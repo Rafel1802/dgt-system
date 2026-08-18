@@ -59,16 +59,17 @@ class BoardController extends Controller
             ->get()
             ->values();
 
-        $hiddenBoards = collect();
-        $trashedWorkspaces = collect();
-        $trashedBoards = collect();
-        if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
-            $hiddenBoards = \App\Models\Board::where('is_hidden', true)->with('workspace')->get();
-            $trashedWorkspaces = \App\Models\Workspace::onlyTrashed()->get();
-            $trashedBoards = \App\Models\Board::onlyTrashed()->with('workspace')->get();
-        }
+        $hiddenBoardsFn = function() {
+            return \App\Models\Board::where('is_hidden', true)->with('workspace')->get();
+        };
+        $trashedWorkspacesFn = function() {
+            return \App\Models\Workspace::onlyTrashed()->get();
+        };
+        $trashedBoardsFn = function() {
+            return \App\Models\Board::onlyTrashed()->with('workspace')->get();
+        };
 
-        return view('boards.workspaces', compact('workspaces', 'possibleWorkspaceMembers', 'hiddenBoards', 'trashedWorkspaces', 'trashedBoards'));
+        return view('boards.workspaces', compact('workspaces', 'possibleWorkspaceMembers', 'hiddenBoardsFn', 'trashedWorkspacesFn', 'trashedBoardsFn'));
     }
 
     /** Show a single board with its lists and cards (the Trello view). */
@@ -1745,6 +1746,7 @@ class BoardController extends Controller
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
+                'members',
             ])
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
