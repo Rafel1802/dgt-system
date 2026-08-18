@@ -30,16 +30,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Estimated Arrival <span class="text-red-500">*</span></label>
-            <input type="date" name="estimated_arrival" value="{{ old('estimated_arrival', $shipment->estimated_arrival ? $shipment->estimated_arrival->format('Y-m-d') : '') }}" class="form-input" required>
-          </div>
-          <div>
-            <label class="form-label">Actual Arrival</label>
-            <input type="date" name="actual_arrival" value="{{ old('actual_arrival', $shipment->actual_arrival ? $shipment->actual_arrival->format('Y-m-d') : '') }}" class="form-input">
-          </div>
-        </div>
+
 
         <div>
           <label class="form-label">Truck Company</label>

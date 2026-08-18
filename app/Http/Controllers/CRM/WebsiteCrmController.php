@@ -24,6 +24,7 @@ use App\Services\TechSupportCaseService;
 use App\Notifications\GenericDatabaseNotification;
 use App\Support\CrmLookupCache;
 use App\Support\InstantNotifier;
+use App\Support\PhoneNumberFormatter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -114,7 +115,10 @@ class WebsiteCrmController extends Controller
                 ]);
         }
 
-        return view('crm.website.index', compact('leads', 'statuses', 'sources', 'crmUsers', 'pendingCallRequestsCount', 'customerOnlyRows'));
+        // Duplicate detection: Flag records sharing a name+phone, name+email, phone-only, or email-only.
+        $duplicateMap = $this->detectLeadDuplicates($leads);
+
+        return view('crm.website.index', compact('leads', 'statuses', 'sources', 'crmUsers', 'pendingCallRequestsCount', 'customerOnlyRows', 'duplicateMap'));
     }
 
     /** Standalone call log — a separate page under Website CRM */
@@ -748,5 +752,171 @@ class WebsiteCrmController extends Controller
         }
 
         return redirect()->away($url);
+    }
+
+    // ── Duplicate Detection ─────────────────────────────────────────────────
+
+    /**
+     * Scan the current page of Leads for duplicates against the database.
+     *
+     * Detection signals (highest → lowest confidence):
+     *  1. Name + normalized phone match  → definite duplicate (same person)
+     *  2. Name + email match             → definite duplicate (same person)
+     *  3. Email-only match               → possible duplicate
+     *  4. Phone-only match               → possible duplicate
+     *
+     * Returns: [lead_id => ['level' => 'definite'|'possible', 'message' => '...']]
+     */
+    private function detectLeadDuplicates($leads): array
+    {
+        $pageIds = $leads->pluck('id')->all();
+
+        if (empty($pageIds)) {
+            return [];
+        }
+
+        $duplicateMap = [];
+
+        // Compile client details on current page
+        $clients = $leads->filter(fn ($l) => filled($l->client_name))
+            ->map(fn ($l) => [
+                'id'    => $l->id,
+                'name'  => strtolower(trim($l->client_name)),
+                'phone' => $l->client_phone ? PhoneNumberFormatter::format($l->client_phone) : null,
+                'email' => $l->client_email ? strtolower(trim($l->client_email)) : null,
+            ])
+            ->values();
+
+        if ($clients->isEmpty()) {
+            return [];
+        }
+
+        $phones = $clients->pluck('phone')->filter()->unique()->values()->all();
+        $emails = $clients->pluck('email')->filter()->unique()->values()->all();
+
+        // ── 1. Fetch potential matches from database ─────────────────────────
+        $dbMatchesQuery = Lead::whereNotIn('id', $pageIds);
+
+        if (! empty($phones) || ! empty($emails)) {
+            $dbMatchesQuery->where(function ($q) use ($phones, $emails) {
+                if (! empty($phones)) {
+                    $q->orWhereIn('client_phone', $phones);
+                }
+                if (! empty($emails)) {
+                    $q->orWhereIn('client_email', $emails);
+                }
+            });
+        } else {
+            return [];
+        }
+
+        $dbMatches = $dbMatchesQuery->get(['id', 'client_name', 'client_phone', 'client_email', 'status']);
+
+        foreach ($clients as $client) {
+            // Check matches in DB
+            foreach ($dbMatches as $match) {
+                $matchName = strtolower(trim($match->client_name));
+                $matchPhone = $match->client_phone ? PhoneNumberFormatter::format($match->client_phone) : null;
+                $matchEmail = $match->client_email ? strtolower(trim($match->client_email)) : null;
+                $statusLabel = $match->status?->label() ?? ucfirst((string) $match->status);
+
+                // Name + Phone
+                if ($client['phone'] && $client['phone'] === $matchPhone && $client['name'] === $matchName) {
+                    $duplicateMap[$client['id']] = [
+                        'level'   => 'definite',
+                        'message' => "Duplicate — same name & phone as lead \"{$match->client_name}\" ({$statusLabel}).",
+                    ];
+                    break; // stop checking for this lead once definite match is found
+                }
+
+                // Name + Email
+                if ($client['email'] && $client['email'] === $matchEmail && $client['name'] === $matchName) {
+                    $duplicateMap[$client['id']] = [
+                        'level'   => 'definite',
+                        'message' => "Duplicate — same name & email as lead \"{$match->client_name}\" ({$statusLabel}).",
+                    ];
+                    break;
+                }
+            }
+
+            if (isset($duplicateMap[$client['id']])) {
+                continue;
+            }
+
+            // Check possible (phone-only or email-only) in DB
+            foreach ($dbMatches as $match) {
+                $matchPhone = $match->client_phone ? PhoneNumberFormatter::format($match->client_phone) : null;
+                $matchEmail = $match->client_email ? strtolower(trim($match->client_email)) : null;
+                $statusLabel = $match->status?->label() ?? ucfirst((string) $match->status);
+
+                if ($client['email'] && $client['email'] === $matchEmail) {
+                    $duplicateMap[$client['id']] = [
+                        'level'   => 'possible',
+                        'message' => "Same email as lead \"{$match->client_name}\" ({$statusLabel}) — may be a duplicate.",
+                    ];
+                    break;
+                }
+
+                if ($client['phone'] && $client['phone'] === $matchPhone) {
+                    $duplicateMap[$client['id']] = [
+                        'level'   => 'possible',
+                        'message' => "Same phone as lead \"{$match->client_name}\" ({$statusLabel}) — may be a duplicate.",
+                    ];
+                    break;
+                }
+            }
+
+            if (isset($duplicateMap[$client['id']])) {
+                continue;
+            }
+
+            // ── 2. Check matches within page ─────────────────────────────────
+            $pageMatch = $clients->first(function ($other) use ($client) {
+                if ($other['id'] === $client['id']) {
+                    return false;
+                }
+
+                // Name + Phone or Name + Email
+                if ($client['phone'] && $client['phone'] === $other['phone'] && $client['name'] === $other['name']) {
+                    return true;
+                }
+                if ($client['email'] && $client['email'] === $other['email'] && $client['name'] === $other['name']) {
+                    return true;
+                }
+                return false;
+            });
+
+            if ($pageMatch) {
+                $duplicateMap[$client['id']] = [
+                    'level'   => 'definite',
+                    'message' => "Duplicate — same details as another lead on this page.",
+                ];
+                continue;
+            }
+
+            $pagePossibleMatch = $clients->first(function ($other) use ($client) {
+                if ($other['id'] === $client['id']) {
+                    return false;
+                }
+
+                // Email-only or Phone-only
+                if ($client['email'] && $client['email'] === $other['email']) {
+                    return true;
+                }
+                if ($client['phone'] && $client['phone'] === $other['phone']) {
+                    return true;
+                }
+                return false;
+            });
+
+            if ($pagePossibleMatch) {
+                $duplicateMap[$client['id']] = [
+                    'level'   => 'possible',
+                    'message' => "Same contact details as another lead on this page — may be a duplicate.",
+                ];
+            }
+        }
+
+        return $duplicateMap;
     }
 }

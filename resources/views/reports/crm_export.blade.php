@@ -199,10 +199,10 @@
             </td>
             <td class="kpi-card" style="width: 38%;">
                 <div class="kpi-card-title">CHANNEL SALES BREAKDOWN</div>
-                <div class="kpi-card-sub" style="margin-top:2px;">
-                    <span style="color:#0284c7; font-weight:bold;">eBay:</span> {{ $summaryStats['ebay_count'] ?? 0 }} (${{ number_format($summaryStats['ebay_sales'] ?? 0, 2) }}) &nbsp;|&nbsp;
-                    <span style="color:#8b5cf6; font-weight:bold;">Website:</span> {{ $summaryStats['website_count'] ?? 0 }} (${{ number_format($summaryStats['website_sales'] ?? 0, 2) }}) &nbsp;|&nbsp;
-                    <span style="color:#d97706; font-weight:bold;">Logistics:</span> {{ $summaryStats['logistics_count'] ?? 0 }}
+                <div class="kpi-card-sub" style="margin-top:2px; font-size: 8.5px;">
+                    <span style="color:#0284c7; font-weight:bold;">EBAY:</span> {{ $summaryStats['ebay_count'] ?? 0 }} (${{ number_format($summaryStats['ebay_sales'] ?? 0, 2) }}) &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <span style="color:#8b5cf6; font-weight:bold;">WEBSITE:</span> {{ $summaryStats['website_count'] ?? 0 }} (${{ number_format($summaryStats['website_sales'] ?? 0, 2) }}) &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <span style="color:#d97706; font-weight:bold;">LOGISTICS:</span> {{ $summaryStats['logistics_count'] ?? 0 }}
                 </div>
                 @php
                     $totSales = max(1, ($summaryStats['ebay_sales'] ?? 0) + ($summaryStats['website_sales'] ?? 0));
@@ -223,17 +223,17 @@
             <td class="kpi-card" style="width: 50%;">
                 <div class="kpi-card-title" style="color: #0369a1;">DELIVERY & SHIPPING STATUS</div>
                 <div class="kpi-card-sub" style="color: #334155; font-size: 8.5px; margin-top:4px;">
-                    In Delivery: <span class="badge" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">{{ $summaryStats['in_delivery_count'] ?? 0 }}</span> &nbsp;|&nbsp;
-                    Delivered: <span class="badge" style="background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0;">{{ $summaryStats['delivered_count'] ?? 0 }}</span> &nbsp;|&nbsp;
-                    Waiting Pickup: <span class="badge" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">{{ $summaryStats['waiting_pickup_count'] ?? 0 }}</span>
+                    <span style="font-weight:bold; color:#475569;">IN DELIVERY:</span> <span class="badge" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">{{ $summaryStats['in_delivery_count'] ?? 0 }}</span> &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <span style="font-weight:bold; color:#475569;">DELIVERED:</span> <span class="badge" style="background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0;">{{ $summaryStats['delivered_count'] ?? 0 }}</span> &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <span style="font-weight:bold; color:#475569;">WAITING PICKUP:</span> <span class="badge" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">{{ $summaryStats['waiting_pickup_count'] ?? 0 }}</span>
                 </div>
             </td>
             <td class="kpi-card" style="width: 50%;">
                 <div class="kpi-card-title" style="color: #be123c;">ISSUES & FEEDBACK HEALTH</div>
                 <div class="kpi-card-sub" style="color: #334155; font-size: 8.5px; margin-top:4px;">
-                    Logistic Issues: <span class="badge" style="background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;">{{ $summaryStats['logistic_issues_count'] ?? 0 }}</span> &nbsp;|&nbsp;
-                    Negative Feedback: <span class="badge" style="background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;">{{ $summaryStats['negative_feedback_count'] ?? 0 }}</span> &nbsp;|&nbsp;
-                    Tech Support: <span class="badge" style="background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;">{{ $summaryStats['technical_issues_count'] ?? 0 }}</span>
+                    <span style="font-weight:bold; color:#475569;">LOGISTIC ISSUES:</span> <span class="badge" style="background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa;">{{ $summaryStats['logistic_issues_count'] ?? 0 }}</span> &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <span style="font-weight:bold; color:#475569;">NEGATIVE FEEDBACK:</span> <span class="badge" style="background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;">{{ $summaryStats['negative_feedback_count'] ?? 0 }}</span> &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <span style="font-weight:bold; color:#475569;">TECH SUPPORT:</span> <span class="badge" style="background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;">{{ $summaryStats['technical_issues_count'] ?? 0 }}</span>
                 </div>
             </td>
         </tr>
@@ -272,7 +272,7 @@
                     
                     @if($type === 'customers')
                         @if(is_array($row))
-                            <td class="nowrap" style="color:#64748b;">#{{ $row['id'] ?? '—' }}</td>
+
                             <td class="nowrap font-bold" style="color:#0f172a;">{{ $row['name'] ?? '—' }}</td>
                             <td>{{ $row['email'] ?? '—' }}</td>
                             <td class="nowrap">{{ $row['phone'] ?? '—' }}</td>
@@ -295,7 +295,7 @@
                                                 => 'background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;',
                                             str_contains($sStr, 'tech')
                                                 => 'background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;',
-                                            str_contains($sStr, 'new') || str_contains($sStr, 'contact')
+                                            str_contains($sStr, 'new') || str_contains($sStr, 'contact') || str_contains($sStr, 'delivery') || str_contains($sStr, 'transit') || str_contains($sStr, 'shipped')
                                                 => 'background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;',
                                             str_contains($sStr, 'nurtur') || str_contains($sStr, 'warm') || str_contains($sStr, 'pending')
                                                 => 'background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;',
@@ -323,7 +323,7 @@
                                 {{ !empty($row['created_date']) ? (is_string($row['created_date']) ? $row['created_date'] : $row['created_date']->format('d M Y')) : '—' }}
                             </td>
                         @else
-                            <td class="nowrap" style="color:#64748b;">#{{ $row->id }}</td>
+
                             <td class="nowrap font-bold" style="color:#0f172a;">{{ $row->name }}</td>
                             <td>{{ $row->email ?? '—' }}</td>
                             <td class="nowrap">{{ $row->phone ?? '—' }}</td>
@@ -340,7 +340,7 @@
                                             => 'background-color: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;',
                                         str_contains($sStr, 'tech')
                                             => 'background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;',
-                                        str_contains($sStr, 'new') || str_contains($sStr, 'contact')
+                                        str_contains($sStr, 'new') || str_contains($sStr, 'contact') || str_contains($sStr, 'delivery') || str_contains($sStr, 'transit') || str_contains($sStr, 'shipped')
                                             => 'background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;',
                                         str_contains($sStr, 'nurtur') || str_contains($sStr, 'warm') || str_contains($sStr, 'pending')
                                             => 'background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;',

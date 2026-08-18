@@ -8,6 +8,7 @@ use App\Models\EbayCustomerRecord;
 use App\Models\EbayOffer;
 use App\Models\Lead;
 use App\Models\Logistic;
+use App\Models\Shipment;
 use App\Models\ShipmentCustomer;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -78,7 +79,7 @@ class CrmReportController extends Controller
                     $data = $query->latest()->get();
                 }
                 $title = 'CRM Unified Customer Report';
-                $headers = ['#', 'ID', 'Customer Name', 'Email', 'Phone', 'Status', 'Source', 'Value (USD)', 'Assigned To', 'Created Date'];
+                $headers = ['#', 'Customer Name', 'Email', 'Phone', 'Status', 'Source', 'Value (USD)', 'Assigned To', 'Created Date'];
                 break;
 
             case 'logistics':
@@ -138,6 +139,22 @@ class CrmReportController extends Controller
             ? $startDate->format('d M Y') . ' to ' . $endDate->format('d M Y')
             : 'All Time';
 
+        $customerQuery = ShipmentCustomer::query();
+        $shipmentQuery = Shipment::query();
+
+        if ($startDate) {
+            $customerQuery->where('created_at', '>=', $startDate);
+            $shipmentQuery->where('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $customerQuery->where('created_at', '<=', $endDate);
+            $shipmentQuery->where('created_at', '<=', $endDate);
+        }
+        if ($memberId !== 'All') {
+            $customerQuery->where('handled_by', $memberId);
+            $shipmentQuery->where('assigned_to', $memberId);
+        }
+
         $summaryStats = [
             'total_customers'         => $data->count(),
             'total_sales'             => 0.0,
@@ -146,9 +163,11 @@ class CrmReportController extends Controller
             'logistics_count'         => 0,
             'ebay_sales'              => 0.0,
             'website_sales'           => 0.0,
-            'in_delivery_count'       => ShipmentCustomer::whereIn('status', ['in_transit', 'shipped', 'out_for_delivery', 'active'])->count(),
-            'delivered_count'         => ShipmentCustomer::where('status', 'delivered')->count(),
-            'waiting_pickup_count'    => ShipmentCustomer::whereIn('status', ['ready_for_pickup', 'waiting_pickup', 'pending'])->count(),
+            'in_delivery_count'       => (clone $customerQuery)->whereHas('shipment', function ($q) {
+                $q->where('status', Shipment::STATUS_IN_PROGRESS);
+            })->count(),
+            'delivered_count'         => (clone $customerQuery)->where('status', ShipmentCustomer::STATUS_DELIVERED)->count(),
+            'waiting_pickup_count'    => (clone $customerQuery)->where('status', ShipmentCustomer::STATUS_PENDING)->count(),
             'logistic_issues_count'   => 0,
             'negative_feedback_count' => 0,
             'technical_issues_count'  => 0,
@@ -181,9 +200,6 @@ class CrmReportController extends Controller
                 if (in_array('technical', $cats, true) || str_contains($statusLabel, 'technical')) {
                     $summaryStats['technical_issues_count']++;
                 }
-                if (in_array('delivered', $cats, true) || str_contains($statusLabel, 'delivered')) {
-                    $summaryStats['delivered_count']++;
-                }
             } elseif ($row instanceof \App\Models\Customer) {
                 $val = (float)$row->lifetime_value;
                 $summaryStats['total_sales'] += $val;
@@ -198,7 +214,6 @@ class CrmReportController extends Controller
                     $summaryStats['logistics_count']++;
                 }
                 if ($row->shipment_delay) $summaryStats['logistic_issues_count']++;
-                if ($row->shipment_delivered) $summaryStats['delivered_count']++;
             }
         }
 

@@ -107,7 +107,6 @@
             <thead>
               <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                 <th class="px-5 py-3 text-left">Shipment Code</th>
-                <th class="px-4 py-3 text-left">Date</th>
                 <th class="px-4 py-3 text-left">Customers</th>
                 <th class="px-4 py-3 text-left">Status</th>
                 <th class="px-4 py-3 text-left">Handled By</th>
@@ -122,9 +121,7 @@
                     {{ $shipment->shipment_code }}
                   </a>
                 </td>
-                <td class="px-4 py-3 text-xs text-slate-500">
-                  {{ $shipment->estimated_arrival ? $shipment->estimated_arrival->format('d M Y') : '—' }}
-                </td>
+
                 <td class="px-4 py-3">
                   <span class="badge bg-slate-100 text-slate-600">{{ $shipment->shipment_customers_count }} customers</span>
                 </td>

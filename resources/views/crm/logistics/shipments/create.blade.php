@@ -50,21 +50,13 @@
           @error('status')<p class="form-error">{{ $message }}</p>@enderror
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="form-label">Estimated Arrival Date</label>
-            <input type="date" name="estimated_arrival"
-                   value="{{ old('estimated_arrival', date('Y-m-d')) }}"
-                   class="form-input">
-          </div>
-          <div>
-            <label class="form-label">Truck Company</label>
-            @include('crm.partials.trucking-searchable-select', [
-              'name'      => 'trucking_company_id',
-              'selected'  => old('trucking_company_id', request('truck_company_id')),
-              'companies' => $truckingCompanies
-            ])
-          </div>
+        <div>
+          <label class="form-label">Truck Company</label>
+          @include('crm.partials.trucking-searchable-select', [
+            'name'      => 'trucking_company_id',
+            'selected'  => old('trucking_company_id', request('truck_company_id')),
+            'companies' => $truckingCompanies
+          ])
         </div>
 
         <div>

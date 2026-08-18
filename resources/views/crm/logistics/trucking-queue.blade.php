@@ -154,9 +154,33 @@
               <input type="checkbox" class="accent-indigo-600 w-4 h-4" value="{{ $sc->id }}" x-model="selected">
             </td>
             <td class="px-4 py-3">
-              <p class="font-semibold text-slate-800">{{ $sc->recipient_name ?: '—' }}</p>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <p class="font-semibold text-slate-800">{{ $sc->recipient_name ?: '—' }}</p>
+                @if(isset($duplicateMap[$sc->id]))
+                  @php $dup = $duplicateMap[$sc->id]; @endphp
+                  @if($dup['level'] === 'definite')
+                    <span class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 cursor-help whitespace-nowrap"
+                          title="{{ $dup['message'] }}">
+                      <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+                      Duplicate
+                    </span>
+                  @elseif($dup['level'] === 'likely')
+                    <span class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 cursor-help whitespace-nowrap"
+                          title="{{ $dup['message'] }}">
+                      <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+                      Likely Duplicate
+                    </span>
+                  @else
+                    <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 cursor-help whitespace-nowrap"
+                          title="{{ $dup['message'] }}">
+                      <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg>
+                      Possible Duplicate
+                    </span>
+                  @endif
+                @endif
+              </div>
               @if($sc->recipient_phone)
-                <p class="text-xs text-slate-400">{{ $sc->recipient_phone }}</p>
+                <p class="text-xs text-slate-400 mt-0.5">{{ $sc->recipient_phone }}</p>
               @endif
             </td>
             <td class="px-4 py-3">

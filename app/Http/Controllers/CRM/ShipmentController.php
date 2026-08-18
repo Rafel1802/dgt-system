@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\CrmCustomerMatchService;
 use App\Services\SimpleXlsxReader;
 use App\Support\CrmLookupCache;
+use App\Support\PhoneNumberFormatter;
 use App\Support\CrmTeamNotifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -115,9 +116,14 @@ class ShipmentController extends Controller
 
         $shipmentCustomers = $customerQuery->paginate(20)->withQueryString();
 
+        // Duplicate detection — flag records that share a tracking number,
+        // name+phone, or name+email with another shipment_customer row.
+        $duplicateMap = $this->detectDuplicates($shipmentCustomers);
+
         return view('crm.logistics.trucking-queue', [
             'mode'              => $mode,
             'shipmentCustomers' => $shipmentCustomers,
+            'duplicateMap'      => $duplicateMap,
             'sortBy'            => $sortBy,
             'crmUsers'          => CrmLookupCache::crmMembers(),
             'customers'         => CrmLookupCache::customersCombobox(),
@@ -1498,5 +1504,185 @@ class ShipmentController extends Controller
             $update['actual_arrival'] = $shipment->actual_arrival ?? now();
         }
         $shipment->update($update);
+    }
+
+    // ── Duplicate Detection ─────────────────────────────────────────────────
+
+    /**
+     * Scan the current page of ShipmentCustomers for potential duplicates
+     * against ALL other shipment_customer rows in the database.
+     *
+     * Detection signals (highest → lowest confidence):
+     *  1. Tracking number exact match  → definite duplicate (same label)
+     *  2. Name + phone match           → definite duplicate (same person)
+     *  3. Name + email match           → likely duplicate
+     *  4. Phone-only match             → possible duplicate (warn only)
+     *
+     * Returns: [sc_id => ['level' => 'definite'|'likely'|'possible', 'message' => '...']]
+     */
+    private function detectDuplicates($shipmentCustomers): array
+    {
+        $pageIds = $shipmentCustomers->pluck('id')->all();
+
+        if (empty($pageIds)) {
+            return [];
+        }
+
+        $duplicateMap = [];
+
+        // ── 1. Tracking number duplicates ────────────────────────────────────
+        $trackingNumbers = $shipmentCustomers
+            ->pluck('tracking_number')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! empty($trackingNumbers)) {
+            $trackingDupes = ShipmentCustomer::whereIn('tracking_number', $trackingNumbers)
+                ->whereNotIn('id', $pageIds)
+                ->get(['id', 'tracking_number', 'recipient_name', 'status']);
+
+            // Build a reverse lookup: tracking_number → existing record info
+            $trackingLookup = [];
+            foreach ($trackingDupes as $dupe) {
+                $trackingLookup[strtolower($dupe->tracking_number)][] = $dupe;
+            }
+
+            foreach ($shipmentCustomers as $sc) {
+                if (! $sc->tracking_number) {
+                    continue;
+                }
+                $key = strtolower($sc->tracking_number);
+                if (isset($trackingLookup[$key])) {
+                    $match = $trackingLookup[$key][0];
+                    $statusLabel = ShipmentCustomer::statuses()[$match->status] ?? $match->status;
+                    $duplicateMap[$sc->id] = [
+                        'level'   => 'definite',
+                        'signal'  => 'tracking',
+                        'message' => "Duplicate tracking #{$sc->tracking_number} — already exists for \"{$match->recipient_name}\" ({$statusLabel}).",
+                    ];
+                }
+            }
+
+            // Also check within the current page itself (two rows with the same tracking #)
+            $pageTrackingGroups = $shipmentCustomers
+                ->filter(fn ($sc) => filled($sc->tracking_number))
+                ->groupBy(fn ($sc) => strtolower($sc->tracking_number));
+
+            foreach ($pageTrackingGroups as $trackingKey => $group) {
+                if ($group->count() > 1) {
+                    foreach ($group as $sc) {
+                        if (! isset($duplicateMap[$sc->id])) {
+                            $otherNames = $group->where('id', '!=', $sc->id)->pluck('recipient_name')->implode(', ');
+                            $duplicateMap[$sc->id] = [
+                                'level'   => 'definite',
+                                'signal'  => 'tracking',
+                                'message' => "Duplicate tracking #{$sc->tracking_number} — shared with {$otherNames} on this page.",
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 2. Name + Phone duplicates ───────────────────────────────────────
+        $phonePairs = $shipmentCustomers
+            ->filter(fn ($sc) => filled($sc->recipient_name) && filled($sc->recipient_phone) && ! isset($duplicateMap[$sc->id]))
+            ->map(fn ($sc) => [
+                'id'    => $sc->id,
+                'name'  => strtolower(trim($sc->recipient_name)),
+                'phone' => PhoneNumberFormatter::format($sc->recipient_phone),
+            ])
+            ->values();
+
+        if ($phonePairs->isNotEmpty()) {
+            $phones = $phonePairs->pluck('phone')->unique()->values()->all();
+
+            $phoneMatches = ShipmentCustomer::whereIn('recipient_phone', $phones)
+                ->whereNotIn('id', $pageIds)
+                ->get(['id', 'recipient_name', 'recipient_phone', 'status']);
+
+            foreach ($phonePairs as $pair) {
+                // Same name + phone in the database (different record)
+                $match = $phoneMatches->first(function ($m) use ($pair) {
+                    return PhoneNumberFormatter::format($m->recipient_phone) === $pair['phone']
+                        && strtolower(trim($m->recipient_name)) === $pair['name'];
+                });
+
+                if ($match) {
+                    $statusLabel = ShipmentCustomer::statuses()[$match->status] ?? $match->status;
+                    $duplicateMap[$pair['id']] = [
+                        'level'   => 'definite',
+                        'signal'  => 'name_phone',
+                        'message' => "Duplicate — same name & phone as \"{$match->recipient_name}\" ({$statusLabel}).",
+                    ];
+                    continue;
+                }
+
+                // Phone-only match (different name — possible, not definite)
+                $phoneOnly = $phoneMatches->first(fn ($m) => PhoneNumberFormatter::format($m->recipient_phone) === $pair['phone']);
+                if ($phoneOnly) {
+                    $statusLabel = ShipmentCustomer::statuses()[$phoneOnly->status] ?? $phoneOnly->status;
+                    $duplicateMap[$pair['id']] = [
+                        'level'   => 'possible',
+                        'signal'  => 'phone',
+                        'message' => "Same phone as \"{$phoneOnly->recipient_name}\" ({$statusLabel}) — may be the same person.",
+                    ];
+                }
+            }
+
+            // Within-page: same name+phone on two rows
+            $pagePhoneGroups = $phonePairs->groupBy(fn ($p) => $p['name'] . '|' . $p['phone']);
+            foreach ($pagePhoneGroups as $group) {
+                if ($group->count() > 1) {
+                    foreach ($group as $pair) {
+                        if (! isset($duplicateMap[$pair['id']])) {
+                            $duplicateMap[$pair['id']] = [
+                                'level'   => 'definite',
+                                'signal'  => 'name_phone',
+                                'message' => 'Duplicate — same name & phone as another row on this page.',
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 3. Name + Email duplicates ───────────────────────────────────────
+        $emailPairs = $shipmentCustomers
+            ->filter(fn ($sc) => filled($sc->recipient_name) && filled($sc->recipient_email) && ! isset($duplicateMap[$sc->id]))
+            ->map(fn ($sc) => [
+                'id'    => $sc->id,
+                'name'  => strtolower(trim($sc->recipient_name)),
+                'email' => strtolower(trim($sc->recipient_email)),
+            ])
+            ->values();
+
+        if ($emailPairs->isNotEmpty()) {
+            $emails = $emailPairs->pluck('email')->unique()->values()->all();
+
+            $emailMatches = ShipmentCustomer::whereRaw('LOWER(recipient_email) IN (' . implode(',', array_fill(0, count($emails), '?')) . ')', $emails)
+                ->whereNotIn('id', $pageIds)
+                ->get(['id', 'recipient_name', 'recipient_email', 'status']);
+
+            foreach ($emailPairs as $pair) {
+                $match = $emailMatches->first(function ($m) use ($pair) {
+                    return strtolower(trim($m->recipient_email)) === $pair['email']
+                        && strtolower(trim($m->recipient_name)) === $pair['name'];
+                });
+
+                if ($match) {
+                    $statusLabel = ShipmentCustomer::statuses()[$match->status] ?? $match->status;
+                    $duplicateMap[$pair['id']] = [
+                        'level'   => 'likely',
+                        'signal'  => 'name_email',
+                        'message' => "Likely duplicate — same name & email as \"{$match->recipient_name}\" ({$statusLabel}).",
+                    ];
+                }
+            }
+        }
+
+        return $duplicateMap;
     }
 }

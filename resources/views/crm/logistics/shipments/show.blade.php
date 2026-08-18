@@ -46,16 +46,7 @@
         </div>
 
         <div class="space-y-4">
-          <div>
-            <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Estimated Arrival</span>
-            <p class="text-sm text-slate-800">{{ $shipment->estimated_arrival ? $shipment->estimated_arrival->format('d M Y') : '-' }}</p>
-          </div>
-          @if($shipment->actual_arrival)
-          <div>
-            <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Actual Arrival</span>
-            <p class="text-sm text-slate-800">{{ $shipment->actual_arrival->format('d M Y') }}</p>
-          </div>
-          @endif
+
           <div>
             <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Handled By</span>
             @if($shipment->assignee)

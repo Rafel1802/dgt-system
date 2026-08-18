@@ -89,7 +89,6 @@
               <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" :checked="allChecked" @change="toggleAll($event)">
             </th>
             <th class="px-4 py-3">Shipment Code</th>
-            <th class="px-4 py-3">Date</th>
             <th class="px-4 py-3">Customers</th>
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3">Handled By</th>
@@ -107,9 +106,7 @@
                 {{ $shipment->shipment_code }}
               </a>
             </td>
-            <td class="px-4 py-3 text-slate-600 whitespace-nowrap">
-              {{ $shipment->estimated_arrival ? $shipment->estimated_arrival->format('d M Y') : '-' }}
-            </td>
+
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-1">
                 <span class="badge bg-slate-100 text-slate-600">{{ $shipment->shipment_customers_count }} customers</span>
