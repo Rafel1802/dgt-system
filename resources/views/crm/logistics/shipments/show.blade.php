@@ -90,22 +90,9 @@
           @endif
         </div>
       </div>
-    </div>
 
     {{-- Bottom: Customers in Shipment --}}
     <div>
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h3 class="font-display font-bold text-slate-800 text-lg">Customers in Shipment</h3>
-        <div class="flex gap-2">
-          <button onclick="document.getElementById('addFromProcessTruckingModal').classList.remove('hidden')" class="btn btn-secondary text-sm">
-            + From Process Trucking
-          </button>
-          <button onclick="document.getElementById('addCustomerModal').classList.remove('hidden')" class="btn btn-primary text-sm">
-            + Add Customer
-          </button>
-        </div>
-      </div>
-
       <div class="card p-0 overflow-hidden" x-data="{
         selected: [],
         bulkStatus: '{{ \App\Models\ShipmentCustomer::STATUS_IN_TRANSIT }}',
@@ -116,6 +103,17 @@
         get actionLabel() { return 'Mark as ' + (this.statusLabels[this.bulkStatus] || this.bulkStatus); },
         toggleAll(e) { this.selected = e.target.checked ? {{ Js::from($shipment->shipmentCustomers->pluck('id')) }} : []; },
       }">
+        <div class="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+          <h3 class="font-display font-bold text-slate-800 text-lg">Customers in Shipment</h3>
+          <div class="flex gap-2">
+            <button onclick="document.getElementById('addFromProcessTruckingModal').classList.remove('hidden')" class="btn btn-secondary text-sm">
+              + From Process Trucking
+            </button>
+            <button onclick="document.getElementById('addCustomerModal').classList.remove('hidden')" class="btn btn-primary text-sm">
+              + Add Customer
+            </button>
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
@@ -171,8 +169,8 @@
                     <p class="text-xs text-slate-500 mt-1">📦 {{ $sc->tracking_number }}</p>
                   @endif
                 </td>
-                <td class="px-4 py-3">
-                  <div class="flex justify-end gap-1">
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <div class="flex justify-end gap-1 w-full">
                     <button onclick="document.getElementById('editCustomerModal{{ $sc->id }}').classList.remove('hidden')" class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="Edit">
                       <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
                     </button>

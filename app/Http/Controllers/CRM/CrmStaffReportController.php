@@ -165,25 +165,49 @@ class CrmStaffReportController extends Controller
 
         [$since, $until, $periodLabel, $granularity] = $this->reports->resolvePeriodFromFilters($request->only(['date_from', 'date_to', 'period']));
 
-        // A domain counts as "active" for this person when they handled/were
-        // assigned something there *within the selected period* — scoped to
-        // the period (not a lifetime check) so switching to a quiet period
-        // doesn't leave an all-zero card cluttering an otherwise-empty list.
-        $members = $this->reports->staffPool()->map(function (User $u) use ($since, $until) {
-            $activeDomains = $this->reports->activeDomains($u, $since, $until);
+        $users = $this->reports->staffPool();
+        $userIds = $users->pluck('id');
 
+        $websiteCounts = \App\Models\Lead::whereIn('handled_by', $userIds)
+            ->whereBetween('created_at', [$since, $until])
+            ->selectRaw('handled_by, COUNT(DISTINCT COALESCE(customer_id, id)) as cnt')
+            ->groupBy('handled_by')
+            ->pluck('cnt', 'handled_by');
+
+        $ebayCounts = \App\Models\EbayCustomerHandlerHistory::whereIn('user_id', $userIds)
+            ->whereBetween('started_at', [$since, $until])
+            ->join('ebay_customer_records', 'ebay_customer_records.id', '=', 'ebay_customer_handler_history.ebay_customer_record_id')
+            ->selectRaw('user_id, COUNT(DISTINCT COALESCE(ebay_customer_records.customer_id, ebay_customer_records.id)) as cnt')
+            ->groupBy('user_id')
+            ->pluck('cnt', 'user_id');
+
+        $techCounts = TechSupportCase::whereIn('assigned_to', $userIds)
+            ->whereBetween('created_at', [$since, $until])
+            ->selectRaw('assigned_to, count(*) as cnt')
+            ->groupBy('assigned_to')
+            ->pluck('cnt', 'assigned_to');
+
+        $logisticCounts = Shipment::whereIn('assigned_to', $userIds)
+            ->whereBetween('created_at', [$since, $until])
+            ->selectRaw('assigned_to, count(*) as cnt')
+            ->groupBy('assigned_to')
+            ->pluck('cnt', 'assigned_to');
+
+        $members = $users->map(function (User $u) use ($websiteCounts, $ebayCounts, $techCounts, $logisticCounts) {
             $headline = [
-                'website'      => $this->reports->distinctLeadsHandled($u->id, $since, $until),
-                'ebay'         => $this->reports->distinctEbayHandled($u->id, $since, $until),
-                'tech_support' => TechSupportCase::where('assigned_to', $u->id)->whereBetween('created_at', [$since, $until])->count(),
-                'logistic'     => Shipment::where('assigned_to', $u->id)->whereBetween('created_at', [$since, $until])->count(),
+                'website'      => $websiteCounts[$u->id] ?? 0,
+                'ebay'         => $ebayCounts[$u->id] ?? 0,
+                'tech_support' => $techCounts[$u->id] ?? 0,
+                'logistic'     => $logisticCounts[$u->id] ?? 0,
             ];
+            
+            $activeDomains = array_keys(array_filter($headline));
 
             return [
                 'user'          => $u,
                 'activeDomains' => $activeDomains,
                 'headline'      => $headline,
-                'totalHandled'  => collect($activeDomains)->sum(fn ($d) => $headline[$d]),
+                'totalHandled'  => array_sum($headline),
             ];
         })->filter(fn ($row) => count($row['activeDomains']) > 0)->values();
 

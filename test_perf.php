@@ -1,39 +1,47 @@
 <?php
-require 'vendor/autoload.php';
-$app = require_once 'bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
-$kernel->bootstrap();
+DB::enableQueryLog();
 
-$user = \App\Models\User::first();
-auth()->login($user);
+$user = App\Models\User::whereHas('roles', fn($q) => $q->where('name', 'super-admin'))->first();
 
-$controller = app(\App\Http\Controllers\Board\BoardController::class);
+$urls = [
+    '/crm/dashboard',
+    '/crm/logistics/shipments',
+    '/crm/logistics/process-trucking',
+    '/crm/logistics/loaded',
+    '/crm/logistics/delivered',
+    '/crm/website',
+    '/crm/ebay',
+    '/crm/reports',
+];
 
-$start = microtime(true);
-$workspaces = $controller->getAuthorizedWorkspaces($user);
-$workspacesTime = microtime(true) - $start;
+echo "Performance Test Results:\n";
+echo str_repeat("-", 90) . "\n";
+printf("%-45s | %-12s | %-15s | %-6s\n", "URL", "Query Count", "Time (ms)", "Status");
+echo str_repeat("-", 90) . "\n";
 
-echo "getAuthorizedWorkspaces took: " . round($workspacesTime, 4) . " seconds\n";
+$kernel = app()->make(\Illuminate\Contracts\Http\Kernel::class);
 
-$board = \App\Models\Board::first();
-if ($board) {
+foreach ($urls as $url) {
+    DB::flushQueryLog();
+    
     $start = microtime(true);
-    $board->load(['activeLists.cards' => function ($query) {
-        $query->with([
-            'creator:id,name,avatar,username',
-            'assignees:id,name,avatar,username',
-            'labels',
-        ])->withCount([
-            'files', 
-            'comments',
-            'checklistItems as checklist_total',
-            'checklistItems as checklist_done' => function($q) {
-                $q->where('card_checklist_items.is_completed', true);
-            }
-        ]);
-    }]);
-    $boardTime = microtime(true) - $start;
-    echo "Board loading took: " . round($boardTime, 4) . " seconds\n";
-} else {
-    echo "No boards found.\n";
+    
+    $request = Illuminate\Http\Request::create($url, 'GET');
+    $request->setUserResolver(function () use ($user) {
+        return $user;
+    });
+    
+    auth()->login($user);
+    
+    try {
+        $response = $kernel->handle($request);
+        $time = (microtime(true) - $start) * 1000;
+        
+        $queries = count(DB::getQueryLog());
+        
+        printf("%-45s | %-12d | %-15.2f | %-6d\n", $url, $queries, $time, $response->getStatusCode());
+    } catch (\Exception $e) {
+        printf("%-45s | %-12s | %-15s | %-6s\n", $url, "ERROR", $e->getMessage(), "-");
+    }
 }
+echo str_repeat("-", 90) . "\n";

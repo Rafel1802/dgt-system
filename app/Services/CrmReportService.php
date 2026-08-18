@@ -25,6 +25,17 @@ use Illuminate\Support\Carbon;
  */
 class CrmReportService
 {
+    private array $roleUserIdsCache = [];
+
+    private function getUserIdsByRoles(array $roles): array
+    {
+        $key = implode('|', $roles);
+        if (!isset($this->roleUserIdsCache[$key])) {
+            $this->roleUserIdsCache[$key] = User::role($roles)->pluck('id')->toArray();
+        }
+        return $this->roleUserIdsCache[$key];
+    }
+
     /** Everyone eligible to appear on the staff report: any CRM-facing role, including Tech Support. */
     public function staffPool()
     {
@@ -123,7 +134,7 @@ class CrmReportService
      */
     public function ebaySalesTotal(Carbon $since, Carbon $until): float
     {
-        $ebayUserIds = User::role(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+        $ebayUserIds = $this->getUserIdsByRoles(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm']);
         return (float) EbayCustomerOrderItem::whereHas('order', fn ($q) => $q->where(fn($o) => $o->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds))->whereBetween('created_at', [$since, $until]))
             ->sum('price');
     }
@@ -138,7 +149,7 @@ class CrmReportService
      */
     public function websiteSalesTotal(Carbon $since, Carbon $until): float
     {
-        $websiteUserIds = User::role(['sales-crm', 'admin-crm', 'super-admin', 'boss'])->pluck('id');
+        $websiteUserIds = $this->getUserIdsByRoles(['sales-crm', 'admin-crm', 'super-admin', 'boss']);
         // Same math as before (sum of price * quantity), done in SQL.
         return (float) LeadProduct::whereHas('lead', fn ($q) => $q->where(fn($l) => $l->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $websiteUserIds)->orWhereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $websiteUserIds)))
             ->whereBetween('created_at', [$since, $until])
@@ -157,10 +168,10 @@ class CrmReportService
      */
     public function buildDomainReport(string $domainKey, Carbon $since, Carbon $until): array
     {
-        $logisticUserIds = User::role(['logistic-team', 'logistic-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
-        $ebayUserIds = User::role(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
-        $websiteUserIds = User::role(['sales-crm', 'admin-crm', 'super-admin', 'boss'])->pluck('id');
-        $techUserIds = User::role(['tech-support', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+        $logisticUserIds = $this->getUserIdsByRoles(['logistic-team', 'logistic-supervisor', 'super-admin', 'boss', 'admin-crm']);
+        $ebayUserIds = $this->getUserIdsByRoles(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm']);
+        $websiteUserIds = $this->getUserIdsByRoles(['sales-crm', 'admin-crm', 'super-admin', 'boss']);
+        $techUserIds = $this->getUserIdsByRoles(['tech-support', 'super-admin', 'boss', 'admin-crm']);
 
         return match ($domainKey) {
             'logistic' => [
@@ -245,10 +256,10 @@ class CrmReportService
             ->groupBy(fn ($row) => Carbon::parse($row->{$column})->toDateString())
             ->map->count();
 
-        $logisticUserIds = User::role(['logistic-team', 'logistic-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
-        $ebayUserIds = User::role(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
-        $websiteUserIds = User::role(['sales-crm', 'admin-crm', 'super-admin', 'boss'])->pluck('id');
-        $techUserIds = User::role(['tech-support', 'super-admin', 'boss', 'admin-crm'])->pluck('id');
+        $logisticUserIds = $this->getUserIdsByRoles(['logistic-team', 'logistic-supervisor', 'super-admin', 'boss', 'admin-crm']);
+        $ebayUserIds = $this->getUserIdsByRoles(['ebay-team', 'ebay-supervisor', 'super-admin', 'boss', 'admin-crm']);
+        $websiteUserIds = $this->getUserIdsByRoles(['sales-crm', 'admin-crm', 'super-admin', 'boss']);
+        $techUserIds = $this->getUserIdsByRoles(['tech-support', 'super-admin', 'boss', 'admin-crm']);
 
         return match ($domainKey) {
             'website'      => $byDay(Lead::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $websiteUserIds)->orWhereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $websiteUserIds))->whereBetween('created_at', [$since, $until]), 'created_at'),

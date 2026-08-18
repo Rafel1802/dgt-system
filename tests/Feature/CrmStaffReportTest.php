@@ -337,7 +337,7 @@ class CrmStaffReportTest extends TestCase
         $response->assertSeeInOrder(['🛒 eBay', 'Sales']);
         $response->assertSeeInOrder(['🌐 Website', 'Sales']);
         $response->assertSeeInOrder(['🚚 Logistic', 'Number of Shipments']);
-        $response->assertSeeInOrder(['🛠️ Technical Support', 'Total Cases']);
+        $response->assertSeeInOrder(['🛠️ Technical Support', 'Total Issues']);
         // Combined total: 100 (eBay) + 50 (website) = 150.
         $response->assertSee('$150.00');
     }

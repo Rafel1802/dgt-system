@@ -140,8 +140,6 @@
             <th class="px-4 py-3">Handled By</th>
             @if($mode === 'delivered')
             <th class="px-4 py-3">Purchase Date</th>
-            <th class="px-4 py-3">Follow-up History</th>
-            <th class="px-4 py-3">Notes</th>
             @endif
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3 text-right">Actions</th>
@@ -208,16 +206,6 @@
             @if($mode === 'delivered')
             <td class="px-4 py-3 text-slate-500 text-xs">
               {{ $sc->customer?->first_purchase_date?->format('d/m/Y') ?? '—' }}
-            </td>
-            <td class="px-4 py-3 text-slate-500 text-xs">
-              @forelse(($sc->customer?->interactions ?? []) as $interaction)
-                <p class="truncate max-w-[160px]" title="{{ $interaction->content }}">{{ $interaction->interacted_at?->format('d/m/Y') }} — {{ \Illuminate\Support\Str::limit($interaction->content, 30) }}</p>
-              @empty
-                <span>—</span>
-              @endforelse
-            </td>
-            <td class="px-4 py-3 text-slate-500 text-xs">
-              <p class="truncate max-w-[160px]" title="{{ $sc->notes }}">{{ $sc->notes ?: '—' }}</p>
             </td>
             @endif
             <td class="px-4 py-3">
