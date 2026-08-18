@@ -162,8 +162,8 @@ class CrmReportService
             'logistic' => [
                 'label' => 'Logistic', 'color' => '#10b981', 'icon' => '🚚',
                 'metrics' => [
-                    'Number of Shipments'      => Shipment::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $logisticUserIds))->whereBetween('created_at', [$since, $until])->count(),
-                    'Complete'                 => Shipment::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $logisticUserIds))->where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
+                    'Number of Shipments'      => Shipment::whereBetween('created_at', [$since, $until])->count(),
+                    'Completed'                => Shipment::where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
                     'Total Customer Delivered' => ShipmentCustomer::where(fn($q) => $q->whereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $logisticUserIds))->where('status', ShipmentCustomer::STATUS_DELIVERED)->whereBetween('created_at', [$since, $until])->count(),
                 ],
                 'money_keys' => [],
@@ -173,7 +173,6 @@ class CrmReportService
                 'metrics' => [
                     'Total Customer'    => EbayCustomerRecord::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds)->orWhereHas('handlerHistory', fn($h) => $h->whereIn('user_id', $ebayUserIds)))->whereBetween('created_at', [$since, $until])->count(),
                     'Negative Feedback' => EbayCustomerRecord::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds)->orWhereHas('handlerHistory', fn($h) => $h->whereIn('user_id', $ebayUserIds)))->where('tab_type', EbayCustomerRecord::TAB_NEGATIVES)->whereBetween('created_at', [$since, $until])->count(),
-                    'Solved'            => EbayCustomerOrder::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds))->whereBetween('ordered_at', [$since, $until])->count(),
                     'Total Order'       => EbayCustomerOrder::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $ebayUserIds))->whereBetween('ordered_at', [$since, $until])->count(),
                     'Sales'             => $this->ebaySalesTotal($since, $until),
                 ],
@@ -192,10 +191,9 @@ class CrmReportService
             'tech_support' => [
                 'label' => 'Technical Support', 'color' => '#ef4444', 'icon' => '🛠️',
                 'metrics' => [
-                    'Cases Assigned' => TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->whereBetween('created_at', [$since, $until])->count(),
-                    'Cases Resolved' => TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->where('status', TechSupportCase::STATUS_RESOLVED)->whereBetween('resolved_at', [$since, $until])->count(),
-                    'Issues Reported' => Lead::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->where('status', WebsiteLeadStatus::TechnicalSupport)->whereBetween('created_at', [$since, $until])->count()
-                        + EbayCustomerRecord::whereHas('handlerHistory', fn($q) => $q->whereIn('user_id', $techUserIds))->where('tab_type', EbayCustomerRecord::TAB_TECHNICAL)->whereBetween('created_at', [$since, $until])->count(),
+                    'Total Cases'             => TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->whereBetween('created_at', [$since, $until])->count(),
+                    'Total Solved'            => TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->where('status', TechSupportCase::STATUS_RESOLVED)->whereBetween('resolved_at', [$since, $until])->count(),
+                    'Negative Feedback Cause' => EbayCustomerRecord::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $techUserIds)->orWhereHas('handlerHistory', fn($h) => $h->whereIn('user_id', $techUserIds)))->whereIn('tab_type', [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])->whereJsonContains('negative_feedback_causes', 'Technical')->whereBetween('created_at', [$since, $until])->count(),
                 ],
                 'money_keys' => [],
             ],
