@@ -79,7 +79,7 @@
 
   {{-- ── Search + Date Filters ─────────────────────────────────────────────── --}}
   <div class="relative overflow-hidden bg-white border border-slate-100 rounded-2xl p-6 shadow-sm mb-5">
-    <form id="customer-filter-form" method="GET" action="{{ route('crm.customers.index') }}" class="flex flex-wrap items-end gap-x-6 gap-y-4">
+    <form id="customer-filter-form" method="GET" action="{{ route('crm.customers.index') }}" autocomplete="off" class="flex flex-wrap items-end gap-x-6 gap-y-4">
       <input type="hidden" name="status_filter" value="{{ $statusFilter }}">
       <input type="hidden" name="source_filter" value="{{ $sourceFilter }}">
 
@@ -89,7 +89,7 @@
           <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           </span>
-          <input type="search" name="search" value="{{ request('search') }}" placeholder="Name, email, phone…" class="form-input text-sm py-2 pl-9 pr-3 w-full bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150">
+          <input type="search" name="search" value="{{ request('search') }}" placeholder="Name, email, phone…" autocomplete="off" class="form-input text-sm py-2 pl-9 pr-3 w-full bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150">
         </div>
       </div>
 
@@ -99,7 +99,7 @@
           <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/></svg>
           </span>
-          <select name="sort_by" class="form-input text-sm py-2 pl-9 pr-8 w-full bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150 appearance-none">
+          <select name="sort_by" autocomplete="off" class="form-input text-sm py-2 pl-9 pr-8 w-full bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150 appearance-none">
             <option value="created" {{ $sortBy === 'created' ? 'selected' : '' }}>Newest Created</option>
             <option value="purchase" {{ $sortBy === 'purchase' ? 'selected' : '' }}>Newest Purchase</option>
           </select>
@@ -112,7 +112,7 @@
           <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
           </span>
-          <select name="assigned_to_filter" class="form-input text-sm py-2 pl-9 pr-8 w-full bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150 appearance-none">
+          <select name="assigned_to_filter" autocomplete="off" class="form-input text-sm py-2 pl-9 pr-8 w-full bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150 appearance-none">
             <option value="">Anyone</option>
             @foreach($assignableStaff as $staff)
             <option value="{{ $staff->id }}" {{ (string) $assignedToFilter === (string) $staff->id ? 'selected' : '' }}>{{ $staff->name }}</option>
@@ -122,7 +122,7 @@
       </div>
 
       <div class="flex items-center gap-2 pb-2.5">
-        <input type="checkbox" name="new_only" id="new_only" value="1" {{ $newOnly ? 'checked' : '' }} class="form-checkbox h-4 w-4 text-indigo-600 border-slate-300 rounded-lg focus:ring-indigo-500/20 transition-all duration-150">
+        <input type="checkbox" name="new_only" id="new_only" value="1" {{ $newOnly ? 'checked' : '' }} autocomplete="off" class="form-checkbox h-4 w-4 text-indigo-600 border-slate-300 rounded-lg focus:ring-indigo-500/20 transition-all duration-150">
         <label for="new_only" class="text-sm font-medium text-slate-600 select-none cursor-pointer">New Customers (last 7 days)</label>
       </div>
 
@@ -133,9 +133,9 @@
             Created Date
           </p>
           <div class="flex items-center gap-2">
-            <input type="date" name="created_from" value="{{ $createdFrom }}" class="form-input text-sm py-2 px-2.5 w-36 bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150" title="From">
+            <input type="date" name="created_from" value="{{ $createdFrom }}" autocomplete="off" class="form-input text-sm py-2 px-2.5 w-36 bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150" title="From">
             <span class="text-xs text-slate-400">to</span>
-            <input type="date" name="created_to" value="{{ $createdTo }}" class="form-input text-sm py-2 px-2.5 w-36 bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150" title="To">
+            <input type="date" name="created_to" value="{{ $createdTo }}" autocomplete="off" class="form-input text-sm py-2 px-2.5 w-36 bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150" title="To">
           </div>
         </div>
       </div>
@@ -147,9 +147,9 @@
             Purchase Date
           </p>
           <div class="flex items-center gap-2">
-            <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-input text-sm py-2 px-2.5 w-36 bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150" title="From">
+            <input type="date" name="date_from" value="{{ $dateFrom }}" autocomplete="off" class="form-input text-sm py-2 px-2.5 w-36 bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150" title="From">
             <span class="text-xs text-slate-400">to</span>
-            <input type="date" name="date_to" value="{{ $dateTo }}" class="form-input text-sm py-2 px-2.5 w-36 bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150" title="To">
+            <input type="date" name="date_to" value="{{ $dateTo }}" autocomplete="off" class="form-input text-sm py-2 px-2.5 w-36 bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150" title="To">
           </div>
         </div>
       </div>
