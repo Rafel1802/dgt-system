@@ -17,7 +17,7 @@
   }
 </style>
 
-<div class="animate-fade-in">
+<div id="customer-directory-page" class="animate-fade-in">
 
   {{-- ── Stats Row ─────────────────────────────────────────────────────────── --}}
   <div class="mobile-scroll-x lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
@@ -224,16 +224,19 @@
 </div>
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const form = document.querySelector('#customer-filter-form');
+document.addEventListener('turbo:load', function () {
+    const pageContainer = document.querySelector('#customer-directory-page');
+    if (!pageContainer) return;
+
+    const form = pageContainer.querySelector('#customer-filter-form');
     if (!form) return;
 
-    const tableBody = document.querySelector('#customer-table-body');
-    const paginationContainer = document.querySelector('#pagination-container');
-    const filterStats = document.querySelector('#filter-stats');
-    const totalUniqueStats = document.querySelector('#total-unique-stats');
-    const totalRevenueStats = document.querySelector('#total-revenue-stats');
-    const loadingBar = document.querySelector('#table-loading-bar');
+    const tableBody = pageContainer.querySelector('#customer-table-body');
+    const paginationContainer = pageContainer.querySelector('#pagination-container');
+    const filterStats = pageContainer.querySelector('#filter-stats');
+    const totalUniqueStats = pageContainer.querySelector('#total-unique-stats');
+    const totalRevenueStats = pageContainer.querySelector('#total-revenue-stats');
+    const loadingBar = pageContainer.querySelector('#table-loading-bar');
 
     // Debounce function to prevent hammering the server on search input keyup
     let debounceTimer;
@@ -302,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Helper to update active styles on custom tabs/buttons
     function updateTabActiveStyles() {
         const activeStatus = form.querySelector('input[name="status_filter"]').value;
-        document.querySelectorAll('.status-filter-tab').forEach(tab => {
+        pageContainer.querySelectorAll('.status-filter-tab').forEach(tab => {
             const val = tab.getAttribute('data-value');
             const isActive = (val === activeStatus);
             if (val === 'All') {
@@ -317,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         const activeSource = form.querySelector('input[name="source_filter"]').value;
-        document.querySelectorAll('.source-filter-tab').forEach(tab => {
+        pageContainer.querySelectorAll('.source-filter-tab').forEach(tab => {
             const val = tab.getAttribute('data-value');
             if (val === activeSource) {
                 tab.className = 'source-filter-tab px-4 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 bg-white text-slate-800 shadow-sm border border-slate-200/40';
@@ -350,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // 4. Status tab clicks
-    document.addEventListener('click', function (e) {
+    pageContainer.addEventListener('click', function (e) {
         const statusTab = e.target.closest('.status-filter-tab');
         if (statusTab) {
             e.preventDefault();

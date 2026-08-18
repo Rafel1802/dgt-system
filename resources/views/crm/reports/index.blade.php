@@ -4,10 +4,10 @@
 @section('hide_back', true)
 
 @section('content')
-<div class="animate-fade-in space-y-6" x-data="{ reportTab: '{{ $activeTab }}' }">
+<div id="crm-reports-page" class="animate-fade-in space-y-6" x-data="{ reportTab: '{{ $activeTab }}' }">
 
   @if(session('share_url'))
-  <div class="rounded-2xl bg-indigo-50/90 backdrop-blur border border-indigo-200 text-indigo-900 px-5 py-4 text-sm font-medium flex items-center justify-between gap-4 flex-wrap shadow-sm">
+  <div class="rounded-2xl bg-indigo-50/90 backdrop-blur border border-indigo-100 text-indigo-900 px-5 py-4 text-sm font-medium flex items-center justify-between gap-4 flex-wrap shadow-sm">
     <div class="flex items-center gap-2.5">
       <span class="text-lg">🔗</span>
       <span><strong>Public Share Link Ready</strong> — anyone with this secure link can view live report data without logging in:</span>
@@ -20,48 +20,52 @@
   @endif
 
   {{-- ── Header Control Bar & Period Filters ──────────────────────────────── --}}
-  <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-4 flex-wrap">
+  <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4 flex-wrap">
     {{-- Page switcher --}}
-    <div class="inline-flex p-1 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
-      <a href="{{ route('crm.reports.index') }}" class="px-4 py-2 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow-sm flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    <div class="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200/30 shadow-sm shadow-slate-100/50">
+      <a href="{{ route('crm.reports.index') }}" class="px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 bg-white text-slate-800 shadow-sm border border-slate-200/40 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         Team Report
       </a>
-      <a href="{{ route('crm.reports.staff') }}" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      <a href="{{ route('crm.reports.staff') }}" class="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 transition-all duration-200 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
         Staff Report
       </a>
     </div>
 
     {{-- Period Filter & Actions --}}
-    <div class="flex items-center gap-3 flex-wrap">
-      <div x-show="reportTab === 'general'" x-cloak class="flex items-center gap-3 flex-wrap">
-        <div class="inline-flex p-1 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
+    <div class="flex items-center gap-4 flex-wrap">
+      <div x-show="reportTab === 'general'" x-cloak class="flex items-center gap-4 flex-wrap">
+        <div class="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200/30">
           @foreach(['day' => 'Day', 'week' => 'Week', 'month' => 'Month'] as $key => $label)
+          @php $isActive = ($granularity === $key); @endphp
           <a href="{{ route('crm.reports.index', ['period' => $key]) }}" data-turbo="false"
-             class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {{ $granularity === $key ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white' }}">
+             class="px-4 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 {{ $isActive ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40' : 'text-slate-500 hover:text-slate-800 hover:bg-white/40 border border-transparent' }}">
             {{ $label }}
           </a>
           @endforeach
         </div>
 
-        <form method="GET" action="{{ route('crm.reports.index') }}" data-turbo="false" class="flex items-center gap-2 flex-wrap">
-          <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/40 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <span class="text-xs font-bold text-slate-400 uppercase">From</span>
-            <input type="date" name="date_from" value="{{ request('date_from') }}" class="bg-transparent border-0 text-xs py-1 px-1 focus:ring-0 text-slate-700 dark:text-slate-200 font-medium">
+        <form method="GET" action="{{ route('crm.reports.index') }}" autocomplete="off" data-turbo="false" class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-2 pl-3 border-l border-slate-100">
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">From</span>
+              <input type="date" name="date_from" value="{{ request('date_from') }}" autocomplete="off" class="bg-transparent border-0 text-xs p-0 focus:ring-0 text-slate-700 font-semibold w-28">
+            </div>
+            <span class="text-xs text-slate-400">to</span>
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To</span>
+              <input type="date" name="date_to" value="{{ request('date_to') }}" autocomplete="off" class="bg-transparent border-0 text-xs p-0 focus:ring-0 text-slate-700 font-semibold w-28">
+            </div>
           </div>
-          <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/40 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <span class="text-xs font-bold text-slate-400 uppercase">To</span>
-            <input type="date" name="date_to" value="{{ request('date_to') }}" class="bg-transparent border-0 text-xs py-1 px-1 focus:ring-0 text-slate-700 dark:text-slate-200 font-medium">
-          </div>
-          <button type="submit" class="btn btn-secondary text-xs py-2 px-3 rounded-xl">Filter</button>
+          <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 border border-indigo-600 rounded-xl hover:bg-indigo-700 shadow-sm transition-all">Filter</button>
           @if(request('date_from') || request('date_to'))
-          <a href="{{ route('crm.reports.index') }}" data-turbo="false" class="btn btn-secondary text-xs py-2 px-3 rounded-xl text-rose-600 hover:bg-rose-50">Clear</a>
+          <a href="{{ route('crm.reports.index') }}" data-turbo="false" class="px-4 py-2 text-xs font-bold text-rose-600 bg-white border border-rose-100 rounded-xl hover:bg-rose-50/50 shadow-sm transition-all">Clear</a>
           @endif
         </form>
       </div>
 
-      <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+      <div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
 
       {{-- Export Buttons --}}
       <div class="flex items-center gap-2">
@@ -70,31 +74,34 @@
           <input type="hidden" name="date_from" value="{{ request('date_from') }}">
           <input type="hidden" name="date_to" value="{{ request('date_to') }}">
           <input type="hidden" name="period" value="{{ $granularity }}">
-          <button type="submit" class="btn btn-secondary text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 hover:border-indigo-300">
-            <span>🔗</span> <span>Share Link</span>
+          <button type="submit" class="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 hover:border-indigo-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-indigo-600 shadow-sm transition-all flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            <span>Share Link</span>
           </button>
         </form>
-        <a :href="'{{ route('crm.reports.export.pdf', collect(request()->query())->except(['tab'])->merge(['period' => $granularity])->all()) }}' + (reportTab !== 'general' ? '&tab=' + reportTab : '')" class="btn btn-secondary text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 hover:border-indigo-300">
-          <span>📄</span> <span>Export PDF</span>
+        <a :href="'{{ route('crm.reports.export.pdf', collect(request()->query())->except(['tab'])->merge(['period' => $granularity])->all()) }}' + (reportTab !== 'general' ? '&tab=' + reportTab : '')" class="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 hover:border-indigo-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-indigo-600 shadow-sm transition-all flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span>Export PDF</span>
         </a>
-        <a :href="'{{ route('crm.reports.export.csv', collect(request()->query())->except(['tab'])->merge(['period' => $granularity])->all()) }}' + (reportTab !== 'general' ? '&tab=' + reportTab : '')" class="btn btn-secondary text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 hover:border-indigo-300">
-          <span>📊</span> <span>Export CSV</span>
+        <a :href="'{{ route('crm.reports.export.csv', collect(request()->query())->except(['tab'])->merge(['period' => $granularity])->all()) }}' + (reportTab !== 'general' ? '&tab=' + reportTab : '')" class="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 hover:border-indigo-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-indigo-600 shadow-sm transition-all flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span>Export CSV</span>
         </a>
       </div>
     </div>
   </div>
 
   {{-- ── Domain Tabs Bar ─────────────────────────────────────────────────── --}}
-  <div class="flex gap-2 flex-wrap items-center">
+  <div class="flex gap-2 flex-wrap items-center bg-slate-100/60 p-1.5 rounded-2xl w-fit border border-slate-200/30 shadow-sm shadow-slate-100/50">
     <button type="button" @click="reportTab = 'general'; $nextTick(() => initReportChart('general'))"
-            class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
-            :class="reportTab === 'general' ? 'bg-slate-900 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'">
+            class="px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 border border-transparent"
+            :class="reportTab === 'general' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'">
       📋 General Executive Report
     </button>
     @foreach($domainReports as $domainKey => $domain)
     <button type="button" @click="reportTab = '{{ $domainKey }}'; $nextTick(() => initReportChart('{{ $domainKey }}'))"
-            class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
-            :class="reportTab === '{{ $domainKey }}' ? 'text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'"
+            class="px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 border border-transparent"
+            :class="reportTab === '{{ $domainKey }}' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'"
             :style="reportTab === '{{ $domainKey }}' ? 'background:{{ $domain['color'] }}' : ''">
       <span>{{ $domain['icon'] }}</span>
       <span>{{ $domain['label'] }}</span>
@@ -120,20 +127,20 @@
       <div class="xl:col-span-2 space-y-6">
 
         {{-- Hero Revenue Card --}}
-        <div class="relative overflow-hidden rounded-3xl shadow-lg text-white" style="background:linear-gradient(135deg, #3730a3 0%, #4f46e5 50%, #6366f1 100%);">
-          <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="relative overflow-hidden rounded-3xl shadow-md text-white border border-indigo-950/10" style="background:radial-gradient(circle at 70% 30%, #4338ca 0%, #312e81 100%);">
+          <div class="absolute -right-10 -top-10 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
           <div class="p-8 relative z-10">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-extrabold uppercase tracking-widest text-indigo-200 bg-white/10 backdrop-blur px-3 py-1 rounded-full border border-white/20">
+              <span class="text-xs font-extrabold uppercase tracking-widest text-indigo-200 bg-white/10 backdrop-blur px-3.5 py-1.5 rounded-xl border border-white/10">
                 Company Total Revenue
               </span>
-              <span class="text-xs font-semibold text-indigo-200 bg-black/20 backdrop-blur px-3 py-1 rounded-full">
+              <span class="text-xs font-semibold text-indigo-200 bg-black/20 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-white/5">
                 {{ $periodLabel }}
               </span>
             </div>
             
-            <div class="flex items-baseline gap-2 my-2">
-              <span class="text-4xl sm:text-5xl font-black tracking-tight text-white">${{ number_format($totalSales, 2) }}</span>
+            <div class="flex items-baseline gap-2 my-4">
+              <span class="text-5xl font-black tracking-tight text-white">${{ number_format($totalSales, 2) }}</span>
               <span class="text-sm font-semibold text-indigo-200 uppercase">USD</span>
             </div>
 
@@ -150,20 +157,20 @@
             </div>
 
             {{-- Breakdown Pills --}}
-            <div class="grid grid-cols-2 gap-4 mt-6 pt-5 border-t border-white/15">
-              <div class="flex items-center gap-3 bg-white/10 backdrop-blur p-3.5 rounded-2xl border border-white/10">
-                <div class="w-10 h-10 rounded-xl bg-purple-500/30 flex items-center justify-center text-lg">🌐</div>
+            <div class="grid grid-cols-2 gap-4 mt-8 pt-6 border-t border-white/10">
+              <div class="flex items-center gap-3 bg-white/5 backdrop-blur p-4 rounded-2xl border border-white/15">
+                <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-lg border border-purple-400/20">🌐</div>
                 <div>
-                  <div class="text-xs text-indigo-200 font-medium">Website Sales</div>
-                  <div class="text-lg font-bold text-white">${{ number_format($websiteSales, 2) }}</div>
+                  <div class="text-[11px] text-indigo-200 font-bold uppercase tracking-wider">Website Sales</div>
+                  <div class="text-lg font-black text-white">${{ number_format($websiteSales, 2) }}</div>
                 </div>
               </div>
 
-              <div class="flex items-center gap-3 bg-white/10 backdrop-blur p-3.5 rounded-2xl border border-white/10">
-                <div class="w-10 h-10 rounded-xl bg-amber-500/30 flex items-center justify-center text-lg">🛒</div>
+              <div class="flex items-center gap-3 bg-white/5 backdrop-blur p-4 rounded-2xl border border-white/15">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-lg border border-amber-400/20">🛒</div>
                 <div>
-                  <div class="text-xs text-indigo-200 font-medium">eBay Sales</div>
-                  <div class="text-lg font-bold text-white">${{ number_format($ebaySales, 2) }}</div>
+                  <div class="text-[11px] text-indigo-200 font-bold uppercase tracking-wider">eBay Sales</div>
+                  <div class="text-lg font-black text-white">${{ number_format($ebaySales, 2) }}</div>
                 </div>
               </div>
             </div>
@@ -173,14 +180,14 @@
         {{-- Domain KPI Grid --}}
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
           @foreach($domainReports as $domainKey => $domain)
-          <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-200">
-            <div class="flex items-center justify-between mb-3">
-              <span class="flex h-10 w-10 items-center justify-center rounded-2xl text-base shadow-inner" style="background:{{ $domain['color'] }}15">{{ $domain['icon'] }}</span>
-              <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400">{{ $domain['label'] }}</span>
+          <div class="relative overflow-hidden bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between group">
+            <div class="flex items-center justify-between mb-4">
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl text-base shadow-sm group-hover:scale-110 transition-transform duration-300" style="background:{{ $domain['color'] }}12">{{ $domain['icon'] }}</span>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ $domain['label'] }}</span>
             </div>
-            <p class="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white">{{ number_format($headline[$domainKey]) }}</p>
-            <p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3 truncate">{{ array_key_first($domain['metrics']) }}</p>
-            <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+            <p class="text-3xl font-black text-slate-800 tracking-tight">{{ number_format($headline[$domainKey]) }}</p>
+            <p class="text-xs font-semibold text-slate-400 mb-3 truncate">{{ array_key_first($domain['metrics']) }}</p>
+            <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
               <div class="h-full rounded-full transition-all duration-500" style="width:{{ round($headline[$domainKey] / $maxHeadline * 100) }}%; background:{{ $domain['color'] }}"></div>
             </div>
           </div>
@@ -188,13 +195,13 @@
         </div>
 
         {{-- Activity Trend Chart --}}
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+        <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
           <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
             <div>
-              <h4 class="font-bold text-slate-800 dark:text-white text-base">Company Activity Trend</h4>
+              <h4 class="font-bold text-slate-800 text-base">Company Activity Trend</h4>
               <p class="text-xs text-slate-400">Activity performance over {{ strtolower($periodLabel) }}</p>
             </div>
-            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100/60">
               {{ $periodLabel }}
             </span>
           </div>
@@ -214,26 +221,26 @@
 
       {{-- SIDEBAR --}}
       <div class="space-y-6">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-          <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-100 dark:border-slate-700">
-            <h4 class="font-bold text-slate-800 dark:text-white text-base">Domain Detailed Metrics</h4>
-            <span class="text-xs text-slate-400">Breakdown</span>
+        <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+          <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
+            <h4 class="font-bold text-slate-800 text-base">Domain Detailed Metrics</h4>
+            <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Breakdown</span>
           </div>
 
           <div class="space-y-5">
             @foreach($domainReports as $domainKey => $domain)
             @php $rest = collect($domain['metrics'])->except(array_key_first($domain['metrics'])); @endphp
             @if($rest->isNotEmpty())
-            <div class="{{ !$loop->first ? 'pt-4 border-t border-slate-100 dark:border-slate-700/60' : '' }}">
+            <div class="{{ !$loop->first ? 'pt-4 border-t border-slate-100' : '' }}">
               <div class="flex items-center gap-2 mb-3">
-                <span class="flex h-7 w-7 items-center justify-center rounded-xl text-xs font-bold" style="background:{{ $domain['color'] }}15">{{ $domain['icon'] }}</span>
-                <span class="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">{{ $domain['label'] }}</span>
+                <span class="flex h-7 w-7 items-center justify-center rounded-xl text-xs font-bold shadow-inner" style="background:{{ $domain['color'] }}12">{{ $domain['icon'] }}</span>
+                <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">{{ $domain['label'] }}</span>
               </div>
               <div class="space-y-2">
                 @foreach($rest as $metricLabel => $value)
-                <div class="flex justify-between items-center text-xs py-1 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
-                  <span class="text-slate-500 dark:text-slate-400 font-medium">{{ $metricLabel }}</span>
-                  <b class="text-slate-800 dark:text-white font-bold">{{ in_array($metricLabel, $domain['money_keys']) ? '$' . number_format($value, 2) : number_format($value) }}</b>
+                <div class="flex justify-between items-center text-xs py-1.5 px-3 rounded-xl bg-slate-50 border border-slate-100/50">
+                  <span class="text-slate-500 font-medium">{{ $metricLabel }}</span>
+                  <b class="text-slate-800 font-bold">{{ in_array($metricLabel, $domain['money_keys']) ? '$' . number_format($value, 2) : number_format($value) }}</b>
                 </div>
                 @endforeach
               </div>
@@ -244,7 +251,8 @@
         </div>
 
         {{-- Export Action Box --}}
-        <div class="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-md text-center">
+        <div class="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-md text-center border border-slate-950/20 relative overflow-hidden">
+          <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-white/5 rounded-full blur-xl pointer-events-none"></div>
           <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-2xl mx-auto mb-3 border border-white/15">📑</div>
           <h5 class="font-bold text-base text-white mb-1" x-text="reportTab === 'general' ? 'Executive Report Export' : (reportTab === 'ebay' ? 'eBay' : reportTab === 'tech_support' ? 'Technical Support' : reportTab.charAt(0).toUpperCase() + reportTab.slice(1)) + ' Report Export'">Executive Report Export</h5>
           <p class="text-xs text-slate-300 mb-5">Download official PDF or CSV report for {{ $periodLabel }}.</p>
@@ -271,58 +279,63 @@
     $domainOtherQuery = collect(request()->query())->except(["{$domainKey}_period", "{$domainKey}_date_from", "{$domainKey}_date_to", 'tab'])->all();
   @endphp
   <div x-show="reportTab === '{{ $domainKey }}'" x-cloak class="space-y-6">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-4 flex-wrap">
+    <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-3 flex-wrap">
-        <div class="inline-flex p-1 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
+        <div class="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200/30">
           @foreach(['day' => 'Day', 'week' => 'Week', 'month' => 'Month'] as $pKey => $pLabel)
+          @php $isActive = ($dp['granularity'] === $pKey); @endphp
           <a href="{{ route('crm.reports.index', array_merge($domainOtherQuery, ['tab' => $domainKey, "{$domainKey}_period" => $pKey])) }}" data-turbo="false"
-             class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {{ $dp['granularity'] === $pKey ? 'text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900' }}"
-             style="{{ $dp['granularity'] === $pKey ? 'background:' . $domain['color'] : '' }}">
+             class="px-4 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 {{ $isActive ? 'text-white shadow-sm shadow-slate-200' : 'text-slate-500 hover:text-slate-800' }}"
+             style="{{ $isActive ? 'background:' . $domain['color'] : '' }}">
             {{ $pLabel }}
           </a>
           @endforeach
         </div>
-        <form method="GET" action="{{ route('crm.reports.index') }}" data-turbo="false" class="flex items-center gap-2 flex-wrap">
+        <form method="GET" action="{{ route('crm.reports.index') }}" autocomplete="off" data-turbo="false" class="flex items-center gap-2 flex-wrap">
           @foreach($domainOtherQuery as $qKey => $qVal)
             @foreach((array) $qVal as $qv)
             <input type="hidden" name="{{ is_array($qVal) ? $qKey . '[]' : $qKey }}" value="{{ $qv }}">
             @endforeach
           @endforeach
           <input type="hidden" name="tab" value="{{ $domainKey }}">
-          <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/40 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <span class="text-xs font-bold text-slate-400 uppercase">From</span>
-            <input type="date" name="{{ $domainKey }}_date_from" value="{{ request("{$domainKey}_date_from") }}" class="bg-transparent border-0 text-xs py-1 px-1 focus:ring-0 text-slate-700 dark:text-slate-200 font-medium">
+          <div class="flex items-center gap-2 pl-3 border-l border-slate-100">
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">From</span>
+              <input type="date" name="{{ $domainKey }}_date_from" value="{{ request("{$domainKey}_date_from") }}" autocomplete="off" class="bg-transparent border-0 text-xs p-0 focus:ring-0 text-slate-700 font-semibold w-28">
+            </div>
+            <span class="text-xs text-slate-400">to</span>
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To</span>
+              <input type="date" name="{{ $domainKey }}_date_to" value="{{ request("{$domainKey}_date_to") }}" autocomplete="off" class="bg-transparent border-0 text-xs p-0 focus:ring-0 text-slate-700 font-semibold w-28">
+            </div>
           </div>
-          <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/40 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <span class="text-xs font-bold text-slate-400 uppercase">To</span>
-            <input type="date" name="{{ $domainKey }}_date_to" value="{{ request("{$domainKey}_date_to") }}" class="bg-transparent border-0 text-xs py-1 px-1 focus:ring-0 text-slate-700 dark:text-slate-200 font-medium">
-          </div>
-          <button type="submit" class="btn btn-secondary text-xs py-2 px-3 rounded-xl">Filter</button>
+          <button type="submit" class="px-4 py-2 text-xs font-bold text-white border rounded-xl hover:bg-slate-50/50 transition-all shadow-sm" style="background:{{ $domain['color'] }}; border-color:{{ $domain['color'] }}">Filter</button>
           @if(request("{$domainKey}_date_from") || request("{$domainKey}_date_to"))
-          <a href="{{ route('crm.reports.index', array_merge($domainOtherQuery, ['tab' => $domainKey])) }}" data-turbo="false" class="btn btn-secondary text-xs py-2 px-3 rounded-xl text-rose-600 hover:bg-rose-50">Clear</a>
+          <a href="{{ route('crm.reports.index', array_merge($domainOtherQuery, ['tab' => $domainKey])) }}" data-turbo="false" class="px-4 py-2 text-xs font-bold text-rose-600 bg-white border border-rose-100 rounded-xl hover:bg-rose-50/50 shadow-sm transition-all">Clear</a>
           @endif
         </form>
       </div>
     </div>
 
-    <div class="rounded-3xl p-8 text-white shadow-lg relative overflow-hidden" style="background:linear-gradient(135deg, {{ $domain['color'] }}, {{ $domain['color'] }}cc)">
-      <p class="text-xs font-extrabold uppercase tracking-widest text-white/80 mb-2">{{ $domain['icon'] }} {{ $domain['label'] }} — {{ $domainHeadlineLabel }}</p>
-      <div class="text-4xl font-black text-white mb-1">{{ in_array($domainHeadlineLabel, $domain['money_keys']) ? '$' . number_format($domainHeadlineValue, 2) : number_format($domainHeadlineValue) }}</div>
+    <div class="rounded-3xl p-8 text-white shadow-md relative overflow-hidden" style="background:radial-gradient(circle at 70% 30%, {{ $domain['color'] }} 0%, {{ $domain['color'] }}cc 100%)">
+      <div class="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+      <p class="text-xs font-extrabold uppercase tracking-widest text-white/90 mb-2">{{ $domain['icon'] }} {{ $domain['label'] }} — {{ $domainHeadlineLabel }}</p>
+      <div class="text-5xl font-black text-white mb-2">{{ in_array($domainHeadlineLabel, $domain['money_keys']) ? '$' . number_format($domainHeadlineValue, 2) : number_format($domainHeadlineValue) }}</div>
       <p class="text-white/80 text-xs font-medium">{{ $dp['label'] }}</p>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       @foreach($domain['metrics'] as $metricLabel => $value)
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:-translate-y-1 transition-all duration-200">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="flex h-9 w-9 items-center justify-center rounded-xl text-sm" style="background:{{ $domain['color'] }}15">{{ $domain['icon'] }}</span>
+      <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group">
+        <div class="flex items-center gap-2.5 mb-3">
+          <span class="flex h-9 w-9 items-center justify-center rounded-xl text-sm shadow-inner group-hover:scale-115 transition-transform duration-300" style="background:{{ $domain['color'] }}12">{{ $domain['icon'] }}</span>
           <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ $metricLabel }}</span>
         </div>
-        <p class="text-2xl sm:text-3xl font-black" style="color:{{ $domain['color'] }}">
+        <p class="text-3xl font-black" style="color:{{ $domain['color'] }}">
           {{ in_array($metricLabel, $domain['money_keys']) ? '$' . number_format($value, 2) : number_format($value) }}
         </p>
         @unless(in_array($metricLabel, $domain['money_keys']))
-        <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden mt-3">
+        <div class="h-2 rounded-full bg-slate-100 overflow-hidden mt-3">
           <div class="h-full rounded-full transition-all duration-500" style="width:{{ round($value / $countMax * 100) }}%; background:{{ $domain['color'] }}"></div>
         </div>
         @endunless
@@ -330,10 +343,10 @@
       @endforeach
     </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+    <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
       <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <h4 class="font-bold text-slate-800 dark:text-white text-base">{{ $domain['label'] }} Activity Trend</h4>
-        <span class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ $dp['label'] }}</span>
+        <h4 class="font-bold text-slate-800 text-base">{{ $domain['label'] }} Activity Trend</h4>
+        <span class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600">{{ $dp['label'] }}</span>
       </div>
       @if(array_sum($domainTabTrends[$domainKey]['data']->all()) > 0)
       <div style="height:250px; position:relative;">
@@ -434,11 +447,11 @@
     };
 
     const activeTabKey = @json($activeTab);
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => window.initReportChart(activeTabKey), { once: true });
-    } else {
+    
+    // Bind to turbo:load for seamless Hotwire navigation
+    document.addEventListener('turbo:load', function () {
         window.initReportChart(activeTabKey);
-    }
+    });
 })();
 </script>
 @endpush
