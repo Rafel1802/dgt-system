@@ -29,6 +29,7 @@
             <th class="px-4 py-3 text-left">Contact</th>
             <th class="px-4 py-3 text-left">Source</th>
             <th class="px-4 py-3 text-left">Status</th>
+            <th class="px-4 py-3 text-left">Issue Date</th>
             <th class="px-4 py-3 text-left">Handler</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
@@ -57,6 +58,13 @@
                 {{ $customer['status_label'] }}
               </span>
             </td>
+            <td class="px-4 py-3 text-xs text-slate-500">
+              @if(!empty($customer['issue_date']))
+                <span class="font-medium text-slate-700">{{ $customer['issue_date'] }}</span>
+              @else
+                —
+              @endif
+            </td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ $customer['handler'] ?: '—' }}</td>
             <td class="px-4 py-3">
               <div class="flex justify-end gap-1">
@@ -70,7 +78,7 @@
           </tr>
           @empty
           <tr>
-            <td colspan="6" class="text-center py-16 text-slate-400">
+            <td colspan="7" class="text-center py-16 text-slate-400">
               <div class="text-4xl mb-3">🚚</div>
               No customers currently flagged with a logistic issue.
             </td>

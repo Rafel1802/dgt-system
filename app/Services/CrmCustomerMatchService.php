@@ -856,6 +856,7 @@ class CrmCustomerMatchService
                 // latestOrder is the most recent purchase — null if none logged yet.
                 'created_date'  => $record->created_at,
                 'purchase_date' => $record->latestOrder?->ordered_at,
+                'issue_date'    => null,
                 'category'    => $categories[0] ?? null,
             ]);
         });
@@ -863,7 +864,7 @@ class CrmCustomerMatchService
         ShipmentCustomer::query()
             ->select([
                 'id', 'shipment_id', 'customer_id', 'recipient_name', 'recipient_email',
-                'recipient_phone', 'status', 'created_at',
+                'recipient_phone', 'status', 'notes', 'created_at',
             ])
             ->with([
                 'customer:id,email,phone,lifetime_value',
@@ -900,6 +901,13 @@ class CrmCustomerMatchService
                 };
                 $badges = [['label' => $statusLabel, 'color' => $statusColor, 'category' => $category]];
 
+                $issueDate = null;
+                if ($sc->status === ShipmentCustomer::STATUS_PROBLEM && $sc->notes) {
+                    if (preg_match('/(?:\[Issue Date:\s*|\(Issue Date:\s*)([^\]\)]+)/i', $sc->notes, $m)) {
+                        $issueDate = trim($m[1]);
+                    }
+                }
+
                 $out->push([
                     'source'      => 'Logistics',
                     'source_icon' => '🚚',
@@ -922,6 +930,7 @@ class CrmCustomerMatchService
                     },
                     'created_date'  => $sc->shipment?->created_at ?? $sc->created_at,
                     'purchase_date' => null,
+                    'issue_date'    => $issueDate,
                     'category'    => $category,
                 ]);
             });
@@ -934,7 +943,7 @@ class CrmCustomerMatchService
             ->with([
                 'assignee:id,name',
                 'latestTechSupportCase',
-                'shipmentCustomers' => fn ($q) => $q->latest('updated_at'),
+                'shipmentCustomers' => fn ($q) => $q->select(['id', 'customer_id', 'status', 'notes', 'updated_at'])->latest('updated_at'),
             ])
             ->get()
             ->each(function (Customer $customer) use (&$out, $keysFor, $anySeen, $reserve) {
@@ -976,6 +985,16 @@ class CrmCustomerMatchService
                 $categories[] = 'resolved';
             }
 
+            $issueDate = null;
+            if ($customer->shipment_delay) {
+                $problemSc = $customer->shipmentCustomers->firstWhere('status', ShipmentCustomer::STATUS_PROBLEM);
+                if ($problemSc && $problemSc->notes) {
+                    if (preg_match('/(?:\[Issue Date:\s*|\(Issue Date:\s*)([^\]\)]+)/i', $problemSc->notes, $m)) {
+                        $issueDate = trim($m[1]);
+                    }
+                }
+            }
+
             $out->push([
                 'source'      => $sourceLabel,
                 'source_icon' => match ($sourceLabel) { 'eBay' => '🛒', 'Logistics' => '🚚', default => '🌐' },
@@ -994,7 +1013,8 @@ class CrmCustomerMatchService
                 'handler_id'  => $customer->assigned_to,
                 'link'        => route('crm.customers.show', $customer),
                 'created_date'  => $customer->created_at,
-                'purchase_date' => null,
+                'purchase_date' => $customer->latestOrder?->ordered_at,
+                'issue_date'    => $issueDate,
                 'category'    => $categories[0] ?? null,
             ]);
         });

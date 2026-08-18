@@ -242,7 +242,11 @@
               <span class="flex h-7 w-7 items-center justify-center rounded-xl text-xs font-bold" style="background:{{ $domainColors['tech_support'] }}15">{{ $domainIcons['tech_support'] }}</span>
               <span class="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Tech Support</span>
             </div>
-            <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Cases resolved</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['tech_support']['resolved']) }}</b></div>
+            <div class="flex flex-col gap-1.5">
+              <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Cases resolved</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['tech_support']['resolved']) }}</b></div>
+              <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Total Issues</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['tech_support']['Total Issues'] ?? 0) }}</b></div>
+              <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Negative Feedback</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['tech_support']['Negative Feedback'] ?? 0) }}</b></div>
+            </div>
           </div>
           @endif
 
@@ -252,7 +256,11 @@
               <span class="flex h-7 w-7 items-center justify-center rounded-xl text-xs font-bold" style="background:{{ $domainColors['logistic'] }}15">{{ $domainIcons['logistic'] }}</span>
               <span class="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Logistic</span>
             </div>
-            <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Shipments complete</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['logistic']['complete']) }}</b></div>
+            <div class="flex flex-col gap-1.5">
+              <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Shipments complete</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['logistic']['complete']) }}</b></div>
+              <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Total Issues</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['logistic']['Total Issues'] ?? 0) }}</b></div>
+              <div class="flex justify-between text-xs"><span class="text-slate-500 font-medium">Negative Feedback</span><b class="text-slate-800 dark:text-white font-bold">{{ number_format($summary['logistic']['Negative Feedback'] ?? 0) }}</b></div>
+            </div>
           </div>
           @endif
         </div>

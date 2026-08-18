@@ -267,7 +267,7 @@ class ShipmentController extends Controller
             ->first();
         $candidates->push([
             'date'    => $latestEbayOrder?->ordered_at,
-            'product' => $latestEbayOrder ? $latestEbayOrder->items->pluck('product_name')->filter()->implode(', ') : null,
+            'product' => $latestEbayOrder ? $latestEbayOrder->items->map(fn($p) => $p->sku ?: $p->product_name)->filter()->implode(', ') : null,
         ]);
 
         $latestLeadOrder = $customer->leads
@@ -277,7 +277,7 @@ class ShipmentController extends Controller
             ->first();
         $candidates->push([
             'date'    => $latestLeadOrder?->order_date,
-            'product' => $latestLeadOrder ? $latestLeadOrder->items->pluck('product_name')->filter()->implode(', ') : null,
+            'product' => $latestLeadOrder ? $latestLeadOrder->items->map(fn($p) => $p->sku ?: $p->product_name)->filter()->implode(', ') : null,
         ]);
 
         $best = $candidates
@@ -311,7 +311,7 @@ class ShipmentController extends Controller
             ->with(['latestOrder.items', 'product'])
             ->get(['id', 'customer_id', 'client_name', 'client_phone', 'client_email', 'product_interested', 'product_id'])
             ->map(function (Lead $lead) {
-                $orderProduct = $lead->latestOrder?->items->pluck('product_name')->filter()->implode(', ');
+                $orderProduct = $lead->latestOrder?->items->map(fn($p) => $p->sku ?: $p->product_name)->filter()->implode(', ');
 
                 return (object) [
                     'id'                   => $lead->id,
@@ -611,6 +611,7 @@ class ShipmentController extends Controller
         // knowing about immediately, same as Tech Support status changes
         // and eBay negative feedback.
         if ($becameProblem) {
+            $customer->increment('problem_occurrences');
             CrmTeamNotifier::notifyEbayAndSalesTeams(
                 'logistic_problem',
                 "Logistic issue · {$customer->recipient_name}",
@@ -691,6 +692,7 @@ class ShipmentController extends Controller
         }
 
         if ($becameProblem) {
+            $customer->increment('problem_occurrences');
             CrmTeamNotifier::notifyEbayAndSalesTeams(
                 'logistic_problem',
                 "Logistic issue · {$customer->recipient_name}",

@@ -145,7 +145,8 @@
             <th class="px-4 py-3 text-left">eBay Store</th>
             <th class="px-4 py-3 text-left">Order ID</th>
             <th class="px-4 py-3 text-left">Summary</th>
-            <th class="px-4 py-3 text-left">Date</th>
+            <th class="px-4 py-3 text-left">Created Date</th>
+            <th class="px-4 py-3 text-left">Order Date</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
@@ -189,6 +190,7 @@
             <td class="px-4 py-3 text-xs text-indigo-600">{{ $record->store?->store_name ?? '—' }}</td>
             <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ $record->order_id ?? '—' }}</td>
             <td class="px-4 py-3 text-xs text-slate-600 max-w-[220px] truncate" title="{{ $record->summary }}">{{ Str::limit($record->summary, 60) ?: '—' }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">{{ $record->created_at?->format('d/m/Y') ?? '—' }}</td>
             <td class="px-4 py-3 text-xs text-slate-500">{{ ($record->date ?? $record->order_date)?->format('d/m/Y') ?? '—' }}</td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
@@ -223,7 +225,7 @@
           </tr>
           @empty
           <tr>
-            <td colspan="7" class="text-center py-14">
+            <td colspan="8" class="text-center py-14">
               <div class="text-4xl mb-3">📋</div>
               <p class="text-slate-500 font-medium">No records found</p>
               <a href="{{ route('crm.ebay.customers.create', $tabType ? ['tab_type' => $tabType] : []) }}"

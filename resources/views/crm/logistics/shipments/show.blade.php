@@ -22,11 +22,10 @@
   </div>
   @endif
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    {{-- Left Col: Details --}}
-    <div class="lg:col-span-1 space-y-6">
-      <div class="card p-6">
-        <div class="flex justify-between items-start mb-4 gap-3">
+  <div class="space-y-6">
+    {{-- Top: Details Summary --}}
+    <div class="card p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
           <h2 class="font-display font-bold text-slate-800 text-xl">{{ $shipment->shipment_code }}</h2>
           @php $statusCounts = $shipment->customerStatusCounts(); @endphp
           @if(count($statusCounts) > 1)
@@ -45,7 +44,7 @@
           @endif
         </div>
 
-        <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 border-t border-slate-100">
 
           <div>
             <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Handled By</span>
@@ -62,7 +61,7 @@
             @endif
           </div>
           
-          <div class="pt-4 border-t border-slate-100">
+          <div>
             <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Trucking Company</span>
             @if($shipment->truckingCompany)
               <a href="{{ route('crm.logistics.trucking.show', $shipment->truckingCompany) }}" class="text-sm font-medium text-indigo-600 hover:underline">
@@ -84,7 +83,7 @@
           </div>
 
           @if($shipment->notes)
-          <div>
+          <div class="sm:col-span-2 lg:col-span-1">
             <span class="block text-xs uppercase text-slate-400 font-semibold mb-1">Notes</span>
             <div class="text-sm text-slate-600 whitespace-pre-wrap">{{ $shipment->notes }}</div>
           </div>
@@ -93,8 +92,8 @@
       </div>
     </div>
 
-    {{-- Right Col: Customers in Shipment --}}
-    <div class="lg:col-span-2">
+    {{-- Bottom: Customers in Shipment --}}
+    <div>
       <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h3 class="font-display font-bold text-slate-800 text-lg">Customers in Shipment</h3>
         <div class="flex gap-2">
@@ -111,6 +110,7 @@
         selected: [],
         bulkStatus: '{{ \App\Models\ShipmentCustomer::STATUS_IN_TRANSIT }}',
         bulkNotes: '',
+        bulkIssueDate: '{{ now()->toDateString() }}',
         statusLabels: {{ Js::from(\App\Models\ShipmentCustomer::statuses()) }},
         get allChecked() { return {{ $shipment->shipmentCustomers->count() }} > 0 && this.selected.length === {{ $shipment->shipmentCustomers->count() }}; },
         get actionLabel() { return 'Mark as ' + (this.statusLabels[this.bulkStatus] || this.bulkStatus); },
@@ -137,22 +137,27 @@
                   <input type="checkbox" class="accent-indigo-600 w-4 h-4" value="{{ $sc->id }}" x-model="selected">
                 </td>
                 <td class="px-5 py-3">
-                  <p class="font-semibold text-slate-800">{{ $sc->customer?->name ?? '—' }}</p>
-                  @if($sc->recipient_name)
-                    <p class="text-xs text-slate-500">Recp: {{ $sc->recipient_name }}</p>
-                  @endif
-                  @if($sc->recipient_phone)
-                    <p class="text-xs text-slate-400">Phone: {{ $sc->recipient_phone }}</p>
-                  @endif
+                  <div class="font-semibold text-slate-800">{{ $sc->customer?->name ?? '—' }}</div>
+                  <div class="text-slate-500 text-xs mt-0.5">
+                    @if($sc->customer_id)
+                    <a href="{{ route('crm.customers.show', $sc->customer_id) }}" class="text-indigo-600 hover:underline">Recp: {{ $sc->recipient_name }}</a><br>
+                    @else
+                    Recp: {{ $sc->recipient_name }}<br>
+                    @endif
+                    Phone: {{ $sc->recipient_phone ?: '—' }}
+                    @if($sc->recipient_email)
+                      <br>{{ $sc->recipient_email }}
+                    @endif
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-slate-600 text-xs">
                   @forelse($sc->products as $p)
-                    <p>{{ $p->product_name }}{{ $p->sku ? ' (' . $p->sku . ')' : '' }} × {{ $p->quantity }}</p>
+                    <p>{{ $p->sku ?: $p->product_name }} &times; {{ $p->quantity }}</p>
                   @empty
                     <p>—</p>
                   @endforelse
                 </td>
-                <td class="px-4 py-3 text-xs text-slate-600 max-w-xs truncate" title="{{ $sc->shipping_address }}">
+                <td class="px-4 py-3 text-xs text-slate-600">
                   {{ $sc->shipping_address ?? '—' }}
                 </td>
                 <td class="px-4 py-3">
@@ -324,7 +329,7 @@
 
           <div class="flex flex-wrap items-center gap-3">
             <form method="POST" action="{{ route('crm.logistics.shipments.customers.bulkStatus') }}" class="flex flex-wrap items-center gap-2"
-                  @submit="if (bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}' && !bulkNotes.trim()) { $event.preventDefault(); alert('A note is required for Logistic issues (Problem status).'); }">
+                  @submit="if (bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}') { if (!bulkNotes.trim()) { $event.preventDefault(); alert('A note is required for Logistic issues (Problem status).'); } else if (!bulkIssueDate) { $event.preventDefault(); alert('An issue date is required for Logistic issues (Problem status).'); } }">
               @csrf
               <template x-for="id in selected" :key="id">
                 <input type="hidden" name="customer_ids[]" :value="id">
@@ -335,6 +340,7 @@
                 <option value="{{ $val }}">{{ $lbl }}</option>
                 @endforeach
               </select>
+              <input type="date" name="issue_date" x-model="bulkIssueDate" x-show="bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}'" class="form-input py-1.5 text-sm w-36">
               <input type="text" name="notes" x-model="bulkNotes" x-show="bulkStatus === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}'"
                      placeholder="Note explaining the issue (required)" class="form-input py-1.5 text-sm w-48">
               <button type="submit" class="btn btn-primary text-sm py-1.5" x-text="actionLabel"></button>
@@ -374,7 +380,7 @@
              'id' => $sc->id,
              'name' => $sc->recipient_name,
              'phone' => $sc->recipient_phone,
-             'product' => $sc->products->pluck('product_name')->filter()->implode(', '),
+             'product' => $sc->products->map(fn($p) => $p->sku ?: $p->product_name)->filter()->implode(', '),
          ])) }},
          get filtered() {
            if (!this.search) return this.records;

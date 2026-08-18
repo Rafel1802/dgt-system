@@ -14,7 +14,7 @@ class ShipmentCustomer extends Model
     protected $fillable = [
         'shipment_id', 'customer_id',
         'recipient_name', 'recipient_phone', 'recipient_email', 'shipping_address',
-        'status', 'handled_by', 'notes', 'tracking_number',
+        'status', 'handled_by', 'notes', 'tracking_number', 'ebay_record_id', 'problem_occurrences',
     ];
 
     const STATUS_PENDING     = 'pending';

@@ -31,10 +31,23 @@ class SmmPlanningBoardController extends Controller
         // Pass all possible members (assuming digital team logic) for the workspace modal if needed
         $possibleWorkspaceMembers = \App\Models\User::role(['admin', 'admin-digital', 'digital-team', 'boss'])->get();
 
+        $hiddenBoardsFn = function() {
+            return \App\Models\Board::where('is_hidden', true)->where('type', 'smm')->with('workspace')->get();
+        };
+        $trashedWorkspacesFn = function() {
+            return collect(); // SMM workspace is fixed, no need to show trashed workspaces here
+        };
+        $trashedBoardsFn = function() {
+            return \App\Models\Board::onlyTrashed()->where('type', 'smm')->with('workspace')->get();
+        };
+
         return view('boards.workspaces', [
             'workspaces' => $workspaces,
             'isSmmModule' => true,
-            'possibleWorkspaceMembers' => $possibleWorkspaceMembers
+            'possibleWorkspaceMembers' => $possibleWorkspaceMembers,
+            'hiddenBoardsFn' => $hiddenBoardsFn,
+            'trashedWorkspacesFn' => $trashedWorkspacesFn,
+            'trashedBoardsFn' => $trashedBoardsFn,
         ]);
     }
 

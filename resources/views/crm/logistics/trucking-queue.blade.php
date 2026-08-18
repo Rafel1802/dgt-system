@@ -194,7 +194,7 @@
             </td>
             <td class="px-4 py-3 text-slate-600 text-xs">
               @forelse($sc->products as $p)
-                <p>{{ $p->product_name }} × {{ $p->quantity }}</p>
+                <p>{{ $p->sku ?: $p->product_name }} &times; {{ $p->quantity }}</p>
               @empty
                 <p>—</p>
               @endforelse
