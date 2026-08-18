@@ -229,13 +229,16 @@ class WebsiteController extends Controller
 
         // --- PERFORMANCE OPTIMIZATION: Relationships are already eager loaded via with($tabRelations) above ---
 
+        $allWebsites = Website::where('is_archived', false)->orderBy('name')->get(['id', 'name']);
+
         return view('websites.index', compact(
             'tab', 'tabCounts', 'stats', 'groupedWebsites', 'orderArray',
             'buildWebsites', 'buildProgressWebsites', 'liveWebsites',
             'maintenanceWebsites', 'followUps', 'followUpFilter', 'users',
             'allClasses', 'websiteMembers', 'memberRolesMap',
             'qcCheckingWebsites', 'supervisorCheckingWebsites',
-            'qcErrorWebsites', 'supervisorErrorWebsites', 'websiteTeamMembers', 'reportUsers'
+            'qcErrorWebsites', 'supervisorErrorWebsites', 'websiteTeamMembers', 'reportUsers',
+            'allWebsites'
         ));
     }
 
