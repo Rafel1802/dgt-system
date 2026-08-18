@@ -100,7 +100,7 @@ class CustomerController extends Controller
      * cross-source status categories (Technical issues / Logistic issues /
      * Negative feedback) alongside a free-text search.
      */
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $this->authorize('viewAny', Customer::class);
 
