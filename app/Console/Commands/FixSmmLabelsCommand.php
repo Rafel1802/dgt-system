@@ -29,37 +29,67 @@ class FixSmmLabelsCommand extends Command
         
         $cards = Card::whereNotNull('smm_class_label')->orWhereNotNull('smm_cluster_label')->get();
         
+        $titleMap = [
+            'TYPH-0113 + PA02' => 'ImpossibleMachinery',
+            'TYPH-0505 + TYPH-5015M' => 'ImpossibleMachinery',
+            'TYPH-V900B' => 'ImpossibleMachinery',
+            'TYPH-0501R' => 'ImpossibleMachinery',
+            'TYPH-0901' => 'ImpossibleMachinery',
+            'TYPH-0503R vs TYPH-1701proY' => 'ImpossibleMachinery',
+            'TYPH-0113 SMM Content' => 'ImpossibleMachinery',
+            'TYPH-0701 + TYPH-2013' => 'MachineryAsia.Online',
+            'TYPH-0121' => 'MachineryAsia.Online',
+            'TYPH-V900R' => 'MachineryAsia.Online',
+            'TYPH-1902 PRO + TYPH-2006' => 'MachineryAsia.Online',
+            'TYPH-0502R' => 'MachineryAsia.Online',
+            'TYPH-0702 PRO + TYPH-2008' => 'MachineryAsia.Online',
+            'TYPH-1701proR' => 'MachineryAsia.Online',
+            'TYPH-1702 Ebay Content' => 'ImpossibleMachinery',
+            'TYPH-1703' => 'MachineryAsia',
+        ];
+
         $fixedCount = 0;
         foreach ($cards as $card) {
             $classLabel = strtolower(trim($card->smm_class_label ?? ''));
             $clusterLabel = strtolower(trim($card->smm_cluster_label ?? ''));
-            
-            // We WANT:
-            // smm_class_label = Class (e.g. "SkidSteers", from $validClusters)
-            // smm_cluster_label = Content Type (e.g. "Poster Design", from $contentTypes)
-            
-            // If the current smm_class_label is a Content Type, OR the current smm_cluster_label is a Class,
-            // they are backwards and need to be swapped!
-            $isBackward = false;
-            
-            if (in_array($classLabel, $contentTypes)) {
-                $isBackward = true;
+            $cardTitle = trim($card->title);
+
+            // Attempt to deduce the actual class from the title
+            $matchedClass = null;
+            foreach ($titleMap as $titlePart => $cluster) {
+                if (stripos($cardTitle, $titlePart) !== false) {
+                    $matchedClass = $cluster;
+                    break;
+                }
             }
-            if (in_array($clusterLabel, $validClusters)) {
+
+            if ($matchedClass && strtolower($card->smm_class_label) !== strtolower($matchedClass)) {
+                $oldClass = $card->smm_class_label;
+                $card->smm_class_label = $matchedClass;
+                // Leave smm_cluster_label as is (it correctly holds the content type)
+                $card->save();
+                
+                $fixedCount++;
+                $this->line("Fixed card {$card->id} ({$cardTitle}): Set smm_class_label to '{$matchedClass}' (was '{$oldClass}')");
+                continue;
+            }
+            
+            // Fallback: If it couldn't be matched by title, check if they are simply swapped
+            $isBackward = false;
+            if (in_array($classLabel, $contentTypes) && in_array($clusterLabel, $validClusters)) {
                 $isBackward = true;
             }
             
             if ($isBackward) {
-                // Swap them back to correct DB usage!
-                $wrongClass = $card->smm_class_label; // This currently holds the content type
-                $wrongCluster = $card->smm_cluster_label; // This currently holds the class
+                $wrongClass = $card->smm_class_label;
+                $wrongCluster = $card->smm_cluster_label;
                 
                 $card->smm_class_label = $wrongCluster;
                 $card->smm_cluster_label = $wrongClass;
                 $card->save();
                 
                 $fixedCount++;
-                $this->line("Fixed card {$card->id}: Set smm_class_label to '{$wrongCluster}', smm_cluster_label to '{$wrongClass}'");
+                $this->line("Swapped card {$card->id}: Set smm_class_label to '{$wrongCluster}'");
             }
         }
         

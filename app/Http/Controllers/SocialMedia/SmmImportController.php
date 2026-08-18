@@ -336,12 +336,20 @@ class SmmImportController extends Controller
             if ($existingCard) {
                 $existingCard->update([
                     'description' => $row['description'],
-                    'smm_class_label' => $className ?: null,
+                    'smm_class_label' => $clusterName ?: null,
                     'smm_team_label' => $row['smm_team_label'] ?: null,
                     'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
                     'due_at' => $row['deadline'] ?: null,
                     'due_time' => $row['due_time'] ?? null,
                 ]);
+
+                // Cascade update to distributed cards
+                if ($existingCard->sync_group_id) {
+                    Card::where('sync_group_id', $existingCard->sync_group_id)->update([
+                        'smm_class_label' => $clusterName ?: null,
+                        'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
+                    ]);
+                }
 
                 $labelIds = [];
                 if (!empty($row['smm_team_label'])) {
@@ -367,7 +375,7 @@ class SmmImportController extends Controller
                     'board_list_id' => $row['list_id'],
                     'title' => $row['title'],
                     'description' => $row['description'],
-                    'smm_class_label' => $className ?: null,
+                    'smm_class_label' => $clusterName ?: null,
                     'smm_team_label' => $row['smm_team_label'] ?: null,
                     'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
                     'start_date' => $row['start_date'] ?: null,
