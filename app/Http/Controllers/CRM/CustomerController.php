@@ -100,7 +100,7 @@ class CustomerController extends Controller
      * cross-source status categories (Technical issues / Logistic issues /
      * Negative feedback) alongside a free-text search.
      */
-    public function index(Request $request): View|RedirectResponse
+    public function index(Request $request): View|RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorize('viewAny', Customer::class);
 
@@ -263,6 +263,16 @@ class CustomerController extends Controller
 
         $assignableStaff = CrmLookupCache::crmMembers();
         $customerStatuses = CustomerStatus::cases();
+
+        if ($request->ajax()) {
+            return response()->json([
+                'rows' => view('crm.partials.customer_rows', compact('customers'))->render(),
+                'pagination' => $customers->hasPages() ? $customers->links()->render() : '',
+                'stats' => "Showing <strong>{$customers->count()}</strong> of <strong>{$customers->total()}</strong> filtered customer(s)",
+                'totalUnique' => $totalUnique,
+                'totalRevenue' => number_format($stats['total_value'], 0),
+            ]);
+        }
 
         return view('crm.index', compact(
             'stats', 'customers', 'statusFilter', 'sourceFilter', 'totalUnique',

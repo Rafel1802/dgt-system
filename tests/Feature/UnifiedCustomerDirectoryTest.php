@@ -368,4 +368,79 @@ class UnifiedCustomerDirectoryTest extends TestCase
         $response->assertOk();
         $response->assertSee('In Transit');
     }
+
+    public function test_ajax_search_and_filter_returns_json_response(): void
+    {
+        Customer::create([
+            'name' => 'John Doe',
+            'email' => 'johndoe@example.com',
+            'phone' => '123456789',
+            'source' => CustomerSource::Website->value,
+            'status' => CustomerStatus::Lead->value,
+            'created_by' => $this->user->id,
+        ]);
+
+        Customer::create([
+            'name' => 'Jane Smith',
+            'email' => 'janesmith@example.com',
+            'phone' => '987654321',
+            'source' => CustomerSource::Ebay->value,
+            'status' => CustomerStatus::Lead->value,
+            'created_by' => $this->user->id,
+        ]);
+
+        \App\Services\CrmCustomerMatchService::forgetUnifiedDirectoryCache();
+
+        // Query with AJAX header and 'John' as search term
+        $response = $this->actingAs($this->user)->get(route('crm.customers.index', [
+            'search' => 'John',
+        ]), [
+            'X-Requested-With' => 'XMLHttpRequest',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'rows',
+            'pagination',
+            'stats',
+            'totalUnique',
+            'totalRevenue',
+        ]);
+
+        $data = $response->json();
+        $this->assertStringContainsString('John Doe', $data['rows']);
+        $this->assertStringNotContainsString('Jane Smith', $data['rows']);
+        $this->assertStringContainsString('Showing <strong>1</strong> of <strong>1</strong> filtered customer(s)', $data['stats']);
+    }
+
+    public function test_filter_by_technical_issues(): void
+    {
+        $lead = Lead::create([
+            'client_name' => 'Technical User',
+            'client_email' => 'tech@example.com',
+            'client_phone' => '111111',
+            'source' => InquirySource::Website->value,
+            'status' => \App\Enums\WebsiteLeadStatus::TechnicalSupport,
+            'handled_by' => $this->user->id,
+        ]);
+
+        $lead2 = Lead::create([
+            'client_name' => 'Normal User',
+            'client_email' => 'normal@example.com',
+            'client_phone' => '222222',
+            'source' => InquirySource::Website->value,
+            'status' => \App\Enums\WebsiteLeadStatus::NewLead,
+            'handled_by' => $this->user->id,
+        ]);
+
+        \App\Services\CrmCustomerMatchService::forgetUnifiedDirectoryCache();
+
+        $response = $this->actingAs($this->user)->get(route('crm.customers.index', [
+            'status_filter' => 'Technical issues',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Technical User');
+        $response->assertDontSee('Normal User');
+    }
 }
