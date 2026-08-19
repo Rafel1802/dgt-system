@@ -755,12 +755,6 @@ class ShipmentController extends Controller
 
         $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
-        // Captured before update() so the notification below only fires on
-        // an actual transition into Problem, not on every re-save of a
-        // shipment customer that was already flagged.
-        $becameProblem = $validated['status'] === ShipmentCustomer::STATUS_PROBLEM
-            && $customer->status !== ShipmentCustomer::STATUS_PROBLEM;
-
         $customer->update($validated);
 
         $this->syncShipmentCustomerProducts($customer, $productRows);
@@ -779,20 +773,6 @@ class ShipmentController extends Controller
         $this->matcher->syncEditedShipmentCustomer($customer);
 
         $this->syncShipmentCompletionStatus($shipment);
-
-        // eBay and Website/Sales CRM staff both deal with this same
-        // customer outside of Logistics — a shipment problem is worth them
-        // knowing about immediately, same as Tech Support status changes
-        // and eBay negative feedback.
-        if ($becameProblem) {
-            $customer->increment('problem_occurrences');
-            CrmTeamNotifier::notifyEbayAndSalesTeams(
-                'logistic_problem',
-                "Logistic issue · {$customer->recipient_name}",
-                route('crm.logistics.issues.index'),
-                auth()->id()
-            );
-        }
 
         return redirect()->route('crm.logistics.shipments.show', $shipment)
             ->with('success', 'Customer record updated.');
@@ -850,9 +830,6 @@ class ShipmentController extends Controller
             }
         }
 
-        $becameProblem = $validated['status'] === ShipmentCustomer::STATUS_PROBLEM
-            && $customer->status !== ShipmentCustomer::STATUS_PROBLEM;
-
         $customer->update($validated);
 
         $this->syncShipmentCustomerProducts($customer, $productRows);
@@ -863,16 +840,6 @@ class ShipmentController extends Controller
 
         if ($customer->shipment) {
             $this->syncShipmentCompletionStatus($customer->shipment);
-        }
-
-        if ($becameProblem) {
-            $customer->increment('problem_occurrences');
-            CrmTeamNotifier::notifyEbayAndSalesTeams(
-                'logistic_problem',
-                "Logistic issue · {$customer->recipient_name}",
-                route('crm.logistics.issues.index'),
-                auth()->id()
-            );
         }
 
         $redirectStatus = $request->input('redirect_status', 'processing');

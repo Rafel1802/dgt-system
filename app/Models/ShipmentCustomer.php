@@ -11,6 +11,47 @@ class ShipmentCustomer extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::created(function (self $customer) {
+            if ($customer->status === self::STATUS_PROBLEM) {
+                $customer->updateQuietly([
+                    'problem_occurrences' => $customer->problem_occurrences + 1,
+                ]);
+
+                try {
+                    \App\Support\CrmTeamNotifier::notifyEbayAndSalesTeams(
+                        'logistic_problem',
+                        "Logistic issue · {$customer->recipient_name}",
+                        route('crm.logistics.issues.index'),
+                        auth()->id()
+                    );
+                } catch (\Throwable $e) {
+                    // Ignore notification failures in CLI/seeders
+                }
+            }
+        });
+
+        static::updated(function (self $customer) {
+            if ($customer->wasChanged('status') && $customer->status === self::STATUS_PROBLEM) {
+                $customer->updateQuietly([
+                    'problem_occurrences' => $customer->problem_occurrences + 1,
+                ]);
+
+                try {
+                    \App\Support\CrmTeamNotifier::notifyEbayAndSalesTeams(
+                        'logistic_problem',
+                        "Logistic issue · {$customer->recipient_name}",
+                        route('crm.logistics.issues.index'),
+                        auth()->id()
+                    );
+                } catch (\Throwable $e) {
+                    // Ignore notification failures in CLI/seeders
+                }
+            }
+        });
+    }
+
     protected $fillable = [
         'shipment_id', 'customer_id',
         'recipient_name', 'recipient_phone', 'recipient_email', 'shipping_address',

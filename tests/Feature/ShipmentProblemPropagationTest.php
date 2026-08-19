@@ -75,6 +75,7 @@ class ShipmentProblemPropagationTest extends TestCase
                 'shipping_address' => 'Phnom Penh, St 210',
                 'status' => ShipmentCustomer::STATUS_PROBLEM,
                 'notes' => 'Delivery issue reported.',
+                'issue_date' => now()->toDateString(),
             ]
         )->assertRedirect(route('crm.logistics.shipments.show', $shipment));
 
@@ -118,6 +119,7 @@ class ShipmentProblemPropagationTest extends TestCase
                 'status' => ShipmentCustomer::STATUS_PROBLEM,
                 'notes' => 'Delivery issue reported.',
                 'customer_id' => $customer->id,
+                'issue_date' => now()->toDateString(),
             ]
         )->assertRedirect(route('crm.logistics.shipments.show', $shipment));
 
@@ -311,6 +313,7 @@ class ShipmentProblemPropagationTest extends TestCase
                 'shipping_address' => 'Somewhere',
                 'status' => ShipmentCustomer::STATUS_PROBLEM,
                 'notes' => 'Delivery issue reported.',
+                'issue_date' => now()->toDateString(),
             ]
         )->assertRedirect(route('crm.logistics.shipments.show', $shipment));
 
