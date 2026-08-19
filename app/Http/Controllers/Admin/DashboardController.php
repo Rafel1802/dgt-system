@@ -57,8 +57,10 @@ class DashboardController extends Controller
                     'label' => $date->format('D'),
                     'count' => (int) ($rows[$date->toDateString()] ?? 0),
                 ];
-            });
+            })->all();
         });
+
+        $activityDays = collect($activityDays);
 
         // ── Recent activity feed (last 50, deferred/lazy) ─────────────────
         $recentActivitiesFn = function () use ($user, $seesEveryone, $digitalOnlyModules) {
