@@ -388,4 +388,52 @@ class TechSupportTest extends TestCase
             'status'      => TechSupportCase::STATUS_NEW,
         ]);
     }
+
+    public function test_only_authorized_roles_can_update_case_status(): void
+    {
+        $case = $this->makeOpenCase();
+
+        // 1. Unauthorized CRM Member (sales-crm with crm_role null) -> 403
+        $unauthorizedUser = User::factory()->create(['is_active' => true]);
+        $unauthorizedUser->assignRole('sales-crm');
+
+        $response = $this->actingAs($unauthorizedUser)->patchJson(route('crm.tech-support.status', $case), [
+            'status' => TechSupportCase::STATUS_IN_PROGRESS,
+        ]);
+        $response->assertStatus(403);
+
+        // 2. Authorized Tech Support -> 200
+        $response = $this->actingAs($this->tech)->patchJson(route('crm.tech-support.status', $case), [
+            'status' => TechSupportCase::STATUS_IN_PROGRESS,
+        ]);
+        $response->assertOk();
+        $this->assertEquals(TechSupportCase::STATUS_IN_PROGRESS, $case->fresh()->status);
+
+        // 3. Authorized CRM Supervisor (sales-crm with crm_role supervisor) -> 200
+        $supervisor = User::factory()->create(['is_active' => true, 'crm_role' => 'supervisor']);
+        $supervisor->assignRole('sales-crm');
+
+        $response = $this->actingAs($supervisor)->patchJson(route('crm.tech-support.status', $case), [
+            'status' => TechSupportCase::STATUS_RED,
+        ]);
+        $response->assertOk();
+        $this->assertEquals(TechSupportCase::STATUS_RED, $case->fresh()->status);
+    }
+
+    public function test_updating_status_broadcasts_tech_support_case_status_updated_event(): void
+    {
+        Event::fake([\App\Events\TechSupportCaseStatusUpdated::class]);
+
+        $case = $this->makeOpenCase();
+
+        $response = $this->actingAs($this->tech)->patchJson(route('crm.tech-support.status', $case), [
+            'status' => TechSupportCase::STATUS_IN_PROGRESS,
+        ]);
+
+        $response->assertOk();
+
+        Event::assertDispatched(\App\Events\TechSupportCaseStatusUpdated::class, function ($event) use ($case) {
+            return $event->caseId === $case->id && $event->status === TechSupportCase::STATUS_IN_PROGRESS && $event->updaterId === $this->tech->id;
+        });
+    }
 }

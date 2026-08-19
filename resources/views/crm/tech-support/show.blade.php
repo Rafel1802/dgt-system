@@ -87,12 +87,17 @@
         <div class="mt-4 pt-4 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Technical Status</p>
           <div class="grid grid-cols-2 gap-2">
+            @php $canChangeStatus = auth()->user()->canChangeTechSupportStatus(); @endphp
             @foreach($statuses as $key => $label)
             @php $btnColor = $statusColors[$key] ?? \App\Models\TechSupportCase::statusColor($key); @endphp
             <button type="button"
+                    @if($canChangeStatus)
                     @click="changeStatus('{{ $key }}')"
                     :disabled="statusLoading"
-                    class="py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2"
+                    @else
+                    disabled
+                    @endif
+                    class="py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ !$canChangeStatus ? 'opacity-60 cursor-not-allowed' : '' }}"
                     :class="currentStatus === '{{ $key }}'
                       ? 'text-white border-transparent'
                       : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'"
@@ -404,6 +409,27 @@
           } catch (err) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
           } finally { this.followUpLoading = false; }
+        },
+        init() {
+          if (window.kiuqGetPusherClient) {
+            const pusher = window.kiuqGetPusherClient();
+            if (pusher) {
+              const channel = pusher.subscribe('private-tech-support');
+              channel.bind('TechSupportCaseStatusUpdated', (data) => {
+                if (parseInt(data.caseId) === {{ $case->id }} && parseInt(data.updaterId) !== parseInt(document.querySelector('meta[name="kiuq-user-id"]')?.content)) {
+                  if (window.Turbo) {
+                    if (typeof window.Turbo.refresh === 'function') {
+                      window.Turbo.refresh();
+                    } else {
+                      window.Turbo.visit(window.location.href, { action: 'replace' });
+                    }
+                  } else {
+                    window.location.reload();
+                  }
+                }
+              });
+            }
+          }
         },
 
         async requestCall() {

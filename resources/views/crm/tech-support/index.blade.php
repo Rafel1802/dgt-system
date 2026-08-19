@@ -151,3 +151,37 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+  (function() {
+    const init = () => {
+      if (window.kiuqGetPusherClient) {
+        const pusher = window.kiuqGetPusherClient();
+        if (pusher) {
+          const channel = pusher.subscribe('private-tech-support');
+          channel.bind('TechSupportCaseStatusUpdated', function(data) {
+            if (parseInt(data.updaterId) !== parseInt(document.querySelector('meta[name="kiuq-user-id"]')?.content)) {
+              if (window.Turbo) {
+                if (typeof window.Turbo.refresh === 'function') {
+                  window.Turbo.refresh();
+                } else {
+                  window.Turbo.visit(window.location.href, { action: 'replace' });
+                }
+              } else {
+                window.location.reload();
+              }
+            }
+          });
+        }
+      }
+    };
+
+    if (window.Alpine) {
+      init();
+    } else {
+      document.addEventListener('alpine:init', init);
+    }
+  })();
+</script>
+@endpush

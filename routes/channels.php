@@ -25,3 +25,7 @@ Broadcast::channel('websites', function ($user) {
     return $user->hasWebsiteAccess();
 });
 
+Broadcast::channel('tech-support', function ($user) {
+    return $user !== null;
+});
+

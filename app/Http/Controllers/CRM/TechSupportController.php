@@ -132,6 +132,8 @@ class TechSupportController extends Controller
 
     public function updateStatus(Request $request, TechSupportCase $case): JsonResponse
     {
+        abort_unless(auth()->user()->canChangeTechSupportStatus(), 403, 'You do not have permission to change the case status.');
+
         $validated = $request->validate([
             'status' => ['required', Rule::in(array_keys(TechSupportCase::statuses()))],
             'note'   => ['required_if:status,' . TechSupportCase::STATUS_RESOLVED, 'nullable', 'string'],
@@ -140,6 +142,7 @@ class TechSupportController extends Controller
         ]);
 
         $this->service->changeStatus($case, $validated['status'], auth()->user(), $validated['note'] ?? null);
+        event(new \App\Events\TechSupportCaseStatusUpdated($case, auth()->id()));
         Cache::forget('tech_support.index_stats');
 
         $case->refresh();
@@ -155,6 +158,8 @@ class TechSupportController extends Controller
 
     public function assign(Request $request, TechSupportCase $case): JsonResponse
     {
+        abort_unless(auth()->user()->canChangeTechSupportStatus(), 403, 'You do not have permission to manage this case.');
+
         $validated = $request->validate(['user_id' => ['required', 'exists:users,id']]);
 
         $case->update(['assigned_to' => $validated['user_id']]);
@@ -168,6 +173,8 @@ class TechSupportController extends Controller
 
     public function storeFollowUp(Request $request, TechSupportCase $case): JsonResponse
     {
+        abort_unless(auth()->user()->canChangeTechSupportStatus(), 403, 'You do not have permission to manage this case.');
+
         $validated = $request->validate([
             'note'       => ['required', 'string'],
             'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,gif', 'max:51200'],
@@ -192,6 +199,8 @@ class TechSupportController extends Controller
      */
     public function destroyFollowUp(TechSupportCase $case, TechSupportCaseLog $log): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeTechSupportStatus(), 403, 'You do not have permission to manage this case.');
+
         abort_unless($log->tech_support_case_id === $case->id, 404);
         abort_unless($log->user_id === auth()->id(), 403, 'You can only delete your own log entries.');
 
@@ -202,6 +211,8 @@ class TechSupportController extends Controller
 
     public function requestCall(Request $request, TechSupportCase $case): JsonResponse
     {
+        abort_unless(auth()->user()->canChangeTechSupportStatus(), 403, 'You do not have permission to manage this case.');
+
         $validated = $request->validate([
             'note' => ['required', 'string'],
         ]);

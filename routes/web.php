@@ -589,8 +589,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     Route::get('/', [TechSupportController::class, 'index'])->name('index');
                     Route::get('/{case}', [TechSupportController::class, 'show'])->name('show');
 
-                    // Managing a case (status/assign/follow-up/call) is restricted to Technical Support + admin overrides
-                    Route::middleware('role:super-admin|admin-crm|tech-support')->group(function () {
+                    // Managing a case (status/assign/follow-up/call) is restricted to Technical Support + admin overrides + supervisors
+                    Route::middleware('role:super-admin|admin-crm|boss|tech-support|ebay-supervisor|logistic-supervisor|sales-crm')->group(function () {
                         Route::patch('/{case}/status', [TechSupportController::class, 'updateStatus'])->name('status');
                         Route::post('/{case}/assign', [TechSupportController::class, 'assign'])->name('assign');
                         Route::post('/{case}/follow-up', [TechSupportController::class, 'storeFollowUp'])->name('follow-up');

@@ -360,6 +360,18 @@ SVG;
         };
     }
 
+    public function canChangeTechSupportStatus(): bool
+    {
+        return $this->hasAnyRole([
+            'super-admin',
+            'admin-crm',
+            'boss',
+            'tech-support',
+            'ebay-supervisor',
+            'logistic-supervisor'
+        ]) || $this->isCrmSupervisor();
+    }
+
     public function canCreateBoards(): bool
     {
         // All active members can create boards
