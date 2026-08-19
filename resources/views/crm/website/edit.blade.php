@@ -94,8 +94,13 @@
             <label class="form-label">Pipeline Status</label>
             <select name="status" class="form-input" x-model="status">
               @foreach($statuses as $s)
-              <option value="{{ $s->value }}" {{ old('status', $lead->status?->value) === $s->value ? 'selected' : '' }}>
-                {{ $s->label() }}
+              @php
+                $isActive = old('status', $lead->status?->value) === $s->value;
+                $isResolvedOption = $s->value === \App\Enums\WebsiteLeadStatus::Resolved->value;
+                $isDisabled = $isResolvedOption && !$isActive;
+              @endphp
+              <option value="{{ $s->value }}" {{ $isActive ? 'selected' : '' }} {{ $isDisabled ? 'disabled' : '' }}>
+                {{ $s->label() }}{{ $isDisabled ? ' (Tech Support Only)' : '' }}
               </option>
               @endforeach
             </select>

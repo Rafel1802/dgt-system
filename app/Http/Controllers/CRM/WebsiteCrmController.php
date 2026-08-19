@@ -260,6 +260,11 @@ class WebsiteCrmController extends Controller
             'lost_reason'       => ['nullable', 'string'],
         ]);
 
+        $newStatus = WebsiteLeadStatus::from($validated['status']);
+        if ($newStatus === WebsiteLeadStatus::Resolved && $lead->status !== WebsiteLeadStatus::Resolved) {
+            return back()->withErrors(['status' => 'The Resolved status can only be set from the Technical Support page.'])->withInput();
+        }
+
         $previousHandlerId = $lead->handled_by;
 
         $lead->update($validated);
@@ -297,6 +302,15 @@ class WebsiteCrmController extends Controller
             'temperature'    => ['nullable', Rule::enum(LeadTemperature::class)],
             'status'         => ['nullable', Rule::enum(WebsiteLeadStatus::class)],
         ]);
+
+        if (!empty($validated['status'])) {
+            $newStatus = WebsiteLeadStatus::from($validated['status']);
+            if ($newStatus === WebsiteLeadStatus::Resolved && $lead->status !== WebsiteLeadStatus::Resolved) {
+                return response()->json([
+                    'message' => 'The Resolved status can only be set from the Technical Support page.',
+                ], 422);
+            }
+        }
 
         // Update lead temperature/status if changed
         $lead->update(array_filter([
@@ -350,6 +364,12 @@ class WebsiteCrmController extends Controller
             'products.*.quantity'     => ['nullable', 'integer', 'min:1'],
         ]);
         $newStatus = WebsiteLeadStatus::from($validated['status']);
+
+        if ($newStatus === WebsiteLeadStatus::Resolved && $lead->status !== WebsiteLeadStatus::Resolved) {
+            return response()->json([
+                'message' => 'The Resolved status can only be set from the Technical Support page.',
+            ], 422);
+        }
 
         $productRows = $this->filledProductRows($validated['products'] ?? []);
 

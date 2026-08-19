@@ -139,13 +139,17 @@
         <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Pipeline Progress</h4>
         <div class="flex gap-1 overflow-x-auto pb-2">
           @foreach($statuses as $s)
-          @php $isActive = $lead->status?->value === $s->value; @endphp
+          @php
+            $isActive = $lead->status?->value === $s->value;
+            $isResolvedButton = $s->value === \App\Enums\WebsiteLeadStatus::Resolved->value;
+            $isLocked = $isResolvedButton && !$isActive;
+          @endphp
           <button
             @click="updateStatus('{{ $s->value }}')"
-            :disabled="statusLoading"
-            class="flex-1 min-w-[80px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all cursor-pointer border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }}"
+            :disabled="statusLoading || {{ $isLocked ? 'true' : 'false' }}"
+            class="flex-1 min-w-[80px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }} {{ $isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}"
             style="{{ $isActive ? 'background:'.$s->color().'; border-color:'.$s->color() : '' }}"
-            title="{{ $s->label() }}">
+            title="{{ $isLocked ? 'Resolved status can only be set from the Technical Support page.' : $s->label() }}">
             {{ $s->label() }}
           </button>
           @endforeach
@@ -307,7 +311,14 @@
             <select x-model="fuForm.status" class="form-input text-sm">
               <option value="">No change</option>
               @foreach($statuses as $s)
-              <option value="{{ $s->value }}">{{ $s->label() }}</option>
+              @php
+                $isActive = $lead->status?->value === $s->value;
+                $isResolvedOption = $s->value === \App\Enums\WebsiteLeadStatus::Resolved->value;
+                $isDisabled = $isResolvedOption && !$isActive;
+              @endphp
+              <option value="{{ $s->value }}" {{ $isDisabled ? 'disabled' : '' }}>
+                {{ $s->label() }}{{ $isDisabled ? ' (Tech Support Only)' : '' }}
+              </option>
               @endforeach
             </select>
           </div>
