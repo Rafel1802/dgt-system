@@ -80,6 +80,7 @@ class EbayCustomerController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+
         $validated = $this->validatedRecord($request);
 
         $existing = $this->matcher->findEbayRecordByUsernameOrContact(
@@ -164,6 +165,8 @@ class EbayCustomerController extends Controller
 
     public function edit(EbayCustomerRecord $record): View
     {
+        abort_unless(auth()->user()->canEditEbayCustomer(), 403, 'Only eBay Team members can edit eBay customers.');
+
         return view('crm.ebay.customers.edit', [
             'record'         => $record,
             'tabs'           => EbayCustomerRecord::tabs(),
@@ -176,6 +179,8 @@ class EbayCustomerController extends Controller
 
     public function update(Request $request, EbayCustomerRecord $record): RedirectResponse
     {
+        abort_unless(auth()->user()->canEditEbayCustomer(), 403, 'Only eBay Team members can edit eBay customers.');
+
         $validated = $this->validatedRecord($request);
         $validated['customer_id'] = $this->resolveOrCreateCustomer($validated, $record);
         $validated['updated_by'] = auth()->id();
@@ -561,5 +566,116 @@ class EbayCustomerController extends Controller
         ]);
 
         return $customer->id;
+    }
+
+    public function updateStatus(Request $request, EbayCustomerRecord $record): JsonResponse
+    {
+        $validated = $request->validate([
+            'tab_type'       => ['required', 'string', Rule::in(array_keys(EbayCustomerRecord::tabs()))],
+            'note'           => ['required', 'string', 'min:3'],
+            'causes'         => ['nullable', 'array'],
+            'causes.*'       => ['string', Rule::in(EbayCustomerRecord::NEGATIVE_FEEDBACK_CAUSES)],
+            'order_id'       => ['nullable', 'string'],
+            'order_date'     => ['nullable', 'date'],
+            'order_store_id' => ['nullable', 'integer'],
+            'products'       => ['nullable', 'array'],
+            'products.*.name'=> ['nullable', 'string'],
+            'products.*.price'=>['nullable', 'numeric'],
+        ]);
+
+        $newTab = $validated['tab_type'];
+        $updateData = ['tab_type' => $newTab];
+
+        $isNegativeTab = in_array($newTab, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true);
+
+        if ($isNegativeTab) {
+            if (empty($validated['causes'])) {
+                return response()->json([
+                    'message' => 'At least one negative feedback cause must be selected.',
+                    'errors' => ['causes' => ['At least one cause is required.']]
+                ], 422);
+            }
+            $updateData['negative_feedback_causes'] = $validated['causes'];
+            $updateData['negative_feedback_resolved'] = false;
+            $updateData['negative_feedback_resolved_at'] = null;
+        } elseif ($newTab === EbayCustomerRecord::TAB_RESOLVED && $record->negative_feedback_causes && ! $record->negative_feedback_resolved) {
+            $updateData['negative_feedback_resolved'] = true;
+            $updateData['negative_feedback_resolved_at'] = now()->toDateString();
+        } elseif ($newTab === EbayCustomerRecord::TAB_NEW_ORDER) {
+            if (empty($validated['order_id'])) {
+                return response()->json([
+                    'message' => 'Order ID is required when status is New Order.',
+                    'errors' => ['order_id' => ['Order ID is required.']]
+                ], 422);
+            }
+            if (empty($validated['order_date'])) {
+                return response()->json([
+                    'message' => 'Order Date is required when status is New Order.',
+                    'errors' => ['order_date' => ['Order Date is required.']]
+                ], 422);
+            }
+            if (empty($validated['products'])) {
+                return response()->json([
+                    'message' => 'At least one product is required when status is New Order.',
+                    'errors' => ['products' => ['At least one product is required.']]
+                ], 422);
+            }
+            foreach ($validated['products'] as $product) {
+                if (empty($product['name']) || !isset($product['price']) || $product['price'] === '') {
+                    return response()->json([
+                        'message' => 'Each product must have a name and price.',
+                        'errors' => ['products' => ['Each product must have a name and price.']]
+                    ], 422);
+                }
+            }
+
+            // Create the order
+            $this->createOrder($record, [
+                'order_id'       => $validated['order_id'],
+                'order_date'     => $validated['order_date'],
+                'order_store_id' => $validated['order_store_id'] ?? null,
+                'products'       => $validated['products'],
+            ]);
+        }
+
+        // Update record
+        $record->update($updateData);
+
+        // Log status history
+        EbayCustomerStatusHistory::create([
+            'ebay_customer_record_id' => $record->id,
+            'status'                  => $newTab,
+            'changed_by'              => auth()->id(),
+            'changed_at'              => now(),
+        ]);
+
+        // Create follow-up note
+        $noteText = trim($validated['note']);
+        $statusLabel = EbayCustomerRecord::tabs()[$newTab] ?? $newTab;
+        $fullNoteText = "Status changed to {$statusLabel}: {$noteText}";
+        
+        $followUp = EbayCustomerFollowUp::create([
+            'ebay_customer_record_id' => $record->id,
+            'notes'                   => $fullNoteText,
+            'user_id'                 => auth()->id(),
+            'contacted_at'            => now(),
+        ]);
+
+        // Clear crm.unified_directory cache since status changed
+        Cache::forget('crm.unified_directory.base.v3');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status updated successfully.',
+            'new_status' => $newTab,
+            'new_status_label' => $statusLabel,
+            'new_status_color' => EbayCustomerRecord::tabColor($newTab),
+            'follow_up' => [
+                'id' => $followUp->id,
+                'note' => $followUp->note,
+                'created_by_name' => auth()->user()->name,
+                'created_at' => $followUp->created_at->format('d M Y, g:ia'),
+            ]
+        ]);
     }
 }

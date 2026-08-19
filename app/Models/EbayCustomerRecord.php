@@ -94,7 +94,7 @@ class EbayCustomerRecord extends Model
     const NEGATIVE_FEEDBACK_CAUSES = ['Technical', 'Logistic issues', 'Customer service'];
 
     /** Logistic-issues color, shared with the shipment_delay flag badge and the "Logistic issues" cause. */
-    const LOGISTIC_ISSUES_COLOR = '#f97316';
+    const LOGISTIC_ISSUES_COLOR = '#10b981';
 
     /** Delivered color, shared with the shipment_delivered flag badge — matches ShipmentCustomer::colorForStatus('delivered'). */
     const DELIVERED_COLOR = '#22c55e';
@@ -120,12 +120,12 @@ class EbayCustomerRecord extends Model
         return match ($tab) {
             self::TAB_URGENT        => '#f59e0b', // amber
             self::TAB_CANCELATION   => '#94a3b8', // slate
-            self::TAB_TECHNICAL     => '#ef4444', // red
-            self::TAB_POT_NEGATIVES => '#f97316', // orange
-            self::TAB_NEGATIVES     => '#dc2626', // deep red
+            self::TAB_TECHNICAL     => '#8b5cf6', // purple
+            self::TAB_POT_NEGATIVES => '#f43f5e', // rose
+            self::TAB_NEGATIVES     => '#e11d48', // rose
             self::TAB_NEW_ORDER     => '#10b981', // emerald
-            self::TAB_RESOLVED      => '#0ea5e9', // sky
-            default => '#6366f1',
+            self::TAB_RESOLVED      => '#0ea5e9', // sky blue
+            default => '#3b82f6',
         };
     }
 

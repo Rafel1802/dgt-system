@@ -322,6 +322,15 @@ SVG;
     }
 
     /**
+     * Check whether this user can edit, create, or update eBay customer records.
+     * Allowed only for the eBay team and administrators; normal staff (sales-crm, tech-support, logistics) are excluded.
+     */
+    public function canEditEbayCustomer(): bool
+    {
+        return $this->hasAnyRole(['super-admin', 'admin-crm', 'boss', 'ebay-supervisor', 'logistic-supervisor']) || $this->isCrmSupervisor();
+    }
+
+    /**
      * Whether this user may delete entity-level CRM records (Leads, Customers,
      * Products, eBay records/stores/offers, Shipments, Trucking Companies) in
      * the given domain. super-admin, boss, a CRM Supervisor, ebay-supervisor,

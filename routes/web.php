@@ -488,6 +488,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::put('/{record}', [EbayCustomerController::class, 'update'])->name('update');
                         Route::delete('/{record}', [EbayCustomerController::class, 'destroy'])->name('destroy');
                         Route::post('/{record}/switch-handler', [EbayCustomerController::class, 'switchHandler'])->name('switch-handler');
+                        Route::patch('/{record}/status', [EbayCustomerController::class, 'updateStatus'])->name('status.update');
                         Route::post('/{record}/follow-up', [EbayCustomerController::class, 'logFollowUp'])->name('follow-up');
                         Route::delete('/{record}/follow-up/{followUp}', [EbayCustomerController::class, 'destroyFollowUp'])->name('follow-up.destroy');
                         Route::post('/{record}/orders', [EbayCustomerController::class, 'storeOrder'])->name('orders.store');

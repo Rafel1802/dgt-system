@@ -39,13 +39,13 @@ enum WebsiteLeadStatus: string
             self::NewLead          => '#94a3b8',
             self::Contacted        => '#3b82f6',
             self::Nurturing        => '#8b5cf6',
-            self::TechnicalSupport => '#f59e0b',
-            self::Resolved         => '#10b981',
-            self::Successful       => '#10b981',
+            self::TechnicalSupport => '#8b5cf6',
+            self::Resolved         => '#0ea5e9',
+            self::Successful       => '#0ea5e9',
             self::InDelivery       => '#06b6d4',
             self::Delivered        => '#22c55e',
             self::Lost             => '#ef4444',
-            self::DelayedShipment  => '#f97316',
+            self::DelayedShipment  => '#10b981',
             self::MachineReturn    => '#64748b',
         };
     }

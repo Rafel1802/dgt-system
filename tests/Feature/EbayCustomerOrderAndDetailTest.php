@@ -263,4 +263,50 @@ class EbayCustomerOrderAndDetailTest extends TestCase
         $response->assertDontSee('Handled-by History');
         $response->assertDontSee('Status History');
     }
+
+    public function test_status_patch_new_order_requires_and_saves_order(): void
+    {
+        $record = EbayCustomerRecord::create([
+            'tab_type' => EbayCustomerRecord::TAB_URGENT,
+            'username' => 'order_status_buyer',
+        ]);
+
+        $store = EbayStore::create(['store_name' => 'Store X', 'is_active' => true]);
+
+        // 1. Missing order details should fail
+        $response = $this->actingAs($this->user)->patchJson(
+            route('crm.ebay.customers.status.update', $record),
+            [
+                'tab_type' => EbayCustomerRecord::TAB_NEW_ORDER,
+                'note' => 'Moving to order status',
+            ]
+        );
+        $response->assertStatus(422);
+
+        // 2. Valid order details should create the order and products
+        $response = $this->actingAs($this->user)->patchJson(
+            route('crm.ebay.customers.status.update', $record),
+            [
+                'tab_type' => EbayCustomerRecord::TAB_NEW_ORDER,
+                'note' => 'Moving to order status',
+                'order_id' => 'STATUS-ORD-999',
+                'order_date' => now()->toDateString(),
+                'order_store_id' => $store->id,
+                'products' => [
+                    ['name' => 'Screwdriver Set', 'price' => 24.50],
+                    ['name' => 'Hammer', 'price' => 12.00],
+                ]
+            ]
+        );
+
+        $response->assertOk();
+        $this->assertEquals(EbayCustomerRecord::TAB_NEW_ORDER, $record->fresh()->tab_type);
+        $this->assertEquals('STATUS-ORD-999', $record->fresh()->order_id);
+
+        $order = EbayCustomerOrder::where('ebay_customer_record_id', $record->id)->firstOrFail();
+        $this->assertEquals('STATUS-ORD-999', $order->order_id);
+        $this->assertEquals(2, $order->items()->count());
+        $this->assertDatabaseHas('ebay_customer_order_items', ['product_name' => 'Screwdriver Set', 'price' => 24.50]);
+    }
 }
+

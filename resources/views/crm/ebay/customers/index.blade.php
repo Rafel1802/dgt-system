@@ -137,9 +137,11 @@
       <table class="w-full text-sm">
         <thead>
           <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            @if(auth()->user()->canEditEbayCustomer())
             <th class="px-5 py-3 w-10">
               <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" :checked="allChecked" @change="toggleAll($event)">
             </th>
+            @endif
             <th class="px-4 py-3 text-left">Status</th>
             <th class="px-4 py-3 text-left">Customer</th>
             <th class="px-4 py-3 text-left">eBay Store</th>
@@ -153,9 +155,11 @@
         <tbody class="divide-y divide-slate-50">
           @forelse($records as $record)
           <tr class="hover:bg-slate-50/70 transition-colors">
+            @if(auth()->user()->canEditEbayCustomer())
             <td class="px-5 py-3">
               <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" value="{{ $record->id }}" x-model.number="selected">
             </td>
+            @endif
             <td class="px-4 py-3">
               @php $tabColor = \App\Models\EbayCustomerRecord::tabColor($record->tab_type); @endphp
               <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $tabColor }}22; color:{{ $tabColor }}">
@@ -198,10 +202,12 @@
                    class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="View">
                   <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                 </a>
+                @if(auth()->user()->canEditEbayCustomer())
                 <a href="{{ route('crm.ebay.customers.edit', $record) }}"
                    class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="Edit">
                   <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
                 </a>
+                @endif
                 @if(auth()->user()->canDeleteCrmRecords('ebay'))
                 @php
                   $ebayDeleteConfirmMsg = $record->customer
@@ -225,7 +231,7 @@
           </tr>
           @empty
           <tr>
-            <td colspan="8" class="text-center py-14">
+            <td colspan="{{ auth()->user()->canEditEbayCustomer() ? 9 : 8 }}" class="text-center py-14">
               <div class="text-4xl mb-3">📋</div>
               <p class="text-slate-500 font-medium">No records found</p>
               <a href="{{ route('crm.ebay.customers.create', $tabType ? ['tab_type' => $tabType] : []) }}"

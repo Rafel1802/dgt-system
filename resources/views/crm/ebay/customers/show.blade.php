@@ -8,7 +8,9 @@
 <div class="animate-fade-in" x-data="ebayCustomerShow(@js(route('crm.ebay.customers.follow-up', $record)))">
 
   <div class="mb-5 flex items-center justify-end flex-wrap gap-3">
+    @if(auth()->user()->canEditEbayCustomer())
     <a href="{{ route('crm.ebay.customers.edit', $record) }}" class="btn btn-secondary text-sm">Edit Record</a>
+    @endif
   </div>
 
   <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
@@ -162,6 +164,26 @@
     {{-- ── Right: Purchase History + Follow-Up Notes ───────────────────────── --}}
     <div class="xl:col-span-2 space-y-5">
 
+      {{-- Pipeline Status Bar --}}
+      <div class="card">
+        <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Pipeline Progress</h4>
+        <div class="flex gap-1 overflow-x-auto pb-2">
+          @foreach($tabs as $key => $label)
+          @php $isActive = $record->tab_type === $key; @endphp
+          <button
+            type="button"
+            @click="openStatusModal('{{ $key }}', '{{ $label }}')"
+            :disabled="statusLoading"
+            class="flex-1 min-w-[100px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all cursor-pointer border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }}"
+            style="{{ $isActive ? 'background:'.\App\Models\EbayCustomerRecord::tabColor($key).'; border-color:'.\App\Models\EbayCustomerRecord::tabColor($key) : '' }}"
+            title="{{ $label }}">
+            {{ $label }}
+          </button>
+          @endforeach
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Click a stage to update status (requires follow-up note).</p>
+      </div>
+
       {{-- Purchase History --}}
       <div class="card">
         <div class="flex items-center justify-between mb-4">
@@ -310,6 +332,89 @@
     </div>
   </div>
 
+  {{-- ── Status Change Modal ────────────────────────────────────────────────── --}}
+  <div x-show="statusModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak>
+    <div class="card w-full max-w-md shadow-2xl animate-scale-up" @click.outside="statusModalOpen = false">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+        <h3 class="text-sm font-bold text-slate-800">Change Status to <span x-text="selectedStatusLabel" class="text-indigo-600"></span></h3>
+        <button type="button" @click="statusModalOpen = false" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form @submit.prevent="submitStatusChange()">
+        <div class="mb-4">
+          <label class="form-label text-xs font-semibold text-slate-500 mb-1.5 block">Follow-Up Note (Required to explain status change):</label>
+          <textarea x-model="statusNote" required rows="3" placeholder="Enter details about this status update..." class="form-input text-sm py-2"></textarea>
+        </div>
+        <div class="mb-4" x-show="selectedStatus === 'potential_negatives' || selectedStatus === 'negatives_feedbacks'" x-cloak>
+          <label class="form-label text-xs font-semibold text-slate-500 mb-1.5 block">Negative Feedback Cause(s) (Required):</label>
+          <div class="space-y-2 mt-1.5">
+            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" value="Technical" x-model="selectedCauses" class="accent-indigo-600 rounded">
+              Technical
+            </label>
+            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" value="Logistic issues" x-model="selectedCauses" class="accent-indigo-600 rounded">
+              Logistic issues
+            </label>
+            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" value="Customer service" x-model="selectedCauses" class="accent-indigo-600 rounded">
+              Customer service
+            </label>
+          </div>
+        </div>
+        <div x-show="selectedStatus === 'new_order'" class="space-y-4 border-t border-slate-100 pt-4 mt-4" x-cloak>
+          <h4 class="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Order Details</h4>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="form-label text-xs font-semibold text-slate-500 mb-1 block">Order ID <span class="text-red-500">*</span></label>
+              <input type="text" x-model="statusOrderId" class="form-input font-mono text-sm py-2" :required="selectedStatus === 'new_order'">
+            </div>
+            <div>
+              <label class="form-label text-xs font-semibold text-slate-500 mb-1 block">Order Date <span class="text-red-500">*</span></label>
+              <input type="date" x-model="statusOrderDate" class="form-input text-sm py-2" :required="selectedStatus === 'new_order'">
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label text-xs font-semibold text-slate-500 mb-1 block">Purchased From (Store)</label>
+            <select x-model="statusOrderStoreId" class="form-input text-sm py-2">
+              <option value="">Select a store...</option>
+              @foreach($stores as $st)
+                <option value="{{ $st->id }}">{{ $st->store_name }}</option>
+              @endforeach
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label text-xs font-semibold text-slate-500 mb-1.5 block">Product(s) <span class="text-red-500">*</span></label>
+            <div class="space-y-2">
+              <template x-for="(product, i) in products" :key="i">
+                <div class="flex gap-2 items-start">
+                  <input type="text" x-model="product.name" list="ebay-catalog-products" placeholder="Search or type a product" class="form-input flex-1 text-sm py-2" :required="selectedStatus === 'new_order'">
+                  <input type="number" step="0.01" min="0" x-model="product.price" placeholder="Price" class="form-input w-28 text-sm py-2" :required="selectedStatus === 'new_order'">
+                  <button type="button" @click="removeProduct(i)" x-show="products.length > 1"
+                          class="btn btn-secondary btn-icon text-red-400 hover:text-red-600 shrink-0" style="width:38px;height:38px;">
+                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              </template>
+            </div>
+            <button type="button" @click="addProduct()" class="btn btn-secondary text-xs mt-2">+ Add Another Product</button>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button type="button" @click="statusModalOpen = false" class="btn btn-secondary flex-1 text-sm py-2" :disabled="statusLoading">Cancel</button>
+          <button type="submit" class="btn btn-primary flex-1 text-sm py-2" :disabled="statusLoading">
+            <span x-show="!statusLoading">Confirm Change</span>
+            <span x-show="statusLoading" x-cloak>Updating…</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <datalist id="ebay-catalog-products">
     @foreach($catalogProducts as $p)
     <option value="{{ $p->name }}">{{ $p->sku }}</option>
@@ -329,6 +434,75 @@ function ebayCustomerShow(followUpUrl) {
     showAddOrder: false,
     orderLoading: false,
     products: [{ name: '', price: '' }],
+    statusModalOpen: false,
+    selectedStatus: '',
+    selectedStatusLabel: '',
+    statusNote: '',
+    selectedCauses: [],
+    statusOrderId: '',
+    statusOrderDate: '',
+    statusOrderStoreId: '',
+    statusLoading: false,
+    openStatusModal(statusVal, statusLabel) {
+      this.selectedStatus = statusVal;
+      this.selectedStatusLabel = statusLabel;
+      this.statusNote = '';
+      this.selectedCauses = [];
+      this.statusOrderId = '';
+      this.statusOrderDate = new Date().toISOString().split('T')[0];
+      this.statusOrderStoreId = '';
+      this.products = [{ name: '', price: '' }];
+      this.statusModalOpen = true;
+    },
+    async submitStatusChange() {
+      if (!this.statusNote.trim() || this.statusNote.trim().length < 3) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A follow-up note of at least 3 characters is required.', type: 'error' } }));
+        return;
+      }
+      if (this.selectedStatus === 'potential_negatives' || this.selectedStatus === 'negatives_feedbacks') {
+        if (this.selectedCauses.length === 0) {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'At least one negative feedback cause must be selected.', type: 'error' } }));
+          return;
+        }
+      }
+      if (this.selectedStatus === 'new_order') {
+        if (!this.statusOrderId.trim()) {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order ID is required.', type: 'error' } }));
+          return;
+        }
+        if (!this.statusOrderDate) {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order Date is required.', type: 'error' } }));
+          return;
+        }
+        const validProducts = this.products.filter(p => p.name.trim() && p.price !== '');
+        if (validProducts.length === 0) {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'At least one product with a name and price is required.', type: 'error' } }));
+          return;
+        }
+      }
+      this.statusLoading = true;
+      try {
+        const url = @js(route('crm.ebay.customers.status.update', $record));
+        const payload = {
+          tab_type: this.selectedStatus,
+          note: this.statusNote,
+          causes: this.selectedCauses,
+          order_id: this.statusOrderId,
+          order_date: this.statusOrderDate,
+          order_store_id: this.statusOrderStoreId || null,
+          products: this.products.filter(p => p.name.trim() && p.price !== '')
+        };
+        await window.api(url, {
+          method: 'PATCH',
+          body: JSON.stringify(payload)
+        });
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated and follow-up logged!', type: 'success' } }));
+        this.statusModalOpen = false;
+        window.location.reload();
+      } catch (err) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed to update status.', type: 'error' } }));
+      } finally { this.statusLoading = false; }
+    },
     addProduct() { this.products.push({ name: '', price: '' }); },
     removeProduct(i) { if (this.products.length > 1) this.products.splice(i, 1); },
     async submitFollowUp() {
@@ -340,7 +514,7 @@ function ebayCustomerShow(followUpUrl) {
       try {
         await window.api(followUpUrl, { method: 'POST', body: JSON.stringify({ notes: this.fuNotes }) });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up saved!', type: 'success' } }));
-        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
+        window.location.reload();
       } catch (err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.fuLoading = false; }
@@ -351,7 +525,7 @@ function ebayCustomerShow(followUpUrl) {
         const userId = new FormData(event.target).get('user_id');
         await window.api(event.target.action, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Handler updated!', type: 'success' } }));
-        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
+        window.location.reload();
       } catch (err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.handlerLoading = false; }
@@ -372,7 +546,7 @@ function ebayCustomerShow(followUpUrl) {
       try {
         await window.api(event.target.action, { method: 'POST', body: JSON.stringify(payload) });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order added!', type: 'success' } }));
-        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
+        window.location.reload();
       } catch (err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.orderLoading = false; }

@@ -725,9 +725,9 @@ class CrmCustomerMatchService
             }
 
             $out->push([
-                'source'      => $lead->source?->label() ?? 'Website',
-                'source_icon' => $lead->source?->icon() ?? '🌐',
-                'source_color'=> $lead->source?->color() ?? '#8b5cf6',
+                'source'      => 'Website',
+                'source_icon' => '🌐',
+                'source_color'=> '#3b82f6',
                 'id'          => $lead->id,
                 'name'        => $lead->client_name,
                 'email'       => $lead->client_email,
@@ -748,10 +748,10 @@ class CrmCustomerMatchService
                         ['label' => 'Technical Support', 'color' => '#8b5cf6', 'category' => 'technical']
                     ],
                     $lead->status === WebsiteLeadStatus::DelayedShipment => [
-                        ['label' => 'Delayed Shipment', 'color' => '#f59e0b', 'category' => 'shipment_delay']
+                        ['label' => 'Delayed Shipment', 'color' => '#10b981', 'category' => 'shipment_delay']
                     ],
                     $lead->status === WebsiteLeadStatus::Successful || $lead->status === WebsiteLeadStatus::Lost => [
-                        ['label' => $lead->status?->label() ?? 'Resolved', 'color' => '#10b981', 'category' => 'resolved']
+                        ['label' => $lead->status?->label() ?? 'Resolved', 'color' => '#0ea5e9', 'category' => 'resolved']
                     ],
                     default => [
                         ['label' => $lead->status?->label() ?? '', 'color' => $lead->status?->color() ?? '#94a3b8', 'category' => null]
@@ -806,7 +806,7 @@ class CrmCustomerMatchService
             $categories = [];
 
             if ($isResolved) {
-                $badges[] = ['label' => 'Resolved', 'color' => '#10b981', 'category' => 'resolved'];
+                $badges[] = ['label' => 'Resolved', 'color' => '#0ea5e9', 'category' => 'resolved'];
                 $categories[] = 'resolved';
             } else {
                 if ($hasLogisticIssue) {
@@ -911,7 +911,7 @@ class CrmCustomerMatchService
                 $out->push([
                     'source'      => 'Logistics',
                     'source_icon' => '🚚',
-                    'source_color'=> '#0ea5e9',
+                    'source_color'=> '#10b981',
                     'id'          => $sc->shipment_id ?: $sc->id,
                     'name'        => $sc->recipient_name,
                     'email'       => $sc->recipient_email,
@@ -979,7 +979,7 @@ class CrmCustomerMatchService
             if (empty($badges)) {
                 $badges[] = [
                     'label' => $customer->status?->label() ?? (string) $customer->status,
-                    'color' => $customer->status?->color() ?? '#10b981',
+                    'color' => $customer->status?->color() ?? '#0ea5e9',
                     'category' => 'resolved',
                 ];
                 $categories[] = 'resolved';
@@ -998,7 +998,7 @@ class CrmCustomerMatchService
             $out->push([
                 'source'      => $sourceLabel,
                 'source_icon' => match ($sourceLabel) { 'eBay' => '🛒', 'Logistics' => '🚚', default => '🌐' },
-                'source_color'=> match ($sourceLabel) { 'eBay' => '#f59e0b', 'Logistics' => '#0ea5e9', default => '#8b5cf6' },
+                'source_color'=> match ($sourceLabel) { 'eBay' => '#f59e0b', 'Logistics' => '#10b981', default => '#3b82f6' },
                 'id'          => $customer->id,
                 'name'        => $customer->name,
                 'email'       => $customer->email,
