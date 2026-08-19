@@ -22,45 +22,54 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        $activityQuery = ActivityLog::with('user')->latest('id');
-
-        // admin-crm is scoped to CRM work only — the activity feed (and the
-        // module-breakdown/6-day chart the view derives from it) shouldn't
-        // surface Digital Team activity (Boards/Kanban, Social Media,
-        // Websites) that's none of their concern. Anyone who's also
-        // super-admin or admin-digital still sees everything.
         $digitalOnlyModules = ['boards', 'kanban', 'social-media', 'websites'];
-        if ($user->hasRole('admin-crm') && ! $user->hasAnyRole(['super-admin', 'admin-digital'])) {
-            $activityQuery->whereNotIn('module', $digitalOnlyModules);
-        }
 
-        // Only admin/supervisor tiers get the full, system-wide feed (that's
-        // the point of it — company-wide oversight). Everyone else only
-        // sees their own activity, so a front-line CRM/Tech Support/Digital
-        // Team account isn't shown other staff's logins, page visits, etc.
+        // Only admin/supervisor tiers get the full, system-wide feed.
         $seesEveryone = $user->hasAnyRole(['super-admin', 'admin-crm', 'admin-digital', 'boss']) || $user->isCrmSupervisor();
-        if (! $seesEveryone) {
-            $activityQuery->where('user_id', $user->id);
-        }
 
-        // Retrieve stats per user (do not cache Eloquent collections to file to avoid incomplete object errors)
-        $stats = [
-            'total_users'        => User::active()->count(),
-            'online_users'       => User::where('last_login_at', '>=', now()->subMinutes(30))->count(),
-            'recent_activities_count' => (clone $activityQuery)->count(),
-        ];
-
-        $activityDays = collect(range(5, 0))->map(function ($daysAgo) use ($activityQuery) {
-            $date = now()->subDays($daysAgo);
+        // ── User stats (cached 60s — rarely change minute-to-minute) ───────
+        $stats = Cache::remember("dashboard_stats_{$user->id}", 60, function () {
             return [
-                'label' => $date->format('D'),
-                'count' => (clone $activityQuery)->whereDate('created_at', $date)->count(),
+                'total_users'  => User::active()->count(),
+                'online_users' => User::where('last_login_at', '>=', now()->subMinutes(30))->count(),
             ];
         });
 
-        // Deferred loading of activities
-        $recentActivitiesFn = function () use ($activityQuery) {
-            return $activityQuery->limit(50)->get();
+        // ── 6-day activity chart: ONE GROUP BY query instead of 6 COUNT()s ──
+        $activityDays = Cache::remember("dashboard_activity_days_{$user->id}", 120, function () use ($user, $seesEveryone, $digitalOnlyModules) {
+            $from = now()->subDays(5)->startOfDay();
+            $query = ActivityLog::query()
+                ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
+                ->where('created_at', '>=', $from)
+                ->groupBy('day');
+
+            if ($user->hasRole('admin-crm') && ! $user->hasAnyRole(['super-admin', 'admin-digital'])) {
+                $query->whereNotIn('module', $digitalOnlyModules);
+            }
+            if (! $seesEveryone) {
+                $query->where('user_id', $user->id);
+            }
+
+            $rows = $query->pluck('total', 'day');
+            return collect(range(5, 0))->map(function ($daysAgo) use ($rows) {
+                $date = now()->subDays($daysAgo);
+                return [
+                    'label' => $date->format('D'),
+                    'count' => (int) ($rows[$date->toDateString()] ?? 0),
+                ];
+            });
+        });
+
+        // ── Recent activity feed (last 50, deferred/lazy) ─────────────────
+        $recentActivitiesFn = function () use ($user, $seesEveryone, $digitalOnlyModules) {
+            $query = ActivityLog::with('user:id,name,avatar')->latest('id');
+            if ($user->hasRole('admin-crm') && ! $user->hasAnyRole(['super-admin', 'admin-digital'])) {
+                $query->whereNotIn('module', $digitalOnlyModules);
+            }
+            if (! $seesEveryone) {
+                $query->where('user_id', $user->id);
+            }
+            return $query->limit(50)->get();
         };
 
         $appearance = $this->dashboardAppearance($user);
