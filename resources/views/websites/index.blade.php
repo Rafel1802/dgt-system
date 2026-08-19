@@ -8,69 +8,7 @@
 @endpush
 
 
-@push('styles')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<style>
-    /* Premium overrides to make Flatpickr match our slate/indigo design */
-    .flatpickr-calendar {
-        background: #ffffff !important;
-        border-radius: 16px !important;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-        border: 1px solid #cbd5e1 !important;
-        font-family: inherit !important;
-        padding: 4px;
-        z-index: 100050 !important;
-    }
-    .dark .flatpickr-calendar {
-        background: #1e293b !important;
-        border-color: #334155 !important;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
-    }
-    .flatpickr-months .flatpickr-month {
-        color: #1e293b !important;
-    }
-    .dark .flatpickr-months .flatpickr-month {
-        color: #f8fafc !important;
-    }
-    .flatpickr-current-month .flatpickr-monthDropdown-months {
-        font-weight: 700 !important;
-    }
-    .flatpickr-weekdays {
-        font-weight: 600 !important;
-    }
-    .flatpickr-day {
-        border-radius: 8px !important;
-        color: #334155 !important;
-    }
-    .dark .flatpickr-day {
-        color: #cbd5e1 !important;
-    }
-    .flatpickr-day.today {
-        border-color: #4f46e5 !important;
-        color: #4f46e5 !important;
-    }
-    .dark .flatpickr-day.today {
-        border-color: #6366f1 !important;
-        color: #818cf8 !important;
-    }
-    .flatpickr-day.selected, .flatpickr-day.selected:hover {
-        background: #4f46e5 !important;
-        border-color: #4f46e5 !important;
-        color: #ffffff !important;
-    }
-    .dark .flatpickr-day.selected, .dark .flatpickr-day.selected:hover {
-        background: #6366f1 !important;
-        border-color: #6366f1 !important;
-        color: #ffffff !important;
-    }
-    .flatpickr-day:hover {
-        background: #f1f5f9 !important;
-    }
-    .dark .flatpickr-day:hover {
-        background: #334155 !important;
-    }
-</style>
-@endpush
+
 
 @section('content')
 <style>
@@ -3329,7 +3267,7 @@
 </div>{{-- /x-data --}}
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
 <script>
     // Real-time synchronization: When a notification arrives about a website update,
     // seamlessly refresh the page using Turbo Morphing to show the latest data without a hard reload.
@@ -4706,19 +4644,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function initWebsitesFlatpickr() {
-    if (typeof flatpickr !== 'undefined') {
-        flatpickr('input[type="date"], .flatpickr-date', {
-            dateFormat: "Y-m-d",
-            altInput: true,
-            altFormat: "d / m / Y", // This matches the format in the user's screenshot
-            disableMobile: true // Ensure native picker isn't used on mobile so it looks consistent, or keep false to let mobile use native. The user's screenshot is desktop.
-        });
-    }
-}
-document.addEventListener('DOMContentLoaded', initWebsitesFlatpickr);
-document.addEventListener('turbo:load', initWebsitesFlatpickr);
-document.addEventListener('turbo:render', initWebsitesFlatpickr);
+
 </script>
 @endpush
 

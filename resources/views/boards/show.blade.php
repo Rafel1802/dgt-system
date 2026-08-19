@@ -703,26 +703,26 @@
       </div>
     </div>
   </template>
-  </div>
 
   {{-- Add list button --}}
-  <div class="add-list-wrapper" :style="'zoom: ' + (zoomLevel / 100)">
+  <div class="add-list-wrapper flex-shrink-0" :style="'zoom: ' + (zoomLevel / 100)">
     <div x-show="!addingList" class="add-list-btn border border-dashed border-slate-300 rounded-xl hover:border-slate-400 transition-colors" @click="addingList=true">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       Add another list
     </div>
-    <div x-show="addingList" x-cloak class="adding-list-container bg-slate-50 p-3 border border-slate-200 shadow-sm rounded-xl">
+    <div x-show="addingList" x-cloak class="adding-list-container bg-slate-50 p-3 border border-slate-200 shadow-sm rounded-xl w-[272px]">
       <input x-model="newListName" type="text" placeholder="List name…"
              @keydown.enter="saveList" @keydown.escape="addingList=false"
-             class="form-input text-xs mb-2 rounded-xl" autofocus>
+             class="form-input text-xs mb-2 rounded-xl w-full" autofocus>
       <div class="flex gap-2">
         <button @click="saveList" class="btn btn-primary text-xs py-1.5 px-3">Add List</button>
-        <button @click="addingList=false" class="text-xs text-slate-400 hover:text-slate-600 font-semibold">✕</button>
+        <button @click="addingList=false" class="text-xs text-slate-400 hover:text-slate-600 font-semibold cursor-pointer z-50 relative">✕</button>
       </div>
     </div>
-</div>
+  </div>
 
-</div>
+  </div> <!-- Close sortable-lists-container -->
+</div> <!-- Close board-wrap -->
 
 
 

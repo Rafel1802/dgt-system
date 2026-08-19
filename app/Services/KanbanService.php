@@ -261,7 +261,7 @@ class KanbanService
     /**
      * Upload a file attachment to a card.
      */
-    public function uploadFile(Card $card, UploadedFile $file, User $uploader): CardFile
+    public function uploadFile(Card $card, UploadedFile $file, User $uploader, bool $isCommentImage = false): CardFile
     {
         $disk = config('filesystems.default', 'local');
         $storedName = $file->hashName();
@@ -276,6 +276,7 @@ class KanbanService
             'path'          => $path,
             'mime_type'     => $file->getMimeType(),
             'size'          => $file->getSize(),
+            'is_comment_image' => $isCommentImage,
         ]);
 
         return $cardFile;

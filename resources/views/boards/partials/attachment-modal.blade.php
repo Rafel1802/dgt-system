@@ -353,8 +353,8 @@
 </div>
 
 <div x-show="imagePreview.open" x-cloak
-     x-data="{ scale: 1, panX: 0, panY: 0, isDragging: false, startX: 0, startY: 0 }"
-     x-init="$watch('imagePreview.open', value => { if(value) { scale = 1; panX = 0; panY = 0; } })"
+     x-data="imageZoomHandler()"
+     x-init="$watch('imagePreview.open', value => { if(value) reset(); })"
      class="fixed inset-0 bg-slate-950/95 flex flex-col w-screen h-screen overflow-hidden"
      style="z-index: 99999;"
      @keydown.escape.window="if(imagePreview.open) { $event.preventDefault(); closeImagePreview(); }"
@@ -364,7 +364,7 @@
        @click.stop>
     <p class="truncate text-base font-extrabold tracking-wide" x-text="imagePreview.title"></p>
     <div class="flex items-center gap-3">
-        <button type="button" @click="scale = 1; panX = 0; panY = 0;" x-show="scale !== 1" class="text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition" aria-label="Reset zoom">Reset Zoom</button>
+        <button type="button" @click="reset()" x-show="scale !== 1" class="text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition" aria-label="Reset zoom">Reset Zoom</button>
         <button type="button" @click="closeImagePreview()" class="rounded-xl p-2 text-white/80 transition hover:bg-white/20 hover:text-white bg-white/10" aria-label="Close preview">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -374,19 +374,91 @@
   </div>
   <div class="flex-1 w-full h-full flex items-center justify-center p-4 sm:p-8 min-h-0 overflow-hidden relative" 
        @click.stop
-       @wheel.prevent="
-           scale += $event.deltaY * -0.002; 
-           scale = Math.min(Math.max(0.2, scale), 10);
-       "
+       @wheel="handleWheel"
        @mousedown="if(scale > 1) { isDragging = true; startX = $event.clientX - panX; startY = $event.clientY - panY; }"
        @mousemove.window="if(isDragging) { panX = $event.clientX - startX; panY = $event.clientY - startY; }"
-       @mouseup.window="isDragging = false">
+       @mouseup.window="isDragging = false"
+       @touchstart="handleTouchStart"
+       @touchmove="handleTouchMove"
+       @touchend="handleTouchEnd"
+       @touchcancel="handleTouchEnd">
     <img :src="imagePreview.url" :alt="imagePreview.title" 
          class="max-h-full max-w-full w-auto h-auto object-contain select-none shadow-2xl rounded-xl"
          :class="isDragging ? '' : 'transition-transform duration-75'"
-         :style="`transform: translate(${panX}px, ${panY}px) scale(${scale}); cursor: ${scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'}`">
+         :style="`transform: translate(${panX}px, ${panY}px) scale(${scale}); cursor: ${scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'}; touch-action: none;`">
   </div>
 </div>
+
+<script>
+function imageZoomHandler() {
+    return {
+        scale: 1,
+        panX: 0,
+        panY: 0,
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        initialDistance: 0,
+        initialScale: 1,
+
+        reset() {
+            this.scale = 1;
+            this.panX = 0;
+            this.panY = 0;
+        },
+
+        handleWheel(e) {
+            e.preventDefault();
+            let delta = e.deltaY;
+            if (e.ctrlKey) {
+                // trackpad pinch
+                delta *= 2; 
+            }
+            this.scale += delta * -0.005;
+            this.scale = Math.min(Math.max(0.2, this.scale), 10);
+        },
+
+        handleTouchStart(e) {
+            if (e.touches.length === 2) {
+                this.initialDistance = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                this.initialScale = this.scale;
+            } else if (e.touches.length === 1 && this.scale > 1) {
+                this.isDragging = true;
+                this.startX = e.touches[0].pageX - this.panX;
+                this.startY = e.touches[0].pageY - this.panY;
+            }
+        },
+
+        handleTouchMove(e) {
+            if (e.touches.length === 2) {
+                e.preventDefault(); // Prevent native zoom
+                const currentDistance = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                const ratio = currentDistance / this.initialDistance;
+                this.scale = Math.min(Math.max(0.2, this.initialScale * ratio), 10);
+            } else if (e.touches.length === 1 && this.isDragging) {
+                e.preventDefault(); // Prevent native scroll
+                this.panX = e.touches[0].pageX - this.startX;
+                this.panY = e.touches[0].pageY - this.startY;
+            }
+        },
+
+        handleTouchEnd(e) {
+            if (e.touches.length < 2) {
+                this.initialDistance = 0;
+            }
+            if (e.touches.length === 0) {
+                this.isDragging = false;
+            }
+        }
+    }
+}
+</script>
 
 <!-- Video Preview Modal -->
 <div x-show="videoPreview.open" x-cloak

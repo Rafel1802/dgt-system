@@ -60,6 +60,7 @@ class CardFile extends Model
                                 'mime_type' => $file->mime_type,
                                 'size' => $file->size ?? 0,
                                 'sync_id' => $file->sync_id,
+                                'is_comment_image' => $file->is_comment_image ?? false,
                             ]);
                         }
                     }

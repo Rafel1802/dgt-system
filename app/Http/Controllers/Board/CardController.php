@@ -1000,14 +1000,9 @@ class CardController extends Controller
                 ],
             ]);
 
+            $isCommentOnly = $request->boolean('comment_only') || $request->comment_only == '1';
             $kanbanService = app(\App\Services\KanbanService::class);
-            $cardFile = $kanbanService->uploadFile($card, $file, auth()->user());
-
-            // If this is a comment-only screenshot upload, mark it and skip activity/notifications
-            $isCommentOnly = $request->boolean('comment_only');
-            if ($isCommentOnly) {
-                $cardFile->update(['is_comment_image' => true]);
-            }
+            $cardFile = $kanbanService->uploadFile($card, $file, auth()->user(), $isCommentOnly);
 
             if (!$isCommentOnly) {
                 $this->logCardActivity($card, 'file_attached', "attached file **{$cardFile->original_name}**");
