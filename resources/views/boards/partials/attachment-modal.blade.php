@@ -353,6 +353,8 @@
 </div>
 
 <div x-show="imagePreview.open" x-cloak
+     x-data="{ scale: 1, panX: 0, panY: 0, isDragging: false, startX: 0, startY: 0 }"
+     x-init="$watch('imagePreview.open', value => { if(value) { scale = 1; panX = 0; panY = 0; } })"
      class="fixed inset-0 bg-slate-950/95 flex flex-col w-screen h-screen overflow-hidden"
      style="z-index: 99999;"
      @keydown.escape.window="if(imagePreview.open) { $event.preventDefault(); closeImagePreview(); }"
@@ -361,14 +363,28 @@
        style="padding-top: calc(14px + env(safe-area-inset-top, 0px));"
        @click.stop>
     <p class="truncate text-base font-extrabold tracking-wide" x-text="imagePreview.title"></p>
-    <button type="button" @click="closeImagePreview()" class="rounded-xl p-2 text-white/80 transition hover:bg-white/20 hover:text-white bg-white/10" aria-label="Close preview">
-      <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
+    <div class="flex items-center gap-3">
+        <button type="button" @click="scale = 1; panX = 0; panY = 0;" x-show="scale !== 1" class="text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition" aria-label="Reset zoom">Reset Zoom</button>
+        <button type="button" @click="closeImagePreview()" class="rounded-xl p-2 text-white/80 transition hover:bg-white/20 hover:text-white bg-white/10" aria-label="Close preview">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+          </svg>
+        </button>
+    </div>
   </div>
-  <div class="flex-1 w-full h-full flex items-center justify-center p-4 sm:p-8 min-h-0 overflow-hidden" @click.stop>
-    <img :src="imagePreview.url" :alt="imagePreview.title" class="max-h-full max-w-full w-auto h-auto object-contain select-none shadow-2xl rounded-xl">
+  <div class="flex-1 w-full h-full flex items-center justify-center p-4 sm:p-8 min-h-0 overflow-hidden relative" 
+       @click.stop
+       @wheel.prevent="
+           scale += $event.deltaY * -0.002; 
+           scale = Math.min(Math.max(0.2, scale), 10);
+       "
+       @mousedown="if(scale > 1) { isDragging = true; startX = $event.clientX - panX; startY = $event.clientY - panY; }"
+       @mousemove.window="if(isDragging) { panX = $event.clientX - startX; panY = $event.clientY - startY; }"
+       @mouseup.window="isDragging = false">
+    <img :src="imagePreview.url" :alt="imagePreview.title" 
+         class="max-h-full max-w-full w-auto h-auto object-contain select-none shadow-2xl rounded-xl"
+         :class="isDragging ? '' : 'transition-transform duration-75'"
+         :style="`transform: translate(${panX}px, ${panY}px) scale(${scale}); cursor: ${scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'}`">
   </div>
 </div>
 

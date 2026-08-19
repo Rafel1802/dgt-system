@@ -101,13 +101,13 @@
                     </div>
                   </div>
                   {{-- Content Public Date --}}
-                  <div class="min-w-[100px]">
+                  <div class="min-w-[125px]">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Content Public</p>
                     <div class="relative flex items-center">
                       <input type="date" 
                              :value="formatInputDate(activeCard?.content_public_date)" 
                              @change="updateCardField({ content_public_date: $event.target.value })" 
-                             class="px-2.5 py-1 rounded-md text-amber-700 bg-amber-50 font-bold text-[10px] shadow-sm border border-amber-100 focus:ring-1 focus:ring-amber-300 focus:border-amber-300 w-[110px] cursor-pointer"
+                             class="px-2.5 py-1 rounded-md text-amber-700 bg-amber-50 font-bold text-[10px] shadow-sm border border-amber-100 focus:ring-1 focus:ring-amber-300 focus:border-amber-300 w-[125px] cursor-pointer"
                              title="Click to edit public date" />
                     </div>
                   </div>
