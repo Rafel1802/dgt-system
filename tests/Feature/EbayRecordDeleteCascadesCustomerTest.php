@@ -44,7 +44,7 @@ class EbayRecordDeleteCascadesCustomerTest extends TestCase
         $lead = Lead::create([
             'customer_id' => $customer->id, 'handled_by' => $this->user->id,
             'client_name' => 'Ebay Cascade Target', 'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value, 'received_at' => now(),
+            'status' => WebsiteLeadStatus::NewInquiry->value, 'received_at' => now(),
         ]);
         $record = EbayCustomerRecord::create([
             'tab_type' => EbayCustomerRecord::TAB_NEW_ORDER,

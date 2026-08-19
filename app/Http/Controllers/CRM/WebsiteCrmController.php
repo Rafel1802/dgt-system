@@ -189,7 +189,7 @@ class WebsiteCrmController extends Controller
             ...$validated,
             'client_name' => $customer->name,
             'handled_by'  => auth()->id(),
-            'status'      => WebsiteLeadStatus::NewLead->value,
+            'status'      => WebsiteLeadStatus::NewInquiry->value,
             'temperature' => 'warm', // default, not shown in UI
         ]);
 
@@ -265,7 +265,7 @@ class WebsiteCrmController extends Controller
         ]);
 
         $newStatus = WebsiteLeadStatus::from($validated['status']);
-        if ($newStatus === WebsiteLeadStatus::Resolved && $lead->status !== WebsiteLeadStatus::Resolved) {
+        if ($newStatus === WebsiteLeadStatus::Resolve && $lead->status !== WebsiteLeadStatus::Resolve) {
             return back()->withErrors(['status' => 'The Resolved status can only be set from the Technical Support page.'])->withInput();
         }
 
@@ -309,7 +309,7 @@ class WebsiteCrmController extends Controller
 
         if (!empty($validated['status'])) {
             $newStatus = WebsiteLeadStatus::from($validated['status']);
-            if ($newStatus === WebsiteLeadStatus::Resolved && $lead->status !== WebsiteLeadStatus::Resolved) {
+            if ($newStatus === WebsiteLeadStatus::Resolve && $lead->status !== WebsiteLeadStatus::Resolve) {
                 return response()->json([
                     'message' => 'The Resolved status can only be set from the Technical Support page.',
                 ], 422);
@@ -369,7 +369,7 @@ class WebsiteCrmController extends Controller
         ]);
         $newStatus = WebsiteLeadStatus::from($validated['status']);
 
-        if ($newStatus === WebsiteLeadStatus::Resolved && $lead->status !== WebsiteLeadStatus::Resolved) {
+        if ($newStatus === WebsiteLeadStatus::Resolve && $lead->status !== WebsiteLeadStatus::Resolve) {
             return response()->json([
                 'message' => 'The Resolved status can only be set from the Technical Support page.',
             ], 422);
@@ -377,13 +377,13 @@ class WebsiteCrmController extends Controller
 
         $productRows = $this->filledProductRows($validated['products'] ?? []);
 
-        if ($newStatus === WebsiteLeadStatus::Successful && empty($productRows)) {
+        if ($newStatus === WebsiteLeadStatus::SuccessfulLead && empty($productRows)) {
             return response()->json([
                 'message' => 'At least one product is required to mark this lead as Successful.',
             ], 422);
         }
 
-        if ($newStatus === WebsiteLeadStatus::TechnicalSupport) {
+        if ($newStatus === WebsiteLeadStatus::TechnicalIssues) {
             if (empty(trim($validated['note'] ?? ''))) {
                 return response()->json([
                     'message' => 'A note explaining the technical issue is required to mark this lead as Technical Support.',
@@ -407,7 +407,7 @@ class WebsiteCrmController extends Controller
             // Lead's booted() hook, so the note staff typed here becomes the
             // case's own timeline entry instead of generic auto-text —
             // whether this is the first Technical Support case or a reopen.
-            if ($newStatus === WebsiteLeadStatus::TechnicalSupport && $noteText !== '') {
+            if ($newStatus === WebsiteLeadStatus::TechnicalIssues && $noteText !== '') {
                 $lead->pendingTechNote = $noteText;
             }
 
@@ -431,7 +431,7 @@ class WebsiteCrmController extends Controller
         // A repeat purchase on a lead that's already Successful used to wipe
         // and replace the last order's products; now it's simply another
         // entry in that lead's order history, same as "+ Add New Order".
-        if ($newStatus === WebsiteLeadStatus::Successful && ! empty($productRows)) {
+        if ($newStatus === WebsiteLeadStatus::SuccessfulLead && ! empty($productRows)) {
             $this->createLeadOrder($lead, $productRows, $validated['order_date']);
         }
 

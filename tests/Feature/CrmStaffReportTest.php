@@ -42,7 +42,7 @@ class CrmStaffReportTest extends TestCase
             'handled_by' => $this->user->id,
             'client_name' => 'Alice Chen',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::Successful->value,
+            'status' => WebsiteLeadStatus::SuccessfulLead->value,
             'received_at' => now(),
         ]);
         Lead::create([
@@ -179,7 +179,7 @@ class CrmStaffReportTest extends TestCase
 
         $csv = $response->streamedContent();
         $lines = array_filter(explode("\n", trim($csv)));
-        $this->assertEquals('Period,"CRM Website",eBay,"Technical Support",Logistic,Total', $lines[0]);
+        $this->assertEquals('Period,"CRM Website",eBay,"Technical Issues",Logistic,Total', $lines[0]);
         $this->assertCount(2, $lines); // header + 1 row for "Today"
         $this->assertStringStartsWith('Today,', $lines[1]);
     }
@@ -233,7 +233,7 @@ class CrmStaffReportTest extends TestCase
         $lead = Lead::create([
             'customer_id' => $customer->id, 'handled_by' => $this->user->id,
             'client_name' => 'Successful Customer', 'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::Successful->value, 'received_at' => now(),
+            'status' => WebsiteLeadStatus::SuccessfulLead->value, 'received_at' => now(),
         ]);
         LeadProduct::create([
             'lead_id' => $lead->id, 'product_name' => 'Skid Steer', 'price' => 500, 'quantity' => 2,
@@ -288,7 +288,7 @@ class CrmStaffReportTest extends TestCase
 
         $lead = Lead::create([
             'handled_by' => $this->user->id, 'client_name' => 'Earlier Lead',
-            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::NewLead->value,
+            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
         $lead->forceFill(['created_at' => $earlierThisMonth])->saveQuietly();
@@ -325,7 +325,7 @@ class CrmStaffReportTest extends TestCase
 
         $lead = Lead::create([
             'handled_by' => $this->user->id, 'client_name' => 'Buyer',
-            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::Successful->value,
+            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::SuccessfulLead->value,
             'received_at' => now(),
         ]);
         LeadProduct::create(['lead_id' => $lead->id, 'product_name' => 'Item', 'price' => 50, 'quantity' => 1]);
@@ -363,7 +363,7 @@ class CrmStaffReportTest extends TestCase
 
         $lead = Lead::create([
             'handled_by' => $this->user->id, 'client_name' => 'Buyer',
-            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::Successful->value,
+            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::SuccessfulLead->value,
             'received_at' => now(),
         ]);
         LeadProduct::create(['lead_id' => $lead->id, 'product_name' => 'Item', 'price' => 50, 'quantity' => 1]);

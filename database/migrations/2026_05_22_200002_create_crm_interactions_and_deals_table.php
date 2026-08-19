@@ -33,7 +33,7 @@ return new class extends Migration
 
             $table->string('title');
             $table->text('description')->nullable();
-            $table->string('stage')->default('new_lead');
+            $table->string('stage')->default('new_inquiry');
             $table->decimal('value', 12, 2)->default(0);
             $table->string('currency', 3)->default('AUD');
             $table->integer('probability')->default(10);  // 0-100%

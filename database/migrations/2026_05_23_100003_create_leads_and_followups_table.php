@@ -33,7 +33,7 @@ return new class extends Migration
             $table->timestamp('received_at')->nullable()->useCurrent();
 
             // Pipeline status
-            $table->string('status')->default('new_lead'); // WebsiteLeadStatus
+            $table->string('status')->default('new_inquiry'); // WebsiteLeadStatus
             $table->string('temperature')->default('cold'); // LeadTemperature
 
             // Nurturing

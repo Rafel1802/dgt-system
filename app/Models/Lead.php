@@ -31,17 +31,17 @@ class Lead extends Model
     protected static function booted(): void
     {
         static::created(function (self $lead) {
-            if ($lead->status === WebsiteLeadStatus::TechnicalSupport) {
+            if ($lead->status === WebsiteLeadStatus::TechnicalIssues) {
                 app(TechSupportCaseService::class)->createCaseFor($lead, $lead->pendingTechNote);
             }
         });
 
         static::updated(function (self $lead) {
-            if ($lead->wasChanged('status') && $lead->status === WebsiteLeadStatus::TechnicalSupport) {
+            if ($lead->wasChanged('status') && $lead->status === WebsiteLeadStatus::TechnicalIssues) {
                 app(TechSupportCaseService::class)->createCaseFor($lead, $lead->pendingTechNote);
             }
 
-            if ($lead->wasChanged('status') && in_array($lead->status, [WebsiteLeadStatus::Resolved, WebsiteLeadStatus::Successful], true)) {
+            if ($lead->wasChanged('status') && in_array($lead->status, [WebsiteLeadStatus::Resolve, WebsiteLeadStatus::SuccessfulLead], true)) {
                 $case = $lead->techSupportCase;
                 if ($case && $case->status !== TechSupportCase::STATUS_RESOLVED) {
                     app(TechSupportCaseService::class)->changeStatus($case, TechSupportCase::STATUS_RESOLVED);
@@ -148,7 +148,7 @@ class Lead extends Model
         return $query->where('follow_up_date', '<=', today())
             ->whereNotIn('status', [
                 WebsiteLeadStatus::Delivered->value,
-                WebsiteLeadStatus::Lost->value,
+                WebsiteLeadStatus::LostInterest->value,
             ]);
     }
 
@@ -156,7 +156,7 @@ class Lead extends Model
     {
         return $query->whereNotIn('status', [
             WebsiteLeadStatus::Delivered->value,
-            WebsiteLeadStatus::Lost->value,
+            WebsiteLeadStatus::LostInterest->value,
         ]);
     }
 
@@ -176,7 +176,7 @@ class Lead extends Model
 
     public function scopeTechnicalIssuesOpen($query): mixed
     {
-        return $query->where('status', WebsiteLeadStatus::TechnicalSupport->value);
+        return $query->where('status', WebsiteLeadStatus::TechnicalIssues->value);
     }
 
     // ── Accessors ────────────────────────────────────────────────────────────

@@ -54,7 +54,7 @@ class ReportService
         $newLeads       = Lead::whereBetween('received_at', [$from, $to])->count();
         $convertedLeads = Lead::whereBetween('received_at', [$from, $to])->where('converted', true)->count();
         $hotLeads       = Lead::where('temperature', 'hot')->whereNotIn('status',
-            [WebsiteLeadStatus::Delivered->value, WebsiteLeadStatus::Lost->value])->count();
+            [WebsiteLeadStatus::Delivered->value, WebsiteLeadStatus::LostInterest->value])->count();
 
         // eBay stats
         $ebayOffers       = EbayOffer::whereBetween('received_at', [$from, $to])->count();

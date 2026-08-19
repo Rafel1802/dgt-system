@@ -39,7 +39,7 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'client_name' => 'Alice Chen',
             'client_email' => 'alice@email.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::Successful->value,
+            'status' => WebsiteLeadStatus::SuccessfulLead->value,
             'received_at' => now(),
         ]);
 
@@ -92,7 +92,7 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'client_name' => 'Solo Customer',
             'client_email' => 'solo@email.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 
@@ -230,14 +230,14 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'handled_by' => $this->user->id,
             'client_name' => 'Older Lead',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now()->subDays(5),
         ]);
         Lead::create([
             'handled_by' => $this->user->id,
             'client_name' => 'Newer Lead',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 
@@ -253,14 +253,14 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'handled_by' => $this->user->id,
             'client_name' => 'In Range Lead',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now()->subDays(2),
         ]);
         Lead::create([
             'handled_by' => $this->user->id,
             'client_name' => 'Out Of Range Lead',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now()->subDays(20),
         ]);
 
@@ -285,7 +285,7 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'handled_by' => $this->user->id,
             'client_name' => 'Purchased In Range',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::Successful->value,
+            'status' => WebsiteLeadStatus::SuccessfulLead->value,
             'received_at' => now()->subDays(30),
         ]);
         $purchased->orders()->create(['order_date' => now()->subDays(2), 'created_by' => $this->user->id]);
@@ -294,7 +294,7 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'handled_by' => $this->user->id,
             'client_name' => 'Purchased Out Of Range',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::Successful->value,
+            'status' => WebsiteLeadStatus::SuccessfulLead->value,
             'received_at' => now()->subDays(30),
         ]);
         $purchasedOutOfRange->orders()->create(['order_date' => now()->subDays(20), 'created_by' => $this->user->id]);
@@ -303,7 +303,7 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'handled_by' => $this->user->id,
             'client_name' => 'No Purchase Yet',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now()->subDays(2),
         ]);
 
@@ -334,7 +334,7 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'client_name' => 'Website Second Customer',
             'client_email' => 'website@example.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now()->subHour(),
         ]);
 
@@ -420,7 +420,7 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'client_email' => 'tech@example.com',
             'client_phone' => '111111',
             'source' => InquirySource::Website->value,
-            'status' => \App\Enums\WebsiteLeadStatus::TechnicalSupport,
+            'status' => \App\Enums\WebsiteLeadStatus::TechnicalIssues,
             'handled_by' => $this->user->id,
         ]);
 
@@ -429,7 +429,7 @@ class UnifiedCustomerDirectoryTest extends TestCase
             'client_email' => 'normal@example.com',
             'client_phone' => '222222',
             'source' => InquirySource::Website->value,
-            'status' => \App\Enums\WebsiteLeadStatus::NewLead,
+            'status' => \App\Enums\WebsiteLeadStatus::NewInquiry,
             'handled_by' => $this->user->id,
         ]);
 

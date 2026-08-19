@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
  * The "Resolved" status (EbayCustomerRecord::TAB_RESOLVED) was added at the
  * PHP level earlier, but tab_type is a native MySQL ENUM column whose
  * allowed-value list was never widened to match — so setting tab_type to
- * 'resolved' was silently rejected by MySQL (masked by SQLite-backed tests,
+ * 'resolve' was silently rejected by MySQL (masked by SQLite-backed tests,
  * which don't enforce ENUM constraints). This adds it to the column.
  */
 return new class extends Migration
@@ -23,7 +23,7 @@ return new class extends Migration
 
         DB::statement("ALTER TABLE ebay_customer_records MODIFY COLUMN tab_type ENUM(
             'urgent_client','cancelation_client','technical_issues',
-            'potential_negatives','negatives_feedbacks','new_order','resolved'
+            'potential_negatives','negatives_feedbacks','new_order','resolve'
         ) NOT NULL");
     }
 

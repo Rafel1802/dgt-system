@@ -271,7 +271,7 @@ class CrmService
         ->sum('price');
 
         $websiteLeadSales = (float) LeadProduct::whereHas('lead', function ($q) {
-            $q->whereNotIn('status', [WebsiteLeadStatus::Lost, 'cancelled', 'refunded']);
+            $q->whereNotIn('status', [WebsiteLeadStatus::LostInterest, 'cancelled', 'refunded']);
         })->whereDoesntHave('lead.customer', fn ($c) => $c->where('lifetime_value', '>', 0))
         ->sum(DB::raw('price * quantity'));
 

@@ -311,15 +311,15 @@ class ShipmentController extends Controller
 
         $leads = $leadQuery->get();
         foreach ($leads as $l) {
-            if ($l->status === \App\Enums\WebsiteLeadStatus::DelayedShipment) {
-                $l->status = \App\Enums\WebsiteLeadStatus::InDelivery;
+            if ($l->status === \App\Enums\WebsiteLeadStatus::PendingDelivery) {
+                $l->status = \App\Enums\WebsiteLeadStatus::PendingDelivery;
                 $l->save();
 
                 \App\Models\LeadFollowUp::create([
                     'lead_id'           => $l->id,
                     'user_id'           => auth()->id(),
                     'notes'             => '[Resolved Date: ' . $resolvedDate . '] ' . $notes,
-                    'status_changed_to' => \App\Enums\WebsiteLeadStatus::InDelivery,
+                    'status_changed_to' => \App\Enums\WebsiteLeadStatus::PendingDelivery,
                     'contacted_at'      => now(),
                 ]);
             }

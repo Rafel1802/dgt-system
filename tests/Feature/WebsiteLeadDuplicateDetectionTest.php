@@ -30,7 +30,7 @@ class WebsiteLeadDuplicateDetectionTest extends TestCase
         return Lead::create(array_merge([
             'handled_by'  => $this->user->id,
             'source'      => InquirySource::Website->value,
-            'status'      => 'new_lead',
+            'status'      => 'new_inquiry',
             'received_at' => now(),
         ], $attrs));
     }

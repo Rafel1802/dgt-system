@@ -80,7 +80,7 @@ class CrmPhase1Seeder extends Seeder
                 'source'         => InquirySource::Phone->value,
                 'product_interested' => 'Skid Steer',
                 'inquiry_details'=> 'Cold call, asked about Bobcat skid steer availability.',
-                'status'         => WebsiteLeadStatus::NewLead->value,
+                'status'         => WebsiteLeadStatus::NewInquiry->value,
                 'temperature'    => LeadTemperature::Cold->value,
                 'received_at'    => now()->subHours(3),
             ],

@@ -42,7 +42,7 @@ class CrmDashboardController extends Controller
                 'new_today'      => Lead::whereDate('received_at', $today)->count(),
                 'hot_leads'      => Lead::where('temperature', 'hot')->active()->count(),
                 'follow_up_due'  => Lead::followUpDue()->count(),
-                'successful'     => Lead::where('status', WebsiteLeadStatus::Successful->value)->count(),
+                'successful'     => Lead::where('status', WebsiteLeadStatus::SuccessfulLead->value)->count(),
                 'pipeline'       => $this->getWebsitePipeline(),
             ];
 

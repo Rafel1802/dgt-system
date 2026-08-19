@@ -27,7 +27,7 @@ return new class extends Migration
             // CRM classification
             $table->string('status')->default('lead');         // lead, prospect, active, inactive, lost
             $table->string('source')->nullable();              // website, referral, ebay, social_media, cold_call, etc.
-            $table->string('pipeline_stage')->default('new_lead'); // new_lead, contacted, qualified, proposal_sent, negotiating, won, lost
+            $table->string('pipeline_stage')->default('new_inquiry'); // new_lead, contacted, qualified, proposal_sent, negotiating, won, lost
 
             // Product interest (JSON array of strings)
             $table->json('product_interests')->nullable();

@@ -43,12 +43,12 @@ class LeadDeleteCascadesCustomerTest extends TestCase
         $otherLead = Lead::create([
             'customer_id' => $customer->id, 'handled_by' => $this->user->id,
             'client_name' => 'Cascade Target', 'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value, 'received_at' => now(),
+            'status' => WebsiteLeadStatus::NewInquiry->value, 'received_at' => now(),
         ]);
         $leadToDelete = Lead::create([
             'customer_id' => $customer->id, 'handled_by' => $this->user->id,
             'client_name' => 'Cascade Target', 'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value, 'received_at' => now(),
+            'status' => WebsiteLeadStatus::NewInquiry->value, 'received_at' => now(),
         ]);
 
         $this->actingAs($this->user)
@@ -68,7 +68,7 @@ class LeadDeleteCascadesCustomerTest extends TestCase
     {
         $lead = Lead::create([
             'handled_by' => $this->user->id, 'client_name' => 'No Customer Link',
-            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::NewLead->value,
+            'source' => InquirySource::Website->value, 'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 

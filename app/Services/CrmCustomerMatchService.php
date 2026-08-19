@@ -194,22 +194,22 @@ class CrmCustomerMatchService
         $hasActiveProblem = $this->customerHasActiveProblemShipment($customerId, $email, $phone);
 
         if ($lead) {
-            if ($hasActiveProblem && $lead->status !== WebsiteLeadStatus::DelayedShipment) {
-                $lead->update(['status' => WebsiteLeadStatus::DelayedShipment]);
+            if ($hasActiveProblem && $lead->status !== WebsiteLeadStatus::PendingDelivery) {
+                $lead->update(['status' => WebsiteLeadStatus::PendingDelivery]);
                 LeadFollowUp::create([
                     'lead_id'           => $lead->id,
                     'user_id'           => auth()->id(),
                     'notes'             => 'Shipment marked as Problem — auto-flagged as Logistic Issues.',
-                    'status_changed_to' => WebsiteLeadStatus::DelayedShipment,
+                    'status_changed_to' => WebsiteLeadStatus::PendingDelivery,
                     'contacted_at'      => now(),
                 ]);
-            } elseif (! $hasActiveProblem && $lead->status === WebsiteLeadStatus::DelayedShipment) {
-                $lead->update(['status' => WebsiteLeadStatus::InDelivery]);
+            } elseif (! $hasActiveProblem && $lead->status === WebsiteLeadStatus::PendingDelivery) {
+                $lead->update(['status' => WebsiteLeadStatus::PendingDelivery]);
                 LeadFollowUp::create([
                     'lead_id'           => $lead->id,
                     'user_id'           => auth()->id(),
                     'notes'             => 'All linked shipments resolved — auto-cleared Logistic Issues.',
-                    'status_changed_to' => WebsiteLeadStatus::InDelivery,
+                    'status_changed_to' => WebsiteLeadStatus::PendingDelivery,
                     'contacted_at'      => now(),
                 ]);
             }
@@ -256,7 +256,7 @@ class CrmCustomerMatchService
         $lead = ($customerId ? Lead::where('customer_id', $customerId)->first() : null)
             ?? $this->findLeadByContact($email, $phone);
 
-        if ($lead && ! in_array($lead->status, [WebsiteLeadStatus::Delivered, WebsiteLeadStatus::Lost], true)) {
+        if ($lead && ! in_array($lead->status, [WebsiteLeadStatus::Delivered, WebsiteLeadStatus::LostInterest], true)) {
             $lead->update(['status' => WebsiteLeadStatus::Delivered]);
             LeadFollowUp::create([
                 'lead_id'           => $lead->id,
@@ -381,13 +381,13 @@ class CrmCustomerMatchService
         // new shipment IS reason enough to move a lead back to In Delivery
         // even if their last one already finished (Delivered) — this is a
         // new order, not a status correction on the old one.
-        if ($lead && $lead->status !== WebsiteLeadStatus::Lost && $lead->status !== WebsiteLeadStatus::InDelivery) {
-            $lead->update(['status' => WebsiteLeadStatus::InDelivery]);
+        if ($lead && $lead->status !== WebsiteLeadStatus::LostInterest && $lead->status !== WebsiteLeadStatus::PendingDelivery) {
+            $lead->update(['status' => WebsiteLeadStatus::PendingDelivery]);
             LeadFollowUp::create([
                 'lead_id'           => $lead->id,
                 'user_id'           => auth()->id(),
                 'notes'             => 'New shipment imported via Process Trucking — auto-advanced to In Delivery.',
-                'status_changed_to' => WebsiteLeadStatus::InDelivery,
+                'status_changed_to' => WebsiteLeadStatus::PendingDelivery,
                 'contacted_at'      => now(),
             ]);
         }
@@ -744,13 +744,13 @@ class CrmCustomerMatchService
                 'status_label'  => $lead->status?->label() ?? '',
                 'status_color'  => $lead->status?->color() ?? '#94a3b8',
                 'status_badges' => match (true) {
-                    $lead->status === WebsiteLeadStatus::TechnicalSupport => [
+                    $lead->status === WebsiteLeadStatus::TechnicalIssues => [
                         ['label' => 'Technical Support', 'color' => '#8b5cf6', 'category' => 'technical']
                     ],
-                    $lead->status === WebsiteLeadStatus::DelayedShipment => [
+                    $lead->status === WebsiteLeadStatus::PendingDelivery => [
                         ['label' => 'Delayed Shipment', 'color' => '#10b981', 'category' => 'shipment_delay']
                     ],
-                    $lead->status === WebsiteLeadStatus::Successful || $lead->status === WebsiteLeadStatus::Lost => [
+                    $lead->status === WebsiteLeadStatus::SuccessfulLead || $lead->status === WebsiteLeadStatus::LostInterest => [
                         ['label' => $lead->status?->label() ?? 'Resolved', 'color' => '#0ea5e9', 'category' => 'resolved']
                     ],
                     default => [
@@ -758,16 +758,16 @@ class CrmCustomerMatchService
                     ],
                 },
                 'categories'   => match (true) {
-                    $lead->status === WebsiteLeadStatus::TechnicalSupport => ['technical'],
-                    $lead->status === WebsiteLeadStatus::DelayedShipment  => ['shipment_delay'],
-                    $lead->status === WebsiteLeadStatus::Successful || $lead->status === WebsiteLeadStatus::Lost => ['resolved'],
+                    $lead->status === WebsiteLeadStatus::TechnicalIssues => ['technical'],
+                    $lead->status === WebsiteLeadStatus::PendingDelivery  => ['shipment_delay'],
+                    $lead->status === WebsiteLeadStatus::SuccessfulLead || $lead->status === WebsiteLeadStatus::LostInterest => ['resolved'],
                     default => [],
                 },
                 'occurrence_label' => $lead->techSupportCase?->occurrence_label,
                 'category'    => match (true) {
-                    $lead->status === WebsiteLeadStatus::TechnicalSupport => 'technical',
-                    $lead->status === WebsiteLeadStatus::DelayedShipment  => 'shipment_delay',
-                    $lead->status === WebsiteLeadStatus::Successful || $lead->status === WebsiteLeadStatus::Lost => 'resolved',
+                    $lead->status === WebsiteLeadStatus::TechnicalIssues => 'technical',
+                    $lead->status === WebsiteLeadStatus::PendingDelivery  => 'shipment_delay',
+                    $lead->status === WebsiteLeadStatus::SuccessfulLead || $lead->status === WebsiteLeadStatus::LostInterest => 'resolved',
                     default => null,
                 },
             ]);

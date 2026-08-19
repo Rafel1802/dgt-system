@@ -46,7 +46,7 @@ class WebsiteLeadReassignmentNotificationTest extends TestCase
             'handled_by'  => $this->originalHandler->id,
             'client_name' => 'Reassignable Lead',
             'source'      => InquirySource::Website->value,
-            'status'      => WebsiteLeadStatus::NewLead->value,
+            'status'      => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
     }

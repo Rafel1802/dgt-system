@@ -9,8 +9,13 @@
   {{-- ── Toolbar ─────────────────────────────────────────────────────────── --}}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <div class="flex gap-2 flex-wrap">
-        {{-- Status quick filters matching flowchart exactly --}}
-      @foreach(['' => 'All', 'new_lead' => 'New Customer', 'successful' => 'Successful Lead', 'in_delivery' => 'In Delivery (Auto-synced from Logistic)', 'delivered' => 'Delivered (Auto-synced from Logistic)', 'lost' => 'Lost Interested', 'technical_support' => 'In Technical', 'resolved' => 'Resolved'] as $val => $lbl)
+      @php
+        $filters = ['' => 'All'];
+        foreach(\App\Enums\WebsiteLeadStatus::cases() as $case) {
+            $filters[$case->value] = $case->label();
+        }
+      @endphp
+      @foreach($filters as $val => $lbl)
       <a href="{{ route('crm.website.index', array_merge(request()->query(), ['status' => $val])) }}"
          class="btn text-xs py-1.5 px-3 {{ request('status') === $val ? 'btn-primary' : 'btn-secondary' }}">
         {{ $lbl }}

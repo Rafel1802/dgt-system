@@ -357,8 +357,8 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
 
         CrmCustomerMatchService::forgetUnifiedDirectoryCache();
         $updatedRow = app(CrmCustomerMatchService::class)->buildUnifiedDirectory()->firstWhere('id', $record->id);
-        $this->assertContains('resolved', $updatedRow['categories']);
-        $this->assertEquals('Resolved', $updatedRow['status_badges'][0]['label']);
+        $this->assertContains('resolve', $updatedRow['categories']);
+        $this->assertEquals('Resolve', $updatedRow['status_badges'][0]['label']);
     }
 
     /** Unchecking the cause (or moving off the negative-feedback status) must stop matching — it's computed live, not a stored flag. */

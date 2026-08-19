@@ -33,14 +33,14 @@ class WebsiteCrmVisibilityTest extends TestCase
             'handled_by' => $salesRep->id,
             'client_name' => 'My Own Lead',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
         Lead::create([
             'handled_by' => $otherRep->id,
             'client_name' => 'Someone Elses Lead',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 
@@ -63,7 +63,7 @@ class WebsiteCrmVisibilityTest extends TestCase
             'handled_by' => $rep->id,
             'client_name' => 'Reps Lead',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 

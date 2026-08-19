@@ -66,11 +66,11 @@ class TechSupportTest extends TestCase
             'client_name'  => 'Maria Lopez',
             'client_email' => 'maria@example.com',
             'source'       => InquirySource::WhatsApp->value,
-            'status'       => WebsiteLeadStatus::NewLead->value,
+            'status'       => WebsiteLeadStatus::NewInquiry->value,
             'received_at'  => now(),
         ]);
 
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
 
         $case = TechSupportCase::firstOrFail();
         $this->assertEquals(Lead::class, $case->source_type);
@@ -99,11 +99,11 @@ class TechSupportTest extends TestCase
             'handled_by'  => $this->admin->id,
             'client_name' => 'Live Push Lead',
             'source'      => InquirySource::WhatsApp->value,
-            'status'      => WebsiteLeadStatus::NewLead->value,
+            'status'      => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
 
         // A new case is unassigned on creation, so it should broadcast live
         // (Pusher popup) to other active technicians.
@@ -116,13 +116,13 @@ class TechSupportTest extends TestCase
             'handled_by'  => $this->admin->id,
             'client_name' => 'Maria Lopez',
             'source'      => InquirySource::WhatsApp->value,
-            'status'      => WebsiteLeadStatus::NewLead->value,
+            'status'      => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
         $lead->update(['status' => WebsiteLeadStatus::Contacted]);
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
 
         $this->assertEquals(1, TechSupportCase::count());
     }
@@ -151,10 +151,10 @@ class TechSupportTest extends TestCase
             'handled_by'  => $this->admin->id,
             'client_name' => 'Maria Lopez',
             'source'      => InquirySource::WhatsApp->value,
-            'status'      => WebsiteLeadStatus::NewLead->value,
+            'status'      => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
 
         $case = TechSupportCase::firstOrFail();
         $this->assertEquals(1, $this->tech->fresh()->unreadNotifications()->count());
@@ -254,10 +254,10 @@ class TechSupportTest extends TestCase
             'client_name'  => 'Kevin Wu',
             'client_email' => 'kevin@example.com',
             'source'       => InquirySource::WhatsApp->value,
-            'status'       => WebsiteLeadStatus::NewLead->value,
+            'status'       => WebsiteLeadStatus::NewInquiry->value,
             'received_at'  => now(),
         ]);
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
 
         $case = TechSupportCase::where('source_type', Lead::class)->firstOrFail();
 
@@ -291,10 +291,10 @@ class TechSupportTest extends TestCase
             'handled_by'  => $this->admin->id,
             'client_name' => 'Status Display Lead',
             'source'      => InquirySource::WhatsApp->value,
-            'status'      => WebsiteLeadStatus::NewLead->value,
+            'status'      => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
 
         $case = TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->firstOrFail();
 
@@ -305,27 +305,27 @@ class TechSupportTest extends TestCase
 
         $lead->refresh();
         $this->assertTrue($lead->tech_resolved);
-        $this->assertEquals(WebsiteLeadStatus::Resolved, $lead->status);
+        $this->assertEquals(WebsiteLeadStatus::Resolve, $lead->status);
 
-        // Note: "Technical Support" legitimately still appears elsewhere on
+        // Note: "Technical Issues" legitimately still appears elsewhere on
         // this page (the status filter dropdown lists every possible
         // status), so this only checks the resolved badge text is present.
         $indexResponse = $this->actingAs($this->admin)->get(route('crm.website.index'));
         $indexResponse->assertOk();
         $indexResponse->assertSee('Status Display Lead');
-        $indexResponse->assertSee('Resolved');
+        $indexResponse->assertSee('Resolve');
 
         $showResponse = $this->actingAs($this->admin)->get(route('crm.website.show', $lead));
         $showResponse->assertOk();
-        $showResponse->assertSee('Resolved');
+        $showResponse->assertSee('Resolve');
     }
 
     /**
      * reopenCase() bumps the occurrence count and reopens the case, but
      * previously never reset the source's tech_resolved flag — so a
-     * second, brand-new technical issue kept showing "Resolved" on the
+     * second, brand-new technical issue kept showing "Resolve" on the
      * Lead profile page (carried over from the *first* resolution) instead
-     * of the real "Technical Support" status.
+     * of the real "Technical Issues" status.
      */
     public function test_marking_a_lead_technical_support_a_second_time_clears_the_stale_resolved_badge(): void
     {
@@ -333,12 +333,12 @@ class TechSupportTest extends TestCase
             'handled_by'  => $this->admin->id,
             'client_name' => 'Repeat Issue Lead',
             'source'      => InquirySource::WhatsApp->value,
-            'status'      => WebsiteLeadStatus::NewLead->value,
+            'status'      => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 
         // First occurrence, resolved.
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
         $case = TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->firstOrFail();
         $this->actingAs($this->tech)->patchJson(
             route('crm.tech-support.status', $case),
@@ -348,23 +348,23 @@ class TechSupportTest extends TestCase
 
         // Lead moves elsewhere, then re-enters Technical Support — a second, unresolved occurrence.
         $lead->update(['status' => WebsiteLeadStatus::Contacted]);
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
+        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
 
         $lead->refresh();
         $this->assertFalse($lead->tech_resolved);
-        $this->assertEquals(WebsiteLeadStatus::TechnicalSupport, $lead->status);
+        $this->assertEquals(WebsiteLeadStatus::TechnicalIssues, $lead->status);
         $this->assertEquals(2, $case->fresh()->occurrence_count);
         $this->assertEquals(1, TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->count());
 
         // Note: the Lead profile page's Pipeline Progress stepper always
-        // lists every possible status (including "Resolved") as a
+        // lists every possible status (including "Resolve") as a
         // clickable step, for every lead, regardless of its current state
         // — that's normal, unrelated UI, not a stale badge. Only the
         // status badge itself reflects the lead's actual status, and
         // that's already covered above via the model-level assertion.
         $showResponse = $this->actingAs($this->admin)->get(route('crm.website.show', $lead));
         $showResponse->assertOk();
-        $showResponse->assertSee('Technical Support');
+        $showResponse->assertSee('Technical Issues');
     }
 
     private function makeOpenCase(): TechSupportCase
@@ -376,7 +376,7 @@ class TechSupportTest extends TestCase
             'handled_by'  => $this->admin->id,
             'client_name' => 'Maria Lopez',
             'source'      => InquirySource::WhatsApp->value,
-            'status'      => WebsiteLeadStatus::NewLead->value,
+            'status'      => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
 

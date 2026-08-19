@@ -24,13 +24,13 @@ class UniversalStatusSyncService
 
         // 2. Sync to Lead (if any)
         $leadStatus = match ($status) {
-            'pickup_arranged' => WebsiteLeadStatus::InTransit,
-            'in_transit'      => WebsiteLeadStatus::InTransit,
-            'in_delivery'     => WebsiteLeadStatus::InDelivery,
+            'pickup_arranged' => WebsiteLeadStatus::Loaded,
+            'in_transit'      => WebsiteLeadStatus::Loaded,
+            'in_delivery'     => WebsiteLeadStatus::PendingDelivery,
             'delivered'       => WebsiteLeadStatus::Delivered,
-            'received'        => WebsiteLeadStatus::Delivered, // For return machines
-            'logistic_delay'  => WebsiteLeadStatus::DelayedShipment,
-            'problem'         => WebsiteLeadStatus::DelayedShipment,
+            'received'        => WebsiteLeadStatus::ReturnReceived, // For return machines
+            'logistic_delay'  => WebsiteLeadStatus::PendingDelivery,
+            'problem'         => WebsiteLeadStatus::PendingDelivery,
             default           => null,
         };
 

@@ -56,7 +56,7 @@ class CrmDeletePermissionsTest extends TestCase
             'handled_by' => $handler->id,
             'client_name' => 'Delete Target Lead',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
     }

@@ -35,28 +35,28 @@ class IssueDateRequirementTest extends TestCase
             'client_name' => 'John Doe',
             'client_phone' => '123456',
             'source' => 'website',
-            'status' => 'new_lead',
+            'status' => 'new_inquiry',
             'handled_by' => $this->user->id,
         ]);
 
         // Attempting without issue_date should fail validation (422)
         $failResponse = $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status' => 'technical_support',
+            'status' => 'technical_issues',
             'note' => 'Hardware malfunction',
         ]);
 
         $failResponse->assertStatus(422);
-        $failResponse->assertJsonFragment(['message' => 'The issue date field is required when status is technical_support.']);
+        $failResponse->assertJsonFragment(['message' => 'An issue date is required to mark this lead as Technical Support.']);
 
         // Providing issue_date should succeed (200)
         $successResponse = $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status' => 'technical_support',
+            'status' => 'technical_issues',
             'note' => 'Hardware malfunction',
             'issue_date' => '2026-08-15',
         ]);
 
         $successResponse->assertOk();
-        $this->assertEquals('technical_support', $lead->fresh()->status->value);
+        $this->assertEquals('technical_issues', $lead->fresh()->status->value);
     }
 
     public function test_ebay_crm_requires_date_for_technical_and_negative_feedback(): void

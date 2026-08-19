@@ -503,11 +503,11 @@ class TechSupportCaseService
         // 2. Sync to Website Lead
         if ($case->source_type === Lead::class && $case->source) {
             $leadStatus = match ($status) {
-                TechSupportCase::STATUS_NEW => WebsiteLeadStatus::TechnicalSupport,
-                TechSupportCase::STATUS_IN_PROGRESS => WebsiteLeadStatus::TechInProgress,
-                TechSupportCase::STATUS_RED => WebsiteLeadStatus::TechRedCase,
-                TechSupportCase::STATUS_RETURN_MACHINE => WebsiteLeadStatus::MachineReturn,
-                TechSupportCase::STATUS_RESOLVED => WebsiteLeadStatus::Resolved,
+                TechSupportCase::STATUS_NEW => WebsiteLeadStatus::TechnicalIssues,
+                TechSupportCase::STATUS_IN_PROGRESS => WebsiteLeadStatus::TechnicalIssues,
+                TechSupportCase::STATUS_RED => WebsiteLeadStatus::PotentialReturn,
+                TechSupportCase::STATUS_RETURN_MACHINE => WebsiteLeadStatus::ApproveReturn,
+                TechSupportCase::STATUS_RESOLVED => WebsiteLeadStatus::Resolve,
                 default => null,
             };
 

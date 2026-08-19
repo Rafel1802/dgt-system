@@ -39,7 +39,7 @@ class WebsiteLeadProductsTest extends TestCase
         ]);
     }
 
-    protected function makeLead(string $status = 'new_lead'): Lead
+    protected function makeLead(string $status = 'new_inquiry'): Lead
     {
         return Lead::create([
             'handled_by'  => $this->user->id,
@@ -55,11 +55,11 @@ class WebsiteLeadProductsTest extends TestCase
         $lead = $this->makeLead();
 
         $response = $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status' => WebsiteLeadStatus::Successful->value,
+            'status' => WebsiteLeadStatus::SuccessfulLead->value,
         ]);
 
         $response->assertStatus(422);
-        $this->assertNotEquals(WebsiteLeadStatus::Successful, $lead->fresh()->status);
+        $this->assertNotEquals(WebsiteLeadStatus::SuccessfulLead, $lead->fresh()->status);
     }
 
     public function test_marking_successful_via_quick_status_with_a_catalog_product_succeeds(): void
@@ -68,7 +68,7 @@ class WebsiteLeadProductsTest extends TestCase
         $product = $this->makeProduct('Excavator X1', 'SKU-X1', 15000);
 
         $response = $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'     => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::SuccessfulLead->value,
             'order_date' => now()->toDateString(),
             'products' => [
                 ['product_id' => $product->id, 'price' => 14500, 'quantity' => 1],
@@ -77,7 +77,7 @@ class WebsiteLeadProductsTest extends TestCase
 
         $response->assertOk();
         $lead->refresh();
-        $this->assertEquals(WebsiteLeadStatus::Successful, $lead->status);
+        $this->assertEquals(WebsiteLeadStatus::SuccessfulLead, $lead->status);
         $this->assertCount(1, $lead->orders);
         $this->assertCount(1, $lead->products);
         $this->assertEquals('Excavator X1', $lead->products[0]->product_name);
@@ -90,7 +90,7 @@ class WebsiteLeadProductsTest extends TestCase
         $lead = $this->makeLead();
 
         $response = $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'     => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::SuccessfulLead->value,
             'order_date' => now()->toDateString(),
             'products' => [
                 ['product_name' => 'Custom Bucket Attachment', 'price' => 300, 'quantity' => 1],
@@ -99,7 +99,7 @@ class WebsiteLeadProductsTest extends TestCase
 
         $response->assertOk();
         $lead->refresh();
-        $this->assertEquals(WebsiteLeadStatus::Successful, $lead->status);
+        $this->assertEquals(WebsiteLeadStatus::SuccessfulLead, $lead->status);
         $this->assertCount(1, $lead->products);
         $this->assertNull($lead->products[0]->product_id);
         $this->assertEquals('Custom Bucket Attachment', $lead->products[0]->product_name);
@@ -119,18 +119,18 @@ class WebsiteLeadProductsTest extends TestCase
 
     public function test_marking_successful_again_on_an_already_successful_lead_adds_a_new_order_instead_of_replacing(): void
     {
-        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+        $lead = $this->makeLead(WebsiteLeadStatus::SuccessfulLead->value);
 
         $firstProduct = $this->makeProduct('First Sale', 'F-1', 100);
         $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'     => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::SuccessfulLead->value,
             'order_date' => now()->toDateString(),
             'products' => [['product_id' => $firstProduct->id, 'price' => 100, 'quantity' => 1]],
         ])->assertOk();
 
         $secondProduct = $this->makeProduct('Second Sale', 'S-1', 200);
         $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'     => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::SuccessfulLead->value,
             'order_date' => now()->toDateString(),
             'products' => [['product_id' => $secondProduct->id, 'price' => 200, 'quantity' => 1]],
         ])->assertOk();
@@ -143,7 +143,7 @@ class WebsiteLeadProductsTest extends TestCase
 
     public function test_store_order_logs_a_new_order_on_an_existing_lead(): void
     {
-        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+        $lead = $this->makeLead(WebsiteLeadStatus::SuccessfulLead->value);
         $product = $this->makeProduct('Repeat Purchase', 'RP-1', 750);
 
         $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
@@ -159,7 +159,7 @@ class WebsiteLeadProductsTest extends TestCase
 
     public function test_store_order_allows_a_manually_typed_product_with_no_catalog_match(): void
     {
-        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+        $lead = $this->makeLead(WebsiteLeadStatus::SuccessfulLead->value);
 
         $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
             'order_date' => now()->toDateString(),
@@ -175,7 +175,7 @@ class WebsiteLeadProductsTest extends TestCase
 
     public function test_store_order_requires_at_least_one_product(): void
     {
-        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+        $lead = $this->makeLead(WebsiteLeadStatus::SuccessfulLead->value);
 
         $response = $this->actingAs($this->user)->postJson(route('crm.website.orders.store', $lead), [
             'order_date' => now()->toDateString(),
@@ -187,7 +187,7 @@ class WebsiteLeadProductsTest extends TestCase
 
     public function test_store_order_does_not_delete_previous_orders(): void
     {
-        $lead = $this->makeLead(WebsiteLeadStatus::Successful->value);
+        $lead = $this->makeLead(WebsiteLeadStatus::SuccessfulLead->value);
         $productA = $this->makeProduct('Order A Item');
         $productB = $this->makeProduct('Order B Item');
 
@@ -219,12 +219,12 @@ class WebsiteLeadProductsTest extends TestCase
         $response = $this->actingAs($this->user)->put(route('crm.website.update', $lead), [
             'client_name' => 'Test Client',
             'source'      => InquirySource::Website->value,
-            'status'      => WebsiteLeadStatus::Successful->value,
+            'status'      => WebsiteLeadStatus::SuccessfulLead->value,
         ]);
 
         $response->assertRedirect(route('crm.website.show', $lead));
         $lead->refresh();
-        $this->assertEquals(WebsiteLeadStatus::Successful, $lead->status);
+        $this->assertEquals(WebsiteLeadStatus::SuccessfulLead, $lead->status);
         $this->assertCount(0, $lead->products);
     }
 
@@ -233,7 +233,7 @@ class WebsiteLeadProductsTest extends TestCase
         $lead = $this->makeLead();
         $product = $this->makeProduct('Excavator X1', 'SKU-X1', 15000);
         $this->actingAs($this->user)->patchJson(route('crm.website.status', $lead), [
-            'status'     => WebsiteLeadStatus::Successful->value,
+            'status'     => WebsiteLeadStatus::SuccessfulLead->value,
             'order_date' => now()->toDateString(),
             'products' => [['product_id' => $product->id, 'price' => 14500, 'quantity' => 1]],
         ])->assertOk();

@@ -39,7 +39,7 @@ class ShipmentProblemPropagationTest extends TestCase
             'client_name' => 'Alice Chen',
             'client_email' => 'alice@email.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::Successful->value,
+            'status' => WebsiteLeadStatus::SuccessfulLead->value,
             'received_at' => now(),
         ]);
 
@@ -79,14 +79,14 @@ class ShipmentProblemPropagationTest extends TestCase
             ]
         )->assertRedirect(route('crm.logistics.shipments.show', $shipment));
 
-        $this->assertEquals(WebsiteLeadStatus::DelayedShipment, $lead->fresh()->status);
+        $this->assertEquals(WebsiteLeadStatus::PendingDelivery, $lead->fresh()->status);
         $this->assertTrue($ebayRecord->fresh()->shipment_delay);
         $this->assertTrue($customer->fresh()->shipment_delay);
 
         // Lead's status change should be recorded in its follow-up/status history timeline
         $this->assertDatabaseHas('lead_follow_ups', [
             'lead_id' => $lead->id,
-            'status_changed_to' => WebsiteLeadStatus::DelayedShipment->value,
+            'status_changed_to' => WebsiteLeadStatus::PendingDelivery->value,
         ]);
     }
 
@@ -199,7 +199,7 @@ class ShipmentProblemPropagationTest extends TestCase
             'client_name' => 'Delayed Lead',
             'client_email' => 'delayed@email.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::DelayedShipment->value,
+            'status' => WebsiteLeadStatus::PendingDelivery->value,
             'received_at' => now(),
         ]);
 
@@ -233,7 +233,7 @@ class ShipmentProblemPropagationTest extends TestCase
             'client_name' => 'Delayed Lead Two',
             'client_email' => 'delayed2@email.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::DelayedShipment->value,
+            'status' => WebsiteLeadStatus::PendingDelivery->value,
             'received_at' => now(),
         ]);
 
@@ -256,7 +256,7 @@ class ShipmentProblemPropagationTest extends TestCase
             ]
         )->assertRedirect(route('crm.logistics.shipments.show', $shipment));
 
-        $this->assertEquals(WebsiteLeadStatus::InDelivery, $lead->fresh()->status);
+        $this->assertEquals(WebsiteLeadStatus::PendingDelivery, $lead->fresh()->status);
     }
 
     public function test_resolving_one_of_two_problem_shipments_keeps_the_flag_set(): void
@@ -336,7 +336,7 @@ class ShipmentProblemPropagationTest extends TestCase
             'client_name' => 'Delivery Sync Lead',
             'client_email' => 'delivered@example.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::InDelivery->value,
+            'status' => WebsiteLeadStatus::PendingDelivery->value,
             'received_at' => now(),
         ]);
 
@@ -374,7 +374,7 @@ class ShipmentProblemPropagationTest extends TestCase
             'client_name' => 'Already Lost Lead',
             'client_email' => 'lost@example.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::Lost->value,
+            'status' => WebsiteLeadStatus::LostInterestInterest->value,
             'received_at' => now(),
         ]);
 
@@ -397,7 +397,7 @@ class ShipmentProblemPropagationTest extends TestCase
             ]
         )->assertRedirect(route('crm.logistics.shipments.show', $shipment));
 
-        $this->assertEquals(WebsiteLeadStatus::Lost, $lead->fresh()->status);
+        $this->assertEquals(WebsiteLeadStatus::LostInterestInterest, $lead->fresh()->status);
     }
 
     /** /crm/customers should show "Delivered" as the status once the matched lead updates. */

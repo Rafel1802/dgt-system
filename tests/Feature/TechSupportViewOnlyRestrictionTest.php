@@ -53,7 +53,7 @@ class TechSupportViewOnlyRestrictionTest extends TestCase
             'customer_id' => $customer->id,
             'client_name' => 'John Doe',
             'source' => 'whatsapp',
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
             'handled_by' => $this->adminUser->id
         ]);
@@ -123,7 +123,7 @@ class TechSupportViewOnlyRestrictionTest extends TestCase
             'customer_id' => $customer->id,
             'client_name' => 'John Doe',
             'source' => 'whatsapp',
-            'status' => WebsiteLeadStatus::NewLead->value,
+            'status' => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
             'handled_by' => $this->adminUser->id
         ]);
