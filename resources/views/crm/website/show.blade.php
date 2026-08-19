@@ -504,7 +504,7 @@ function leadProfile(leadId, catalog) {
     },
 
     updateStatus(newStatus) {
-      if (newStatus === 'successful') {
+      if (newStatus === 'successful_lead') {
         this.pendingStatus = newStatus;
         this.orderModalPurpose = 'successful';
         this.lines = [{ product_id: null, product_name: '', price: '', quantity: 1 }];
@@ -512,7 +512,7 @@ function leadProfile(leadId, catalog) {
         this.showOrderModal = true;
         return;
       }
-      if (newStatus === 'technical_support') {
+      if (newStatus === 'technical_issues') {
         this.pendingStatus = newStatus;
         this.techNote = '';
         this.showTechNoteModal = true;

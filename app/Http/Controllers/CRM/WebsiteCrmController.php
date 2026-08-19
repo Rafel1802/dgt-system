@@ -184,6 +184,21 @@ class WebsiteCrmController extends Controller
         $validated['client_phone'] = ($validated['client_phone'] ?? null) ?: ($customer->phone ?? null);
         $validated['client_email'] = ($validated['client_email'] ?? null) ?: ($customer->email ?? null);
         $validated['client_whatsapp'] = ($validated['client_whatsapp'] ?? null) ?: ($customer->whatsapp ?? null);
+
+        // Prevent creating duplicate leads
+        $phone = $validated['client_phone'];
+        $email = $validated['client_email'];
+
+        $existingLead = Lead::where('customer_id', $customer->id)
+            ->when($phone, fn($q) => $q->orWhere('client_phone', $phone))
+            ->when($email, fn($q) => $q->orWhere('client_email', $email))
+            ->first();
+
+        if ($existingLead) {
+            return back()->withInput()->withErrors([
+                'customer_id' => 'A lead for this customer (or with this phone/email) already exists.'
+            ]);
+        }
         
         $lead = Lead::create([
             ...$validated,
@@ -359,8 +374,8 @@ class WebsiteCrmController extends Controller
         $validated = $request->validate([
             'status'                  => ['required', Rule::enum(WebsiteLeadStatus::class)],
             'note'                    => ['nullable', 'string'],
-            'order_date'              => ['required_if:status,successful', 'nullable', 'date'],
-            'issue_date'              => ['required_if:status,technical_support', 'nullable', 'date'],
+            'order_date'              => ['required_if:status,successful_lead', 'nullable', 'date'],
+            'issue_date'              => ['required_if:status,technical_issues', 'nullable', 'date'],
             'products'                => ['nullable', 'array'],
             'products.*.product_id'   => ['nullable', 'exists:products,id'],
             'products.*.product_name' => ['nullable', 'string', 'max:255'],
