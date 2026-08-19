@@ -46,13 +46,6 @@ class CrmDashboardController extends Controller
                 'pipeline'       => $this->getWebsitePipeline(),
             ];
 
-            $ebayStats = [
-                'new_inquiries'   => EbayOffer::where('status', EbayLeadStatus::Inquiry->value)->count(),
-                'waiting_auth'    => EbayOffer::waitingAuthorization()->count(),
-                'converted'       => EbayOffer::where('status', EbayLeadStatus::ConvertedLead->value)->count(),
-                'orders_confirmed'=> EbayOffer::where('status', EbayLeadStatus::OrderConfirmed->value)->count(),
-            ];
-
             $logisticStats = [
                 'waiting_verify' => Logistic::where('status', LogisticStatus::OrderConfirmed->value)->count(),
                 'truck_searching'=> Logistic::where('status', LogisticStatus::TruckSearching->value)->count(),
@@ -83,7 +76,7 @@ class CrmDashboardController extends Controller
             ];
 
             return compact(
-                'websiteStats', 'ebayStats', 'logisticStats',
+                'websiteStats', 'logisticStats',
                 'dedupedCustomers', 'techIssuesOpen', 'negFeedbackOpen', 'activeShipments',
                 'truckingCompanyCount', 'ebayStoreCount', 'pendingCallRequests',
                 'statusChart', 'shipmentChart'
@@ -93,10 +86,8 @@ class CrmDashboardController extends Controller
         // Fresh activity feeds (small, limit 5) — not cached so they stay live.
         $recentLeads   = Lead::with(['handler:id,name', 'product:id,name'])
             ->latest('received_at')->limit(5)->get();
-        $recentOffers  = EbayOffer::with(['handler:id,name', 'product:id,name'])
-            ->latest()->limit(5)->get();
 
-        return view('crm.dashboard', array_merge($cached, compact('recentLeads', 'recentOffers')));
+        return view('crm.dashboard', array_merge($cached, compact('recentLeads')));
     }
 
     private function getWebsitePipeline(): array

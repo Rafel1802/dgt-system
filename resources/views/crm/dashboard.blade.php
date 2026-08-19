@@ -37,8 +37,8 @@
     </div>
   </div>
 
-  {{-- ── 3-Panel Stats Row ────────────────────────────────────────────────── --}}
-  <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+  {{-- ── 2-Panel Stats Row ────────────────────────────────────────────────── --}}
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
 
     {{-- Website CRM Panel --}}
     <div class="card border-t-4" style="border-top-color:#6366f1">
@@ -85,47 +85,6 @@
       </a>
     </div>
 
-    {{-- eBay CRM Panel --}}
-    <div class="card border-t-4" style="border-top-color:#f59e0b">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h3 class="font-display font-bold text-slate-800">🛒 eBay CRM</h3>
-          <p class="text-xs text-slate-400">Offers & authorization</p>
-        </div>
-        <a href="{{ route('crm.ebay.create') }}" class="btn btn-primary text-xs py-1.5 px-3 bg-amber-500 hover:bg-amber-600" id="btn-new-offer">+ Log Offer</a>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div class="bg-slate-50 rounded-xl p-3 text-center">
-          <div class="text-2xl font-bold text-slate-700">{{ $ebayStats['new_inquiries'] }}</div>
-          <div class="text-xs text-slate-500 mt-0.5">New Inquiries</div>
-        </div>
-        <div class="bg-amber-50 rounded-xl p-3 text-center">
-          <div class="text-2xl font-bold text-amber-600">{{ $ebayStats['waiting_auth'] }}</div>
-          <div class="text-xs text-slate-500 mt-0.5">⏳ Awaiting Auth</div>
-        </div>
-        <div class="bg-emerald-50 rounded-xl p-3 text-center">
-          <div class="text-2xl font-bold text-emerald-600">{{ $ebayStats['converted'] }}</div>
-          <div class="text-xs text-slate-500 mt-0.5">Converted</div>
-        </div>
-        <div class="bg-green-50 rounded-xl p-3 text-center">
-          <div class="text-2xl font-bold text-green-600">{{ $ebayStats['orders_confirmed'] }}</div>
-          <div class="text-xs text-slate-500 mt-0.5">Orders Confirmed</div>
-        </div>
-      </div>
-      @if($ebayStats['waiting_auth'] > 0)
-      <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2">
-        <span class="text-amber-600 text-lg">⚠️</span>
-        <div>
-          <p class="text-xs font-semibold text-amber-800">{{ $ebayStats['waiting_auth'] }} offer(s) need authorization</p>
-          <a href="{{ route('crm.ebay.index', ['auth_status' => 'pending']) }}" class="text-xs text-amber-700 underline">Review now →</a>
-        </div>
-      </div>
-      @endif
-      <a href="{{ route('crm.ebay.index') }}" class="mt-4 text-xs text-amber-600 hover:text-amber-800 font-semibold flex items-center gap-1">
-        View All eBay Offers →
-      </a>
-    </div>
-
     {{-- Logistic CRM Panel --}}
     <div class="card border-t-4" style="border-top-color:#10b981">
       <div class="flex items-center justify-between mb-4">
@@ -160,7 +119,7 @@
   </div>
 
   {{-- ── Recent Activity Row ────────────────────────────────────────────────── --}}
-  <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+  <div class="grid grid-cols-1 gap-5">
 
     {{-- Recent Leads --}}
     <div class="card p-0 overflow-hidden">
@@ -185,30 +144,6 @@
         </a>
         @empty
         <p class="text-center text-slate-400 text-sm py-6">No leads yet.</p>
-        @endforelse
-      </div>
-    </div>
-
-    {{-- Recent eBay Offers --}}
-    <div class="card p-0 overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h4 class="font-semibold text-slate-700 text-sm">Recent eBay Offers</h4>
-        <a href="{{ route('crm.ebay.index') }}" class="text-xs text-amber-600 hover:underline">View all</a>
-      </div>
-      <div class="divide-y divide-slate-50">
-        @forelse($recentOffers as $offer)
-        <a href="{{ route('crm.ebay.show', $offer) }}" class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
-          <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-xs font-bold shrink-0">
-            {{ strtoupper(substr($offer->client_name ?? $offer->ebay_username ?? '?', 0, 1)) }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-slate-800 truncate">{{ $offer->client_name ?? $offer->ebay_username }}</p>
-            <p class="text-xs text-slate-400">{{ $offer->offer_amount ? '$'.number_format($offer->offer_amount) : 'No amount' }} · {{ $offer->received_at?->diffForHumans() }}</p>
-          </div>
-          <span class="badge badge-amber text-[10px]">{{ $offer->authorization_status?->label() }}</span>
-        </a>
-        @empty
-        <p class="text-center text-slate-400 text-sm py-6">No offers yet.</p>
         @endforelse
       </div>
     </div>

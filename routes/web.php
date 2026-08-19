@@ -456,9 +456,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
                 // ── eBay CRM ──────────────────────────────────────────────
                 Route::prefix('ebay')->name('ebay.')->group(function () {
-                    Route::get('/', [EbayCrmController::class, 'index'])->name('index');
-                    Route::get('/create', [EbayCrmController::class, 'create'])->name('create');
-                    Route::post('/', [EbayCrmController::class, 'store'])->name('store');
+                    Route::get('/', fn () => redirect()->route('crm.ebay.customers.index'))->name('index');
                     // eBay Stores
                     Route::prefix('stores')->name('stores.')->group(function () {
                         Route::get('/', [EbayStoreController::class, 'index'])->name('index');
@@ -495,13 +493,6 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::post('/bulk-destroy', [EbayCustomerController::class, 'bulkDestroy'])->name('bulk-destroy');
                         Route::post('/handler-history/{entry}/confirm', [EbayCustomerController::class, 'confirmHandler'])->name('handler-history.confirm');
                     });
-
-                    Route::get('/{offer}', [EbayCrmController::class, 'show'])->name('show');
-                    Route::get('/{offer}/edit', [EbayCrmController::class, 'edit'])->name('edit');
-                    Route::put('/{offer}', [EbayCrmController::class, 'update'])->name('update');
-                    Route::delete('/{offer}', [EbayCrmController::class, 'destroy'])->name('destroy');
-                    Route::post('/{offer}/authorize', [EbayCrmController::class, 'authorizeOffer'])->name('authorize');
-                    Route::post('/{offer}/convert', [EbayCrmController::class, 'convertToOrder'])->name('convert');
                 });
 
                 // ── Logistic CRM ──────────────────────────────────────────
