@@ -1104,6 +1104,22 @@ class WebsiteController extends Controller
 
             $followUps = $query->latest()->get();
 
+            if ($format === 'text') {
+                $textLines = [];
+                foreach ($followUps as $index => $item) {
+                    $num = $index + 1;
+                    $websiteName = $item->website->name;
+                    $className = $item->website->category ?? 'Unknown';
+                    $url = $item->url;
+                    $handleBy = $item->assignee ? $item->assignee->name : 'Unassigned';
+                    $date = $item->created_at->format('d M Y');
+                    $textLines[] = "{$num}.{$websiteName}({$className}) : {$url} , Handle by: {$handleBy} , Date: {$date}";
+                }
+                return response()->json([
+                    'success' => true,
+                    'text' => implode("\n", $textLines)
+                ]);
+            }
             if ($format === 'csv') {
                 return $this->exportFollowUpsCsv($followUps);
             }

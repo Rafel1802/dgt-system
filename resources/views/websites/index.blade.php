@@ -2918,13 +2918,49 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.export') }}" method="GET" target="_blank" x-data="{ format: 'csv' }" data-turbo="false" data-no-processing="true" class="p-6 space-y-6">
+        <form action="{{ route('websites.export') }}" method="GET" target="_blank" 
+              x-data="{ 
+                  format: 'csv',
+                  textPreview: '',
+                  showPreview: false,
+                  loadingPreview: false,
+                  async fetchPreview(e) {
+                      if (this.format !== 'text') return true;
+                      e.preventDefault();
+                      this.loadingPreview = true;
+                      
+                      const formData = new FormData(e.target);
+                      const params = new URLSearchParams(formData).toString();
+                      
+                      try {
+                          const res = await fetch(`{{ route('websites.export') }}?${params}`, {
+                              headers: { 'Accept': 'application/json' }
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                              this.textPreview = data.text;
+                              this.showPreview = true;
+                          }
+                      } catch (err) {
+                          console.error(err);
+                          window.showToast?.('Failed to generate preview', 'error');
+                      } finally {
+                          this.loadingPreview = false;
+                      }
+                  },
+                  copyText() {
+                      navigator.clipboard.writeText(this.textPreview);
+                      window.showToast?.('Copied to clipboard!', 'success');
+                  }
+              }" 
+              @submit="fetchPreview"
+              data-turbo="false" data-no-processing="true" class="p-6 space-y-6">
             <input type="hidden" name="tab" value="{{ $tab }}">
             {{-- Format Selection --}}
             <div>
                 <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-3">Select Format</label>
                 <input type="hidden" name="format" x-model="format">
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <label class="cursor-pointer">
                         <input type="radio" name="format_radio" value="csv" x-model="format" class="sr-only">
                         <div class="p-4 border-2 rounded-2xl flex items-center gap-4 transition-all"
@@ -2951,6 +2987,21 @@
                             <div>
                                 <div class="font-bold text-slate-800 dark:text-slate-100">PDF Report</div>
                                 <div class="text-[10px] text-slate-500">Printable document</div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="cursor-pointer">
+                        <input type="radio" name="format_radio" value="text" x-model="format" class="sr-only">
+                        <div class="p-4 border-2 rounded-2xl flex items-center gap-4 transition-all"
+                             :class="format === 'text' ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 shadow-sm' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300 bg-white dark:bg-slate-800'">
+                            <div class="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center transition-colors"
+                                 :class="format === 'text' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500 dark:bg-slate-700'">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-800 dark:text-slate-100">Text (Copy)</div>
+                                <div class="text-[10px] text-slate-500">Copy to clipboard</div>
                             </div>
                         </div>
                     </label>
@@ -2987,12 +3038,24 @@
                     </div>
                 </div>
             </div>
+            {{-- Preview Area --}}
+            <div x-show="showPreview && format === 'text'" x-cloak>
+                <div class="relative bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+                    <button type="button" @click="copyText" class="absolute top-3 right-3 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-indigo-600 shadow-sm transition-colors" title="Copy to clipboard">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" /></svg>
+                    </button>
+                    <textarea readonly x-model="textPreview" class="w-full h-40 bg-transparent border-0 p-0 text-sm font-mono text-slate-700 dark:text-slate-300 resize-none focus:ring-0"></textarea>
+                </div>
+            </div>
             
             <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showExportModal = false" class="btn btn-cancel btn-secondary text-sm px-5">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-200" @click="setTimeout(() => showExportModal = false, 300)">
-                    <svg class="w-4 h-4 mr-1.5 inline" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                    <span x-text="format === 'pdf' ? 'Download PDF' : 'Download CSV'"></span>
+                <button type="button" @click="showExportModal = false; showPreview = false" class="btn btn-cancel btn-secondary text-sm px-5">Cancel</button>
+                <button type="submit" class="btn btn-primary text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-200" 
+                        :class="loadingPreview ? 'opacity-70 cursor-not-allowed' : ''"
+                        @click="if(format !== 'text') setTimeout(() => showExportModal = false, 300)">
+                    <svg x-show="loadingPreview" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <svg x-show="!loadingPreview" class="w-4 h-4 mr-1.5 inline" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    <span x-text="format === 'pdf' ? 'Download PDF' : (format === 'csv' ? 'Download CSV' : 'Preview')"></span>
                 </button>
             </div>
         </form>
