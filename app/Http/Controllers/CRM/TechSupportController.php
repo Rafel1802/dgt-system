@@ -134,9 +134,12 @@ class TechSupportController extends Controller
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(array_keys(TechSupportCase::statuses()))],
+            'note'   => ['required_if:status,' . TechSupportCase::STATUS_RESOLVED, 'nullable', 'string'],
+        ], [
+            'note.required_if' => 'A resolution note is required when resolving a case.',
         ]);
 
-        $this->service->changeStatus($case, $validated['status'], auth()->user());
+        $this->service->changeStatus($case, $validated['status'], auth()->user(), $validated['note'] ?? null);
         Cache::forget('tech_support.index_stats');
 
         $case->refresh();

@@ -189,7 +189,7 @@ class TechSupportCaseService
      * In Progress = acknowledged (clears the "new case" notification unread
      * state), Resolved = stamps resolved_at and triggers the eBay sync.
      */
-    public function changeStatus(TechSupportCase $case, string $newStatus, ?User $actor = null): TechSupportCase
+    public function changeStatus(TechSupportCase $case, string $newStatus, ?User $actor = null, ?string $note = null): TechSupportCase
     {
         $oldStatus = $case->status;
         if ($oldStatus === $newStatus) {
@@ -229,6 +229,15 @@ class TechSupportCaseService
             $this->logActivity($case->customer_id, 'Case Resolved', 'Technical support case marked resolved.');
             $this->syncToEbay($case);
             $this->syncLeadResolved($case);
+
+            if ($note) {
+                TechSupportCaseLog::create([
+                    'tech_support_case_id' => $case->id,
+                    'user_id'              => $actor?->id,
+                    'type'                 => TechSupportCaseLog::TYPE_RESOLVED,
+                    'note'                 => $note,
+                ]);
+            }
         } elseif ($oldStatus === TechSupportCase::STATUS_RESOLVED) {
             // Case reopened (Resolved → In Progress / Red Case / New) — undo
             // the eBay sync so the record shows as Technical Issues again

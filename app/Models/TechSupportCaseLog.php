@@ -11,6 +11,7 @@ class TechSupportCaseLog extends Model
     const TYPE_FOLLOW_UP      = 'follow_up';
     const TYPE_CALL_COMPLETED = 'call_completed';
     const TYPE_REOPENED       = 'reopened';
+    const TYPE_RESOLVED       = 'resolved';
 
     protected $fillable = [
         'tech_support_case_id', 'user_id', 'type', 'note',

@@ -37,13 +37,34 @@
 
   async changeStatus(newStatus) {
     if (this.statusLoading || newStatus === this.currentStatus) return;
+
+    let note = null;
+    if (newStatus === 'resolved') {
+      note = prompt('Please enter a resolution note (required):');
+      if (note === null) {
+        return; // User cancelled
+      }
+      note = note.trim();
+      if (!note) {
+        alert('Resolution note is required to mark the case resolved.');
+        return;
+      }
+    }
+
     this.statusLoading = true;
     const previous = this.currentStatus;
     this.currentStatus = newStatus;
     try {
-      const data = await window.api('{{ route('crm.tech-support.status', $case) }}', { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
+      const data = await window.api('{{ route('crm.tech-support.status', $case) }}', {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus, note: note })
+      });
       this.currentStatus = data.status || newStatus;
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
+      // Reload page to show the newly added "Case Resolved" log entry
+      if (newStatus === 'resolved') {
+        window.location.reload();
+      }
     } catch (err) {
       this.currentStatus = previous;
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
@@ -268,8 +289,8 @@
           @forelse($case->logs as $log)
           <div class="border border-slate-100 rounded-xl p-3">
             <div class="flex items-center gap-2 mb-1 flex-wrap">
-              <span class="badge text-xs px-2 py-0.5 rounded-full {{ match($log->type) { 'call_completed' => 'bg-emerald-50 text-emerald-700', 'reopened' => 'bg-amber-50 text-amber-700', default => 'bg-slate-100 text-slate-600' } }}">
-                {{ match($log->type) { 'call_completed' => '📞 Call Completed', 'reopened' => '🔁 New Issue Reported', default => '📝 Follow-Up' } }}
+              <span class="badge text-xs px-2 py-0.5 rounded-full {{ match($log->type) { 'call_completed' => 'bg-emerald-50 text-emerald-700', 'reopened' => 'bg-amber-50 text-amber-700', 'resolved' => 'bg-sky-50 text-sky-700', default => 'bg-slate-100 text-slate-600' } }}">
+                {{ match($log->type) { 'call_completed' => '📞 Call Completed', 'reopened' => '🔁 New Issue Reported', 'resolved' => '✅ Case Resolved', default => '📝 Follow-Up' } }}
               </span>
               <span class="text-xs text-slate-400 ml-auto">{{ $log->created_at->format('d M Y, g:ia') }}</span>
             </div>

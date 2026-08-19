@@ -264,7 +264,7 @@ class TechSupportTest extends TestCase
 
         $this->actingAs($this->tech)->patchJson(
             route('crm.tech-support.status', $case),
-            ['status' => TechSupportCase::STATUS_RESOLVED]
+            ['status' => TechSupportCase::STATUS_RESOLVED, 'note' => 'Test resolution note.']
         )->assertOk();
 
         $this->assertTrue($ebayRecord->fresh()->tech_resolved);
@@ -301,7 +301,7 @@ class TechSupportTest extends TestCase
 
         $this->actingAs($this->tech)->patchJson(
             route('crm.tech-support.status', $case),
-            ['status' => TechSupportCase::STATUS_RESOLVED]
+            ['status' => TechSupportCase::STATUS_RESOLVED, 'note' => 'Test resolution note.']
         )->assertOk();
 
         $lead->refresh();
@@ -343,7 +343,7 @@ class TechSupportTest extends TestCase
         $case = TechSupportCase::where('source_type', Lead::class)->where('source_id', $lead->id)->firstOrFail();
         $this->actingAs($this->tech)->patchJson(
             route('crm.tech-support.status', $case),
-            ['status' => TechSupportCase::STATUS_RESOLVED]
+            ['status' => TechSupportCase::STATUS_RESOLVED, 'note' => 'Test resolution note.']
         )->assertOk();
         $this->assertTrue($lead->fresh()->tech_resolved);
 
