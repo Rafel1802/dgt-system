@@ -174,13 +174,21 @@ class TechSupportCaseService
         }
 
         foreach ($recipients as $recipient) {
-            InstantNotifier::send($recipient, new GenericDatabaseNotification([
+            $notification = new GenericDatabaseNotification([
                 'module'  => 'crm',
                 'type'    => $type,
                 'case_id' => $case->id,
                 'message' => $message,
                 'link'    => route('crm.tech-support.show', $case),
-            ]));
+            ]);
+
+            if ($case->assigned_to) {
+                if ((int) $recipient->id === (int) $case->assigned_to) {
+                    InstantNotifier::send($recipient, $notification);
+                }
+            } else {
+                $recipient->notify($notification);
+            }
         }
     }
 

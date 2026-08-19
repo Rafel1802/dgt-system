@@ -15,112 +15,7 @@
       'created_at' => $cr->created_at?->format('d M Y, g:ia'),
   ])->all();
 @endphp
-<div class="animate-fade-in" x-data="{
-  statusLoading: false,
-  assignLoading: false,
-  followUpLoading: false,
-  requestCallLoading: false,
-  showFollowUp: false,
-  showRequestCall: false,
-  requestCallNote: '',
-  currentStatus: @js($case->status),
-  statusLabels: @js($statuses),
-  statusColors: @js($statusColors),
-  pendingCalls: @js($initialPendingCalls),
-
-  colorFor(status) {
-    return (this.statusColors && this.statusColors[status]) ? this.statusColors[status] : '#94a3b8';
-  },
-  labelFor(status) {
-    return (this.statusLabels && this.statusLabels[status]) ? this.statusLabels[status] : status;
-  },
-
-  async changeStatus(newStatus) {
-    if (this.statusLoading || newStatus === this.currentStatus) return;
-
-    let note = null;
-    if (newStatus === 'resolved') {
-      note = prompt('Please enter a resolution note (required):');
-      if (note === null) {
-        return; // User cancelled
-      }
-      note = note.trim();
-      if (!note) {
-        alert('Resolution note is required to mark the case resolved.');
-        return;
-      }
-    }
-
-    this.statusLoading = true;
-    const previous = this.currentStatus;
-    this.currentStatus = newStatus;
-    try {
-      const data = await window.api('{{ route('crm.tech-support.status', $case) }}', {
-        method: 'PATCH',
-        body: JSON.stringify({ status: newStatus, note: note })
-      });
-      this.currentStatus = data.status || newStatus;
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
-      // Reload page to show the newly added "Case Resolved" log entry
-      if (newStatus === 'resolved') {
-        window.location.reload();
-      }
-    } catch (err) {
-      this.currentStatus = previous;
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
-    } finally { this.statusLoading = false; }
-  },
-
-  async assignTechnician(event) {
-    this.assignLoading = true;
-    try {
-      const userId = new FormData(event.target).get('user_id');
-      await window.api(event.target.action, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Case assigned!', type: 'success' } }));
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
-    } finally { this.assignLoading = false; }
-  },
-
-  async submitFollowUp(event) {
-    this.followUpLoading = true;
-    try {
-      const fd = new FormData(event.target);
-      const res = await fetch(event.target.action, {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': window.csrf(), 'Accept': 'application/json' },
-        body: fd,
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Failed.');
-      }
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up added!', type: 'success' } }));
-      if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
-    } finally { this.followUpLoading = false; }
-  },
-
-  async requestCall() {
-    if (!this.requestCallNote.trim()) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A note is required so CRM Website knows why to call.', type: 'error' } }));
-      return;
-    }
-    this.requestCallLoading = true;
-    try {
-      const data = await window.api('{{ route('crm.tech-support.request-call', $case) }}', { method: 'POST', body: JSON.stringify({ note: this.requestCallNote }) });
-      if (data.call_request) {
-        this.pendingCalls.unshift(data.call_request);
-      }
-      this.requestCallNote = '';
-      this.showRequestCall = false;
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Call requested!', type: 'success' } }));
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
-    } finally { this.requestCallLoading = false; }
-  },
-}">
+<div class="animate-fade-in" x-data="techSupportCase">
 
 
 
@@ -380,3 +275,125 @@
   </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+  (function() {
+    const init = () => {
+      Alpine.data('techSupportCase', () => ({
+        statusLoading: false,
+        assignLoading: false,
+        followUpLoading: false,
+        requestCallLoading: false,
+        showFollowUp: false,
+        showRequestCall: false,
+        requestCallNote: '',
+        currentStatus: @js($case->status),
+        statusLabels: @js($statuses),
+        statusColors: @js($statusColors),
+        pendingCalls: @js($initialPendingCalls),
+
+        colorFor(status) {
+          return (this.statusColors && this.statusColors[status]) ? this.statusColors[status] : '#94a3b8';
+        },
+        labelFor(status) {
+          return (this.statusLabels && this.statusLabels[status]) ? this.statusLabels[status] : status;
+        },
+
+        async changeStatus(newStatus) {
+          if (this.statusLoading || newStatus === this.currentStatus) return;
+
+          let note = null;
+          if (newStatus === 'resolved') {
+            note = prompt('Please enter a resolution note (required):');
+            if (note === null) {
+              return; // User cancelled
+            }
+            note = note.trim();
+            if (!note) {
+              alert('Resolution note is required to mark the case resolved.');
+              return;
+            }
+          }
+
+          this.statusLoading = true;
+          const previous = this.currentStatus;
+          this.currentStatus = newStatus;
+          try {
+            const data = await window.api('{{ route('crm.tech-support.status', $case) }}', {
+              method: 'PATCH',
+              body: JSON.stringify({ status: newStatus, note: note })
+            });
+            this.currentStatus = data.status || newStatus;
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
+            // Reload page to show the newly added "Case Resolved" log entry
+            if (newStatus === 'resolved') {
+              window.location.reload();
+            }
+          } catch (err) {
+            this.currentStatus = previous;
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+          } finally { this.statusLoading = false; }
+        },
+
+        async assignTechnician(event) {
+          this.assignLoading = true;
+          try {
+            const userId = new FormData(event.target).get('user_id');
+            await window.api(event.target.action, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Case assigned!', type: 'success' } }));
+          } catch (err) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+          } finally { this.assignLoading = false; }
+        },
+
+        async submitFollowUp(event) {
+          this.followUpLoading = true;
+          try {
+            const fd = new FormData(event.target);
+            const res = await fetch(event.target.action, {
+              method: 'POST',
+              headers: { 'X-CSRF-TOKEN': window.csrf(), 'Accept': 'application/json' },
+              body: fd,
+            });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.message || 'Failed.');
+            }
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up added!', type: 'success' } }));
+            if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
+          } catch (err) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+          } finally { this.followUpLoading = false; }
+        },
+
+        async requestCall() {
+          if (!this.requestCallNote.trim()) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A note is required so CRM Website knows why to call.', type: 'error' } }));
+            return;
+          }
+          this.requestCallLoading = true;
+          try {
+            const data = await window.api('{{ route('crm.tech-support.request-call', $case) }}', { method: 'POST', body: JSON.stringify({ note: this.requestCallNote }) });
+            if (data.call_request) {
+              this.pendingCalls.unshift(data.call_request);
+            }
+            this.requestCallNote = '';
+            this.showRequestCall = false;
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Call requested!', type: 'success' } }));
+          } catch (err) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+          } finally { this.requestCallLoading = false; }
+        }
+      }));
+    };
+
+    if (window.Alpine) {
+      init();
+    } else {
+      document.addEventListener('alpine:init', init);
+    }
+  })();
+</script>
+@endpush
+
