@@ -480,6 +480,16 @@ class CustomerController extends Controller
         }
 
         $this->crmService->updateCustomer($customer, $validated, auth()->user());
+        
+        if ($previousStatus !== $customer->status) {
+            \App\Support\CrmTeamNotifier::notifyStatusChange(
+                $customer,
+                $previousStatus instanceof \BackedEnum ? $previousStatus->value : $previousStatus,
+                $customer->status instanceof \BackedEnum ? $customer->status->value : $customer->status,
+                auth()->user(),
+                'Sales Team'
+            );
+        }
 
         if (! empty($changes)) {
             $this->logActivity(

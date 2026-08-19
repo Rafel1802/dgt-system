@@ -433,6 +433,7 @@
     @endforeach
   </datalist>
 </div>
+@include('crm.partials.live-status-updater', ['type' => 'ebay', 'id' => $record->id])
 @endsection
 
 @push('scripts')

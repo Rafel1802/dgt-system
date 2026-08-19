@@ -92,20 +92,164 @@ class CrmTeamNotifier
         self::sendToRoles([...$queue->notifyRoles(), ...self::ADMIN_ROLES], 'customer_routed', $message, route('crm.customers.show', $customer), $actor->id);
     }
 
-    private static function sendToRoles(array $roles, string $type, string $message, string $link, ?int $excludeUserId = null): void
+    public static function notifyStatusChange(\Illuminate\Database\Eloquent\Model $record, string $previousStatus, string $newStatus, User $actor, string $teamName): void
     {
-        $recipients = User::role($roles)->where('is_active', true)->get();
+        $roles = self::ADMIN_ROLES;
+        $userIds = [];
+        $link = '#';
+        $message = '';
+
+        if ($record instanceof \App\Models\TechSupportCase) {
+            $roles = array_merge($roles, ['tech-support']);
+            $link = route('crm.tech-support.show', $record);
+            
+            $prevLabel = \App\Models\TechSupportCase::statuses()[$previousStatus] ?? $previousStatus;
+            $newLabel = \App\Models\TechSupportCase::statuses()[$newStatus] ?? $newStatus;
+            
+            $message = sprintf(
+                '%s (%s) changed Tech Support Case #%d status from "%s" to "%s".',
+                $actor->name, $teamName, $record->id, $prevLabel, $newLabel
+            );
+            
+            if ($record->assigned_to) $userIds[] = $record->assigned_to;
+            if ($record->created_by) $userIds[] = $record->created_by;
+            
+        } elseif ($record instanceof \App\Models\ShipmentCustomer) {
+            $roles = array_merge($roles, ['logistic-supervisor', 'sales-crm']);
+            $link = $record->shipment_id ? route('crm.logistics.shipments.show', $record->shipment_id) : route('crm.logistics.process-trucking');
+            
+            $prevLabel = \App\Models\ShipmentCustomer::statuses()[$previousStatus] ?? $previousStatus;
+            $newLabel = \App\Models\ShipmentCustomer::statuses()[$newStatus] ?? $newStatus;
+            
+            $message = sprintf(
+                '%s (%s) changed Logistic status for "%s" from "%s" to "%s".',
+                $actor->name, $teamName, $record->recipient_name ?? 'Unknown', $prevLabel, $newLabel
+            );
+            
+            if ($record->handler_id) $userIds[] = $record->handler_id;
+        } elseif ($record instanceof \App\Models\Lead || $record instanceof \App\Models\Customer || $record instanceof \App\Models\EbayCustomerRecord) {
+            $roles = array_merge($roles, ['sales-crm', 'ebay-supervisor']);
+            if ($newStatus === \App\Enums\WebsiteLeadStatus::TechnicalIssues->value || $newStatus === 'technical_issues' || $previousStatus === 'technical_issues') {
+                $roles[] = 'tech-support';
+            }
+            
+            $link = $record instanceof \App\Models\Lead 
+                ? route('crm.website.show', $record) 
+                : ($record instanceof \App\Models\Customer ? route('crm.customers.show', $record) : route('crm.ebay.customers.show', $record));
+                
+            $prevLabel = $previousStatus instanceof \BackedEnum ? $previousStatus->label() : (\App\Enums\WebsiteLeadStatus::tryFrom($previousStatus)?->label() ?? $previousStatus);
+            $newLabel = $newStatus instanceof \BackedEnum ? $newStatus->label() : (\App\Enums\WebsiteLeadStatus::tryFrom($newStatus)?->label() ?? $newStatus);
+            
+            $name = $record->name ?? ($record->client_name ?? ($record->buyer_name ?? 'Unknown'));
+            $message = sprintf(
+                '%s (%s) changed status for "%s" from "%s" to "%s".',
+                $actor->name, $teamName, $name, $prevLabel, $newLabel
+            );
+            
+            if (isset($record->handled_by)) $userIds[] = $record->handled_by;
+            if (isset($record->assigned_to)) $userIds[] = $record->assigned_to;
+            if (isset($record->user_id)) $userIds[] = $record->user_id;
+        }
+
+        self::sendToRoles($roles, 'status_changed', $message, $link, $actor->id, $userIds, $record);
+
+        // Also broadcast the live UI update event to anyone looking at the page
+        $type = 'customer';
+        if ($record instanceof \App\Models\Lead) $type = 'website';
+        elseif ($record instanceof \App\Models\EbayCustomerRecord) $type = 'ebay';
+        elseif ($record instanceof \App\Models\TechSupportCase) $type = 'tech';
+        elseif ($record instanceof \App\Models\ShipmentCustomer) $type = 'logistic';
+
+        event(new \App\Events\CustomerStatusUpdatedLive(
+            $record->id,
+            $newLabel,
+            null, // color can be determined by frontend or added later if needed
+            $actor->name,
+            $teamName,
+            $type
+        ));
+    }
+
+    public static function notifyHandlerChange(\Illuminate\Database\Eloquent\Model $record, User $newHandler, User $actor, string $teamName): void
+    {
+        $link = '#';
+        if ($record instanceof \App\Models\EbayCustomerRecord) {
+            $link = route('crm.ebay.customers.show', $record);
+        } elseif ($record instanceof \App\Models\Customer) {
+            $link = route('crm.customers.show', $record);
+        } elseif ($record instanceof \App\Models\Lead) {
+            $link = route('crm.website.show', $record);
+        }
+        
+        $name = $record->name ?? ($record->client_name ?? ($record->buyer_name ?? 'Unknown'));
+        $message = sprintf(
+            '%s (%s) assigned you to handle "%s".',
+            $actor->name, $teamName, $name
+        );
+        
+        // Notify the specific new handler, plus admins
+        self::sendToRoles(self::ADMIN_ROLES, 'handler_changed', $message, $link, $actor->id, [$newHandler->id], $record);
+    }
+
+    public static function notifyBulkStatusChange(int $count, string $newStatus, User $actor, string $teamName, string $link): void
+    {
+        $roles = array_merge(self::ADMIN_ROLES, ['logistic-supervisor', 'sales-crm']);
+        $newLabel = \App\Models\ShipmentCustomer::statuses()[$newStatus] ?? $newStatus;
+        
+        $message = sprintf(
+            '%s (%s) updated %d customers to "%s".',
+            $actor->name, $teamName, $count, $newLabel
+        );
+        
+        self::sendToRoles($roles, 'status_changed', $message, $link, $actor->id);
+    }
+
+    private static function sendToRoles(array $roles, string $type, string $message, string $link, ?int $excludeUserId = null, array $userIds = [], ?\Illuminate\Database\Eloquent\Model $record = null): void
+    {
+        $recipients = User::where('is_active', true)
+            ->where(function ($q) use ($roles, $userIds) {
+                if (!empty($roles)) {
+                    $q->role($roles);
+                }
+                if (!empty($userIds)) {
+                    $q->orWhereIn('id', $userIds);
+                }
+            })->get();
 
         if ($excludeUserId) {
             $recipients = $recipients->reject(fn (User $u) => $u->id === $excludeUserId);
         }
 
         foreach ($recipients as $recipient) {
+            $userLink = $link;
+            
+            if ($record) {
+                if ($recipient->hasRole('tech-support')) {
+                    if ($record instanceof \App\Models\Lead || $record instanceof \App\Models\Customer || $record instanceof \App\Models\EbayCustomerRecord) {
+                        $techCase = $record->techSupportCase()->first();
+                        if ($techCase) {
+                            $userLink = route('crm.tech-support.show', $techCase);
+                        }
+                    }
+                } elseif ($recipient->hasRole(['sales-crm', 'ebay-supervisor'])) {
+                    if ($record instanceof \App\Models\TechSupportCase) {
+                        $source = $record->source;
+                        if ($source instanceof \App\Models\Lead) {
+                            $userLink = route('crm.website.show', $source);
+                        } elseif ($source instanceof \App\Models\Customer) {
+                            $userLink = route('crm.customers.show', $source);
+                        } elseif ($source instanceof \App\Models\EbayCustomerRecord) {
+                            $userLink = route('crm.ebay.customers.show', $source);
+                        }
+                    }
+                }
+            }
+
             InstantNotifier::send($recipient, new GenericDatabaseNotification([
                 'module'  => 'crm',
                 'type'    => $type,
                 'message' => $message,
-                'link'    => $link,
+                'link'    => $userLink,
             ]));
         }
     }

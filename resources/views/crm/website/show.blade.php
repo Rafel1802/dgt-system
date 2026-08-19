@@ -450,6 +450,7 @@
 
   @include('kanban.partials.toast')
 </div>
+@include('crm.partials.live-status-updater', ['type' => 'website', 'id' => $lead->id])
 @endsection
 
 @push('scripts')

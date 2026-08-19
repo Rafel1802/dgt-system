@@ -332,6 +332,9 @@ class EbayCustomerController extends Controller
     {
         $validated = $request->validate(['user_id' => ['required', 'exists:users,id']]);
 
+        // End the currently active assignment if there is one
+        $record->handlerHistory()->whereNull('ended_at')->whereNotNull('confirmed_at')->update(['ended_at' => now()]);
+
         // Clean up previous unconfirmed assignments so they don't pile up
         $record->handlerHistory()->whereNull('confirmed_at')->delete();
 
@@ -341,7 +344,26 @@ class EbayCustomerController extends Controller
             'started_at'              => now(),
             'confirmed_at'            => null,
         ]);
-        Cache::forget('crm.pending_handler_confirms.' . $validated['user_id']);
+        \Illuminate\Support\Facades\Cache::forget('crm.pending_handler_confirms.' . $validated['user_id']);
+
+        $newHandler = \App\Models\User::find($validated['user_id']);
+        
+        broadcast(new \App\Events\CustomerHandlerUpdatedLive(
+            $record->id,
+            $newHandler->name,
+            auth()->user()->name,
+            'eBay Team',
+            'ebay'
+        ));
+
+        if ($newHandler->id !== auth()->id()) {
+            \App\Support\CrmTeamNotifier::notifyHandlerChange(
+                $record,
+                $newHandler,
+                auth()->user(),
+                'eBay Team'
+            );
+        }
 
         return response()->json([
             'message' => 'Handler updated.',
@@ -639,7 +661,18 @@ class EbayCustomerController extends Controller
         }
 
         // Update record
+        $originalStatus = $record->tab_type;
         $record->update($updateData);
+        
+        if ($originalStatus !== $newTab) {
+            \App\Support\CrmTeamNotifier::notifyStatusChange(
+                $record,
+                $originalStatus,
+                $newTab,
+                auth()->user(),
+                'eBay Team'
+            );
+        }
 
         // Log status history
         EbayCustomerStatusHistory::create([

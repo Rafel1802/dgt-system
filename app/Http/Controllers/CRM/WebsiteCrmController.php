@@ -422,11 +422,20 @@ class WebsiteCrmController extends Controller
             // Lead's booted() hook, so the note staff typed here becomes the
             // case's own timeline entry instead of generic auto-text —
             // whether this is the first Technical Support case or a reopen.
+            $originalStatus = $lead->status;
             if ($newStatus === WebsiteLeadStatus::TechnicalIssues && $noteText !== '') {
                 $lead->pendingTechNote = $noteText;
             }
 
             $lead->update(['status' => $newStatus]);
+            
+            \App\Support\CrmTeamNotifier::notifyStatusChange(
+                $lead,
+                $originalStatus instanceof \BackedEnum ? $originalStatus->value : $originalStatus,
+                $newStatus instanceof \BackedEnum ? $newStatus->value : $newStatus,
+                auth()->user(),
+                'Sales Team'
+            );
 
             // Every status transition is recorded here too, not just ones made
             // through the follow-up modal, so the history timeline is complete.

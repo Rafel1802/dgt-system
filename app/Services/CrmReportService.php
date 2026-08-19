@@ -86,7 +86,13 @@ class CrmReportService
     public function distinctEbayHandled(int $userId, Carbon $since, Carbon $until): int
     {
         return (int) EbayCustomerHandlerHistory::where('user_id', $userId)
-            ->whereBetween('started_at', [$since, $until])
+            ->where(function ($q) use ($since, $until) {
+                $q->where('started_at', '<=', $until)
+                  ->where(function ($q2) use ($since) {
+                      $q2->whereNull('ended_at')
+                         ->orWhere('ended_at', '>=', $since);
+                  });
+            })
             ->join('ebay_customer_records', 'ebay_customer_records.id', '=', 'ebay_customer_handler_history.ebay_customer_record_id')
             ->selectRaw('COUNT(DISTINCT COALESCE(ebay_customer_records.customer_id, ebay_customer_records.id)) as cnt')
             ->value('cnt');
@@ -119,7 +125,13 @@ class CrmReportService
     {
         return array_keys(array_filter([
             'website'      => Lead::where('handled_by', $user->id)->whereBetween('created_at', [$since, $until])->exists(),
-            'ebay'         => EbayCustomerHandlerHistory::where('user_id', $user->id)->whereBetween('started_at', [$since, $until])->exists(),
+            'ebay'         => EbayCustomerHandlerHistory::where('user_id', $user->id)->where(function ($q) use ($since, $until) {
+                $q->where('started_at', '<=', $until)
+                  ->where(function ($q2) use ($since) {
+                      $q2->whereNull('ended_at')
+                         ->orWhere('ended_at', '>=', $since);
+                  });
+            })->exists(),
             'tech_support' => TechSupportCase::where('assigned_to', $user->id)->whereBetween('created_at', [$since, $until])->exists(),
             'logistic'     => Shipment::where('assigned_to', $user->id)->whereBetween('created_at', [$since, $until])->exists(),
         ]));

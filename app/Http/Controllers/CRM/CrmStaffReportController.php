@@ -181,7 +181,13 @@ class CrmStaffReportController extends Controller
             ->pluck('cnt', 'handled_by');
 
         $ebayCounts = \App\Models\EbayCustomerHandlerHistory::whereIn('user_id', $userIds)
-            ->whereBetween('started_at', [$since, $until])
+            ->where(function ($q) use ($since, $until) {
+                $q->where('started_at', '<=', $until)
+                  ->where(function ($q2) use ($since) {
+                      $q2->whereNull('ended_at')
+                         ->orWhere('ended_at', '>=', $since);
+                  });
+            })
             ->join('ebay_customer_records', 'ebay_customer_records.id', '=', 'ebay_customer_handler_history.ebay_customer_record_id')
             ->selectRaw('user_id, COUNT(DISTINCT COALESCE(ebay_customer_records.customer_id, ebay_customer_records.id)) as cnt')
             ->groupBy('user_id')

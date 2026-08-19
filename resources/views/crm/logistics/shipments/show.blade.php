@@ -262,8 +262,8 @@
                             <input type="email" name="recipient_email" value="{{ $sc->recipient_email }}" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
                           </div>
                           <div>
-                            <label class="form-label">Shipping Address</label>
-                            <textarea id="edit-shipping-address-{{ $sc->id }}" name="shipping_address" rows="2" class="form-input">{{ $sc->shipping_address }}</textarea>
+                            <label class="form-label">Shipping Address <span class="text-red-500">*</span></label>
+                            <textarea id="edit-shipping-address-{{ $sc->id }}" name="shipping_address" rows="2" class="form-input" required>{{ $sc->shipping_address }}</textarea>
                           </div>
                           <div>
                             <label class="form-label">Products</label>
@@ -505,8 +505,8 @@
           <input type="email" name="recipient_email" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
         </div>
         <div>
-          <label class="form-label">Shipping Address</label>
-          <textarea id="add-shipping-address" name="shipping_address" rows="2" class="form-input" placeholder="Leave blank if same as customer"></textarea>
+          <label class="form-label">Shipping Address <span class="text-red-500">*</span></label>
+          <textarea id="add-shipping-address" name="shipping_address" rows="2" class="form-input" required></textarea>
         </div>
         <div>
           <label class="form-label">Tracking Number (optional)</label>

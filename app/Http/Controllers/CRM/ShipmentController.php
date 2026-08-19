@@ -642,7 +642,7 @@ class ShipmentController extends Controller
             'recipient_name'    => ['nullable', 'string', 'max:255'],
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
             'recipient_email'   => ['nullable', 'email', 'max:255'],
-            'shipping_address'  => ['nullable', 'string'],
+            'shipping_address'  => ['required', 'string'],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
             'tracking_number'   => ['nullable', 'string', 'max:150'],
@@ -699,7 +699,7 @@ class ShipmentController extends Controller
             'recipient_name'    => ['nullable', 'string', 'max:255'],
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
             'recipient_email'   => ['nullable', 'email', 'max:255'],
-            'shipping_address'  => ['nullable', 'string'],
+            'shipping_address'  => ['required', 'string'],
             'status'            => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
@@ -755,7 +755,18 @@ class ShipmentController extends Controller
 
         $validated['shipping_address'] = $validated['shipping_address'] ?? '';
 
+        $originalStatus = $customer->getOriginal('status');
         $customer->update($validated);
+        
+        if ($originalStatus !== $validated['status']) {
+            \App\Support\CrmTeamNotifier::notifyStatusChange(
+                $customer,
+                $originalStatus,
+                $validated['status'],
+                auth()->user(),
+                'Logistics Team'
+            );
+        }
 
         $this->syncShipmentCustomerProducts($customer, $productRows);
 
@@ -786,7 +797,7 @@ class ShipmentController extends Controller
             'recipient_name'    => ['nullable', 'string', 'max:255'],
             'recipient_phone'   => ['nullable', 'string', 'max:50'],
             'recipient_email'   => ['nullable', 'string', 'max:255'],
-            'shipping_address'  => ['nullable', 'string'],
+            'shipping_address'  => ['required', 'string'],
             'status'            => ['required', 'string', 'in:' . implode(',', array_keys(ShipmentCustomer::statuses()))],
             'handled_by'        => ['nullable', 'exists:users,id'],
             'notes'             => ['nullable', 'string'],
@@ -830,7 +841,18 @@ class ShipmentController extends Controller
             }
         }
 
+        $originalStatus = $customer->getOriginal('status');
         $customer->update($validated);
+        
+        if ($originalStatus !== $validated['status']) {
+            \App\Support\CrmTeamNotifier::notifyStatusChange(
+                $customer,
+                $originalStatus,
+                $validated['status'],
+                auth()->user(),
+                'Logistics Team'
+            );
+        }
 
         $this->syncShipmentCustomerProducts($customer, $productRows);
         $this->matcher->syncShipmentDelayFlags($customer);
@@ -926,14 +948,33 @@ class ShipmentController extends Controller
 
         $customers = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->get();
 
+        $changedCount = 0;
         foreach ($customers as $customer) {
+            $originalStatus = $customer->getOriginal('status');
+            
             $customer->update(array_filter([
                 'status' => $validated['status'],
                 'notes'  => $validated['notes'] ?? null,
             ], fn ($v) => $v !== null));
 
+            if ($originalStatus !== $validated['status']) {
+                $changedCount++;
+            }
+
             $this->matcher->syncShipmentDelayFlags($customer);
             $this->matcher->syncDeliveryStatus($customer);
+        }
+
+        if ($changedCount > 0) {
+            \App\Support\CrmTeamNotifier::notifyBulkStatusChange(
+                $changedCount,
+                $validated['status'],
+                auth()->user(),
+                'Logistics Team',
+                !empty($validated['redirect_shipment_id']) 
+                    ? route('crm.logistics.shipments.show', $validated['redirect_shipment_id']) 
+                    : route('crm.logistics.process-trucking')
+            );
         }
 
         CrmCustomerMatchService::forgetUnifiedDirectoryCache();

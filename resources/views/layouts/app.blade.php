@@ -2106,7 +2106,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <span>${message}</span>
         `;
 
-        container.appendChild(toast);
+        container.prepend(toast);
 
         // Slide in
         setTimeout(() => {
@@ -2188,7 +2188,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             });
         }
         
-        container.appendChild(toast);
+        container.prepend(toast);
         
         setTimeout(() => {
             toast.classList.remove('translate-x-8', 'opacity-0');
@@ -2288,7 +2288,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             });
         }
 
-        container.appendChild(card);
+        container.prepend(card);
 
         setTimeout(() => {
             card.classList.remove('translate-x-8', 'opacity-0');

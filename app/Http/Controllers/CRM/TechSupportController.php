@@ -141,7 +141,18 @@ class TechSupportController extends Controller
             'note.required_if' => 'A resolution or return note is required when changing to this status.',
         ]);
 
+        $originalStatus = $case->getOriginal('status');
         $this->service->changeStatus($case, $validated['status'], auth()->user(), $validated['note'] ?? null);
+        
+        if ($originalStatus !== $validated['status']) {
+            \App\Support\CrmTeamNotifier::notifyStatusChange(
+                $case,
+                $originalStatus,
+                $validated['status'],
+                auth()->user(),
+                'Technical Support Team'
+            );
+        }
         
         // Sync the tech support status directly to the Customer model
         if ($case->customer) {

@@ -37,6 +37,10 @@ class InstantNotifier
 
         $payload = $notification->toBroadcast($notifiable)->data;
 
-        event(new InstantNotificationBroadcast($notifiable->id, $payload));
+        try {
+            event(new InstantNotificationBroadcast($notifiable->id, $payload));
+        } catch (\Exception $e) {
+            // Ignore broadcast failure (e.g. pusher down), notification is still in DB
+        }
     }
 }

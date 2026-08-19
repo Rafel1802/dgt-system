@@ -392,8 +392,8 @@
             </div>
 
             <div>
-              <label class="form-label text-xs font-semibold">Shipping Address</label>
-              <textarea name="shipping_address" x-model="editingCustomer.shipping_address" rows="2" class="form-input text-sm"></textarea>
+              <label class="form-label text-xs font-semibold">Shipping Address <span class="text-rose-500">*</span></label>
+              <textarea name="shipping_address" x-model="editingCustomer.shipping_address" rows="2" class="form-input text-sm" required></textarea>
             </div>
 
             <div x-show="editingCustomer.status === '{{ \App\Models\ShipmentCustomer::STATUS_PROBLEM }}'">
