@@ -272,18 +272,7 @@
             <p class="mt-1 text-sm font-bold text-slate-500">Active in last 30 minutes</p>
         </article>
 
-        <article class="dash-card rounded-2xl p-5">
-            <div class="flex items-center justify-between">
-                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                    </svg>
-                </div>
-                <span class="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black uppercase text-amber-700">Activity</span>
-            </div>
-            <p class="mt-5 font-display text-3xl font-black text-slate-950">{{ $stats['recent_activities_count'] }}</p>
-            <p class="mt-1 text-sm font-bold text-slate-500">Recent system events</p>
-        </article>
+
 
         <article class="dash-card rounded-2xl p-5">
             <div class="flex items-center justify-between">

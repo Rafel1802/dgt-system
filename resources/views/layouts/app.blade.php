@@ -2465,7 +2465,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     // popups just never arrive until the page is manually refreshed.
                     // fetchData() already dedupes by notification id, so this is safe
                     // to run even when Pusher is also connected.
-                    setInterval(() => window.__kiuqNotificationsPoll?.(), pusherConnected ? 30000 : 10000);
+                    setInterval(() => window.__kiuqNotificationsPoll?.(), pusherConnected ? 120000 : 15000);
                 }
             },
 
