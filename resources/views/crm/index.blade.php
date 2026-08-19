@@ -380,6 +380,24 @@ document.addEventListener('turbo:load', function () {
             return;
         }
     });
+
+    // 5. Pusher Real-Time Sync
+    if (window.kiuqGetPusherClient) {
+        const pusher = window.kiuqGetPusherClient();
+        if (pusher) {
+            const channel = pusher.subscribe('private-tech-support');
+            channel.bind('TechSupportCaseStatusUpdated', (data) => {
+                // If another user updated it, silently reload the current page data
+                const currentUserId = document.querySelector('meta[name="kiuq-user-id"]')?.content;
+                if (parseInt(data.updaterId) !== parseInt(currentUserId)) {
+                    // Extract current page from pagination or default to 1
+                    const activePageLink = paginationContainer?.querySelector('.pagination .active span, .pagination .active a');
+                    const currentPage = activePageLink ? parseInt(activePageLink.textContent) : 1;
+                    loadData(currentPage || 1);
+                }
+            });
+        }
+    }
 });
 </script>
 @endpush

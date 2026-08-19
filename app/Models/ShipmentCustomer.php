@@ -33,20 +33,27 @@ class ShipmentCustomer extends Model
         });
 
         static::updated(function (self $customer) {
-            if ($customer->wasChanged('status') && $customer->status === self::STATUS_PROBLEM) {
-                $customer->updateQuietly([
-                    'problem_occurrences' => $customer->problem_occurrences + 1,
-                ]);
+            if ($customer->wasChanged('status')) {
+                if ($customer->status === self::STATUS_PROBLEM) {
+                    $customer->updateQuietly([
+                        'problem_occurrences' => $customer->problem_occurrences + 1,
+                    ]);
 
-                try {
-                    \App\Support\CrmTeamNotifier::notifyEbayAndSalesTeams(
-                        'logistic_problem',
-                        "Logistic issue · {$customer->recipient_name}",
-                        route('crm.logistics.issues.index'),
-                        auth()->id()
-                    );
-                } catch (\Throwable $e) {
-                    // Ignore notification failures in CLI/seeders
+                    try {
+                        \App\Support\CrmTeamNotifier::notifyEbayAndSalesTeams(
+                            'logistic_problem',
+                            "Logistic issue · {$customer->recipient_name}",
+                            route('crm.logistics.issues.index'),
+                            auth()->id()
+                        );
+                    } catch (\Throwable $e) {
+                        // Ignore notification failures in CLI/seeders
+                    }
+                }
+
+                // Sync the new logistics status back to the Customer, Website Lead, and eBay records
+                if ($customer->customer) {
+                    \App\Services\UniversalStatusSyncService::syncLogisticStatus($customer->customer, $customer->status);
                 }
             }
         });

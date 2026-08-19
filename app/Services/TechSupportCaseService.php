@@ -233,10 +233,11 @@ class TechSupportCaseService
             'Status changed from ' . ($labels[$oldStatus] ?? $oldStatus) . ' to ' . ($labels[$newStatus] ?? $newStatus) . ($actor ? ' by ' . $actor->name : '') . '.'
         );
 
+        // Sync the status globally across the CRM (Customer DB, Website Leads, eBay Records)
+        $this->syncToSources($case, $newStatus);
+
         if ($newStatus === TechSupportCase::STATUS_RESOLVED) {
             $this->logActivity($case->customer_id, 'Case Resolved', 'Technical support case marked resolved.');
-            $this->syncToEbay($case);
-            $this->syncLeadResolved($case);
 
             if ($note) {
                 TechSupportCaseLog::create([
@@ -246,14 +247,7 @@ class TechSupportCaseService
                     'note'                 => $note,
                 ]);
             }
-        } elseif ($oldStatus === TechSupportCase::STATUS_RESOLVED) {
-            // Case reopened (Resolved → In Progress / Red Case / New) — undo
-            // the eBay sync so the record shows as Technical Issues again
-            // instead of staying stuck on Resolved.
-            $this->revertEbaySync($case);
-            $this->revertLeadResolved($case);
         }
-
         // eBay and Website/Sales CRM staff both regularly deal with this
         // same customer outside of Tech Support — a status change here
         // (especially Red Case or Resolved) is worth them knowing about
@@ -496,127 +490,81 @@ class TechSupportCaseService
      * tech_resolved flag (the field that already represents this exact
      * concept) rather than calling an external service.
      */
-    public function syncToEbay(TechSupportCase $case): void
+    public function syncToSources(TechSupportCase $case, string $status): void
     {
+        // 1. Sync to Customer DB
+        if ($case->customer) {
+            $customerStatus = \App\Enums\CustomerStatus::tryFrom($status);
+            if ($customerStatus) {
+                $case->customer->update(['status' => $customerStatus]);
+            }
+        }
+
+        // 2. Sync to Website Lead
+        if ($case->source_type === Lead::class && $case->source) {
+            $leadStatus = match ($status) {
+                TechSupportCase::STATUS_NEW => WebsiteLeadStatus::TechnicalSupport,
+                TechSupportCase::STATUS_IN_PROGRESS => WebsiteLeadStatus::TechInProgress,
+                TechSupportCase::STATUS_RED => WebsiteLeadStatus::TechRedCase,
+                TechSupportCase::STATUS_RETURN_MACHINE => WebsiteLeadStatus::MachineReturn,
+                TechSupportCase::STATUS_RESOLVED => WebsiteLeadStatus::Resolved,
+                default => null,
+            };
+
+            if ($leadStatus) {
+                $updates = ['status' => $leadStatus];
+                if ($status === TechSupportCase::STATUS_RESOLVED) {
+                    $updates['tech_resolved'] = true;
+                    $updates['tech_resolved_at'] = now();
+                } else {
+                    $updates['tech_resolved'] = false;
+                    $updates['tech_resolved_at'] = null;
+                }
+                
+                // Use updateQuietly to prevent Lead from re-creating a Tech Case via boot hooks
+                $case->source->updateQuietly($updates);
+            }
+        }
+
+        // 3. Sync to eBay
+        $ebayRecord = null;
         if ($case->source_type === EbayCustomerRecord::class) {
             $ebayRecord = EbayCustomerRecord::find($case->source_id);
-        } else {
-            $customer = $case->customer;
-            $ebayRecord = $customer
-                ? app(CrmCustomerMatchService::class)->findEbayRecordByContact($customer->email, $customer->phone)
-                : null;
+        } elseif ($case->customer) {
+            $ebayRecord = app(\App\Services\CrmCustomerMatchService::class)->findEbayRecordByContact($case->customer->email, $case->customer->phone);
         }
 
-        if (! $ebayRecord) {
-            return;
+        if ($ebayRecord) {
+            $ebayTab = match ($status) {
+                TechSupportCase::STATUS_RESOLVED => EbayCustomerRecord::TAB_RESOLVED,
+                default => EbayCustomerRecord::TAB_TECHNICAL,
+            };
+
+            $ebayUpdates = ['tab_type' => $ebayTab];
+            
+            if ($status === TechSupportCase::STATUS_RESOLVED) {
+                $ebayUpdates['tech_resolved'] = true;
+                $ebayUpdates['tech_resolved_at'] = now();
+            } else {
+                $ebayUpdates['tech_resolved'] = false;
+                $ebayUpdates['tech_resolved_at'] = null;
+            }
+
+            $ebayRecord->updateQuietly($ebayUpdates);
+
+            EbayCustomerStatusHistory::create([
+                'ebay_customer_record_id' => $ebayRecord->id,
+                'status'                  => $ebayTab,
+                'changed_by'              => auth()->id(),
+                'changed_at'              => now(),
+            ]);
+            
+            if ($status === TechSupportCase::STATUS_RESOLVED) {
+                $case->updateQuietly(['ebay_synced_at' => now()]);
+            } else {
+                $case->updateQuietly(['ebay_synced_at' => null]);
+            }
         }
-
-        $ebayRecord->update([
-            'tab_type'         => EbayCustomerRecord::TAB_RESOLVED,
-            'tech_resolved'    => true,
-            'tech_resolved_at' => now(),
-        ]);
-
-        EbayCustomerStatusHistory::create([
-            'ebay_customer_record_id' => $ebayRecord->id,
-            'status'                  => EbayCustomerRecord::TAB_RESOLVED,
-            'changed_by'              => auth()->id(),
-            'changed_at'              => now(),
-        ]);
-
-        $case->update(['ebay_synced_at' => now()]);
-
-        $this->logActivity($case->customer_id, 'eBay Synchronization Completed', 'Linked eBay record marked resolved after case resolution.');
-    }
-
-    /**
-     * Undo syncToEbay() when a resolved case is reopened: the linked eBay
-     * record goes back to the Technical Issues tab and its tech_resolved
-     * flag clears. Only touches the record if it's still sitting on Resolved
-     * (the state syncToEbay() itself produced) — if staff have since moved
-     * it to some other tab manually, that manual choice is left alone.
-     * Uses updateQuietly() so this doesn't re-trigger the record's own
-     * "entered Technical Issues" hook, which would otherwise try to create a
-     * second case for a source that already has this one reopened.
-     */
-    private function revertEbaySync(TechSupportCase $case): void
-    {
-        if ($case->source_type === EbayCustomerRecord::class) {
-            $ebayRecord = EbayCustomerRecord::find($case->source_id);
-        } else {
-            $customer = $case->customer;
-            $ebayRecord = $customer
-                ? app(CrmCustomerMatchService::class)->findEbayRecordByContact($customer->email, $customer->phone)
-                : null;
-        }
-
-        if (! $ebayRecord || $ebayRecord->tab_type !== EbayCustomerRecord::TAB_RESOLVED) {
-            return;
-        }
-
-        $ebayRecord->updateQuietly([
-            'tab_type'         => EbayCustomerRecord::TAB_TECHNICAL,
-            'tech_resolved'    => false,
-            'tech_resolved_at' => null,
-        ]);
-
-        EbayCustomerStatusHistory::create([
-            'ebay_customer_record_id' => $ebayRecord->id,
-            'status'                  => EbayCustomerRecord::TAB_TECHNICAL,
-            'changed_by'              => auth()->id(),
-            'changed_at'              => now(),
-        ]);
-
-        $case->update(['ebay_synced_at' => null]);
-
-        $this->logActivity($case->customer_id, 'eBay Synchronization Reverted', 'Case reopened — linked eBay record marked Technical Issues again.');
-    }
-
-    /**
-     * When the case's source is a Website Lead, move its pipeline status to
-     * Resolved and set tech_resolved — the Website CRM equivalent of
-     * syncToEbay() flipping EbayCustomerRecord.tab_type/tech_resolved
-     * above. A regular (non-quiet) update is fine here: moving status *away
-     * from* TechnicalSupport never matches the booted() hook's "entered
-     * Technical Support" condition, so this can't spawn a duplicate case.
-     */
-    private function syncLeadResolved(TechSupportCase $case): void
-    {
-        if ($case->source_type !== Lead::class || ! $case->source) {
-            return;
-        }
-
-        $case->source->update([
-            'status'           => WebsiteLeadStatus::Resolved,
-            'tech_resolved'    => true,
-            'tech_resolved_at' => now(),
-        ]);
-    }
-
-    /**
-     * Undo syncLeadResolved() when a resolved case is reopened: moves the
-     * lead's status back to Technical Support and clears tech_resolved.
-     * Only touches status if it's still sitting on the Resolved state
-     * syncLeadResolved() itself produced — if staff have since moved it to
-     * some other status manually, that manual choice is left alone (mirrors
-     * revertEbaySync()'s tab_type !== TAB_RESOLVED guard above). Uses
-     * updateQuietly() so this doesn't re-trigger the lead's own "entered
-     * Technical Support" hook, which would otherwise try to create a second
-     * case for a source that already has this one reopened.
-     */
-    private function revertLeadResolved(TechSupportCase $case): void
-    {
-        if ($case->source_type !== Lead::class || ! $case->source?->tech_resolved) {
-            return;
-        }
-
-        $lead = $case->source;
-        $updates = ['tech_resolved' => false, 'tech_resolved_at' => null];
-        if ($lead->status === WebsiteLeadStatus::Resolved) {
-            $updates['status'] = WebsiteLeadStatus::TechnicalSupport;
-        }
-
-        $lead->updateQuietly($updates);
     }
 
     private function logActivity(?int $customerId, string $subject, string $content): void

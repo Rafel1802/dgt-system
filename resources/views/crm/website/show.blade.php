@@ -25,28 +25,40 @@
     <div class="xl:col-span-1 space-y-4">
 
       {{-- Client Summary Card --}}
-      <div class="card">
-        {{-- Temperature banner --}}
-        <div class="h-2 -mx-5 -mt-5 mb-4 rounded-t-2xl" style="background:{{ $lead->temperature?->color() ?? '#94a3b8' }}"></div>
+      <div class="card relative overflow-hidden">
+        {{-- Server-rendered background block for current status --}}
+        <div class="absolute top-0 left-0 right-0 h-24 opacity-20" style="background: linear-gradient(135deg, {{ $lead->status?->color() }}, transparent)"></div>
+        <div class="h-2 absolute top-0 left-0 right-0" style="background: {{ $lead->status?->color() }}"></div>
 
-        <div class="text-center pb-2">
-          <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3"
+        <div class="relative z-10 pt-4 pb-2 text-center">
+          <div class="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4 shadow-lg ring-4 ring-white"
                style="background: linear-gradient(135deg, {{ $lead->status?->color() }}, {{ $lead->temperature?->color() ?? '#94a3b8' }})">
             {{ strtoupper(substr($lead->client_name, 0, 1)) }}
           </div>
-          <h2 class="font-display font-bold text-slate-800 text-lg">{{ $lead->client_name }}</h2>
-          <div class="flex items-center justify-center gap-2 mt-1 flex-wrap">
-            <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full"
-                  style="background:{{ $lead->status?->color() }}22; color:{{ $lead->status?->color() }}">
+          
+          <h2 class="font-display font-bold text-slate-800 text-xl">{{ $lead->client_name }}</h2>
+          
+          {{-- Elegant Status Indicator --}}
+          <div class="mt-4 inline-flex items-center gap-2 bg-white rounded-full pl-2 pr-4 py-1.5 shadow-sm border border-slate-100">
+            <span class="flex h-3 w-3 relative">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background-color: {{ $lead->status?->color() }}"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3" style="background-color: {{ $lead->status?->color() }}"></span>
+            </span>
+            <span class="text-sm font-semibold" style="color: {{ $lead->status?->color() }}">
               {{ $lead->status?->label() }}
             </span>
+          </div>
+
+          <div class="flex items-center justify-center gap-2 mt-3 flex-wrap">
             @if($lead->techSupportCase?->occurrence_label)
-              <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700" title="Repeat technical issue">
+              <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title="Repeat technical issue">
                 🔁 {{ $lead->techSupportCase->occurrence_label }}
               </span>
             @endif
             @if($lead->temperature)
-            <span class="text-sm" title="{{ $lead->temperature->label() }}">{{ $lead->temperature->icon() }} {{ $lead->temperature->label() }}</span>
+            <span class="badge text-xs px-2 py-0.5 rounded-full border border-slate-200 text-slate-600 bg-white" title="{{ $lead->temperature->label() }}">
+              {{ $lead->temperature->icon() }} {{ $lead->temperature->label() }}
+            </span>
             @endif
           </div>
         </div>

@@ -142,6 +142,15 @@ class TechSupportController extends Controller
         ]);
 
         $this->service->changeStatus($case, $validated['status'], auth()->user(), $validated['note'] ?? null);
+        
+        // Sync the tech support status directly to the Customer model
+        if ($case->customer) {
+            $customerStatus = \App\Enums\CustomerStatus::tryFrom($validated['status']);
+            if ($customerStatus) {
+                $case->customer->update(['status' => $customerStatus]);
+            }
+        }
+        
         event(new \App\Events\TechSupportCaseStatusUpdated($case, auth()->id()));
         Cache::forget('tech_support.index_stats');
 

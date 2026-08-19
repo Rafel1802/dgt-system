@@ -14,6 +14,15 @@ class MachineReturn extends Model
         'tech_support_case_id', 'customer_id', 'status', 'handled_by', 'notes',
     ];
 
+    protected static function booted(): void
+    {
+        static::updated(function (self $return) {
+            if ($return->wasChanged('status') && $return->customer) {
+                \App\Services\UniversalStatusSyncService::syncLogisticStatus($return->customer, $return->status);
+            }
+        });
+    }
+
     public const STATUS_PENDING = 'pending';
     public const STATUS_PICKUP_ARRANGED = 'pickup_arranged';
     public const STATUS_IN_TRANSIT = 'in_transit';
