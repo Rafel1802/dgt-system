@@ -75,7 +75,7 @@ class TechSupportCaseService
 
         $this->logActivity($case->customer_id, 'Technical Case Created', 'A new technical support case was created' . ($case->order_id ? " for order {$case->order_id}." : '.'));
 
-        $this->notifyTechnicians($case, 'New tech case' . ($case->order_id ? " · #{$case->order_id}" : ''));
+        $this->notifyTechnicians($case, 'New tech case' . ($case->order_id ? " · #{$case->order_id}" : ''), 'tech_case_new', auth()->id());
 
         return $case;
     }
@@ -126,7 +126,7 @@ class TechSupportCaseService
 
         $this->logActivity($case->customer_id, 'Technical Case Reopened', "New technical issue reported ({$ordinal} occurrence).");
 
-        $this->notifyTechnicians($case, "Tech case reopened · {$ordinal} occurrence");
+        $this->notifyTechnicians($case, "Tech case reopened · {$ordinal} occurrence", 'tech_case_new', auth()->id());
 
         return $case;
     }
@@ -187,7 +187,7 @@ class TechSupportCaseService
                     InstantNotifier::send($recipient, $notification);
                 }
             } else {
-                $recipient->notify($notification);
+                InstantNotifier::send($recipient, $notification);
             }
         }
     }

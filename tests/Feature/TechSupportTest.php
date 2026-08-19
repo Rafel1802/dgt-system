@@ -105,9 +105,9 @@ class TechSupportTest extends TestCase
 
         $lead->update(['status' => WebsiteLeadStatus::TechnicalSupport]);
 
-        // A new case is unassigned on creation, so it should NOT broadcast live
-        // (Pusher popup) to other technicians to avoid interrupting them.
-        Event::assertNotDispatched(InstantNotificationBroadcast::class);
+        // A new case is unassigned on creation, so it should broadcast live
+        // (Pusher popup) to other active technicians.
+        Event::assertDispatched(InstantNotificationBroadcast::class);
     }
 
     public function test_flipping_status_back_and_forth_does_not_create_duplicate_open_cases(): void
