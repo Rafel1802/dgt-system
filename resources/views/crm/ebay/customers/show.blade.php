@@ -133,6 +133,7 @@
           <p class="text-slate-400 text-sm">No handler history yet.</p>
           @endforelse
         </div>
+        @if(auth()->user()->canModifyCrmData())
         <form @submit.prevent="switchHandler($event)" action="{{ route('crm.ebay.customers.switch-handler', $record) }}" class="flex gap-2">
           <select name="user_id" class="form-input py-2 text-sm flex-1">
             @foreach($crmUsers as $user)
@@ -141,6 +142,7 @@
           </select>
           <button type="submit" class="btn btn-secondary text-sm" :disabled="handlerLoading">Switch Handler</button>
         </form>
+        @endif
       </div>
 
       {{-- Status History --}}
@@ -172,23 +174,31 @@
           @php $isActive = $record->tab_type === $key; @endphp
           <button
             type="button"
+            @if(auth()->user()->canModifyCrmData())
             @click="openStatusModal('{{ $key }}', '{{ $label }}')"
             :disabled="statusLoading"
-            class="flex-1 min-w-[100px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all cursor-pointer border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }}"
+            @else
+            disabled
+            @endif
+            class="flex-1 min-w-[100px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }} {{ !auth()->user()->canModifyCrmData() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}"
             style="{{ $isActive ? 'background:'.\App\Models\EbayCustomerRecord::tabColor($key).'; border-color:'.\App\Models\EbayCustomerRecord::tabColor($key) : '' }}"
             title="{{ $label }}">
             {{ $label }}
           </button>
           @endforeach
         </div>
+        @if(auth()->user()->canModifyCrmData())
         <p class="text-xs text-slate-400 mt-2">Click a stage to update status (requires follow-up note).</p>
+        @endif
       </div>
 
       {{-- Purchase History --}}
       <div class="card">
         <div class="flex items-center justify-between mb-4">
           <h4 class="font-semibold text-slate-700">Purchase History</h4>
+          @if(auth()->user()->canModifyCrmData())
           <button @click="showAddOrder = true" class="btn btn-primary text-sm">+ Add New Order</button>
+          @endif
         </div>
 
         <div class="space-y-4">
@@ -238,7 +248,7 @@
                 <img src="{{ $fu->user?->avatar_url }}" class="w-4 h-4 rounded-full">
                 <span class="text-xs text-slate-400">{{ $fu->user?->name }}</span>
                 <span class="text-xs text-slate-400 ml-auto">{{ $fu->contacted_at?->format('d M Y, g:ia') }}</span>
-                @if($fu->user_id === auth()->id())
+                @if($fu->user_id === auth()->id() && auth()->user()->canModifyCrmData())
                 <form method="POST" action="{{ route('crm.ebay.customers.follow-up.destroy', [$record, $fu]) }}"
                       data-confirm-title="Delete this follow-up?"
                       data-confirm="This will permanently remove this follow-up note."
@@ -256,12 +266,14 @@
           @endforelse
         </div>
 
+        @if(auth()->user()->canModifyCrmData())
         <div x-show="!showFollowUp" class="mt-2">
           <button @click="showFollowUp = true"
                   class="w-full border-2 border-dashed border-slate-200 rounded-xl py-3 text-sm text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
             + Log follow-up note
           </button>
         </div>
+        @endif
 
         <div x-show="showFollowUp" x-cloak class="mt-3 space-y-3">
           <textarea x-model="fuNotes" rows="3" class="form-input" placeholder="What did you discuss? What was the outcome?"></textarea>

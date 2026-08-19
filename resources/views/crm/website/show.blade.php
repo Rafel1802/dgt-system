@@ -11,7 +11,7 @@
       @if(auth()->user()->canDeleteCrmRecords('website'))
       <a href="{{ route('crm.website.edit', $lead) }}" class="btn btn-secondary text-sm">Edit Lead</a>
       @endif
-      @if(!$lead->status?->isTerminal())
+      @if(auth()->user()->canModifyCrmData() && !$lead->status?->isTerminal())
       <button @click="showFollowUp = true" class="btn btn-primary text-sm" id="btn-log-followup">
         📝 Log Follow-Up
       </button>
@@ -117,7 +117,9 @@
             @endif
           </div>
         </div>
+        @if(auth()->user()->canModifyCrmData())
         <button @click="showFollowUp = true" class="btn btn-primary text-xs w-full mt-3">Log Follow-Up Now</button>
+        @endif
       </div>
       @endif
 
@@ -145,16 +147,22 @@
             $isLocked = $isResolvedButton && !$isActive;
           @endphp
           <button
+            @if(auth()->user()->canModifyCrmData())
             @click="updateStatus('{{ $s->value }}')"
             :disabled="statusLoading || {{ $isLocked ? 'true' : 'false' }}"
-            class="flex-1 min-w-[80px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }} {{ $isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}"
+            @else
+            disabled
+            @endif
+            class="flex-1 min-w-[80px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }} {{ $isLocked || !auth()->user()->canModifyCrmData() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}"
             style="{{ $isActive ? 'background:'.$s->color().'; border-color:'.$s->color() : '' }}"
             title="{{ $isLocked ? 'Resolved status can only be set from the Technical Support page.' : $s->label() }}">
             {{ $s->label() }}
           </button>
           @endforeach
         </div>
+        @if(auth()->user()->canModifyCrmData())
         <p class="text-xs text-slate-400 mt-2">Click a stage to move this lead.</p>
+        @endif
       </div>
 
       {{-- Order History --}}
@@ -261,7 +269,7 @@
               <div class="flex items-center gap-1 mt-1">
                 <img src="{{ $fu->user?->avatar_url }}" class="w-4 h-4 rounded-full">
                 <span class="text-xs text-slate-400">{{ $fu->user?->name }}</span>
-                @if($fu->user_id === auth()->id())
+                @if($fu->user_id === auth()->id() && auth()->user()->canModifyCrmData())
                 <form method="POST" action="{{ route('crm.website.follow-up.destroy', [$lead, $fu]) }}" class="ml-auto"
                       data-confirm-title="Delete this follow-up?"
                       data-confirm="This will permanently remove this follow-up entry."

@@ -401,7 +401,11 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             });
 
         // ── CRM — Phase 4 ─────────────────────────────────────────────────
-        Route::middleware(['role:super-admin|admin-crm|sales-crm|boss|tech-support|ebay-supervisor|logistic-supervisor|ebay-team|logistic-team', 'maintenance:crm'])
+        Route::middleware([
+            'role:super-admin|admin-crm|sales-crm|boss|tech-support|ebay-supervisor|logistic-supervisor|ebay-team|logistic-team',
+            'maintenance:crm',
+            'tech-support-view-only'
+        ])
             ->prefix('crm')
             ->name('crm.')
             ->group(function () {

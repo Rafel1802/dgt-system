@@ -27,11 +27,13 @@ class CustomerPolicy
 
     public function create(User $user): bool
     {
+        if ($user->hasRole('tech-support')) return false;
         return $user->can('crm.create');
     }
 
     public function update(User $user, Customer $customer): bool
     {
+        if ($user->hasRole('tech-support')) return false;
         if ($user->hasFullCrmEdit()) return true;
         // Normal Staff (crm.status-update): status/notes only, and only on
         // their own assigned customers — field-level enforcement happens in
@@ -41,16 +43,19 @@ class CustomerPolicy
 
     public function delete(User $user, Customer $customer): bool
     {
+        if ($user->hasRole('tech-support')) return false;
         return $user->canDeleteCrmRecords('website');
     }
 
     public function routeWorkflow(User $user, Customer $customer): bool
     {
+        if ($user->hasRole('tech-support')) return false;
         return $user->hasFullCrmEdit();
     }
 
     public function addInteraction(User $user, Customer $customer): bool
     {
+        if ($user->hasRole('tech-support')) return false;
         return $user->can('crm.view');
     }
 }

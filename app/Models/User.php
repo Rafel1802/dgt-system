@@ -372,6 +372,11 @@ SVG;
         ]) || $this->isCrmSupervisor();
     }
 
+    public function canModifyCrmData(): bool
+    {
+        return !$this->hasRole('tech-support');
+    }
+
     public function canCreateBoards(): bool
     {
         // All active members can create boards
