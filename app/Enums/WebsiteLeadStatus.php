@@ -53,6 +53,21 @@ enum WebsiteLeadStatus: string
         };
     }
 
+    /**
+     * Determines if this status is a core, manually clickable pipeline stage 
+     * on the Website CRM interface.
+     */
+    public function isManualPipelineStage(): bool
+    {
+        return match($this) {
+            self::NewLead,
+            self::TechnicalSupport,
+            self::Successful,
+            self::Lost => true,
+            default => false,
+        };
+    }
+
     public function badgeClass(): string
     {
         return match($this) {

@@ -155,8 +155,16 @@
           @foreach($statuses as $s)
           @php
             $isActive = $lead->status?->value === $s->value;
+            $isManual = $s->isManualPipelineStage();
+            
+            // Hide auto-synced statuses unless it is the current active status
+            if (!$isManual && !$isActive) continue;
+
             $isResolvedButton = $s->value === \App\Enums\WebsiteLeadStatus::Resolved->value;
-            $isLocked = $isResolvedButton && !$isActive;
+            $isLocked = !$isManual || ($isResolvedButton && !$isActive);
+            $lockReason = !$isManual 
+                ? 'This status is automatically synced from another module and cannot be selected manually.' 
+                : 'Resolved status can only be set from the Technical Support page.';
           @endphp
           <button
             @if(auth()->user()->canModifyCrmData())
@@ -167,7 +175,7 @@
             @endif
             class="flex-1 min-w-[80px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }} {{ $isLocked || !auth()->user()->canModifyCrmData() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}"
             style="{{ $isActive ? 'background:'.$s->color().'; border-color:'.$s->color() : '' }}"
-            title="{{ $isLocked ? 'Resolved status can only be set from the Technical Support page.' : $s->label() }}">
+            title="{{ $isLocked ? $lockReason : $s->label() }}">
             {{ $s->label() }}
           </button>
           @endforeach
