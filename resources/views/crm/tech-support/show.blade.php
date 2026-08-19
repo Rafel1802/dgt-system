@@ -273,6 +273,32 @@
       </div>
     </div>
   </div>
+
+  {{-- Resolve Case Modal --}}
+  <div x-show="showResolveModal" x-cloak class="modal-overlay" @keydown.escape.window="showResolveModal = false">
+    <div class="modal-box max-w-lg" @click.stop>
+      <div class="modal-header">
+        <h3 class="font-display font-bold text-slate-800">Resolve Case</h3>
+        <button @click="showResolveModal = false" class="btn btn-secondary btn-icon ml-auto">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="form-label">Resolution Note <span class="text-red-500">*</span></label>
+          <textarea x-model="resolveNote" rows="3" class="form-input" placeholder="What was the resolution or solution?"></textarea>
+          <p class="text-xs text-slate-400 mt-1">Required — describe the actions taken to solve the client's issue.</p>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button @click="showResolveModal = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
+          <button @click="confirmResolve()" :disabled="statusLoading" class="btn btn-primary flex-1">
+            <span x-show="!statusLoading">Confirm Resolve</span>
+            <span x-show="statusLoading" x-cloak>Resolving…</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 @endsection
 
@@ -287,7 +313,9 @@
         requestCallLoading: false,
         showFollowUp: false,
         showRequestCall: false,
+        showResolveModal: false,
         requestCallNote: '',
+        resolveNote: '',
         currentStatus: @js($case->status),
         statusLabels: @js($statuses),
         statusColors: @js($statusColors),
@@ -303,17 +331,10 @@
         async changeStatus(newStatus) {
           if (this.statusLoading || newStatus === this.currentStatus) return;
 
-          let note = null;
           if (newStatus === 'resolved') {
-            note = prompt('Please enter a resolution note (required):');
-            if (note === null) {
-              return; // User cancelled
-            }
-            note = note.trim();
-            if (!note) {
-              alert('Resolution note is required to mark the case resolved.');
-              return;
-            }
+            this.resolveNote = '';
+            this.showResolveModal = true;
+            return;
           }
 
           this.statusLoading = true;
@@ -322,18 +343,36 @@
           try {
             const data = await window.api('{{ route('crm.tech-support.status', $case) }}', {
               method: 'PATCH',
-              body: JSON.stringify({ status: newStatus, note: note })
+              body: JSON.stringify({ status: newStatus })
             });
             this.currentStatus = data.status || newStatus;
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
-            // Reload page to show the newly added "Case Resolved" log entry
-            if (newStatus === 'resolved') {
-              window.location.reload();
-            }
           } catch (err) {
             this.currentStatus = previous;
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
           } finally { this.statusLoading = false; }
+        },
+
+        async confirmResolve() {
+          if (!this.resolveNote.trim()) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A resolution note is required.', type: 'error' } }));
+            return;
+          }
+          this.statusLoading = true;
+          try {
+            const data = await window.api('{{ route('crm.tech-support.status', $case) }}', {
+              method: 'PATCH',
+              body: JSON.stringify({ status: 'resolved', note: this.resolveNote })
+            });
+            this.currentStatus = data.status || 'resolved';
+            this.showResolveModal = false;
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Case marked resolved!', type: 'success' } }));
+            window.location.reload();
+          } catch (err) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+          } finally {
+            this.statusLoading = false;
+          }
         },
 
         async assignTechnician(event) {
