@@ -77,38 +77,74 @@
           </div>
         </div>
 
-        {{-- Status buttons.
-             IMPORTANT: do NOT put selected/unselected classes in the static `class`
-             attribute. Alpine merges :class with static class and never removes the
-             static ones — so after switching away from the status the page loaded
-             with, the old `text-white` stayed and made the label invisible on a
-             white background (blank "Resolved" button). Styling is Alpine-only;
-             a neutral static base is fine for no-JS fallback. --}}
+        {{-- Status Timeline & Actions --}}
         <div class="mt-4 pt-4 border-t border-slate-100">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Technical Status</p>
-          <div class="grid grid-cols-2 gap-2">
-            @php $canChangeStatus = auth()->user()->canChangeTechSupportStatus(); @endphp
-            @foreach($statuses as $key => $label)
-            @php $btnColor = $statusColors[$key] ?? \App\Models\TechSupportCase::statusColor($key); @endphp
-            <button type="button"
-                    @if($canChangeStatus)
-                    @click="changeStatus('{{ $key }}')"
-                    :disabled="statusLoading"
-                    @else
-                    disabled
-                    @endif
-                    class="py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ !$canChangeStatus ? 'opacity-60 cursor-not-allowed' : '' }}"
-                    :class="currentStatus === '{{ $key }}'
-                      ? 'text-white border-transparent'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'"
-                    :style="currentStatus === '{{ $key }}'
-                      ? { backgroundColor: '{{ $btnColor }}', borderColor: '{{ $btnColor }}', color: '#ffffff' }
-                      : { backgroundColor: '#ffffff', borderColor: '#e2e8f0', color: '#475569' }">
-              {{ $label }}
-            </button>
-            @endforeach
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Status Timeline & Actions</p>
+          
+          <div class="space-y-4">
+            @php 
+              $canChangeStatus = auth()->user()->canChangeTechSupportStatus(); 
+              // Extract status change logs (or important milestones)
+              $statusLogs = $case->logs->whereIn('type', ['call_completed', 'reopened', 'resolved', 'status_update', 'return_machine'])->sortBy('created_at');
+            @endphp
+
+            {{-- Render past status timeline --}}
+            @if($statusLogs->isNotEmpty())
+            <div class="relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-2.5 md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-200 mb-6 space-y-4">
+              @foreach($statusLogs as $sl)
+              <div class="relative flex items-start gap-3">
+                <div class="w-5 h-5 rounded-full border-2 border-white bg-slate-300 z-10 shrink-0 mt-0.5"></div>
+                <div>
+                  <p class="text-sm font-semibold text-slate-700">{{ match($sl->type) { 'resolved' => 'Resolved', 'return_machine' => 'Return Machine', 'reopened' => 'Reopened', 'call_completed' => 'Call Completed', default => 'Status Updated' } }}</p>
+                  @if($sl->note)<p class="text-xs text-slate-600 mt-1">{{ $sl->note }}</p>@endif
+                  <p class="text-[10px] text-slate-400 mt-1">{{ $sl->created_at->format('d M Y, g:ia') }} by {{ $sl->user?->name ?? 'System' }}</p>
+                </div>
+              </div>
+              @endforeach
+              
+              {{-- Current Status Indicator --}}
+              <div class="relative flex items-start gap-3">
+                <div class="w-5 h-5 rounded-full border-2 border-white z-10 shrink-0 mt-0.5"
+                     style="background:{{ $color }}"
+                     :style="'background:' + colorFor(currentStatus)"></div>
+                <div>
+                  <p class="text-sm font-bold"
+                     style="color:{{ $color }}"
+                     :style="'color:' + colorFor(currentStatus)">
+                    Current: <span x-text="labelFor(currentStatus)">{{ $statuses[$case->status] ?? $case->status }}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            @endif
+
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Update Status</p>
+            <div class="grid grid-cols-2 gap-2">
+              @foreach($statuses as $key => $label)
+              @php $btnColor = $statusColors[$key] ?? \App\Models\TechSupportCase::statusColor($key); @endphp
+              <button type="button"
+                      @if($canChangeStatus)
+                      @click="changeStatus('{{ $key }}')"
+                      :disabled="statusLoading"
+                      @else
+                      disabled
+                      @endif
+                      class="py-2.5 px-3 rounded-xl text-xs font-semibold text-center transition-all border-2 flex items-center justify-center gap-2 {{ !$canChangeStatus ? 'opacity-60 cursor-not-allowed' : '' }}"
+                      :class="currentStatus === '{{ $key }}'
+                        ? 'text-white border-transparent shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm'"
+                      :style="currentStatus === '{{ $key }}'
+                        ? { backgroundColor: '{{ $btnColor }}', borderColor: '{{ $btnColor }}', color: '#ffffff' }
+                        : { backgroundColor: '#ffffff', borderColor: '#e2e8f0', color: '#475569' }">
+                <span class="w-2 h-2 rounded-full block" 
+                      x-show="currentStatus !== '{{ $key }}'" 
+                      style="background-color: {{ $btnColor }}"></span>
+                {{ $label }}
+              </button>
+              @endforeach
+            </div>
+            <p x-show="statusLoading" x-cloak class="text-xs text-slate-400 mt-2">Updating…</p>
           </div>
-          <p x-show="statusLoading" x-cloak class="text-xs text-slate-400 mt-2">Updating…</p>
         </div>
 
         {{-- Assign technician --}}
@@ -304,6 +340,32 @@
       </div>
     </div>
   </div>
+
+  {{-- Return Machine Modal --}}
+  <div x-show="showReturnModal" x-cloak class="modal-overlay" @keydown.escape.window="showReturnModal = false">
+    <div class="modal-box max-w-lg" @click.stop>
+      <div class="modal-header">
+        <h3 class="font-display font-bold text-slate-800">Return Machine</h3>
+        <button @click="showReturnModal = false" class="btn btn-secondary btn-icon ml-auto">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="form-label">Return Reason / Note <span class="text-red-500">*</span></label>
+          <textarea x-model="returnNote" rows="3" class="form-input" placeholder="Why is the machine being returned?"></textarea>
+          <p class="text-xs text-slate-400 mt-1">Required — this information will be sent to the Logistics team.</p>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button @click="showReturnModal = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
+          <button @click="confirmReturn()" :disabled="statusLoading" class="btn btn-primary flex-1" style="background-color: #e11d48; border-color: #e11d48;">
+            <span x-show="!statusLoading">Confirm Return</span>
+            <span x-show="statusLoading" x-cloak>Processing…</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 @endsection
 
@@ -319,8 +381,10 @@
         showFollowUp: false,
         showRequestCall: false,
         showResolveModal: false,
+        showReturnModal: false,
         requestCallNote: '',
         resolveNote: '',
+        returnNote: '',
         currentStatus: @js($case->status),
         statusLabels: @js($statuses),
         statusColors: @js($statusColors),
@@ -339,6 +403,12 @@
           if (newStatus === 'resolved') {
             this.resolveNote = '';
             this.showResolveModal = true;
+            return;
+          }
+
+          if (newStatus === 'return_machine') {
+            this.returnNote = '';
+            this.showReturnModal = true;
             return;
           }
 
@@ -372,6 +442,28 @@
             this.currentStatus = data.status || 'resolved';
             this.showResolveModal = false;
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Case marked resolved!', type: 'success' } }));
+            window.location.reload();
+          } catch (err) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+          } finally {
+            this.statusLoading = false;
+          }
+        },
+
+        async confirmReturn() {
+          if (!this.returnNote.trim()) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A return reason note is required.', type: 'error' } }));
+            return;
+          }
+          this.statusLoading = true;
+          try {
+            const data = await window.api('{{ route('crm.tech-support.status', $case) }}', {
+              method: 'PATCH',
+              body: JSON.stringify({ status: 'return_machine', note: this.returnNote })
+            });
+            this.currentStatus = data.status || 'return_machine';
+            this.showReturnModal = false;
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Machine marked for return!', type: 'success' } }));
             window.location.reload();
           } catch (err) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));

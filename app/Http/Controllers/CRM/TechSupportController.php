@@ -136,14 +136,35 @@ class TechSupportController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', Rule::in(array_keys(TechSupportCase::statuses()))],
-            'note'   => ['required_if:status,' . TechSupportCase::STATUS_RESOLVED, 'nullable', 'string'],
+            'note'   => ['required_if:status,' . TechSupportCase::STATUS_RESOLVED . ',' . TechSupportCase::STATUS_RETURN_MACHINE, 'nullable', 'string'],
         ], [
-            'note.required_if' => 'A resolution note is required when resolving a case.',
+            'note.required_if' => 'A resolution or return note is required when changing to this status.',
         ]);
 
         $this->service->changeStatus($case, $validated['status'], auth()->user(), $validated['note'] ?? null);
         event(new \App\Events\TechSupportCaseStatusUpdated($case, auth()->id()));
         Cache::forget('tech_support.index_stats');
+
+        if ($validated['status'] === TechSupportCase::STATUS_RETURN_MACHINE) {
+            $machineReturn = \App\Models\MachineReturn::firstOrCreate(
+                ['tech_support_case_id' => $case->id],
+                [
+                    'customer_id' => $case->customer_id,
+                    'status' => \App\Models\MachineReturn::STATUS_PENDING,
+                    'notes' => $validated['note'] ?? null,
+                ]
+            );
+            
+            // Log the initial status creation
+            if ($machineReturn->wasRecentlyCreated) {
+                \App\Models\MachineReturnLog::create([
+                    'machine_return_id' => $machineReturn->id,
+                    'user_id' => auth()->id(),
+                    'status_changed_to' => \App\Models\MachineReturn::STATUS_PENDING,
+                    'note' => $validated['note'] ?? 'Return requested by Tech Support.',
+                ]);
+            }
+        }
 
         $case->refresh();
         $statuses = TechSupportCase::statuses();

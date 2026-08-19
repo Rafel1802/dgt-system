@@ -501,6 +501,11 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
                 // ── Logistic CRM ──────────────────────────────────────────
                 Route::prefix('logistics')->name('logistics.')->group(function () {
+                    // Logistic Returns
+                    Route::get('/returns', [\App\Http\Controllers\CRM\LogisticReturnController::class, 'index'])->name('returns.index');
+                    Route::get('/returns/{return}', [\App\Http\Controllers\CRM\LogisticReturnController::class, 'show'])->name('returns.show');
+                    Route::patch('/returns/{return}/status', [\App\Http\Controllers\CRM\LogisticReturnController::class, 'updateStatus'])->name('returns.status');
+
                     // Logistic Issues — every customer currently flagged with a shipment problem
                     Route::get('/issues', [ShipmentController::class, 'issues'])->name('issues.index');
                     Route::post('/issues/{source}/{id}/resolve', [ShipmentController::class, 'resolveIssue'])->name('issues.resolve');

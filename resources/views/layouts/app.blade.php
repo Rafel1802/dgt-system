@@ -617,6 +617,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <span>SMM Planning Board</span>
                             </a>
                             
+
                         </div>
                     </div>
                 </div>
@@ -1042,6 +1043,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
                             </svg>
                             Delivered
+                        </a>
+                        <a wire:navigate.hover href="{{ route('crm.logistics.returns.index') }}"
+                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.returns.*') ? 'active' : '' }}"
+                           id="nav-logistic-returns">
+                            <span class="w-4 h-4 flex shrink-0 items-center justify-center">🔄</span>
+                            Machine Returns
                         </a>
                         <a wire:navigate.hover href="{{ route('crm.logistics.issues.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.issues.*') ? 'active' : '' }}"

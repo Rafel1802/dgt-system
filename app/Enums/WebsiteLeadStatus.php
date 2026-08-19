@@ -5,8 +5,6 @@ namespace App\Enums;
 enum WebsiteLeadStatus: string
 {
     case NewLead          = 'new_lead';
-    case Contacted        = 'contacted';
-    case Nurturing        = 'nurturing';
     case TechnicalSupport = 'technical_support';
     case Resolved         = 'resolved';
     case Successful       = 'successful';
@@ -20,16 +18,14 @@ enum WebsiteLeadStatus: string
     {
         return match($this) {
             self::NewLead          => 'New Lead',
-            self::Contacted        => 'Contacted',
-            self::Nurturing        => 'Nurturing',
             self::TechnicalSupport => 'Technical Support',
             self::Resolved         => 'Resolved',
             self::Successful       => 'Successful Lead',
-            self::InDelivery       => 'In Delivery',
-            self::Delivered        => 'Delivered',
+            self::InDelivery       => 'In Delivery (Auto-synced from Logistic)',
+            self::Delivered        => 'Delivered (Auto-synced from Logistic)',
             self::Lost             => 'Lost / Not Interested',
-            self::DelayedShipment  => 'Logistic Issues',
-            self::MachineReturn    => 'Machine Return',
+            self::DelayedShipment  => 'Logistic Issues (Auto-synced from Logistic)',
+            self::MachineReturn    => 'Machine Return (Auto-synced from Logistic)',
         };
     }
 
@@ -37,8 +33,6 @@ enum WebsiteLeadStatus: string
     {
         return match($this) {
             self::NewLead          => '#94a3b8',
-            self::Contacted        => '#3b82f6',
-            self::Nurturing        => '#8b5cf6',
             self::TechnicalSupport => '#8b5cf6',
             self::Resolved         => '#0ea5e9',
             self::Successful       => '#0ea5e9',
@@ -54,8 +48,6 @@ enum WebsiteLeadStatus: string
     {
         return match($this) {
             self::NewLead          => 'badge-slate',
-            self::Contacted        => 'badge-sky',
-            self::Nurturing        => 'badge-indigo',
             self::TechnicalSupport => 'badge-amber',
             self::Resolved         => 'badge-emerald',
             self::Successful       => 'badge-emerald',

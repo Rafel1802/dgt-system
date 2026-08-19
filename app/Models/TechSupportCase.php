@@ -35,6 +35,7 @@ class TechSupportCase extends Model
     const STATUS_NEW         = 'new_case';
     const STATUS_IN_PROGRESS = 'in_progress';
     const STATUS_RED         = 'red_case';
+    const STATUS_RETURN_MACHINE = 'return_machine';
     const STATUS_RESOLVED    = 'resolved';
 
     protected $fillable = [
@@ -55,6 +56,7 @@ class TechSupportCase extends Model
             self::STATUS_NEW         => 'New Case',
             self::STATUS_IN_PROGRESS => 'In Progress',
             self::STATUS_RED         => 'Red Case (Potential Return)',
+            self::STATUS_RETURN_MACHINE => 'Return Machine',
             self::STATUS_RESOLVED    => 'Resolved',
         ];
     }
@@ -65,6 +67,7 @@ class TechSupportCase extends Model
             self::STATUS_NEW         => '#6366f1', // indigo
             self::STATUS_IN_PROGRESS => '#f59e0b', // amber
             self::STATUS_RED         => '#dc2626', // red
+            self::STATUS_RETURN_MACHINE => '#e11d48', // rose
             self::STATUS_RESOLVED    => '#0ea5e9', // sky blue
             default => '#94a3b8',
         };
