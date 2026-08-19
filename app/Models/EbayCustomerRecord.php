@@ -33,6 +33,13 @@ class EbayCustomerRecord extends Model
             ) {
                 app(TechSupportCaseService::class)->createCaseFor($record);
             }
+
+            if ($record->wasChanged('tab_type') && $record->tab_type === self::TAB_RESOLVED) {
+                $case = $record->techSupportCase;
+                if ($case && $case->status !== TechSupportCase::STATUS_RESOLVED) {
+                    app(TechSupportCaseService::class)->changeStatus($case, TechSupportCase::STATUS_RESOLVED);
+                }
+            }
         });
     }
 
@@ -94,7 +101,7 @@ class EbayCustomerRecord extends Model
     const NEGATIVE_FEEDBACK_CAUSES = ['Technical', 'Logistic issues', 'Customer service'];
 
     /** Logistic-issues color, shared with the shipment_delay flag badge and the "Logistic issues" cause. */
-    const LOGISTIC_ISSUES_COLOR = '#10b981';
+    const LOGISTIC_ISSUES_COLOR = '#ef4444';
 
     /** Delivered color, shared with the shipment_delivered flag badge — matches ShipmentCustomer::colorForStatus('delivered'). */
     const DELIVERED_COLOR = '#22c55e';

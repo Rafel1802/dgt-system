@@ -40,6 +40,13 @@ class Lead extends Model
             if ($lead->wasChanged('status') && $lead->status === WebsiteLeadStatus::TechnicalSupport) {
                 app(TechSupportCaseService::class)->createCaseFor($lead, $lead->pendingTechNote);
             }
+
+            if ($lead->wasChanged('status') && in_array($lead->status, [WebsiteLeadStatus::Resolved, WebsiteLeadStatus::Successful], true)) {
+                $case = $lead->techSupportCase;
+                if ($case && $case->status !== TechSupportCase::STATUS_RESOLVED) {
+                    app(TechSupportCaseService::class)->changeStatus($case, TechSupportCase::STATUS_RESOLVED);
+                }
+            }
         });
     }
 

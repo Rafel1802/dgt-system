@@ -384,4 +384,82 @@ class EbayCustomerNegativeFeedbackTest extends TestCase
         $row = app(CrmCustomerMatchService::class)->buildUnifiedDirectory()->firstWhere('id', $record->id);
         $this->assertContains('negative_feedback', $row['categories']);
     }
+
+    public function test_negative_feedback_occurrence_count_increments_correctly_on_repeat(): void
+    {
+        $record = EbayCustomerRecord::create([
+            'tab_type' => EbayCustomerRecord::TAB_URGENT,
+            'username' => 'repeat_buyer',
+        ]);
+
+        // 1st occurrence: transition to Negatives Feedbacks with Technical cause
+        $this->actingAs($this->user)->put(
+            route('crm.ebay.customers.update', $record),
+            [
+                'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
+                'username' => 'repeat_buyer',
+                'negative_feedback_causes' => ['Technical'],
+                'informations' => '1st technical feedback note',
+                'date' => '2026-08-17',
+            ]
+        );
+
+        $case = TechSupportCase::where('source_type', EbayCustomerRecord::class)->where('source_id', $record->id)->firstOrFail();
+        $this->assertEquals(1, $case->occurrence_count);
+
+        // Transition to Resolved
+        $this->actingAs($this->user)->put(
+            route('crm.ebay.customers.update', $record),
+            [
+                'tab_type' => EbayCustomerRecord::TAB_RESOLVED,
+                'username' => 'repeat_buyer',
+            ]
+        );
+
+        $case->refresh();
+        $this->assertEquals(TechSupportCase::STATUS_RESOLVED, $case->status);
+
+        // 2nd occurrence: transition to Negatives Feedbacks with Technical cause again
+        $this->actingAs($this->user)->put(
+            route('crm.ebay.customers.update', $record),
+            [
+                'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
+                'username' => 'repeat_buyer',
+                'negative_feedback_causes' => ['Technical'],
+                'informations' => '2nd technical feedback note',
+                'date' => '2026-08-17',
+            ]
+        );
+
+        $case->refresh();
+        $this->assertEquals(2, $case->occurrence_count);
+        $this->assertEquals(TechSupportCase::STATUS_NEW, $case->status);
+
+        // Transition to Resolved again
+        $this->actingAs($this->user)->put(
+            route('crm.ebay.customers.update', $record),
+            [
+                'tab_type' => EbayCustomerRecord::TAB_RESOLVED,
+                'username' => 'repeat_buyer',
+            ]
+        );
+
+        $case->refresh();
+        $this->assertEquals(TechSupportCase::STATUS_RESOLVED, $case->status);
+
+        // 3rd occurrence: transition to Negatives Feedbacks with Technical cause again
+        $this->actingAs($this->user)->put(
+            route('crm.ebay.customers.update', $record),
+            [
+                'tab_type' => EbayCustomerRecord::TAB_NEGATIVES,
+                'username' => 'repeat_buyer',
+                'negative_feedback_causes' => ['Technical'],
+                'informations' => '3rd technical feedback note',
+                'date' => '2026-08-17',
+            ]
+        );
+
+        $case->refresh();
+        $this->assertEquals(3, $case->occurrence_count);
+    }
 }

@@ -45,7 +45,7 @@ enum WebsiteLeadStatus: string
             self::InDelivery       => '#06b6d4',
             self::Delivered        => '#22c55e',
             self::Lost             => '#ef4444',
-            self::DelayedShipment  => '#10b981',
+            self::DelayedShipment  => '#ef4444',
             self::MachineReturn    => '#64748b',
         };
     }
