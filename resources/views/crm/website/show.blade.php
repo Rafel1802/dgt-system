@@ -151,29 +151,64 @@
       {{-- Pipeline Status Bar --}}
       <div class="card">
         <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Pipeline Progress</h4>
-        <div class="flex gap-1 overflow-x-auto pb-2">
-          @foreach($statuses as $s)
-          @php
-            $isActive = $lead->status?->value === $s->value;
-            $isResolvedButton = $s->value === \App\Enums\WebsiteLeadStatus::Resolved->value;
-            $isLocked = $isResolvedButton && !$isActive;
-          @endphp
-          <button
-            @if(auth()->user()->canModifyCrmData())
-            @click="updateStatus('{{ $s->value }}')"
-            :disabled="statusLoading || {{ $isLocked ? 'true' : 'false' }}"
-            @else
-            disabled
-            @endif
-            class="flex-1 min-w-[80px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }} {{ $isLocked || !auth()->user()->canModifyCrmData() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}"
-            style="{{ $isActive ? 'background:'.$s->color().'; border-color:'.$s->color() : '' }}"
-            title="{{ $isLocked ? 'Resolved status can only be set from the Technical Support page.' : $s->label() }}">
-            {{ $s->label() }}
-          </button>
-          @endforeach
+        
+        <div class="relative overflow-x-auto pb-6 pt-2 px-2 custom-scrollbar">
+          <div class="flex items-start min-w-max">
+            @php
+              $activeFound = false;
+            @endphp
+            @foreach($statuses as $index => $s)
+            @php
+              $isActive = $lead->status?->value === $s->value;
+              if ($isActive) $activeFound = true;
+              $isPast = !$activeFound && !$isActive;
+              
+              $isResolvedButton = $s->value === \App\Enums\WebsiteLeadStatus::Resolved->value;
+              $isLocked = $isResolvedButton && !$isActive;
+            @endphp
+            <div class="relative flex flex-col items-center group" style="width: 110px;">
+              
+              {{-- Connecting Line --}}
+              @if(!$loop->first)
+              <div class="absolute h-1 top-4 right-1/2 w-full -z-10 {{ $isPast || $isActive ? 'bg-indigo-500' : 'bg-slate-200' }}" style="transform: translateY(-50%);"></div>
+              @endif
+
+              {{-- Clickable Node --}}
+              <button
+                @if(auth()->user()->canModifyCrmData())
+                @click="updateStatus('{{ $s->value }}')"
+                :disabled="statusLoading || {{ $isLocked ? 'true' : 'false' }}"
+                @else
+                disabled
+                @endif
+                class="relative w-8 h-8 rounded-full border-2 flex items-center justify-center z-10 transition-all duration-300 {{ $isLocked || !auth()->user()->canModifyCrmData() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-110 hover:shadow-lg' }} {{ $isActive ? 'border-transparent shadow-md' : 'bg-white' }}"
+                style="{{ $isActive ? 'background:'.$s->color() : ($isPast ? 'border-color:#6366f1; background:#eef2ff;' : 'border-color:#cbd5e1;') }}"
+                title="{{ $isLocked ? 'Resolved status can only be set from the Technical Support page.' : $s->label() }}">
+                
+                @if($isActive)
+                  <span class="w-3 h-3 bg-white rounded-full animate-pulse"></span>
+                @elseif($isPast)
+                  <span class="text-indigo-600 text-xs font-bold">✓</span>
+                @endif
+              </button>
+
+              {{-- Label --}}
+              <span class="text-[10px] text-center font-semibold mt-3 px-1 leading-tight {{ $isActive ? 'text-slate-800' : ($isPast ? 'text-slate-600' : 'text-slate-400') }}" style="{{ $isActive ? 'color:'.$s->color() : '' }}">
+                {{ str_replace(' (Auto-synced from Logistic)', '', $s->label()) }}
+                @if(str_contains($s->label(), 'Auto-synced'))
+                  <br><span class="text-[8px] opacity-75 font-normal tracking-wide">(Auto-Synced)</span>
+                @endif
+              </span>
+
+            </div>
+            @endforeach
+          </div>
         </div>
+        
         @if(auth()->user()->canModifyCrmData())
-        <p class="text-xs text-slate-400 mt-2">Click a stage to move this lead.</p>
+        <div class="mt-2 text-center">
+          <p class="text-xs text-slate-400">Click a node to move this lead to the next stage.</p>
+        </div>
         @endif
       </div>
 
