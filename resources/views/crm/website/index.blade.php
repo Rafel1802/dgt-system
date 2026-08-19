@@ -130,27 +130,27 @@
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
-          <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-            <th class="px-5 py-3 w-10">
+          <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <th class="px-5 py-3 w-10 border-r border-slate-100">
               <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" :checked="allChecked" @change="toggleAll($event)">
             </th>
-            <th class="px-4 py-3 text-left">Client</th>
-            <th class="px-4 py-3 text-left">Source</th>
-            <th class="px-4 py-3 text-left">Product</th>
-            <th class="px-4 py-3 text-left">Status</th>
-            <th class="px-4 py-3 text-left">Follow-Up</th>
-            <th class="px-4 py-3 text-left">Handled By</th>
-            <th class="px-4 py-3 text-left">Received</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Client</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Source</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Product</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Status</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Follow-Up</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Handled By</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Received</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-50">
+        <tbody class="divide-y divide-slate-100">
           @forelse($leads as $lead)
-          <tr class="hover:bg-slate-50/70 transition-colors {{ $lead->is_overdue ? 'bg-red-50/30' : '' }}">
-            <td class="px-5 py-3">
+          <tr class="odd:bg-white even:bg-slate-50/50 hover:bg-indigo-50/30 transition-colors duration-100 {{ $lead->is_overdue ? '!bg-red-50/20' : '' }}">
+            <td class="px-5 py-3 border-r border-slate-100">
               <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" value="{{ $lead->id }}" x-model.number="selected">
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 border-r border-slate-100">
               <div>
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <p class="font-semibold text-slate-800">{{ $lead->client_name }}</p>
@@ -181,14 +181,14 @@
                 </div>
               </div>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 border-r border-slate-100">
               <span class="text-sm">{{ $lead->source?->icon() }}</span>
               <span class="text-xs text-slate-500">{{ $lead->source?->label() }}</span>
             </td>
-            <td class="px-4 py-3 text-xs text-slate-600">
+            <td class="px-4 py-3 text-xs text-slate-600 border-r border-slate-100">
               {{ $lead->product?->name ?? $lead->product_interested ?? '—' }}
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 border-r border-slate-100">
               <span class="badge text-xs font-semibold px-2 py-0.5 rounded-full"
                     style="background:{{ $lead->status?->color() }}22; color:{{ $lead->status?->color() }}">
                 {{ $lead->status?->label() }}
@@ -199,7 +199,7 @@
                 </span>
               @endif
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 border-r border-slate-100">
               @if($lead->follow_up_date)
                 <span class="text-xs {{ $lead->is_overdue ? 'text-red-600 font-bold' : 'text-slate-500' }}">
                   {{ $lead->is_overdue ? '⚠️ ' : '' }}{{ $lead->follow_up_date->format('d M Y') }}
@@ -208,7 +208,7 @@
                 <span class="text-xs text-slate-300">Not set</span>
               @endif
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 border-r border-slate-100">
               @if($lead->handler)
               <div class="flex items-center gap-1.5">
                 <img src="{{ $lead->handler->avatar_url }}" class="w-5 h-5 rounded-full" alt="{{ $lead->handler->name }}">
@@ -216,7 +216,7 @@
               </div>
               @endif
             </td>
-            <td class="px-4 py-3 text-xs text-slate-400">{{ $lead->received_at?->diffForHumans() }}</td>
+            <td class="px-4 py-3 text-xs text-slate-400 border-r border-slate-100">{{ $lead->received_at?->diffForHumans() }}</td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
                 <a href="{{ route('crm.website.show', $lead) }}" class="btn btn-secondary btn-icon" style="width:28px;height:28px;" title="View">

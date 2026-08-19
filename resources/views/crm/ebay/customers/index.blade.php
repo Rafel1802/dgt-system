@@ -136,31 +136,31 @@
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
-          <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
             @if(auth()->user()->canEditEbayCustomer())
-            <th class="px-5 py-3 w-10">
+            <th class="px-5 py-3 w-10 border-r border-slate-100">
               <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" :checked="allChecked" @change="toggleAll($event)">
             </th>
             @endif
-            <th class="px-4 py-3 text-left">Status</th>
-            <th class="px-4 py-3 text-left">Customer</th>
-            <th class="px-4 py-3 text-left">eBay Store</th>
-            <th class="px-4 py-3 text-left">Order ID</th>
-            <th class="px-4 py-3 text-left">Summary</th>
-            <th class="px-4 py-3 text-left">Created Date</th>
-            <th class="px-4 py-3 text-left">Order Date</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Status</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Customer</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">eBay Store</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Order ID</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Summary</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Created Date</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Order Date</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-50">
+        <tbody class="divide-y divide-slate-100">
           @forelse($records as $record)
-          <tr class="hover:bg-slate-50/70 transition-colors">
+          <tr class="odd:bg-white even:bg-slate-50/50 hover:bg-indigo-50/30 transition-colors duration-100">
             @if(auth()->user()->canEditEbayCustomer())
-            <td class="px-5 py-3">
+            <td class="px-5 py-3 border-r border-slate-100">
               <input type="checkbox" class="accent-indigo-600 w-4 h-4 rounded cursor-pointer" value="{{ $record->id }}" x-model.number="selected">
             </td>
             @endif
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 border-r border-slate-100">
               @php $tabColor = \App\Models\EbayCustomerRecord::tabColor($record->tab_type); @endphp
               <span class="badge text-xs px-2 py-0.5 rounded-full" style="background:{{ $tabColor }}22; color:{{ $tabColor }}">
                 {{ $tabs[$record->tab_type] ?? $record->tab_type }}
@@ -182,7 +182,7 @@
                 </span>
               @endif
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 border-r border-slate-100">
               <p class="font-medium text-slate-800">{{ $record->buyer_name ?: $record->username ?: '—' }}</p>
               @if($record->username && $record->buyer_name)
                 <p class="text-xs text-slate-400">{{ '@' . $record->username }}</p>
@@ -191,11 +191,11 @@
                 <p class="text-xs text-slate-400">{{ $record->email }}</p>
               @endif
             </td>
-            <td class="px-4 py-3 text-xs text-indigo-600">{{ $record->store?->store_name ?? '—' }}</td>
-            <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ $record->order_id ?? '—' }}</td>
-            <td class="px-4 py-3 text-xs text-slate-600 max-w-[220px] truncate" title="{{ $record->summary }}">{{ Str::limit($record->summary, 60) ?: '—' }}</td>
-            <td class="px-4 py-3 text-xs text-slate-500">{{ $record->created_at?->format('d/m/Y') ?? '—' }}</td>
-            <td class="px-4 py-3 text-xs text-slate-500">{{ ($record->date ?? $record->order_date)?->format('d/m/Y') ?? '—' }}</td>
+            <td class="px-4 py-3 text-xs text-indigo-600 border-r border-slate-100">{{ $record->store?->store_name ?? '—' }}</td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-600 border-r border-slate-100">{{ $record->order_id ?? '—' }}</td>
+            <td class="px-4 py-3 text-xs text-slate-600 max-w-[220px] truncate border-r border-slate-100" title="{{ $record->summary }}">{{ Str::limit($record->summary, 60) ?: '—' }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500 border-r border-slate-100">{{ $record->created_at?->format('d/m/Y') ?? '—' }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500 border-r border-slate-100">{{ ($record->date ?? $record->order_date)?->format('d/m/Y') ?? '—' }}</td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
                 <a href="{{ route('crm.ebay.customers.show', $record) }}"

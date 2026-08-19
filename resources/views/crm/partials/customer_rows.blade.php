@@ -1,19 +1,19 @@
 @forelse($customers as $customer)
-<tr class="hover:bg-indigo-50/20 hover:scale-[1.001] transition-all duration-150">
-  <td class="px-5 py-3">
+<tr class="odd:bg-white even:bg-slate-50/50 hover:bg-indigo-50/30 transition-colors duration-100">
+  <td class="px-5 py-3 border-r border-slate-100">
     @if($customer['link'])
       <a href="{{ $customer['link'] }}" class="font-semibold text-slate-800 hover:text-indigo-600 transition-colors">{{ $customer['name'] }}</a>
     @else
       <span class="font-semibold text-slate-800">{{ $customer['name'] }}</span>
     @endif
   </td>
-  <td class="px-4 py-3 text-xs text-slate-500">
+  <td class="px-4 py-3 text-xs text-slate-500 border-r border-slate-100">
     <span class="font-medium text-slate-600">{{ $customer['email'] ?: '—' }}</span>
     @if($customer['phone'])
       <br><span class="text-slate-400 font-mono">{{ $customer['phone'] }}</span>
     @endif
   </td>
-  <td class="px-4 py-3">
+  <td class="px-4 py-3 border-r border-slate-100">
     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all duration-200"
           style="background:{{ $customer['source_color'] }}08; color:{{ $customer['source_color'] }}; border-color:{{ $customer['source_color'] }}25">
       @if(strtolower($customer['source']) === 'ebay')
@@ -26,7 +26,7 @@
       <span>{{ $customer['source'] }}</span>
     </span>
   </td>
-  <td class="px-4 py-3">
+  <td class="px-4 py-3 border-r border-slate-100">
     <div class="flex flex-wrap gap-1.5 items-center">
       @php
         $badges = $customer['status_badges'] ?? [
@@ -47,9 +47,9 @@
       @endif
     </div>
   </td>
-  <td class="px-4 py-3 text-xs text-slate-500 font-medium">{{ $customer['created_date']?->format('d/m/Y') ?? '—' }}</td>
-  <td class="px-4 py-3 text-xs text-slate-500 font-medium">{{ $customer['purchase_date']?->format('d/m/Y') ?? '—' }}</td>
-  <td class="px-4 py-3 text-xs text-slate-600 font-semibold">{{ $customer['handler'] ?: '—' }}</td>
+  <td class="px-4 py-3 text-xs text-slate-500 font-medium border-r border-slate-100">{{ $customer['created_date']?->format('d/m/Y') ?? '—' }}</td>
+  <td class="px-4 py-3 text-xs text-slate-500 font-medium border-r border-slate-100">{{ $customer['purchase_date']?->format('d/m/Y') ?? '—' }}</td>
+  <td class="px-4 py-3 text-xs text-slate-600 font-semibold border-r border-slate-100">{{ $customer['handler'] ?: '—' }}</td>
   <td class="px-4 py-3">
     <div class="flex justify-end gap-1">
       @if($customer['link'])

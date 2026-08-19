@@ -196,18 +196,18 @@
     <div class="overflow-x-auto">
       <table class="w-full text-sm" id="customer-table">
         <thead>
-          <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-            <th class="px-5 py-3 text-left">Name</th>
-            <th class="px-4 py-3 text-left">Contact</th>
-            <th class="px-4 py-3 text-left">Source</th>
-            <th class="px-4 py-3 text-left">Status</th>
-            <th class="px-4 py-3 text-left">Created</th>
-            <th class="px-4 py-3 text-left">Purchase Date</th>
-            <th class="px-4 py-3 text-left">Handler</th>
+          <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <th class="px-5 py-3 text-left border-r border-slate-100">Name</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Contact</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Source</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Status</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Created</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Purchase Date</th>
+            <th class="px-4 py-3 text-left border-r border-slate-100">Handler</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody id="customer-table-body" class="divide-y divide-slate-50 transition-opacity duration-200">
+        <tbody id="customer-table-body" class="divide-y divide-slate-100 transition-opacity duration-200">
           @include('crm.partials.customer_rows')
         </tbody>
       </table>
