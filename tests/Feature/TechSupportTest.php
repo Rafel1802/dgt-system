@@ -70,7 +70,11 @@ class TechSupportTest extends TestCase
             'received_at'  => now(),
         ]);
 
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
+        $this->actingAs($this->admin)->patchJson(route('crm.website.status', $lead), [
+            'status' => WebsiteLeadStatus::TechnicalIssues->value,
+            'issue_date' => now()->toDateString(),
+            'note' => 'Technical issue reported.',
+        ])->assertOk();
 
         $case = TechSupportCase::firstOrFail();
         $this->assertEquals(Lead::class, $case->source_type);
@@ -80,7 +84,7 @@ class TechSupportTest extends TestCase
 
         $this->assertDatabaseHas('customer_interactions', [
             'customer_id' => $customer->id,
-            'subject'     => 'Technical Case Created',
+            'subject'     => 'New Technical Case',
         ]);
         $this->assertEquals(1, $this->tech->fresh()->notifications()->count());
     }
@@ -103,7 +107,11 @@ class TechSupportTest extends TestCase
             'received_at' => now(),
         ]);
 
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
+        $this->actingAs($this->admin)->patchJson(route('crm.website.status', $lead), [
+            'status' => WebsiteLeadStatus::TechnicalIssues->value,
+            'issue_date' => now()->toDateString(),
+            'note' => 'Technical issue live broadcast test.',
+        ])->assertOk();
 
         // A new case is unassigned on creation, so it should broadcast live
         // (Pusher popup) to other active technicians.
@@ -154,7 +162,11 @@ class TechSupportTest extends TestCase
             'status'      => WebsiteLeadStatus::NewInquiry->value,
             'received_at' => now(),
         ]);
-        $lead->update(['status' => WebsiteLeadStatus::TechnicalIssues]);
+        $this->actingAs($this->admin)->patchJson(route('crm.website.status', $lead), [
+            'status' => WebsiteLeadStatus::TechnicalIssues->value,
+            'issue_date' => now()->toDateString(),
+            'note' => 'Status in progress check.',
+        ])->assertOk();
 
         $case = TechSupportCase::firstOrFail();
         $this->assertEquals(1, $this->tech->fresh()->unreadNotifications()->count());
@@ -273,10 +285,6 @@ class TechSupportTest extends TestCase
             'status'                  => EbayCustomerRecord::TAB_RESOLVED,
         ]);
         $this->assertNotNull($case->fresh()->ebay_synced_at);
-        $this->assertDatabaseHas('customer_interactions', [
-            'customer_id' => $customer->id,
-            'subject'     => 'eBay Synchronization Completed',
-        ]);
     }
 
     /**

@@ -147,6 +147,7 @@
           </div>
         </div>
 
+        @if($canChangeStatus)
         {{-- Assign technician --}}
         <div class="mt-4 pt-4 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Assigned Technician</p>
@@ -165,6 +166,7 @@
         <div class="mt-4 pt-4 border-t border-slate-100">
           <button @click="showRequestCall = true" class="btn btn-primary text-sm w-full">📞 Request Call</button>
         </div>
+        @endif
       </div>
 
       {{-- Previous Sales/eBay Notes --}}
@@ -260,6 +262,7 @@
           @endforelse
         </div>
 
+        @if(auth()->user()->canAddTechSupportFollowUp())
         <div x-show="!showFollowUp">
           <button @click="showFollowUp = true"
                   class="w-full border-2 border-dashed border-slate-200 rounded-xl py-3 text-sm text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
@@ -285,6 +288,7 @@
             </button>
           </div>
         </form>
+        @endif
       </div>
     </div>
   </div>

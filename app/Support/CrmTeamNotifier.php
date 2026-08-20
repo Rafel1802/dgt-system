@@ -27,6 +27,30 @@ class CrmTeamNotifier
         self::sendToRoles([...self::RECIPIENT_ROLES, ...self::ADMIN_ROLES], $type, $message, $link, $excludeUserId);
     }
 
+    public static function notifyTechCaseStatusChange(\App\Models\TechSupportCase $case, ?User $actor = null): void
+    {
+        $case->loadMissing(['customer.assignee', 'source']);
+        $customerName = $case->customer?->name
+            ?? ($case->source instanceof \App\Models\Lead ? $case->source->client_name : null)
+            ?? ($case->source instanceof \App\Models\EbayCustomerRecord ? ($case->source->buyer_name ?: $case->source->username) : null)
+            ?? 'Customer';
+            
+        $statusLabel = \App\Models\TechSupportCase::statuses()[$case->status] ?? $case->status;
+        $message = "{$customerName}: {$statusLabel}"
+            . ($actor ? " · {$actor->name}" : '')
+            . ($case->status === \App\Models\TechSupportCase::STATUS_RED ? ' · High priority' : '');
+            
+        $link = route('crm.tech-support.show', $case);
+        
+        $roles = ['ebay-team', 'ebay-supervisor', 'sales-crm', 'tech-support', 'admin-crm', 'super-admin', 'boss', 'logistic-supervisor'];
+        
+        $userIds = [];
+        if ($case->assigned_to) $userIds[] = $case->assigned_to;
+        if ($case->created_by) $userIds[] = $case->created_by;
+        
+        self::sendToRoles($roles, 'tech_case_status_changed', $message, $link, $actor?->id, $userIds, $case);
+    }
+
     /**
      * A customer record was updated — notify the CRM supervisor(s) and CRM
      * admins with what changed. Deliberately does NOT also notify the
@@ -129,9 +153,6 @@ class CrmTeamNotifier
             if ($record->handler_id) $userIds[] = $record->handler_id;
         } elseif ($record instanceof \App\Models\Lead || $record instanceof \App\Models\Customer || $record instanceof \App\Models\EbayCustomerRecord) {
             $roles = array_merge($roles, ['sales-crm', 'ebay-supervisor']);
-            if ($newStatus === \App\Enums\WebsiteLeadStatus::TechnicalIssues->value || $newStatus === 'technical_issues' || $previousStatus === 'technical_issues') {
-                $roles[] = 'tech-support';
-            }
             
             $link = $record instanceof \App\Models\Lead 
                 ? route('crm.website.show', $record) 

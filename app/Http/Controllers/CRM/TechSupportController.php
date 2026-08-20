@@ -144,21 +144,23 @@ class TechSupportController extends Controller
         $originalStatus = $case->getOriginal('status');
         $this->service->changeStatus($case, $validated['status'], auth()->user(), $validated['note'] ?? null);
         
-        if ($originalStatus !== $validated['status']) {
-            \App\Support\CrmTeamNotifier::notifyStatusChange(
-                $case,
-                $originalStatus,
-                $validated['status'],
-                auth()->user(),
-                'Technical Support Team'
-            );
-        }
-        
         // Sync the tech support status directly to the Customer model
         if ($case->customer) {
             $customerStatus = \App\Enums\CustomerStatus::tryFrom($validated['status']);
             if ($customerStatus) {
                 $case->customer->update(['status' => $customerStatus]);
+                broadcast(new \App\Events\CustomerStatusUpdatedLive($case->customer->id, $customerStatus->label(), $customerStatus->color(), auth()->user()->name, 'Technical Support Team', 'customer'));
+            }
+        }
+
+        // Sync the tech support status directly to the source model (Website/Ebay) if resolved
+        if ($case->source && $validated['status'] === TechSupportCase::STATUS_RESOLVED) {
+            if ($case->source instanceof \App\Models\Lead) {
+                $case->source->update(['status' => \App\Enums\WebsiteLeadStatus::Resolve->value]);
+                broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Enums\WebsiteLeadStatus::Resolve->label(), \App\Enums\WebsiteLeadStatus::Resolve->color(), auth()->user()->name, 'Technical Support Team', 'lead'));
+            } elseif ($case->source instanceof \App\Models\EbayCustomerRecord) {
+                $case->source->update(['tab_type' => \App\Models\EbayCustomerRecord::TAB_RESOLVED]);
+                broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Models\EbayCustomerRecord::tabLabels()[\App\Models\EbayCustomerRecord::TAB_RESOLVED] ?? 'Resolved', \App\Models\EbayCustomerRecord::tabColors()[\App\Models\EbayCustomerRecord::TAB_RESOLVED] ?? '#0ea5e9', auth()->user()->name, 'Technical Support Team', 'ebay'));
             }
         }
         
@@ -214,7 +216,7 @@ class TechSupportController extends Controller
 
     public function storeFollowUp(Request $request, TechSupportCase $case): JsonResponse
     {
-        abort_unless(auth()->user()->canChangeTechSupportStatus(), 403, 'You do not have permission to manage this case.');
+        abort_unless(auth()->user()->canAddTechSupportFollowUp(), 403, 'You do not have permission to add follow-up logs to this case.');
 
         $validated = $request->validate([
             'note'       => ['required', 'string'],

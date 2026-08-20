@@ -372,6 +372,11 @@ SVG;
         ]) || $this->isCrmSupervisor();
     }
 
+    public function canAddTechSupportFollowUp(): bool
+    {
+        return $this->canChangeTechSupportStatus() || $this->hasRole('sales-crm');
+    }
+
     public function canModifyCrmData(): bool
     {
         return !$this->hasRole('tech-support');

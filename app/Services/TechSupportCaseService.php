@@ -75,7 +75,7 @@ class TechSupportCaseService
 
         $this->logActivity($case->customer_id, 'New Technical Case', 'A new technical support case was opened.');
 
-        // $this->notifyTechnicians($case, 'New tech case' . ($case->order_id ? " · #{$case->order_id}" : ''), 'tech_case_new', auth()->id());
+        $this->notifyTechnicians($case, 'New tech case' . ($case->order_id ? " · #{$case->order_id}" : ''), 'tech_case_new', auth()->id());
 
         return $case;
     }
@@ -126,7 +126,7 @@ class TechSupportCaseService
 
         $this->logActivity($case->customer_id, 'Technical Case Reopened', "New technical issue reported ({$ordinal} occurrence).");
 
-        // $this->notifyTechnicians($case, "Tech case reopened · {$ordinal} occurrence", 'tech_case_new', auth()->id());
+        $this->notifyTechnicians($case, "Tech case reopened · {$ordinal} occurrence", 'tech_case_new', auth()->id());
 
         return $case;
     }
@@ -255,27 +255,8 @@ class TechSupportCaseService
         //
         // Fan-out after the HTTP response so status clicks return immediately
         // on shared hosting (same recipients/message as before).
-        $case->loadMissing(['customer.assignee', 'source']);
-        $customerName = $case->customer?->name
-            ?? ($case->source instanceof Lead ? $case->source->client_name : null)
-            ?? ($case->source instanceof EbayCustomerRecord ? ($case->source->buyer_name ?: $case->source->username) : null)
-            ?? 'Customer';
-        // Keep the popup/card readable — long assignee/note/timestamp strings
-        // were overflowing the notification card.
-        $statusLabel = $labels[$newStatus] ?? $newStatus;
-        $message = "{$customerName}: {$statusLabel}"
-            . ($actor ? " · {$actor->name}" : '')
-            . ($newStatus === TechSupportCase::STATUS_RED ? ' · High priority' : '');
-        $link = route('crm.tech-support.show', $case);
-        $excludeUserId = $actor?->id;
-
-        $notify = function () use ($message, $link, $excludeUserId) {
-            CrmTeamNotifier::notifyEbayAndSalesTeams(
-                'tech_case_status_changed',
-                $message,
-                $link,
-                $excludeUserId
-            );
+        $notify = function () use ($case, $actor) {
+            CrmTeamNotifier::notifyTechCaseStatusChange($case, $actor);
         };
 
         // After-response in production so the click returns immediately; sync in
