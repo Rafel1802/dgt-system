@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-askpass_path = "/Applications/XAMPP/xamppfiles/htdocs/dgt-system/askpass.sh"
+askpass_path = os.path.abspath("askpass.sh")
 
 env = os.environ.copy()
 env["SSH_ASKPASS"] = askpass_path
@@ -33,7 +33,8 @@ ssh_cmd = [
     (
         "cd domains/lightcyan-weasel-711536.hostingersite.com/public_html && "
         "rm -rf storage/framework/cache/data/* && "
-        f"{PHP} artisan cache:clear"
+        f"rm -f bootstrap/cache/*.php && "
+        f"{PHP} artisan optimize:clear"
     )
 ]
 run_cmd(ssh_cmd)
