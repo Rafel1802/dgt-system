@@ -104,7 +104,7 @@ class BoardTemplateAndCopyTest extends TestCase
         // It should redirect to show board
         $response->assertStatus(302);
 
-        $newBoard = Board::where('name', 'Workflow board - July')->firstOrFail();
+        $newBoard = Board::where('name', 'Workflow board - July 2026')->firstOrFail();
         
         // Assert it copied lists correctly
         $this->assertCount(2, $newBoard->lists);
@@ -183,7 +183,7 @@ class BoardTemplateAndCopyTest extends TestCase
             ]);
         $response1->assertStatus(302);
         
-        $julyBoard = Board::where('name', 'Workflow board - July')->firstOrFail();
+        $julyBoard = Board::where('name', 'Workflow board - July 2026')->firstOrFail();
         $this->assertCount(2, $julyBoard->lists);
 
         // 2. Modify or empty the July board (e.g. delete lists/members) to simulate a user working on it.
@@ -208,7 +208,7 @@ class BoardTemplateAndCopyTest extends TestCase
             ]);
         $response2->assertStatus(302);
 
-        $augustBoard = Board::where('name', 'Workflow board - August')->firstOrFail();
+        $augustBoard = Board::where('name', 'Workflow board - August 2026')->firstOrFail();
 
         // It should have copied the 2 lists and 2 members from the original template
         $this->assertCount(2, $augustBoard->lists);

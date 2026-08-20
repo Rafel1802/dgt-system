@@ -515,20 +515,72 @@ class BoardController extends Controller
             'position'   => $position,
         ]);
 
-        if (($validated['template'] ?? '') === 'workflow') {
-            $defaults = ['Draft', 'Head Review', 'Text (QC) Review (Mr. Dara)', 'Supervisor Review (Ms. Somalika)', 'Approved', 'Block/Waiting'];
-        } elseif (($validated['template'] ?? '') === 'planning') {
-            $defaults = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Meeting Schedule', 'Urgent / Priority', 'Block/Waiting'];
-        } else {
-            $defaults = ['To Do', 'In Progress', 'Done'];
-        }
-        
-        foreach ($defaults as $i => $name) {
-            $board->lists()->create(['name' => $name, 'position' => $i]);
+        $copiedFromTemplate = false;
+
+        if (in_array($validated['template'] ?? '', ['workflow', 'planning'])) {
+            $prefix = $validated['template'] === 'workflow' ? 'Workflow board' : 'Planning board';
+            
+            $templateBoard = \App\Models\Board::where('workspace_id', $board->workspace_id)
+                ->where('name', 'like', "%{$prefix}%")
+                ->orderBy('created_at', 'asc')
+                ->first();
+
+            if ($templateBoard) {
+                $listMap = [];
+                $sourceLists = $templateBoard->lists()->where('is_archived', false)->get();
+                foreach ($sourceLists as $sourceList) {
+                    $newList = $board->lists()->create([
+                        'name'       => $sourceList->name,
+                        'position'   => $sourceList->position,
+                        'color'      => $sourceList->color,
+                        'wip_limit'  => $sourceList->wip_limit,
+                    ]);
+                    $listMap[$sourceList->id] = $newList->id;
+                }
+
+                $sourceAutomations = \App\Models\BoardAutomation::where('board_id', $templateBoard->id)->get();
+                foreach ($sourceAutomations as $auto) {
+                    \App\Models\BoardAutomation::create([
+                        'board_id'             => $board->id,
+                        'trigger_type'         => $auto->trigger_type,
+                        'trigger_word'         => $auto->trigger_word,
+                        'trigger_board_id'     => $auto->trigger_board_id == $templateBoard->id ? $board->id : $auto->trigger_board_id,
+                        'trigger_list_id'      => $listMap[$auto->trigger_list_id] ?? $auto->trigger_list_id,
+                        'target_board_id'      => $auto->target_board_id == $templateBoard->id ? $board->id : $auto->target_board_id,
+                        'target_list_id'       => $listMap[$auto->target_list_id] ?? $auto->target_list_id,
+                        'action_type'          => $auto->action_type,
+                        'target_assignee_role' => $auto->target_assignee_role,
+                    ]);
+                }
+
+                $memberData = [];
+                foreach ($templateBoard->members as $member) {
+                    $memberData[$member->id] = ['role' => $member->pivot->role];
+                }
+                if (!empty($memberData)) {
+                    $board->members()->syncWithoutDetaching($memberData);
+                }
+
+                $copiedFromTemplate = true;
+            }
         }
 
-        // Add workspace members to the new board automatically
-        if ($board->workspace) {
+        if (!$copiedFromTemplate) {
+            if (($validated['template'] ?? '') === 'workflow') {
+                $defaults = ['Draft', 'Head Review', 'Text (QC) Review (Mr. Dara)', 'Supervisor Review (Ms. Somalika)', 'Approved', 'Block/Waiting'];
+            } elseif (($validated['template'] ?? '') === 'planning') {
+                $defaults = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Meeting Schedule', 'Urgent / Priority', 'Block/Waiting'];
+            } else {
+                $defaults = ['To Do', 'In Progress', 'Done'];
+            }
+            
+            foreach ($defaults as $i => $name) {
+                $board->lists()->create(['name' => $name, 'position' => $i]);
+            }
+        }
+
+        // Add workspace members to the new board automatically if not copied
+        if (!$copiedFromTemplate && $board->workspace) {
             $workspaceMembers = $board->workspace->members()->get();
             $syncData = [];
             foreach ($workspaceMembers as $member) {
@@ -549,8 +601,8 @@ class BoardController extends Controller
             }
         }
 
-        // Seed Default Automations
-        if (($validated['template'] ?? '') === 'workflow') {
+        // Seed Default Automations if not copied
+        if (!$copiedFromTemplate && ($validated['template'] ?? '') === 'workflow') {
             $lists = $board->lists()->get()->keyBy('name');
             $rules = [
                 ['Draft', 'Team approved', 'Head Review', 'Standard Member'],

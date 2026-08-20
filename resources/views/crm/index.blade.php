@@ -106,6 +106,21 @@
         </div>
       </div>
 
+      <div class="min-w-[160px] relative">
+        <label class="form-label text-xs font-semibold text-slate-500 block mb-1">Status</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </span>
+          <select name="customer_status_filter" autocomplete="off" class="form-input text-sm py-2 pl-9 pr-8 w-full bg-slate-50 border border-slate-200/80 text-slate-700 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-150 appearance-none">
+            <option value="All">Any Status</option>
+            @foreach($customerStatuses as $status)
+            <option value="{{ $status->label() }}" {{ $customerStatusFilter === $status->label() ? 'selected' : '' }}>{{ $status->label() }}</option>
+            @endforeach
+          </select>
+        </div>
+      </div>
+
       <div class="min-w-[180px] relative">
         <label class="form-label text-xs font-semibold text-slate-500 block mb-1">Assigned Staff</label>
         <div class="relative">

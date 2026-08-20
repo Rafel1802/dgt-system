@@ -333,8 +333,6 @@ class EbayCustomerController extends Controller
         $this->authorize('changeHandler', $record);
         $validated = $request->validate(['user_id' => ['required', 'exists:users,id']]);
 
-        // End the currently active assignment if there is one
-        $record->handlerHistory()->whereNull('ended_at')->whereNotNull('confirmed_at')->update(['ended_at' => now()]);
 
         // Clean up previous unconfirmed assignments so they don't pile up
         $record->handlerHistory()->whereNull('confirmed_at')->delete();
@@ -714,15 +712,6 @@ class EbayCustomerController extends Controller
                 auth()->user(),
                 'eBay Team'
             );
-            
-            broadcast(new \App\Events\CustomerStatusUpdatedLive(
-                $record->id,
-                EbayCustomerRecord::tabs()[$newTab] ?? $newTab,
-                EbayCustomerRecord::tabColor($newTab),
-                auth()->user()->name,
-                'eBay Team',
-                'ebay'
-            ))->toOthers();
         }
 
         // Log status history

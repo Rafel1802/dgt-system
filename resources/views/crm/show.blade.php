@@ -423,7 +423,7 @@
       </div>
   </div>
 </div>
-// @include('crm.partials.live-status-updater', ['type' => 'customer', 'id' => $customer->id])
+
 @endsection
 
 @push('scripts')

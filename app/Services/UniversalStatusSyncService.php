@@ -36,7 +36,6 @@ class UniversalStatusSyncService
         if ($leadStatus) {
             foreach ($customer->leads as $lead) {
                 $lead->updateQuietly(['status' => $leadStatus]);
-                event(new \App\Events\CustomerStatusUpdatedLive($lead->id, $leadStatus->label(), $leadStatus->badgeClass(), auth()->user()?->name ?? 'System', 'Logistics', 'website'));
             }
         }
 
@@ -56,8 +55,6 @@ class UniversalStatusSyncService
                 'changed_by'              => auth()->id() ?? 1,
                 'changed_at'              => now(),
             ]);
-
-            event(new \App\Events\CustomerStatusUpdatedLive($ebayRecord->id, EbayCustomerRecord::tabs()[$ebayTab], EbayCustomerRecord::tabColor($ebayTab), auth()->user()?->name ?? 'System', 'Logistics', 'ebay'));
         }
     }
 }

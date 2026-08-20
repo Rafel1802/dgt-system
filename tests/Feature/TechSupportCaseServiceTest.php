@@ -98,7 +98,7 @@ class TechSupportCaseServiceTest extends TestCase
         ]);
 
         $case = TechSupportCase::firstOrFail();
-        $this->service->syncToEbay($case);
+        $this->service->syncToSources($case, TechSupportCase::STATUS_RESOLVED);
 
         $this->assertTrue($record->fresh()->tech_resolved);
         $this->assertEquals(EbayCustomerRecord::TAB_RESOLVED, $record->fresh()->tab_type);

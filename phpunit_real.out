@@ -1,0 +1,29 @@
+PHPUnit Started (PHPUnit 12.5.26 using PHP 8.5.7 (cli) on Darwin)
+Test Runner Configured
+Bootstrap Finished (/Users/phanithlim/Documents/CRM-system/dgt-system/vendor/autoload.php)
+Event Facade Sealed
+Test Suite Loaded (8 tests)
+Test Runner Started
+Test Suite Sorted
+Test Suite Filtered (1 test)
+Test Runner Execution Started (1 test)
+Test Suite Started (Tests\Feature\ShipmentCustomerProductsTest, 1 test)
+Test Preparation Started (Tests\Feature\ShipmentCustomerProductsTest::test_tracking_number_is_optional_and_saved_when_provided)
+Before Test Method Called (Tests\Feature\ShipmentCustomerProductsTest::setUp)
+Before Test Method Finished:
+- Tests\Feature\ShipmentCustomerProductsTest::setUp
+Test Prepared (Tests\Feature\ShipmentCustomerProductsTest::test_tracking_number_is_optional_and_saved_when_provided)
+Test Errored (Tests\Feature\ShipmentCustomerProductsTest::test_tracking_number_is_optional_and_saved_when_provided)
+Call to a member function all() on array
+After Test Method Called (Tests\Feature\ShipmentCustomerProductsTest::tearDown)
+After Test Method Finished:
+- Tests\Feature\ShipmentCustomerProductsTest::tearDown
+Test Finished (Tests\Feature\ShipmentCustomerProductsTest::test_tracking_number_is_optional_and_saved_when_provided)
+After Last Test Method Called (Tests\Feature\ShipmentCustomerProductsTest::tearDownAfterClass)
+After Last Test Method Finished:
+- Tests\Feature\ShipmentCustomerProductsTest::tearDownAfterClass
+Test Suite Finished (Tests\Feature\ShipmentCustomerProductsTest, 1 test)
+Test Runner Execution Finished
+Test Runner Finished
+PHPUnit Finished (Shell Exit Code: 2)
+{"tool":"phpunit","result":"failed","tests":1,"passed":0,"assertions":2,"duration_ms":340,"errors":1,"error_details":[{"test":"Tests\\Feature\\ShipmentCustomerProductsTest::test_tracking_number_is_optional_and_saved_when_provided","file":"/Users/phanithlim/Documents/CRM-system/dgt-system/tests/Feature/ShipmentCustomerProductsTest.php","line":144,"message":"Call to a member function all() on array"}]}

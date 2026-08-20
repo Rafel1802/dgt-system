@@ -336,7 +336,7 @@ class CrmStaffReportTest extends TestCase
         // Each domain gets its own heading, and its metric labels appear underneath it.
         $response->assertSeeInOrder(['🛒 eBay', 'Sales']);
         $response->assertSeeInOrder(['🌐 Website', 'Sales']);
-        $response->assertSeeInOrder(['🚚 Logistic', 'Number of Shipments']);
+        $response->assertSeeInOrder(['🚚 Logistic', 'Customers Handled']);
         $response->assertSeeInOrder(['🛠️ Technical Support', 'Total Issues']);
         // Combined total: 100 (eBay) + 50 (website) = 150.
         $response->assertSee('$150.00');

@@ -159,7 +159,6 @@ class TechSupportController extends Controller
             $customerStatus = \App\Enums\CustomerStatus::tryFrom($validated['status']);
             if ($customerStatus) {
                 $case->customer->update(['status' => $customerStatus]);
-                broadcast(new \App\Events\CustomerStatusUpdatedLive($case->customer->id, $customerStatus->label(), $customerStatus->color(), $actorName, 'Technical Support Team', 'customer'));
             }
         }
 
@@ -167,10 +166,8 @@ class TechSupportController extends Controller
         if ($case->source && $validated['status'] === TechSupportCase::STATUS_RESOLVED) {
             if ($case->source instanceof \App\Models\Lead) {
                 $case->source->update(['status' => \App\Enums\WebsiteLeadStatus::Resolve->value]);
-                broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Enums\WebsiteLeadStatus::Resolve->label(), \App\Enums\WebsiteLeadStatus::Resolve->color(), $actorName, 'Technical Support Team', 'lead'));
             } elseif ($case->source instanceof \App\Models\EbayCustomerRecord) {
                 $case->source->update(['tab_type' => \App\Models\EbayCustomerRecord::TAB_RESOLVED]);
-                broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Models\EbayCustomerRecord::tabs()[\App\Models\EbayCustomerRecord::TAB_RESOLVED] ?? 'Resolved', \App\Models\EbayCustomerRecord::tabColor(\App\Models\EbayCustomerRecord::TAB_RESOLVED), $actorName, 'Technical Support Team', 'ebay'));
             }
         }
         

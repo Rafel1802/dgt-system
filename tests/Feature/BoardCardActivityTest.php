@@ -118,6 +118,7 @@ class BoardCardActivityTest extends TestCase
             'position' => 0,
             'created_by' => $user->id,
         ]);
+        $card->assignees()->attach($user->id);
 
         return [$user, $board, $drafting, $review, $card];
     }

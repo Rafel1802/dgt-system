@@ -49,6 +49,17 @@ class CrmTeamNotifier
         if ($case->created_by) $userIds[] = $case->created_by;
         
         self::sendToRoles($roles, 'tech_case_status_changed', $message, $link, $actor?->id, $userIds, $case);
+
+        defer(function () use ($case, $statusLabel, $actor) {
+            broadcast(new \App\Events\CustomerStatusUpdatedLive(
+                $case->id,
+                $statusLabel,
+                null,
+                $actor?->name ?? 'System',
+                'Tech Support',
+                'tech'
+            ))->toOthers();
+        });
     }
 
     public static function notifyLogisticsOfMachineReturn(\App\Models\MachineReturn $machineReturn, User $actor): void
@@ -199,14 +210,14 @@ class CrmTeamNotifier
         elseif ($record instanceof \App\Models\ShipmentCustomer) $type = 'logistic';
 
         defer(function () use ($record, $newLabel, $actor, $teamName, $type) {
-            event(new \App\Events\CustomerStatusUpdatedLive(
+            broadcast(new \App\Events\CustomerStatusUpdatedLive(
                 $record->id,
                 $newLabel,
                 null, // color can be determined by frontend or added later if needed
                 $actor->name,
                 $teamName,
                 $type
-            ));
+            ))->toOthers();
         });
     }
 

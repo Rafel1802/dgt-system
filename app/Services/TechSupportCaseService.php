@@ -497,8 +497,6 @@ class TechSupportCaseService
                 
                 // Use updateQuietly to prevent Lead from re-creating a Tech Case via boot hooks
                 $case->source->updateQuietly($updates);
-                
-                event(new \App\Events\CustomerStatusUpdatedLive($case->source->id, $leadStatus->label(), $leadStatus->badgeClass(), auth()->user()?->name ?? 'System', 'Tech Support', 'website'));
             }
         }
 
@@ -540,8 +538,6 @@ class TechSupportCaseService
             } else {
                 $case->updateQuietly(['ebay_synced_at' => null]);
             }
-
-            event(new \App\Events\CustomerStatusUpdatedLive($ebayRecord->id, EbayCustomerRecord::tabs()[$ebayTab], EbayCustomerRecord::tabColor($ebayTab), auth()->user()?->name ?? 'System', 'Tech Support', 'ebay'));
         }
     }
 
