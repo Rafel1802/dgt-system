@@ -183,7 +183,7 @@
                         </div>
                         <h1 class="mac-app-title mt-4 text-3xl font-black tracking-normal sm:text-5xl break-words">KIUQ SYSTEM Apps</h1>
                         <p class="mac-app-copy mt-3 max-w-xl text-base font-semibold leading-7">
-                            Faster access to the hosted workspace from macOS, iOS, and Android, with the optimized Hostinger app experience packaged for staff.
+                            Faster access to the hosted workspace from macOS and iOS, with the optimized Hostinger app experience packaged for staff.
                         </p>
                     </div>
                 </div>
@@ -204,18 +204,8 @@
                         </svg>
                         Download iOS .ipa
                     </a>
-                    <a href="{{ $androidDownloadUrl }}"
-                       class="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-4 text-base font-black text-emerald-700 transition hover:bg-emerald-100"
-                       download>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M8 8V5m8 3V5M6 10h12v7a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-7Z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v4m16-4v4"/>
-                        </svg>
-                        Download Android .apk
-                    </a>
                     <p class="mac-app-meta mt-4 text-center text-xs font-bold">Version {{ $version }} · macOS</p>
                     <p class="mac-app-meta mt-1 text-center text-xs font-bold">Version {{ $version }} · iOS IPA</p>
-                    <p class="mac-app-meta mt-1 text-center text-xs font-bold">Version {{ $version }} · Android APK</p>
                 </div>
             </div>
         </section>
@@ -231,7 +221,7 @@
             </div>
             <div class="mac-app-card rounded-2xl border p-5">
                 <p class="mac-app-muted text-xs font-black uppercase tracking-[0.16em]">Packages</p>
-                <p class="mac-app-strong mt-2 text-2xl font-black">DMG + IPA + APK</p>
+                <p class="mac-app-strong mt-2 text-2xl font-black">DMG + IPA</p>
             </div>
         </section>
 

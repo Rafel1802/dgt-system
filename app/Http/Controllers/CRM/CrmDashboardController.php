@@ -35,7 +35,7 @@ class CrmDashboardController extends Controller
 
         // Aggregate KPI tiles: short-lived cache (60s). Not customer-row PII.
         // Same numbers as before — just not recomputed on every page load.
-        $cached = Cache::remember("crm.dashboard.page_kpis.{$today}", 60, function () {
+        $cached = Cache::remember("crm.dashboard.page_kpis.{$today}", 86400, function () {
             $today = today();
 
             $websiteStats = [

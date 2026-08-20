@@ -528,7 +528,7 @@ class CrmCustomerMatchService
         // Rebuild immediately in the background
         $service = app(self::class);
         $rows = $service->buildBaseUnifiedDirectoryRows();
-        Cache::put(self::UNIFIED_DIRECTORY_CACHE_KEY, $rows, 180);
+        Cache::put(self::UNIFIED_DIRECTORY_CACHE_KEY, $rows, 86400);
         
         $collection = collect($rows);
         app()->instance('crm.unified_directory.base_collection', $collection);
@@ -659,7 +659,7 @@ class CrmCustomerMatchService
 
         $rows = app()->runningUnitTests()
             ? $this->buildBaseUnifiedDirectoryRows()
-            : Cache::remember(self::UNIFIED_DIRECTORY_CACHE_KEY, 180, fn () => $this->buildBaseUnifiedDirectoryRows());
+            : Cache::remember(self::UNIFIED_DIRECTORY_CACHE_KEY, 86400, fn () => $this->buildBaseUnifiedDirectoryRows());
 
         $collection = collect($rows);
 
@@ -1072,7 +1072,7 @@ class CrmCustomerMatchService
      */
     public function dedupedCustomerCount(): int
     {
-        return (int) Cache::remember('crm.deduped_customer_count', 60, function () {
+        return (int) Cache::remember('crm.deduped_customer_count', 86400, function () {
             // Use base directory (already cached) — avoid a second full rebuild.
             return $this->baseUnifiedDirectory()->count();
         });

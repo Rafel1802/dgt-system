@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class CrmLookupCache
 {
-    public const TTL = 120;
+    public const TTL = 86400;
 
     public static function forgetAll(): void
     {
@@ -119,7 +119,7 @@ class CrmLookupCache
      */
     public static function customersCombobox(): \Illuminate\Support\Collection
     {
-        $rows = Cache::remember('crm.lookup.customers_combobox', 60, function () {
+        $rows = Cache::remember('crm.lookup.customers_combobox', 86400, function () {
             return Customer::orderBy('name')
                 ->get(['id', 'name', 'email', 'phone', 'company', 'address'])
                 ->map(fn (Customer $c) => [

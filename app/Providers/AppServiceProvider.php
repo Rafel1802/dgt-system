@@ -61,6 +61,8 @@ class AppServiceProvider extends ServiceProvider
                 Cache::forget('crm.shipment_picker_customers.v2');
                 Cache::forget('crm.lookup.customers_combobox');
                 Cache::forget('crm.lookup.pending_call_requests');
+                Cache::forget('crm.deduped_customer_count');
+                Cache::forget('crm.dashboard.page_kpis.' . today()->toDateString());
             });
         };
 
