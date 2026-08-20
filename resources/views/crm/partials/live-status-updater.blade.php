@@ -9,7 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const channel = pusher.subscribe(channelName);
     
     const doHotSwap = () => {
-        fetch(window.location.href, {
+        const url = new URL(window.location.href);
+        url.searchParams.set('_t', Date.now());
+        fetch(url.toString(), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' } // Indicate AJAX to avoid caching issues if any
         })
             .then(response => response.text())
@@ -42,8 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     channel.bind('CustomerStatusUpdatedLive', function(data) {
-        if (window.Alpine && window.Alpine.store('toast')) {
-             window.Alpine.store('toast').show(
+        if (window.showToast) {
+             window.showToast(
                  `Status updated to "${data.newStatusLabel}" by ${data.teamName} (${data.actorName})`, 
                  'info'
              );
@@ -52,8 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     channel.bind('CustomerHandlerUpdatedLive', function(data) {
-        if (window.Alpine && window.Alpine.store('toast')) {
-             window.Alpine.store('toast').show(
+        if (window.showToast) {
+             window.showToast(
                  `Handler updated to "${data.newHandlerName}" by ${data.teamName} (${data.actorName})`, 
                  'info'
              );
@@ -62,8 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     channel.bind('CustomerDataUpdatedLive', function(data) {
-        if (window.Alpine && window.Alpine.store('toast')) {
-             window.Alpine.store('toast').show(
+        if (window.showToast) {
+             window.showToast(
                  data.message || `Data updated by ${data.teamName} (${data.actorName})`, 
                  'info'
              );

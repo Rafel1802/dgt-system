@@ -31,12 +31,12 @@ document.addEventListener('alpine:init', () => {
                     if (data.errors) {
                         msg = Object.values(data.errors).flat().join('\n');
                     }
-                    if (window.Alpine && window.Alpine.store('toast')) {
-                        window.Alpine.store('toast').show(msg, 'error');
+                    if (window.showToast) {
+                        window.showToast(msg, 'error');
                     }
                 } else {
-                    if (data.message && window.Alpine && window.Alpine.store('toast')) {
-                        window.Alpine.store('toast').show(data.message, 'success');
+                    if (data.message && window.showToast) {
+                        window.showToast(data.message, 'success');
                     }
                     form.reset();
                     // Try to close modals if they exist in the component's scope
@@ -50,8 +50,8 @@ document.addEventListener('alpine:init', () => {
             })
             .catch(err => {
                 this.loading = false;
-                if (window.Alpine && window.Alpine.store('toast')) {
-                    window.Alpine.store('toast').show('Network error', 'error');
+                if (window.showToast) {
+                    window.showToast('Network error', 'error');
                 }
             });
         }

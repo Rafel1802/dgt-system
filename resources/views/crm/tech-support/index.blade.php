@@ -160,7 +160,7 @@
         const pusher = window.kiuqGetPusherClient();
         if (pusher) {
           const doHotSwap = () => {
-            fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            const url = new URL(window.location.href); url.searchParams.set("_t", Date.now()); fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
               .then(res => res.text())
               .then(html => {
                 const doc = new DOMParser().parseFromString(html, 'text/html');
