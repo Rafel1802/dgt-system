@@ -43,34 +43,33 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error('Failed to hot-swap UI:', err));
     };
 
-    channel.bind('CustomerStatusUpdatedLive', function(data) {
-        if (window.showToast) {
-             window.showToast(
-                 `Status updated to "${data.newStatusLabel}" by ${data.teamName} (${data.actorName})`, 
-                 'info'
-             );
+    channel.bind_global((eventName, data) => {
+        const name = String(eventName);
+        if (name.includes('CustomerStatusUpdatedLive')) {
+            if (window.showToast) {
+                 window.showToast(
+                     `Status updated to "${data.newStatusLabel}" by ${data.teamName} (${data.actorName})`, 
+                     'info'
+                 );
+            }
+            doHotSwap();
+        } else if (name.includes('CustomerHandlerUpdatedLive')) {
+            if (window.showToast) {
+                 window.showToast(
+                     `Handler updated to "${data.newHandlerName}" by ${data.teamName} (${data.actorName})`, 
+                     'info'
+                 );
+            }
+            doHotSwap();
+        } else if (name.includes('CustomerDataUpdatedLive')) {
+            if (window.showToast) {
+                 window.showToast(
+                     data.message || `Data updated by ${data.teamName} (${data.actorName})`, 
+                     'info'
+                 );
+            }
+            doHotSwap();
         }
-        doHotSwap();
-    });
-    
-    channel.bind('CustomerHandlerUpdatedLive', function(data) {
-        if (window.showToast) {
-             window.showToast(
-                 `Handler updated to "${data.newHandlerName}" by ${data.teamName} (${data.actorName})`, 
-                 'info'
-             );
-        }
-        doHotSwap();
-    });
-
-    channel.bind('CustomerDataUpdatedLive', function(data) {
-        if (window.showToast) {
-             window.showToast(
-                 data.message || `Data updated by ${data.teamName} (${data.actorName})`, 
-                 'info'
-             );
-        }
-        doHotSwap();
     });
 
     // We can also trigger hot swap manually when our own ajax forms succeed
