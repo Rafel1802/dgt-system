@@ -350,6 +350,14 @@ class WebsiteCrmController extends Controller
             'contacted_at'     => now(),
         ]);
 
+        broadcast(new \App\Events\CustomerDataUpdatedLive(
+            $lead->id,
+            'lead',
+            'Added a follow-up note.',
+            auth()->user()->name,
+            'Sales Team'
+        ))->toOthers();
+
         return response()->json([
             'message'   => 'Follow-up logged.',
             'follow_up' => $followUp->load('user'),
@@ -363,6 +371,18 @@ class WebsiteCrmController extends Controller
         abort_unless($followUp->user_id === auth()->id(), 403, 'You can only delete your own follow-up entries.');
 
         $followUp->delete();
+
+        broadcast(new \App\Events\CustomerDataUpdatedLive(
+            $lead->id,
+            'lead',
+            'Deleted a follow-up note.',
+            auth()->user()->name,
+            'Sales Team'
+        ))->toOthers();
+
+        if (request()->wantsJson()) {
+            return response()->json(['message' => 'Follow-up entry deleted.']);
+        }
 
         return redirect()->route('crm.website.show', $lead)->with('success', 'Follow-up entry deleted.');
     }
@@ -384,10 +404,12 @@ class WebsiteCrmController extends Controller
         ]);
         $newStatus = WebsiteLeadStatus::from($validated['status']);
 
-        if ($newStatus === WebsiteLeadStatus::Resolve && $lead->status !== WebsiteLeadStatus::Resolve) {
-            return response()->json([
-                'message' => 'The Resolved status can only be set from the Technical Support page.',
-            ], 422);
+        if (in_array($newStatus, [WebsiteLeadStatus::Resolve, WebsiteLeadStatus::ReturnReceived], true)) {
+            if (! auth()->user()->hasAnyRole(['super-admin', 'admin', 'boss', 'admin-crm'])) {
+                return response()->json([
+                    'message' => 'This status is updated automatically when Technical Support or Logistics resolves the issue.',
+                ], 422);
+            }
         }
 
         $productRows = $this->filledProductRows($validated['products'] ?? []);
@@ -436,6 +458,14 @@ class WebsiteCrmController extends Controller
                 auth()->user(),
                 'Sales Team'
             );
+
+            broadcast(new \App\Events\CustomerDataUpdatedLive(
+                $lead->id,
+                'lead',
+                'Status updated to ' . $newStatus->label(),
+                auth()->user()->name,
+                'Sales Team'
+            ))->toOthers();
 
             // Every status transition is recorded here too, not just ones made
             // through the follow-up modal, so the history timeline is complete.
@@ -492,6 +522,14 @@ class WebsiteCrmController extends Controller
 
         $order = $this->createLeadOrder($lead, $productRows, $validated['order_date']);
 
+        broadcast(new \App\Events\CustomerDataUpdatedLive(
+            $lead->id,
+            'lead',
+            'Order logged.',
+            auth()->user()->name,
+            'Sales Team'
+        ))->toOthers();
+
         return response()->json([
             'message' => 'Order logged.',
             'order'   => $order->load('items'),
@@ -522,6 +560,14 @@ class WebsiteCrmController extends Controller
         $order->update(['order_date' => $validated['order_date']]);
         $this->syncOrderItems($order, $lead, $productRows);
 
+        broadcast(new \App\Events\CustomerDataUpdatedLive(
+            $lead->id,
+            'lead',
+            'Order updated.',
+            auth()->user()->name,
+            'Sales Team'
+        ))->toOthers();
+
         return response()->json([
             'message' => 'Order updated.',
             'order'   => $order->load('items'),
@@ -535,6 +581,14 @@ class WebsiteCrmController extends Controller
         abort_unless($order->lead_id === $lead->id, 404);
 
         $order->delete();
+
+        broadcast(new \App\Events\CustomerDataUpdatedLive(
+            $lead->id,
+            'lead',
+            'Order removed.',
+            auth()->user()->name,
+            'Sales Team'
+        ))->toOthers();
 
         return response()->json(['message' => 'Order removed.']);
     }

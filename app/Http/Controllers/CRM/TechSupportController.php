@@ -141,6 +141,14 @@ class TechSupportController extends Controller
             'note.required_if' => 'A resolution or return note is required when changing to this status.',
         ]);
 
+        if ($validated['status'] === TechSupportCase::STATUS_RETURN_RECEIVED) {
+            abort_unless(
+                auth()->user()->hasAnyRole(['super-admin', 'admin', 'boss', 'logistic-supervisor', 'logistic-team', 'admin-crm']),
+                403,
+                'Only Logistics or Administrators can mark a machine as Return Received.'
+            );
+        }
+
         $originalStatus = $case->getOriginal('status');
         $this->service->changeStatus($case, $validated['status'], auth()->user(), $validated['note'] ?? null);
         
@@ -210,6 +218,8 @@ class TechSupportController extends Controller
         $case->update(['assigned_to' => $validated['user_id']]);
         $case->load('assignee:id,name');
 
+        broadcast(new \App\Events\TechSupportCaseDataUpdated($case->id, auth()->user()->name, 'Assigned case.'));
+
         return response()->json([
             'message'  => 'Case assigned.',
             'assignee' => $case->assignee?->only(['id', 'name']),
@@ -226,6 +236,8 @@ class TechSupportController extends Controller
         ]);
 
         $log = $this->service->addFollowUp($case, auth()->user(), $validated['note'], $request->file('attachment'));
+
+        broadcast(new \App\Events\TechSupportCaseDataUpdated($case->id, auth()->user()->name, 'Added follow-up.'));
 
         return response()->json([
             'message' => 'Follow-up added.',
@@ -251,6 +263,12 @@ class TechSupportController extends Controller
 
         $log->delete();
 
+        broadcast(new \App\Events\TechSupportCaseDataUpdated($case->id, auth()->user()->name, 'Deleted a log entry.'));
+
+        if (request()->wantsJson()) {
+            return response()->json(['message' => 'Log entry deleted.']);
+        }
+
         return redirect()->route('crm.tech-support.show', $case)->with('success', 'Log entry deleted.');
     }
 
@@ -263,6 +281,8 @@ class TechSupportController extends Controller
         ]);
 
         $callRequest = $this->service->requestCall($case, auth()->user(), $validated['note']);
+
+        broadcast(new \App\Events\TechSupportCaseDataUpdated($case->id, auth()->user()->name, 'Requested a call.'));
 
         return response()->json([
             'message'      => 'Call requested.',

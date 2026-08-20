@@ -1103,9 +1103,24 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         });
                         $techSidebarBadgeCount = $newTechCaseCount + $unreadCallCompletedCount;
                     @endphp
-                    @if($techSidebarBadgeCount > 0)
-                    <span class="ml-auto text-xs font-bold bg-rose-500 text-white rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center" title="{{ $newTechCaseCount }} new case{{ $newTechCaseCount === 1 ? '' : 's' }}, {{ $unreadCallCompletedCount }} unread call-completed notification{{ $unreadCallCompletedCount === 1 ? '' : 's' }}">{{ $techSidebarBadgeCount }}</span>
-                    @endif
+                    <span x-data="{
+                        badgeCount: {{ $techSidebarBadgeCount }},
+                        init() {
+                            window.addEventListener('kiuq:realtime-notification', (e) => {
+                                const type = e.detail?.data?.type || '';
+                                if (type === 'tech_case_new' || type === 'tech_case_call_completed') {
+                                    this.badgeCount++;
+                                }
+                            });
+                        }
+                    }" 
+                    x-show="badgeCount > 0" 
+                    x-text="badgeCount" 
+                    x-cloak 
+                    class="ml-auto text-xs font-bold bg-rose-500 text-white rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center" 
+                    title="{{ $newTechCaseCount }} new case(s), {{ $unreadCallCompletedCount }} unread call-completed notification(s)">
+                        {{ $techSidebarBadgeCount > 0 ? $techSidebarBadgeCount : '' }}
+                    </span>
                 </a>
 
                 {{-- ── 8. Reports ─────────────────────────────────────────── --}}
@@ -2743,6 +2758,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     }
     </script>
 
+    @include('components.ajax-form-script')
     @stack('scripts')
     <!-- Notification Sound Effect -->
     @php

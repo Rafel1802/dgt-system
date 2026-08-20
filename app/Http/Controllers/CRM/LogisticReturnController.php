@@ -71,6 +71,31 @@ class LogisticReturnController extends Controller
             ]);
         }
 
+        // In case anyone is watching the tech support or customer record
+        if ($return->customer_id) {
+            broadcast(new \App\Events\CustomerDataUpdatedLive($return->customer_id, 'customer', 'Logistics return updated.', auth()->user()->name, 'Logistics'))->toOthers();
+        }
+        if ($return->tech_support_case_id) {
+            broadcast(new \App\Events\TechSupportCaseDataUpdated($return->tech_support_case_id, auth()->user()->name, 'Logistics return updated.'));
+            
+            // Also notify the Tech Support team via Pusher so they can hot-swap if looking at it
+            if ($return->status === MachineReturn::STATUS_RECEIVED) {
+                // We'll update the tech support case if needed
+                $return->techSupportCase->update(['status' => \App\Models\TechSupportCase::STATUS_RETURN_RECEIVED]);
+                broadcast(new \App\Events\TechSupportCaseStatusUpdated($return->techSupportCase, auth()->id()));
+                
+                if ($return->techSupportCase->source instanceof \App\Models\Lead) {
+                    $return->techSupportCase->source->update(['status' => \App\Enums\WebsiteLeadStatus::ReturnReceived->value]);
+                } elseif ($return->techSupportCase->source instanceof \App\Models\EbayCustomerRecord) {
+                    $return->techSupportCase->source->update(['tab_type' => \App\Models\EbayCustomerRecord::TAB_RETURN_RECEIVED]);
+                }
+            }
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Status updated successfully.']);
+        }
+
         return redirect()->route('crm.logistics.returns.show', $return)
                          ->with('success', 'Status updated successfully.');
     }

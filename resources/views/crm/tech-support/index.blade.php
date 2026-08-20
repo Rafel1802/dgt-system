@@ -159,19 +159,31 @@
       if (window.kiuqGetPusherClient) {
         const pusher = window.kiuqGetPusherClient();
         if (pusher) {
+          const doHotSwap = () => {
+            fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+              .then(res => res.text())
+              .then(html => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const cards = ['.grid.grid-cols-4', '.bg-white.rounded-2xl.border.border-slate-200.overflow-hidden.shadow-sm'];
+                cards.forEach(sel => {
+                  const newEl = doc.querySelector(sel);
+                  const oldEl = document.querySelector(sel);
+                  if (newEl && oldEl) {
+                    oldEl.innerHTML = newEl.innerHTML;
+                    oldEl.className = newEl.className;
+                  }
+                });
+              }).catch(err => console.error('Hot-swap failed', err));
+          };
+
           const channel = pusher.subscribe('private-tech-support');
           channel.bind('TechSupportCaseStatusUpdated', function(data) {
             if (parseInt(data.updaterId) !== parseInt(document.querySelector('meta[name="kiuq-user-id"]')?.content)) {
-              if (window.Turbo) {
-                if (typeof window.Turbo.refresh === 'function') {
-                  window.Turbo.refresh();
-                } else {
-                  window.Turbo.visit(window.location.href, { action: 'replace' });
-                }
-              } else {
-                window.location.reload();
-              }
+              doHotSwap();
             }
+          });
+          channel.bind('TechSupportCaseDataUpdated', function(data) {
+              doHotSwap();
           });
         }
       }

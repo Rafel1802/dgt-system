@@ -252,20 +252,7 @@ class TechSupportCaseService
         // same customer outside of Tech Support — a status change here
         // (especially Red Case or Resolved) is worth them knowing about
         // without needing to separately check the Tech Support queue.
-        //
-        // Fan-out after the HTTP response so status clicks return immediately
-        // on shared hosting (same recipients/message as before).
-        $notify = function () use ($case, $actor) {
-            CrmTeamNotifier::notifyTechCaseStatusChange($case, $actor);
-        };
-
-        // After-response in production so the click returns immediately; sync in
-        // tests so Event::assertDispatched still sees the broadcasts.
-        if (app()->runningUnitTests()) {
-            $notify();
-        } else {
-            dispatch($notify)->afterResponse();
-        }
+        CrmTeamNotifier::notifyTechCaseStatusChange($case, $actor);
 
         return $case;
     }

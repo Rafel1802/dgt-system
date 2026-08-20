@@ -428,6 +428,14 @@ class EbayCustomerController extends Controller
             'contacted_at'            => now(),
         ]);
 
+        broadcast(new \App\Events\CustomerDataUpdatedLive(
+            $record->id,
+            'ebay',
+            'Added a follow-up note.',
+            auth()->user()->name,
+            'eBay Team'
+        ))->toOthers();
+
         return response()->json([
             'message'   => 'Follow-up logged.',
             'follow_up' => $followUp->load('user'),
@@ -442,6 +450,18 @@ class EbayCustomerController extends Controller
 
         $followUp->delete();
 
+        broadcast(new \App\Events\CustomerDataUpdatedLive(
+            $record->id,
+            'ebay',
+            'Deleted a follow-up note.',
+            auth()->user()->name,
+            'eBay Team'
+        ))->toOthers();
+
+        if (request()->wantsJson()) {
+            return response()->json(['message' => 'Follow-up entry deleted.']);
+        }
+
         return redirect()->route('crm.ebay.customers.show', $record)->with('success', 'Follow-up entry deleted.');
     }
 
@@ -451,6 +471,14 @@ class EbayCustomerController extends Controller
         $orderData = $request->validate($this->orderFieldRules());
 
         $order = $this->createOrder($record, $orderData);
+
+        broadcast(new \App\Events\CustomerDataUpdatedLive(
+            $record->id,
+            'ebay',
+            'Order logged.',
+            auth()->user()->name,
+            'eBay Team'
+        ))->toOthers();
 
         return response()->json([
             'message' => 'Order added.',
@@ -611,6 +639,15 @@ class EbayCustomerController extends Controller
         ]);
 
         $newTab = $validated['tab_type'];
+
+        if (in_array($newTab, [EbayCustomerRecord::TAB_RESOLVED, EbayCustomerRecord::TAB_RETURN_RECEIVED], true)) {
+            abort_unless(
+                auth()->user()->hasAnyRole(['super-admin', 'admin', 'boss', 'admin-crm']),
+                403,
+                'This status is updated automatically when Technical Support or Logistics resolves the issue.'
+            );
+        }
+
         $updateData = ['tab_type' => $newTab];
 
         $isNegativeTab = in_array($newTab, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true);

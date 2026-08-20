@@ -153,8 +153,8 @@
           @foreach($statuses as $s)
           @php
             $isActive = $lead->status?->value === $s->value;
-            $isResolvedButton = $s->value === \App\Enums\WebsiteLeadStatus::Resolve->value;
-            $isLocked = $isResolvedButton && !$isActive;
+            $isAutoManaged = in_array($s->value, [\App\Enums\WebsiteLeadStatus::Resolve->value, \App\Enums\WebsiteLeadStatus::ReturnReceived->value], true);
+            $isLocked = $isAutoManaged && !$isActive && !auth()->user()->hasAnyRole(['super-admin', 'admin', 'boss', 'admin-crm']);
           @endphp
           <button
             @if(auth()->user()->canModifyCrmData())
@@ -176,7 +176,7 @@
       </div>
 
       {{-- Order History --}}
-      <div class="card">
+      <div class="card" id="order-history-card">
         <div class="flex items-center justify-between mb-4">
           <h4 class="font-semibold text-slate-700">Order History</h4>
           @if(auth()->user()->canDeleteCrmRecords('website'))
@@ -280,14 +280,17 @@
                 <img src="{{ $fu->user?->avatar_url }}" class="w-4 h-4 rounded-full">
                 <span class="text-xs text-slate-400">{{ $fu->user?->name }}</span>
                 @if($fu->user_id === auth()->id() && auth()->user()->canModifyCrmData())
-                <form method="POST" action="{{ route('crm.website.follow-up.destroy', [$lead, $fu]) }}" class="ml-auto"
-                      data-confirm-title="Delete this follow-up?"
-                      data-confirm="This will permanently remove this follow-up entry."
-                      data-confirm-text="Delete"
-                      data-confirm-tone="danger">
-                  @csrf @method('DELETE')
-                  <button type="submit" class="text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
-                </form>
+                <button type="button" @click="
+                  if(await window.confirmModal({ title: 'Delete this follow-up?', message: 'This will permanently remove this follow-up entry.', confirmText: 'Delete', tone: 'danger' })) {
+                    try {
+                      await api('{{ route('crm.website.follow-up.destroy', [$lead, $fu]) }}', { method: 'DELETE' });
+                      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up deleted.', type: 'success' } }));
+                      document.dispatchEvent(new CustomEvent('ajax-success'));
+                    } catch(err) {
+                      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+                    }
+                  }
+                " class="ml-auto text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
                 @endif
               </div>
             </div>
@@ -496,7 +499,7 @@ function leadProfile(leadId, catalog) {
         });
         this.showFollowUp = false;
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up saved!', type: 'success' } }));
-        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
+        document.dispatchEvent(new CustomEvent("ajax-success"));
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.fuLoading = false; }
@@ -550,7 +553,7 @@ function leadProfile(leadId, catalog) {
       try {
         await api(`/crm/website/${leadId}/orders/${orderId}`, { method: 'DELETE' });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order removed.', type: 'success' } }));
-        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
+        document.dispatchEvent(new CustomEvent("ajax-success"));
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       }
@@ -603,7 +606,7 @@ function leadProfile(leadId, catalog) {
           body: JSON.stringify(body),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
-        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
+        document.dispatchEvent(new CustomEvent("ajax-success"));
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.statusLoading = false; }
@@ -621,7 +624,7 @@ function leadProfile(leadId, catalog) {
           body: JSON.stringify(body),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order logged!', type: 'success' } }));
-        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
+        document.dispatchEvent(new CustomEvent("ajax-success"));
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.orderLoading = false; }
@@ -639,7 +642,7 @@ function leadProfile(leadId, catalog) {
           body: JSON.stringify(body),
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order updated!', type: 'success' } }));
-        if (window.Turbo) { window.Turbo.visit(window.location.href, { action: "replace" }); } else { location.reload(); }
+        document.dispatchEvent(new CustomEvent("ajax-success"));
       } catch(err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.orderLoading = false; }

@@ -171,16 +171,20 @@
         <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Pipeline Progress</h4>
         <div class="flex gap-1 overflow-x-auto pb-2">
           @foreach($tabs as $key => $label)
-          @php $isActive = $record->tab_type === $key; @endphp
+          @php 
+            $isActive = $record->tab_type === $key; 
+            $isAutoManaged = in_array($key, [\App\Models\EbayCustomerRecord::TAB_RETURN_RECEIVED, \App\Models\EbayCustomerRecord::TAB_RESOLVED], true);
+            $canClickTab = auth()->user()->canModifyCrmData() && (! $isAutoManaged || auth()->user()->hasAnyRole(['super-admin', 'admin', 'boss', 'admin-crm']));
+          @endphp
           <button
             type="button"
-            @if(auth()->user()->canModifyCrmData())
+            @if($canClickTab)
             @click="openStatusModal('{{ $key }}', '{{ $label }}')"
             :disabled="statusLoading"
             @else
             disabled
             @endif
-            class="flex-1 min-w-[100px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }} {{ !auth()->user()->canModifyCrmData() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}"
+            class="flex-1 min-w-[100px] py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all border-2 {{ $isActive ? 'text-white border-transparent shadow-md scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300' }} {{ !$canClickTab ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}"
             style="{{ $isActive ? 'background:'.\App\Models\EbayCustomerRecord::tabColor($key).'; border-color:'.\App\Models\EbayCustomerRecord::tabColor($key) : '' }}"
             title="{{ $label }}">
             {{ $label }}
@@ -249,14 +253,17 @@
                 <span class="text-xs text-slate-400">{{ $fu->user?->name }}</span>
                 <span class="text-xs text-slate-400 ml-auto">{{ $fu->contacted_at?->format('d M Y, g:ia') }}</span>
                 @if($fu->user_id === auth()->id() && auth()->user()->canModifyCrmData())
-                <form method="POST" action="{{ route('crm.ebay.customers.follow-up.destroy', [$record, $fu]) }}"
-                      data-confirm-title="Delete this follow-up?"
-                      data-confirm="This will permanently remove this follow-up note."
-                      data-confirm-text="Delete"
-                      data-confirm-tone="danger">
-                  @csrf @method('DELETE')
-                  <button type="submit" class="text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
-                </form>
+                <button type="button" @click="
+                  if(await window.confirmModal({ title: 'Delete this follow-up?', message: 'This will permanently remove this follow-up entry.', confirmText: 'Delete', tone: 'danger' })) {
+                    try {
+                      await window.api('{{ route('crm.ebay.customers.follow-up.destroy', [$record, $fu]) }}', { method: 'DELETE' });
+                      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up deleted.', type: 'success' } }));
+                      document.dispatchEvent(new CustomEvent('ajax-success'));
+                    } catch(err) {
+                      window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+                    }
+                  }
+                " class="text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
                 @endif
               </div>
             </div>
@@ -519,7 +526,7 @@ function ebayCustomerShow(followUpUrl) {
         });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated and follow-up logged!', type: 'success' } }));
         this.statusModalOpen = false;
-        window.location.reload();
+        document.dispatchEvent(new CustomEvent('ajax-success'));
       } catch (err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed to update status.', type: 'error' } }));
       } finally { this.statusLoading = false; }
@@ -535,7 +542,7 @@ function ebayCustomerShow(followUpUrl) {
       try {
         await window.api(followUpUrl, { method: 'POST', body: JSON.stringify({ notes: this.fuNotes }) });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up saved!', type: 'success' } }));
-        window.location.reload();
+        document.dispatchEvent(new CustomEvent('ajax-success'));
       } catch (err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.fuLoading = false; }
@@ -546,7 +553,7 @@ function ebayCustomerShow(followUpUrl) {
         const userId = new FormData(event.target).get('user_id');
         await window.api(event.target.action, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Handler updated!', type: 'success' } }));
-        window.location.reload();
+        document.dispatchEvent(new CustomEvent('ajax-success'));
       } catch (err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.handlerLoading = false; }
@@ -567,7 +574,7 @@ function ebayCustomerShow(followUpUrl) {
       try {
         await window.api(event.target.action, { method: 'POST', body: JSON.stringify(payload) });
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Order added!', type: 'success' } }));
-        window.location.reload();
+        document.dispatchEvent(new CustomEvent('ajax-success'));
       } catch (err) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
       } finally { this.orderLoading = false; }

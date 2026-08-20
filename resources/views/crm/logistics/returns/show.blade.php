@@ -251,7 +251,7 @@
               throw new Error(data.message || 'Failed to update status.');
             }
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
-            window.location.reload();
+            document.dispatchEvent(new CustomEvent('ajax-success'));
           } catch (err) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
           } finally {
@@ -273,7 +273,7 @@
               throw new Error(data.message || 'Failed to add note.');
             }
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Note added!', type: 'success' } }));
-            window.location.reload();
+            document.dispatchEvent(new CustomEvent('ajax-success'));
           } catch (err) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
           } finally {

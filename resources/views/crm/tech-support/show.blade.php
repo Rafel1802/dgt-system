@@ -121,15 +121,19 @@
             <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Update Status</p>
             <div class="grid grid-cols-2 gap-2">
               @foreach($statuses as $key => $label)
-              @php $btnColor = $statusColors[$key] ?? \App\Models\TechSupportCase::statusColor($key); @endphp
+              @php 
+                $btnColor = $statusColors[$key] ?? \App\Models\TechSupportCase::statusColor($key); 
+                $isReturnReceived = $key === \App\Models\TechSupportCase::STATUS_RETURN_RECEIVED;
+                $canClickThisStatus = $canChangeStatus && (! $isReturnReceived || auth()->user()->hasAnyRole(['super-admin', 'admin', 'boss', 'logistic-supervisor', 'logistic-team', 'admin-crm']));
+              @endphp
               <button type="button"
-                      @if($canChangeStatus)
+                      @if($canClickThisStatus)
                       @click="changeStatus('{{ $key }}')"
                       :disabled="statusLoading"
                       @else
                       disabled
                       @endif
-                      class="py-2.5 px-3 rounded-xl text-xs font-semibold text-center transition-all border-2 flex items-center justify-center gap-2 {{ !$canChangeStatus ? 'opacity-60 cursor-not-allowed' : '' }}"
+                      class="py-2.5 px-3 rounded-xl text-xs font-semibold text-center transition-all border-2 flex items-center justify-center gap-2 {{ !$canClickThisStatus ? 'opacity-60 cursor-not-allowed' : '' }}"
                       :class="currentStatus === '{{ $key }}'
                         ? 'text-white border-transparent shadow-sm'
                         : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm'"
@@ -246,14 +250,17 @@
               <img src="{{ $log->user?->avatar_url }}" class="w-4 h-4 rounded-full">
               <span class="text-xs text-slate-400">{{ $log->user?->name }}</span>
               @if($log->user_id === auth()->id())
-              <form method="POST" action="{{ route('crm.tech-support.follow-up.destroy', [$case, $log]) }}" class="ml-auto"
-                    data-confirm-title="Delete this log entry?"
-                    data-confirm="This will permanently remove this entry from the Follow-Up Logs."
-                    data-confirm-text="Delete"
-                    data-confirm-tone="danger">
-                @csrf @method('DELETE')
-                <button type="submit" class="text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
-              </form>
+              <button type="button" @click="
+                if(await window.confirmModal({ title: 'Delete this log entry?', message: 'This will permanently remove this entry from the Follow-Up Logs.', confirmText: 'Delete', tone: 'danger' })) {
+                  try {
+                    await window.api('{{ route('crm.tech-support.follow-up.destroy', [$case, $log]) }}', { method: 'DELETE' });
+                    window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Log entry deleted.', type: 'success' } }));
+                    document.dispatchEvent(new CustomEvent('ajax-success'));
+                  } catch(err) {
+                    window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
+                  }
+                }
+              " class="ml-auto text-xs text-slate-300 hover:text-red-600" title="Delete">🗑</button>
               @endif
             </div>
           </div>
@@ -446,7 +453,7 @@
             this.currentStatus = data.status || 'resolved';
             this.showResolveModal = false;
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Case marked resolved!', type: 'success' } }));
-            window.location.reload();
+            document.dispatchEvent(new CustomEvent('ajax-success'));
           } catch (err) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
           } finally {
@@ -468,7 +475,7 @@
             this.currentStatus = data.status || 'return_machine';
             this.showReturnModal = false;
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Machine marked for return!', type: 'success' } }));
-            window.location.reload();
+            document.dispatchEvent(new CustomEvent('ajax-success'));
           } catch (err) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
           } finally {
@@ -501,27 +508,48 @@
               throw new Error(data.message || 'Failed.');
             }
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Follow-up added!', type: 'success' } }));
-            if (window.Turbo) { window.Turbo.visit(window.location.href, { action: 'replace' }); } else { location.reload(); }
+            document.dispatchEvent(new CustomEvent('ajax-success'));
           } catch (err) {
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed.', type: 'error' } }));
           } finally { this.followUpLoading = false; }
         },
         init() {
+          const doHotSwap = () => {
+            fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+              .then(res => res.text())
+              .then(html => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const cards = [
+                  '#status-history-card',
+                  '#followup-logs-card',
+                  '#assignment-card',
+                  '#case-info-card'
+                ];
+                cards.forEach(sel => {
+                  const newEl = doc.querySelector(sel);
+                  const oldEl = document.querySelector(sel);
+                  if (newEl && oldEl) {
+                    oldEl.innerHTML = newEl.innerHTML;
+                    oldEl.className = newEl.className;
+                  }
+                });
+              }).catch(err => console.error('Hot-swap failed', err));
+          };
+
+          document.addEventListener('ajax-success', doHotSwap);
+
           if (window.kiuqGetPusherClient) {
             const pusher = window.kiuqGetPusherClient();
             if (pusher) {
               const channel = pusher.subscribe('private-tech-support');
               channel.bind('TechSupportCaseStatusUpdated', (data) => {
                 if (parseInt(data.caseId) === {{ $case->id }} && parseInt(data.updaterId) !== parseInt(document.querySelector('meta[name="kiuq-user-id"]')?.content)) {
-                  if (window.Turbo) {
-                    if (typeof window.Turbo.refresh === 'function') {
-                      window.Turbo.refresh();
-                    } else {
-                      window.Turbo.visit(window.location.href, { action: 'replace' });
-                    }
-                  } else {
-                    window.location.reload();
-                  }
+                  doHotSwap();
+                }
+              });
+              channel.bind('TechSupportCaseDataUpdated', (data) => {
+                if (parseInt(data.caseId) === {{ $case->id }}) {
+                  doHotSwap();
                 }
               });
             }
