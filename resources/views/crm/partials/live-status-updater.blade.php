@@ -43,34 +43,54 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error('Failed to hot-swap UI:', err));
     };
 
-    channel.bind_global((eventName, data) => {
+    const handleStatusLive = (data) => {
+        if (window.showToast) {
+            window.showToast(`Status updated to "${data.newStatusLabel}" by ${data.teamName} (${data.actorName})`, 'info');
+        }
+        doHotSwap();
+    };
+
+    const handleHandlerLive = (data) => {
+        if (window.showToast) {
+            window.showToast(`Handler updated to "${data.newHandlerName}" by ${data.teamName} (${data.actorName})`, 'info');
+        }
+        doHotSwap();
+    };
+
+    const handleDataLive = (data) => {
+        if (window.showToast) {
+            window.showToast(data.message || `Data updated by ${data.teamName} (${data.actorName})`, 'info');
+        }
+        doHotSwap();
+    };
+
+    // Use pusher.bind_global to catch events regardless of channel (if the user is subscribed)
+    pusher.bind_global((eventName, data) => {
         const name = String(eventName);
+        if (name.includes('pusher_internal:')) return;
+        
         if (name.includes('CustomerStatusUpdatedLive')) {
-            if (window.showToast) {
-                 window.showToast(
-                     `Status updated to "${data.newStatusLabel}" by ${data.teamName} (${data.actorName})`, 
-                     'info'
-                 );
-            }
-            doHotSwap();
+            handleStatusLive(data);
         } else if (name.includes('CustomerHandlerUpdatedLive')) {
-            if (window.showToast) {
-                 window.showToast(
-                     `Handler updated to "${data.newHandlerName}" by ${data.teamName} (${data.actorName})`, 
-                     'info'
-                 );
-            }
-            doHotSwap();
+            handleHandlerLive(data);
         } else if (name.includes('CustomerDataUpdatedLive')) {
-            if (window.showToast) {
-                 window.showToast(
-                     data.message || `Data updated by ${data.teamName} (${data.actorName})`, 
-                     'info'
-                 );
-            }
-            doHotSwap();
+            handleDataLive(data);
         }
     });
+
+    // Also explicitly bind to the exact channel events with varying namespaces, 
+    // to guarantee we catch the event if the global listener drops it for some reason
+    channel.bind('App\\Events\\CustomerStatusUpdatedLive', handleStatusLive);
+    channel.bind('CustomerStatusUpdatedLive', handleStatusLive);
+    channel.bind('.CustomerStatusUpdatedLive', handleStatusLive);
+
+    channel.bind('App\\Events\\CustomerHandlerUpdatedLive', handleHandlerLive);
+    channel.bind('CustomerHandlerUpdatedLive', handleHandlerLive);
+    channel.bind('.CustomerHandlerUpdatedLive', handleHandlerLive);
+
+    channel.bind('App\\Events\\CustomerDataUpdatedLive', handleDataLive);
+    channel.bind('CustomerDataUpdatedLive', handleDataLive);
+    channel.bind('.CustomerDataUpdatedLive', handleDataLive);
 
     // We can also trigger hot swap manually when our own ajax forms succeed
     document.addEventListener('ajax-success', (e) => {

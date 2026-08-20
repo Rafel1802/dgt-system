@@ -152,12 +152,14 @@ class TechSupportController extends Controller
         $originalStatus = $case->getOriginal('status');
         $this->service->changeStatus($case, $validated['status'], auth()->user(), $validated['note'] ?? null);
         
+        $actorName = auth()->user()?->name ?? 'System';
+
         // Sync the tech support status directly to the Customer model
         if ($case->customer) {
             $customerStatus = \App\Enums\CustomerStatus::tryFrom($validated['status']);
             if ($customerStatus) {
                 $case->customer->update(['status' => $customerStatus]);
-                defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->customer->id, $customerStatus->label(), $customerStatus->color(), auth()->user()->name, 'Technical Support Team', 'customer')));
+                defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->customer->id, $customerStatus->label(), $customerStatus->color(), $actorName, 'Technical Support Team', 'customer')));
             }
         }
 
@@ -165,10 +167,10 @@ class TechSupportController extends Controller
         if ($case->source && $validated['status'] === TechSupportCase::STATUS_RESOLVED) {
             if ($case->source instanceof \App\Models\Lead) {
                 $case->source->update(['status' => \App\Enums\WebsiteLeadStatus::Resolve->value]);
-                defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Enums\WebsiteLeadStatus::Resolve->label(), \App\Enums\WebsiteLeadStatus::Resolve->color(), auth()->user()->name, 'Technical Support Team', 'lead')));
+                defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Enums\WebsiteLeadStatus::Resolve->label(), \App\Enums\WebsiteLeadStatus::Resolve->color(), $actorName, 'Technical Support Team', 'lead')));
             } elseif ($case->source instanceof \App\Models\EbayCustomerRecord) {
                 $case->source->update(['tab_type' => \App\Models\EbayCustomerRecord::TAB_RESOLVED]);
-                defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Models\EbayCustomerRecord::tabs()[\App\Models\EbayCustomerRecord::TAB_RESOLVED] ?? 'Resolved', \App\Models\EbayCustomerRecord::tabColor(\App\Models\EbayCustomerRecord::TAB_RESOLVED), auth()->user()->name, 'Technical Support Team', 'ebay')));
+                defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Models\EbayCustomerRecord::tabs()[\App\Models\EbayCustomerRecord::TAB_RESOLVED] ?? 'Resolved', \App\Models\EbayCustomerRecord::tabColor(\App\Models\EbayCustomerRecord::TAB_RESOLVED), $actorName, 'Technical Support Team', 'ebay')));
             }
         }
         
