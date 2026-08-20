@@ -2774,7 +2774,43 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ isSubmitting: false, selectedId: '' }" @submit.prevent="if(!selectedId) { alert('Please select a website first.'); return; } if(isSubmitting) { return; } isSubmitting = true; fetch($el.action, { method: 'POST', body: new FormData($el), headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }).then(res => res.json()).then(data => { if(data.success) { showFollowUpModal = false; if (window.Turbo) window.Turbo.refresh(); else window.location.reload(); } else { alert(data.message || 'Error occurred.'); } }).catch(err => alert('An error occurred.')).finally(() => { isSubmitting = false; });">
+        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ isSubmitting: false, selectedId: '' }" @submit.prevent="
+            if(!selectedId) { alert('Please select a website first.'); return; } 
+            if(isSubmitting) { return; } 
+            isSubmitting = true; 
+            fetch($el.action, { 
+                method: 'POST', 
+                body: new FormData($el), 
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } 
+            })
+            .then(async res => {
+                let data;
+                try {
+                    data = await res.json();
+                } catch (e) {
+                    throw new Error('Server returned an invalid response (not JSON). Code: ' + res.status);
+                }
+                
+                if (!res.ok) {
+                    if (res.status === 422 && data.errors) {
+                        const firstError = Object.values(data.errors)[0][0];
+                        throw new Error(firstError || data.message || 'Validation failed');
+                    }
+                    throw new Error(data.message || 'Server error occurred');
+                }
+                
+                return data;
+            })
+            .then(data => { 
+                if(data.success) { 
+                    showFollowUpModal = false; 
+                    if (window.Turbo) window.Turbo.refresh(); else window.location.reload(); 
+                } else { 
+                    alert(data.message || 'Error occurred.'); 
+                } 
+            })
+            .catch(err => alert(err.message || 'An error occurred.'))
+            .finally(() => { isSubmitting = false; });">
             @csrf
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">

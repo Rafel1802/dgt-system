@@ -349,6 +349,9 @@ class CardController extends Controller
                     
                     if (str_contains(strtolower($targetList->name), 'block/waiting')) {
                         app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Block/Waiting');
+                    } elseif (str_contains(strtolower($targetList->name), 'approved')) {
+                        $card->update(['status' => 'approved']);
+                        app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Approved');
                     }
 
                     $this->logCardActivity(
@@ -527,7 +530,8 @@ class CardController extends Controller
             $card->update(['status' => 'approved']);
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Approved');
         } elseif (str_contains(strtolower($oldList), 'approved') && !str_contains(strtolower($newList), 'approved')) {
-            $card->update(['status' => null]);
+            $card->update(['status' => 'todo']);
+            app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Todo');
         }
         $automation = $this->checkAutomations($card, $targetList->id);
 

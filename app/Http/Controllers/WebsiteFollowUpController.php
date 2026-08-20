@@ -43,8 +43,9 @@ class WebsiteFollowUpController extends Controller
         $imageUrl = null;
         if (!empty($validated['url'])) {
             try {
-                $html = @file_get_contents($validated['url'], false, stream_context_create(['http' => ['timeout' => 2]]));
-                if ($html) {
+                $response = \Illuminate\Support\Facades\Http::timeout(3)->get($validated['url']);
+                if ($response->successful()) {
+                    $html = $response->body();
                     if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
                         $imageUrl = $matches[1];
                     } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
