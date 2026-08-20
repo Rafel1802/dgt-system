@@ -193,7 +193,7 @@ class CrmReportService
                     'Completed'                => Shipment::where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
                     'Total Customer Delivered' => ShipmentCustomer::where(fn($q) => $q->whereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $logisticUserIds))->where('status', ShipmentCustomer::STATUS_DELIVERED)->whereBetween('created_at', [$since, $until])->count(),
                     'Total Issues'             => ShipmentCustomer::where(fn($q) => $q->whereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $logisticUserIds))->whereBetween('created_at', [$since, $until])->sum('problem_occurrences'),
-                    'Negative Feedback Caused by Logistic Issues' => EbayCustomerRecord::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $logisticUserIds)->orWhereHas('handlerHistory', fn($h) => $h->whereIn('user_id', $logisticUserIds)))->whereIn('tab_type', [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])->whereJsonContains('negative_feedback_causes', 'Logistic issues')->whereBetween('created_at', [$since, $until])->count(),
+                    'Negative Feedback Caused by Logistic Issues' => EbayCustomerRecord::whereIn('tab_type', [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])->whereJsonContains('negative_feedback_causes', 'Logistic issues')->whereBetween('created_at', [$since, $until])->count(),
                 ],
                 'money_keys' => [],
             ],
@@ -222,7 +222,7 @@ class CrmReportService
                 'metrics' => [
                     'Total Issues'            => TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->whereBetween('created_at', [$since, $until])->sum('occurrence_count'),
                     'Total Solved'            => TechSupportCase::where(fn($q) => $q->whereNull('assigned_to')->orWhere('assigned_to', 0)->orWhereIn('assigned_to', $techUserIds))->where('status', TechSupportCase::STATUS_RESOLVED)->whereBetween('resolved_at', [$since, $until])->count(),
-                    'Negative Feedback Caused by Technical Issues' => EbayCustomerRecord::where(fn($q) => $q->whereNull('created_by')->orWhere('created_by', 0)->orWhereIn('created_by', $techUserIds)->orWhereHas('handlerHistory', fn($h) => $h->whereIn('user_id', $techUserIds)))->whereIn('tab_type', [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])->whereJsonContains('negative_feedback_causes', 'Technical')->whereBetween('created_at', [$since, $until])->count(),
+                    'Negative Feedback Caused by Technical Issues' => EbayCustomerRecord::whereIn('tab_type', [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])->whereJsonContains('negative_feedback_causes', 'Technical')->whereBetween('created_at', [$since, $until])->count(),
                 ],
                 'money_keys' => [],
             ],

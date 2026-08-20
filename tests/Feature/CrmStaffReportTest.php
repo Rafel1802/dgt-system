@@ -179,7 +179,7 @@ class CrmStaffReportTest extends TestCase
 
         $csv = $response->streamedContent();
         $lines = array_filter(explode("\n", trim($csv)));
-        $this->assertEquals('Period,"CRM Website",eBay,"Technical Issues",Logistic,Total', $lines[0]);
+        $this->assertEquals('Period,"CRM Website",eBay,"Technical Support",Logistic,Total', $lines[0]);
         $this->assertCount(2, $lines); // header + 1 row for "Today"
         $this->assertStringStartsWith('Today,', $lines[1]);
     }

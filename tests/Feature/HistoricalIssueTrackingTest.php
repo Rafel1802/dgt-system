@@ -57,6 +57,7 @@ class HistoricalIssueTrackingTest extends TestCase
         $response = $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment->id, $shipmentCustomer->id]), [
             'status' => ShipmentCustomer::STATUS_PROBLEM,
             'recipient_name' => 'Test',
+            'shipping_address' => 'Test',
             'notes' => 'Problem occurred',
             'issue_date' => now()->toDateString(),
         ]);
@@ -71,12 +72,14 @@ class HistoricalIssueTrackingTest extends TestCase
         $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment->id, $shipmentCustomer->id]), [
             'status' => ShipmentCustomer::STATUS_PENDING,
             'recipient_name' => 'Test',
+            'shipping_address' => 'Test',
         ]);
 
         // Update to problem again
         $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment->id, $shipmentCustomer->id]), [
             'status' => ShipmentCustomer::STATUS_PROBLEM,
             'recipient_name' => 'Test',
+            'shipping_address' => 'Test',
             'notes' => 'Problem occurred again',
             'issue_date' => now()->toDateString(),
         ]);
