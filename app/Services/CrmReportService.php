@@ -435,11 +435,110 @@ class CrmReportService
         ];
     }
 
+    /**
+     * Compile a unified list of all customers (across all 4 domains) that this staff member handled during this period.
+     */
+    public function getHandledCustomers(User $user, Carbon $since, Carbon $until): array
+    {
+        $customers = collect();
+
+        $pushCustomer = function ($model, string $sourceKey) use ($customers) {
+            if ($model->customer) {
+                // Linked global customer
+                $key = 'customer_' . $model->customer->id;
+                if (!$customers->has($key)) {
+                    $customers->put($key, [
+                        'id'      => $model->customer->id,
+                        'name'    => $model->customer->name,
+                        'email'   => $model->customer->email,
+                        'phone'   => $model->customer->phone,
+                        'sources' => [$sourceKey],
+                        'avatar'  => $model->customer->avatar_url,
+                        'global'  => true,
+                    ]);
+                } else {
+                    $existing = $customers->get($key);
+                    if (!in_array($sourceKey, $existing['sources'])) {
+                        $existing['sources'][] = $sourceKey;
+                        $customers->put($key, $existing);
+                    }
+                }
+            } else {
+                // Unlinked local record (Lead or EbayCustomerRecord)
+                $name = $model->name ?? $model->buyer_name ?? $model->username ?? 'Unknown';
+                $email = $model->email ?? '';
+                $phone = $model->phone ?? '';
+
+                $key = 'local_' . $sourceKey . '_' . $model->id;
+                if ($email) {
+                    $key = 'email_' . $email;
+                } elseif ($phone) {
+                    $key = 'phone_' . $phone;
+                }
+
+                if (!$customers->has($key)) {
+                    $initials = collect(explode(' ', $name))->take(2)->map(fn($w) => strtoupper($w[0] ?? ''))->join('');
+                    $avatar = "https://ui-avatars.com/api/?name={$initials}&size=64&background=64748b&color=fff&bold=true";
+
+                    $customers->put($key, [
+                        'id'      => null,
+                        'name'    => $name,
+                        'email'   => $email,
+                        'phone'   => $phone,
+                        'sources' => [$sourceKey],
+                        'avatar'  => $avatar,
+                        'global'  => false,
+                    ]);
+                } else {
+                    $existing = $customers->get($key);
+                    if (!in_array($sourceKey, $existing['sources'])) {
+                        $existing['sources'][] = $sourceKey;
+                        $customers->put($key, $existing);
+                    }
+                }
+            }
+        };
+
+        // 1. Website Leads
+        Lead::with('customer')->where('handled_by', $user->id)
+            ->whereBetween('created_at', [$since, $until])
+            ->get()->each(fn ($lead) => $pushCustomer($lead, 'Website'));
+
+        // 2. eBay Records
+        EbayCustomerRecord::with('customer')
+            ->whereHas('handlerHistory', function ($q) use ($user, $since, $until) {
+                $q->where('user_id', $user->id)
+                  ->where('started_at', '<=', $until)
+                  ->where(function ($q2) use ($since) {
+                      $q2->whereNull('ended_at')->orWhere('ended_at', '>=', $since);
+                  });
+            })
+            ->get()->each(fn ($record) => $pushCustomer($record, 'eBay'));
+
+        // 3. Tech Support
+        TechSupportCase::with('customer')->where('assigned_to', $user->id)
+            ->whereBetween('created_at', [$since, $until])
+            ->get()->each(fn ($case) => $pushCustomer($case, 'Tech Support'));
+
+        // 4. Logistic - Shipments
+        ShipmentCustomer::with('customer')->where('handled_by', $user->id)
+            ->whereBetween('created_at', [$since, $until])
+            ->get()->each(fn ($sc) => $pushCustomer($sc, 'Logistic'));
+
+        // 5. Logistic - Machine Returns
+        \App\Models\MachineReturn::with('customer')->where('handled_by', $user->id)
+            ->whereBetween('updated_at', [$since, $until])
+            ->get()->each(fn ($mr) => $pushCustomer($mr, 'Logistic'));
+
+        return $customers->values()->sortBy('name')->values()->all();
+    }
+
     /** Everything the individual staff profile page (and its PDF/share views) need for one user + period. */
     public function staffReportData(User $user, Carbon $since, Carbon $until, string $periodLabel): array
     {
         $chart = $this->buildChart($user, $since, $until, $periodLabel);
         $trend = $this->buildDailyTrend($user, $since, $until);
+        $handledCustomers = $this->getHandledCustomers($user, $since, $until);
 
         $summary = [
             'website'      => $this->websiteSummary($user, $since, $until),
@@ -459,6 +558,6 @@ class CrmReportService
             'logistic'     => Shipment::where('assigned_to', $user->id)->exists(),
         ]));
 
-        return compact('chart', 'trend', 'summary', 'activeDomains');
+        return compact('chart', 'trend', 'summary', 'activeDomains', 'handledCustomers');
     }
 }

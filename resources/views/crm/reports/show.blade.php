@@ -219,6 +219,72 @@
         </div>
         @endif
       </div>
+      
+      {{-- Customers Handled List --}}
+      @if(count($handledCustomers) > 0)
+      <div class="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden mt-6">
+        <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h4 class="font-bold text-slate-800 text-base">Customers Handled</h4>
+            <p class="text-xs text-slate-400">Detailed list of customers handled by {{ $user->name }} during this period</p>
+          </div>
+          <span class="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{{ count($handledCustomers) }} Customers</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-wider font-bold">
+                <th class="px-6 py-3 font-semibold">Customer Name</th>
+                <th class="px-6 py-3 font-semibold">Contact Info</th>
+                <th class="px-6 py-3 font-semibold">Sources</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              @foreach($handledCustomers as $hc)
+              <tr class="hover:bg-slate-50/50 transition-colors">
+                <td class="px-6 py-3.5">
+                  <div class="flex items-center gap-3">
+                    <img src="{{ $hc['avatar'] }}" class="w-8 h-8 rounded-full border border-slate-200 object-cover">
+                    <div>
+                      @if($hc['global'])
+                        <a href="{{ route('crm.customers.show', $hc['id']) }}" class="text-sm font-bold text-slate-800 hover:text-indigo-600 transition-colors">{{ $hc['name'] }}</a>
+                      @else
+                        <span class="text-sm font-bold text-slate-800">{{ $hc['name'] }}</span>
+                      @endif
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-3.5">
+                  <div class="flex flex-col gap-0.5">
+                    @if($hc['email'])
+                    <span class="text-xs text-slate-600 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> {{ $hc['email'] }}</span>
+                    @endif
+                    @if($hc['phone'])
+                    <span class="text-xs text-slate-600 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg> {{ $hc['phone'] }}</span>
+                    @endif
+                    @if(!$hc['email'] && !$hc['phone'])
+                    <span class="text-xs text-slate-400 italic">No contact info</span>
+                    @endif
+                  </div>
+                </td>
+                <td class="px-6 py-3.5">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    @foreach($hc['sources'] as $src)
+                      @php
+                        $srcSlug = strtolower(str_replace(' ', '_', $src));
+                        $bg = $domainColors[$srcSlug] ?? '#64748b';
+                      @endphp
+                      <span class="text-[10px] font-bold px-2 py-0.5 rounded-md text-white shadow-sm" style="background: {{ $bg }}">{{ $src }}</span>
+                    @endforeach
+                  </div>
+                </td>
+              </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+      </div>
+      @endif
     </div>
 
     {{-- SIDEBAR --}}
