@@ -136,7 +136,7 @@ class TechSupportController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', Rule::in(array_keys(TechSupportCase::statuses()))],
-            'note'   => ['required_if:status,' . TechSupportCase::STATUS_RESOLVED . ',' . TechSupportCase::STATUS_RETURN_MACHINE, 'nullable', 'string'],
+            'note'   => ['required_if:status,' . TechSupportCase::STATUS_RESOLVED . ',' . TechSupportCase::STATUS_RETURN_MACHINE . ',' . TechSupportCase::STATUS_RETURN_RECEIVED, 'nullable', 'string'],
         ], [
             'note.required_if' => 'A resolution or return note is required when changing to this status.',
         ]);

@@ -25,8 +25,25 @@ class MachineReturn extends Model
                 $clearCache();
             }
 
-            if ($return->wasChanged('status') && $return->customer) {
-                \App\Services\UniversalStatusSyncService::syncLogisticStatus($return->customer, $return->status);
+            if ($return->wasChanged('status')) {
+                if ($return->customer) {
+                    \App\Services\UniversalStatusSyncService::syncLogisticStatus($return->customer, $return->status);
+                }
+                
+                // Sync to Tech Support Case if it's marked as received
+                if ($return->status === self::STATUS_RECEIVED && $return->tech_support_case_id) {
+                    if ($case = $return->techSupportCase) {
+                        $case->update(['status' => \App\Models\TechSupportCase::STATUS_RETURN_RECEIVED]);
+                        
+                        \App\Models\TechSupportCaseLog::create([
+                            'tech_support_case_id' => $case->id,
+                            'user_id' => auth()->id() ?? 1,
+                            'type' => 'status_update',
+                            'note' => 'Machine Return marked as Received by Logistics',
+                            'previous_status' => $case->getOriginal('status'),
+                        ]);
+                    }
+                }
             }
         });
     }

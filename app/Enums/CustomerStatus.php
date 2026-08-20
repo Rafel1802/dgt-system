@@ -15,6 +15,7 @@ enum CustomerStatus: string
     case InProgress = 'in_progress';
     case RedCase   = 'red_case';
     case ReturnMachine = 'return_machine';
+    case ReturnReceived = 'return_received';
     case Resolved  = 'resolved';
     
     // Logistics cases
@@ -36,6 +37,7 @@ enum CustomerStatus: string
             self::InProgress => 'In Progress',
             self::RedCase  => 'Red Case (Potential Return)',
             self::ReturnMachine => 'Return Machine',
+            self::ReturnReceived => 'Return Received',
             self::Resolved => 'Resolved',
             self::PickupArranged => 'Pickup Arranged',
             self::InTransit => 'In Transit',
@@ -57,6 +59,7 @@ enum CustomerStatus: string
             self::InProgress => 'badge-amber',
             self::RedCase  => 'badge-rose',
             self::ReturnMachine => 'badge-rose',
+            self::ReturnReceived => 'badge-emerald',
             self::Resolved => 'badge-emerald',
             self::PickupArranged => 'badge-blue',
             self::InTransit => 'badge-blue',
@@ -78,6 +81,7 @@ enum CustomerStatus: string
             self::InProgress => '#f59e0b',
             self::RedCase  => '#ef4444',
             self::ReturnMachine => '#e11d48',
+            self::ReturnReceived => '#10b981',
             self::Resolved => '#0ea5e9',
             self::PickupArranged => '#3b82f6',
             self::InTransit => '#3b82f6',
