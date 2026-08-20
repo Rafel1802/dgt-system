@@ -27,6 +27,9 @@ class RestrictTechSupportToViewOnly
             if (!$isTechSupportRoute) {
                 // Block all non-GET/HEAD modify requests
                 if (!$request->isMethod('GET') && !$request->isMethod('HEAD')) {
+                    if ($request->wantsJson() || $request->is('api/*')) {
+                        return response()->json(['error' => 'Technical Support users are restricted to view-only access on this page.'], 403);
+                    }
                     abort(403, 'Technical Support users are restricted to view-only access on this page.');
                 }
 
@@ -38,6 +41,9 @@ class RestrictTechSupportToViewOnly
                                   $request->is('*/edit*');
 
                 if ($isCreateOrEdit) {
+                    if ($request->wantsJson() || $request->is('api/*')) {
+                        return response()->json(['error' => 'Technical Support users are restricted to view-only access on this page.'], 403);
+                    }
                     abort(403, 'Technical Support users are restricted to view-only access on this page.');
                 }
             }

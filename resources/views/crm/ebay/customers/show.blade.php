@@ -355,8 +355,12 @@
       </div>
       <form @submit.prevent="submitStatusChange()">
         <div class="mb-4">
-          <label class="form-label text-xs font-semibold text-slate-500 mb-1.5 block">Follow-Up Note (Required to explain status change):</label>
-          <textarea x-model="statusNote" required rows="3" placeholder="Enter details about this status update..." class="form-input text-sm py-2"></textarea>
+          <label class="form-label text-xs font-semibold text-slate-500 mb-1.5 block">
+            Follow-Up Note 
+            <span x-show="selectedStatus !== 'new_order'">(Required to explain status change)</span>
+            <span x-show="selectedStatus === 'new_order'">(Optional)</span>:
+          </label>
+          <textarea x-model="statusNote" :required="selectedStatus !== 'new_order'" rows="3" placeholder="Enter details about this status update..." class="form-input text-sm py-2"></textarea>
         </div>
         <div class="mb-4" x-show="selectedStatus === 'potential_negatives' || selectedStatus === 'negatives_feedbacks'" x-cloak>
           <label class="form-label text-xs font-semibold text-slate-500 mb-1.5 block">Negative Feedback Cause(s) (Required):</label>
@@ -468,8 +472,12 @@ function ebayCustomerShow(followUpUrl) {
       this.statusModalOpen = true;
     },
     async submitStatusChange() {
-      if (!this.statusNote.trim() || this.statusNote.trim().length < 3) {
+      if (this.selectedStatus !== 'new_order' && (!this.statusNote.trim() || this.statusNote.trim().length < 3)) {
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'A follow-up note of at least 3 characters is required.', type: 'error' } }));
+        return;
+      }
+      if (this.selectedStatus === 'new_order' && this.statusNote.trim() && this.statusNote.trim().length < 3) {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'If provided, the follow-up note must be at least 3 characters.', type: 'error' } }));
         return;
       }
       if (this.selectedStatus === 'potential_negatives' || this.selectedStatus === 'negatives_feedbacks') {

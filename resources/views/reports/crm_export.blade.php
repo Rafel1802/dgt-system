@@ -223,7 +223,6 @@
             <td class="kpi-card" style="width: 50%;">
                 <div class="kpi-card-title" style="color: #0369a1;">DELIVERY & SHIPPING STATUS</div>
                 <div class="kpi-card-sub" style="color: #334155; font-size: 8.5px; margin-top:4px;">
-                    <span style="font-weight:bold; color:#475569;">IN DELIVERY:</span> <span class="badge" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">{{ $summaryStats['in_delivery_count'] ?? 0 }}</span> &nbsp;&nbsp;|&nbsp;&nbsp;
                     <span style="font-weight:bold; color:#475569;">DELIVERED:</span> <span class="badge" style="background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0;">{{ $summaryStats['delivered_count'] ?? 0 }}</span> &nbsp;&nbsp;|&nbsp;&nbsp;
                     <span style="font-weight:bold; color:#475569;">WAITING PICKUP:</span> <span class="badge" style="background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;">{{ $summaryStats['waiting_pickup_count'] ?? 0 }}</span>
                 </div>

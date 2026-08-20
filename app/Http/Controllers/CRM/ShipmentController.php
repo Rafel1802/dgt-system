@@ -61,10 +61,10 @@ class ShipmentController extends Controller
         return $this->truckingQueue($request, [ShipmentCustomer::STATUS_PENDING], 'processing');
     }
 
-    /** Loaded — every ShipmentCustomer already Loaded or In Delivery, across all shipments. */
+    /** Loaded — every ShipmentCustomer already Loaded, across all shipments. */
     public function loaded(Request $request): View
     {
-        return $this->truckingQueue($request, [ShipmentCustomer::STATUS_IN_TRANSIT, ShipmentCustomer::STATUS_IN_DELIVERY], 'loaded');
+        return $this->truckingQueue($request, [ShipmentCustomer::STATUS_IN_TRANSIT], 'loaded');
     }
 
     /** Delivered — every ShipmentCustomer marked Delivered, across all shipments. */
@@ -694,6 +694,7 @@ class ShipmentController extends Controller
     /** Update a customer on a shipment (edited via the inline modal on the shipment show page) */
     public function updateCustomer(Request $request, Shipment $shipment, ShipmentCustomer $customer): RedirectResponse
     {
+        $this->authorize('update', $customer);
         $validated = $request->validate([
             'customer_id'       => ['nullable', 'exists:customers,id'],
             'recipient_name'    => ['nullable', 'string', 'max:255'],
@@ -792,6 +793,7 @@ class ShipmentController extends Controller
     /** Direct update for a shipment customer from Process Trucking / Loaded / Delivered / Issues tabs */
     public function updateCustomerDirect(Request $request, ShipmentCustomer $customer): RedirectResponse
     {
+        $this->authorize('update', $customer);
         $validated = $request->validate([
             'customer_id'       => ['nullable', 'exists:customers,id'],
             'recipient_name'    => ['nullable', 'string', 'max:255'],
@@ -878,6 +880,7 @@ class ShipmentController extends Controller
     /** Remove a customer from a shipment */
     public function removeCustomer(Shipment $shipment, ShipmentCustomer $customer): RedirectResponse
     {
+        $this->authorize('delete', $customer);
         $customerId = $customer->customer_id;
 
         $customer->delete();
@@ -898,6 +901,7 @@ class ShipmentController extends Controller
      */
     public function destroyCustomer(Request $request, ShipmentCustomer $customer): RedirectResponse
     {
+        $this->authorize('delete', $customer);
         $shipment = $customer->shipment;
         $customerId = $customer->customer_id;
 
@@ -947,6 +951,9 @@ class ShipmentController extends Controller
         }
 
         $customers = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->get();
+        foreach ($customers as $customer) {
+            $this->authorize('interact', $customer);
+        }
 
         $changedCount = 0;
         foreach ($customers as $customer) {
@@ -1007,6 +1014,9 @@ class ShipmentController extends Controller
         ]);
 
         $customers = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->get();
+        foreach ($customers as $customer) {
+            $this->authorize('delete', $customer);
+        }
         $affectedShipmentIds = $customers->pluck('shipment_id')->filter()->unique();
         $affectedCustomerIds = $customers->pluck('customer_id')->filter()->unique();
         $count = $customers->count();
@@ -1060,7 +1070,12 @@ class ShipmentController extends Controller
                 'created_by'    => auth()->id(),
             ]);
 
-        $count = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->count();
+        $customers = ShipmentCustomer::whereIn('id', $validated['customer_ids'])->get();
+        foreach ($customers as $customer) {
+            $this->authorize('interact', $customer);
+        }
+
+        $count = $customers->count();
 
         ShipmentCustomer::whereIn('id', $validated['customer_ids'])
             ->update(['shipment_id' => $shipment->id]);
@@ -1672,8 +1687,7 @@ class ShipmentController extends Controller
 
         $shipmentStatus = match ($uniqueStatuses->first()) {
             ShipmentCustomer::STATUS_PENDING     => Shipment::STATUS_PENDING,
-            ShipmentCustomer::STATUS_IN_TRANSIT,
-            ShipmentCustomer::STATUS_IN_DELIVERY => Shipment::STATUS_IN_PROGRESS,
+            ShipmentCustomer::STATUS_IN_TRANSIT  => Shipment::STATUS_IN_PROGRESS,
             ShipmentCustomer::STATUS_DELIVERED   => Shipment::STATUS_COMPLETE,
             ShipmentCustomer::STATUS_PROBLEM     => Shipment::STATUS_PROBLEM,
             default => null,

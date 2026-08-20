@@ -130,7 +130,6 @@ if __name__ == "__main__":
             + PHP + " artisan cards:restore-block-smm && "
             + PHP + " artisan migrate --force && "
             + tinker_fix_returns
-            + PHP + " artisan optimize && "
             + PHP + " artisan view:cache && "
             + PHP + " artisan storage:link"
         )

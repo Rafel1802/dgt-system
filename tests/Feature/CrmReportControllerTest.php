@@ -115,7 +115,7 @@ class CrmReportControllerTest extends TestCase
         ShipmentCustomer::create([
             'shipment_id'      => $shipmentInProgress->id,
             'recipient_name'   => 'In Delivery Cust',
-            'status'           => ShipmentCustomer::STATUS_IN_DELIVERY,
+            'status'           => ShipmentCustomer::STATUS_IN_TRANSIT,
             'shipping_address' => '789 St',
         ]);
 

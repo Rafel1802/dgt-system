@@ -9,6 +9,9 @@ use App\Models\Lead;
 use App\Models\ShipmentCustomer;
 use App\Policies\CardPolicy;
 use App\Policies\CustomerPolicy;
+use App\Policies\WebsiteLeadPolicy;
+use App\Policies\EbayCustomerRecordPolicy;
+use App\Policies\ShipmentCustomerPolicy;
 use App\Models\Product;
 use App\Services\CrmCustomerMatchService;
 use App\Support\CrmLookupCache;
@@ -34,6 +37,9 @@ class AppServiceProvider extends ServiceProvider
         // ── Register Policies ──────────────────────────────────────────────
         Gate::policy(Card::class, CardPolicy::class);
         Gate::policy(Customer::class, CustomerPolicy::class);
+        Gate::policy(Lead::class, WebsiteLeadPolicy::class);
+        Gate::policy(EbayCustomerRecord::class, EbayCustomerRecordPolicy::class);
+        Gate::policy(ShipmentCustomer::class, ShipmentCustomerPolicy::class);
 
         // ── Super Admin Gate Bypass ────────────────────────────────────────
         // Super admins bypass all Gate/Policy checks (Spatie handles this

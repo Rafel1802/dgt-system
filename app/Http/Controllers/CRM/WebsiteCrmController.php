@@ -258,9 +258,7 @@ class WebsiteCrmController extends Controller
      */
     public function update(Request $request, Lead $lead): RedirectResponse
     {
-        if (! auth()->user()->canDeleteCrmRecords('website')) {
-            return back()->with('error', 'Only a CRM Supervisor or Boss can edit lead details.');
-        }
+        $this->authorize('update', $lead);
 
         $validated = $request->validate([
             'client_name'       => ['required', 'string', 'max:255'],
@@ -314,6 +312,7 @@ class WebsiteCrmController extends Controller
     /** Log a follow-up call/contact */
     public function logFollowUp(Request $request, Lead $lead): JsonResponse
     {
+        $this->authorize('interact', $lead);
         $validated = $request->validate([
             'notes'          => ['required', 'string'],
             'next_action'    => ['nullable', 'string'],
@@ -371,6 +370,7 @@ class WebsiteCrmController extends Controller
     /** Quick status update (AJAX) */
     public function updateStatus(Request $request, Lead $lead): JsonResponse
     {
+        $this->authorize('interact', $lead);
         $validated = $request->validate([
             'status'                  => ['required', Rule::enum(WebsiteLeadStatus::class)],
             'note'                    => ['nullable', 'string'],
@@ -593,7 +593,7 @@ class WebsiteCrmController extends Controller
      */
     public function destroy(Lead $lead): RedirectResponse
     {
-        abort_unless(auth()->user()->canDeleteCrmRecords('website'), 403, 'Only a CRM Supervisor, eBay Supervisor, Logistic Supervisor, or Boss can delete leads.');
+        $this->authorize('delete', $lead);
 
         if ($lead->customer) {
             $customerName = $lead->customer->name;

@@ -165,7 +165,7 @@ class EbayCustomerController extends Controller
 
     public function edit(EbayCustomerRecord $record): View
     {
-        abort_unless(auth()->user()->canEditEbayCustomer(), 403, 'Only eBay Team members can edit eBay customers.');
+        $this->authorize('update', $record);
 
         return view('crm.ebay.customers.edit', [
             'record'         => $record,
@@ -179,7 +179,7 @@ class EbayCustomerController extends Controller
 
     public function update(Request $request, EbayCustomerRecord $record): RedirectResponse
     {
-        abort_unless(auth()->user()->canEditEbayCustomer(), 403, 'Only eBay Team members can edit eBay customers.');
+        $this->authorize('update', $record);
 
         $validated = $this->validatedRecord($request);
         $validated['customer_id'] = $this->resolveOrCreateCustomer($validated, $record);
@@ -283,7 +283,7 @@ class EbayCustomerController extends Controller
      */
     public function destroy(EbayCustomerRecord $record): RedirectResponse
     {
-        abort_unless(auth()->user()->canDeleteCrmRecords('ebay'), 403, 'Only an eBay Supervisor, Logistic Supervisor, CRM Supervisor, or Boss can delete eBay records.');
+        $this->authorize('delete', $record);
 
         $tabType = $record->tab_type;
 
@@ -330,6 +330,7 @@ class EbayCustomerController extends Controller
 
     public function switchHandler(Request $request, EbayCustomerRecord $record): JsonResponse
     {
+        $this->authorize('changeHandler', $record);
         $validated = $request->validate(['user_id' => ['required', 'exists:users,id']]);
 
         // End the currently active assignment if there is one
@@ -417,6 +418,7 @@ class EbayCustomerController extends Controller
     /** Log a follow-up note against this customer record */
     public function logFollowUp(Request $request, EbayCustomerRecord $record): JsonResponse
     {
+        $this->authorize('interact', $record);
         $validated = $request->validate(['notes' => ['required', 'string']]);
 
         $followUp = EbayCustomerFollowUp::create([
@@ -594,9 +596,10 @@ class EbayCustomerController extends Controller
 
     public function updateStatus(Request $request, EbayCustomerRecord $record): JsonResponse
     {
+        $this->authorize('interact', $record);
         $validated = $request->validate([
             'tab_type'       => ['required', 'string', Rule::in(array_keys(EbayCustomerRecord::tabs()))],
-            'note'           => ['required', 'string', 'min:3'],
+            'note'           => [Rule::requiredIf(fn() => $request->input('tab_type') !== EbayCustomerRecord::TAB_NEW_ORDER), 'nullable', 'string', 'min:3'],
             'causes'         => ['nullable', 'array'],
             'causes.*'       => ['string', Rule::in(EbayCustomerRecord::NEGATIVE_FEEDBACK_CAUSES)],
             'order_id'       => ['nullable', 'string'],

@@ -26,7 +26,6 @@ class UniversalStatusSyncService
         $leadStatus = match ($status) {
             'pickup_arranged' => WebsiteLeadStatus::Loaded,
             'in_transit'      => WebsiteLeadStatus::Loaded,
-            'in_delivery'     => WebsiteLeadStatus::PendingDelivery,
             'delivered'       => WebsiteLeadStatus::Delivered,
             'received'        => WebsiteLeadStatus::ReturnReceived, // For return machines
             'logistic_delay'  => WebsiteLeadStatus::PendingDelivery,

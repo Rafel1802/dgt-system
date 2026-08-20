@@ -71,7 +71,7 @@
   @php
     $nextStatus = match ($mode) {
       'processing' => \App\Models\ShipmentCustomer::STATUS_IN_TRANSIT,
-      'loaded'      => \App\Models\ShipmentCustomer::STATUS_IN_DELIVERY,
+      'loaded'      => \App\Models\ShipmentCustomer::STATUS_DELIVERED,
       'delivered'   => \App\Models\ShipmentCustomer::STATUS_DELIVERED,
     };
     $statusLabels = \App\Models\ShipmentCustomer::statuses();

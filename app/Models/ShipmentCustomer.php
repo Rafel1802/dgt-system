@@ -67,7 +67,6 @@ class ShipmentCustomer extends Model
 
     const STATUS_PENDING     = 'pending';
     const STATUS_IN_TRANSIT  = 'in_transit';
-    const STATUS_IN_DELIVERY = 'in_delivery';
     const STATUS_DELIVERED   = 'delivered';
     const STATUS_PROBLEM     = 'problem';
 
@@ -76,7 +75,6 @@ class ShipmentCustomer extends Model
         return [
             self::STATUS_PENDING     => 'Pending',
             self::STATUS_IN_TRANSIT  => 'Loaded',
-            self::STATUS_IN_DELIVERY => 'In Delivery',
             self::STATUS_DELIVERED   => 'Delivered',
             self::STATUS_PROBLEM     => 'Problem / Delay',
         ];
@@ -97,8 +95,7 @@ class ShipmentCustomer extends Model
         return match($status) {
             self::STATUS_PENDING     => '#94a3b8',
             self::STATUS_IN_TRANSIT  => '#3b82f6',
-            self::STATUS_IN_DELIVERY => '#06b6d4',
-            self::STATUS_DELIVERED   => '#22c55e',
+            self::STATUS_DELIVERED   => '#10b981',
             self::STATUS_PROBLEM     => '#ef4444',
             default                  => '#94a3b8',
         };

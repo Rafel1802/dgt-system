@@ -215,7 +215,7 @@ class ShipmentControllerTest extends TestCase
         $customer = $shipment->shipmentCustomers()->create(['recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PENDING, 'shipping_address' => '']);
 
         $response = $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment, $customer]), [
-            'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PROBLEM,
+            'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PROBLEM, 'shipping_address' => '123 Test',
         ]);
 
         $response->assertSessionHasErrors('notes');
@@ -228,7 +228,7 @@ class ShipmentControllerTest extends TestCase
         $customer = $shipment->shipmentCustomers()->create(['recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PENDING, 'shipping_address' => '']);
 
         $response = $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment, $customer]), [
-            'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_IN_TRANSIT,
+            'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_IN_TRANSIT, 'shipping_address' => '123 Test',
         ]);
 
         $response->assertSessionDoesntHaveErrors();
@@ -241,7 +241,7 @@ class ShipmentControllerTest extends TestCase
         $customer = $shipment->shipmentCustomers()->create(['recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PENDING, 'shipping_address' => '']);
 
         $response = $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment, $customer]), [
-            'recipient_name' => 'A Updated', 'status' => ShipmentCustomer::STATUS_PENDING,
+            'recipient_name' => 'A Updated', 'status' => ShipmentCustomer::STATUS_PENDING, 'shipping_address' => '123 Test',
         ]);
 
         $response->assertSessionDoesntHaveErrors();
@@ -254,7 +254,7 @@ class ShipmentControllerTest extends TestCase
         $customer = $shipment->shipmentCustomers()->create(['recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_PROBLEM, 'shipping_address' => '']);
 
         $response = $this->actingAs($this->user)->put(route('crm.logistics.shipments.customers.update', [$shipment, $customer]), [
-            'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_DELIVERED,
+            'recipient_name' => 'A', 'status' => ShipmentCustomer::STATUS_DELIVERED, 'shipping_address' => '123 Test',
         ]);
 
         $response->assertSessionDoesntHaveErrors();
@@ -274,12 +274,11 @@ class ShipmentControllerTest extends TestCase
         $response->assertDontSee('Loaded Customer');
     }
 
-    /** The Loaded page combines both Loaded (in_transit) and In Delivery statuses. */
-    public function test_loaded_page_shows_both_loaded_and_in_delivery_customers(): void
+    /** The Loaded page only shows Loaded (in_transit) customers. */
+    public function test_loaded_page_shows_loaded_customers(): void
     {
         $shipment = Shipment::create(['status' => Shipment::STATUS_IN_PROGRESS]);
         $shipment->shipmentCustomers()->create(['recipient_name' => 'Loaded Customer', 'status' => ShipmentCustomer::STATUS_IN_TRANSIT, 'shipping_address' => '']);
-        $shipment->shipmentCustomers()->create(['recipient_name' => 'In Delivery Customer', 'status' => ShipmentCustomer::STATUS_IN_DELIVERY, 'shipping_address' => '']);
         $shipment->shipmentCustomers()->create(['recipient_name' => 'Pending Customer', 'status' => ShipmentCustomer::STATUS_PENDING, 'shipping_address' => '']);
         $shipment->shipmentCustomers()->create(['recipient_name' => 'Delivered Customer', 'status' => ShipmentCustomer::STATUS_DELIVERED, 'shipping_address' => '']);
 
@@ -287,7 +286,6 @@ class ShipmentControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Loaded Customer');
-        $response->assertSee('In Delivery Customer');
         $response->assertDontSee('Pending Customer');
         $response->assertDontSee('Delivered Customer');
     }
@@ -305,16 +303,16 @@ class ShipmentControllerTest extends TestCase
         $response->assertDontSee('Loaded Customer');
     }
 
-    public function test_marking_a_customer_in_delivery_then_delivered_moves_them_through_each_page(): void
+    public function test_marking_a_customer_delivered_moves_them_through_each_page(): void
     {
         $shipment = Shipment::create(['status' => Shipment::STATUS_IN_PROGRESS]);
         $customer = $shipment->shipmentCustomers()->create(['recipient_name' => 'Traveling Customer', 'status' => ShipmentCustomer::STATUS_IN_TRANSIT, 'shipping_address' => '']);
 
         $this->actingAs($this->user)->post(route('crm.logistics.shipments.customers.bulkStatus'), [
             'customer_ids' => [$customer->id],
-            'status'       => ShipmentCustomer::STATUS_IN_DELIVERY,
+            'status'       => ShipmentCustomer::STATUS_IN_TRANSIT,
         ]);
-        $this->assertEquals(ShipmentCustomer::STATUS_IN_DELIVERY, $customer->fresh()->status);
+        $this->assertEquals(ShipmentCustomer::STATUS_IN_TRANSIT, $customer->fresh()->status);
         $this->actingAs($this->user)->get(route('crm.logistics.loaded'))->assertSee('Traveling Customer');
 
         $this->actingAs($this->user)->post(route('crm.logistics.shipments.customers.bulkStatus'), [

@@ -163,9 +163,6 @@ class CrmReportController extends Controller
             'logistics_count'         => 0,
             'ebay_sales'              => 0.0,
             'website_sales'           => 0.0,
-            'in_delivery_count'       => (clone $customerQuery)->whereHas('shipment', function ($q) {
-                $q->where('status', Shipment::STATUS_IN_PROGRESS);
-            })->count(),
             'delivered_count'         => (clone $customerQuery)->where('status', ShipmentCustomer::STATUS_DELIVERED)->count(),
             'waiting_pickup_count'    => (clone $customerQuery)->where('status', ShipmentCustomer::STATUS_PENDING)->count(),
             'logistic_issues_count'   => 0,

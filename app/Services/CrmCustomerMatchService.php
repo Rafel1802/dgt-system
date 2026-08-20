@@ -885,14 +885,12 @@ class CrmCustomerMatchService
                 $statusLabel = match ($sc->status) {
                     ShipmentCustomer::STATUS_PROBLEM     => 'Logistic issues',
                     ShipmentCustomer::STATUS_IN_TRANSIT  => 'In Transit',
-                    ShipmentCustomer::STATUS_IN_DELIVERY => 'In Delivery',
                     ShipmentCustomer::STATUS_DELIVERED   => 'Delivered',
                     default                              => 'Pending',
                 };
                 $statusColor = match ($sc->status) {
                     ShipmentCustomer::STATUS_PROBLEM     => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR,
                     ShipmentCustomer::STATUS_IN_TRANSIT  => '#3b82f6',
-                    ShipmentCustomer::STATUS_IN_DELIVERY => '#6366f1',
                     ShipmentCustomer::STATUS_DELIVERED   => EbayCustomerRecord::DELIVERED_COLOR,
                     default                              => '#64748b',
                 };
@@ -900,7 +898,6 @@ class CrmCustomerMatchService
                     ShipmentCustomer::STATUS_PROBLEM     => 'shipment_delay',
                     ShipmentCustomer::STATUS_DELIVERED   => 'delivered',
                     ShipmentCustomer::STATUS_IN_TRANSIT  => 'in_transit',
-                    ShipmentCustomer::STATUS_IN_DELIVERY => 'in_delivery',
                     default                              => 'pending',
                 };
                 $badges = [['label' => $statusLabel, 'color' => $statusColor, 'category' => $category]];
@@ -972,9 +969,6 @@ class CrmCustomerMatchService
             } elseif ($scStatus === ShipmentCustomer::STATUS_IN_TRANSIT) {
                 $badges[] = ['label' => 'In Transit', 'color' => '#3b82f6', 'category' => 'in_transit'];
                 $categories[] = 'in_transit';
-            } elseif ($scStatus === ShipmentCustomer::STATUS_IN_DELIVERY) {
-                $badges[] = ['label' => 'In Delivery', 'color' => '#6366f1', 'category' => 'in_delivery'];
-                $categories[] = 'in_delivery';
             } elseif ($customer->shipment_delivered || $scStatus === ShipmentCustomer::STATUS_DELIVERED) {
                 $badges[] = ['label' => 'Delivered', 'color' => EbayCustomerRecord::DELIVERED_COLOR, 'category' => 'delivered'];
                 $categories[] = 'delivered';

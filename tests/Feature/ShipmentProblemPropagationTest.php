@@ -374,7 +374,7 @@ class ShipmentProblemPropagationTest extends TestCase
             'client_name' => 'Already Lost Lead',
             'client_email' => 'lost@example.com',
             'source' => InquirySource::Website->value,
-            'status' => WebsiteLeadStatus::LostInterestInterest->value,
+            'status' => WebsiteLeadStatus::LostInterest->value,
             'received_at' => now(),
         ]);
 
@@ -397,7 +397,7 @@ class ShipmentProblemPropagationTest extends TestCase
             ]
         )->assertRedirect(route('crm.logistics.shipments.show', $shipment));
 
-        $this->assertEquals(WebsiteLeadStatus::LostInterestInterest, $lead->fresh()->status);
+        $this->assertEquals(WebsiteLeadStatus::LostInterest, $lead->fresh()->status);
     }
 
     /** /crm/customers should show "Delivered" as the status once the matched lead updates. */
