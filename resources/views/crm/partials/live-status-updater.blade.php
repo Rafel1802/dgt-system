@@ -56,9 +56,6 @@
         };
 
         const handleStatusLive = (data) => {
-            if (window.showToast) {
-                window.showToast(`Status updated to "${data.newStatusLabel}" by ${data.teamName} (${data.actorName})`, 'info');
-            }
             doHotSwap();
         };
 
