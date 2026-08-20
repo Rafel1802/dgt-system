@@ -542,6 +542,7 @@
               const channel = pusher.subscribe('private-tech-support');
               channel.bind('TechSupportCaseStatusUpdated', (data) => {
                 if (parseInt(data.caseId) === {{ $case->id }} && parseInt(data.updaterId) !== parseInt(document.querySelector('meta[name="kiuq-user-id"]')?.content)) {
+                  this.currentStatus = data.status;
                   doHotSwap();
                 }
               });
