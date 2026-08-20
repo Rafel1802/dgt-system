@@ -379,7 +379,16 @@ SVG;
 
     public function canModifyCrmData(): bool
     {
-        return !$this->hasRole('tech-support');
+        if (!$this->hasRole('tech-support')) {
+            return true;
+        }
+
+        return $this->hasAnyRole([
+            'super-admin', 'admin', 'admin-crm', 'boss',
+            'ebay-supervisor', 'ebay-team',
+            'logistic-supervisor', 'logistic-team',
+            'sales-crm'
+        ]);
     }
 
     public function canCreateBoards(): bool

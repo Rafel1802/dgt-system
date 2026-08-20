@@ -169,13 +169,13 @@
           </label>
         </div>
 
-        <div>
+        <div x-show="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)" x-cloak>
           <label class="form-label">
             Issue / Feedback Date
-            <span class="text-red-500" x-show="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)" x-cloak>*</span>
+            <span class="text-red-500" x-show="status === 'negatives_feedbacks'" x-cloak>*</span>
           </label>
           <input type="date" name="date" value="{{ old('date', $record->date ? (is_string($record->date) ? substr($record->date, 0, 10) : $record->date->format('Y-m-d')) : now()->toDateString()) }}" class="form-input"
-                 x-bind:required="['technical_issues', 'potential_negatives', 'negatives_feedbacks'].includes(status)">
+                 x-bind:required="status === 'negatives_feedbacks'">
         </div>
 
         <div>

@@ -244,6 +244,7 @@
                               'quickCreateSource' => \App\Enums\CustomerSource::Logistic->value,
                               'autofillNameId' => 'edit-recipient-name-'.$sc->id,
                               'autofillPhoneId' => 'edit-recipient-phone-'.$sc->id,
+                              'autofillEmailId' => 'edit-recipient-email-'.$sc->id,
                               'autofillAddressId' => 'edit-shipping-address-'.$sc->id,
                             ])
                           </div>
@@ -259,7 +260,7 @@
                           </div>
                           <div>
                             <label class="form-label">Recipient Email</label>
-                            <input type="email" name="recipient_email" value="{{ $sc->recipient_email }}" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
+                            <input type="email" id="edit-recipient-email-{{ $sc->id }}" name="recipient_email" value="{{ $sc->recipient_email }}" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
                           </div>
                           <div>
                             <label class="form-label">Shipping Address <span class="text-red-500">*</span></label>
@@ -486,6 +487,7 @@
             'quickCreateSource' => \App\Enums\CustomerSource::Logistic->value,
             'autofillNameId' => 'add-recipient-name',
             'autofillPhoneId' => 'add-recipient-phone',
+            'autofillEmailId' => 'add-recipient-email',
             'autofillAddressId' => 'add-shipping-address',
           ])
           <p class="mt-1 text-xs text-slate-400">Pick an existing customer, or a lead who hasn't been converted yet — either way their info and most recent order's product autofill below.</p>
@@ -502,7 +504,7 @@
         </div>
         <div>
           <label class="form-label">Recipient Email</label>
-          <input type="email" name="recipient_email" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
+          <input type="email" id="add-recipient-email" name="recipient_email" class="form-input" placeholder="Used to match against CRM/eBay if marked Problem">
         </div>
         <div>
           <label class="form-label">Shipping Address <span class="text-red-500">*</span></label>

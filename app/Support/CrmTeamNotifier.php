@@ -156,7 +156,7 @@ class CrmTeamNotifier
             if ($record->created_by) $userIds[] = $record->created_by;
             
         } elseif ($record instanceof \App\Models\ShipmentCustomer) {
-            $roles = array_merge($roles, ['logistic-supervisor', 'sales-crm']);
+            $roles = array_merge($roles, ['logistic-supervisor', 'sales-crm', 'ebay-supervisor', 'ebay-team']);
             $link = $record->shipment_id ? route('crm.logistics.shipments.show', $record->shipment_id) : route('crm.logistics.process-trucking');
             
             $prevLabel = \App\Models\ShipmentCustomer::statuses()[$previousStatus] ?? $previousStatus;
@@ -169,7 +169,7 @@ class CrmTeamNotifier
             
             if ($record->handler_id) $userIds[] = $record->handler_id;
         } elseif ($record instanceof \App\Models\Lead || $record instanceof \App\Models\Customer || $record instanceof \App\Models\EbayCustomerRecord) {
-            $roles = array_merge($roles, ['sales-crm', 'ebay-supervisor']);
+            $roles = array_merge($roles, ['sales-crm', 'ebay-supervisor', 'logistic-supervisor', 'logistic-team']);
             
             $link = $record instanceof \App\Models\Lead 
                 ? route('crm.website.show', $record) 
@@ -233,7 +233,7 @@ class CrmTeamNotifier
 
     public static function notifyBulkStatusChange(int $count, string $newStatus, User $actor, string $teamName, string $link): void
     {
-        $roles = array_merge(self::ADMIN_ROLES, ['logistic-supervisor', 'sales-crm']);
+        $roles = array_merge(self::ADMIN_ROLES, ['logistic-supervisor', 'sales-crm', 'ebay-supervisor', 'ebay-team']);
         $newLabel = \App\Models\ShipmentCustomer::statuses()[$newStatus] ?? $newStatus;
         
         $message = sprintf(

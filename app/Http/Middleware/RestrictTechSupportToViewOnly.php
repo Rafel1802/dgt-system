@@ -15,8 +15,8 @@ class RestrictTechSupportToViewOnly
     {
         $user = $request->user();
 
-        // Only restrict users with the 'tech-support' role on the CRM side
-        if ($user && $user->hasRole('tech-support')) {
+        // Only restrict users who have 'tech-support' but lack other CRM editing roles
+        if ($user && $user->hasRole('tech-support') && !$user->canModifyCrmData()) {
             $route = $request->route();
             $routeName = $route ? $route->getName() : '';
 

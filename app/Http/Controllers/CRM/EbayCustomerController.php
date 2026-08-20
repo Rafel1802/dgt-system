@@ -509,7 +509,7 @@ class EbayCustomerController extends Controller
             'phone'         => ['nullable', 'string', 'max:30'],
             'ebay_store_id' => ['nullable', 'exists:ebay_stores,id'],
             'summary'       => ['nullable', 'string'],
-            'date'          => $isIssueCategory ? ['required', 'date'] : ['nullable', 'date'],
+            'date'          => $request->input('tab_type') === EbayCustomerRecord::TAB_NEGATIVES ? ['required', 'date'] : ['nullable', 'date'],
             // Technical Issues / Negative Feedback categories require a note
             // explaining the issue — every other category leaves it optional.
             'informations'  => $isIssueCategory ? ['required', 'string'] : ['nullable', 'string'],
@@ -523,7 +523,7 @@ class EbayCustomerController extends Controller
 
         return $request->validate($rules, [
             'informations.required' => 'A note is required for Technical Issues and Negative Feedback records.',
-            'date.required'         => 'An issue/feedback date is required for Technical Issues and Negative Feedback records.',
+            'date.required'         => 'A feedback date is required for Negative Feedback records.',
         ]);
     }
 
