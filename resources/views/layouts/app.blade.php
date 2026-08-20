@@ -2759,6 +2759,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </script>
 
     @include('components.ajax-form-script')
+    @if(auth()->user()?->isCrmMember())
+        @include('crm.partials.live-global-updater')
+    @endif
     @stack('scripts')
     <!-- Notification Sound Effect -->
     @php

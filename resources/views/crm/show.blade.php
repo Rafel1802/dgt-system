@@ -4,6 +4,7 @@
 @section('back_url', route('crm.customers.index'))
 
 @section('content')
+<script>window.CRM_PAGE_CONTEXT = { type: 'customer', id: {{ $customer->id }} };</script>
 <div x-data="customerProfile({{ $customer->id }}, {{ $customer->lifetime_value }}, {{ $customer->total_orders }})" class="animate-fade-in">
 
   <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
@@ -422,7 +423,7 @@
       </div>
   </div>
 </div>
-@include('crm.partials.live-status-updater', ['type' => 'customer', 'id' => $customer->id])
+// @include('crm.partials.live-status-updater', ['type' => 'customer', 'id' => $customer->id])
 @endsection
 
 @push('scripts')

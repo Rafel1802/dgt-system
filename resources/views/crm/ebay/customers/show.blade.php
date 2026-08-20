@@ -4,6 +4,7 @@
 @section('back_url', route('crm.ebay.customers.index', ['tab_type' => $record->tab_type]))
 
 @section('content')
+<script>window.CRM_PAGE_CONTEXT = { type: 'customer', id: {{ $record->id }} };</script>
 {{-- Alpine logic lives in a script (not inline x-data="{...}") so quotes / => never break the HTML attribute. --}}
 <div class="animate-fade-in" x-data="ebayCustomerShow(@js(route('crm.ebay.customers.follow-up', $record)))">
 
@@ -444,7 +445,7 @@
     @endforeach
   </datalist>
 </div>
-@include('crm.partials.live-status-updater', ['type' => 'ebay', 'id' => $record->id])
+// @include('crm.partials.live-status-updater', ['type' => 'ebay', 'id' => $record->id])
 @endsection
 
 @push('scripts')

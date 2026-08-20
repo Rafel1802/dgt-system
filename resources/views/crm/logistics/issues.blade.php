@@ -3,7 +3,8 @@
 @section('page_title', 'Logistic Issues')
 
 @section('content')
-<div class="animate-fade-in" x-data="{ showResolveModal: false, resolveSource: '', resolveId: '', resolveName: '' }">
+<script>window.CRM_PAGE_CONTEXT = { type: 'list' };</script>
+<div id="crm-logistics-issues-list" class="animate-fade-in live-swap-target" x-data="{ showResolveModal: false, resolveSource: '', resolveId: '', resolveName: '' }">
 
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <p class="text-sm text-slate-500">Every customer currently flagged with a logistics/shipment problem, across Website, eBay, and Logistics.</p>

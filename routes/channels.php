@@ -33,3 +33,7 @@ Broadcast::channel('crm.customer.{type}.{id}', function ($user, $type, $id) {
     return $user->isCrmMember();
 });
 
+
+Broadcast::channel('crm.global', function ($user) {
+    return $user->isCrmMember();
+});

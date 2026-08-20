@@ -3,7 +3,8 @@
 @section('page_title', 'CRM Dashboard')
 
 @section('content')
-<div class="animate-fade-in space-y-6">
+<script>window.CRM_PAGE_CONTEXT = { type: 'dashboard' };</script>
+<div id="crm-dashboard-main" class="animate-fade-in space-y-6 live-swap-target">
 
   {{-- ── Cross-team KPI tiles ────────────────────────────────────────────── --}}
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3">

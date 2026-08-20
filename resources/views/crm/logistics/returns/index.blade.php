@@ -4,7 +4,8 @@
 @section('hide_back', true)
 
 @section('content')
-<div class="animate-fade-in">
+<script>window.CRM_PAGE_CONTEXT = { type: 'list' };</script>
+<div id="crm-logistics-returns-list" class="animate-fade-in live-swap-target">
   {{-- ── Toolbar ──────────────────────────────────────────────────────────── --}}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <div class="flex gap-2 flex-wrap">

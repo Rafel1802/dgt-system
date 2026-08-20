@@ -34,9 +34,12 @@ class CustomerDataUpdatedLive implements ShouldBroadcastNow
         $this->teamName = $teamName;
     }
 
-    public function broadcastOn(): Channel
+    public function broadcastOn(): array
     {
-        return new PrivateChannel('crm.customer.' . $this->customerType . '.' . $this->customerId);
+        return [
+            new PrivateChannel('crm.customer.' . $this->customerType . '.' . $this->customerId),
+            new PrivateChannel('crm.global'),
+        ];
     }
 
     public function broadcastAs(): string

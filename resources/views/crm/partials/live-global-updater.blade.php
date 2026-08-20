@@ -12,7 +12,7 @@
             return;
         }
         
-        const channelName = 'private-crm.customer.{{ $type }}.{{ $id }}';
+        const channelName = 'private-crm.global';
         
         // Prevent double binding if user navigates back and forth via Turbo
         if (window[`__kiuq_live_bound_${channelName}`]) return;
@@ -30,6 +30,7 @@
                 .then(html => {
                     const doc = new DOMParser().parseFromString(html, 'text/html');
                     
+                    // Standard cards for single customer views
                     const cardsToSwap = [
                         '#client-summary-card',
                         '#pipeline-progress-card',
@@ -51,23 +52,48 @@
                             oldEl.className = newEl.className;
                         }
                     });
+
+                    // Generic swap targets for list views and dashboards
+                    const swapTargets = document.querySelectorAll('.live-swap-target');
+                    swapTargets.forEach(oldEl => {
+                        if (oldEl.id) {
+                            const newEl = doc.querySelector('#' + oldEl.id);
+                            if (newEl) {
+                                oldEl.innerHTML = newEl.innerHTML;
+                                oldEl.className = newEl.className;
+                            }
+                        }
+                    });
                 })
                 .catch(err => console.error('Failed to hot-swap UI:', err));
         };
 
+        const shouldProcessEvent = (data) => {
+            const ctx = window.CRM_PAGE_CONTEXT || { type: 'global' };
+            if (ctx.type === 'customer' && ctx.id && data && data.customerId) {
+                // If viewing a specific customer, ignore events for other customers
+                return String(ctx.id) === String(data.customerId);
+            }
+            // For list views, dashboard, or missing context, process all events
+            return true;
+        };
+
         const handleStatusLive = (data) => {
+            if (!shouldProcessEvent(data)) return;
             doHotSwap();
         };
 
         const handleHandlerLive = (data) => {
-            if (window.showToast) {
+            if (!shouldProcessEvent(data)) return;
+            if (window.showToast && window.CRM_PAGE_CONTEXT?.type === 'customer') {
                 window.showToast(`Handler updated to "${data.newHandlerName}" by ${data.teamName} (${data.actorName})`, 'info');
             }
             doHotSwap();
         };
 
         const handleDataLive = (data) => {
-            if (window.showToast) {
+            if (!shouldProcessEvent(data)) return;
+            if (window.showToast && window.CRM_PAGE_CONTEXT?.type === 'customer') {
                 window.showToast(data.message || `Data updated by ${data.teamName} (${data.actorName})`, 'info');
             }
             doHotSwap();
@@ -85,18 +111,6 @@
                 handleDataLive(data);
             }
         });
-
-        channel.bind('App\\Events\\CustomerStatusUpdatedLive', handleStatusLive);
-        channel.bind('CustomerStatusUpdatedLive', handleStatusLive);
-        channel.bind('.CustomerStatusUpdatedLive', handleStatusLive);
-
-        channel.bind('App\\Events\\CustomerHandlerUpdatedLive', handleHandlerLive);
-        channel.bind('CustomerHandlerUpdatedLive', handleHandlerLive);
-        channel.bind('.CustomerHandlerUpdatedLive', handleHandlerLive);
-
-        channel.bind('App\\Events\\CustomerDataUpdatedLive', handleDataLive);
-        channel.bind('CustomerDataUpdatedLive', handleDataLive);
-        channel.bind('.CustomerDataUpdatedLive', handleDataLive);
 
         document.addEventListener('ajax-success', (e) => {
             doHotSwap();

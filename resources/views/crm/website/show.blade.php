@@ -4,6 +4,7 @@
 @section('back_url', route('crm.website.index'))
 
 @section('content')
+<script>window.CRM_PAGE_CONTEXT = { type: 'customer', id: {{ $lead->id }} };</script>
 <div x-data="leadProfile({{ $lead->id }}, {{ Js::from($catalogProducts->map(fn($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'price' => $p->price])) }})" class="animate-fade-in">
 
   <div class="mb-5 flex items-center justify-end flex-wrap gap-3">
@@ -451,7 +452,7 @@
 
   @include('kanban.partials.toast')
 </div>
-@include('crm.partials.live-status-updater', ['type' => 'website', 'id' => $lead->id])
+// @include('crm.partials.live-status-updater', ['type' => 'website', 'id' => $lead->id])
 @endsection
 
 @push('scripts')

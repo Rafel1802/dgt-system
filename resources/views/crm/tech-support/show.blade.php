@@ -4,6 +4,7 @@
 @section('back_url', route('crm.tech-support.index'))
 
 @section('content')
+<script>window.CRM_PAGE_CONTEXT = { type: 'customer', id: {{ $case->customer_id ?? 'null' }} };</script>
 @php
   $color = \App\Models\TechSupportCase::statusColor($case->status);
   $statusColors = $statusColors ?? collect(array_keys($statuses))

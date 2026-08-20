@@ -4,7 +4,8 @@
 @section('hide_back', true)
 
 @section('content')
-<div class="animate-fade-in">
+<script>window.CRM_PAGE_CONTEXT = { type: 'list' };</script>
+<div id="crm-tech-support-list" class="animate-fade-in live-swap-target">
 
   {{-- ── KPI tiles ───────────────────────────────────────────────────────── --}}
   <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">

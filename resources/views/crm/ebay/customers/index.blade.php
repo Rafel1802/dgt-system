@@ -33,7 +33,8 @@
 @endpush
 
 @section('content')
-<div class="animate-fade-in">
+<script>window.CRM_PAGE_CONTEXT = { type: 'list' };</script>
+<div id="crm-ebay-customers-list" class="animate-fade-in live-swap-target">
 
   {{-- ── Status Filter (buttons, same UI as before) ─────────────────────── --}}
   <div class="flex gap-2 flex-wrap mb-5 overflow-x-auto pb-1">
