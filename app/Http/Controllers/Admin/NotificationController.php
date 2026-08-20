@@ -38,7 +38,11 @@ class NotificationController extends Controller
         // Keep only the latest 100 notifications to prevent DB bloat
         // Add a secondary sort on `id` to guarantee a deterministic order 
         // when multiple notifications share the exact same `created_at` timestamp.
-        $excessIds = $user->notifications()->orderBy('id')->skip(100)->take(50)->pluck('id');
+        // We MUST scope this to the user's modules as well, otherwise deleting
+        // global notifications causes the scoped query below to slide older
+        // notifications into its top 100, which the frontend incorrectly sees as "new".
+        $excessIds = $this->scopeToUserModules($user->notifications()->orderBy('id'), $modules)
+            ->skip(100)->take(50)->pluck('id');
         if ($excessIds->isNotEmpty()) {
             $user->notifications()->whereIn('id', $excessIds)->delete();
         }
