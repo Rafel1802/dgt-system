@@ -348,13 +348,15 @@ class EbayCustomerController extends Controller
 
         $newHandler = \App\Models\User::find($validated['user_id']);
         
-        broadcast(new \App\Events\CustomerHandlerUpdatedLive(
-            $record->id,
-            $newHandler->name,
-            auth()->user()->name,
-            'eBay Team',
-            'ebay'
-        ));
+        defer(function () use ($record, $newHandler) {
+            broadcast(new \App\Events\CustomerHandlerUpdatedLive(
+                $record->id,
+                $newHandler->name,
+                auth()->user()->name,
+                'eBay Team',
+                'ebay'
+            ));
+        });
 
         if ($newHandler->id !== auth()->id()) {
             \App\Support\CrmTeamNotifier::notifyHandlerChange(

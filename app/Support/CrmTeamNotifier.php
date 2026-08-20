@@ -75,26 +75,28 @@ class CrmTeamNotifier
         );
         $link = route('crm.customers.show', $customer);
 
-        $recipients = User::where('is_active', true)
-            ->where(function ($q) {
-                $q->role(self::ADMIN_ROLES)
-                    ->orWhere(fn ($q2) => $q2->role('sales-crm')->where('crm_role', 'supervisor'));
-            })
-            ->get()
-            ->reject(fn (User $u) => $u->id === $actor->id);
+        defer(function () use ($customer, $actor, $changes, $message, $link) {
+            $recipients = User::where('is_active', true)
+                ->where(function ($q) {
+                    $q->role(self::ADMIN_ROLES)
+                        ->orWhere(fn ($q2) => $q2->role('sales-crm')->where('crm_role', 'supervisor'));
+                })
+                ->get()
+                ->reject(fn (User $u) => $u->id === $actor->id);
 
-        foreach ($recipients as $recipient) {
-            InstantNotifier::send($recipient, new GenericDatabaseNotification([
-                'module'       => 'crm',
-                'type'         => 'customer_updated',
-                'customer_id'  => $customer->id,
-                'message'      => $message,
-                'link'         => $link,
-                'updated_by'   => $actor->name,
-                'updated_at'   => now()->toDateTimeString(),
-                'changes'      => $changes,
-            ]));
-        }
+            foreach ($recipients as $recipient) {
+                InstantNotifier::send($recipient, new GenericDatabaseNotification([
+                    'module'       => 'crm',
+                    'type'         => 'customer_updated',
+                    'customer_id'  => $customer->id,
+                    'message'      => $message,
+                    'link'         => $link,
+                    'updated_by'   => $actor->name,
+                    'updated_at'   => now()->toDateTimeString(),
+                    'changes'      => $changes,
+                ]));
+            }
+        });
     }
 
     /**
@@ -181,14 +183,16 @@ class CrmTeamNotifier
         elseif ($record instanceof \App\Models\TechSupportCase) $type = 'tech';
         elseif ($record instanceof \App\Models\ShipmentCustomer) $type = 'logistic';
 
-        event(new \App\Events\CustomerStatusUpdatedLive(
-            $record->id,
-            $newLabel,
-            null, // color can be determined by frontend or added later if needed
-            $actor->name,
-            $teamName,
-            $type
-        ));
+        defer(function () use ($record, $newLabel, $actor, $teamName, $type) {
+            event(new \App\Events\CustomerStatusUpdatedLive(
+                $record->id,
+                $newLabel,
+                null, // color can be determined by frontend or added later if needed
+                $actor->name,
+                $teamName,
+                $type
+            ));
+        });
     }
 
     public static function notifyHandlerChange(\Illuminate\Database\Eloquent\Model $record, User $newHandler, User $actor, string $teamName): void
@@ -227,51 +231,53 @@ class CrmTeamNotifier
 
     private static function sendToRoles(array $roles, string $type, string $message, string $link, ?int $excludeUserId = null, array $userIds = [], ?\Illuminate\Database\Eloquent\Model $record = null): void
     {
-        $recipients = User::where('is_active', true)
-            ->where(function ($q) use ($roles, $userIds) {
-                if (!empty($roles)) {
-                    $q->role($roles);
-                }
-                if (!empty($userIds)) {
-                    $q->orWhereIn('id', $userIds);
-                }
-            })->get();
-
-        if ($excludeUserId) {
-            $recipients = $recipients->reject(fn (User $u) => $u->id === $excludeUserId);
-        }
-
-        foreach ($recipients as $recipient) {
-            $userLink = $link;
-            
-            if ($record) {
-                if ($recipient->hasRole('tech-support')) {
-                    if ($record instanceof \App\Models\Lead || $record instanceof \App\Models\Customer || $record instanceof \App\Models\EbayCustomerRecord) {
-                        $techCase = $record->techSupportCase()->first();
-                        if ($techCase) {
-                            $userLink = route('crm.tech-support.show', $techCase);
-                        }
+        defer(function () use ($roles, $type, $message, $link, $excludeUserId, $userIds, $record) {
+            $recipients = User::where('is_active', true)
+                ->where(function ($q) use ($roles, $userIds) {
+                    if (!empty($roles)) {
+                        $q->role($roles);
                     }
-                } elseif ($recipient->hasRole(['sales-crm', 'ebay-supervisor'])) {
-                    if ($record instanceof \App\Models\TechSupportCase) {
-                        $source = $record->source;
-                        if ($source instanceof \App\Models\Lead) {
-                            $userLink = route('crm.website.show', $source);
-                        } elseif ($source instanceof \App\Models\Customer) {
-                            $userLink = route('crm.customers.show', $source);
-                        } elseif ($source instanceof \App\Models\EbayCustomerRecord) {
-                            $userLink = route('crm.ebay.customers.show', $source);
-                        }
+                    if (!empty($userIds)) {
+                        $q->orWhereIn('id', $userIds);
                     }
-                }
+                })->get();
+
+            if ($excludeUserId) {
+                $recipients = $recipients->reject(fn (User $u) => $u->id === $excludeUserId);
             }
 
-            InstantNotifier::send($recipient, new GenericDatabaseNotification([
-                'module'  => 'crm',
-                'type'    => $type,
-                'message' => $message,
-                'link'    => $userLink,
-            ]));
-        }
+            foreach ($recipients as $recipient) {
+                $userLink = $link;
+                
+                if ($record) {
+                    if ($recipient->hasRole('tech-support')) {
+                        if ($record instanceof \App\Models\Lead || $record instanceof \App\Models\Customer || $record instanceof \App\Models\EbayCustomerRecord) {
+                            $techCase = $record->techSupportCase()->first();
+                            if ($techCase) {
+                                $userLink = route('crm.tech-support.show', $techCase);
+                            }
+                        }
+                    } elseif ($recipient->hasRole(['sales-crm', 'ebay-supervisor'])) {
+                        if ($record instanceof \App\Models\TechSupportCase) {
+                            $source = $record->source;
+                            if ($source instanceof \App\Models\Lead) {
+                                $userLink = route('crm.website.show', $source);
+                            } elseif ($source instanceof \App\Models\Customer) {
+                                $userLink = route('crm.customers.show', $source);
+                            } elseif ($source instanceof \App\Models\EbayCustomerRecord) {
+                                $userLink = route('crm.ebay.customers.show', $source);
+                            }
+                        }
+                    }
+                }
+
+                InstantNotifier::send($recipient, new GenericDatabaseNotification([
+                    'module'  => 'crm',
+                    'type'    => $type,
+                    'message' => $message,
+                    'link'    => $userLink,
+                ]));
+            }
+        });
     }
 }

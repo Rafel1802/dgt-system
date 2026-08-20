@@ -321,12 +321,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 visibility: hidden !important;
             }
 
-            /* Make transitions ultra-fast (120ms) in the app for a smooth but instant feel */
-            html.dgt-macos-app *, html.dgt-macos-app *::before, html.dgt-macos-app *::after,
-            html.dgt-mobile-app *, html.dgt-mobile-app *::before, html.dgt-mobile-app *::after {
-                transition-duration: 120ms !important;
-                animation-duration: 120ms !important;
-            }
 
             /* Smooth scrolling and momentum touch scroll globally */
             html, body, .page-content, .board-wrap, .sidebar {
