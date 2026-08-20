@@ -53,11 +53,15 @@ class AppServiceProvider extends ServiceProvider
         // Invalidate CRM directory / picker caches when source rows change.
         // Short-lived caches make list pages feel instant; these hooks keep them correct.
         $bustCrmDirectory = function () {
-            CrmCustomerMatchService::forgetUnifiedDirectoryCache();
-            Cache::forget('crm.shipment_picker_customers');
-            Cache::forget('crm.shipment_picker_customers.v2');
-            Cache::forget('crm.lookup.customers_combobox');
-            Cache::forget('crm.lookup.pending_call_requests');
+            // Use Laravel 11 defer to process heavy caching operations in the background
+            // so the user's redirect and subsequent page load are instant.
+            \Illuminate\Support\defer(function () {
+                CrmCustomerMatchService::rebuildUnifiedDirectoryCache();
+                Cache::forget('crm.shipment_picker_customers');
+                Cache::forget('crm.shipment_picker_customers.v2');
+                Cache::forget('crm.lookup.customers_combobox');
+                Cache::forget('crm.lookup.pending_call_requests');
+            });
         };
 
         foreach ([Customer::class, Lead::class, EbayCustomerRecord::class, ShipmentCustomer::class] as $model) {

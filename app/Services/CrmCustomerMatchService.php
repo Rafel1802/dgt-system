@@ -520,6 +520,20 @@ class CrmCustomerMatchService
         }
     }
 
+    /** Safely rebuild the cache in the background without forcing a cold hit */
+    public static function rebuildUnifiedDirectoryCache(): void
+    {
+        self::forgetUnifiedDirectoryCache();
+
+        // Rebuild immediately in the background
+        $service = app(self::class);
+        $rows = $service->buildBaseUnifiedDirectoryRows();
+        Cache::put(self::UNIFIED_DIRECTORY_CACHE_KEY, $rows, 180);
+        
+        $collection = collect($rows);
+        app()->instance('crm.unified_directory.base_collection', $collection);
+    }
+
     /**
      * Deduplicated cross-source customer directory (Leads + eBay records +
      * Logistics "Problem" shipment customers + any remaining Customer Database
