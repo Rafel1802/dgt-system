@@ -714,6 +714,15 @@ class EbayCustomerController extends Controller
                 auth()->user(),
                 'eBay Team'
             );
+            
+            broadcast(new \App\Events\CustomerStatusUpdatedLive(
+                $record->id,
+                EbayCustomerRecord::tabs()[$newTab] ?? $newTab,
+                EbayCustomerRecord::tabColor($newTab),
+                auth()->user()->name,
+                'eBay Team',
+                'ebay'
+            ))->toOthers();
         }
 
         // Log status history

@@ -222,7 +222,7 @@
       </div>
 
       {{-- Follow-Up History / Activity Timeline --}}
-      <div class="card">
+      <div class="card" id="crm-notes-section">
         <div class="flex items-center justify-between mb-4">
           <h4 class="font-semibold text-slate-700">Activity Timeline</h4>
           <span class="badge badge-indigo text-xs">{{ $lead->followUps->count() }} entries</span>

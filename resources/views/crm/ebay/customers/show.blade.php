@@ -197,7 +197,7 @@
       </div>
 
       {{-- Purchase History --}}
-      <div class="card">
+      <div class="card" id="order-history-card">
         <div class="flex items-center justify-between mb-4">
           <h4 class="font-semibold text-slate-700">Purchase History</h4>
           @if(auth()->user()->canModifyCrmData())
