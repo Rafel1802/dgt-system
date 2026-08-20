@@ -30,6 +30,6 @@ Broadcast::channel('tech-support', function ($user) {
 });
 
 Broadcast::channel('crm.customer.{type}.{id}', function ($user, $type, $id) {
-    return $user->hasWebsiteAccess() || $user->hasEbayAccess() || $user->hasCrmAccess() || $user->hasRole(['tech-support', 'logistic-team', 'logistic-supervisor']);
+    return $user->isCrmMember();
 });
 

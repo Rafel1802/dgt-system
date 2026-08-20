@@ -1,8 +1,4 @@
 <?php
-require __DIR__ . '/vendor/autoload.php';
-$app = require_once __DIR__ . '/bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
-$kernel->bootstrap();
-
-$card = \App\Models\Card::whereNotNull('content_public_date')->latest()->first();
-echo json_encode($card->toArray()) . "\n";
+$appearance = ['background_type' => 'gradient', 'cover_value' => 'url("image.png")'];
+$json = json_encode($appearance, JSON_HEX_QUOT | JSON_HEX_APOS);
+echo "x-data=\"dashboardAppearance($json)\"\n";
