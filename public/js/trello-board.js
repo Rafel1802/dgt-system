@@ -1136,6 +1136,8 @@ window.trelloBoard = function(config) {
             sortableContainer.sortableListInstance = new Sortable(sortableContainer, {
               group: 'board-lists',
               draggable: '.board-list',
+              filter: '.add-list-wrapper',
+              preventOnFilter: false,
               animation: 180,
               ghostClass: 'opacity-50',
               delay: 150,

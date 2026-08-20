@@ -246,6 +246,10 @@
               <div x-show="isEditingDesc" x-cloak class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-sm transition-all"
                    x-init="$watch('isEditingDesc', val => {
                      if (val) {
+                       // If Quill was initialized but the DOM element was replaced/removed, discard the stale instance
+                       if (window.cardDescQuill && (!document.body.contains(window.cardDescQuill.container) || !document.querySelector('#card-desc-editor .ql-editor'))) {
+                         window.cardDescQuill = null;
+                       }
                        if (!window.cardDescQuill) {
                          window.cardDescQuill = new Quill('#card-desc-editor', {
                            theme: 'snow',
