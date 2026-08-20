@@ -51,6 +51,21 @@ class CrmTeamNotifier
         self::sendToRoles($roles, 'tech_case_status_changed', $message, $link, $actor?->id, $userIds, $case);
     }
 
+    public static function notifyLogisticsOfMachineReturn(\App\Models\MachineReturn $machineReturn, User $actor): void
+    {
+        $machineReturn->loadMissing(['customer']);
+        $customerName = $machineReturn->customer?->name ?? 'Customer';
+        
+        $message = "Machine Return required for {$customerName}."
+            . ($actor ? " Marked by {$actor->name} (Tech Support)." : '');
+            
+        $link = route('crm.customers.show', $machineReturn->customer_id);
+        
+        $roles = ['logistic-team', 'logistic-supervisor', 'admin-crm', 'super-admin'];
+        
+        self::sendToRoles($roles, 'machine_return', $message, $link, $actor->id);
+    }
+
     /**
      * A customer record was updated — notify the CRM supervisor(s) and CRM
      * admins with what changed. Deliberately does NOT also notify the

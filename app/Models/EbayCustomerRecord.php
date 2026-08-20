@@ -71,6 +71,7 @@ class EbayCustomerRecord extends Model
     const TAB_POT_NEGATIVES  = 'potential_negatives';
     const TAB_NEGATIVES      = 'negatives_feedbacks';
     const TAB_NEW_ORDER      = 'new_order';
+    const TAB_RETURN_RECEIVED= 'return_received';
     const TAB_RESOLVED       = 'resolved';
 
     protected $fillable = [
@@ -117,6 +118,7 @@ class EbayCustomerRecord extends Model
             self::TAB_POT_NEGATIVES => 'Potential Negatives Feedbacks',
             self::TAB_NEGATIVES     => 'Negatives Feedbacks',
             self::TAB_NEW_ORDER     => 'New Order',
+            self::TAB_RETURN_RECEIVED=> 'Return Received',
             self::TAB_RESOLVED      => 'Resolved',
         ];
     }
@@ -129,10 +131,11 @@ class EbayCustomerRecord extends Model
             self::TAB_CANCELATION   => '#94a3b8', // slate
             self::TAB_TECHNICAL     => '#8b5cf6', // purple
             self::TAB_POT_NEGATIVES => '#f43f5e', // rose
-            self::TAB_NEGATIVES     => '#e11d48', // rose
-            self::TAB_NEW_ORDER     => '#10b981', // emerald
-            self::TAB_RESOLVED      => '#0ea5e9', // sky blue
-            default => '#3b82f6',
+            self::TAB_NEGATIVES     => '#e11d48', // rose-600
+            self::TAB_NEW_ORDER     => '#3b82f6', // blue
+            self::TAB_RETURN_RECEIVED=> '#10b981', // emerald
+            self::TAB_RESOLVED      => '#0ea5e9', // sky
+            default                 => '#94a3b8',
         };
     }
 

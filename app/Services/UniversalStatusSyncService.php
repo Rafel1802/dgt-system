@@ -43,7 +43,7 @@ class UniversalStatusSyncService
         // 3. Sync to eBay Records (if any)
         $ebayTab = match ($status) {
             'delivered' => EbayCustomerRecord::TAB_RESOLVED,
-            'received'  => EbayCustomerRecord::TAB_RESOLVED,
+            'received'  => EbayCustomerRecord::TAB_RETURN_RECEIVED,
             default     => EbayCustomerRecord::TAB_TECHNICAL,
         };
 

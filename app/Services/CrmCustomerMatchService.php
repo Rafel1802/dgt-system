@@ -801,11 +801,15 @@ class CrmCustomerMatchService
             $isNegativeFeedback = in_array($record->tab_type, [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES], true) && ! $record->negative_feedback_resolved;
             $isTechnical = $record->tab_type === EbayCustomerRecord::TAB_TECHNICAL;
             $isResolved = $record->tab_type === EbayCustomerRecord::TAB_RESOLVED || ($record->negative_feedback_resolved && ! $hasLogisticIssue);
+            $isReturnReceived = $record->tab_type === EbayCustomerRecord::TAB_RETURN_RECEIVED;
 
             $badges = [];
             $categories = [];
 
-            if ($isResolved) {
+            if ($isReturnReceived) {
+                $badges[] = ['label' => 'Return Received', 'color' => '#10b981', 'category' => 'resolved'];
+                $categories[] = 'resolved';
+            } elseif ($isResolved) {
                 $badges[] = ['label' => 'Resolved', 'color' => '#0ea5e9', 'category' => 'resolved'];
                 $categories[] = 'resolved';
             } else {

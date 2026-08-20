@@ -17,7 +17,7 @@
 
     {{-- ── Left: Customer Summary ──────────────────────────────────────────── --}}
     <div class="xl:col-span-1 space-y-4">
-      <div class="card">
+      <div class="card" id="client-summary-card">
         @php $tabColor = \App\Models\EbayCustomerRecord::tabColor($record->tab_type); @endphp
         <div class="h-2 -mx-5 -mt-5 mb-4 rounded-t-2xl" style="background:{{ $tabColor }}"></div>
 
@@ -107,7 +107,7 @@
       </div>
 
       {{-- Handled-By History --}}
-      <div class="card">
+      <div class="card" id="handled-by-card">
         <div class="flex items-center justify-between mb-4">
           <h4 class="font-semibold text-slate-700">Handled-by History</h4>
           <span class="badge badge-indigo text-xs">{{ $record->current_handler?->name ?? 'Unassigned' }}</span>
@@ -146,7 +146,7 @@
       </div>
 
       {{-- Status History --}}
-      <div class="card">
+      <div class="card" id="status-history-card">
         <h4 class="font-semibold text-slate-700 mb-4">Status History</h4>
         <div class="space-y-3">
           @forelse($record->statusHistory as $entry)
@@ -167,7 +167,7 @@
     <div class="xl:col-span-2 space-y-5">
 
       {{-- Pipeline Status Bar --}}
-      <div class="card">
+      <div class="card" id="pipeline-progress-card">
         <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Pipeline Progress</h4>
         <div class="flex gap-1 overflow-x-auto pb-2">
           @foreach($tabs as $key => $label)

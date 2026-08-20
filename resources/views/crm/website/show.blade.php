@@ -24,8 +24,7 @@
     {{-- ── Left: Client Card + Pipeline ────────────────────────────────────── --}}
     <div class="xl:col-span-1 space-y-4">
 
-      {{-- Client Summary Card --}}
-      <div class="card relative overflow-hidden">
+      <div class="card relative overflow-hidden" id="client-summary-card">
         {{-- Server-rendered background block for current status --}}
         <div class="absolute top-0 left-0 right-0 h-24 opacity-20" style="background: linear-gradient(135deg, {{ $lead->status?->color() }}, transparent)"></div>
         <div class="h-2 absolute top-0 left-0 right-0" style="background: {{ $lead->status?->color() }}"></div>
@@ -148,8 +147,7 @@
     {{-- ── Right: Pipeline + Activity Timeline ─────────────────────────────── --}}
     <div class="xl:col-span-2 space-y-5">
 
-      {{-- Pipeline Status Bar --}}
-      <div class="card">
+      <div class="card" id="pipeline-progress-card">
         <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Customer Status</h4>
         <div class="flex gap-1 overflow-x-auto pb-2">
           @foreach($statuses as $s)

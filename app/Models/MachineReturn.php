@@ -16,7 +16,15 @@ class MachineReturn extends Model
 
     protected static function booted(): void
     {
-        static::updated(function (self $return) {
+        $clearCache = fn () => \Illuminate\Support\Facades\Cache::forget('logistic_pending_returns_count');
+        static::created($clearCache);
+        static::deleted($clearCache);
+
+        static::updated(function (self $return) use ($clearCache) {
+            if ($return->wasChanged('status')) {
+                $clearCache();
+            }
+
             if ($return->wasChanged('status') && $return->customer) {
                 \App\Services\UniversalStatusSyncService::syncLogisticStatus($return->customer, $return->status);
             }

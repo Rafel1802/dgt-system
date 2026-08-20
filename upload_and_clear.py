@@ -113,6 +113,8 @@ if __name__ == "__main__":
     
     tinker_fix_colors = PHP + ' artisan tinker --execute="App\\Models\\BoardList::whereIn(\'name\', [\'Week 3\', \'Week 4\'])->update([\'color\' => null]);" && '
 
+    tinker_fix_returns = PHP + ' artisan tinker --execute="App\\\\Models\\\\MachineReturn::where(\'status\', \'received\')->with(\'customer.ebayCustomerRecords\')->get()->each(function(\\$r) { if(\\$r->customer) { foreach(\\$r->customer->ebayCustomerRecords as \\$rec) { if(\\$rec->tab_type !== \'return_received\') \\$rec->updateQuietly([\'tab_type\' => \'return_received\']); } } });" && '
+
     ssh_cmd = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
         (
@@ -127,6 +129,7 @@ if __name__ == "__main__":
             + PHP + " artisan smm:fix-labels && "
             + PHP + " artisan cards:restore-block-smm && "
             + PHP + " artisan migrate --force && "
+            + tinker_fix_returns
             + PHP + " artisan optimize && "
             + PHP + " artisan view:cache && "
             + PHP + " artisan storage:link"

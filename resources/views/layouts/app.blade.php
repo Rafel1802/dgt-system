@@ -990,6 +990,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
                             </svg>
                             Logistic CRM
+                            @php
+                                $pendingReturnsCount = \Illuminate\Support\Facades\Cache::remember('logistic_pending_returns_count', 300, function () {
+                                    return \App\Models\MachineReturn::where('status', \App\Models\MachineReturn::STATUS_PENDING)->count();
+                                });
+                            @endphp
+                            @if($pendingReturnsCount > 0)
+                                <span class="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md ml-auto leading-none">{{ $pendingReturnsCount }}</span>
+                            @endif
                         </span>
                         <svg class="w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0"
                              :class="{'rotate-180': open}"
@@ -1042,7 +1050,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.returns.*') ? 'active' : '' }}"
                            id="nav-logistic-returns">
                             <span class="w-4 h-4 flex shrink-0 items-center justify-center">🔄</span>
-                            Machine Returns
+                            <span class="flex-1">Machine Returns</span>
+                            @if(isset($pendingReturnsCount) && $pendingReturnsCount > 0)
+                                <span class="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-none">{{ $pendingReturnsCount }}</span>
+                            @endif
                         </a>
                         <a wire:navigate.hover href="{{ route('crm.logistics.issues.index') }}"
                            class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.issues.*') ? 'active' : '' }}"
@@ -2243,6 +2254,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             tech_case_status_changed: '🔄',
             ebay_negative_feedback: '⚠️',
             logistic_problem: '🚚',
+            machine_return: '🔄',
         };
         const icon = icons[data.type] || '🔔';
         const shortMessage = window.dgtShortenNotificationText(data.message || 'New update', 90);

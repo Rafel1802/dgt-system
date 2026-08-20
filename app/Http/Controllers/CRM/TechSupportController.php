@@ -160,7 +160,7 @@ class TechSupportController extends Controller
                 defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Enums\WebsiteLeadStatus::Resolve->label(), \App\Enums\WebsiteLeadStatus::Resolve->color(), auth()->user()->name, 'Technical Support Team', 'lead')));
             } elseif ($case->source instanceof \App\Models\EbayCustomerRecord) {
                 $case->source->update(['tab_type' => \App\Models\EbayCustomerRecord::TAB_RESOLVED]);
-                defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Models\EbayCustomerRecord::tabLabels()[\App\Models\EbayCustomerRecord::TAB_RESOLVED] ?? 'Resolved', \App\Models\EbayCustomerRecord::tabColors()[\App\Models\EbayCustomerRecord::TAB_RESOLVED] ?? '#0ea5e9', auth()->user()->name, 'Technical Support Team', 'ebay')));
+                defer(fn () => broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, \App\Models\EbayCustomerRecord::tabs()[\App\Models\EbayCustomerRecord::TAB_RESOLVED] ?? 'Resolved', \App\Models\EbayCustomerRecord::tabColor(\App\Models\EbayCustomerRecord::TAB_RESOLVED), auth()->user()->name, 'Technical Support Team', 'ebay')));
             }
         }
         
@@ -185,6 +185,8 @@ class TechSupportController extends Controller
                     'status_changed_to' => \App\Models\MachineReturn::STATUS_PENDING,
                     'note' => $validated['note'] ?? 'Return requested by Tech Support.',
                 ]);
+                
+                \App\Support\CrmTeamNotifier::notifyLogisticsOfMachineReturn($machineReturn, auth()->user());
             }
         }
 

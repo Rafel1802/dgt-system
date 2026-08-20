@@ -24,25 +24,22 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(html => {
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 
-                // Extract and replace the client summary card
-                const newClientCard = doc.querySelector('.card.relative.overflow-hidden');
-                const oldClientCard = document.querySelector('.card.relative.overflow-hidden');
+                const cardsToSwap = [
+                    '#client-summary-card',
+                    '#pipeline-progress-card',
+                    '#status-history-card',
+                    '#followup-timeline',
+                    '#handled-by-card'
+                ];
                 
-                if (newClientCard && oldClientCard) {
-                    oldClientCard.innerHTML = newClientCard.innerHTML;
-                }
-                
-                // Extract and replace the pipeline/status card
-                // The status card usually has the title "CUSTOMER STATUS"
-                const newPipelineCards = Array.from(doc.querySelectorAll('.card'));
-                const oldPipelineCards = Array.from(document.querySelectorAll('.card'));
-                
-                const newPipelineCard = newPipelineCards.find(c => c.innerHTML.includes('CUSTOMER STATUS'));
-                const oldPipelineCard = oldPipelineCards.find(c => c.innerHTML.includes('CUSTOMER STATUS'));
-                
-                if (newPipelineCard && oldPipelineCard) {
-                    oldPipelineCard.innerHTML = newPipelineCard.innerHTML;
-                }
+                cardsToSwap.forEach(selector => {
+                    const newEl = doc.querySelector(selector);
+                    const oldEl = document.querySelector(selector);
+                    if (newEl && oldEl) {
+                        oldEl.innerHTML = newEl.innerHTML;
+                        oldEl.className = newEl.className;
+                    }
+                });
             })
             .catch(err => console.error('Failed to hot-swap status UI:', err));
     });
@@ -63,15 +60,22 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(html => {
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 
-                const newCards = Array.from(doc.querySelectorAll('.card'));
-                const oldCards = Array.from(document.querySelectorAll('.card'));
+                const cardsToSwap = [
+                    '#client-summary-card',
+                    '#pipeline-progress-card',
+                    '#status-history-card',
+                    '#followup-timeline',
+                    '#handled-by-card'
+                ];
                 
-                const newHandledByCard = newCards.find(c => c.innerHTML.includes('Handled-by History') || c.innerHTML.includes('Handled-By History'));
-                const oldHandledByCard = oldCards.find(c => c.innerHTML.includes('Handled-by History') || c.innerHTML.includes('Handled-By History'));
-                
-                if (newHandledByCard && oldHandledByCard) {
-                    oldHandledByCard.innerHTML = newHandledByCard.innerHTML;
-                }
+                cardsToSwap.forEach(selector => {
+                    const newEl = doc.querySelector(selector);
+                    const oldEl = document.querySelector(selector);
+                    if (newEl && oldEl) {
+                        oldEl.innerHTML = newEl.innerHTML;
+                        oldEl.className = newEl.className;
+                    }
+                });
             })
             .catch(err => console.error('Failed to hot-swap handler UI:', err));
     });
