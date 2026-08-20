@@ -24,7 +24,7 @@
     {{-- ── Left: Customer/Order info + Notes ────────────────────────────────── --}}
     <div class="xl:col-span-1 space-y-4">
 
-      <div class="card">
+      <div class="card" id="case-info-card">
         {{-- Server-rendered color so UI is correct before Alpine boots; Alpine updates on status change --}}
         <div class="h-2 -mx-5 -mt-5 mb-4 rounded-t-2xl"
              style="background:{{ $color }}"
@@ -221,7 +221,7 @@
     <div class="xl:col-span-2 space-y-5">
 
       {{-- Follow-Up Logs --}}
-      <div class="card">
+      <div class="card" id="followup-logs-card">
         <div class="flex items-center justify-between mb-4">
           <h4 class="font-semibold text-slate-700">Follow-Up Logs</h4>
           <span class="badge badge-indigo text-xs">{{ $case->logs->count() }} entries</span>
@@ -520,10 +520,8 @@
               .then(html => {
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const cards = [
-                  '#status-history-card',
-                  '#followup-logs-card',
-                  '#assignment-card',
-                  '#case-info-card'
+                  '#case-info-card',
+                  '#followup-logs-card'
                 ];
                 cards.forEach(sel => {
                   const newEl = doc.querySelector(sel);

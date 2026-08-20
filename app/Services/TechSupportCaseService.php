@@ -77,6 +77,9 @@ class TechSupportCaseService
 
         $this->notifyTechnicians($case, 'New tech case' . ($case->order_id ? " · #{$case->order_id}" : ''), 'tech_case_new', auth()->id());
 
+        event(new \App\Events\TechSupportCaseStatusUpdated($case, auth()->id()));
+        \Illuminate\Support\Facades\Cache::forget('tech_support.index_stats');
+
         return $case;
     }
 
@@ -127,6 +130,9 @@ class TechSupportCaseService
         $this->logActivity($case->customer_id, 'Technical Case Reopened', "New technical issue reported ({$ordinal} occurrence).");
 
         $this->notifyTechnicians($case, "Tech case reopened · {$ordinal} occurrence", 'tech_case_new', auth()->id());
+
+        event(new \App\Events\TechSupportCaseStatusUpdated($case, auth()->id()));
+        \Illuminate\Support\Facades\Cache::forget('tech_support.index_stats');
 
         return $case;
     }
