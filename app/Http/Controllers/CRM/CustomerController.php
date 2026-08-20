@@ -134,10 +134,12 @@ class CustomerController extends Controller
         $createdTo = $request->get('created_to');
 
         // Raw (no Carbon) path: search only first so totalUnique matches prior semantics
+        // Raw (no Carbon) path: search only first so totalUnique matches prior semantics
         // (count after search, before status/source/date filters).
+        // Pass 'sort_by' => 'skip' so we don't pay O(N log N) time sorting 50,000+ items in PHP memory twice.
         $searched = $this->matcher->buildUnifiedDirectoryRaw([
             'search'  => $request->get('search'),
-            'sort_by' => null, // sort after filters — fewer rows to order
+            'sort_by' => 'skip', // skip sorting completely during the base fetch
         ]);
         $totalUnique = $searched->count();
 
@@ -218,10 +220,16 @@ class CustomerController extends Controller
         })->values();
 
         // Sort filtered set only (cheaper than sorting the full directory first).
-        // Website & eBay customers always rank ON TOP of Logistics-only customers by created date.
-        $customers = match ($sortBy) {
-            'purchase' => $customers->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? -1)->values(),
-            default    => $customers->sort(function (array $a, array $b) {
+        // After filtering, sort again if a specific sort was requested,
+        // otherwise rely on the base sort (created_ts / source buckets).
+        if ($sortBy === 'purchase') {
+            $customers = $customers->sortByDesc(fn (array $c) => $c['purchase_ts'] ?? 0)->values();
+        } elseif ($sortBy === 'created') {
+            $customers = $customers->sortByDesc(fn (array $c) => $c['created_ts'] ?? 0)->values();
+        } else {
+            // Default sort: applied here on the *filtered* set (which is much smaller)
+            // instead of inside buildUnifiedDirectoryRaw to save CPU/memory.
+            $customers = $customers->sort(function (array $a, array $b) {
                 $aIsLogistics = ($a['source'] ?? '') === 'Logistics';
                 $bIsLogistics = ($b['source'] ?? '') === 'Logistics';
 
@@ -239,8 +247,8 @@ class CustomerController extends Controller
                 $aPur = (int) ($a['purchase_ts'] ?? 0);
                 $bPur = (int) ($b['purchase_ts'] ?? 0);
                 return $bPur <=> $aPur;
-            })->values(),
-        };
+            })->values();
+        }
 
         // Paginate, then hydrate Carbon only for the 50 rows in the HTML response.
         $perPage = 50;

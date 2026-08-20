@@ -41,7 +41,7 @@ class NotificationController extends Controller
         // We MUST scope this to the user's modules as well, otherwise deleting
         // global notifications causes the scoped query below to slide older
         // notifications into its top 100, which the frontend incorrectly sees as "new".
-        $excessIds = $this->scopeToUserModules($user->notifications()->orderBy('id'), $modules)
+        $excessIds = $this->scopeToUserModules($user->notifications()->latest('created_at')->orderByDesc('id'), $modules)
             ->skip(100)->take(50)->pluck('id');
         if ($excessIds->isNotEmpty()) {
             $user->notifications()->whereIn('id', $excessIds)->delete();
@@ -50,7 +50,7 @@ class NotificationController extends Controller
         // Use the raw notification UUID as `id` — must match InstantNotifier /
         // Pusher payload ids so the frontend dedupe (localStorage shown-ids)
         // treats live push + poll refresh as the same card, not two.
-        $notifications = $this->scopeToUserModules($user->notifications()->orderBy('id'), $modules)
+        $notifications = $this->scopeToUserModules($user->notifications()->latest('created_at')->orderByDesc('id'), $modules)
             ->take(100)->get()->map(fn($n) => [
                 'id'         => (string) $n->id,
                 'data'       => $n->data,

@@ -234,7 +234,11 @@ class BoardController extends Controller
         ]);
 
         $board->load(['activeLists.cards' => function ($query) {
-            $query->with([
+            $query->select([
+                'id', 'board_list_id', 'title', 'priority', 'due_at', 'start_date', 'due_time', 'reminder', 'recurring',
+                'status', 'block_completed_at', 'block_completed_by', 'smm_class_label', 'smm_team_label', 'smm_cluster_label',
+                'content_public_date', 'created_by', 'position', 'sync_group_id', 'is_archived', 'label', 'sub_label', 'created_at', 'updated_at'
+            ])->with([
                 'creator:id,name,avatar,username',
                 'assignees:id,name,avatar,username',
                 'labels',
@@ -1412,13 +1416,22 @@ class BoardController extends Controller
         $board->load([
             'workspace.members',
             'labels',
-            'activeLists.cards.assignees',
-            'activeLists.cards.labels',
-            'activeLists.cards.checklists.items',
-            'activeLists.cards.files:id,card_id',
-            'activeLists.cards.comments:id,card_id',
             'members',
         ]);
+        
+        $board->load(['activeLists.cards' => function ($query) {
+            $query->select([
+                'id', 'board_list_id', 'title', 'priority', 'due_at', 'start_date', 'due_time', 'reminder', 'recurring',
+                'status', 'block_completed_at', 'block_completed_by', 'smm_class_label', 'smm_team_label', 'smm_cluster_label',
+                'content_public_date', 'created_by', 'position', 'sync_group_id', 'is_archived', 'label', 'sub_label', 'created_at', 'updated_at'
+            ])->with([
+                'assignees',
+                'labels',
+                'checklists.items',
+                'files:id,card_id',
+                'comments:id,card_id',
+            ]);
+        }]);
 
         $allWorkspaces = $this->getAuthorizedWorkspaces($user);
 
