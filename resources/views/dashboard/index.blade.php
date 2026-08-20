@@ -207,7 +207,7 @@
 </style>
 
 <div class="dash-shell space-y-6 animate-fade-in pb-28 md:pb-8"
-     x-data="dashboardAppearance(@json($appearance))"
+     x-data='dashboardAppearance(@json($appearance))'
      x-init="init()"
      :style="'--dashboard-bg:' + cssFor('background') + '; --dashboard-cover:' + cssFor('cover')">
     <section class="dash-hero overflow-hidden rounded-[1.75rem] p-6 text-white shadow-xl sm:p-8">
