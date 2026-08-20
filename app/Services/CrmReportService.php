@@ -115,6 +115,7 @@ class CrmReportService
             'user'             => $user,
             'assigned'         => Shipment::where('assigned_to', $user->id)->whereBetween('created_at', [$since, $until])->count(),
             'complete'         => Shipment::where('assigned_to', $user->id)->where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
+            'Returned Customers'=> \App\Models\MachineReturn::where('handled_by', $user->id)->whereBetween('updated_at', [$since, $until])->distinct('customer_id')->count('customer_id'),
             'Total Issues'     => ShipmentCustomer::where('handled_by', $user->id)->whereBetween('created_at', [$since, $until])->sum('problem_occurrences'),
             'Negative Feedback'=> EbayCustomerRecord::whereHas('handlerHistory', fn($h) => $h->where('user_id', $user->id))->whereIn('tab_type', [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])->whereJsonContains('negative_feedback_causes', 'Logistic issues')->whereBetween('created_at', [$since, $until])->count(),
         ];
@@ -189,8 +190,9 @@ class CrmReportService
             'logistic' => [
                 'label' => 'Logistic', 'color' => '#10b981', 'icon' => '🚚',
                 'metrics' => [
-                    'Number of Shipments'      => Shipment::whereBetween('created_at', [$since, $until])->count(),
-                    'Completed'                => Shipment::where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
+                    'Customers Handled'        => Shipment::whereBetween('created_at', [$since, $until])->count(),
+                    'Completed Deliveries'     => Shipment::where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
+                    'Returned Customers'       => \App\Models\MachineReturn::whereBetween('created_at', [$since, $until])->distinct('customer_id')->count('customer_id'),
                     'Total Customer Delivered' => ShipmentCustomer::where(fn($q) => $q->whereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $logisticUserIds))->where('status', ShipmentCustomer::STATUS_DELIVERED)->whereBetween('created_at', [$since, $until])->count(),
                     'Total Issues'             => ShipmentCustomer::where(fn($q) => $q->whereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $logisticUserIds))->whereBetween('created_at', [$since, $until])->sum('problem_occurrences'),
                     'Negative Feedback Caused by Logistic Issues' => EbayCustomerRecord::whereIn('tab_type', [EbayCustomerRecord::TAB_POT_NEGATIVES, EbayCustomerRecord::TAB_NEGATIVES])->whereJsonContains('negative_feedback_causes', 'Logistic issues')->whereBetween('created_at', [$since, $until])->count(),

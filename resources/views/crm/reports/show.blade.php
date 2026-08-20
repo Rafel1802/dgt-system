@@ -280,8 +280,16 @@
             </div>
             <div class="space-y-2">
               <div class="flex justify-between items-center text-xs py-1.5 px-3 rounded-xl bg-white border border-slate-100/50">
-                <span class="text-slate-500 font-medium">Shipments complete</span>
+                <span class="text-slate-500 font-medium">Customers Handled</span>
+                <b class="text-slate-800 font-bold">{{ number_format($summary['logistic']['assigned']) }}</b>
+              </div>
+              <div class="flex justify-between items-center text-xs py-1.5 px-3 rounded-xl bg-white border border-slate-100/50">
+                <span class="text-slate-500 font-medium">Completed Deliveries</span>
                 <b class="text-slate-800 font-bold">{{ number_format($summary['logistic']['complete']) }}</b>
+              </div>
+              <div class="flex justify-between items-center text-xs py-1.5 px-3 rounded-xl bg-white border border-slate-100/50">
+                <span class="text-slate-500 font-medium">Returned Customers</span>
+                <b class="text-slate-800 font-bold">{{ number_format($summary['logistic']['Returned Customers'] ?? 0) }}</b>
               </div>
               <div class="flex justify-between items-center text-xs py-1.5 px-3 rounded-xl bg-white border border-slate-100/50">
                 <span class="text-slate-500 font-medium">Total Issues</span>

@@ -48,7 +48,7 @@ enum WebsiteLeadStatus: string
             self::TechnicalIssues  => '#ef4444', // red
             self::PotentialReturn  => '#f97316', // orange
             self::ApproveReturn    => '#dc2626', // red
-            self::ReturnReceived   => '#64748b', // slate
+            self::ReturnReceived   => '#10b981', // emerald
             self::Resolve          => '#10b981', // emerald
         };
     }
