@@ -85,17 +85,11 @@
 
         const handleHandlerLive = (data) => {
             if (!shouldProcessEvent(data)) return;
-            if (window.showToast && window.CRM_PAGE_CONTEXT?.type === 'customer') {
-                window.showToast(`Handler updated to "${data.newHandlerName}" by ${data.teamName} (${data.actorName})`, 'info');
-            }
             doHotSwap();
         };
 
         const handleDataLive = (data) => {
             if (!shouldProcessEvent(data)) return;
-            if (window.showToast && window.CRM_PAGE_CONTEXT?.type === 'customer') {
-                window.showToast(data.message || `Data updated by ${data.teamName} (${data.actorName})`, 'info');
-            }
             doHotSwap();
         };
 
