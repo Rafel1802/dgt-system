@@ -13,7 +13,7 @@
                 @else
                     All Time
                 @endif
-                &nbsp;|&nbsp; Total Websites: {{ $websites->count() }}
+                &nbsp;|&nbsp; Total Records: {{ isset($followUps) ? $followUps->count() : (isset($websites) ? $websites->count() : 0) }}
             </p>
             @if(isset($qcStats))
             <div class="flex gap-4 mt-3">
@@ -57,36 +57,48 @@
         $reportText = "";
         $count = 1;
 
-        foreach($websites as $ws) {
-            $reportText .= $count . ". " . $ws->name . " (" . $ws->status . ")\n";
-
-            // Collect logs for this date range
-            $allProgressLogs = collect();
-            if ($filterStart || $filterEnd) {
-                 $buildLogs = $ws->progressLogs->filter(fn($l) => $l->created_at >= $filterStart && $l->created_at <= $filterEnd);
-                 $maintLogs = $ws->maintenanceLogs->filter(fn($l) => $l->created_at >= $filterStart && $l->created_at <= $filterEnd);
-                 $allProgressLogs = $buildLogs->concat($maintLogs);
-            } else {
-                 $allProgressLogs = $ws->progressLogs->concat($ws->maintenanceLogs);
+        if ($tab === 'follow-up' && isset($followUps)) {
+            foreach($followUps as $item) {
+                $websiteName = $item->website->name;
+                $className = $item->website->category ?? 'Unknown';
+                $url = $item->url;
+                $handleBy = $item->assignee ? $item->assignee->name : 'Unassigned';
+                $date = $item->created_at->format('d M Y');
+                $reportText .= "{$count}. {$websiteName} ({$className}) : {$url} , Handle by: {$handleBy} , Date: {$date}\n";
+                $count++;
             }
+        } elseif (isset($websites)) {
+            foreach($websites as $ws) {
+                $reportText .= $count . ". " . $ws->name . " (" . $ws->status . ")\n";
 
-            if ($allProgressLogs->count() > 0) {
-                foreach($allProgressLogs->sortBy('created_at') as $log) {
-                    $type = $log->type === 'maintenance' ? 'Maintenance Progress' : 'Build Progress';
-                    $note = strip_tags($log->note);
-                    $reportText .= "   - " . $type . ": " . $log->percent . "%" . ($note ? " (" . $note . ")" : "") . "\n";
+                // Collect logs for this date range
+                $allProgressLogs = collect();
+                if ($filterStart || $filterEnd) {
+                     $buildLogs = $ws->progressLogs->filter(fn($l) => $l->created_at >= $filterStart && $l->created_at <= $filterEnd);
+                     $maintLogs = $ws->maintenanceLogs->filter(fn($l) => $l->created_at >= $filterStart && $l->created_at <= $filterEnd);
+                     $allProgressLogs = $buildLogs->concat($maintLogs);
+                } else {
+                     $allProgressLogs = $ws->progressLogs->concat($ws->maintenanceLogs);
                 }
-            }
 
-            // Check if there are active errors in the date range
-            if (str_contains(strtolower($ws->status), 'error')) {
-                 if ($ws->error_note) {
-                     $reportText .= "   - Error/Issue: " . strip_tags($ws->error_note) . "\n";
-                 }
-            }
+                if ($allProgressLogs->count() > 0) {
+                    foreach($allProgressLogs->sortBy('created_at') as $log) {
+                        $type = $log->type === 'maintenance' ? 'Maintenance Progress' : 'Build Progress';
+                        $note = strip_tags($log->note);
+                        $reportText .= "   - " . $type . ": " . $log->percent . "%" . ($note ? " (" . $note . ")" : "") . "\n";
+                    }
+                }
 
-            $reportText .= "\n";
-            $count++;
+                // Check if there are active errors in the date range
+                if (str_contains(strtolower($ws->status), 'error')) {
+                     if ($ws->error_note) {
+                         $reportText .= "   - Error/Issue: " . strip_tags($ws->error_note) . "\n";
+                     }
+                }
+
+                $reportText .= "\n";
+                $count++;
+            }
         }
     @endphp
 
