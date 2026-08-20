@@ -36,7 +36,9 @@ class NotificationController extends Controller
         $modules = $user->notificationModules();
 
         // Keep only the latest 100 notifications to prevent DB bloat
-        $excessIds = $user->notifications()->skip(100)->take(50)->pluck('id');
+        // Add a secondary sort on `id` to guarantee a deterministic order 
+        // when multiple notifications share the exact same `created_at` timestamp.
+        $excessIds = $user->notifications()->orderBy('id')->skip(100)->take(50)->pluck('id');
         if ($excessIds->isNotEmpty()) {
             $user->notifications()->whereIn('id', $excessIds)->delete();
         }
@@ -44,7 +46,7 @@ class NotificationController extends Controller
         // Use the raw notification UUID as `id` — must match InstantNotifier /
         // Pusher payload ids so the frontend dedupe (localStorage shown-ids)
         // treats live push + poll refresh as the same card, not two.
-        $notifications = $this->scopeToUserModules($user->notifications(), $modules)
+        $notifications = $this->scopeToUserModules($user->notifications()->orderBy('id'), $modules)
             ->take(100)->get()->map(fn($n) => [
                 'id'         => (string) $n->id,
                 'data'       => $n->data,
