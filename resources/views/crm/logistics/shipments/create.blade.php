@@ -37,6 +37,15 @@
           @error('shipment_code')<p class="form-error">{{ $message }}</p>@enderror
         </div>
 
+        {{-- Shipment Name --}}
+        <div>
+          <label class="form-label">Shipment Name <span class="text-slate-400 normal-case font-normal">(Optional)</span></label>
+          <input type="text" name="name"
+                 value="{{ old('name') }}"
+                 class="form-input @error('name') error @enderror"
+                 placeholder="e.g. West Coast Delivery">
+          @error('name')<p class="form-error">{{ $message }}</p>@enderror
+        </div>
         {{-- Status (REQUIRED — this was the bug! was missing from form) --}}
         <div>
           <label class="form-label">Status <span class="text-red-500">*</span></label>

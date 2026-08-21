@@ -44,6 +44,7 @@ class EbayCustomerController extends Controller
             'customer:id,name',
             // Do not column-restrict morph techSupportCase (ambiguous source_* on SQLite/MySQL).
             'techSupportCase',
+            'latestOrder',
         ]);
 
         $tabType = $request->get('tab_type');
@@ -84,7 +85,7 @@ class EbayCustomerController extends Controller
     public function store(Request $request): RedirectResponse
     {
 
-        $validated = $this->validatedRecord($request);
+        $validated = $this->validatedRecord($request, null);
 
         $existing = $this->matcher->findEbayRecordByUsernameOrContact(
             $validated['username'] ?? null,
@@ -184,7 +185,7 @@ class EbayCustomerController extends Controller
     {
         $this->authorize('update', $record);
 
-        $validated = $this->validatedRecord($request);
+        $validated = $this->validatedRecord($request, $record);
         $validated['customer_id'] = $this->resolveOrCreateCustomer($validated, $record);
         $validated['updated_by'] = auth()->id();
 
@@ -523,7 +524,7 @@ class EbayCustomerController extends Controller
      * negative-feedback categories. Order/product fields are handled
      * separately by validatedNewOrder() — orders live in their own table.
      */
-    private function validatedRecord(Request $request): array
+    private function validatedRecord(Request $request, ?EbayCustomerRecord $record = null): array
     {
         $isIssueCategory = in_array($request->input('tab_type'), [
             EbayCustomerRecord::TAB_TECHNICAL,
@@ -533,13 +534,26 @@ class EbayCustomerController extends Controller
 
         $rules = [
             'customer_id'   => ['nullable', 'exists:customers,id'],
-            'tab_type'      => ['required', Rule::in(array_keys(EbayCustomerRecord::tabs()))],
+            'tab_type'      => [
+                'required', 
+                Rule::in(array_keys(EbayCustomerRecord::tabs())),
+                function ($attribute, $value, $fail) use ($record) {
+                    if (EbayCustomerRecord::isExternallyManagedTab($value)) {
+                        if (! $record || $record->tab_type !== $value) {
+                            $fail('You cannot manually set a status that is controlled by Logistics or Tech Support.');
+                        }
+                    }
+                    if ($record && EbayCustomerRecord::isExternallyManagedTab($record->tab_type) && $record->tab_type !== $value) {
+                        $fail('This record is currently managed by Logistics or Tech Support. Its status cannot be changed manually from here.');
+                    }
+                }
+            ],
             'buyer_name'    => ['nullable', 'string', 'max:255'],
             'username'      => ['required', 'string', 'max:255'],
             'email'         => ['nullable', 'email', 'max:255'],
             'phone'         => ['nullable', 'string', 'max:30'],
             'ebay_store_id' => ['nullable', 'exists:ebay_stores,id'],
-            'summary'       => ['nullable', 'string'],
+            'summary'       => $request->input('tab_type') === EbayCustomerRecord::TAB_CANCELATION ? ['required', 'string'] : ['nullable', 'string'],
             'date'          => $request->input('tab_type') === EbayCustomerRecord::TAB_NEGATIVES ? ['required', 'date'] : ['nullable', 'date'],
             // Technical Issues / Negative Feedback categories require a note
             // explaining the issue — every other category leaves it optional.
@@ -553,6 +567,7 @@ class EbayCustomerController extends Controller
         }
 
         return $request->validate($rules, [
+            'summary.required'      => 'A reason is required for Cancelation Clients.',
             'informations.required' => 'A note is required for Technical Issues and Negative Feedback records.',
             'date.required'         => 'A feedback date is required for Negative Feedback records.',
         ]);

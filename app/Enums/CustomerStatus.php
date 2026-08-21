@@ -21,6 +21,7 @@ enum CustomerStatus: string
     // Logistics cases
     case PickupArranged = 'pickup_arranged';
     case InTransit = 'in_transit';
+    case InTransitReturn = 'in_transit_return';
     case Delivered = 'delivered';
     case LogisticDelay = 'logistic_delay';
 
@@ -40,6 +41,7 @@ enum CustomerStatus: string
             self::Resolved => 'Resolved',
             self::PickupArranged => 'Pickup Arranged',
             self::InTransit => 'In Transit',
+            self::InTransitReturn => 'Loaded (Return Machine)',
             self::Delivered => 'Delivered',
             self::LogisticDelay => 'Logistic Issue',
         };
@@ -59,10 +61,11 @@ enum CustomerStatus: string
             self::ReturnMachine => 'badge-rose',
             self::ReturnReceived => 'badge-emerald',
             self::Resolved => 'badge-emerald',
-            self::PickupArranged => 'badge-blue',
+            self::PickupArranged => 'badge-amber',
             self::InTransit => 'badge-blue',
+            self::InTransitReturn => 'badge-blue',
             self::Delivered => 'badge-green',
-            self::LogisticDelay => 'badge-amber',
+            self::LogisticDelay => 'badge-rose',
         };
     }
 

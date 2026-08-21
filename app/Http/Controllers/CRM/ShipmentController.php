@@ -190,7 +190,9 @@ class ShipmentController extends Controller
 
     public function resolveIssue(Request $request, string $source, int $id): RedirectResponse
     {
-        $request->validate([
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
+        $validated = $request->validate([
             'notes' => ['required', 'string', 'min:3'],
         ], [
             'notes.required' => 'A resolution note is required to resolve this issue.',
@@ -501,8 +503,11 @@ class ShipmentController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $validated = $request->validate([
             'shipment_code'        => ['nullable', 'string', 'max:100', 'unique:shipments,shipment_code'],
+            'name'                 => ['nullable', 'string', 'max:255'],
             'status'               => ['required', 'string', 'in:' . implode(',', array_keys(Shipment::statuses()))],
             'trucking_company_id'  => ['nullable', 'exists:trucking_companies,id'],
             'driver_id'            => ['nullable', Rule::exists('trucking_company_drivers', 'id')->where('trucking_company_id', $request->input('trucking_company_id'))],
@@ -564,8 +569,11 @@ class ShipmentController extends Controller
 
     public function update(Request $request, Shipment $shipment): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $validated = $request->validate([
             'shipment_code'        => ['nullable', 'string', 'max:100', 'unique:shipments,shipment_code,' . $shipment->id],
+            'name'                 => ['nullable', 'string', 'max:255'],
             'status'               => ['required', 'string', 'in:' . implode(',', array_keys(Shipment::statuses()))],
             'trucking_company_id'  => ['nullable', 'exists:trucking_companies,id'],
             'driver_id'            => ['nullable', Rule::exists('trucking_company_drivers', 'id')->where('trucking_company_id', $request->input('trucking_company_id'))],
@@ -637,6 +645,8 @@ class ShipmentController extends Controller
     /** Add a customer to a shipment */
     public function addCustomer(Request $request, Shipment $shipment): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $validated = $request->validate([
             'customer_id'       => ['nullable', 'exists:customers,id'],
             'recipient_name'    => ['nullable', 'string', 'max:255'],
@@ -694,6 +704,8 @@ class ShipmentController extends Controller
     /** Update a customer on a shipment (edited via the inline modal on the shipment show page) */
     public function updateCustomer(Request $request, Shipment $shipment, ShipmentCustomer $customer): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $this->authorize('update', $customer);
         $validated = $request->validate([
             'customer_id'       => ['nullable', 'exists:customers,id'],
@@ -793,6 +805,8 @@ class ShipmentController extends Controller
     /** Direct update for a shipment customer from Process Trucking / Loaded / Delivered / Issues tabs */
     public function updateCustomerDirect(Request $request, ShipmentCustomer $customer): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $this->authorize('update', $customer);
         $validated = $request->validate([
             'customer_id'       => ['nullable', 'exists:customers,id'],
@@ -880,6 +894,8 @@ class ShipmentController extends Controller
     /** Remove a customer from a shipment */
     public function removeCustomer(Shipment $shipment, ShipmentCustomer $customer): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $this->authorize('delete', $customer);
         $customerId = $customer->customer_id;
 
@@ -901,6 +917,8 @@ class ShipmentController extends Controller
      */
     public function destroyCustomer(Request $request, ShipmentCustomer $customer): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $this->authorize('delete', $customer);
         $shipment = $customer->shipment;
         $customerId = $customer->customer_id;
@@ -926,6 +944,8 @@ class ShipmentController extends Controller
      */
     public function bulkUpdateCustomerStatus(Request $request): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $validated = $request->validate([
             'customer_ids'        => ['required', 'array', 'min:1'],
             'customer_ids.*'      => ['integer', 'exists:shipment_customers,id'],
@@ -1006,6 +1026,8 @@ class ShipmentController extends Controller
      */
     public function bulkDeleteCustomers(Request $request): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $validated = $request->validate([
             'customer_ids'        => ['required', 'array', 'min:1'],
             'customer_ids.*'      => ['integer', 'exists:shipment_customers,id'],
@@ -1053,6 +1075,8 @@ class ShipmentController extends Controller
      */
     public function assignCustomersToShipment(Request $request): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $validated = $request->validate([
             'customer_ids'        => ['required', 'array', 'min:1'],
             'customer_ids.*'      => ['integer', 'exists:shipment_customers,id'],
@@ -1148,6 +1172,8 @@ class ShipmentController extends Controller
      */
     public function previewImport(Request $request): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         $validated = $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,csv,txt', 'max:5120'],
         ]);
@@ -1401,6 +1427,8 @@ class ShipmentController extends Controller
      */
     public function confirmImport(Request $request): RedirectResponse
     {
+        abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to modify logistics records.');
+
         if (empty(session('shipment_import_preview.rows'))) {
             return redirect()->route('crm.logistics.processTrucking')
                 ->withErrors(['file' => 'No import in progress — please upload a file first.']);

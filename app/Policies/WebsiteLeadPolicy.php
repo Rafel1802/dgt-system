@@ -19,18 +19,18 @@ class WebsiteLeadPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['admin-crm', 'sales-crm', 'boss', 'super-admin']);
+        return $user->hasAnyRole(['admin-crm', 'sales-crm', 'boss', 'super-admin', 'ebay-supervisor', 'ebay-team']);
     }
 
     public function view(User $user, Lead $lead): bool
     {
-        if ($user->hasFullCrmEdit()) return true;
+        if ($user->hasFullCrmEdit() || $user->hasRole('ebay-supervisor')) return true;
         return $lead->handled_by === $user->id;
     }
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['admin-crm', 'sales-crm', 'boss', 'super-admin']);
+        return $user->hasAnyRole(['admin-crm', 'sales-crm', 'boss', 'super-admin', 'ebay-supervisor', 'ebay-team']);
     }
 
     public function update(User $user, Lead $lead): bool
@@ -40,7 +40,7 @@ class WebsiteLeadPolicy
 
     public function interact(User $user, Lead $lead): bool
     {
-        return $user->hasFullCrmEdit() || $user->hasRole('sales-crm');
+        return $user->hasFullCrmEdit() || $user->hasAnyRole(['sales-crm', 'ebay-supervisor', 'ebay-team']);
     }
 
     public function delete(User $user, Lead $lead): bool

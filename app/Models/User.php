@@ -364,17 +364,24 @@ SVG;
     {
         return $this->hasAnyRole([
             'super-admin',
-            'admin-crm',
             'boss',
-            'tech-support',
-            'ebay-supervisor',
-            'logistic-supervisor'
-        ]) || $this->isCrmSupervisor();
+            'tech-support'
+        ]);
     }
 
     public function canAddTechSupportFollowUp(): bool
     {
-        return $this->canChangeTechSupportStatus() || $this->hasRole('sales-crm');
+        return $this->isCrmMember();
+    }
+
+    public function canChangeLogisticStatus(): bool
+    {
+        return $this->hasAnyRole([
+            'super-admin',
+            'boss',
+            'logistic-supervisor',
+            'logistic-team'
+        ]);
     }
 
     public function canModifyCrmData(): bool

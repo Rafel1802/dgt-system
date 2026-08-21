@@ -30,7 +30,15 @@
           </div>
         </div>
 
-
+        {{-- Shipment Name --}}
+        <div>
+          <label class="form-label">Shipment Name <span class="text-slate-400 normal-case font-normal">(Optional)</span></label>
+          <input type="text" name="name"
+                 value="{{ old('name', $shipment->name) }}"
+                 class="form-input @error('name') error @enderror"
+                 placeholder="e.g. West Coast Delivery">
+          @error('name')<p class="form-error">{{ $message }}</p>@enderror
+        </div>
 
         <div>
           <label class="form-label">Truck Company</label>

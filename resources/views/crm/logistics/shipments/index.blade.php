@@ -107,6 +107,9 @@
               <a href="{{ route('crm.logistics.shipments.show', $shipment) }}" class="font-semibold text-indigo-600 hover:underline">
                 {{ $shipment->shipment_code }}
               </a>
+              @if($shipment->name)
+                <p class="text-xs text-slate-500 mt-0.5">{{ $shipment->name }}</p>
+              @endif
             </td>
 
             <td class="px-4 py-3">

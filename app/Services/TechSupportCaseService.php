@@ -510,8 +510,12 @@ class TechSupportCaseService
 
         if ($ebayRecord) {
             $ebayTab = match ($status) {
-                TechSupportCase::STATUS_RESOLVED => EbayCustomerRecord::TAB_RESOLVED,
-                default => EbayCustomerRecord::TAB_TECHNICAL,
+                TechSupportCase::STATUS_NEW         => EbayCustomerRecord::TAB_TECHNICAL,
+                TechSupportCase::STATUS_RED         => EbayCustomerRecord::TAB_TECHNICAL,
+                TechSupportCase::STATUS_RETURN_APPROVED => EbayCustomerRecord::TAB_RETURN_APPROVED,
+                TechSupportCase::STATUS_RETURN_RECEIVED => EbayCustomerRecord::TAB_RETURN_RECEIVED,
+                TechSupportCase::STATUS_RESOLVED    => EbayCustomerRecord::TAB_RESOLVED,
+                default                             => EbayCustomerRecord::TAB_TECHNICAL,
             };
 
             $ebayUpdates = ['tab_type' => $ebayTab];

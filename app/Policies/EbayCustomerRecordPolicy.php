@@ -40,7 +40,7 @@ class EbayCustomerRecordPolicy
 
     public function interact(User $user, EbayCustomerRecord $record): bool
     {
-        return $user->hasFullCrmEdit() || $user->hasAnyRole(['ebay-supervisor', 'ebay-team']);
+        return $user->hasFullCrmEdit() || $user->hasAnyRole(['ebay-supervisor', 'ebay-team', 'sales-crm']);
     }
 
     public function delete(User $user, EbayCustomerRecord $record): bool

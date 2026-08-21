@@ -49,15 +49,13 @@ class MachineReturn extends Model
     }
 
     public const STATUS_PENDING = 'pending';
-    public const STATUS_PICKUP_ARRANGED = 'pickup_arranged';
-    public const STATUS_IN_TRANSIT = 'in_transit';
+    public const STATUS_IN_TRANSIT = 'in_transit_return';
     public const STATUS_RECEIVED = 'received';
 
     public static function statuses(): array
     {
         return [
             self::STATUS_PENDING => 'Pending',
-            self::STATUS_PICKUP_ARRANGED => 'Pickup Arranged',
             self::STATUS_IN_TRANSIT => 'In Transit',
             self::STATUS_RECEIVED => 'Received',
         ];
@@ -67,7 +65,6 @@ class MachineReturn extends Model
     {
         return match($this->status) {
             self::STATUS_PENDING => '#f59e0b', // amber
-            self::STATUS_PICKUP_ARRANGED => '#3b82f6', // blue
             self::STATUS_IN_TRANSIT => '#0ea5e9', // sky
             self::STATUS_RECEIVED => '#10b981', // emerald
             default => '#94a3b8',

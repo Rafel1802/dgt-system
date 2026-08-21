@@ -24,13 +24,13 @@ class UniversalStatusSyncService
 
         // 2. Sync to Lead (if any)
         $leadStatus = match ($status) {
-            'pickup_arranged' => ($source === 'return' ? WebsiteLeadStatus::LoadedForReturn : WebsiteLeadStatus::Loaded),
-            'in_transit'      => ($source === 'return' ? WebsiteLeadStatus::LoadedForReturn : WebsiteLeadStatus::Loaded),
-            'delivered'       => WebsiteLeadStatus::Delivered,
-            'received'        => WebsiteLeadStatus::ReturnReceived, // For return machines
-            'logistic_delay'  => WebsiteLeadStatus::PendingDelivery,
-            'problem'         => WebsiteLeadStatus::PendingDelivery,
-            default           => null,
+            'in_transit'        => WebsiteLeadStatus::Loaded,
+            'in_transit_return' => WebsiteLeadStatus::LoadedForReturn,
+            'delivered'         => WebsiteLeadStatus::Delivered,
+            'received'          => WebsiteLeadStatus::ReturnReceived, // For return machines
+            'logistic_delay'    => WebsiteLeadStatus::PendingDelivery,
+            'problem'           => WebsiteLeadStatus::PendingDelivery,
+            default             => null,
         };
 
         if ($leadStatus) {
@@ -41,20 +41,26 @@ class UniversalStatusSyncService
 
         // 3. Sync to eBay Records (if any)
         $ebayTab = match ($status) {
-            'delivered' => EbayCustomerRecord::TAB_RESOLVED,
-            'received'  => EbayCustomerRecord::TAB_RETURN_RECEIVED,
-            default     => EbayCustomerRecord::TAB_TECHNICAL,
+            'in_transit'        => EbayCustomerRecord::TAB_LOADED,
+            'in_transit_return' => EbayCustomerRecord::TAB_LOADED_FOR_RETURN,
+            'logistic_delay'    => EbayCustomerRecord::TAB_LOGISTIC_DELAY,
+            'problem'           => EbayCustomerRecord::TAB_LOGISTIC_DELAY,
+            'delivered'         => EbayCustomerRecord::TAB_RESOLVED,
+            'received'          => EbayCustomerRecord::TAB_RETURN_RECEIVED,
+            default             => null,
         };
 
-        foreach ($customer->ebayCustomerRecords as $ebayRecord) {
-            $ebayRecord->updateQuietly(['tab_type' => $ebayTab]);
-            
-            EbayCustomerStatusHistory::create([
-                'ebay_customer_record_id' => $ebayRecord->id,
-                'status'                  => $ebayTab,
-                'changed_by'              => auth()->id() ?? 1,
-                'changed_at'              => now(),
-            ]);
+        if ($ebayTab) {
+            foreach ($customer->ebayCustomerRecords as $ebayRecord) {
+                $ebayRecord->updateQuietly(['tab_type' => $ebayTab]);
+                
+                EbayCustomerStatusHistory::create([
+                    'ebay_customer_record_id' => $ebayRecord->id,
+                    'status'                  => $ebayTab,
+                    'changed_by'              => auth()->id() ?? 1,
+                    'changed_at'              => now(),
+                ]);
+            }
         }
     }
 }

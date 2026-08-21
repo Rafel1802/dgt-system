@@ -50,6 +50,8 @@ class LogisticReturnController extends Controller
         ]);
 
         if ($return->status !== $validated['status']) {
+            abort_unless(auth()->user()->canChangeLogisticStatus(), 403, 'You do not have permission to change the status of a Logistics Return.');
+
             $return->update([
                 'status' => $validated['status'],
                 'handled_by' => auth()->id(),

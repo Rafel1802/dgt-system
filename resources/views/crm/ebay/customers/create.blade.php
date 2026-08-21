@@ -61,9 +61,14 @@
           <label class="form-label">Status <span class="text-red-500">*</span></label>
           <select name="tab_type" class="form-input" x-model="status" required>
             @foreach($tabs as $key => $label)
-            <option value="{{ $key }}" {{ old('tab_type') === $key ? 'selected' : '' }}>{{ $label }}</option>
+              @if(\App\Models\EbayCustomerRecord::isExternallyManagedTab($key))
+                <option value="{{ $key }}" disabled class="text-slate-400 bg-slate-50">{{ $label }} (Managed externally)</option>
+              @else
+                <option value="{{ $key }}" {{ old('tab_type') === $key ? 'selected' : '' }}>{{ $label }}</option>
+              @endif
             @endforeach
           </select>
+          <p class="text-[11px] text-slate-400 mt-1.5">Note: Statuses managed by Logistics or Tech Support cannot be selected manually.</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -127,8 +132,8 @@
         </div>
 
         <div x-show="status === 'cancelation_client'" x-cloak>
-          <label class="form-label">Reason</label>
-          <textarea name="summary" rows="2" class="form-input">{{ old('summary') }}</textarea>
+          <label class="form-label">Reason <span class="text-red-500">*</span></label>
+          <textarea name="summary" rows="2" class="form-input" x-bind:required="status === 'cancelation_client'">{{ old('summary') }}</textarea>
         </div>
 
         <div x-show="['potential_negatives', 'negatives_feedbacks'].includes(status)" x-cloak class="pt-2 border-t border-slate-100">

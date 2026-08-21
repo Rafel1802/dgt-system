@@ -13,7 +13,7 @@ class Shipment extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'shipment_code', 'status',
+        'shipment_code', 'name', 'status',
         'trucking_company_id', 'driver_id', 'created_by', 'assigned_to',
         'estimated_arrival', 'actual_arrival', 'notes',
     ];

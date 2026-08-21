@@ -28,7 +28,12 @@
     {{-- Top: Details Summary --}}
     <div class="card p-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-          <h2 class="font-display font-bold text-slate-800 text-xl">{{ $shipment->shipment_code }}</h2>
+          <div>
+            <h2 class="font-display font-bold text-slate-800 text-xl">{{ $shipment->shipment_code }}</h2>
+            @if($shipment->name)
+              <p class="text-sm text-slate-500 mt-1">{{ $shipment->name }}</p>
+            @endif
+          </div>
           @php $statusCounts = $shipment->customerStatusCounts(); @endphp
           @if(count($statusCounts) > 1)
           <div class="flex flex-wrap gap-1 justify-end">

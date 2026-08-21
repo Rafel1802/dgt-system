@@ -74,6 +74,14 @@ class EbayCustomerRecord extends Model
     const TAB_RETURN_RECEIVED= 'return_received';
     const TAB_RESOLVED       = 'resolved';
 
+    // New Logistics Tabs
+    const TAB_LOADED         = 'loaded';
+    const TAB_LOADED_FOR_RETURN = 'loaded_for_return';
+    const TAB_LOGISTIC_DELAY = 'logistic_delay';
+
+    // New Technical Tabs
+    const TAB_RETURN_APPROVED = 'return_approved';
+
     protected $fillable = [
         'tab_type',
         'customer_id',
@@ -120,6 +128,12 @@ class EbayCustomerRecord extends Model
             self::TAB_NEW_ORDER     => 'New Order',
             self::TAB_RETURN_RECEIVED=> 'Return Received',
             self::TAB_RESOLVED      => 'Resolved',
+
+            self::TAB_LOADED         => 'Loaded (Delivery)',
+            self::TAB_LOADED_FOR_RETURN => 'Loaded (Return Machine)',
+            self::TAB_LOGISTIC_DELAY => 'Logistic Delay',
+
+            self::TAB_RETURN_APPROVED => 'Return Approved',
         ];
     }
 
@@ -135,8 +149,34 @@ class EbayCustomerRecord extends Model
             self::TAB_NEW_ORDER     => '#3b82f6', // blue
             self::TAB_RETURN_RECEIVED=> '#10b981', // emerald
             self::TAB_RESOLVED      => '#0ea5e9', // sky
+
+            self::TAB_LOADED         => '#3b82f6', // blue
+            self::TAB_LOADED_FOR_RETURN => '#3b82f6', // blue
+            self::TAB_LOGISTIC_DELAY => '#ef4444', // red
+
+            self::TAB_RETURN_APPROVED => '#e11d48', // rose
+
             default                 => '#94a3b8',
         };
+    }
+
+    /** Return tabs that are externally managed by Logistics or Technical Support */
+    public static function externallyManagedTabs(): array
+    {
+        return [
+            // Logistics
+            self::TAB_LOADED,
+            self::TAB_LOADED_FOR_RETURN,
+            self::TAB_LOGISTIC_DELAY,
+            // Technical
+            self::TAB_RETURN_APPROVED,
+        ];
+    }
+
+    /** Check if a tab is externally managed */
+    public static function isExternallyManagedTab(?string $tab): bool
+    {
+        return in_array($tab, self::externallyManagedTabs(), true);
     }
 
     /**

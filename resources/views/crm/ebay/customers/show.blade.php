@@ -174,8 +174,20 @@
           @foreach($tabs as $key => $label)
           @php 
             $isActive = $record->tab_type === $key; 
-            $isAutoManaged = in_array($key, [\App\Models\EbayCustomerRecord::TAB_RETURN_RECEIVED, \App\Models\EbayCustomerRecord::TAB_RESOLVED], true);
-            $canClickTab = auth()->user()->canModifyCrmData() && (! $isAutoManaged || auth()->user()->hasAnyRole(['super-admin', 'admin', 'boss', 'admin-crm']));
+            
+            // It's auto-managed if it's in the hardcoded list OR if it's externally managed
+            $isAutoManaged = in_array($key, [\App\Models\EbayCustomerRecord::TAB_RETURN_RECEIVED, \App\Models\EbayCustomerRecord::TAB_RESOLVED], true)
+                || \App\Models\EbayCustomerRecord::isExternallyManagedTab($key);
+
+            // You can only click if you have CRM modify permissions AND:
+            // 1. You are an admin (for the hardcoded auto-managed ones, though externally managed still blocks you if validation says so)
+            // 2. The target tab is NOT externally managed
+            // 3. The current tab is NOT externally managed (you can't pull them out of a logistics workflow)
+            $isCurrentlyLocked = \App\Models\EbayCustomerRecord::isExternallyManagedTab($record->tab_type);
+            $canClickTab = auth()->user()->canModifyCrmData() 
+                && ! \App\Models\EbayCustomerRecord::isExternallyManagedTab($key) 
+                && ! $isCurrentlyLocked
+                && (! in_array($key, [\App\Models\EbayCustomerRecord::TAB_RETURN_RECEIVED, \App\Models\EbayCustomerRecord::TAB_RESOLVED], true) || auth()->user()->hasAnyRole(['super-admin', 'admin', 'boss', 'admin-crm']));
           @endphp
           <button
             type="button"
@@ -193,7 +205,11 @@
           @endforeach
         </div>
         @if(auth()->user()->canModifyCrmData())
-        <p class="text-xs text-slate-400 mt-2">Click a stage to update status (requires follow-up note).</p>
+            @if(\App\Models\EbayCustomerRecord::isExternallyManagedTab($record->tab_type))
+            <p class="text-xs text-amber-600 mt-2 font-medium">⚠ Status is currently locked because it is managed by an external department (Logistics/Tech Support).</p>
+            @else
+            <p class="text-xs text-slate-400 mt-2">Click a stage to update status (requires follow-up note).</p>
+            @endif
         @endif
       </div>
 

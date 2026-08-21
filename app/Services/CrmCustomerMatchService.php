@@ -828,8 +828,13 @@ class CrmCustomerMatchService
                 $badges[] = ['label' => 'Return Received', 'color' => '#10b981', 'category' => 'resolved'];
                 $categories[] = 'resolved';
             } elseif ($isResolved) {
-                $badges[] = ['label' => 'Resolved', 'color' => '#0ea5e9', 'category' => 'resolved'];
-                $categories[] = 'resolved';
+                if ($record->shipment_delivered) {
+                    $badges[] = ['label' => 'Delivered', 'color' => EbayCustomerRecord::DELIVERED_COLOR, 'category' => 'delivered'];
+                    $categories[] = 'delivered';
+                } else {
+                    $badges[] = ['label' => 'Resolved', 'color' => '#0ea5e9', 'category' => 'resolved'];
+                    $categories[] = 'resolved';
+                }
             } else {
                 if ($hasLogisticIssue) {
                     $badges[] = ['label' => 'Logistic issues', 'color' => EbayCustomerRecord::LOGISTIC_ISSUES_COLOR, 'category' => 'shipment_delay'];

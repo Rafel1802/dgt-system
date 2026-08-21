@@ -114,6 +114,8 @@ if __name__ == "__main__":
     tinker_fix_colors = PHP + ' artisan tinker --execute="App\\Models\\BoardList::whereIn(\'name\', [\'Week 3\', \'Week 4\'])->update([\'color\' => null]);" && '
 
     tinker_fix_returns = PHP + ' artisan tinker --execute="App\\\\Models\\\\MachineReturn::where(\'status\', \'received\')->with(\'customer.ebayCustomerRecords\')->get()->each(function(\\$r) { if(\\$r->customer) { foreach(\\$r->customer->ebayCustomerRecords as \\$rec) { if(\\$rec->tab_type !== \'return_received\') \\$rec->updateQuietly([\'tab_type\' => \'return_received\']); } } });" && '
+    
+    tinker_fix_statuses = PHP + ' artisan tinker --execute="App\\\\Models\\\\EbayCustomerRecord::whereIn(\'tab_type\', [\'tech_in_progress\', \'tech_potential_return\'])->update([\'tab_type\' => \'technical_issues\']); App\\\\Models\\\\EbayCustomerRecord::where(\'tab_type\', \'tech_return_machine\')->update([\'tab_type\' => \'return_approved\']); App\\\\Models\\\\EbayCustomerRecord::where(\'tab_type\', \'pickup_arranged\')->update([\'tab_type\' => \'loaded_for_return\']); App\\\\Models\\\\TechSupportCase::where(\'status\', \'in_progress\')->update([\'status\' => \'new_case\']); App\\\\Models\\\\TechSupportCase::where(\'status\', \'return_machine\')->update([\'status\' => \'return_approved\']); App\\\\Models\\\\MachineReturn::where(\'status\', \'pickup_arranged\')->update([\'status\' => \'in_transit_return\']);" && '
 
     ssh_cmd = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
@@ -130,6 +132,7 @@ if __name__ == "__main__":
             + PHP + " artisan cards:restore-block-smm && "
             + PHP + " artisan migrate --force && "
             + tinker_fix_returns
+            + tinker_fix_statuses
             + PHP + " artisan view:cache && "
             + PHP + " artisan storage:link"
         )

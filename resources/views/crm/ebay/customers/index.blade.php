@@ -198,7 +198,7 @@
             <td class="px-4 py-3 font-mono text-xs text-slate-600 border-r border-slate-100">{{ $record->order_id ?? '—' }}</td>
             <td class="px-4 py-3 text-xs text-slate-600 max-w-[220px] truncate border-r border-slate-100" title="{{ $record->summary }}">{{ Str::limit($record->summary, 60) ?: '—' }}</td>
             <td class="px-4 py-3 text-xs text-slate-500 border-r border-slate-100">{{ $record->created_at?->format('d/m/Y') ?? '—' }}</td>
-            <td class="px-4 py-3 text-xs text-slate-500 border-r border-slate-100">{{ ($record->date ?? $record->order_date)?->format('d/m/Y') ?? '—' }}</td>
+            <td class="px-4 py-3 text-xs text-slate-500 border-r border-slate-100">{{ ($record->latestOrder?->ordered_at ?? $record->order_date ?? $record->date)?->format('d/m/Y') ?? '—' }}</td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 justify-end">
                 <a href="{{ route('crm.ebay.customers.show', $record) }}"

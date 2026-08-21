@@ -77,11 +77,28 @@
 
         <div>
           <label class="form-label">Status <span class="text-red-500">*</span></label>
-          <select name="tab_type" class="form-input" x-model="status" required>
-            @foreach($tabs as $key => $label)
-            <option value="{{ $key }}" {{ old('tab_type', $record->tab_type) === $key ? 'selected' : '' }}>{{ $label }}</option>
-            @endforeach
-          </select>
+          @if(\App\Models\EbayCustomerRecord::isExternallyManagedTab($record->tab_type))
+            <input type="hidden" name="tab_type" value="{{ $record->tab_type }}">
+            <div class="form-input bg-slate-50 text-slate-500 cursor-not-allowed flex items-center justify-between shadow-sm">
+              <span class="font-medium text-slate-700">{{ $tabs[$record->tab_type] ?? $record->tab_type }}</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+            </div>
+            <p class="text-xs text-slate-500 mt-1.5 flex items-start gap-1">
+              <svg class="w-3.5 h-3.5 text-indigo-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+              <span>This status is managed by <strong>Logistics or Tech Support</strong> and cannot be manually changed from the eBay record.</span>
+            </p>
+          @else
+            <select name="tab_type" class="form-input" x-model="status" required>
+              @foreach($tabs as $key => $label)
+                @if(\App\Models\EbayCustomerRecord::isExternallyManagedTab($key))
+                  <option value="{{ $key }}" disabled class="text-slate-400 bg-slate-50">{{ $label }} (Managed externally)</option>
+                @else
+                  <option value="{{ $key }}" {{ old('tab_type', $record->tab_type) === $key ? 'selected' : '' }}>{{ $label }}</option>
+                @endif
+              @endforeach
+            </select>
+            <p class="text-[11px] text-slate-400 mt-1.5">Note: Statuses managed by Logistics or Tech Support cannot be selected manually.</p>
+          @endif
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -145,8 +162,8 @@
         </div>
 
         <div x-show="status === 'cancelation_client'" x-cloak>
-          <label class="form-label">Reason</label>
-          <textarea name="summary" rows="2" class="form-input">{{ old('summary', $record->summary) }}</textarea>
+          <label class="form-label">Reason <span class="text-red-500">*</span></label>
+          <textarea name="summary" rows="2" class="form-input" x-bind:required="status === 'cancelation_client'">{{ old('summary', $record->summary) }}</textarea>
         </div>
 
         <div x-show="['potential_negatives', 'negatives_feedbacks'].includes(status)" x-cloak class="pt-2 border-t border-slate-100">

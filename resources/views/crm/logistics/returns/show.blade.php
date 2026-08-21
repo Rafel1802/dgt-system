@@ -68,6 +68,7 @@
           </div>
         </div>
 
+        @if(auth()->user()->canChangeLogisticStatus())
         {{-- Status buttons --}}
         <div class="mt-4 pt-4 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Update Return Status</p>
@@ -90,6 +91,7 @@
           </div>
           <p x-show="statusLoading" x-cloak class="text-xs text-slate-400 mt-2">Updating…</p>
         </div>
+        @endif
       </div>
     </div>
 
