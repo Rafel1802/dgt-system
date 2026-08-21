@@ -17,8 +17,9 @@
   }
 @endphp
 
-<div id="crm-logistics-return-detail" class="animate-fade-in live-swap-target" x-data="machineReturn">
-  <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+<div id="crm-logistics-return-detail" class="live-swap-target">
+  <div class="animate-fade-in" x-data="machineReturn('{{ $return->status }}')">
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
     
     {{-- ── Left: Customer & Case Info ───────────────────────────────────────── --}}
     <div class="xl:col-span-1 space-y-4">
@@ -203,19 +204,20 @@
     </div>
   </div>
 </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
   (function() {
     const init = () => {
-      Alpine.data('machineReturn', () => ({
+      Alpine.data('machineReturn', (initialStatus = null) => ({
         statusLoading: false,
         showStatusModal: false,
         showAddNote: false,
         pendingStatus: '',
         statusNote: '',
-        currentStatus: @js($return->status),
+        currentStatus: initialStatus || @js($return->status),
         statusLabels: @js($statuses),
         statusColors: @js($statusColors),
 

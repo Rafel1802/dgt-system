@@ -47,6 +47,9 @@ class EbayCustomerController extends Controller
         ]);
 
         $tabType = $request->get('tab_type');
+        if ($tabType === 'all') {
+            $tabType = null;
+        }
         if ($tabType && array_key_exists($tabType, EbayCustomerRecord::tabs())) {
             $query->forTab($tabType);
         }
@@ -322,9 +325,9 @@ class EbayCustomerController extends Controller
             }
         }
 
-        $tabType = $validated['tab_type'] ?? 'all';
+        $tabType = $validated['tab_type'] ?? '';
 
-        return redirect()->route('crm.ebay.customers.index', ['tab_type' => $tabType])
+        return redirect()->route('crm.ebay.customers.index', $tabType ? ['tab_type' => $tabType] : [])
             ->with('success', "{$count} eBay record(s) deleted.");
     }
 

@@ -96,7 +96,7 @@
               @foreach($statuses as $s)
               @php
                 $isActive = old('status', $lead->status?->value) === $s->value;
-                $isResolvedOption = $s->value === \App\Enums\WebsiteLeadStatus::Resolved->value;
+                $isResolvedOption = $s->value === \App\Enums\WebsiteLeadStatus::Resolve->value;
                 $isDisabled = $isResolvedOption && !$isActive;
               @endphp
               <option value="{{ $s->value }}" {{ $isActive ? 'selected' : '' }} {{ $isDisabled ? 'disabled' : '' }}>

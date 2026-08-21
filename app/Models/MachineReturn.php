@@ -27,7 +27,7 @@ class MachineReturn extends Model
 
             if ($return->wasChanged('status')) {
                 if ($return->customer) {
-                    \App\Services\UniversalStatusSyncService::syncLogisticStatus($return->customer, $return->status);
+                    \App\Services\UniversalStatusSyncService::syncLogisticStatus($return->customer, $return->status, 'return');
                 }
                 
                 // Sync to Tech Support Case if it's marked as received

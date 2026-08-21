@@ -190,7 +190,7 @@ class CrmReportService
             'logistic' => [
                 'label' => 'Logistic', 'color' => '#10b981', 'icon' => '🚚',
                 'metrics' => [
-                    'Customers Handled'        => Shipment::whereBetween('created_at', [$since, $until])->count(),
+                    'Shipments Handled'        => Shipment::whereBetween('created_at', [$since, $until])->count(),
                     'Completed Deliveries'     => Shipment::where('status', Shipment::STATUS_COMPLETE)->whereBetween('updated_at', [$since, $until])->count(),
                     'Returned Customers'       => \App\Models\MachineReturn::whereBetween('created_at', [$since, $until])->distinct('customer_id')->count('customer_id'),
                     'Total Customer Delivered' => ShipmentCustomer::where(fn($q) => $q->whereNull('handled_by')->orWhere('handled_by', 0)->orWhereIn('handled_by', $logisticUserIds))->where('status', ShipmentCustomer::STATUS_DELIVERED)->whereBetween('created_at', [$since, $until])->count(),

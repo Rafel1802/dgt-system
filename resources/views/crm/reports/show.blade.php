@@ -164,7 +164,7 @@
             <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ $domainLabels[$d] }}</span>
           </div>
           <p class="text-3xl font-black text-slate-800 tracking-tight">{{ number_format($headline[$d]) }}</p>
-          <p class="text-xs font-semibold text-slate-400 mb-3">Handled Items</p>
+          <p class="text-xs font-semibold text-slate-400 mb-3">{{ $d === 'logistic' ? 'Shipments Handled' : 'Handled Customers' }}</p>
           <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
             <div class="h-full rounded-full transition-all duration-500" style="width:{{ round($headline[$d] / $maxHeadline * 100) }}%; background:{{ $domainColors[$d] }}"></div>
           </div>
@@ -346,7 +346,7 @@
             </div>
             <div class="space-y-2">
               <div class="flex justify-between items-center text-xs py-1.5 px-3 rounded-xl bg-white border border-slate-100/50">
-                <span class="text-slate-500 font-medium">Customers Handled</span>
+                <span class="text-slate-500 font-medium">Shipments Handled</span>
                 <b class="text-slate-800 font-bold">{{ number_format($summary['logistic']['assigned']) }}</b>
               </div>
               <div class="flex justify-between items-center text-xs py-1.5 px-3 rounded-xl bg-white border border-slate-100/50">

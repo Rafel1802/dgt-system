@@ -14,7 +14,7 @@ class UniversalStatusSyncService
      * Syncs logistics statuses (from ShipmentCustomer or MachineReturn)
      * back to the parent Customer and original sources.
      */
-    public static function syncLogisticStatus(Customer $customer, string $status): void
+    public static function syncLogisticStatus(Customer $customer, string $status, string $source = 'shipment'): void
     {
         // 1. Sync to Customer
         $customerStatus = CustomerStatus::tryFrom($status);
@@ -24,8 +24,8 @@ class UniversalStatusSyncService
 
         // 2. Sync to Lead (if any)
         $leadStatus = match ($status) {
-            'pickup_arranged' => WebsiteLeadStatus::Loaded,
-            'in_transit'      => WebsiteLeadStatus::Loaded,
+            'pickup_arranged' => ($source === 'return' ? WebsiteLeadStatus::LoadedForReturn : WebsiteLeadStatus::Loaded),
+            'in_transit'      => ($source === 'return' ? WebsiteLeadStatus::LoadedForReturn : WebsiteLeadStatus::Loaded),
             'delivered'       => WebsiteLeadStatus::Delivered,
             'received'        => WebsiteLeadStatus::ReturnReceived, // For return machines
             'logistic_delay'  => WebsiteLeadStatus::PendingDelivery,

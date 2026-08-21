@@ -10,6 +10,7 @@ enum WebsiteLeadStatus: string
     case SuccessfulLead   = 'successful_lead';
     case PendingDelivery  = 'pending_delivery';
     case Loaded           = 'loaded';
+    case LoadedForReturn  = 'loaded_for_return';
     case Delivered        = 'delivered';
     case TechnicalIssues  = 'technical_issues';
     case PotentialReturn  = 'potential_return';
@@ -26,6 +27,7 @@ enum WebsiteLeadStatus: string
             self::SuccessfulLead   => 'Successful Lead',
             self::PendingDelivery  => 'Pending Delivery',
             self::Loaded           => 'Loaded',
+            self::LoadedForReturn  => 'Loaded (Return machine)',
             self::Delivered        => 'Delivered',
             self::TechnicalIssues  => 'Technical Issues',
             self::PotentialReturn  => 'Potential Return',
@@ -44,6 +46,7 @@ enum WebsiteLeadStatus: string
             self::SuccessfulLead   => '#10b981', // emerald
             self::PendingDelivery  => '#f59e0b', // amber
             self::Loaded           => '#3b82f6', // blue
+            self::LoadedForReturn  => '#3b82f6', // blue
             self::Delivered        => '#22c55e', // green
             self::TechnicalIssues  => '#ef4444', // red
             self::PotentialReturn  => '#f97316', // orange
@@ -61,7 +64,8 @@ enum WebsiteLeadStatus: string
             self::LostInterest     => 'badge-rose',
             self::SuccessfulLead   => 'badge-emerald',
             self::PendingDelivery  => 'badge-amber',
-            self::Loaded         => 'badge-blue',
+            self::Loaded           => 'badge-blue',
+            self::LoadedForReturn  => 'badge-blue',
             self::Delivered        => 'badge-green',
             self::TechnicalIssues  => 'badge-rose',
             self::PotentialReturn  => 'badge-orange',
