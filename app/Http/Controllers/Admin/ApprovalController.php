@@ -150,7 +150,13 @@ class ApprovalController extends Controller
                     ->whereHas('boardList', fn($bl) => $bl->where('name', 'like', '%Approved%'));
 
                 if ($start && $end) {
-                    $q->whereBetween('approved_at', [$start, $end]);
+                    $q->where(function ($query) use ($start, $end) {
+                        $query->whereBetween('approved_at', [$start, $end])
+                              ->orWhere(function ($sub) use ($start, $end) {
+                                  $sub->whereNull('approved_at')
+                                      ->whereBetween('updated_at', [$start, $end]);
+                              });
+                    });
                 }
                 return $q->get();
             };
@@ -216,7 +222,13 @@ class ApprovalController extends Controller
         $approvedCards = Card::with(['boardList', 'labels', 'board.workspace'])
             ->whereIn('board_id', $boardIds)
             ->whereHas('boardList', fn($q) => $q->where('name', 'like', '%Approved%'))
-            ->whereBetween('approved_at', [$start, $end])
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('approved_at', [$start, $end])
+                      ->orWhere(function ($sub) use ($start, $end) {
+                          $sub->whereNull('approved_at')
+                              ->whereBetween('updated_at', [$start, $end]);
+                      });
+            })
             ->get();
 
         return response()->json([

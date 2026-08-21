@@ -1347,7 +1347,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             Download App
                         </a>
                         <hr class="border-[var(--border-color)] my-1">
-                        <form method="POST" action="{{ route('logout') }}">
+                        <form method="POST" action="{{ route('logout') }}" data-turbo="false">
                             @csrf
                             <button type="submit" class="dropdown-item danger w-full hover:!bg-rose-600 hover:!text-white" role="menuitem" id="menu-logout">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
