@@ -24,7 +24,8 @@ class CrmTeamNotifier
 
     public static function notifyEbayAndSalesTeams(string $type, string $message, string $link, ?int $excludeUserId = null): void
     {
-        self::sendToRoles([...self::RECIPIENT_ROLES, ...self::ADMIN_ROLES], $type, $message, $link, $excludeUserId);
+        $actor = $excludeUserId ? User::find($excludeUserId) : null;
+        self::sendToRoles([...self::RECIPIENT_ROLES, ...self::ADMIN_ROLES], $type, $message, $link, $actor);
     }
 
     public static function notifyTechCaseStatusChange(\App\Models\TechSupportCase $case, ?User $actor = null): void
@@ -48,7 +49,7 @@ class CrmTeamNotifier
         if ($case->assigned_to) $userIds[] = $case->assigned_to;
         if ($case->created_by) $userIds[] = $case->created_by;
         
-        self::sendToRoles($roles, 'tech_case_status_changed', $message, $link, $actor?->id, $userIds, $case);
+        self::sendToRoles($roles, 'tech_case_status_changed', $message, $link, $actor, $userIds, $case);
 
         defer(function () use ($case, $statusLabel, $actor) {
             broadcast(new \App\Events\CustomerStatusUpdatedLive(
@@ -74,7 +75,7 @@ class CrmTeamNotifier
         
         $roles = ['logistic-team', 'logistic-supervisor', 'admin-crm', 'super-admin'];
         
-        self::sendToRoles($roles, 'machine_return', $message, $link, $actor->id);
+        self::sendToRoles($roles, 'machine_return', $message, $link, $actor);
 
         defer(function () use ($machineReturn, $actor) {
             broadcast(new \App\Events\CustomerDataUpdatedLive(
@@ -130,6 +131,8 @@ class CrmTeamNotifier
                     'updated_by'   => $actor->name,
                     'updated_at'   => now()->toDateTimeString(),
                     'changes'      => $changes,
+                    'actor_name'   => $actor->name,
+                    'actor_avatar' => $actor->avatar_url,
                 ]));
             }
         });
@@ -151,7 +154,7 @@ class CrmTeamNotifier
             $reason ? " — {$reason}" : '.'
         );
 
-        self::sendToRoles([...$queue->notifyRoles(), ...self::ADMIN_ROLES], 'customer_routed', $message, route('crm.customers.show', $customer), $actor->id);
+        self::sendToRoles([...$queue->notifyRoles(), ...self::ADMIN_ROLES], 'customer_routed', $message, route('crm.customers.show', $customer), $actor);
     }
 
     public static function notifyStatusChange(\Illuminate\Database\Eloquent\Model $record, string $previousStatus, string $newStatus, User $actor, string $teamName): void
@@ -210,7 +213,7 @@ class CrmTeamNotifier
             if (isset($record->user_id)) $userIds[] = $record->user_id;
         }
 
-        self::sendToRoles($roles, 'status_changed', $message, $link, $actor->id, $userIds, $record);
+        self::sendToRoles($roles, 'status_changed', $message, $link, $actor, $userIds, $record);
 
         // Also broadcast the live UI update event to anyone looking at the page
         $type = 'customer';
@@ -249,7 +252,7 @@ class CrmTeamNotifier
         );
         
         // Notify the specific new handler, plus admins
-        self::sendToRoles(self::ADMIN_ROLES, 'handler_changed', $message, $link, $actor->id, [$newHandler->id], $record);
+        self::sendToRoles(self::ADMIN_ROLES, 'handler_changed', $message, $link, $actor, [$newHandler->id], $record);
     }
 
     public static function notifyBulkStatusChange(int $count, string $newStatus, User $actor, string $teamName, string $link): void
@@ -262,12 +265,12 @@ class CrmTeamNotifier
             $actor->name, $teamName, $count, $newLabel
         );
         
-        self::sendToRoles($roles, 'status_changed', $message, $link, $actor->id);
+        self::sendToRoles($roles, 'status_changed', $message, $link, $actor);
     }
 
-    private static function sendToRoles(array $roles, string $type, string $message, string $link, ?int $excludeUserId = null, array $userIds = [], ?\Illuminate\Database\Eloquent\Model $record = null): void
+    private static function sendToRoles(array $roles, string $type, string $message, string $link, ?User $actor = null, array $userIds = [], ?\Illuminate\Database\Eloquent\Model $record = null): void
     {
-        defer(function () use ($roles, $type, $message, $link, $excludeUserId, $userIds, $record) {
+        defer(function () use ($roles, $type, $message, $link, $actor, $userIds, $record) {
             $recipients = User::where('is_active', true)
                 ->where(function ($q) use ($roles, $userIds) {
                     if (!empty($roles)) {
@@ -278,8 +281,8 @@ class CrmTeamNotifier
                     }
                 })->get();
 
-            if ($excludeUserId) {
-                $recipients = $recipients->reject(fn (User $u) => $u->id === $excludeUserId);
+            if ($actor) {
+                $recipients = $recipients->reject(fn (User $u) => $u->id === $actor->id);
             }
 
             foreach ($recipients as $recipient) {
@@ -307,12 +310,19 @@ class CrmTeamNotifier
                     }
                 }
 
-                InstantNotifier::send($recipient, new GenericDatabaseNotification([
+                $data = [
                     'module'  => 'crm',
                     'type'    => $type,
                     'message' => $message,
                     'link'    => $userLink,
-                ]));
+                ];
+
+                if ($actor) {
+                    $data['actor_name'] = $actor->name;
+                    $data['actor_avatar'] = $actor->avatar_url;
+                }
+
+                InstantNotifier::send($recipient, new GenericDatabaseNotification($data));
             }
         });
     }

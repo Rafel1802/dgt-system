@@ -101,4 +101,13 @@ class NotificationController extends Controller
             
         return response()->json(['success' => true]);
     }
+
+    /** Clear (delete) all CRM notifications for the current user. */
+    public function clearCrm(): JsonResponse
+    {
+        $user = auth()->user();
+        $user->notifications()->where('data->module', 'crm')->delete();
+
+        return response()->json(['success' => true]);
+    }
 }

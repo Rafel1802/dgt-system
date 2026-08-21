@@ -646,6 +646,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::get('/notifications', [App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('notifications.index');
         Route::post('/notifications/{id}/read', [App\Http\Controllers\Admin\NotificationController::class, 'markAsRead'])->name('notifications.read');
         Route::post('/notifications/read-all', [App\Http\Controllers\Admin\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+        Route::post('/notifications/clear-crm', [App\Http\Controllers\Admin\NotificationController::class, 'clearCrm'])->name('notifications.clear-crm');
 
         // ── Social Media Team ─────────────────────────────────────────────
         Route::prefix('social-media')

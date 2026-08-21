@@ -1541,6 +1541,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                               :class="notificationsMuted ? 'translate-x-3' : 'translate-x-0'"></span>
                                     </div>
                                 </button>
+
+                                @if(in_array('crm', auth()->user()->notificationModules(), true))
+                                <button type="button"
+                                        @click="clearCrmNotifications()"
+                                        class="mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50/50 px-3 py-2 text-left text-xs font-bold text-red-600 transition hover:bg-red-100">
+                                    <span class="flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Clear CRM Notifications
+                                    </span>
+                                </button>
+                                @endif
                             </div>
 
                             <div class="max-h-96 overflow-y-auto divide-y divide-slate-100 scrollbar-thin">
@@ -2568,12 +2581,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             
                             // Prevent browser freeze from a flood of toasts on wake-up
                             if (index < 3) {
-                                if (newNotif.data && newNotif.data.actor_name) {
+                                if (newNotif.data && newNotif.data.module !== 'crm' && newNotif.data.actor_name) {
                                     window.showRichNotificationToast(newNotif.data);
                                     if (newNotif.data.browser_notifications_enabled !== false) {
                                         window.sendBrowserNotification(
                                             "KIUQ Board Update",
-                                            `${newNotif.data.actor_name} ${newNotif.data.description.replace(/\*\*/g, '')}`,
+                                            `${newNotif.data.actor_name} ${newNotif.data.description?.replace(/\*\*/g, '') || ''}`,
                                             newNotif.data.actor_avatar
                                         );
                                     }
@@ -2627,14 +2640,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 this.unreadCount++;
                 window.dispatchEvent(new CustomEvent('kiuq:realtime-notification', { detail: notifItem }));
 
-                // Trigger animations and toasts. Board/Kanban payloads carry
-                // actor_name and get the rich card toast; CRM payloads (call
-                // requests, tech support cases) never set actor_name — they
-                // get the persistent CRM notification card instead (stacks,
+                // Trigger animations and toasts. Board/Kanban payloads use the rich card toast;
+                // CRM payloads get the persistent CRM notification card instead (stacks,
                 // stays until manually closed) rather than the Board-style
-                // toast, which auto-dismisses and expects actor fields this
-                // payload shape doesn't have.
-                if (notifItem.data && notifItem.data.actor_name) {
+                // toast, which auto-dismisses.
+                if (notifItem.data && notifItem.data.module !== 'crm' && notifItem.data.actor_name) {
                     window.showRichNotificationToast(notifItem.data);
                 } else {
                     window.showCrmNotificationCard(notifItem.data, notifItem.id);
@@ -2726,6 +2736,33 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     window.showToast("All notifications marked as read!");
                 } catch(e) {
                     console.error(e);
+                }
+            },
+
+            async clearCrmNotifications() {
+                if (!confirm('Are you sure you want to delete all CRM notifications? This action cannot be undone.')) {
+                    return;
+                }
+                
+                try {
+                    await fetch('{{ route('notifications.clear-crm') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    });
+                    
+                    // Filter out CRM notifications from local state
+                    this.notifications = this.notifications.filter(n => n.data?.module !== 'crm');
+                    
+                    // Recalculate unread count
+                    this.unreadCount = this.notifications.filter(n => !n.read_at).length;
+                    
+                    window.showToast("CRM notifications cleared!");
+                } catch(e) {
+                    console.error(e);
+                    window.showToast("Failed to clear notifications.", "error");
                 }
             },
 
