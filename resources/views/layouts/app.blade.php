@@ -2287,15 +2287,22 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         const icon = icons[data.type] || '🔔';
         const shortMessage = window.dgtShortenNotificationText(data.message || 'New update', 90);
 
+        const actorName = data.actor_name || 'KIUQ SYSTEM';
+        const avatarHtml = data.actor_avatar 
+            ? `<img src="${data.actor_avatar}" class="h-9 w-9 rounded-full object-cover ring-1 ring-slate-200 shadow-sm" alt="" />`
+            : `<div class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-lg shadow-sm ring-1 ring-slate-200">${icon}</div>`;
+
         const card = document.createElement('div');
         card.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-300 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
         if (normId) card.dataset.notificationId = normId;
 
         card.innerHTML = `
-            <div class="flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-lg">${icon}</div>
+            <div class="flex-shrink-0 flex items-center gap-2">
+                ${avatarHtml}
+            </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                    <p class="truncate text-sm font-black text-slate-900">KIUQ SYSTEM</p>
+                    <p class="truncate text-sm font-black text-slate-900">${window.dgtEscapeHtml(actorName)}</p>
                     <span class="ml-auto text-[10px] font-bold text-slate-500">now</span>
                 </div>
                 <p class="mt-1.5 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(data.message || 'New update')}">${window.dgtEscapeHtml(shortMessage)}</p>
