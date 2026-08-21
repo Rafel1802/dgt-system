@@ -86,7 +86,7 @@
             @php 
               $canChangeStatus = auth()->user()->canChangeTechSupportStatus(); 
               // Extract status change logs (or important milestones)
-              $statusLogs = $case->logs->whereIn('type', ['call_completed', 'reopened', 'resolved', 'status_update', 'return_machine'])->sortBy('created_at');
+              $statusLogs = $case->logs->whereIn('type', ['call_completed', 'reopened', 'resolved', 'status_update', 'return_approved'])->sortBy('created_at');
             @endphp
 
             {{-- Render past status timeline --}}
@@ -96,7 +96,7 @@
               <div class="relative flex items-start gap-3">
                 <div class="w-5 h-5 rounded-full border-2 border-white bg-slate-300 z-10 shrink-0 mt-0.5"></div>
                 <div>
-                  <p class="text-sm font-semibold text-slate-700">{{ match($sl->type) { 'resolved' => 'Resolved', 'return_machine' => 'Return Machine', 'reopened' => 'Reopened', 'call_completed' => 'Call Completed', default => 'Status Updated' } }}</p>
+                  <p class="text-sm font-semibold text-slate-700">{{ match($sl->type) { 'resolved' => 'Resolved', 'return_approved' => 'Return Approved', 'reopened' => 'Reopened', 'call_completed' => 'Call Completed', default => 'Status Updated' } }}</p>
                   @if($sl->note)<p class="text-xs text-slate-600 mt-1">{{ $sl->note }}</p>@endif
                   <p class="text-[10px] text-slate-400 mt-1">{{ $sl->created_at->format('d M Y, g:ia') }} by {{ $sl->user?->name ?? 'System' }}</p>
                 </div>
@@ -418,7 +418,7 @@
             return;
           }
 
-          if (newStatus === 'return_machine') {
+          if (newStatus === 'return_approved') {
             this.returnNote = '';
             this.showReturnModal = true;
             return;
@@ -471,9 +471,9 @@
           try {
             const data = await window.api('{{ route('crm.tech-support.status', $case) }}', {
               method: 'PATCH',
-              body: JSON.stringify({ status: 'return_machine', note: this.returnNote })
+              body: JSON.stringify({ status: 'return_approved', note: this.returnNote })
             });
-            this.currentStatus = data.status || 'return_machine';
+            this.currentStatus = data.status || 'return_approved';
             this.showReturnModal = false;
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Machine marked for return!', type: 'success' } }));
             document.dispatchEvent(new CustomEvent('ajax-success'));

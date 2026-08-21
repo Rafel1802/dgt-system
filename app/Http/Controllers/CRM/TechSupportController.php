@@ -51,14 +51,16 @@ class TechSupportController extends Controller
                 ->selectRaw('COUNT(*) as total')
                 ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as new_count", [TechSupportCase::STATUS_NEW])
                 ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as in_progress", [TechSupportCase::STATUS_IN_PROGRESS])
+                ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as return_approved", [TechSupportCase::STATUS_RETURN_APPROVED])
                 ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as red", [TechSupportCase::STATUS_RED])
                 ->selectRaw("SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as resolved", [TechSupportCase::STATUS_RESOLVED])
                 ->first();
 
             return [
-                'total'       => (int) ($row->total ?? 0),
-                'new'         => (int) ($row->new_count ?? 0),
-                'in_progress' => (int) ($row->in_progress ?? 0),
+                'total'           => (int) ($row->total ?? 0),
+                'new'             => (int) ($row->new_count ?? 0),
+                'in_progress'     => (int) ($row->in_progress ?? 0),
+                'return_approved' => (int) ($row->return_approved ?? 0),
                 'red'         => (int) ($row->red ?? 0),
                 'resolved'    => (int) ($row->resolved ?? 0),
             ];
@@ -136,7 +138,7 @@ class TechSupportController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', Rule::in(array_keys(TechSupportCase::statuses()))],
-            'note'   => ['required_if:status,' . TechSupportCase::STATUS_RESOLVED . ',' . TechSupportCase::STATUS_RETURN_MACHINE . ',' . TechSupportCase::STATUS_RETURN_RECEIVED, 'nullable', 'string'],
+            'note'   => ['required_if:status,' . TechSupportCase::STATUS_RESOLVED . ',' . TechSupportCase::STATUS_RETURN_APPROVED . ',' . TechSupportCase::STATUS_RETURN_RECEIVED, 'nullable', 'string'],
         ], [
             'note.required_if' => 'A resolution or return note is required when changing to this status.',
         ]);
@@ -162,19 +164,12 @@ class TechSupportController extends Controller
             }
         }
 
-        // Sync the tech support status directly to the source model (Website/Ebay) if resolved
-        if ($case->source && $validated['status'] === TechSupportCase::STATUS_RESOLVED) {
-            if ($case->source instanceof \App\Models\Lead) {
-                $case->source->update(['status' => \App\Enums\WebsiteLeadStatus::Resolve->value]);
-            } elseif ($case->source instanceof \App\Models\EbayCustomerRecord) {
-                $case->source->update(['tab_type' => \App\Models\EbayCustomerRecord::TAB_RESOLVED]);
-            }
-        }
+        // Syncing and broadcasting is handled fully within the TechSupportCaseService::changeStatus()->syncToSources() method.
         
         event(new \App\Events\TechSupportCaseStatusUpdated($case, auth()->id()));
         Cache::forget('tech_support.index_stats');
 
-        if ($validated['status'] === TechSupportCase::STATUS_RETURN_MACHINE) {
+        if ($validated['status'] === TechSupportCase::STATUS_RETURN_APPROVED) {
             $machineReturn = \App\Models\MachineReturn::firstOrCreate(
                 ['tech_support_case_id' => $case->id],
                 [
@@ -183,6 +178,14 @@ class TechSupportController extends Controller
                     'notes' => $validated['note'] ?? null,
                 ]
             );
+
+            // Log it in the Tech Support Case timeline so technicians see the indicator
+            \App\Models\TechSupportCaseLog::create([
+                'tech_support_case_id' => $case->id,
+                'user_id' => auth()->id(),
+                'type' => \App\Models\TechSupportCaseLog::TYPE_RETURN_APPROVED,
+                'note' => $validated['note'] ?? 'Return requested by Tech Support.',
+            ]);
             
             // Log the initial status creation
             if ($machineReturn->wasRecentlyCreated) {

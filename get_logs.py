@@ -14,6 +14,6 @@ def run_cmd(cmd_args, password="Digital@PhnomPenh#!2027\n"):
 if __name__ == "__main__":
     ssh_cmd = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
-        "grep -A 5 -B 2 'ERROR' domains/lightcyan-weasel-711536.hostingersite.com/public_html/storage/logs/laravel.log | grep -v 'Operation not permitted' | tail -n 100"
+        "grep -A 2 'production.ERROR' domains/lightcyan-weasel-711536.hostingersite.com/public_html/storage/logs/laravel.log | tail -n 50"
     ]
     run_cmd(ssh_cmd)

@@ -33,6 +33,7 @@ class TechSupportCase extends Model
     }
 
     const STATUS_NEW         = 'new_case';
+    const STATUS_IN_PROGRESS = 'in_progress';
     const STATUS_RED         = 'red_case';
     const STATUS_RETURN_APPROVED = 'return_approved';
     const STATUS_RETURN_RECEIVED = 'return_received';
@@ -54,6 +55,7 @@ class TechSupportCase extends Model
     {
         return [
             self::STATUS_NEW         => 'New Case',
+            self::STATUS_IN_PROGRESS => 'In Progress',
             self::STATUS_RED         => 'Red Case (Potential Return)',
             self::STATUS_RETURN_APPROVED => 'Return Approved',
             self::STATUS_RETURN_RECEIVED => 'Return Received',
@@ -65,6 +67,7 @@ class TechSupportCase extends Model
     {
         return match ($status) {
             self::STATUS_NEW         => '#6366f1', // indigo
+            self::STATUS_IN_PROGRESS => '#f59e0b', // amber
             self::STATUS_RED         => '#dc2626', // red
             self::STATUS_RETURN_APPROVED => '#e11d48', // rose
             self::STATUS_RETURN_RECEIVED => '#10b981', // emerald

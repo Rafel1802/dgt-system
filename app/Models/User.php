@@ -365,6 +365,7 @@ SVG;
         return $this->hasAnyRole([
             'super-admin',
             'boss',
+            'admin-crm',
             'tech-support'
         ]);
     }
@@ -379,6 +380,7 @@ SVG;
         return $this->hasAnyRole([
             'super-admin',
             'boss',
+            'admin-crm',
             'logistic-supervisor',
             'logistic-team'
         ]);

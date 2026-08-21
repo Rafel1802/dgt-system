@@ -12,7 +12,7 @@ class EbayCustomerRecordPolicy
 
     public function before(User $user, string $ability): bool|null
     {
-        if ($user->hasRole('super-admin') || $user->hasRole('boss')) return true;
+        if ($user->hasAnyRole(['super-admin', 'boss', 'admin-crm'])) return true;
         if ($user->hasRole('tech-support') && !$user->canModifyCrmData()) return false;
         return null;
     }
@@ -24,8 +24,7 @@ class EbayCustomerRecordPolicy
 
     public function view(User $user, EbayCustomerRecord $record): bool
     {
-        if ($user->hasFullCrmEdit() || $user->hasRole('ebay-supervisor')) return true;
-        return $record->handler_id === $user->id;
+        return $user->hasFullCrmEdit() || $user->hasAnyRole(['ebay-supervisor', 'ebay-team', 'sales-crm']);
     }
 
     public function create(User $user): bool

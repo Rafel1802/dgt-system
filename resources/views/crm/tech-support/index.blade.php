@@ -8,7 +8,7 @@
 <div id="crm-tech-support-list" class="animate-fade-in live-swap-target">
 
   {{-- ── KPI tiles ───────────────────────────────────────────────────────── --}}
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
     <div class="card p-3 text-center">
       <div class="text-xl font-bold text-slate-700">{{ $stats['total'] }}</div>
       <div class="text-xs text-slate-500 mt-0.5">Total Cases</div>
@@ -18,8 +18,12 @@
       <div class="text-xs text-slate-500 mt-0.5">New Cases</div>
     </div>
     <div class="card p-3 text-center">
-      <div class="text-xl font-bold text-amber-600">{{ $stats['in_progress'] }}</div>
+      <div class="text-xl font-bold text-amber-500">{{ $stats['in_progress'] }}</div>
       <div class="text-xs text-slate-500 mt-0.5">In Progress</div>
+    </div>
+    <div class="card p-3 text-center">
+      <div class="text-xl font-bold text-amber-700">{{ $stats['return_approved'] }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Return Approved</div>
     </div>
     <div class="card p-3 text-center {{ $stats['red'] > 0 ? 'border-2 border-red-400 bg-red-50/60 animate-pulse' : '' }}">
       <div class="text-xl font-bold text-red-600">{{ $stats['red'] }}</div>

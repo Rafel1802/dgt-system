@@ -9,7 +9,7 @@ class CustomerPolicy
 {
     public function before(User $user, string $ability): bool|null
     {
-        if ($user->hasRole('super-admin')) return true;
+        if ($user->hasAnyRole(['super-admin', 'boss', 'admin-crm'])) return true;
         return null;
     }
 

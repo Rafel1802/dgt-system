@@ -480,13 +480,13 @@ class TechSupportCaseService
                 TechSupportCase::STATUS_NEW => WebsiteLeadStatus::TechnicalIssues,
                 TechSupportCase::STATUS_IN_PROGRESS => WebsiteLeadStatus::TechnicalIssues,
                 TechSupportCase::STATUS_RED => WebsiteLeadStatus::PotentialReturn,
-                TechSupportCase::STATUS_RETURN_MACHINE => WebsiteLeadStatus::ApproveReturn,
+                TechSupportCase::STATUS_RETURN_APPROVED => WebsiteLeadStatus::ApproveReturn,
                 TechSupportCase::STATUS_RESOLVED => WebsiteLeadStatus::Resolve,
                 default => null,
             };
 
             if ($leadStatus) {
-                $updates = ['status' => $leadStatus];
+                $updates = ['status' => $leadStatus->value];
                 if ($status === TechSupportCase::STATUS_RESOLVED) {
                     $updates['tech_resolved'] = true;
                     $updates['tech_resolved_at'] = now();
@@ -497,6 +497,17 @@ class TechSupportCaseService
                 
                 // Use updateQuietly to prevent Lead from re-creating a Tech Case via boot hooks
                 $case->source->updateQuietly($updates);
+                
+                // Add follow-up for history
+                \App\Models\LeadFollowUp::create([
+                    'lead_id' => $case->source->id,
+                    'user_id' => auth()->id() ?? 1,
+                    'type' => 'status',
+                    'note' => "Status changed to {$leadStatus->label()} by Tech Support",
+                ]);
+                
+                // Broadcast live event
+                broadcast(new \App\Events\CustomerStatusUpdatedLive($case->source->id, $leadStatus->label(), $leadStatus->color(), auth()->user()?->name ?? 'System', 'Technical Support Team', 'lead'));
             }
         }
 
@@ -529,14 +540,19 @@ class TechSupportCaseService
             }
 
             $ebayRecord->updateQuietly($ebayUpdates);
-
-            EbayCustomerStatusHistory::create([
+            
+            // Log status history
+            \App\Models\EbayCustomerStatusHistory::create([
                 'ebay_customer_record_id' => $ebayRecord->id,
-                'status'                  => $ebayTab,
-                'changed_by'              => auth()->id(),
-                'changed_at'              => now(),
+                'status' => $ebayTab,
+                'changed_by' => auth()->id() ?? 1,
+                'note' => 'Status changed by Tech Support',
             ]);
             
+            // Broadcast live event
+            $ebayLabels = EbayCustomerRecord::tabs();
+            broadcast(new \App\Events\CustomerStatusUpdatedLive($ebayRecord->id, $ebayLabels[$ebayTab] ?? $ebayTab, EbayCustomerRecord::tabColor($ebayTab), auth()->user()?->name ?? 'System', 'Technical Support Team', 'ebay'));
+
             if ($status === TechSupportCase::STATUS_RESOLVED) {
                 $case->updateQuietly(['ebay_synced_at' => now()]);
             } else {
