@@ -20,52 +20,56 @@
 
         const channel = pusher.subscribe(channelName);
         
+        let hotSwapTimeout = null;
         const doHotSwap = () => {
-            const url = new URL(window.location.href);
-            url.searchParams.set('_t', Date.now());
-            fetch(url.toString(), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-                .then(response => response.text())
-                .then(html => {
-                    const doc = new DOMParser().parseFromString(html, 'text/html');
-                    
-                    // Standard cards for single customer views
-                    const cardsToSwap = [
-                        '#client-summary-card',
-                        '#pipeline-progress-card',
-                        '#status-history-card',
-                        '#followup-timeline',
-                        '#handled-by-card',
-                        '#crm-notes-section',
-                        '#order-history-card',
-                        '#technical-support-section',
-                        '#logistics-section',
-                        '#customer-interactions-list'
-                    ];
-                    
-                    cardsToSwap.forEach(selector => {
-                        const newEl = doc.querySelector(selector);
-                        const oldEl = document.querySelector(selector);
-                        if (newEl && oldEl) {
-                            oldEl.innerHTML = newEl.innerHTML;
-                            oldEl.className = newEl.className;
-                        }
-                    });
-
-                    // Generic swap targets for list views and dashboards
-                    const swapTargets = document.querySelectorAll('.live-swap-target');
-                    swapTargets.forEach(oldEl => {
-                        if (oldEl.id) {
-                            const newEl = doc.querySelector('#' + oldEl.id);
-                            if (newEl) {
+            if (hotSwapTimeout) clearTimeout(hotSwapTimeout);
+            hotSwapTimeout = setTimeout(() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('_t', Date.now());
+                fetch(url.toString(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                    .then(response => response.text())
+                    .then(html => {
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        
+                        // Standard cards for single customer views
+                        const cardsToSwap = [
+                            '#client-summary-card',
+                            '#pipeline-progress-card',
+                            '#status-history-card',
+                            '#followup-timeline',
+                            '#handled-by-card',
+                            '#crm-notes-section',
+                            '#order-history-card',
+                            '#technical-support-section',
+                            '#logistics-section',
+                            '#customer-interactions-list'
+                        ];
+                        
+                        cardsToSwap.forEach(selector => {
+                            const newEl = doc.querySelector(selector);
+                            const oldEl = document.querySelector(selector);
+                            if (newEl && oldEl) {
                                 oldEl.innerHTML = newEl.innerHTML;
                                 oldEl.className = newEl.className;
                             }
-                        }
-                    });
-                })
-                .catch(err => console.error('Failed to hot-swap UI:', err));
+                        });
+
+                        // Generic swap targets for list views and dashboards
+                        const swapTargets = document.querySelectorAll('.live-swap-target');
+                        swapTargets.forEach(oldEl => {
+                            if (oldEl.id) {
+                                const newEl = doc.querySelector('#' + oldEl.id);
+                                if (newEl) {
+                                    oldEl.innerHTML = newEl.innerHTML;
+                                    oldEl.className = newEl.className;
+                                }
+                            }
+                        });
+                    })
+                    .catch(err => console.error('Failed to hot-swap UI:', err));
+            }, 1000);
         };
 
         const shouldProcessEvent = (data) => {
