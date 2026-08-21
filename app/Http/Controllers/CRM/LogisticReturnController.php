@@ -42,7 +42,7 @@ class LogisticReturnController extends Controller
         return view('crm.logistics.returns.show', compact('return', 'statuses'));
     }
 
-    public function updateStatus(Request $request, MachineReturn $return): RedirectResponse
+    public function updateStatus(Request $request, MachineReturn $return): \Symfony\Component\HttpFoundation\Response
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(array_keys(MachineReturn::statuses()))],

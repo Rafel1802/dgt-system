@@ -17,7 +17,7 @@
   }
 @endphp
 
-<div class="animate-fade-in" x-data="machineReturn">
+<div id="crm-logistics-return-detail" class="animate-fade-in live-swap-target" x-data="machineReturn">
   <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
     
     {{-- ── Left: Customer & Case Info ───────────────────────────────────────── --}}
@@ -250,6 +250,7 @@
               const data = await res.json().catch(() => ({}));
               throw new Error(data.message || 'Failed to update status.');
             }
+            this.showStatusModal = false;
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Status updated!', type: 'success' } }));
             document.dispatchEvent(new CustomEvent('ajax-success'));
           } catch (err) {
@@ -272,6 +273,7 @@
               const data = await res.json().catch(() => ({}));
               throw new Error(data.message || 'Failed to add note.');
             }
+            this.showAddNote = false;
             window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Note added!', type: 'success' } }));
             document.dispatchEvent(new CustomEvent('ajax-success'));
           } catch (err) {

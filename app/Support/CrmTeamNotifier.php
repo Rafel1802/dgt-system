@@ -75,6 +75,16 @@ class CrmTeamNotifier
         $roles = ['logistic-team', 'logistic-supervisor', 'admin-crm', 'super-admin'];
         
         self::sendToRoles($roles, 'machine_return', $message, $link, $actor->id);
+
+        defer(function () use ($machineReturn, $actor) {
+            broadcast(new \App\Events\CustomerDataUpdatedLive(
+                $machineReturn->customer_id, 
+                'customer', 
+                'Logistics return created.', 
+                $actor->name, 
+                'Tech Support'
+            ))->toOthers();
+        });
     }
 
     /**
