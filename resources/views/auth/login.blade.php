@@ -417,10 +417,10 @@
                 </div>
 
                 <h1 class="mt-8 max-w-3xl font-display text-5xl font-black leading-[1.04] tracking-normal text-white xl:text-6xl">
-                    Digital & CRM Management, refined.
+                    Digital Team Command Center.
                 </h1>
                 <p class="mt-5 max-w-xl text-lg font-semibold leading-8 text-sky-100/82">
-                    A focused command center for boards, approvals, sales activity, customer pipelines, and team operations.
+                    A focused workspace for boards, approvals, websites, social media management, and team operations.
                 </p>
 
                 <div class="mt-8 grid max-w-xl grid-cols-3 gap-4">
@@ -429,8 +429,8 @@
                         <p class="mt-1 text-sm font-bold text-sky-100/75">Secure access</p>
                     </div>
                     <div class="login-metric rounded-2xl p-5">
-                        <p class="text-3xl font-black text-white">CRM</p>
-                        <p class="mt-1 text-sm font-bold text-sky-100/75">Pipeline ready</p>
+                        <p class="text-3xl font-black text-white">SMM</p>
+                        <p class="mt-1 text-sm font-bold text-sky-100/75">Social media</p>
                     </div>
                     <div class="login-metric rounded-2xl p-5">
                         <p class="text-3xl font-black text-white">KQ</p>
@@ -446,7 +446,7 @@
                     <img src="{{ $appIcon }}" alt="KIUQ SYSTEM logo" class="h-12 w-12 object-contain">
                 </div>
                 <h1 class="mt-4 font-display text-3xl font-black text-white">KIUQ SYSTEM</h1>
-                <p class="mt-1 text-sm font-semibold text-sky-100/80">Digital & CRM Management</p>
+                <p class="mt-1 text-sm font-semibold text-sky-100/80">Digital Team Management</p>
             </div>
 
             <div class="login-card rounded-[2.25rem] p-6 sm:p-8 lg:p-10">

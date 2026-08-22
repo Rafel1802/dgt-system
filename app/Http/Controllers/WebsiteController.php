@@ -1145,8 +1145,11 @@ class WebsiteController extends Controller
             'handler', 'creator', 'qcApprover',
             'progressLogs.user', 'maintenanceLogs.user',
             'activityLogs.user', 'followUps.assignee', 'followUps.qcChecker',
-        ])->where('is_archived', false)
-          ->orderBy('name');
+        ])->where('is_archived', false);
+
+
+
+        $query->orderBy('name');
 
         $targetUser = $memberId ? \App\Models\User::find($memberId) : null;
         $isQcReport = $targetUser && $targetUser->isQc();
@@ -1174,7 +1177,7 @@ class WebsiteController extends Controller
                 $query->where('handled_by', $memberId);
             }
         }
-        
+
         if ($filterStart || $filterEnd) {
             $query->where(function ($group) use ($filterStart, $filterEnd) {
                 $group->where(function ($q) use ($filterStart, $filterEnd) {
@@ -1197,6 +1200,8 @@ class WebsiteController extends Controller
         }
 
         $websites = $query->get();
+
+
 
         $qcStats = null;
         if ($isQcReport && $memberId) {

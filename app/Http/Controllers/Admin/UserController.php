@@ -15,6 +15,8 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
+    /** Only Digital-team roles are available in the user management UI */
+    const DIGITAL_ROLES = ['super-admin', 'admin-digital', 'digital-team', 'boss', 'supervisor'];
 
     /** User management index */
     public function index(Request $request): View
@@ -39,7 +41,7 @@ class UserController extends Controller
         }
 
         $users = $query->orderBy('name')->get();
-        $roles = Role::where('name', 'not like', 'social_%')->orderBy('name')->get();
+        $roles = Role::whereIn('name', self::DIGITAL_ROLES)->orderBy('name')->get();
 
         $stats = [
             'total'    => User::count(),
@@ -54,7 +56,7 @@ class UserController extends Controller
     public function create(): View
     {
         return view('admin.users.create', [
-            'roles' => Role::where('name', 'not like', 'social_%')->orderBy('name')->get(),
+            'roles' => Role::whereIn('name', self::DIGITAL_ROLES)->orderBy('name')->get(),
         ]);
     }
 
@@ -68,7 +70,6 @@ class UserController extends Controller
             'password' => ['required', Password::min(8)->mixedCase()->numbers(), 'confirmed'],
             'role'     => ['required', 'string', 'exists:roles,name'],
             'team_role'=> ['nullable', 'string', 'max:50'],
-            'crm_role' => ['nullable', 'string', 'in:supervisor'],
             'is_active' => ['nullable', 'boolean'],
             'avatar'   => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
         ]);
@@ -86,7 +87,6 @@ class UserController extends Controller
             'is_active' => $request->boolean('is_active', true),
             'avatar'    => $avatarPath,
             'team_role' => $validated['team_role'] ?? null,
-            'crm_role'  => $validated['crm_role'] ?? null,
         ]);
 
         $user->assignRole($validated['role']);
@@ -105,7 +105,7 @@ class UserController extends Controller
 
         return view('admin.users.edit', [
             'user'  => $user->load('roles'),
-            'roles' => Role::where('name', 'not like', 'social_%')->orderBy('name')->get(),
+            'roles' => Role::whereIn('name', self::DIGITAL_ROLES)->orderBy('name')->get(),
         ]);
     }
 
@@ -122,7 +122,6 @@ class UserController extends Controller
             'email'     => ['required', 'email', 'max:255', "unique:users,email,{$user->id}"],
             'role'      => ['required', 'string', 'exists:roles,name'],
             'team_role' => ['nullable', 'string', 'max:50'],
-            'crm_role'  => ['nullable', 'string', 'in:supervisor'],
             'is_active' => ['nullable', 'boolean'],
             'password'  => ['nullable', Password::min(8)->mixedCase()->numbers(), 'confirmed'],
             'avatar'    => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
@@ -136,7 +135,6 @@ class UserController extends Controller
             'username'  => $validated['username'],
             'email'     => $validated['email'],
             'team_role' => $validated['team_role'] ?? null,
-            'crm_role'  => $validated['crm_role'] ?? null,
             'is_active' => $isSelf ? true : $request->boolean('is_active'),
         ];
 

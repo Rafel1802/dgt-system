@@ -14,7 +14,7 @@
     <p class="text-slate-500 mb-8 max-w-md mx-auto">
         {{ $exception->getMessage() ?: 'You do not have permission to view this page or perform this action.' }}
     </p>
-    <a href="{{ url()->previous() !== url()->current() ? url()->previous() : route('crm.dashboard') }}" class="btn btn-primary px-6 py-2.5">
+    <a href="{{ url()->previous() !== url()->current() ? url()->previous() : route('dashboard') }}" class="btn btn-primary px-6 py-2.5">
         Go Back
     </a>
 </div>

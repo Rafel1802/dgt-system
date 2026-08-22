@@ -14,7 +14,7 @@
     <p class="text-slate-500 mb-8 max-w-md mx-auto">
         The page or record you are looking for does not exist or has been deleted.
     </p>
-    <a href="{{ route('crm.dashboard') }}" class="btn btn-primary px-6 py-2.5">
+    <a href="{{ route('dashboard') }}" class="btn btn-primary px-6 py-2.5">
         Back to Dashboard
     </a>
 </div>

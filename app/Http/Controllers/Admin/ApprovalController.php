@@ -110,17 +110,27 @@ class ApprovalController extends Controller
                 ->get();
 
             // ── Helper: breakdown by team (checks card->label field first) ────────
+            // SMM takes priority: if a card matches 'SMM' it is only counted in the
+            // SMM bucket, never in the Graphic/Video/etc. buckets, preventing double-counting.
             $getBreakdownForCards = function($cards) {
+                $smmCards     = $cards->filter(fn($c) => $this->matchesTeam($c, 'SMM'));
+                $nonSmmCards  = $cards->reject(fn($c) => $this->matchesTeam($c, 'SMM'));
+                $smmCount     = $smmCards->count();
+                $graphicCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count();
+                $videoCount   = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count();
+                $listingCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count();
+                $contentCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count();
+                $qcCount      = $nonSmmCards->filter(fn($c) =>
+                    $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
+                )->count();
                 return [
-                    'total'   => $cards->count(),
-                    'graphic' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count(),
-                    'video'   => $cards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count(),
-                    'listing' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count(),
-                    'content' => $cards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count(),
-                    'qc'      => $cards->filter(fn($c) =>
-                        $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
-                    )->count(),
-                    'smm'     => $cards->filter(fn($c) => $this->matchesTeam($c, 'SMM'))->count(),
+                    'total'   => $graphicCount + $videoCount + $listingCount + $contentCount + $qcCount + $smmCount,
+                    'graphic' => $graphicCount,
+                    'video'   => $videoCount,
+                    'listing' => $listingCount,
+                    'content' => $contentCount,
+                    'qc'      => $qcCount,
+                    'smm'     => $smmCount,
                 ];
             };
 
@@ -231,16 +241,25 @@ class ApprovalController extends Controller
             })
             ->get();
 
+        $smmCards     = $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'SMM'));
+        $nonSmmCards  = $approvedCards->reject(fn($c) => $this->matchesTeam($c, 'SMM'));
+        $smmCount     = $smmCards->count();
+        $graphicCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count();
+        $videoCount   = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count();
+        $listingCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count();
+        $contentCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count();
+        $qcCount      = $nonSmmCards->filter(fn($c) =>
+            $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
+        )->count();
+
         return response()->json([
-            'total'   => $approvedCards->count(),
-            'graphic' => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count(),
-            'video'   => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count(),
-            'listing' => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count(),
-            'content' => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count(),
-            'qc'      => $approvedCards->filter(fn($c) =>
-                $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
-            )->count(),
-            'smm'     => $approvedCards->filter(fn($c) => $this->matchesTeam($c, 'SMM'))->count(),
+            'total'   => $graphicCount + $videoCount + $listingCount + $contentCount + $qcCount + $smmCount,
+            'graphic' => $graphicCount,
+            'video'   => $videoCount,
+            'listing' => $listingCount,
+            'content' => $contentCount,
+            'qc'      => $qcCount,
+            'smm'     => $smmCount,
         ]);
     }
 }

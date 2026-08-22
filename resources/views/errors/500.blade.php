@@ -14,7 +14,7 @@
     <p class="text-slate-500 mb-8 max-w-md mx-auto">
         Something went wrong on our end. Please try again later or contact support if the issue persists.
     </p>
-    <a href="{{ route('crm.dashboard') }}" class="btn btn-primary px-6 py-2.5">
+    <a href="{{ route('dashboard') }}" class="btn btn-primary px-6 py-2.5">
         Back to Dashboard
     </a>
 </div>

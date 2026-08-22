@@ -25,7 +25,7 @@ class DashboardController extends Controller
         $digitalOnlyModules = ['boards', 'kanban', 'social-media', 'websites'];
 
         // Only admin/supervisor tiers get the full, system-wide feed.
-        $seesEveryone = $user->hasAnyRole(['super-admin', 'admin-crm', 'admin-digital', 'boss']) || $user->isCrmSupervisor();
+        $seesEveryone = $user->hasAnyRole(['super-admin', 'admin-digital', 'boss']);
 
         // ── User stats (cached 60s — rarely change minute-to-minute) ───────
         $stats = Cache::remember("dashboard_stats_{$user->id}", 60, function () {
@@ -43,9 +43,7 @@ class DashboardController extends Controller
                 ->where('created_at', '>=', $from)
                 ->groupBy('day');
 
-            if ($user->hasRole('admin-crm') && ! $user->hasAnyRole(['super-admin', 'admin-digital'])) {
-                $query->whereNotIn('module', $digitalOnlyModules);
-            }
+
             if (! $seesEveryone) {
                 $query->where('user_id', $user->id);
             }
@@ -65,9 +63,7 @@ class DashboardController extends Controller
         // ── Recent activity feed (last 50, deferred/lazy) ─────────────────
         $recentActivitiesFn = function () use ($user, $seesEveryone, $digitalOnlyModules) {
             $query = ActivityLog::with('user:id,name,avatar')->latest('id');
-            if ($user->hasRole('admin-crm') && ! $user->hasAnyRole(['super-admin', 'admin-digital'])) {
-                $query->whereNotIn('module', $digitalOnlyModules);
-            }
+
             if (! $seesEveryone) {
                 $query->where('user_id', $user->id);
             }

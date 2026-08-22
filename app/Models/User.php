@@ -42,7 +42,6 @@ class User extends Authenticatable
         'dashboard_appearance',
         'can_edit_profile',
         'team_role',
-        'crm_role',
         'notification_sound',
         'board_backgrounds',
         'theme',
@@ -251,154 +250,7 @@ SVG;
         return $query->where('is_active', true);
     }
 
-    /**
-     * Every CRM-facing role — anyone staffing the Website/eBay/Logistic/Tech
-     * Support pipelines, not just the general sales-crm tier. Kept as one
-     * constant so this scope, isCrmMember(), and the crm.* route middleware
-     * (routes/web.php) can't drift apart on who counts as "CRM staff".
-     */
-    public const CRM_ROLES = ['super-admin', 'admin-crm', 'sales-crm', 'boss', 'tech-support', 'ebay-supervisor', 'logistic-supervisor', 'ebay-team', 'logistic-team'];
-
-    /**
-     * Scope: only users who belong to the CRM team.
-     * Excludes digital-team, admin-digital, social_admin, social_qc.
-     */
-    public function scopeCrmMembers($query): mixed
-    {
-        return $query->whereHas('roles', function ($q) {
-            $q->whereIn('name', self::CRM_ROLES);
-        })->where('is_active', true);
-    }
-
-    /**
-     * Check whether this user is a CRM team member.
-     */
-    public function isCrmMember(): bool
-    {
-        return $this->hasAnyRole(self::CRM_ROLES);
-    }
-
-    /**
-     * Get a CRM-specific role display label.
-     * Returns: Boss | CRM Supervisor | CRM Member
-     */
-    public function getCrmRoleDisplayAttribute(): string
-    {
-        if ($this->hasAnyRole(['super-admin', 'boss'])) {
-            return 'Boss';
-        }
-        if ($this->isCrmSupervisor()) {
-            return 'CRM Supervisor';
-        }
-        if ($this->hasRole('sales-crm')) {
-            return 'CRM Member';
-        }
-        return $this->role_display;
-    }
-
-    /**
-     * "CRM Supervisor" tier: either the admin-crm role, or a sales-crm user
-     * whose crm_role sub-flag is set to 'supervisor'. This is the same rule
-     * getCrmRoleDisplayAttribute() surfaces as a label — kept here as the
-     * single source of truth so authorization checks and the display label
-     * can never drift apart.
-     */
-    public function isCrmSupervisor(): bool
-    {
-        return $this->hasRole('admin-crm') || ($this->hasRole('sales-crm') && $this->crm_role === 'supervisor');
-    }
-
-    /**
-     * Full CRM edit/assignment/delete access to ANY customer (not just their
-     * own assigned ones) — the "Admin & Supervisor" tier. Normal Staff
-     * (ebay-team, logistic-team, plain sales-crm) hold crm.status-update
-     * instead, which only reaches their own assigned customers and only for
-     * status/notes (enforced in CustomerController::update()'s field
-     * whitelist, not here).
-     */
-    public function hasFullCrmEdit(): bool
-    {
-        return $this->hasRole('super-admin') || $this->can('crm.edit') || $this->isCrmSupervisor();
-    }
-
-    /**
-     * Check whether this user can edit, create, or update eBay customer records.
-     * Allowed only for the eBay team and administrators; normal staff (sales-crm, tech-support, logistics) are excluded.
-     */
-    public function canEditEbayCustomer(): bool
-    {
-        return $this->hasAnyRole(['super-admin', 'admin-crm', 'boss', 'ebay-supervisor', 'logistic-supervisor']) || $this->isCrmSupervisor();
-    }
-
-    /**
-     * Whether this user may delete entity-level CRM records (Leads, Customers,
-     * Products, eBay records/stores/offers, Shipments, Trucking Companies) in
-     * the given domain. super-admin, boss, a CRM Supervisor, ebay-supervisor,
-     * and logistic-supervisor can all delete anywhere — same tier as the CRM
-     * admin, not scoped to their own domain. Routine in-page removals (e.g.
-     * removing one customer from a shipment) are NOT gated by this — only
-     * whole-record deletes.
-     */
-    /**
-     * super-admin/boss/CRM-supervisor can delete across every domain;
-     * ebay-supervisor and logistic-supervisor are scoped to their own
-     * domain only (per RolesAndPermissionsSeeder's own role descriptions —
-     * "ebay-supervisor: Can delete eBay records", "logistic-supervisor:
-     * Can delete Logistics records" — neither was ever meant to reach into
-     * the other's domain).
-     */
-    public function canDeleteCrmRecords(string $domain = 'website'): bool
-    {
-        if ($this->hasAnyRole(['super-admin', 'boss']) || $this->isCrmSupervisor()) {
-            return true;
-        }
-
-        return match ($domain) {
-            'ebay'     => $this->hasRole('ebay-supervisor'),
-            'logistic' => $this->hasRole('logistic-supervisor'),
-            default    => false,
-        };
-    }
-
-    public function canChangeTechSupportStatus(): bool
-    {
-        return $this->hasAnyRole([
-            'super-admin',
-            'boss',
-            'admin-crm',
-            'tech-support'
-        ]);
-    }
-
-    public function canAddTechSupportFollowUp(): bool
-    {
-        return $this->isCrmMember();
-    }
-
-    public function canChangeLogisticStatus(): bool
-    {
-        return $this->hasAnyRole([
-            'super-admin',
-            'boss',
-            'admin-crm',
-            'logistic-supervisor',
-            'logistic-team'
-        ]);
-    }
-
-    public function canModifyCrmData(): bool
-    {
-        if (!$this->hasRole('tech-support')) {
-            return true;
-        }
-
-        return $this->hasAnyRole([
-            'super-admin', 'admin', 'admin-crm', 'boss',
-            'ebay-supervisor', 'ebay-team',
-            'logistic-supervisor', 'logistic-team',
-            'sales-crm'
-        ]);
-    }
+    // ─── Digital Team Helpers ─────────────────────────────────────────────────
 
     public function canCreateBoards(): bool
     {
@@ -510,19 +362,7 @@ SVG;
      */
     public function notificationModules(): array
     {
-        if ($this->hasAnyRole(['super-admin', 'boss'])) {
-            return ['crm', 'digital'];
-        }
-
-        $modules = [];
-        if ($this->hasAnyRole(['admin-crm', 'sales-crm', 'tech-support', 'ebay-supervisor', 'logistic-supervisor', 'ebay-team', 'logistic-team'])) {
-            $modules[] = 'crm';
-        }
-        if ($this->hasAnyRole(['admin-digital', 'digital-team', 'social_admin', 'social_qc'])) {
-            $modules[] = 'digital';
-        }
-
-        return $modules ?: ['crm', 'digital'];
+        return ['digital'];
     }
 
     /**
@@ -535,7 +375,6 @@ SVG;
         $array['avatar_url'] = $this->avatar_url;
         $array['avatar_initials'] = $this->avatar_initials;
         $array['avatar_color'] = $this->avatar_color;
-        $array['crm_role_display'] = $this->crm_role_display;
         return $array;
     }
 }

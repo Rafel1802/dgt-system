@@ -162,7 +162,6 @@ class NoteController extends Controller
             $accessibleTeams = ['digital', 'crm'];
         } else {
             if ($user->hasAnyRole(['admin-digital', 'digital-team'])) $accessibleTeams[] = 'digital';
-            if ($user->hasAnyRole(\App\Models\User::CRM_ROLES)) $accessibleTeams[] = 'crm';
         }
 
         // Determine current selected team

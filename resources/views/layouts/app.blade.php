@@ -520,11 +520,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 <a wire:navigate.hover href="{{ route('dashboard') }}"
                    class="sidebar-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
-                   id="nav-dashboard">
+                   id="nav-dashboard" data-tooltip="Dashboard">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/>
                     </svg>
-                    Dashboard
+                    <span>Dashboard</span>
                 </a>
                 @endunless
                 @endcan
@@ -532,11 +532,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <!-- All Members Directory -->
                 <a wire:navigate.hover href="{{ route('members.index') }}"
                    class="sidebar-item {{ request()->routeIs('members.*') ? 'active' : '' }}"
-                   id="nav-all-members">
+                   id="nav-all-members" data-tooltip="All Members">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
                     </svg>
-                    All Members
+                    <span>All Members</span>
                 </a>
 
                 <!-- Notes -->
@@ -544,19 +544,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <span class="sidebar-section-label">Notes</span>
                 <a wire:navigate.hover href="{{ route('notes.team') }}"
                    class="sidebar-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
-                   id="nav-notes-team">
+                   id="nav-notes-team" data-tooltip="Team Note">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                     </svg>
-                    Team Note
+                    <span>Team Note</span>
                 </a>
                 <a wire:navigate.hover href="{{ route('notes.private') }}"
                    class="sidebar-item {{ request()->routeIs('notes.private*') ? 'active' : '' }}"
-                   id="nav-notes-private">
+                   id="nav-notes-private" data-tooltip="Private Note">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                     </svg>
-                    Private Note
+                    <span>Private Note</span>
                 </a>
                 @endunless
 
@@ -573,11 +573,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 <a wire:navigate.hover href="{{ route('boards.workspaces') }}"
                    class="sidebar-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
-                   id="nav-boards">
+                   id="nav-boards" data-tooltip="Boards">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/>
                     </svg>
-                    Boards
+                    <span>Boards</span>
                 </a>
 
                 {{-- Social Media --}}
@@ -598,13 +598,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         <div class="sidebar-submenu-list mt-1 space-y-1 relative">
                             
                             <a wire:navigate.hover href="{{ route('social-media.dashboard') }}"
-                               class="sidebar-submenu-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}">
+                               class="sidebar-submenu-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}" data-tooltip="Post Follow Up">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                                 <span>Post Follow Up</span>
                             </a>
 
                             <a wire:navigate.hover href="{{ route('smm-boards.index') }}"
-                               class="sidebar-submenu-item {{ request()->routeIs('smm-boards.*') ? 'active' : '' }}">
+                               class="sidebar-submenu-item {{ request()->routeIs('smm-boards.*') ? 'active' : '' }}" data-tooltip="SMM Planning Board">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
                                 </svg>
@@ -620,22 +620,22 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @if($canSeeApprovalQueue)
                 <a wire:navigate.hover href="{{ route('approvals.index') }}"
                    class="sidebar-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
-                   id="nav-approvals">
+                   id="nav-approvals" data-tooltip="Approval Queue">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375"/>
                     </svg>
-                    Approval Queue
+                    <span>Approval Queue</span>
                 </a>
                 @endif
 
                 @if(auth()->user()->isQcOrSupervisor())
                 <a wire:navigate.hover href="{{ route('boards.reports.personal') }}"
                    class="sidebar-item {{ request()->routeIs('boards.reports.personal') ? 'active' : '' }}"
-                   id="nav-personal-report">
+                   id="nav-personal-report" data-tooltip="Personal Report">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
                     </svg>
-                    Personal Report
+                    <span>Personal Report</span>
                 </a>
                 @endif
 
@@ -686,7 +686,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         @endphp
                         <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'build']) }}"
                            class="sidebar-submenu-item {{ $isOnStatusTab ? 'active' : '' }}"
-                           id="nav-websites-status">
+                           id="nav-websites-status" data-tooltip="Website Status">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
                             </svg>
@@ -695,7 +695,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         {{-- 2. Follow Up --}}
                         <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
                            class="sidebar-submenu-item {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
-                           id="nav-websites-followup">
+                           id="nav-websites-followup" data-tooltip="Follow Up">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
                             <span>Follow Up</span>
                         </a>
@@ -711,7 +711,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <a wire:navigate.hover href="{{ $weeklyReport['url'] }}"
                        target="_blank"
                        rel="noopener noreferrer"
-                       class="sidebar-item">
+                       class="sidebar-item" data-tooltip="{{ $weeklyReport['short_label'] ?? $weeklyReport['label'] ?? $weeklyReport['name'] ?? 'Weekly Report' }}">
                         @if(isset($weeklyReport['icon_url']) && $weeklyReport['icon_url'])
                             <img src="{{ $weeklyReport['icon_url'] }}" class="w-5 h-5 object-contain" alt="">
                         @else
@@ -751,7 +751,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item"
-                               title="{{ $tool['label'] }}">
+                               data-tooltip="{{ $tool['label'] ?? $tool['name'] }}">
                                 @if(isset($tool['icon_url']) && $tool['icon_url'])
                                     <img src="{{ $tool['icon_url'] }}" class="h-4 w-4 object-contain" alt="">
                                 @else
@@ -778,8 +778,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             <a wire:navigate.hover href="{{ $tool['url'] }}"
                                target="_blank"
                                rel="noopener noreferrer"
-                               class="sidebar-item sidebar-tool-item sidebar-tool-item-web"
-                               title="{{ $tool['label'] }}">
+                               class="sidebar-item sidebar-tool-item sidebar-tool-item-web" data-tooltip="{{ $tool[\'label\'] }}">
                                 @if(isset($tool['icon_url']) && $tool['icon_url'])
                                     <img src="{{ $tool['icon_url'] }}" class="h-4 w-4 object-contain" alt="">
                                 @else
@@ -799,7 +798,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item sidebar-tool-item-system"
-                               title="{{ $tool['label'] }}">
+                               data-tooltip="{{ $tool['label'] }}">
                                 @if(isset($tool['icon_url']) && $tool['icon_url'])
                                     <img src="{{ $tool['icon_url'] }}" class="h-4 w-4 object-contain" alt="">
                                 @else
@@ -819,12 +818,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             class="sidebar-item w-full flex items-center justify-between text-left"
                             aria-label="Toggle AI Tools"
                         >
-                            <span class="flex items-center gap-[0.625rem]">
+                            <div class="flex items-center gap-[0.625rem]">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.25l-.25-1.5-1.5-.25 1.5-.25.25-1.5.25 1.5 1.5.25-1.5.25-.25 1.5ZM18.259 18.75l-.25-1.5-1.5-.25 1.5-.25.25-1.5.25 1.5 1.5.25-1.5.25-.25 1.5Z" />
                                 </svg>
                                 <span>AI Tools</span>
-                            </span>
+                            </div>
                             <svg 
                                 xmlns="http://www.w3.org/2000/svg" 
                                 fill="none" 
@@ -854,8 +853,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <a wire:navigate.hover href="{{ $tool['url'] }}"
                                    target="_blank"
                                    rel="noopener noreferrer"
-                                   class="sidebar-submenu-item"
-                                   title="{{ $tool['label'] }}">
+                                   class="sidebar-submenu-item" data-tooltip="{{ $tool[\'label\'] }}">
                                     @if(isset($tool['icon_url']) && $tool['icon_url'])
                                         <img src="{{ $tool['icon_url'] }}" class="h-4.5 w-4.5 object-contain" alt="">
                                     @else
@@ -870,316 +868,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endunless
                 @endcan
 
-                <!-- CRM & Sales -->
-                @canany(['crm.view', 'sales.view'])
-                <span class="sidebar-section-label">CRM &amp; Sales</span>
 
-                @can('crm.view')
-
-                {{-- ── 1. Website CRM (with accordion submenu) ────────────── --}}
-                @php
-                    // Align with CrmLookupCache key so fulfill/requestCall invalidations apply.
-                    $pendingCallRequestCount = \Illuminate\Support\Facades\Cache::remember(
-                        'crm.lookup.pending_call_requests',
-                        30,
-                        fn () => \App\Models\CallRequest::pending()->count()
-                    );
-                @endphp
-                <div x-data="{ open: {{ request()->routeIs('crm.website.*') ? 'true' : 'false' }} }" class="w-full">
-                    <button type="button"
-                        @click="open = !open"
-                        class="sidebar-item w-full justify-between {{ request()->routeIs('crm.website.*') ? 'active' : '' }}"
-                        id="nav-website-crm-toggle"
-                        aria-expanded="open">
-                        <span class="flex items-center gap-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253"/>
-                            </svg>
-                            Website CRM
-                        </span>
-                        <span class="flex items-center gap-1.5">
-                            @if($pendingCallRequestCount > 0)
-                            <span class="text-xs font-bold bg-rose-500 text-white rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center" title="{{ $pendingCallRequestCount }} pending call request{{ $pendingCallRequestCount === 1 ? '' : 's' }}">{{ $pendingCallRequestCount }}</span>
-                            @endif
-                            <svg class="w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0"
-                                 :class="{'rotate-180': open}"
-                                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
-                            </svg>
-                        </span>
-                    </button>
-                    <div x-show="open" x-transition x-cloak class="ml-8 mt-0.5 space-y-0.5 border-l-2 border-slate-100 pl-3">
-                        <a wire:navigate.hover href="{{ route('crm.website.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.website.*') && ! request()->routeIs('crm.website.call-reports.*') ? 'active' : '' }}"
-                           id="nav-website-leads">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
-                            </svg>
-                            Leads
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.website.call-reports.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.website.call-reports.*') ? 'active' : '' }}"
-                           id="nav-website-call-reports">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.362-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"/>
-                            </svg>
-                            Call Reports
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.website.call-requests.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.website.call-requests.*') ? 'active' : '' }}"
-                           id="nav-website-call-requests">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.362-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"/>
-                            </svg>
-                            Call Requests
-                            @if($pendingCallRequestCount > 0)
-                            <span class="ml-auto text-xs font-bold bg-rose-500 text-white rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center">{{ $pendingCallRequestCount }}</span>
-                            @endif
-                        </a>
-                    </div>
-                </div>
-
-                {{-- ── 2. eBay CRM (with accordion submenu) ──────────────── --}}
-                <div x-data="{ open: {{ request()->routeIs('crm.ebay.*') ? 'true' : 'false' }} }" class="w-full">
-                    <button type="button"
-                        @click="open = !open"
-                        class="sidebar-item w-full justify-between {{ request()->routeIs('crm.ebay.*') ? 'active' : '' }}"
-                        id="nav-ebay-crm-toggle"
-                        aria-expanded="open">
-                        <span class="flex items-center gap-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"/>
-                            </svg>
-                            eBay CRM
-                        </span>
-                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0"
-                             :class="{'rotate-180': open}"
-                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
-                        </svg>
-                    </button>
-                    <div x-show="open" x-transition x-cloak class="ml-8 mt-0.5 space-y-0.5 border-l-2 border-slate-100 pl-3">
-                        <a wire:navigate.hover href="{{ route('crm.ebay.stores.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.ebay.stores.*') ? 'active' : '' }}"
-                           id="nav-ebay-manage-store">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016 2.993 2.993 0 0 0 2.25-1.016 3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z"/>
-                            </svg>
-                            Manage Store
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.ebay.customers.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.ebay.customers.*') ? 'active' : '' }}"
-                           id="nav-ebay-manage-customer">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
-                            </svg>
-                            Manage Customer
-                        </a>
-                    </div>
-                </div>
-
-                {{-- ── 3. Logistic CRM (with accordion submenu) ──────────── --}}
-                <div x-data="{ open: {{ request()->routeIs('crm.logistics.*') ? 'true' : 'false' }} }" class="w-full">
-                    <button type="button"
-                        @click="open = !open"
-                        class="sidebar-item w-full justify-between {{ request()->routeIs('crm.logistics.*') ? 'active' : '' }}"
-                        id="nav-logistic-crm-toggle"
-                        aria-expanded="open">
-                        <span class="flex items-center gap-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-                            </svg>
-                            Logistic CRM
-                            @php
-                                $pendingReturnsCount = \Illuminate\Support\Facades\Cache::remember('logistic_pending_returns_count', 300, function () {
-                                    return \App\Models\MachineReturn::where('status', \App\Models\MachineReturn::STATUS_PENDING)->count();
-                                });
-                            @endphp
-                            @if($pendingReturnsCount > 0)
-                                <span class="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md ml-auto leading-none">{{ $pendingReturnsCount }}</span>
-                            @endif
-                        </span>
-                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0"
-                             :class="{'rotate-180': open}"
-                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
-                        </svg>
-                    </button>
-                    <div x-show="open" x-transition x-cloak class="ml-8 mt-0.5 space-y-0.5 border-l-2 border-slate-100 pl-3">
-                        <a wire:navigate.hover href="{{ route('crm.logistics.trucking.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.trucking.*') ? 'active' : '' }}"
-                           id="nav-trucking-company">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-                            </svg>
-                            Trucking Company
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.logistics.shipments.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.shipments.*') ? 'active' : '' }}"
-                           id="nav-shipment-management">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"/>
-                            </svg>
-                            Shipment Management
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.logistics.processTrucking') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.processTrucking') ? 'active' : '' }}"
-                           id="nav-process-trucking">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
-                            </svg>
-                            Process Trucking
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.logistics.loaded') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.loaded') ? 'active' : '' }}"
-                           id="nav-loaded">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.25v9a1.5 1.5 0 0 1-1.5 1.5h-15a1.5 1.5 0 0 1-1.5-1.5v-9M3.75 8.25h16.5M3.75 8.25l1.5-4.5h13.5l1.5 4.5M9 12h6"/>
-                            </svg>
-                            Loaded
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.logistics.delivered') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.delivered') ? 'active' : '' }}"
-                           id="nav-delivered">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                            </svg>
-                            Delivered
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.logistics.returns.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.returns.*') ? 'active' : '' }}"
-                           id="nav-logistic-returns">
-                            <span class="w-4 h-4 flex shrink-0 items-center justify-center">🔄</span>
-                            <span class="flex-1">Machine Returns</span>
-                            @if(isset($pendingReturnsCount) && $pendingReturnsCount > 0)
-                                <span class="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-none">{{ $pendingReturnsCount }}</span>
-                            @endif
-                        </a>
-                        <a wire:navigate.hover href="{{ route('crm.logistics.issues.index') }}"
-                           class="sidebar-item text-sm py-1.5 {{ request()->routeIs('crm.logistics.issues.*') ? 'active' : '' }}"
-                           id="nav-logistic-issues">
-                            <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
-                            </svg>
-                            Logistic Issues
-                        </a>
-                    </div>
-                </div>
-
-                {{-- ── 4. Customers ────────────────────────────────────────── --}}
-                <a wire:navigate.hover href="{{ route('crm.customers.index') }}"
-                   class="sidebar-item {{ request()->routeIs('crm.customers.*') ? 'active' : '' }}"
-                   id="nav-customers">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
-                    </svg>
-                    Customers
-                </a>
-
-                {{-- ── 5. Product ─────────────────────────────────────────── --}}
-                <a wire:navigate.hover href="{{ route('crm.products.index') }}"
-                   class="sidebar-item {{ request()->routeIs('crm.products.*') ? 'active' : '' }}"
-                   id="nav-products">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
-                    </svg>
-                    Product
-                </a>
-
-                {{-- ── 6. Tech Support ────────────────────────────────────── --}}
-                <a wire:navigate.hover href="{{ route('crm.tech-support.index') }}"
-                   class="sidebar-item {{ request()->routeIs('crm.tech-support.*') ? 'active' : '' }}"
-                   id="nav-tech-support">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437 5.492-5.492"/>
-                    </svg>
-                    Tech Support
-                    @php
-                        $newTechCaseCount = \Illuminate\Support\Facades\Cache::remember('tech_case_count_new', 300, function () {
-                            return \App\Models\TechSupportCase::status(\App\Models\TechSupportCase::STATUS_NEW)->count();
-                        });
-                        $unreadCallCompletedCount = \Illuminate\Support\Facades\Cache::remember('unread_call_completed_' . auth()->id(), 300, function () {
-                            return auth()->user()->unreadNotifications()->where('data', 'like', '%tech_case_call_completed%')->count();
-                        });
-                        $techSidebarBadgeCount = $newTechCaseCount + $unreadCallCompletedCount;
-                    @endphp
-                    <span x-data="{
-                        badgeCount: {{ $techSidebarBadgeCount }},
-                        init() {
-                            window.addEventListener('kiuq:realtime-notification', (e) => {
-                                const type = e.detail?.data?.type || '';
-                                if (type === 'tech_case_new' || type === 'tech_case_call_completed') {
-                                    this.badgeCount++;
-                                }
-                            });
-                        }
-                    }" 
-                    x-show="badgeCount > 0" 
-                    x-text="badgeCount" 
-                    x-cloak 
-                    class="ml-auto text-xs font-bold bg-rose-500 text-white rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center" 
-                    title="{{ $newTechCaseCount }} new case(s), {{ $unreadCallCompletedCount }} unread call-completed notification(s)">
-                        {{ $techSidebarBadgeCount > 0 ? $techSidebarBadgeCount : '' }}
-                    </span>
-                </a>
-
-                {{-- ── 8. Reports ─────────────────────────────────────────── --}}
-                <a wire:navigate.hover href="{{ route('crm.reports.index') }}"
-                   class="sidebar-item {{ request()->routeIs('crm.reports.*') ? 'active' : '' }}"
-                   id="nav-crm-reports">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/>
-                    </svg>
-                    Reports
-                </a>
-
-                <?php
-                    // Fetch CRM External Links for sidebar.
-                    // A corrupted file-cache entry here previously took down every
-                    // authenticated page: unserialize() doesn't throw when it can't
-                    // rebuild a class, it silently returns a __PHP_Incomplete_Class
-                    // object, and the fatal only surfaces later on first method call
-                    // (e.g. ->count() below). So a try/catch around the cache read
-                    // alone isn't enough — the result must be type-checked before use.
-                    // Bounded TTL (not rememberForever) so any future corruption
-                    // self-heals within an hour instead of needing a manual cache:clear.
-                    try {
-                        $crmSidebarLinks = \Illuminate\Support\Facades\Cache::remember('crm_sidebar_links', 3600, function () {
-                            return \App\Models\CrmExternalLink::where('is_active', true)->orderBy('sort_order')->get();
-                        });
-                        if (!($crmSidebarLinks instanceof \Illuminate\Support\Collection)) {
-                            throw new \RuntimeException('crm_sidebar_links cache returned a non-Collection value');
-                        }
-                    } catch (\Throwable $e) {
-                        \Illuminate\Support\Facades\Cache::forget('crm_sidebar_links');
-                        $crmSidebarLinks = \App\Models\CrmExternalLink::where('is_active', true)->orderBy('sort_order')->get();
-                    }
-                ?>
-                @if($crmSidebarLinks->count() > 0)
-                    <div class="sidebar-tool-group sidebar-tool-group-system">
-                        <span class="sidebar-tool-heading">CRM External Links</span>
-                        @foreach($crmSidebarLinks as $link)
-                            <a wire:navigate.hover href="{{ $link->url }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="sidebar-item sidebar-tool-item sidebar-tool-item-system"
-                               title="{{ $link->name }}">
-                                @if($link->icon_url)
-                                    <img src="{{ $link->icon_url }}" class="h-4 w-4 object-contain" alt="">
-                                @else
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4 text-slate-400">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/>
-                                    </svg>
-                                @endif
-                                <span>{{ $link->name }}</span>
-                            </a>
-                        @endforeach
-                    </div>
-                @endif
-
-                @endcan
-
-                @endcanany
 
 
                 <!-- Reports -->
@@ -1189,7 +878,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 <a wire:navigate.hover href="{{ route('reports.index') }}"
                    class="sidebar-item {{ request()->routeIs('reports.*') ? 'active' : '' }}"
-                   id="nav-reports">
+                   id="nav-reports" data-tooltip="System Reports">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z"/>
                     </svg>
@@ -1199,14 +888,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endcan
 
                 <!-- Admin -->
-                @if(auth()->check() && (auth()->user()->canany(['users.view', 'roles.view', 'security.view', 'backup.view']) || auth()->user()->hasAnyRole(['super-admin', 'admin-crm', 'sales-crm'])))
+                @if(auth()->check() && (auth()->user()->canany(['users.view', 'roles.view', 'security.view', 'backup.view']) || auth()->user()->hasRole('super-admin')))
                 <span class="sidebar-section-label">Administration</span>
 
 
                 @can('users.view')
                 <a wire:navigate.hover href="{{ route('admin.users.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"
-                   id="nav-users">
+                   id="nav-users" data-tooltip="User Management">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
                     </svg>
@@ -1250,7 +939,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @can('security.view')
                 <a wire:navigate.hover href="{{ route('admin.security.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.security.*') ? 'active' : '' }}"
-                   id="nav-security">
+                   id="nav-security" data-tooltip="Security Activity">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/>
                     </svg>
@@ -1263,17 +952,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @hasanyrole('super-admin|admin-digital')
                 <a wire:navigate.hover href="{{ route('admin.settings.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}"
-                   aria-label="External Systems" title="External Systems">
+                   aria-label="External Systems" data-tooltip="System Settings">
                     <x-external-tool-icon name="link" class="w-5 h-5 flex-shrink-0" />
                     <span>External Systems</span>
-                </a>
-                <a wire:navigate.hover href="{{ route('crm.links.index') }}"
-                   class="sidebar-item {{ request()->routeIs('crm.links.*') ? 'active' : '' }}"
-                   aria-label="CRM External Links" title="CRM External Links">
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/>
-                    </svg>
-                    <span>CRM External Links</span>
                 </a>
                 <a wire:navigate.hover href="{{ route('admin.maintenance.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.maintenance.*') ? 'active' : '' }}"
@@ -1594,28 +1275,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
                     @php
-                        // Cached 30s as plain arrays — avoid Eloquent + record join on every menu click.
-                        $pendingHandlerConfirmations = collect(
-                            \Illuminate\Support\Facades\Cache::remember(
-                                'crm.pending_handler_confirms.' . auth()->id(),
-                                30,
-                                function () {
-                                    return \App\Models\EbayCustomerHandlerHistory::pendingConfirmation()
-                                        ->where('user_id', auth()->id())
-                                        ->with(['record:id,buyer_name,username'])
-                                        ->latest('started_at')
-                                        ->limit(20)
-                                        ->get()
-                                        ->map(fn ($entry) => [
-                                            'id'         => $entry->id,
-                                            'record_id'  => $entry->ebay_customer_record_id,
-                                            'buyer_name' => $entry->record?->buyer_name,
-                                            'username'   => $entry->record?->username,
-                                        ])
-                                        ->all();
-                                }
-                            )
-                        );
+                        // CRM removed — no pending handler confirmations needed.
+                        $pendingHandlerConfirmations = collect();
                     @endphp
                     <div class="relative" x-data="dropdown" @kiuq:realtime-notification.window="open = false">
                         <button type="button"
@@ -1661,39 +1322,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     <p class="truncate text-xs font-semibold text-slate-500">{{ auth()->user()->email }}</p>
                                 </div>
                             </div>
-                            @if($pendingHandlerConfirmations->isNotEmpty())
-                            <div class="border-b border-slate-100 px-2 py-2">
-                                <p class="px-1 pb-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">
-                                    New Handler Assignment{{ $pendingHandlerConfirmations->count() > 1 ? 's' : '' }} ({{ $pendingHandlerConfirmations->count() }})
-                                </p>
-                                <div class="space-y-1.5 max-h-56 overflow-y-auto">
-                                    @foreach($pendingHandlerConfirmations as $entry)
-                                    <div class="rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2">
-                                        <p class="text-xs font-semibold text-slate-800 truncate">
-                                            {{ $entry['buyer_name'] ?: $entry['username'] ?? 'Unknown Customer' }}
-                                        </p>
-                                        <div class="mt-1.5 flex items-center gap-1.5">
-                                            <form method="POST" action="{{ route('crm.ebay.customers.handler-history.confirm', $entry['id']) }}" class="flex-1">
-                                                @csrf
-                                                <button type="submit" class="w-full btn btn-primary text-[11px] py-1 leading-tight" id="confirm-handler-{{ $entry['id'] }}">Confirm</button>
-                                            </form>
-                                            @if($entry['record_id'])
-                                            <a wire:navigate.hover href="{{ route('crm.ebay.customers.show', $entry['record_id']) }}" class="btn btn-secondary text-[11px] py-1 px-2 leading-tight">View</a>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                            @endif
-                            @if(in_array('crm', auth()->user()->notificationModules(), true))
-                            <a wire:navigate.hover href="{{ route('crm.ebay.customers.handler-history.index') }}" class="dropdown-item mt-1 hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-handler-history">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                                </svg>
-                                Handler Assignment History
-                            </a>
-                            @endif
+
                             <a wire:navigate.hover href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-profile">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0"/>
@@ -2803,9 +2432,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </script>
 
     @include('components.ajax-form-script')
-    @if(auth()->user()?->isCrmMember())
-        @include('crm.partials.live-global-updater')
-    @endif
+
     @stack('scripts')
     <!-- Notification Sound Effect -->
     @php

@@ -2804,7 +2804,7 @@
             .then(data => { 
                 if(data.success) { 
                     showFollowUpModal = false; 
-                    if (window.Turbo) window.Turbo.refresh(); else window.location.reload(); 
+                    if (window.Turbo) { if (typeof window.Turbo.refresh === 'function') window.Turbo.refresh(); else window.Turbo.visit(window.location.href, { action: 'replace' }); } else window.location.reload(); 
                 } else { 
                     alert(data.message || 'Error occurred.'); 
                 } 
@@ -2947,14 +2947,19 @@
 
 {{-- Export Modal --}}
 <div id="show-export-modal" data-turbo-permanent x-show="showExportModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
-    <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg" @click.stop>
+    <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg" @click.stop x-data="{ exportLoading: false }">
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Export Websites Report</h3>
-            <button @click="showExportModal = false" class="text-slate-400 hover:text-slate-600">
+            <button @click="showExportModal = false; exportLoading = false" class="text-slate-400 hover:text-slate-600">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.export') }}" method="GET" target="_blank" class="p-6 space-y-6">
+        <form action="{{ route('websites.export') }}" method="GET" target="_blank" class="p-6 space-y-6"
+              @submit.prevent="
+                exportLoading = true;
+                $el.submit();
+                setTimeout(() => { exportLoading = false; showExportModal = false; }, 4000);
+              ">
             <input type="hidden" name="tab" value="{{ $tab }}">
             <input type="hidden" name="format" value="pdf">
 
@@ -2989,11 +2994,20 @@
                     </div>
                 </div>
             </div>
+
+            {{-- Loading hint --}}
+            <div x-show="exportLoading" class="flex items-center gap-2 text-sm text-indigo-600 font-semibold bg-indigo-50 rounded-xl px-4 py-3 border border-indigo-100" style="display:none;">
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                Generating report in a new tab… please wait
+            </div>
+
             <div class="flex items-center justify-end gap-3 pt-4">
-                <button type="button" @click="showExportModal = false" class="btn btn-cancel btn-secondary text-sm px-5">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-200" @click="setTimeout(() => showExportModal = false, 300)">
-                    <svg class="w-4 h-4 mr-1.5 inline" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                    <span>Preview & Download</span>
+                <button type="button" @click="showExportModal = false; exportLoading = false" class="btn btn-cancel btn-secondary text-sm px-5">Cancel</button>
+                <button type="submit" :disabled="exportLoading"
+                    class="btn btn-primary text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-200 disabled:opacity-60 disabled:cursor-wait">
+                    <svg x-show="!exportLoading" class="w-4 h-4 mr-1.5 inline" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    <svg x-show="exportLoading" class="w-4 h-4 mr-1.5 inline animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    <span x-text="exportLoading ? 'Opening…' : 'Preview & Download'"></span>
                 </button>
             </div>
         </form>
