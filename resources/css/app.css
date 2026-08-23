@@ -27,7 +27,7 @@
 
     /* Sidebar */
     --sidebar-width:        260px;
-    --sidebar-collapsed-width: 80px;
+    --sidebar-collapsed-width: 64px;
     --sidebar-bg:           linear-gradient(180deg, #2F68ED 0%, #2457cf 48%, #173a92 100%);
     --sidebar-border:       rgba(255, 255, 255, 0.18);
     --sidebar-text:         #dbeafe;
@@ -1193,6 +1193,7 @@
     .sidebar-is-collapsed .sidebar {
       width: var(--sidebar-collapsed-width);
       transform: none;
+      overflow: visible !important;
     }
 
     .sidebar-is-collapsed .main-wrapper {
@@ -1229,48 +1230,46 @@
       padding-right: 0 !important;
     }
     
-    .sidebar-is-collapsed .sidebar-item > div:first-child {
-      justify-content: center;
-      gap: 0;
+    /* Hide everything except the first child (which is the main icon/element) to center them */
+    .sidebar-is-collapsed .sidebar-item > *:not(:first-child),
+    .sidebar-is-collapsed .sidebar-submenu-item > *:not(:first-child),
+    .sidebar-is-collapsed .sidebar-tool-item > *:not(:first-child),
+    .sidebar-is-collapsed .sidebar-logo > *:not(:first-child) {
+      display: none !important;
+    }
+
+    /* Make sure the first child is flexed and centered if it's a div or anchor wrapper */
+    .sidebar-is-collapsed .sidebar-item > div:first-child,
+    .sidebar-is-collapsed .sidebar-item > a:first-child,
+    .sidebar-is-collapsed .sidebar-submenu-item > div:first-child,
+    .sidebar-is-collapsed .sidebar-submenu-item > a:first-child,
+    .sidebar-is-collapsed .sidebar-tool-item > div:first-child,
+    .sidebar-is-collapsed .sidebar-tool-item > a:first-child {
+      display: flex !important;
+      justify-content: center !important;
+      gap: 0 !important;
+      flex: 1 1 auto !important;
     }
 
     .sidebar-is-collapsed .sidebar-logo {
       padding-left: 0 !important;
       padding-right: 0 !important;
-      justify-content: center;
+      justify-content: center !important;
     }
 
-    /* Tooltips */
-    .sidebar-is-collapsed .sidebar-item[data-tooltip],
-    .sidebar-is-collapsed .sidebar-submenu-item[data-tooltip],
-    .sidebar-is-collapsed .sidebar-tool-item[data-tooltip] {
-      position: relative;
-    }
-
-    .sidebar-is-collapsed .sidebar-item[data-tooltip]:hover::after,
-    .sidebar-is-collapsed .sidebar-submenu-item[data-tooltip]:hover::after,
-    .sidebar-is-collapsed .sidebar-tool-item[data-tooltip]:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      left: calc(100% + 12px);
-      top: 50%;
-      transform: translateY(-50%);
-      background: #1e293b;
-      color: #ffffff;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      white-space: nowrap;
-      z-index: 9999;
-      pointer-events: none;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      border: none;
+    /* Always show accordion submenus when collapsed */
+    .sidebar-is-collapsed .sidebar-accordion-group > div[x-show] {
+      display: block !important;
+      height: auto !important;
     }
     
     /* Submenu alignment fixes */
     .sidebar-is-collapsed .sidebar-submenu-list {
       margin-left: 0;
+    }
+    
+    .sidebar-is-collapsed .sidebar-submenu-item {
+      margin-left: 0 !important;
     }
     
     .sidebar-is-collapsed .sidebar-submenu-item::before {
@@ -1279,6 +1278,21 @@
     
     .sidebar-is-collapsed .sidebar-submenu-item:hover {
       transform: none !important;
+    }
+
+    /* Scrollable navigation and footer alignment in collapsed sidebar */
+    .sidebar-is-collapsed .sidebar-nav {
+      max-height: calc(100vh - 160px) !important;
+      max-height: calc(100dvh - 160px) !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+
+    .sidebar-is-collapsed .sidebar-footer {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
     }
   }
 

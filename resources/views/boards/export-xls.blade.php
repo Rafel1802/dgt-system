@@ -299,6 +299,7 @@
                 @if(($includeComments ?? false) && $c->files->isNotEmpty())
                     @php
                         $images = $c->files->filter(fn($f) => $f->is_image);
+                        $links = $c->files->filter(fn($f) => $f->disk === 'url' || $f->mime_type === 'link');
                     @endphp
                     @if($images->isNotEmpty())
                         <div class="task-images">
@@ -321,6 +322,15 @@
                                     </div>
                                 @endforeach
                             </div>
+                        </div>
+                    @endif
+                    @if($links->isNotEmpty())
+                        <div class="task-links" style="margin-top: 5px;">
+                            <strong>🔗 Attached Links:</strong>
+                            @php $linkCount = 1; @endphp
+                            @foreach($links as $link)
+                                <a href="{{ $link->path }}" target="_blank" style="color: #4f46e5; text-decoration: none; margin-right: 8px;">Link{{ $linkCount++ }}</a>
+                            @endforeach
                         </div>
                     @endif
                 @endif

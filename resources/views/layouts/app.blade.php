@@ -17,6 +17,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }} {{ $isMobile ? 'dgt-mobile-app' : '' }}">
 <head>
+    <script>localStorage.removeItem('dgt_font_scale');</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
@@ -55,6 +56,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <noscript>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
     </noscript>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
     <!-- Turbo 8: Drive navigation with speculative prefetch for instant loading. -->
     <meta name="turbo-prefetch" content="true">
@@ -522,7 +525,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                    class="sidebar-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
                    id="nav-dashboard" data-tooltip="Dashboard">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/>
+                        <rect width="7" height="9" x="3" y="3" rx="1" />
+                        <rect width="7" height="5" x="14" y="3" rx="1" />
+                        <rect width="7" height="9" x="14" y="12" rx="1" />
+                        <rect width="7" height="5" x="3" y="16" rx="1" />
                     </svg>
                     <span>Dashboard</span>
                 </a>
@@ -583,7 +589,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 {{-- Social Media --}}
                 @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
                 <div x-data="{ smOpen: localStorage.getItem('dgt-sm-menu-open') === 'true' || {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
-                    <button type="button" class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'active' : '' }}" @click="smOpen = !smOpen; localStorage.setItem('dgt-sm-menu-open', smOpen)">
+                    <button type="button" class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'active' : '' }}" @click="smOpen = !smOpen; localStorage.setItem('dgt-sm-menu-open', smOpen)" data-tooltip="Social Media Management">
                         <div class="flex items-center gap-[0.625rem] flex-1">
                             <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Management" class="w-[18px] h-[18px] flex-shrink-0 object-contain">
                             <span>Social Media Management</span>
@@ -599,7 +605,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             
                             <a wire:navigate.hover href="{{ route('social-media.dashboard') }}"
                                class="sidebar-submenu-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}" data-tooltip="Post Follow Up">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 10 2 2 4-4" /></svg>
                                 <span>Post Follow Up</span>
                             </a>
 
@@ -633,7 +639,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                    class="sidebar-item {{ request()->routeIs('boards.reports.personal') ? 'active' : '' }}"
                    id="nav-personal-report" data-tooltip="Personal Report">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline stroke-linecap="round" stroke-linejoin="round" points="14 2 14 8 20 8" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-6" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 18v-1" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 18v-3" />
                     </svg>
                     <span>Personal Report</span>
                 </a>
@@ -645,6 +655,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <div
                         class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('websites.*') ? 'active' : '' }}"
                         id="nav-websites-toggle"
+                        data-tooltip="All Websites"
                     >
                         <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'build']) }}" class="flex items-center gap-[0.625rem] flex-1">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
@@ -688,7 +699,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                            class="sidebar-submenu-item {{ $isOnStatusTab ? 'active' : '' }}"
                            id="nav-websites-status" data-tooltip="Website Status">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m9 10 2 2 4-4" />
+                                <rect width="20" height="14" x="2" y="3" rx="2" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 17v4" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8" />
                             </svg>
                             <span>Website Status</span>
                         </a>
@@ -696,7 +710,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
                            class="sidebar-submenu-item {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
                            id="nav-websites-followup" data-tooltip="Follow Up">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 14 2 2 4-4" /></svg>
                             <span>Follow Up</span>
                         </a>
                     </div>
@@ -712,14 +726,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                        target="_blank"
                        rel="noopener noreferrer"
                        class="sidebar-item" data-tooltip="{{ $weeklyReport['short_label'] ?? $weeklyReport['label'] ?? $weeklyReport['name'] ?? 'Weekly Report' }}">
-                        @if(isset($weeklyReport['icon_url']) && $weeklyReport['icon_url'])
-                            <img src="{{ $weeklyReport['icon_url'] }}" class="w-5 h-5 object-contain" alt="">
-                        @else
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                            </svg>
-                        @endif
-                        {{ $weeklyReport['short_label'] ?? $weeklyReport['label'] ?? $weeklyReport['name'] ?? 'Weekly Report' }}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                            <rect width="20" height="5" x="2" y="3" rx="1" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 12h4" />
+                        </svg>
+                        <span>{{ $weeklyReport['short_label'] ?? $weeklyReport['label'] ?? $weeklyReport['name'] ?? 'Weekly Report' }}</span>
                     </a>
                 @endif
                 @endunless
@@ -778,7 +790,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             <a wire:navigate.hover href="{{ $tool['url'] }}"
                                target="_blank"
                                rel="noopener noreferrer"
-                               class="sidebar-item sidebar-tool-item sidebar-tool-item-web" data-tooltip="{{ $tool[\'label\'] }}">
+                               class="sidebar-item sidebar-tool-item sidebar-tool-item-web" data-tooltip="{{ $tool['label'] }}">
                                 @if(isset($tool['icon_url']) && $tool['icon_url'])
                                     <img src="{{ $tool['icon_url'] }}" class="h-4 w-4 object-contain" alt="">
                                 @else
@@ -817,6 +829,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             type="button"
                             class="sidebar-item w-full flex items-center justify-between text-left"
                             aria-label="Toggle AI Tools"
+                            data-tooltip="AI Tools"
                         >
                             <div class="flex items-center gap-[0.625rem]">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
@@ -853,7 +866,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <a wire:navigate.hover href="{{ $tool['url'] }}"
                                    target="_blank"
                                    rel="noopener noreferrer"
-                                   class="sidebar-submenu-item" data-tooltip="{{ $tool[\'label\'] }}">
+                                   class="sidebar-submenu-item" data-tooltip="{{ $tool['label'] }}">
                                     @if(isset($tool['icon_url']) && $tool['icon_url'])
                                         <img src="{{ $tool['icon_url'] }}" class="h-4.5 w-4.5 object-contain" alt="">
                                     @else
@@ -910,7 +923,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         @click="open = !open"
                         class="sidebar-item w-full justify-between {{ request()->routeIs('admin.labels.*') || request()->routeIs('admin.smm-classes.*') ? 'active' : '' }}"
                         id="nav-labels-toggle"
-                        aria-expanded="open">
+                        aria-expanded="open"
+                        data-tooltip="Labels">
                         <span class="flex items-center gap-3">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/>
@@ -2681,6 +2695,52 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 });
             }, 1000); // Delay to prioritize main page load
         });
+
+        // Consistent Date Pickers across OS (Fixes macOS native calendar being too small)
+        const initDatePickers = () => {
+            if (typeof flatpickr !== 'undefined') {
+                flatpickr('input[type="date"]:not(.flatpickr-input)', {
+                    disableMobile: "true"
+                });
+            }
+        };
+        document.addEventListener('turbo:load', initDatePickers);
+        document.addEventListener('DOMContentLoaded', initDatePickers);
+        
+        const fpObserver = new MutationObserver(mutations => {
+            let hasNewInputs = false;
+            for (let m of mutations) {
+                if (m.addedNodes.length > 0) {
+                    m.addedNodes.forEach(node => {
+                        if (node.nodeType === 1 && (node.matches('input[type="date"]') || node.querySelector('input[type="date"]'))) {
+                            hasNewInputs = true;
+                        }
+                    });
+                }
+            }
+            if (hasNewInputs) initDatePickers();
+        });
+        fpObserver.observe(document.body, { childList: true, subtree: true });
     </script>
+    <div x-data="{ tooltipVisible: false, tooltipText: '', tooltipX: 0, tooltipY: 0 }" 
+         @mouseover.document="
+             let el = $event.target.closest('[data-tooltip]'); 
+             if(el && $store.sidebar.collapsed && window.innerWidth >= 1024) { 
+                 tooltipText = el.getAttribute('data-tooltip'); 
+                 let rect = el.getBoundingClientRect(); 
+                 tooltipX = rect.right + 12; 
+                 tooltipY = rect.top + (rect.height / 2); 
+                 tooltipVisible = true; 
+             } else { 
+                 tooltipVisible = false; 
+             } 
+         " 
+         x-show="tooltipVisible" 
+         x-transition.opacity.duration.200ms 
+         class="fixed z-[99999] bg-slate-800 text-white text-[13px] font-medium px-3 py-1.5 rounded-md shadow-lg pointer-events-none whitespace-nowrap" 
+         :style="`left: ${tooltipX}px; top: ${tooltipY}px; transform: translateY(-50%);`" 
+         x-cloak> 
+        <span x-text="tooltipText"></span> 
+    </div>
 </body>
 </html>

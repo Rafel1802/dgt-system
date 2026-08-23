@@ -73,19 +73,32 @@
 
                 // Collect logs for this date range
                 $allProgressLogs = collect();
+                $comments = $ws->activityLogs->filter(fn($l) => $l->action === 'comment' || $l->action === 'history_comment')->map(function($l) {
+                    $l->type = 'comment';
+                    $l->percent = null;
+                    return $l;
+                });
+
                 if ($filterStart || $filterEnd) {
                      $buildLogs = $ws->progressLogs->filter(fn($l) => $l->created_at >= $filterStart && $l->created_at <= $filterEnd);
                      $maintLogs = $ws->maintenanceLogs->filter(fn($l) => $l->created_at >= $filterStart && $l->created_at <= $filterEnd);
-                     $allProgressLogs = $buildLogs->concat($maintLogs);
+                     $filteredComments = $comments->filter(fn($l) => $l->created_at >= $filterStart && $l->created_at <= $filterEnd);
+                     $allProgressLogs = $buildLogs->concat($maintLogs)->concat($filteredComments);
                 } else {
-                     $allProgressLogs = $ws->progressLogs->concat($ws->maintenanceLogs);
+                     $allProgressLogs = $ws->progressLogs->concat($ws->maintenanceLogs)->concat($comments);
                 }
 
                 if ($allProgressLogs->count() > 0) {
                     foreach($allProgressLogs->sortBy('created_at') as $log) {
-                        $type = $log->type === 'maintenance' ? 'Maintenance Progress' : 'Build Progress';
+                        if ($log->type === 'comment') {
+                            $type = 'Comment';
+                            $percentStr = "";
+                        } else {
+                            $type = $log->type === 'maintenance' ? 'Maintenance Progress' : 'Build Progress';
+                            $percentStr = ": " . $log->percent . "%";
+                        }
                         $note = strip_tags($log->note);
-                        $reportText .= "   - " . $type . ": " . $log->percent . "%" . ($note ? " (" . $note . ")" : "") . "\n";
+                        $reportText .= "   - " . $type . $percentStr . ($note ? " (" . $note . ")" : "") . "\n";
                     }
                 }
 
@@ -104,12 +117,11 @@
 
     <div class="card border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm mt-6 w-full flex-1 flex">
         <iframe id="reportIframe" src="{{ route('websites.export') . '?' . http_build_query([
-            'tab' => $tab,
+            'tab'        => $tab,
             'start_date' => $startDate,
-            'end_date' => $endDate,
-            'member_id' => $memberId,
-            'format' => 'html',
-            'download' => 1
+            'end_date'   => $endDate,
+            'member_id'  => $memberId,
+            'format'     => 'html',
         ]) }}" class="w-full h-full bg-slate-100 flex-1" style="border:none;"></iframe>
     </div>
     <textarea id="reportTextContent" class="hidden" readonly>{{ trim($reportText) }}</textarea>

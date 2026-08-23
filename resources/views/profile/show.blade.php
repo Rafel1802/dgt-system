@@ -255,21 +255,48 @@
           @error('whatsapp')<p class="form-error">{{ $message }}</p>@enderror
         </div>
 
-        <div class="sm:col-span-2 border-t border-slate-100 pt-5 mt-2" x-data="{ currentSound: '{{ old('notification_sound', $user->notification_sound ?? '01.mp3') }}' }">
+        <div class="sm:col-span-2 border-t border-slate-100 pt-5 mt-2" x-data="{ 
+          currentSound: '{{ old('notification_sound', $user->notification_sound ?? '01.mp3') }}',
+          soundMuted: localStorage.getItem('dgt_notifications_muted') === 'true',
+          toggleMute() {
+            this.soundMuted = !this.soundMuted;
+            localStorage.setItem('dgt_notifications_muted', this.soundMuted);
+            if (!this.soundMuted) {
+              const audio = document.getElementById('notif-sound');
+              if (audio) { audio.currentTime = 0; audio.volume = 1.0; audio.play().catch(() => {}); }
+            }
+          }
+        }">
           <div class="flex items-start justify-between mb-3">
             <div>
               <label class="form-label flex gap-2 mb-1">Notification Sound</label>
               <p class="text-xs text-slate-500">Choose the sound that plays when you receive a notification.</p>
             </div>
-            @hasrole('super-admin')
-            <button type="button" @click="$refs.newSoundInput.click()" class="btn justify-center bg-white border border-slate-200 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-xs py-1.5 px-3 rounded-lg flex-shrink-0 transition-colors shadow-sm">
-              <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              Add Sound
-            </button>
-            @endhasrole
+            <div class="flex items-center gap-3">
+              {{-- Mute Toggle --}}
+              <button type="button"
+                @click="toggleMute()"
+                :class="soundMuted ? 'bg-slate-200 text-slate-500 border-slate-300' : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
+                class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all duration-200 select-none"
+              >
+                <svg x-show="!soundMuted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 flex-shrink-0">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+                </svg>
+                <svg x-show="soundMuted" x-cloak xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 flex-shrink-0">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                </svg>
+                <span x-text="soundMuted ? 'Sounds Off' : 'Sounds On'"></span>
+              </button>
+              @hasrole('super-admin')
+              <button type="button" @click="$refs.newSoundInput.click()" class="btn justify-center bg-white border border-slate-200 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-xs py-1.5 px-3 rounded-lg flex-shrink-0 transition-colors shadow-sm">
+                <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Sound
+              </button>
+              @endhasrole
+            </div>
           </div>
           
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" :class="soundMuted ? 'opacity-50 pointer-events-none' : ''">
             @foreach($sounds as $sound)
             <label class="relative flex cursor-pointer rounded-xl border p-3 focus:outline-none group"
                    :class="currentSound === '{{ $sound }}' ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200 hover:bg-slate-50'">
@@ -311,7 +338,11 @@
           </div>
           @error('notification_sound')<p class="form-error">{{ $message }}</p>@enderror
         </div>
+
+
       </div>
+
+
 
       <div class="mt-7 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-between">
         <div class="flex flex-col gap-3 sm:flex-row">

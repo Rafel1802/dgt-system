@@ -184,8 +184,9 @@
         .percent-100 { background:#dcfce7; color:#15803d; }
         .percent-other { background:#fef9c3; color:#a16207; }
 
-        .type-build { color:#4f46e5; font-weight:bold; font-size:7.5px; }
-        .type-maintenance { color:#c2410c; font-weight:bold; font-size:7.5px; }
+        .type-build { color:#6366f1; background:#e0e7ff; padding:2px 5px; border-radius:3px; }
+        .type-maintenance { color:#0f766e; background:#ccfbf1; padding:2px 5px; border-radius:3px; }
+        .type-comment { color:#4b5563; background:#f3f4f6; padding:2px 5px; border-radius:3px; }
 
         /* Follow Ups table */
         .followups-table {
@@ -270,7 +271,13 @@
             : $ws->progress_percent . '%';
 
         // Filter progress logs by date range
-        $allProgressLogs = $ws->progressLogs->sortBy('created_at');
+        $comments = $ws->activityLogs->filter(fn($l) => $l->action === 'comment' || $l->action === 'history_comment')->map(function($l) {
+            $l->type = 'comment';
+            $l->percent = null;
+            return $l;
+        });
+        
+        $allProgressLogs = $ws->progressLogs->concat($ws->maintenanceLogs)->concat($comments)->sortBy('created_at');
         $filteredProgressLogs = $allProgressLogs;
         if (!empty($filterStart) || !empty($filterEnd)) {
             $filteredProgressLogs = $allProgressLogs->filter(function($log) use ($filterStart, $filterEnd) {
@@ -283,6 +290,7 @@
 
         // Helper to get percent pill class
         $getPillClass = function($pct) {
+
             return match(true) {
                 $pct >= 100 => 'percent-100',
                 $pct >= 75  => 'percent-75',
@@ -386,19 +394,20 @@
             </thead>
             <tbody>
                 @foreach($filteredProgressLogs as $log)
-                @php
-                    $pillClass = $getPillClass((int)$log->percent);
-                @endphp
                 <tr>
                     <td>{{ $log->created_at->format('d/m/Y H:i') }}</td>
                     <td>{{ $log->user?->name ?? 'System' }}</td>
                     <td>
-                        <span class="{{ $log->type === 'maintenance' ? 'type-maintenance' : 'type-build' }}">
+                        <span class="{{ $log->type === 'maintenance' ? 'type-maintenance' : ($log->type === 'comment' ? 'type-comment' : 'type-build') }}">
                             {{ strtoupper($log->type ?? 'BUILD') }}
                         </span>
                     </td>
                     <td>
-                        <span class="percent-pill {{ $pillClass }}">{{ $log->percent }}%</span>
+                        @if($log->type !== 'comment')
+                            <span class="percent-pill {{ $getPillClass((int)$log->percent) }}">{{ $log->percent }}%</span>
+                        @else
+                            —
+                        @endif
                     </td>
                     <td>{{ $log->note }}</td>
                 </tr>
@@ -407,39 +416,6 @@
         </table>
         @else
         <div style="padding:8px 10px; color:#94a3b8; font-style:italic; font-size:8.5px;">No update history recorded yet.</div>
-        @endif
-
-        {{-- Follow Ups Section --}}
-        @if($ws->followUps->count() > 0)
-        <div class="history-title" style="background:#fefce8; color:#78350f;">
-            Follow Ups ({{ $ws->followUps->count() }})
-        </div>
-        <table class="followups-table">
-            <thead>
-                <tr>
-                    <th width="11%">Date</th>
-                    <th width="12%">Type</th>
-                    <th width="22%">Page Title</th>
-                    <th width="22%">Page URL</th>
-                    <th width="11%">Assigned To</th>
-                    <th width="10%">QC Status</th>
-                    <th width="12%">Note</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($ws->followUps as $fu)
-                <tr>
-                    <td>{{ $fu->created_at->format('d/m/Y') }}</td>
-                    <td>{{ $fu->getTypeLabel() }}</td>
-                    <td>{{ $fu->title ?? '—' }}</td>
-                    <td style="word-break:break-all; font-size:7.5px;">{{ $fu->url ?? '—' }}</td>
-                    <td>{{ $fu->assignee?->name ?? 'Unassigned' }}</td>
-                    <td>{{ $fu->qc_status ?? '—' }}</td>
-                    <td>{{ strip_tags($fu->note ?? '') }}</td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
         @endif
 
     </div>{{-- /website-block --}}

@@ -1144,7 +1144,7 @@ class WebsiteController extends Controller
         $query = Website::with([
             'handler', 'creator', 'qcApprover',
             'progressLogs.user', 'maintenanceLogs.user',
-            'activityLogs.user', 'followUps.assignee', 'followUps.qcChecker',
+            'activityLogs.user',
         ])->where('is_archived', false);
 
 
@@ -1190,9 +1190,6 @@ class WebsiteController extends Controller
                     if ($filterStart) $q->where('created_at', '>=', $filterStart);
                     if ($filterEnd) $q->where('created_at', '<=', $filterEnd);
                 })->orWhereHas('activityLogs', function ($q) use ($filterStart, $filterEnd) {
-                    if ($filterStart) $q->where('created_at', '>=', $filterStart);
-                    if ($filterEnd) $q->where('created_at', '<=', $filterEnd);
-                })->orWhereHas('followUps', function ($q) use ($filterStart, $filterEnd) {
                     if ($filterStart) $q->where('created_at', '>=', $filterStart);
                     if ($filterEnd) $q->where('created_at', '<=', $filterEnd);
                 });

@@ -1811,6 +1811,7 @@ class BoardController extends Controller
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
+                'boards.members',
                 'members',
             ])
                 ->where('is_active', true)
@@ -1821,8 +1822,8 @@ class BoardController extends Controller
         } else {
             $allActiveWorkspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
-                'boards.members' => fn($q) => $q->where('users.id', $userId)->select('users.id', 'users.name'),
-                'members' => fn($q) => $q->where('users.id', $userId)->select('users.id', 'users.name'),
+                'boards.members',
+                'members',
             ])
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
@@ -1832,9 +1833,9 @@ class BoardController extends Controller
                 
             $workspaces = $allActiveWorkspaces->filter(function ($ws) use ($userId, $canSeeSMM) {
                 if ($canSeeSMM && $ws->name === 'Social Media Management') return true;
-                if ($ws->members->isNotEmpty() || $ws->owner_id === $userId) return true;
+                if ($ws->owner_id === $userId || $ws->members->contains('id', $userId)) return true;
                 foreach ($ws->boards as $board) {
-                    if ($board->members->isNotEmpty() || $board->created_by === $userId) return true;
+                    if ($board->created_by === $userId || $board->members->contains('id', $userId)) return true;
                 }
                 return false;
             });
@@ -1845,13 +1846,13 @@ class BoardController extends Controller
                 if ($canSeeSMM && $workspace->name === 'Social Media Management') {
                     return true;
                 }
-                if ($workspace->members->isNotEmpty() || $workspace->owner_id === $userId) {
+                if ($workspace->owner_id === $userId || $workspace->members->contains('id', $userId)) {
                     return true;
                 }
                 if ($board->created_by === $userId) {
                     return true;
                 }
-                return $board->members->isNotEmpty();
+                return $board->members->contains('id', $userId);
             }));
         }
 
