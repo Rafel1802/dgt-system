@@ -515,7 +515,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }
     </style>
 </head>
-<body class="h-full bg-[var(--bg-page)] overscroll-none touch-manipulation" x-data="themeSystem()" x-init="initTheme()">
+<body class="h-full bg-[var(--bg-page)] overscroll-none touch-manipulation overflow-x-hidden" x-data="themeSystem()" x-init="initTheme()">
 
     <!-- ── Sidebar Overlay (mobile) ───────────────────────────────────── -->
     <style>
@@ -1255,7 +1255,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </div>
                         <div class="flex flex-col justify-center ml-1">
                             <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 leading-none mb-0.5" x-text="$store.musicPlayer.playing ? 'Now Playing' : 'Paused'">Now Playing</span>
-                            <span x-text="$store.musicPlayer.title" class="text-xs font-bold text-slate-700 dark:text-slate-200 leading-none max-w-[140px] truncate" title="Lofi Chill Beats">Lofi Chill Beats</span>
+                            <span x-text="$store.musicPlayer.title" class="text-xs font-bold text-slate-700 dark:text-slate-200 leading-none max-w-[140px] truncate" :title="$store.musicPlayer.title">Waiting for device media...</span>
                         </div>
                     </div>
                     @endif
@@ -2920,25 +2920,23 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             if (!Alpine.store('musicPlayer')) {
                 Alpine.store('musicPlayer', {
                     playing: false,
-                    visible: false, // only show if playing or paused (but we want to show it always if enabled? Wait, user said "show only when the music play if not no need to show it". We'll set visible = true when playing starts, and keep it true even if paused so they can resume.)
-                    title: 'Loading chill beats...',
+                    visible: false,
+                    title: 'Waiting for device media...',
                     togglePlay() {
-                        if (window.globalMusicPlayer && typeof window.globalMusicPlayer.getPlayerState === 'function') {
-                            if (this.playing) {
-                                window.globalMusicPlayer.pauseVideo();
-                            } else {
-                                window.globalMusicPlayer.playVideo();
-                            }
+                        if (window.flutter_inappwebview) {
+                            window.flutter_inappwebview.callHandler('DgtNativeMediaControl', this.playing ? 'pause' : 'play');
                         }
+                        // Optimistic UI update
+                        this.playing = !this.playing;
                     },
                     nextTrack() {
-                        if (window.globalMusicPlayer && typeof window.globalMusicPlayer.nextVideo === 'function') {
-                            window.globalMusicPlayer.nextVideo();
+                        if (window.flutter_inappwebview) {
+                            window.flutter_inappwebview.callHandler('DgtNativeMediaControl', 'next');
                         }
                     },
                     prevTrack() {
-                        if (window.globalMusicPlayer && typeof window.globalMusicPlayer.previousVideo === 'function') {
-                            window.globalMusicPlayer.previousVideo();
+                        if (window.flutter_inappwebview) {
+                            window.flutter_inappwebview.callHandler('DgtNativeMediaControl', 'prev');
                         }
                     }
                 });
@@ -2947,69 +2945,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </script>
 
     @if(auth()->check() && auth()->user()->music_player_enabled)
-    <!-- Persistent Hidden YouTube Player -->
-    <div id="persistent-music-player-container" data-turbo-permanent class="hidden">
-        <div id="youtube-player-iframe"></div>
+    <!-- Native Media Bridge -->
+    <div data-turbo-permanent class="hidden">
         <script>
-            if (typeof window.YT === 'undefined' || typeof window.YT.Player === 'undefined') {
-                const tag = document.createElement('script');
-                tag.src = "https://www.youtube.com/iframe_api";
-                const firstScriptTag = document.getElementsByTagName('script')[0];
-                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-            }
-
-            // If it's already ready (e.g. turbo reload), init immediately
-            if (window.YT && window.YT.Player && !window.globalMusicPlayer) {
-                initYTPlayer();
-            }
-
-            window.onYouTubeIframeAPIReady = function() {
-                initYTPlayer();
-            };
-
-            function initYTPlayer() {
-                if (window.globalMusicPlayer) return; // already initialized
-                window.globalMusicPlayer = new YT.Player('youtube-player-iframe', {
-                    height: '0',
-                    width: '0',
-                    playerVars: {
-                        'listType': 'playlist',
-                        'list': 'PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo', // Lofi Girl Playlist
-                        'autoplay': 1,
-                        'controls': 0,
-                        'showinfo': 0,
-                        'rel': 0,
-                        'iv_load_policy': 3,
-                        'modestbranding': 1,
-                        'enablejsapi': 1
-                    },
-                    events: {
-                        'onReady': onPlayerReady,
-                        'onStateChange': onPlayerStateChange
-                    }
-                });
-            }
-
-            function onPlayerReady(event) {
-                // event.target.playVideo(); // Most browsers block autoplay, user must click play
-                // If autoplay works, it will trigger onStateChange
-            }
-
-            function onPlayerStateChange(event) {
+            // This function is expected to be called by the native macOS app (Flutter WebView)
+            // e.g. window.DgtUpdateMediaState({ playing: true, title: "Lofi Girl Radio" })
+            window.DgtUpdateMediaState = function(state) {
                 if (window.Alpine && window.Alpine.store('musicPlayer')) {
-                    const isPlaying = event.data === YT.PlayerState.PLAYING;
-                    window.Alpine.store('musicPlayer').playing = isPlaying;
-                    
-                    if (isPlaying) {
-                        window.Alpine.store('musicPlayer').visible = true;
-                    }
-                    
-                    const videoData = window.globalMusicPlayer.getVideoData();
-                    if(videoData && videoData.title) {
-                        window.Alpine.store('musicPlayer').title = videoData.title;
-                    }
+                    const player = window.Alpine.store('musicPlayer');
+                    if (state.hasOwnProperty('playing')) player.playing = !!state.playing;
+                    if (state.hasOwnProperty('title')) player.title = state.title || 'Unknown Track';
+                    player.visible = true; // Show UI once we get data
                 }
-            }
+            };
         </script>
     </div>
     @endif
