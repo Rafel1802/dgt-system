@@ -29,7 +29,7 @@
 <style>
     /* Animated Gradient Background */
     .bg-animated-mesh {
-        background: linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%);
+        background: linear-gradient(120deg, #e0f2fe 0%, #bae6fd 100%);
         position: fixed;
         inset: 0;
         z-index: -2;
@@ -102,12 +102,28 @@
         0% { background-position: 0% center; }
         100% { background-position: 200% center; }
     }
+    
+    .bento-card-primary {
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        color: white;
+        border: none;
+        border-radius: 2rem;
+        box-shadow: 0 10px 40px -10px rgba(79, 70, 229, 0.4);
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+        overflow: hidden;
+    }
+    .bento-card-primary:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px -10px rgba(79, 70, 229, 0.6);
+    }
 </style>
 
 <!-- Ambient Background -->
-<div class="bg-animated-mesh"></div>
-<div class="blob blob-1"></div>
-<div class="blob blob-2"></div>
+<div class="fixed inset-0 overflow-hidden pointer-events-none z-[-2]">
+    <div class="bg-animated-mesh"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+</div>
 
 <div class="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-fade-in pb-28 md:pb-12 px-2 sm:px-0">
     
@@ -142,35 +158,35 @@
         </article>
 
         <!-- Time & Status Card -->
-        <article class="bento-card p-8 relative flex flex-col justify-between overflow-hidden">
+        <article class="bento-card-primary p-8 relative flex flex-col justify-between overflow-hidden">
             <!-- Decorative circle -->
-            <div class="absolute -right-16 -top-16 w-48 h-48 bg-sky-400/20 dark:bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
             
             <div>
-                <p class="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">{{ now()->format('l') }}</p>
-                <h2 class="text-3xl font-black text-slate-900 dark:text-white">{{ now()->format('F j, Y') }}</h2>
+                <p class="text-sm font-black uppercase tracking-widest text-indigo-200 mb-1">{{ now()->format('l') }}</p>
+                <h2 class="text-3xl font-black text-white">{{ now()->format('F j, Y') }}</h2>
             </div>
             
             <div class="mt-8 space-y-4">
-                <div class="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">
+                <div class="bg-white/10 rounded-2xl p-4 border border-white/10 flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-bold text-slate-500 dark:text-slate-400">Total Users</p>
-                        <p class="text-2xl font-black text-slate-900 dark:text-white">{{ $totalUsers }}</p>
+                        <p class="text-sm font-bold text-indigo-100">Total Users</p>
+                        <p class="text-2xl font-black text-white">{{ $totalUsers }}</p>
                     </div>
-                    <div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
                     </div>
                 </div>
                 
-                <div class="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">
+                <div class="bg-white/10 rounded-2xl p-4 border border-white/10 flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-bold text-slate-500 dark:text-slate-400">Online Now</p>
-                        <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400">{{ $onlineUsers }}</p>
+                        <p class="text-sm font-bold text-indigo-100">Online Now</p>
+                        <p class="text-2xl font-black text-emerald-300">{{ $onlineUsers }}</p>
                     </div>
-                    <div class="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <div class="w-12 h-12 rounded-full bg-emerald-400/20 flex items-center justify-center text-emerald-300">
                         <span class="relative flex h-4 w-4">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span class="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-4 w-4 bg-emerald-400"></span>
                         </span>
                     </div>
                 </div>
@@ -180,13 +196,13 @@
 
     <!-- Analytics Section -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <article class="bento-card p-6 sm:p-8">
+        <article class="bento-card-primary p-6 sm:p-8">
             <div class="flex items-center justify-between mb-6">
                 <div>
-                    <h3 class="text-lg font-black text-slate-900 dark:text-white">Active Users</h3>
-                    <p class="text-sm font-medium text-slate-500">Workspace presence</p>
+                    <h3 class="text-lg font-black text-white">Active Users</h3>
+                    <p class="text-sm font-medium text-indigo-100">Workspace presence</p>
                 </div>
-                <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
+                <div class="p-2 bg-white/20 rounded-xl text-white">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" /></svg>
                 </div>
             </div>
@@ -195,13 +211,13 @@
             </div>
         </article>
 
-        <article class="bento-card p-6 sm:p-8">
+        <article class="bento-card-primary p-6 sm:p-8">
             <div class="flex items-center justify-between mb-6">
                 <div>
-                    <h3 class="text-lg font-black text-slate-900 dark:text-white">Activity Trend</h3>
-                    <p class="text-sm font-medium text-slate-500">Actions over last days</p>
+                    <h3 class="text-lg font-black text-white">Activity Trend</h3>
+                    <p class="text-sm font-medium text-indigo-100">Actions over last days</p>
                 </div>
-                <div class="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-xl text-pink-600 dark:text-pink-400">
+                <div class="p-2 bg-white/20 rounded-xl text-white">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
                 </div>
             </div>
