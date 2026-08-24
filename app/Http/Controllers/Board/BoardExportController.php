@@ -777,6 +777,7 @@ class BoardExportController extends Controller
 
         return view('boards.export-pdf', [
             'board' => $board,
+            'cards' => $cards,
             'groupedCards' => $smmData['groupedCards'],
             'period' => $period,
             'totalTasks' => $totalTasks,

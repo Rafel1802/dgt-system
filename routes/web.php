@@ -501,7 +501,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 // Blog Reports
 Route::middleware(['auth'])->group(function () {
     Route::get('/blog-reports', [\App\Http\Controllers\BlogReportController::class, 'index'])->name('blog-reports.index');
-    Route::post('/blog-reports/generate', [\App\Http\Controllers\BlogReportController::class, 'generate'])->name('blog-reports.generate');
+    Route::post('/blog-reports/preview', [\App\Http\Controllers\BlogReportController::class, 'preview'])->name('blog-reports.preview');
+    Route::post('/blog-reports/export', [\App\Http\Controllers\BlogReportController::class, 'export'])->name('blog-reports.export');
 });
 
 // Root redirect

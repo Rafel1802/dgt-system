@@ -602,7 +602,7 @@ class SmmImportController extends Controller
                 $gidStr = '&gid=' . $gidMatches[1];
             }
             
-            $csvUrl = "https://docs.google.com/spreadsheets/d/{$fileId}/export?format=csv{$gidStr}";
+            $csvUrl = "https://docs.google.com/spreadsheets/d/{$fileId}/gviz/tq?tqx=out:csv{$gidStr}";
             $response = Http::get($csvUrl);
             if ($response->successful()) {
                 return $response->body();

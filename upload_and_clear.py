@@ -136,6 +136,7 @@ if __name__ == "__main__":
             + tinker_fix_returns
             + tinker_fix_statuses
             + tinker_fix_deal_stage
+            + PHP + " artisan app:setup-blog-report-permission && "
             + PHP + " artisan view:cache && "
             + PHP + " artisan storage:link"
         )
