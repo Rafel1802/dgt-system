@@ -43,6 +43,7 @@ class User extends Authenticatable
         'can_edit_profile',
         'team_role',
         'notification_sound',
+        'music_player_enabled',
         'board_backgrounds',
         'theme',
     ];

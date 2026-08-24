@@ -1238,6 +1238,38 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </div>
 
                 <div class="topbar-actions ml-auto">
+                    @if(auth()->check() && auth()->user()->music_player_enabled)
+                    <!-- Music Player UI -->
+                    <div x-data="globalMusicPlayerUI()" x-show="$store.musicPlayer.visible" x-cloak x-transition.opacity class="hidden md:flex items-center gap-2 bg-slate-100/80 dark:bg-slate-800/80 rounded-full pr-4 pl-2 py-1 mr-4 border border-slate-200 dark:border-slate-700">
+                        <div class="flex items-center gap-1">
+                            <button @click="$store.musicPlayer.prevTrack()" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M9.195 18.44c1.25.713 2.805-.19 2.805-1.629v-8.56c0-1.44-1.555-2.342-2.805-1.628L2.04 10.852c-1.127.643-1.127 2.308 0 2.95l7.155 4.639ZM20.75 18.44c1.25.713 2.805-.19 2.805-1.629v-8.56c0-1.44-1.555-2.342-2.805-1.628l-7.155 4.229c-1.127.643-1.127 2.308 0 2.95l7.155 4.639Z" /></svg>
+                            </button>
+                            <button @click="$store.musicPlayer.togglePlay()" class="w-8 h-8 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:scale-105 active:scale-95 transition-transform shadow-sm">
+                                <svg x-show="$store.musicPlayer.playing" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" /></svg>
+                                <svg x-show="!$store.musicPlayer.playing" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 ml-0.5"><path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" /></svg>
+                            </button>
+                            <button @click="$store.musicPlayer.nextTrack()" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M14.805 5.56c-1.25-.713-2.805.19-2.805 1.629v8.56c0 1.44 1.555 2.342 2.805 1.628l7.155-4.229c1.127-.643 1.127-2.308 0-2.95l-7.155-4.639ZM3.25 5.56c-1.25-.713-2.805.19-2.805 1.629v8.56c0 1.44 1.555 2.342 2.805 1.628l7.155-4.229c1.127-.643 1.127-2.308 0-2.95L3.25 5.56Z" /></svg>
+                            </button>
+                        </div>
+                        <div class="flex flex-col justify-center ml-1">
+                            <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 leading-none mb-0.5" x-text="$store.musicPlayer.playing ? 'Now Playing' : 'Paused'">Now Playing</span>
+                            <span x-text="$store.musicPlayer.title" class="text-xs font-bold text-slate-700 dark:text-slate-200 leading-none max-w-[140px] truncate" title="Lofi Chill Beats">Lofi Chill Beats</span>
+                        </div>
+                    </div>
+                    @endif
+
+                    <!-- Cambodia Clock -->
+                    <div x-data="cambodiaClock()" x-init="start()" class="hidden md:flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <span x-text="dateStr" class="text-xs font-bold uppercase tracking-wide"></span>
+                        <div class="w-[1px] h-3.5 bg-indigo-300 dark:bg-indigo-700/80 mx-0.5"></div>
+                        <span x-text="timeStr" class="text-sm font-extrabold tracking-tight" style="font-variant-numeric: tabular-nums;"></span>
+                    </div>
+
                     <!-- Dark Mode Pill Toggle (desktop) -->
                     <div class="theme-pill-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'" role="button" tabindex="0" @keydown.enter="toggleTheme()" @keydown.space.prevent="toggleTheme()" aria-label="Toggle dark mode" id="topbar-theme-toggle">
                         <!-- Sun icon -->
@@ -2843,7 +2875,143 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
          class="fixed z-[99999] bg-slate-800 text-white text-[13px] font-medium px-3 py-1.5 rounded-md shadow-lg pointer-events-none whitespace-nowrap" 
          :style="`left: ${tooltipX}px; top: ${tooltipY}px; transform: translateY(-50%);`" 
          x-cloak> 
-        <span x-text="tooltipText"></span> 
+         <span x-text="tooltipText"></span> 
     </div>
+
+    <!-- Cambodia Clock Script -->
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('cambodiaClock', () => ({
+                timeStr: '',
+                dateStr: '',
+                timer: null,
+                start() {
+                    this.updateClock();
+                    this.timer = setInterval(() => this.updateClock(), 1000);
+                },
+                updateClock() {
+                    const now = new Date();
+                    const optionsTime = { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+                    const optionsDate = { timeZone: 'Asia/Phnom_Penh', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+                    
+                    // Intl.DateTimeFormat output isn't exactly what we might want, so let's format it nicely
+                    const formatter = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'Asia/Phnom_Penh',
+                        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                        hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+                    });
+                    
+                    const parts = formatter.formatToParts(now);
+                    const p = {};
+                    parts.forEach(part => p[part.type] = part.value);
+                    
+                    this.dateStr = `${p.weekday}, ${p.month} ${p.day}, ${p.year}`;
+                    this.timeStr = `${p.hour}:${p.minute}:${p.second} ${p.dayPeriod}`;
+                },
+                destroy() {
+                    if (this.timer) clearInterval(this.timer);
+                }
+            }));
+
+            Alpine.data('globalMusicPlayerUI', () => ({
+                // Empty since we use Alpine.store for global state
+            }));
+
+            if (!Alpine.store('musicPlayer')) {
+                Alpine.store('musicPlayer', {
+                    playing: false,
+                    visible: false, // only show if playing or paused (but we want to show it always if enabled? Wait, user said "show only when the music play if not no need to show it". We'll set visible = true when playing starts, and keep it true even if paused so they can resume.)
+                    title: 'Loading chill beats...',
+                    togglePlay() {
+                        if (window.globalMusicPlayer && typeof window.globalMusicPlayer.getPlayerState === 'function') {
+                            if (this.playing) {
+                                window.globalMusicPlayer.pauseVideo();
+                            } else {
+                                window.globalMusicPlayer.playVideo();
+                            }
+                        }
+                    },
+                    nextTrack() {
+                        if (window.globalMusicPlayer && typeof window.globalMusicPlayer.nextVideo === 'function') {
+                            window.globalMusicPlayer.nextVideo();
+                        }
+                    },
+                    prevTrack() {
+                        if (window.globalMusicPlayer && typeof window.globalMusicPlayer.previousVideo === 'function') {
+                            window.globalMusicPlayer.previousVideo();
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+
+    @if(auth()->check() && auth()->user()->music_player_enabled)
+    <!-- Persistent Hidden YouTube Player -->
+    <div id="persistent-music-player-container" data-turbo-permanent class="hidden">
+        <div id="youtube-player-iframe"></div>
+        <script>
+            if (typeof window.YT === 'undefined' || typeof window.YT.Player === 'undefined') {
+                const tag = document.createElement('script');
+                tag.src = "https://www.youtube.com/iframe_api";
+                const firstScriptTag = document.getElementsByTagName('script')[0];
+                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            }
+
+            // If it's already ready (e.g. turbo reload), init immediately
+            if (window.YT && window.YT.Player && !window.globalMusicPlayer) {
+                initYTPlayer();
+            }
+
+            window.onYouTubeIframeAPIReady = function() {
+                initYTPlayer();
+            };
+
+            function initYTPlayer() {
+                if (window.globalMusicPlayer) return; // already initialized
+                window.globalMusicPlayer = new YT.Player('youtube-player-iframe', {
+                    height: '0',
+                    width: '0',
+                    playerVars: {
+                        'listType': 'playlist',
+                        'list': 'PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo', // Lofi Girl Playlist
+                        'autoplay': 1,
+                        'controls': 0,
+                        'showinfo': 0,
+                        'rel': 0,
+                        'iv_load_policy': 3,
+                        'modestbranding': 1,
+                        'enablejsapi': 1
+                    },
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            }
+
+            function onPlayerReady(event) {
+                // event.target.playVideo(); // Most browsers block autoplay, user must click play
+                // If autoplay works, it will trigger onStateChange
+            }
+
+            function onPlayerStateChange(event) {
+                if (window.Alpine && window.Alpine.store('musicPlayer')) {
+                    const isPlaying = event.data === YT.PlayerState.PLAYING;
+                    window.Alpine.store('musicPlayer').playing = isPlaying;
+                    
+                    if (isPlaying) {
+                        window.Alpine.store('musicPlayer').visible = true;
+                    }
+                    
+                    const videoData = window.globalMusicPlayer.getVideoData();
+                    if(videoData && videoData.title) {
+                        window.Alpine.store('musicPlayer').title = videoData.title;
+                    }
+                }
+            }
+        </script>
+    </div>
+    @endif
 </body>
 </html>

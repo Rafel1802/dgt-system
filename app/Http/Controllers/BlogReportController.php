@@ -37,12 +37,10 @@ class BlogReportController extends Controller
             return $filteredData; // This is a redirect back with error
         }
 
-        return view('blog-reports.preview', [
-            'data' => $filteredData,
+        return view('blog-reports.report', [
+            'data' => $filteredData['records'] ?? $filteredData,
             'monthLabel' => $request->input('month_label', 'Month'),
-            'sheetUrl' => $request->input('sheet_url'),
-            'dateFrom' => $request->input('date_from'),
-            'dateTo' => $request->input('date_to'),
+            'debug' => $filteredData['debug'] ?? []
         ]);
     }
 
@@ -62,13 +60,14 @@ class BlogReportController extends Controller
 
         $filteredData = $this->fetchAndFilterData($request);
 
-        if (!is_array($filteredData)) {
-            return $filteredData; // This is a redirect back with error
+        if (!is_array($filteredData) || !isset($filteredData['records'])) {
+            return $filteredData; // This is a redirect back with error or old format
         }
 
         return view('blog-reports.report', [
-            'data' => $filteredData,
-            'monthLabel' => $request->input('month_label', 'Month')
+            'data' => $filteredData['records'],
+            'monthLabel' => $request->input('month_label', 'Month'),
+            'debug' => $filteredData['debug'] ?? []
         ]);
     }
 
@@ -78,25 +77,19 @@ class BlogReportController extends Controller
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
-        $carbonFrom = $dateFrom ? \Carbon\Carbon::parse($dateFrom)->startOfDay() : null;
-        $carbonTo = $dateTo ? \Carbon\Carbon::parse($dateTo)->endOfDay() : null;
+        // Parse boundaries in Asia/Phnom_Penh timezone
+        $carbonFrom = $dateFrom ? \Carbon\Carbon::parse($dateFrom, 'Asia/Phnom_Penh')->startOfDay() : null;
+        $carbonTo = $dateTo ? \Carbon\Carbon::parse($dateTo, 'Asia/Phnom_Penh')->endOfDay() : null;
 
         preg_match('/\/d\/([a-zA-Z0-9-_]+)/', $url, $matches);
         $spreadsheetId = $matches[1] ?? null;
 
-        preg_match('/gid=([0-9]+)/', $url, $gidMatches);
-        
         if (!$spreadsheetId) {
             return back()->with('error', 'Invalid Google Sheet URL. Could not extract Spreadsheet ID.');
         }
 
-        if (!empty($gidMatches[1])) {
-            $gid = $gidMatches[1];
-            $csvUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&gid={$gid}";
-        } else {
-            // If no gid is provided, explicitly request the 'Blogs' sheet
-            $csvUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&sheet=Blogs";
-        }
+        // Explicitly request the "Blogs" sheet as required
+        $csvUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&sheet=Blogs";
 
         try {
             $response = Http::get($csvUrl);
@@ -106,7 +99,14 @@ class BlogReportController extends Controller
                 $bodyPreview = substr($response->body(), 0, 150);
                 return back()->with('error', "Failed to fetch data from the Google Sheet (Status: {$status}). Make sure it is public and accessible. Response: {$bodyPreview}");
             }
+            
             $csvData = $response->body();
+            
+            // Handle cases where the sheet doesn't exist
+            if (stripos($csvData, 'Invalid query') !== false || stripos($csvData, 'table has no columns') !== false) {
+                 return back()->with('error', 'The "Blogs" worksheet was not found in the source Google Sheet or is completely empty.');
+            }
+
             $lines = explode(PHP_EOL, $csvData);
             $parsedRows = array_map('str_getcsv', $lines);
             
@@ -114,91 +114,123 @@ class BlogReportController extends Controller
                 return back()->with('error', 'The Google Sheet is empty or improperly formatted.');
             }
 
-            $headers = array_shift($parsedRows);
-            
-            $blocks = [];
-            foreach ($headers as $idx => $headerName) {
-                if (trim($headerName) === 'Class') {
-                    $blocks[] = [
-                        'classIdx' => $idx,
-                        'docLinkIdx' => $idx + 1,
-                        'publicLinkIdx' => $idx + 2,
-                        'datedIdx' => $idx + 3,
-                        'websiteLinkIdx' => $idx + 4,
-                    ];
+            // Find the header row that contains 'Dated'
+            $headerRowIndex = -1;
+            $headers = [];
+            foreach ($parsedRows as $index => $row) {
+                $rowLower = array_map(function($c) { return strtolower(trim($c)); }, $row);
+                if (in_array('dated', $rowLower)) {
+                    $headerRowIndex = $index;
+                    $headers = $rowLower;
+                    break;
                 }
             }
 
-            if (empty($blocks)) {
-                // Fallback to indices 0,1,2,3,4 if header is missing
-                $blocks[] = [
-                    'classIdx' => 0,
-                    'docLinkIdx' => 1,
-                    'publicLinkIdx' => 2,
-                    'datedIdx' => 3,
-                    'websiteLinkIdx' => 4,
-                ];
+            if ($headerRowIndex === -1) {
+                return back()->with('error', 'Could not find any "Dated" column in the Blogs worksheet.');
             }
 
+            // Group columns into blocks/sections based on 'dated'
+            $blocks = [];
+            $currentBlock = [];
+            foreach ($headers as $idx => $header) {
+                if ($header === '') {
+                    // Empty column separator
+                    if (isset($currentBlock['dated'])) {
+                        $blocks[] = $currentBlock;
+                    }
+                    $currentBlock = [];
+                    continue;
+                }
+                
+                // If we see a header we already have in the current block, it means a new block started without an empty column
+                if (isset($currentBlock[$header])) {
+                    if (isset($currentBlock['dated'])) {
+                        $blocks[] = $currentBlock;
+                    }
+                    $currentBlock = [];
+                }
+                
+                $currentBlock[$header] = $idx;
+            }
+            if (isset($currentBlock['dated'])) {
+                $blocks[] = $currentBlock;
+            }
+
+            $dataRows = array_slice($parsedRows, $headerRowIndex + 1);
             $filteredData = [];
 
-            foreach ($parsedRows as $row) {
+            // Determine the year to use for dates without a year
+            $reportYear = $carbonFrom ? $carbonFrom->year : ($carbonTo ? $carbonTo->year : date('Y'));
+
+            $formatsWithYear = ['m/d/Y', 'd/m/Y', 'Y-m-d', 'Y/m/d', 'd-m-Y', 'd M Y', 'M d Y'];
+            // m/d prioritized as per prompt example "08/13"
+            $formatsWithoutYear = ['m/d', 'd/m', 'm-d', 'd-m', 'M d', 'd M'];
+
+            foreach ($dataRows as $row) {
                 foreach ($blocks as $block) {
-                    $rowClass = $row[$block['classIdx']] ?? '';
-                    $rowDated = $row[$block['datedIdx']] ?? '';
+                    $rowClass = isset($block['class']) && isset($row[$block['class']]) ? trim($row[$block['class']]) : '';
+                    $rowDocLink = isset($block['doc link']) && isset($row[$block['doc link']]) ? trim($row[$block['doc link']]) : '';
+                    $rowPublicLink = isset($block['public link']) && isset($row[$block['public link']]) ? trim($row[$block['public link']]) : '';
+                    $rowWebsiteLink = isset($block['website link']) && isset($row[$block['website link']]) ? trim($row[$block['website link']]) : '';
                     
-                    // Skip if both class and date are empty
-                    if (empty(trim($rowClass)) && empty(trim($rowDated))) {
+                    $rowDated = isset($block['dated']) && isset($row[$block['dated']]) ? trim($row[$block['dated']]) : '';
+                    
+                    // A valid blog record should contain a valid Dated value. Skip empty rows.
+                    if (empty($rowDated)) {
                         continue;
                     }
 
-                    // Date Filter logic
-                    if ($carbonFrom || $carbonTo) {
-                        $parsedRowDate = null;
-                        
-                        if (!empty($rowDated)) {
-                            // Common formats in the sheet
-                            $formats = ['d/m', 'm/d', 'n/j', 'j/n', 'd/m/Y', 'm/d/Y', 'n/j/Y', 'j/n/Y', 'd M', 'M d', 'd-m-Y', 'Y-m-d', 'd-M'];
-                            foreach ($formats as $fmt) {
-                                if (\Carbon\Carbon::hasFormat(trim($rowDated), $fmt)) {
-                                    try {
-                                        $parsedRowDate = \Carbon\Carbon::createFromFormat($fmt, trim($rowDated));
-                                        break;
-                                    } catch (\Exception $e) {
-                                        $parsedRowDate = null;
-                                    }
-                                }
-                            }
-
-                            // Fallback to standard parse if hasFormat fails but it might still be a valid standard date
-                            if (!$parsedRowDate) {
-                                try {
-                                    $parsedRowDate = \Carbon\Carbon::parse(trim($rowDated));
-                                } catch (\Exception $e) {
-                                    $parsedRowDate = null;
-                                }
-                            }
+                    $parsedRowDate = null;
+                    
+                    // Try parsing full date first
+                    foreach ($formatsWithYear as $fmt) {
+                        try {
+                            $parsedRowDate = \Carbon\Carbon::createFromFormat($fmt, $rowDated, 'Asia/Phnom_Penh')->startOfDay();
+                            break;
+                        } catch (\Exception $e) {}
+                    }
+                    
+                    // Try parsing date without year
+                    if (!$parsedRowDate) {
+                        foreach ($formatsWithoutYear as $fmt) {
+                            try {
+                                $tempDate = \Carbon\Carbon::createFromFormat($fmt, $rowDated, 'Asia/Phnom_Penh');
+                                $parsedRowDate = $tempDate->year($reportYear)->startOfDay();
+                                break;
+                            } catch (\Exception $e) {}
                         }
+                    }
+                    
+                    // Fallback to standard parse
+                    if (!$parsedRowDate) {
+                        try {
+                            $parsedRowDate = \Carbon\Carbon::parse($rowDated, 'Asia/Phnom_Penh')->startOfDay();
+                            if (date('Y', strtotime($rowDated)) == date('Y') && !preg_match('/\d{4}/', $rowDated)) {
+                                $parsedRowDate->year($reportYear);
+                            }
+                        } catch (\Exception $e) {}
+                    }
 
-                        if ($parsedRowDate) {
-                            if ($carbonFrom && $parsedRowDate->copy()->endOfDay()->lt($carbonFrom)) {
-                                continue;
-                            }
-                            if ($carbonTo && $parsedRowDate->copy()->startOfDay()->gt($carbonTo)) {
-                                continue;
-                            }
-                        } else {
-                            // If we can't parse the date from the sheet but a filter is applied, skip this row
+                    // Apply Date Filter
+                    if ($parsedRowDate) {
+                        if ($carbonFrom && $parsedRowDate->copy()->startOfDay()->lt($carbonFrom)) {
                             continue;
                         }
+                        if ($carbonTo && $parsedRowDate->copy()->startOfDay()->gt($carbonTo)) {
+                            continue;
+                        }
+                    } else {
+                        // If we can't parse the date at all, skip it because it says "rows without a valid date"
+                        continue;
                     }
 
                     $filteredData[] = [
-                        'class' => trim($rowClass),
-                        'doc_link' => trim($row[$block['docLinkIdx']] ?? ''),
-                        'public_link' => trim($row[$block['publicLinkIdx']] ?? ''),
-                        'dated' => trim($rowDated),
-                        'website_link' => trim($row[$block['websiteLinkIdx']] ?? ''),
+                        'class' => $rowClass,
+                        'doc_link' => $rowDocLink,
+                        'public_link' => $rowPublicLink,
+                        'dated' => $rowDated,
+                        'website_link' => $rowWebsiteLink,
                     ];
                 }
             }
@@ -208,13 +240,40 @@ class BlogReportController extends Controller
             });
             
             if (empty($filteredData)) {
-                return back()->with('error', 'No records matched the selected date criteria.');
+                $fromStr = $dateFrom ?? 'start';
+                $toStr = $dateTo ?? 'end';
+                return back()->with('error', "No blog records found between {$fromStr} and {$toStr}.");
             }
 
-            return $filteredData;
+            $datedColumns = [];
+            foreach ($blocks as $b) {
+                if (isset($b['dated'])) {
+                    // Convert numeric index to column letter (A, B, C...)
+                    $col = '';
+                    $n = $b['dated'];
+                    while ($n >= 0) {
+                        $col = chr($n % 26 + 65) . $col;
+                        $n = intdiv($n, 26) - 1;
+                    }
+                    $datedColumns[] = $col;
+                }
+            }
+
+            $debug = [
+                'worksheet' => 'Blogs',
+                'detected_dated_columns' => implode(', ', $datedColumns),
+                'total_blog_records_read' => $totalRecordsRead ?? count($dataRows) * count($blocks),
+                'sections_detected' => count($blocks),
+                'filtered_records' => count($filteredData)
+            ];
+
+            return [
+                'records' => $filteredData,
+                'debug' => $debug
+            ];
 
         } catch (\Exception $e) {
-            return back()->with('error', 'An error occurred while fetching the Google Sheet: ' . $e->getMessage());
+            return back()->with('error', 'Unable to read the Blogs worksheet. Please check Google Sheet permissions. Error: ' . $e->getMessage());
         }
     }
 }

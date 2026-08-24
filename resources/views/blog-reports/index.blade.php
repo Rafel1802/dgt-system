@@ -31,7 +31,7 @@
             <p class="text-blue-100 mt-1 text-sm">Fill in the details below to generate your blog report.</p>
         </div>
 
-        <form action="{{ route('blog-reports.preview') }}" method="POST" class="p-8 space-y-8">
+        <form action="{{ route('blog-reports.preview') }}" method="POST" target="_blank" data-turbo="false" class="p-8 space-y-8">
             @csrf
 
             <!-- URL Input -->

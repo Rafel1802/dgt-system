@@ -40,6 +40,7 @@ class ProfileController extends Controller
             'phone'              => ['nullable', 'string', 'max:40'],
             'whatsapp'           => ['nullable', 'string', 'max:40'],
             'notification_sound' => ['nullable', 'string', 'max:255'],
+            'music_player_enabled' => ['boolean'],
             'avatar'             => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'avatar_url'         => ['nullable', 'url', 'starts_with:http://,https://', 'max:2048'],
             'remove_avatar'      => ['nullable', 'boolean'],

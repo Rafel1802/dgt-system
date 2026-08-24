@@ -380,6 +380,17 @@
             initEditor() {
                 if (quillInstance) return;
 
+                const container = document.querySelector('#editor-container');
+                if (!container) return;
+
+                // Fix for Turbo/Alpine causing duplicate toolbars
+                const previousToolbar = container.parentElement.querySelector('.ql-toolbar');
+                if (previousToolbar) {
+                    previousToolbar.remove();
+                }
+                container.innerHTML = '';
+                container.className = 'flex-1'; // Reset classes
+
                 if (typeof Quill === 'undefined') {
                     window.dispatchEvent(new CustomEvent('show-toast', {
                         detail: { msg: 'Note editor failed to load. Please refresh this page.', type: 'error' }
