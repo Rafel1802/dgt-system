@@ -388,6 +388,7 @@ class BoardExportController extends Controller
             } else {
                 $card->computed_activity_date = $card->created_at ? \Carbon\Carbon::parse($card->created_at)->setTimezone('Asia/Phnom_Penh') : null;
             }
+        }
         return $cards;
     }
 
