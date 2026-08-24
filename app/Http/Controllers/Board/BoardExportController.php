@@ -226,6 +226,14 @@ class BoardExportController extends Controller
             $query->where('user_id', $assignById);
         }
 
+        // 2c. Label Filtering
+        if ($request->filled('label_id') && $request->label_id !== 'all') {
+            $labelId = (int)$request->label_id;
+            $query->whereHas('labels', function($q) use ($labelId) {
+                $q->where('labels.id', $labelId);
+            });
+        }
+
         // 3. Status Filtering
         if ($request->has('statuses') && is_array($request->statuses)) {
             $statuses = $request->statuses;
@@ -380,9 +388,105 @@ class BoardExportController extends Controller
             } else {
                 $card->computed_activity_date = $card->created_at ? \Carbon\Carbon::parse($card->created_at)->setTimezone('Asia/Phnom_Penh') : null;
             }
+        return $cards;
+    }
+
+    private function prepareSmmExportData($cards, $board)
+    {
+        $errorTasks = 0;
+        $weeks = [];
+
+        foreach ($cards as $c) {
+            // Determine the week
+            $weekName = 'Other';
+            $listName = $c->boardList?->name ?? '';
+            
+            // Check if it's currently in a Week list
+            if (stripos($listName, 'Week') !== false || stripos($listName, 'Final') !== false) {
+                $weekName = $listName;
+            } else if ($c->sync_group_id && $board) {
+                // Find the synced card in the SMM board
+                $smmCard = \App\Models\Card::with('boardList')->where('sync_group_id', $c->sync_group_id)->where('board_id', $board->id)->first();
+                if ($smmCard && $smmCard->boardList) {
+                    $smmListName = $smmCard->boardList->name;
+                    if (stripos($smmListName, 'Week') !== false || stripos($smmListName, 'Final') !== false) {
+                        $weekName = $smmListName;
+                    }
+                }
+            }
+            
+            // Calculate Error
+            $isError = false;
+            if ($c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason)) {
+                $isError = true;
+            } else if ($c->sync_group_id) {
+                // Check if any synced card is in a Blocked list
+                $syncedCards = \App\Models\Card::with('boardList')->where('sync_group_id', $c->sync_group_id)->get();
+                foreach ($syncedCards as $sc) {
+                    if (stripos($sc->boardList?->name ?? '', 'Block') !== false) {
+                        $isError = true;
+                        break;
+                    }
+                }
+            }
+            $c->is_error = $isError;
+            if ($isError) {
+                $errorTasks++;
+            }
+            
+            // Completed date from ActivityLog
+            $completedDate = null;
+            $isApproved = $c->status === \App\Enums\CardStatus::Approved || $c->status === \App\Enums\CardStatus::Done || stripos($listName, 'Approved') !== false;
+            if ($isApproved) {
+                $log = $c->activities()->where('action', 'moved')->where(function($q) {
+                    $q->where('description', 'like', '%Approved%')->orWhere('description', 'like', '%Done%');
+                })->orderByDesc('created_at')->first();
+                if ($log) {
+                    $completedDate = $log->created_at;
+                } else {
+                     $logStatus = $c->activities()->where('action', 'updated')->where('description', 'like', '%status to Approved%')->orderByDesc('created_at')->first();
+                     if ($logStatus) {
+                         $completedDate = $logStatus->created_at;
+                     } else {
+                         $completedDate = $c->approved_at ?? $c->updated_at;
+                     }
+                }
+            }
+            $c->exact_completed_date = $completedDate ? \Carbon\Carbon::parse($completedDate)->setTimezone('Asia/Phnom_Penh')->format('Y-m-d') : '-';
+
+            $weeks[$weekName][] = $c;
         }
 
-        return $cards;
+        // Sort weeks logically (Week 1, Week 2, ..., Final Captions, Other)
+        uksort($weeks, function($a, $b) {
+            if ($a === 'Other') return 1;
+            if ($b === 'Other') return -1;
+            return strcmp($a, $b);
+        });
+
+        // Sort inside each week by Label Priority: Video, Graphic, Content, Listing
+        foreach ($weeks as $weekName => &$weekCards) {
+            usort($weekCards, function($a, $b) {
+                $labelA = $a->labels->first()?->name ?? '';
+                $labelB = $b->labels->first()?->name ?? '';
+
+                $priority = function($l) {
+                    $l = strtolower($l);
+                    if (str_contains($l, 'video')) return 1;
+                    if (str_contains($l, 'graphic')) return 2;
+                    if (str_contains($l, 'content')) return 3;
+                    if (str_contains($l, 'listing')) return 4;
+                    return 5;
+                };
+
+                return $priority($labelA) <=> $priority($labelB);
+            });
+        }
+
+        return [
+            'groupedCards' => $weeks,
+            'errorTasks' => $errorTasks
+        ];
     }
 
     /**
@@ -478,6 +582,7 @@ class BoardExportController extends Controller
         }
 
         $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, false, false);
+        $smmData = $this->prepareSmmExportData($cards, $board);
 
         $headers = [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
@@ -489,12 +594,13 @@ class BoardExportController extends Controller
 
         $response = response()->view('boards.export-xls', [
             'board' => $board,
-            'cards' => $cards,
+            'groupedCards' => $smmData['groupedCards'],
             'period' => $period,
             'totalTasks' => $totalTasks,
             'completedTasks' => $completedTasks,
             'pendingTasks' => $pendingTasks,
             'overdueTasks' => $overdueTasks,
+            'errorTasks' => $smmData['errorTasks'],
             'archivedTasks' => $archivedTasks,
             'memberStats' => $memberStats,
             'includeDesc' => $includeDesc,
@@ -666,14 +772,17 @@ class BoardExportController extends Controller
         $includeDesc = $request->boolean('include_desc', false);
         $includeComments = $request->boolean('include_comments', false);
 
+        $smmData = $this->prepareSmmExportData($cards, $board);
+
         return view('boards.export-pdf', [
             'board' => $board,
-            'cards' => $cards,
+            'groupedCards' => $smmData['groupedCards'],
             'period' => $period,
             'totalTasks' => $totalTasks,
             'completedTasks' => $completedTasks,
             'pendingTasks' => $pendingTasks,
             'overdueTasks' => $overdueTasks,
+            'errorTasks' => $smmData['errorTasks'],
             'archivedTasks' => $archivedTasks,
             'memberStats' => $memberStats,
             'labelStats' => $labelStats,

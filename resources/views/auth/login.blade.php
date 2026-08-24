@@ -445,8 +445,8 @@
                 <div class="brand-mark mx-auto flex h-16 w-16 items-center justify-center rounded-3xl">
                     <img src="{{ $appIcon }}" alt="KIUQ SYSTEM logo" class="h-12 w-12 object-contain">
                 </div>
-                <h1 class="mt-4 font-display text-3xl font-black text-white">KIUQ SYSTEM</h1>
-                <p class="mt-1 text-sm font-semibold text-sky-100/80">Digital Team Management</p>
+                <h1 class="mt-4 font-display text-3xl font-black text-white">DIGITAL SYSTEM</h1>
+                <p class="mt-1 text-sm font-semibold text-sky-100/80">KiuQ.com</p>
             </div>
 
             <div class="login-card rounded-[2.25rem] p-6 sm:p-8 lg:p-10">
@@ -456,7 +456,7 @@
                             <img src="{{ $appIcon }}" alt="KIUQ SYSTEM logo" class="h-12 w-12 object-contain">
                         </div>
                         <div>
-                            <p class="text-sm font-black uppercase tracking-[0.22em] text-cyan-200/80">KIUQ SYSTEM</p>
+                            <p class="text-sm font-black uppercase tracking-[0.22em] text-cyan-200/80">KiuQ.com</p>
                             <h2 class="font-display text-4xl font-black tracking-normal text-white">
                                 Welcome <span class="text-cyan-300">Back</span>
                             </h2>
@@ -584,7 +584,7 @@
             </div>
 
             <p class="mt-6 text-center text-xs font-semibold leading-6 text-sky-100/68">
-                &copy; {{ date('Y') }} KIUQ SYSTEM. Secure sign-in with rate limiting and IP monitoring.
+                &copy; {{ date('Y') }} DIGITAL SYSTEM. Secure sign-in with rate limiting and IP monitoring.
             </p>
         </div>
     </section>

@@ -94,9 +94,6 @@
             <label class="block font-semibold text-slate-600 mb-1">Date Range</label>
             <select x-model="exportModal.dateRange" class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200">
               <option value="all_time">All Time</option>
-              <option value="this_week">This Week</option>
-              <option value="this_month">This Month</option>
-              <option value="last_month">Last Month</option>
               <option value="custom_period">Custom Period</option>
             </select>
           </div>
@@ -128,6 +125,15 @@
               <option value="all">All Members</option>
               <template x-for="m in allBoardMembers" :key="m.id">
                 <option :value="m.id" x-text="m.name"></option>
+              </template>
+            </select>
+          </div>
+          <div class="col-span-1 sm:col-span-2 mt-1 border-t border-slate-100 pt-3">
+            <label class="block font-semibold text-slate-600 mb-1">Labels</label>
+            <select x-model="exportModal.labelId" class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200">
+              <option value="all">All Labels</option>
+              <template x-for="l in allBoardLabels" :key="l.id">
+                <option :value="l.id" x-text="l.name"></option>
               </template>
             </select>
           </div>

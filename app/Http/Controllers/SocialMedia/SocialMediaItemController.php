@@ -14,6 +14,7 @@ class SocialMediaItemController extends Controller
     {
         $data = $request->validate([
             'name'      => ['required', 'string', 'max:255', Rule::unique('social_media_items', 'name')->where('social_media_class_id', $class->id)],
+            'url'       => ['nullable', 'string', 'max:2048'],
             'icon_url'  => ['nullable', 'string', 'max:2048'],
             'icon_file' => ['nullable', 'image', 'max:2048'],
             'status'    => ['required', Rule::in(['active', 'inactive'])],
@@ -32,6 +33,7 @@ class SocialMediaItemController extends Controller
 
         $class->items()->create([
             'name'       => $data['name'],
+            'url'        => $data['url'] ?? null,
             'icon'       => $icon,
             'status'     => $data['status'],
             'sort_order' => $maxOrder + 10,
@@ -75,6 +77,7 @@ class SocialMediaItemController extends Controller
     {
         $data = $request->validate([
             'name'      => ['required', 'string', 'max:255', Rule::unique('social_media_items', 'name')->where('social_media_class_id', $item->social_media_class_id)->ignore($item->id)],
+            'url'       => ['nullable', 'string', 'max:2048'],
             'icon_url'  => ['nullable', 'string', 'max:2048'],
             'icon_file' => ['nullable', 'image', 'max:2048'],
             'status'    => ['required', Rule::in(['active', 'inactive'])],
@@ -90,6 +93,7 @@ class SocialMediaItemController extends Controller
 
         $item->update([
             'name'   => $data['name'],
+            'url'    => $data['url'] ?? null,
             'icon'   => $icon,
             'status' => $data['status'],
         ]);

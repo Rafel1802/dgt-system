@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="animate-fade-in space-y-8 pb-32" x-data="{ 
-    dateRange: 'all_time',
+    dateRange: 'today',
     reportType: 'kanban',
     selectAll(workspaceId, checked) {
         document.querySelectorAll(`.workspace-${workspaceId}-board`).forEach(cb => cb.checked = checked);
@@ -19,12 +19,7 @@
 
   <div class="flex items-center justify-between mb-2">
     <div class="flex items-start gap-4">
-      <a wire:navigate.hover href="{{ route('dashboard') }}" class="btn btn-secondary py-2 px-3 mt-1 flex items-center gap-2 text-sm shadow-sm rounded-xl">
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-          Back
-      </a>
+
       <div>
         <h1 class="text-2xl font-display font-bold text-slate-800 dark:text-white">Personal Report</h1>
         <p class="text-sm text-slate-400 dark:text-slate-400 mt-0.5">Consolidated multi-department report compilation for QC and Supervisors.</p>
@@ -41,6 +36,7 @@
                   <span>📋</span> Select Report Type
               </h2>
               <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  {{-- Board / Kanban --}}
                   <label class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all select-none group" 
                          :class="reportType === 'kanban' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md transform scale-[1.02]' : 'border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-gray-800'">
                       <input type="radio" name="report_type" value="kanban" x-model="reportType" class="hidden">
@@ -55,15 +51,8 @@
                           @endif
                       </span>
                   </label>
-                  @unless(auth()->user()?->isSupervisorRole() && !auth()->user()?->isQc())
-                  <label class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all select-none group" 
-                         :class="reportType === 'social_media' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md transform scale-[1.02]' : 'border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-gray-800'">
-                      <input type="radio" name="report_type" value="social_media" x-model="reportType" class="hidden">
-                      <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media" class="w-8 h-8 object-contain group-hover:scale-110 transition-transform" :class="reportType === 'social_media' ? 'opacity-100' : 'opacity-80 grayscale'">
-                      <span class="text-xs font-bold text-slate-700 dark:text-white text-center">Social Media<br><span class="text-[10px] text-indigo-600 dark:text-indigo-400">Report</span></span>
-                  </label>
-                  @endunless
 
+                  {{-- Website Status --}}
                   <label class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all select-none group" 
                          :class="reportType === 'website' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md transform scale-[1.02]' : 'border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-gray-800'">
                       <input type="radio" name="report_type" value="website" x-model="reportType" class="hidden">
@@ -73,6 +62,7 @@
                       <span class="text-xs font-bold text-slate-700 dark:text-white text-center">Website<br><span class="text-[10px] text-indigo-600 dark:text-indigo-400">Report</span></span>
                   </label>
 
+                  {{-- Follow-Up --}}
                   @unless(auth()->user()?->isSupervisorRole() && !auth()->user()?->isQc())
                   <label class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all select-none group" 
                          :class="reportType === 'follow_up' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md transform scale-[1.02]' : 'border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-gray-800'">
@@ -83,9 +73,34 @@
                       <span class="text-xs font-bold text-slate-700 dark:text-white text-center">Follow-Up<br><span class="text-[10px] text-indigo-600 dark:text-indigo-400">Report</span></span>
                   </label>
                   @endunless
+
+                  {{-- Social Media Analytics (QC / Supervisor / Super-Admin only) --}}
+                  @if(auth()->user()?->isQc() || auth()->user()?->hasAnyRole(['super-admin','admin-digital','supervisor']))
+                  <label class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all select-none group" 
+                         :class="reportType === 'social_media' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md transform scale-[1.02]' : 'border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-gray-800'">
+                      <input type="radio" name="report_type" value="social_media" x-model="reportType" class="hidden">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-8 h-8 group-hover:scale-110 transition-transform" :class="reportType === 'social_media' ? 'text-indigo-600' : 'text-slate-500'">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+                      </svg>
+                      <span class="text-xs font-bold text-slate-700 dark:text-white text-center">Social Media<br><span class="text-[10px] text-indigo-600 dark:text-indigo-400">Analytics</span></span>
+                  </label>
+                  @endif
               </div>
 
-              {{-- Workspace & Boards Selection --}}
+              {{-- Social Media Class Selector (only when social_media is selected) --}}
+              <div x-show="reportType === 'social_media'" x-transition class="mb-4 space-y-3">
+                  <h2 class="text-lg font-bold text-slate-700 dark:text-white mb-3 flex items-center gap-2">
+                      <span>📊</span> Select Social Media Class
+                  </h2>
+                  <select name="class_id" class="form-select w-full rounded-xl">
+                      <option value="">— All Classes —</option>
+                      @foreach(\App\Models\SocialMediaClass::active()->orderBy('position')->orderBy('name')->get() as $class)
+                          <option value="{{ $class->id }}">{{ $class->name }}</option>
+                      @endforeach
+                  </select>
+              </div>
+
+              {{-- Workspace & Boards Selection (Kanban only) --}}
               <div x-show="reportType === 'kanban'" x-transition>
                   <h2 class="text-lg font-bold text-slate-700 dark:text-white mb-4 flex items-center gap-2">
                       <span>📁</span> Select Boards to Include
@@ -95,12 +110,15 @@
                           <p>No active workspaces or boards found.</p>
                       </div>
                   @else
-                      <div class="space-y-6">
+                      <div class="space-y-6" x-init="if(typeof Sortable !== 'undefined') { new Sortable($el, { animation: 150, handle: '.drag-handle' }) }">
                           @foreach($workspaces as $workspace)
                               @if($workspace->boards->isNotEmpty())
                                   <div class="border border-slate-200 dark:border-gray-700 rounded-xl p-4 bg-slate-50/50 dark:bg-gray-800">
                                       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-gray-700 mb-3">
                                           <div class="flex items-center gap-2.5">
+                                              <span class="drag-handle cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
+                                                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-12a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"/></svg>
+                                              </span>
                                               <div class="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold"
                                                    style="background-color: {{ $workspace->color }}">
                                                   {{ $workspace->icon_text ?? strtoupper(substr($workspace->name, 0, 1)) }}
@@ -149,11 +167,7 @@
                   <div>
                       <label class="block text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-2">Date Range</label>
                       <select name="date_range" x-model="dateRange" class="w-full bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-600 dark:text-white focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 rounded-xl py-2 px-3 text-sm text-slate-700">
-                          <option value="all_time">All Time</option>
                           <option value="today">Today</option>
-                          <option value="this_week">This Week</option>
-                          <option value="this_month">This Month</option>
-                          <option value="last_month">Last Month</option>
                           <option value="custom">Custom Period</option>
                       </select>
                   </div>
@@ -187,12 +201,12 @@
                   
                   <hr class="border-slate-100 dark:border-gray-700">
                   
-                  {{-- Display Options --}}
+                  {{-- Display Options (Kanban only) --}}
                   <div class="space-y-3" x-show="reportType === 'kanban'">
                       <label class="block text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Include Options</label>
                       
                       <label class="flex items-center gap-3 cursor-pointer">
-                          <input type="checkbox" name="include_desc" value="1" checked class="rounded text-indigo-600 border-slate-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-800">
+                          <input type="checkbox" name="include_desc" value="1" class="rounded text-indigo-600 border-slate-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-800">
                           <span class="text-xs text-slate-600 dark:text-gray-300 font-medium">Include Task Descriptions</span>
                       </label>
                       
@@ -211,4 +225,5 @@
       
   </form>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 @endsection

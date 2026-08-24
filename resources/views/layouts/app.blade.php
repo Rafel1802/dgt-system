@@ -24,7 +24,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-touch-fullscreen" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="KIUQ SYSTEM">
+    <meta name="apple-mobile-web-app-title" content="DIGITAL SYSTEM">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @auth
@@ -37,7 +37,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     @endauth
 
     <!-- SEO -->
-    <title>@yield('title', 'KIUQ SYSTEM') | Digital & CRM Management</title>
+    <title>@yield('title', 'DIGITAL SYSTEM') | Digital & CRM Management</title>
     <meta name="description" content="@yield('meta_description', 'Digital Team and CRM Management System — Manage tasks, customers, and sales pipelines efficiently.')">
     <meta name="robots" content="noindex, nofollow">
 
@@ -58,6 +58,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </noscript>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
 
     <!-- Turbo 8: Drive navigation with speculative prefetch for instant loading. -->
     <meta name="turbo-prefetch" content="true">
@@ -94,7 +95,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         // Self-hosted Turbo — avoid unpkg RTT on every cold load (Hostinger users often far from CDN).
         import * as Turbo from "{{ asset('js/turbo.es2017-esm.js') }}?v={{ file_exists(public_path('js/turbo.es2017-esm.js')) ? filemtime(public_path('js/turbo.es2017-esm.js')) : '8.0.4' }}";
         window.Turbo = Turbo;
-        Turbo.setProgressBarDelay(0);
+        Turbo.setProgressBarDelay(200);
         
         // Prevent Turbo from conflicting with Livewire's wire:navigate.
         // Both Turbo and Livewire attempt to intercept SPA links. By adding
@@ -317,7 +318,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
     @if($isDesktopOrMobileApp)
         <style>
-        [x-cloak] { display: none !important; }
+            [x-cloak] { display: none !important; }
+            [x-cloak=""] { display: none !important; }
+
+            html, body {
+                background-color: var(--bg-page) !important;
+            }
 
             .turbo-progress-bar {
                 display: none !important;
@@ -327,12 +333,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             /* Smooth scrolling and momentum touch scroll globally */
             html, body, .page-content, .board-wrap, .sidebar {
-                scroll-behavior: smooth;
                 -webkit-overflow-scrolling: touch;
             }
 
-            html.dgt-macos-app, html.dgt-mobile-app,
-            html.dgt-macos-app body, html.dgt-mobile-app body {
+            html.dgt-mobile-app,
+            html.dgt-mobile-app body {
                 width: 100%;
                 height: 100%;
                 min-height: 100%;
@@ -342,7 +347,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 -webkit-tap-highlight-color: transparent;
             }
 
-            html.dgt-macos-app #dgt-app-wrapper, html.dgt-mobile-app #dgt-app-wrapper {
+            html.dgt-mobile-app #dgt-app-wrapper {
                 width: 100%;
                 height: 100vh;
                 height: 100dvh;
@@ -361,29 +366,29 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 height: 36px;
             }
 
-            html.dgt-macos-app .sidebar-logo-icon img, html.dgt-mobile-app .sidebar-logo-icon img {
+            html.dgt-mobile-app .sidebar-logo-icon img {
                 width: 100%;
                 height: 100%;
                 image-rendering: auto;
                 filter: none;
             }
 
-            html.dgt-macos-app .sidebar-logo-text, html.dgt-mobile-app .sidebar-logo-text {
+            html.dgt-mobile-app .sidebar-logo-text {
                 white-space: nowrap;
             }
 
-            html.dgt-macos-app .sidebar-logo-sub, html.dgt-mobile-app .sidebar-logo-sub {
+            html.dgt-mobile-app .sidebar-logo-sub {
                 white-space: nowrap;
             }
 
-            html.dgt-macos-app .sidebar, html.dgt-mobile-app .sidebar {
+            html.dgt-mobile-app .sidebar {
                 top: 0;
                 height: 100vh;
                 height: 100dvh;
                 overscroll-behavior: contain;
             }
 
-            html.dgt-macos-app .main-wrapper, html.dgt-mobile-app .main-wrapper {
+            html.dgt-mobile-app .main-wrapper {
                 height: 100vh;
                 height: 100dvh;
                 min-height: 0;
@@ -391,11 +396,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 background: var(--bg-page, #f4f7fb);
             }
 
-            html.dgt-macos-app .topbar, html.dgt-mobile-app .topbar {
+            html.dgt-mobile-app .topbar {
                 flex: 0 0 64px;
             }
 
-            html.dgt-macos-app .page-content, html.dgt-mobile-app .page-content {
+            html.dgt-mobile-app .page-content {
                 flex: 1 1 auto;
                 min-height: 0;
                 overflow-x: hidden;
@@ -428,6 +433,87 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             } catch (e) {}
         })();
     </script>
+    <!-- Custom Flatpickr UI -->
+    <style>
+        .flatpickr-calendar {
+            font-family: inherit !important;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid var(--border-color, #e2e8f0) !important;
+            background: #ffffff !important;
+            width: 320px !important;
+            padding: 10px !important;
+        }
+        .flatpickr-months .flatpickr-month {
+            background: transparent !important;
+            color: #1e293b !important;
+            fill: #1e293b !important;
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months {
+            background: #ffffff !important;
+            font-weight: 600 !important;
+        }
+        .flatpickr-current-month input.cur-year {
+            font-weight: 600 !important;
+        }
+        .flatpickr-day {
+            color: #1e293b !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            line-height: 38px !important;
+            height: 38px !important;
+            max-width: 38px !important;
+        }
+        .flatpickr-day.selected {
+            background: #4f46e5 !important;
+            border-color: #4f46e5 !important;
+            color: #ffffff !important;
+        }
+        .flatpickr-day:hover {
+            background: #e0e7ff !important;
+            border-color: #e0e7ff !important;
+            color: #4f46e5 !important;
+        }
+        html[data-theme="dark"] .flatpickr-calendar, .dark .flatpickr-calendar {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+        }
+        html[data-theme="dark"] .flatpickr-months .flatpickr-month,
+        html[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months,
+        html[data-theme="dark"] .flatpickr-day,
+        .dark .flatpickr-months .flatpickr-month,
+        .dark .flatpickr-current-month .flatpickr-monthDropdown-months,
+        .dark .flatpickr-day {
+            color: #f8fafc !important;
+            fill: #f8fafc !important;
+            background: transparent !important;
+        }
+        html[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months option,
+        .dark .flatpickr-current-month .flatpickr-monthDropdown-months option {
+            background: #1e293b !important;
+        }
+        html[data-theme="dark"] .flatpickr-day:hover,
+        .dark .flatpickr-day:hover {
+            background: #334155 !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+        html[data-theme="dark"] .flatpickr-day.selected,
+        .dark .flatpickr-day.selected {
+            background: #6366f1 !important;
+            border-color: #6366f1 !important;
+            color: #ffffff !important;
+        }
+        .flatpickr-weekday {
+            color: #64748b !important;
+            font-weight: 600 !important;
+        }
+        html[data-theme="dark"] .flatpickr-weekday,
+        .dark .flatpickr-weekday {
+            color: #94a3b8 !important;
+        }
+    </style>
 </head>
 <body class="h-full bg-[var(--bg-page)] overscroll-none touch-manipulation" x-data="themeSystem()" x-init="initTheme()">
 
@@ -455,10 +541,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         <!-- Mobile overlay backdrop -->
         <div
             x-show="$store.sidebar.mobileOpen && !$store.sidebar.isDesktop"
-            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter="transition ease-out duration-75"
             x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100"
-            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave="transition ease-in duration-100"
             x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0"
             class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
@@ -486,11 +572,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Logo -->
             <div class="sidebar-logo">
                 <div class="sidebar-logo-icon">
-                    <img src="{{ $appIconAsset }}" alt="KIUQ SYSTEM logo" class="h-full w-full object-contain">
+                    <img src="{{ $appIconAsset }}" alt="DIGITAL SYSTEM logo" class="h-full w-full object-contain">
                 </div>
                 <div>
-                    <div class="sidebar-logo-text">KIUQ SYSTEM</div>
-                    <div class="sidebar-logo-sub">Digital & CRM</div>
+                    <div class="sidebar-logo-text">DIGITAL SYSTEM</div>
+                    <div class="sidebar-logo-sub">KiuQ.com</div>
                 </div>
                 <!-- Desktop collapse btn -->
                 <button type="button"
@@ -589,17 +675,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 {{-- Social Media --}}
                 @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
                 <div x-data="{ smOpen: localStorage.getItem('dgt-sm-menu-open') === 'true' || {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
-                    <button type="button" class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'active' : '' }}" @click="smOpen = !smOpen; localStorage.setItem('dgt-sm-menu-open', smOpen)" data-tooltip="Social Media Management">
-                        <div class="flex items-center gap-[0.625rem] flex-1">
+                    <div class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'active' : '' }}" data-tooltip="Social Media Management">
+                        <a wire:navigate.hover href="{{ route('social-media.dashboard') }}" @click="smOpen = true; localStorage.setItem('dgt-sm-menu-open', 'true')" class="flex items-center gap-[0.625rem] flex-1">
                             <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Management" class="w-[18px] h-[18px] flex-shrink-0 object-contain">
                             <span>Social Media Management</span>
-                        </div>
-                        <div class="p-1 -mr-1 rounded hover:bg-slate-700/50 transition-colors">
-                            <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="{'rotate-180': smOpen}" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        </a>
+                        <button type="button" @click.stop="smOpen = !smOpen; localStorage.setItem('dgt-sm-menu-open', smOpen)" class="p-1 -mr-1 rounded hover:bg-slate-700/50 transition-colors" aria-label="Toggle SMM menu">
+                            <svg class="w-3.5 h-3.5 transition-transform duration-100" :class="{'rotate-180': smOpen}" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                             </svg>
-                        </div>
-                    </button>
+                        </button>
+                    </div>
                     <div x-show="smOpen" x-collapse x-cloak>
                         <div class="sidebar-submenu-list mt-1 space-y-1 relative">
                             
@@ -649,6 +735,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
                 @endif
 
+                @can('view-blog-reports')
+                <a wire:navigate.hover href="{{ route('blog-reports.index') }}"
+                   class="sidebar-item {{ request()->routeIs('blog-reports.*') ? 'active' : '' }}"
+                   id="nav-blog-report" data-tooltip="Blog Report">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    <span>Blog Report</span>
+                </a>
+                @endcan
+
                 @if(auth()->user()->hasWebsiteAccess())
                 {{-- All Websites accordion sub-menu --}}
                 <div x-data="{ wsOpen: localStorage.getItem('dgt-websites-menu-open') === 'true' || {{ request()->routeIs('websites.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
@@ -670,7 +767,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 viewBox="0 0 24 24"
                                 stroke-width="2.5"
                                 stroke="currentColor"
-                                class="w-3.5 h-3.5 transition-transform duration-200"
+                                class="w-3.5 h-3.5 transition-transform duration-100"
                                 :class="{ 'rotate-180': wsOpen }"
                             >
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -681,7 +778,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <div
                         id="submenu-websites"
                         x-show="wsOpen"
-                        x-transition:enter="transition ease-out duration-150"
+                        x-transition:enter="transition ease-out duration-75"
                         x-transition:enter-start="opacity-0 transform -translate-y-2"
                         x-transition:enter-end="opacity-100 transform translate-y-0"
                         x-transition:leave="transition ease-in duration-100"
@@ -843,7 +940,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 viewBox="0 0 24 24" 
                                 stroke-width="2.5" 
                                 stroke="currentColor" 
-                                class="w-3.5 h-3.5 transition-transform duration-200"
+                                class="w-3.5 h-3.5 transition-transform duration-100"
                                 :class="{ 'rotate-180': open }"
                             >
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -853,7 +950,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         <div 
                             id="submenu-ai"
                             x-show="open"
-                            x-transition:enter="transition ease-out duration-150"
+                            x-transition:enter="transition ease-out duration-75"
                             x-transition:enter-start="opacity-0 transform -translate-y-2"
                             x-transition:enter-end="opacity-100 transform translate-y-0"
                             x-transition:leave="transition ease-in duration-100"
@@ -1098,7 +1195,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <button type="button"
                             x-show="$store.sidebar.collapsed"
                             @click="$store.sidebar.expandSidebar()"
-                            class="sidebar-expand-btn btn btn-secondary btn-icon hidden lg:inline-flex active:scale-95 transition-all duration-150"
+                            class="sidebar-expand-btn btn btn-secondary btn-icon hidden lg:inline-flex active:scale-95 transition-all duration-75"
                             title="Show sidebar"
                             aria-label="Show sidebar"
                             x-cloak>
@@ -1136,7 +1233,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     @endif
                     <!-- Page Title (visible on all screens) -->
                     <div class="mobile-topbar-title">
-                        <p class="mobile-topbar-title-text">@yield('title', 'KIUQ SYSTEM')</p>
+                        <p class="mobile-topbar-title-text">@yield('title', 'DIGITAL SYSTEM')</p>
                     </div>
                 </div>
 
@@ -1176,7 +1273,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </button>
 
                     <div class="relative" x-data="notificationSystem()" x-init="initNotifications()" @kiuq:realtime-notification.window="open = false">
-                        <button class="btn btn-secondary btn-icon relative hover:!bg-blue-600 hover:!text-white hover:!border-blue-600 transition-all duration-150"
+                        <button class="btn btn-secondary btn-icon relative hover:!bg-blue-600 hover:!text-white hover:!border-blue-600 transition-all duration-75"
                                 @click="toggleOpen()"
                                 aria-label="Open notifications"
                                 :aria-expanded="open">
@@ -1190,7 +1287,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                         <div x-show="open" @click.outside="open = false" x-cloak style="display: none;"
                              class="notif-panel absolute right-0 mt-2 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl z-50 sm:w-96"
-                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter="transition ease-out duration-75"
                              x-transition:enter-start="opacity-0 scale-95"
                              x-transition:enter-end="opacity-100 scale-100"
                              role="menu">
@@ -1229,10 +1326,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                         </svg>
                                         Mute in-app popups
                                     </span>
-                                    <div class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out"
+                                    <div class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-100 ease-in-out"
                                          :class="notificationsMuted ? 'bg-indigo-600' : 'bg-slate-200'"
                                          role="switch" :aria-checked="notificationsMuted.toString()">
-                                        <span aria-hidden="true" class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                        <span aria-hidden="true" class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-100 ease-in-out"
                                               :class="notificationsMuted ? 'translate-x-3' : 'translate-x-0'"></span>
                                     </div>
                                 </button>
@@ -1577,10 +1674,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             };
             const theme = toneMap[tone] || toneMap.danger;
             const overlay = document.createElement('div');
-            overlay.className = 'fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4 opacity-0 transition-opacity duration-200';
+            overlay.className = 'fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4 opacity-0 transition-opacity duration-100';
             
             const modal = document.createElement('div');
-            modal.className = 'relative overflow-hidden bg-white/85 backdrop-blur-2xl border border-white/70 rounded-3xl shadow-2xl max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-200 ring-1 ring-slate-900/5';
+            modal.className = 'relative overflow-hidden bg-white/85 backdrop-blur-2xl border border-white/70 rounded-3xl shadow-2xl max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-100 ring-1 ring-slate-900/5';
             
             modal.innerHTML = `
                 <div class="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${theme.glow} to-transparent"></div>
@@ -1644,9 +1741,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         return new Promise((resolve) => {
             const options = typeof input === 'object' && input !== null ? input : { value: String(input || '') };
             const overlay = document.createElement('div');
-            overlay.className = 'fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4 opacity-0 transition-opacity duration-200';
+            overlay.className = 'fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4 opacity-0 transition-opacity duration-100';
             const modal = document.createElement('div');
-            modal.className = 'relative overflow-hidden bg-white/90 backdrop-blur-2xl border border-white/70 rounded-3xl shadow-2xl max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-200 ring-1 ring-slate-900/5';
+            modal.className = 'relative overflow-hidden bg-white/90 backdrop-blur-2xl border border-white/70 rounded-3xl shadow-2xl max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-100 ring-1 ring-slate-900/5';
             modal.innerHTML = `
                 <div class="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-indigo-500/10 to-transparent"></div>
                 <div class="relative mb-4">
@@ -1774,7 +1871,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         if (!container) return;
 
         const toast = document.createElement('div');
-        toast.className = `flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold text-white pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-300 border border-white/10 backdrop-blur-xl ${
+        toast.className = `flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold text-white pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 border border-white/10 backdrop-blur-xl ${
             type === 'success' ? 'bg-slate-950/90' : type === 'error' ? 'bg-rose-950/90' : 'bg-slate-900/90'
         }`;
         toast.innerHTML = `
@@ -1808,7 +1905,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
         const appLogo = data.app_logo || '/favicon.svg';
         const toast = document.createElement('div');
-        toast.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-300 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
+        toast.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
         
         const actorName = data.actor_name || 'System';
         const avatar = data.actor_avatar || window.dgtInitialsAvatar(actorName);
@@ -1930,13 +2027,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         const icon = icons[data.type] || '🔔';
         const shortMessage = window.dgtShortenNotificationText(data.message || 'New update', 90);
 
-        const actorName = data.actor_name || 'KIUQ SYSTEM';
+        const actorName = data.actor_name || 'DIGITAL SYSTEM';
         const avatarHtml = data.actor_avatar 
             ? `<img src="${data.actor_avatar}" class="h-9 w-9 rounded-full object-cover ring-1 ring-slate-200 shadow-sm" alt="" />`
             : `<div class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-lg shadow-sm ring-1 ring-slate-200">${icon}</div>`;
 
         const card = document.createElement('div');
-        card.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-300 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
+        card.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
         if (normId) card.dataset.notificationId = normId;
 
         card.innerHTML = `
@@ -2243,16 +2340,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 } else {
                                     if (window.dgtShouldSuppressDuplicateContent?.(newNotif.data)) return;
                                     window.showCrmNotificationCard(newNotif.data, newNotif.id);
-                                    window.sendBrowserNotification("KIUQ SYSTEM Update", newNotif.data.message || "New update");
+                                    window.sendBrowserNotification("DIGITAL SYSTEM Update", newNotif.data.message || "New update");
                                 }
                             }
                         });
                         
                         if (newNotifs.length > 3) {
-                            window.sendBrowserNotification("KIUQ SYSTEM", `You have ${newNotifs.length} new notifications.`);
+                            window.sendBrowserNotification("DIGITAL SYSTEM", `You have ${newNotifs.length} new notifications.`);
                             if (window.showRichNotificationToast) {
                                 window.showRichNotificationToast({
-                                    actor_name: 'KIUQ SYSTEM',
+                                    actor_name: 'DIGITAL SYSTEM',
                                     description: `You have ${newNotifs.length} new updates.`
                                 });
                             }
@@ -2298,7 +2395,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     window.showRichNotificationToast(notifItem.data);
                 } else {
                     window.showCrmNotificationCard(notifItem.data, notifItem.id);
-                    window.sendBrowserNotification("KIUQ SYSTEM Update", notifItem.data.message || "New update");
+                    window.sendBrowserNotification("DIGITAL SYSTEM Update", notifItem.data.message || "New update");
                 }
             },
 
@@ -2341,7 +2438,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             },
 
             actorName(notif) {
-                return notif?.data?.actor_name || 'KIUQ SYSTEM';
+                return notif?.data?.actor_name || 'DIGITAL SYSTEM';
             },
 
             stripMarkdown(value) {
@@ -2696,11 +2793,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             }, 1000); // Delay to prioritize main page load
         });
 
+
+    </script>
+    <script>
         // Consistent Date Pickers across OS (Fixes macOS native calendar being too small)
         const initDatePickers = () => {
             if (typeof flatpickr !== 'undefined') {
                 flatpickr('input[type="date"]:not(.flatpickr-input)', {
-                    disableMobile: "true"
+                    disableMobile: true,
+                    altInput: true,
+                    altFormat: "m/d/Y",
+                    dateFormat: "Y-m-d"
                 });
             }
         };

@@ -11,13 +11,21 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <style>
 [x-cloak]{display:none!important}
-.board-wrap{display:flex;gap:1rem;overflow-x:auto;padding:1rem;align-items:flex-start;min-height:calc(100vh - 180px);border-radius:1.25rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 18px 50px rgba(15,23,42,.08);transition:box-shadow .25s ease}
-.board-list{flex-shrink:0;width:272px;background:rgba(241,245,249,.9);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.54);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 180px)}
+
+/* Full Bleed Layout Overrides (scoped to board view) */
+.page-content:has(.board-wrap) { padding: 0 !important; display: flex; flex-direction: column; }
+.board-header-mobile { margin: 1rem 1rem 0; }
+@media (min-width: 640px) { .board-header-mobile { margin: 1.5rem 1.5rem 0; } }
+@media (min-width: 1024px) { .board-header-mobile { margin: 1.5rem 2.5rem 0; } }
+
+.board-wrap{display:flex;gap:1rem;overflow-x:auto;padding:1rem 1rem 1rem 1.5rem;align-items:flex-start;min-height:calc(100vh - 64px);border-radius:0;box-shadow:none;transition:box-shadow .25s ease; flex: 1;}
+@media (min-width: 1024px) { .board-wrap { padding: 1rem 1rem 1rem 2.5rem; } }
+.board-list{flex-shrink:0;width:272px;background:#f1f5f9;border:1px solid rgba(255,255,255,.54);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 180px)}
 .list-header{padding:.75rem 1rem;font-weight:600;font-size:.875rem;color:#334155;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
 .list-cards{padding:.5rem;flex:1;overflow-y:auto;min-height:40px}
 .list-cards.drag-over{background:rgba(99,102,241,.08);border-radius:8px}
-.kanban-card{background:#fff;border:1px solid rgba(226,232,240,.92);border-radius:8px;padding:.75rem;margin-bottom:.5rem;box-shadow:0 1px 2px rgba(15,23,42,.06);cursor:grab;transition:box-shadow .2s,transform .2s,border-color .2s;position:relative}
-.kanban-card:hover{box-shadow:0 4px 12px rgba(15,23,42,.1);border-color:#10b981;transform:translateY(-1px)}
+.kanban-card{background:#fff;border:1px solid rgba(226,232,240,.92);border-radius:8px;padding:.75rem;margin-bottom:.5rem;box-shadow:0 1px 2px rgba(15,23,42,.06);cursor:grab;transition:box-shadow .3s cubic-bezier(0.4, 0, 0.2, 1),transform .3s cubic-bezier(0.4, 0, 0.2, 1),border-color .3s cubic-bezier(0.4, 0, 0.2, 1);position:relative}
+.kanban-card:hover{box-shadow:0 10px 25px rgba(16,185,129,.2), 0 0 0 1px #10b981;border-color:#10b981;transform:translateY(-2px)}
 .kanban-card:hover .card-quick-btn{opacity:1}
 .kanban-card.dragging{opacity:.5;transform:rotate(2deg)}
 .kanban-card-title{font-size:.95rem;line-height:1.3;font-weight:700;color:#1e293b;letter-spacing:0;margin-bottom:.5rem;padding-right:1.5rem}
@@ -84,7 +92,7 @@
 	@media (max-width: 1023px) {
 		.topbar { padding: 4px 8px !important; min-height: 36px !important; border-bottom: none !important; margin-bottom: 0 !important; background: transparent !important; }
 		.topbar .mobile-topbar-title-text { display: none; } /* Hide redundant topbar title */
-		.page-content { padding: 0.25rem !important; }
+		.page-content { padding: 0 !important; }
 		.board-wrap {
 			min-height: calc(100dvh - 40px - 50px - env(safe-area-inset-bottom,0px) - 2rem);
 			padding: .25rem 7.5vw;
@@ -151,10 +159,6 @@
 	}
 	[data-theme="dark"] .kanban-comment-text::placeholder {
 		color: #cbd5e1 !important;
-	}
-	[data-theme="dark"] .board-wrap[data-bg-type="color"],
-	[data-theme="dark"] .board-wrap:not([data-bg-type="image"]) {
-		background: #0f172a !important;
 	}
 	[data-theme="dark"] .zoom-container {
 		background-color: #1e293b !important;
@@ -226,10 +230,19 @@
 
 @section('content')
 {{-- Board takes full width – no max-width constraint --}}
-<div x-data='trelloBoard(@json($boardData))' x-init="init()">
+@php
+  $bgValue = $board->background_value ?: '#0f172a';
+  if ($board->background_type === 'image') {
+      $safeUrl = str_replace('"', '\"', $bgValue);
+      $serverStyle = "background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url(\"{$safeUrl}\"); background-color: #0f172a; background-size: cover; background-position: center;";
+  } else {
+      $serverStyle = "background: {$bgValue};";
+  }
+@endphp
+<div class="flex-1 flex flex-col min-h-full" style="{{ $serverStyle }}" :style="sbmBoardPreviewStyle(board)" data-bg-type="{{ $board->background_type }}" x-data='trelloBoard(@json($boardData))' x-init="init()">
 
 {{-- ── Board header ────────────── --}}
-<div class="relative z-30 flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-nowrap lg:flex-nowrap bg-white/65 backdrop-blur-md p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/60 shadow-sm board-header-mobile">
+<div class="relative sm:sticky sm:top-[64px] lg:top-[76px] z-[45] flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-nowrap lg:flex-nowrap bg-white dark:bg-slate-800 sm:bg-white/65 sm:dark:bg-slate-800/80 sm:backdrop-blur-xl p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-200/60 dark:border-slate-700 sm:dark:border-slate-700/60 shadow-md board-header-mobile">
   <div class="relative flex items-center gap-2">
     <div>
       <nav class="hidden sm:block text-xs text-slate-400 mb-0.5">
@@ -478,16 +491,7 @@
 </div>
 
 {{-- ── Lists row ─────────────────────────────────────────────────────── --}}
-@php
-  $bgValue = $board->background_value ?: '#0f172a';
-  if ($board->background_type === 'image') {
-      $safeUrl = str_replace('"', '\"', $bgValue);
-      $serverStyle = "background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url(\"{$safeUrl}\"); background-color: #0f172a; background-size: cover; background-position: center;";
-  } else {
-      $serverStyle = "background: {$bgValue};";
-  }
-@endphp
-<div class="board-wrap" id="board-wrap" style="{{ $serverStyle }}" :style="sbmBoardPreviewStyle(board)" data-bg-type="{{ $board->background_type }}">
+<div class="board-wrap" id="board-wrap">
 
   <div id="sortable-lists-container" class="flex items-start gap-4 h-full">
     <template x-for="(list, li) in lists" :key="list.id">
@@ -883,10 +887,10 @@
 
 
 {{-- Switch Board Button (Fixed at bottom middle) --}}
-<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] drop-shadow-2xl">
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] drop-shadow-2xl" x-show="!activeCard" x-transition.opacity.duration.200ms>
   <button type="button"
           @click="openSwitchBoardsModal()"
-          class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-6 py-2.5 text-sm font-extrabold text-slate-700 dark:text-slate-200 shadow-xl transition-all hover:-translate-y-1 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:hover:text-white hover:shadow-2xl">
+          class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-400 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-6 py-2.5 text-sm font-extrabold text-slate-700 dark:text-slate-200 shadow-xl transition-all hover:-translate-y-1 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:hover:text-white hover:shadow-2xl">
     <svg class="h-4 w-4 text-indigo-500 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h12A2.25 2.25 0 0 1 20.25 6v12A2.25 2.25 0 0 1 18 20.25H6A2.25 2.25 0 0 1 3.75 18V6Zm4.5 3h7.5m-7.5 6h7.5" />
     </svg>

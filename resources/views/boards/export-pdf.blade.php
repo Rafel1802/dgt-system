@@ -580,7 +580,7 @@
     <!-- Header -->
     <div class="header-container">
         <div class="header-left">
-            <h1>{{ $board ? $board->name : 'Personal Consolidated Report' }}</h1>
+            <h1 style="display: flex; align-items: center;"><img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/kiuqlogo.png'))) }}" alt="Logo" style="height: 40px; margin-right: 12px;">{{ $board ? $board->name : 'Personal Consolidated Report' }}</h1>
             <div class="meta-info">
                 @if($board)
                     Workspace: <strong>{{ $board->workspace->name ?? 'N/A' }}</strong> &nbsp;|&nbsp; 
@@ -698,160 +698,172 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: {{ ($isQcReport ?? false) ? '26%' : '30%' }};">Task / Title</th>
+                    <th style="width: 8%; text-align: center;">Class</th>
+                    <th style="width: 25%;">Task / Title</th>
                     <th style="width: 12%; text-align: center;">Status</th>
-                    <th style="width: 16%;">Assigned Members</th>
+                    <th style="width: 12%;">Assigned Members</th>
                     <th style="width: 9%;">Activity Date</th>
                     <th style="width: 9%;">Due Date</th>
                     <th style="width: 9%;">Completed Date</th>
-                    @if($isQcReport ?? false)
-                    <th style="width: 9%; text-align: center; background:#eff6ff; color:#1d4ed8;">QC Reviews</th>
-                    @endif
-                    <th style="width: 10%;">Labels</th>
+                    <th style="width: 8%; text-align: center;">Attached</th>
+                    <th style="width: 8%;">Labels</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($cards as $c)
-                <tr>
-                    <td>
-                        <div class="task-title">{{ $c->title }}</div>
-                        @if($includeDesc && $c->description)
-                            <div class="task-desc">{!! strip_tags($c->description) !!}</div>
+                @if(!empty($groupedCards))
+                    @foreach($groupedCards as $weekName => $cardsInWeek)
+                        @if($weekName !== 'Other')
+                        <tr>
+                            <td colspan="9" style="background-color: #f1f5f9; color: #475569; font-weight: 700; text-align: center; text-transform: uppercase; font-size: 11px;">
+                                {{ $weekName }}
+                            </td>
+                        </tr>
                         @endif
-                        @if(!empty($c->rejection_reason))
-                            <div style="margin-top: 6px; padding: 6px 10px; background-color: #fef2f2; border-radius: 6px; border-left: 3px solid #ef4444; font-size: 11px; color: #991b1b;">
-                                <strong>Error Reason:</strong> {{ $c->rejection_reason }}
-                            </div>
-                        @endif
-                        @if(($includeComments ?? false) && $c->comments->isNotEmpty())
-                            <div class="task-comments">
-                                <div class="comments-header">💬 Comments ({{ $c->comments->count() }})</div>
-                                <div class="comments-list">
-                                    @foreach($c->comments as $cmt)
-                                        @php
-                                            $parsedComment = \App\Http\Controllers\Board\BoardExportController::extractScreenshotsAndClean($cmt->body);
-                                        @endphp
-                                        <div class="comment-item">
-                                            <span class="comment-author">{{ $cmt->user->name ?? 'System' }}</span>
-                                            <span class="comment-date">{{ $cmt->created_at->format('M d, Y g:i A') }}</span>
-                                            <div class="comment-body">{{ $parsedComment['text'] }}</div>
-                                            
-                                            @if(!empty($parsedComment['screenshots']))
-                                                <div class="comment-screenshots" style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px;">
-                                                    @foreach($parsedComment['screenshots'] as $scrIdx => $scrSrc)
-                                                        <div class="image-item" style="display: flex; flex-direction: column; align-items: center; width: 120px; background-color: #fff; padding: 4px; border: 1px solid #e2e8f0; border-radius: 6px;">
-                                                            <img src="{{ $scrSrc }}" style="width: 112px; max-height: 90px; object-fit: contain; border-radius: 4px;" class="task-image-thumbnail">
-                                                            <div class="image-name" style="font-size: 8px; color: var(--text-muted); margin-top: 4px; text-align: center; width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Screenshot {{ $scrIdx + 1 }}</div>
+                        
+                        @foreach($cardsInWeek as $c)
+                        <tr>
+                            <td style="text-align: center;">
+                                @if($c->smm_class_label)
+                                <div style="background-color: {{ $c->smm_class_color }}; color: #fff; font-weight: bold; padding: 3px 6px; border-radius: 4px; font-size: 9px; display: inline-block;">
+                                    {{ $c->smm_class_label }}
+                                </div>
+                                @else
+                                -
+                                @endif
+                            </td>
+                            <td>
+                                <div class="task-title">{{ $c->title }}</div>
+                                @if($includeDesc && $c->description)
+                                    <div class="task-desc">{!! strip_tags($c->description) !!}</div>
+                                @endif
+                                @if(!empty($c->rejection_reason))
+                                    <div style="margin-top: 6px; padding: 6px 10px; background-color: #fef2f2; border-radius: 6px; border-left: 3px solid #ef4444; font-size: 11px; color: #991b1b;">
+                                        <strong>Error Reason:</strong> {{ $c->rejection_reason }}
+                                    </div>
+                                @endif
+                                @if(($includeComments ?? false) && $c->comments->isNotEmpty())
+                                    <div class="task-comments">
+                                        <div class="comments-header">💬 Comments ({{ $c->comments->count() }})</div>
+                                        <div class="comments-list">
+                                            @foreach($c->comments as $cmt)
+                                                @php
+                                                    $parsedComment = \App\Http\Controllers\Board\BoardExportController::extractScreenshotsAndClean($cmt->body);
+                                                @endphp
+                                                <div class="comment-item">
+                                                    <span class="comment-author">{{ $cmt->user->name ?? 'System' }}</span>
+                                                    <span class="comment-date">{{ $cmt->created_at->format('M d, Y g:i A') }}</span>
+                                                    <div class="comment-body">{{ $parsedComment['text'] }}</div>
+                                                    
+                                                    @if(!empty($parsedComment['screenshots']))
+                                                        <div class="comment-screenshots" style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px;">
+                                                            @foreach($parsedComment['screenshots'] as $scrIdx => $scrSrc)
+                                                                <div class="image-item" style="display: flex; flex-direction: column; align-items: center; width: 120px; background-color: #fff; padding: 4px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                                                    <img src="{{ $scrSrc }}" style="width: 112px; max-height: 90px; object-fit: contain; border-radius: 4px;" class="task-image-thumbnail">
+                                                                    <div class="image-name" style="font-size: 8px; color: var(--text-muted); margin-top: 4px; text-align: center; width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Screenshot {{ $scrIdx + 1 }}</div>
+                                                                </div>
+                                                            @endforeach
                                                         </div>
-                                                    @endforeach
+                                                    @endif
                                                 </div>
-                                            @endif
+                                            @endforeach
                                         </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
-                        @if(($includeComments ?? false) && $c->files->isNotEmpty())
-                            @php
-                                $images = $c->files->filter(fn($f) => $f->is_image);
-                                $links = $c->files->filter(fn($f) => $f->disk === 'url' || $f->mime_type === 'link');
-                            @endphp
-                            @if($images->isNotEmpty())
-                                <div class="task-images">
-                                    <div class="images-header">🖼️ Screenshots / Images</div>
-                                    <div class="images-gallery">
-                                        @foreach($images as $img)
-                                            @php
-                                                $imgSrc = $img->preview_url;
-                                                if ($img->disk === 'local') {
-                                                    $filePath = storage_path('app/' . $img->path);
-                                                    if (file_exists($filePath)) {
-                                                        $fileData = file_get_contents($filePath);
-                                                        $imgSrc = 'data:' . ($img->mime_type ?? 'image/png') . ';base64,' . base64_encode($fileData);
-                                                    }
-                                                }
-                                            @endphp
-                                            <div class="image-item">
-                                                <img src="{{ $imgSrc }}" class="task-image-thumbnail">
-                                                <div class="image-name">{{ $img->original_name }}</div>
+                                    </div>
+                                @endif
+                                @if(($includeComments ?? false) && $c->files->isNotEmpty())
+                                    @php
+                                        $images = $c->files->filter(fn($f) => $f->is_image);
+                                        $links = $c->files->filter(fn($f) => $f->disk === 'url' || $f->mime_type === 'link');
+                                    @endphp
+                                    @if($images->isNotEmpty())
+                                        <div class="task-images">
+                                            <div class="images-header">🖼️ Screenshots / Images</div>
+                                            <div class="images-gallery">
+                                                @foreach($images as $img)
+                                                    @php
+                                                        $imgSrc = $img->preview_url;
+                                                        if ($img->disk === 'local') {
+                                                            $filePath = storage_path('app/' . $img->path);
+                                                            if (file_exists($filePath)) {
+                                                                $fileData = file_get_contents($filePath);
+                                                                $imgSrc = 'data:' . ($img->mime_type ?? 'image/png') . ';base64,' . base64_encode($fileData);
+                                                            }
+                                                        }
+                                                    @endphp
+                                                    <div class="image-item">
+                                                        <img src="{{ $imgSrc }}" class="task-image-thumbnail">
+                                                        <div class="image-name">{{ $img->original_name }}</div>
+                                                    </div>
+                                                @endforeach
                                             </div>
-                                        @endforeach
+                                        </div>
+                                    @endif
+                                @endif
+                            </td>
+                            <td style="text-align: center;">
+                                @if($c->is_archived)
+                                    <span class="status-badge status-archived">Archived</span>
+                                @else
+                                    @php
+                                        $statusClass = 'todo';
+                                        if ($c->status === \App\Enums\CardStatus::InProgress) $statusClass = 'in_progress';
+                                        elseif ($c->status === \App\Enums\CardStatus::Review) $statusClass = 'review';
+                                        elseif ($c->status === \App\Enums\CardStatus::Approved) $statusClass = 'approved';
+                                        elseif ($c->status === \App\Enums\CardStatus::Rejected) $statusClass = 'rejected';
+                                        elseif ($c->status === \App\Enums\CardStatus::Done) $statusClass = 'done';
+                                    @endphp
+                                    <span class="status-badge status-{{ $statusClass }}">{{ $c->status ? $c->status->label() : 'To Do' }}</span>
+                                @endif
+                            </td>
+                            <td>
+                                {{ $c->assignees->pluck('name')->join(', ') ?: 'Unassigned' }}
+                            </td>
+                            <td>
+                                {{ $c->computed_activity_date ? $c->computed_activity_date->format('M d, Y') : ($c->created_at ? $c->created_at->format('M d, Y') : 'N/A') }}
+                            </td>
+                            <td>
+                                @if($c->due_at)
+                                    <span style="{{ $c->due_at->isPast() && !in_array($c->status, [\App\Enums\CardStatus::Done, \App\Enums\CardStatus::Approved]) ? 'color: #ef4444; font-weight: bold;' : '' }}">
+                                        {{ $c->due_at->format('M d, Y') }}
+                                    </span>
+                                @else
+                                    <span style="color: var(--text-muted);">None</span>
+                                @endif
+                            </td>
+                            <td>
+                                {{ $c->exact_completed_date ?? '-' }}
+                            </td>
+                            <td style="text-align: center;">
+                                @if($c->files->isNotEmpty())
+                                    <div style="font-size: 10px; color: #4b5563;">
+                                        @php
+                                            $images = $c->files->filter(fn($f) => $f->is_image)->count();
+                                            $links = $c->files->filter(fn($f) => $f->disk === 'url' || $f->mime_type === 'link')->count();
+                                            $others = $c->files->count() - $images - $links;
+                                        @endphp
+                                        @if($images > 0) <div>🖼️ {{ $images }} Images</div> @endif
+                                        @if($links > 0) <div>🔗 {{ $links }} Links</div> @endif
+                                        @if($others > 0) <div>📄 {{ $others }} Files</div> @endif
                                     </div>
-                                </div>
-                            @endif
-                            @if($links->isNotEmpty())
-                                <div class="task-links" style="margin-top: 8px; background-color: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 11px;">
-                                    <div class="links-header" style="font-weight: 700; color: #475569; margin-bottom: 6px; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">🔗 Attached Links</div>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                        @php $linkCount = 1; @endphp
-                                        @foreach($links as $link)
-                                            <a href="{{ $link->path }}" target="_blank" style="color: #4f46e5; text-decoration: none; background: #e0e7ff; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Link{{ $linkCount++ }}</a>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endif
-                        @endif
-                    </td>
-                    <td style="text-align: center;">
-                        {!! $c->computed_status_html !!}
-                    </td>
-                    <td>
-                        {{ $c->assignees->pluck('name')->join(', ') ?: 'Unassigned' }}
-                    </td>
-                    <td>
-                        {{ $c->computed_activity_date ? $c->computed_activity_date->format('Y-m-d H:i') : ($c->created_at ? $c->created_at->format('Y-m-d') : 'N/A') }}
-                    </td>
-                    <td>
-                        @php
-                            // Use deadline field (date-only) — due_at is often null
-                            $dueDate = $c->deadline ?? $c->due_at;
-                        @endphp
-                        {{ $dueDate ? \Carbon\Carbon::parse($dueDate)->format('Y-m-d') : 'None' }}
-                    </td>
-                    <td>
-                        @php
-                            $inApproved = stripos($c->boardList?->name ?? '', 'Approved') !== false;
-                        @endphp
-                        {{ $inApproved ? ($c->approved_at?->format('Y-m-d') ?? $c->updated_at?->format('Y-m-d') ?? 'Completed') : '-' }}
-                    </td>
-                    @if($isQcReport ?? false)
-                    <td style="text-align: center; vertical-align: top;">
-                        @php
-                            // qcApprovalComments is eager-loaded when user is QC.
-                            // Each comment = one review cycle (may repeat after rejection).
-                            $qcComments = $c->relationLoaded('qcApprovalComments')
-                                ? $c->qcApprovalComments
-                                : collect();
-                            $qcCount = $qcComments->count();
-                        @endphp
-                        @if($qcCount > 0)
-                            <span style="display:inline-block; background:#dbeafe; color:#1d4ed8; font-weight:800; font-size:14px; border-radius:50%; width:26px; height:26px; line-height:26px; text-align:center;">{{ $qcCount }}</span>
-                            @if($qcCount > 1)
-                            <div style="font-size:9px; color:#dc2626; font-weight:700; margin-top:3px;">⚠ Checked {{ $qcCount }}× ({{ $qcCount - 1 }} re-review{{ $qcCount > 2 ? 's' : '' }})</div>
-                            @endif
-                            <div style="font-size:8px; color:#64748b; margin-top:4px;">
-                                @foreach($qcComments as $qi => $qcmt)
-                                <div style="margin-bottom:2px; padding:2px 4px; background:{{ $qi === 0 ? '#f0fdf4' : '#fef2f2' }}; border-radius:3px;">
-                                    <span style="font-weight:600;">Review {{ $qi + 1 }}:</span> {{ $qcmt->created_at->format('d M Y') }}
-                                </div>
-                                @endforeach
-                            </div>
-                        @else
-                            <span style="color:#94a3b8; font-size:11px;">—</span>
-                        @endif
-                    </td>
-                    @endif
-                    <td>
-                        @foreach($c->labels as $lbl)
-                            <span class="tag-label" style="background-color: {{ $lbl->color }}20; color: {{ $lbl->color }}; border: 1px solid {{ $lbl->color }}40;">{{ $lbl->name }}</span>
+                                @else
+                                    <span style="color: var(--text-muted); font-size: 10px;">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($c->labels->isNotEmpty())
+                                    @foreach($c->labels as $lbl)
+                                        <span class="tag-label" style="background-color: {{ $lbl->color }}20; color: {{ $lbl->color }}; border: 1px solid {{ $lbl->color }}40;">{{ $lbl->name }}</span>
+                                    @endforeach
+                                @else
+                                    -
+                                @endif
+                            </td>
+                        </tr>
                         @endforeach
-                    </td>
-                </tr>
-                @endforeach
-                @if($cards->isEmpty())
-                <tr>
-                    <td colspan="{{ ($isQcReport ?? false) ? 8 : 7 }}" style="text-align: center; color: var(--text-muted); font-style: italic; padding: 20px 0;">No tasks found matching the selected filters.</td>
-                </tr>
+                    @endforeach
+                @else
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: var(--text-muted); font-style: italic; padding: 20px 0;">No tasks found matching the selected filters.</td>
+                    </tr>
                 @endif
             </tbody>
         </table>

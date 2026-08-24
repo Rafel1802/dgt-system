@@ -175,13 +175,13 @@
         <section class="mac-app-hero relative overflow-hidden px-7 py-8 sm:px-10 lg:px-12">
             <div class="relative grid gap-8 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_380px] lg:items-center">
                 <div class="flex flex-col gap-6 sm:flex-row sm:items-start lg:items-center min-w-0">
-                    <img src="{{ asset('favicon.svg') }}" alt="KIUQ SYSTEM" class="h-20 w-20 flex-shrink-0 rounded-3xl object-contain shadow-2xl shadow-blue-950/30 ring-1 ring-white/20">
+                    <img src="{{ asset('favicon.svg') }}" alt="DIGITAL SYSTEM" class="h-20 w-20 flex-shrink-0 rounded-3xl object-contain shadow-2xl shadow-blue-950/30 ring-1 ring-white/20">
                     <div class="min-w-0">
                         <div class="mac-app-badge inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em]">
                             <span class="h-2 w-2 rounded-full bg-emerald-300"></span>
                             Private staff app
                         </div>
-                        <h1 class="mac-app-title mt-4 text-3xl font-black tracking-normal sm:text-5xl break-words">KIUQ SYSTEM Apps</h1>
+                        <h1 class="mac-app-title mt-4 text-3xl font-black tracking-normal sm:text-5xl break-words">DIGITAL SYSTEM Apps</h1>
                         <p class="mac-app-copy mt-3 max-w-xl text-base font-semibold leading-7">
                             Faster access to the hosted workspace from macOS and iOS, with the optimized Hostinger app experience packaged for staff.
                         </p>
@@ -231,7 +231,7 @@
                 <div class="mt-4 grid gap-3">
                     @foreach([
                         ['1', 'Download the DMG file from this page.'],
-                        ['2', 'Open the DMG and drag KIUQ SYSTEM into Applications.'],
+                        ['2', 'Open the DMG and drag DIGITAL SYSTEM into Applications.'],
                         ['3', 'Open the app, sign in, and allow macOS notifications.'],
                     ] as [$number, $text])
                         <div class="mac-app-step flex items-center gap-4 rounded-2xl border p-4">

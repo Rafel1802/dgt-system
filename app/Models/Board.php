@@ -133,6 +133,9 @@ class Board extends Model
             if (isset($prefs[$this->id]['background_type'])) {
                 return $prefs[$this->id]['background_type'];
             }
+            if (isset($prefs['workspace_' . $this->workspace_id]['background_type'])) {
+                return $prefs['workspace_' . $this->workspace_id]['background_type'];
+            }
         }
         return $value;
     }
@@ -143,6 +146,9 @@ class Board extends Model
             $prefs = auth()->user()->board_backgrounds ?? [];
             if (isset($prefs[$this->id]['background_value'])) {
                 return $prefs[$this->id]['background_value'];
+            }
+            if (isset($prefs['workspace_' . $this->workspace_id]['background_value'])) {
+                return $prefs['workspace_' . $this->workspace_id]['background_value'];
             }
         }
         return $value;
@@ -155,6 +161,9 @@ class Board extends Model
             if (isset($prefs[$this->id]['cover_type'])) {
                 return $prefs[$this->id]['cover_type'];
             }
+            if (isset($prefs['workspace_' . $this->workspace_id]['cover_type'])) {
+                return $prefs['workspace_' . $this->workspace_id]['cover_type'];
+            }
         }
         return $value;
     }
@@ -165,6 +174,9 @@ class Board extends Model
             $prefs = auth()->user()->board_backgrounds ?? [];
             if (isset($prefs[$this->id]['cover_value'])) {
                 return $prefs[$this->id]['cover_value'];
+            }
+            if (isset($prefs['workspace_' . $this->workspace_id]['cover_value'])) {
+                return $prefs['workspace_' . $this->workspace_id]['cover_value'];
             }
         }
         return $value;

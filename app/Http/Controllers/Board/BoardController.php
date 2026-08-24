@@ -727,6 +727,12 @@ class BoardController extends Controller
             }
             $prefs[$board->id]['background_type'] = $backgroundType ?? $board->background_type;
             $prefs[$board->id]['background_value'] = $backgroundValue ?? $board->background_value;
+            
+            $workspaceKey = 'workspace_' . $board->workspace_id;
+            if (!isset($prefs[$workspaceKey])) $prefs[$workspaceKey] = [];
+            $prefs[$workspaceKey]['background_type'] = $prefs[$board->id]['background_type'];
+            $prefs[$workspaceKey]['background_value'] = $prefs[$board->id]['background_value'];
+
             $user->board_backgrounds = $prefs;
             $user->save();
 
@@ -863,6 +869,11 @@ class BoardController extends Controller
         $prefs[$board->id]['cover_type'] = $validated['cover_type'];
         $prefs[$board->id]['cover_value'] = $coverValue;
         
+        $workspaceKey = 'workspace_' . $board->workspace_id;
+        if (!isset($prefs[$workspaceKey])) $prefs[$workspaceKey] = [];
+        $prefs[$workspaceKey]['cover_type'] = $validated['cover_type'];
+        $prefs[$workspaceKey]['cover_value'] = $coverValue;
+        
         $user->board_backgrounds = $prefs;
         $user->save();
 
@@ -901,6 +912,12 @@ class BoardController extends Controller
         }
         $prefs[$board->id]['background_type'] = 'image';
         $prefs[$board->id]['background_value'] = $uploadedUrl;
+        
+        $workspaceKey = 'workspace_' . $board->workspace_id;
+        if (!isset($prefs[$workspaceKey])) $prefs[$workspaceKey] = [];
+        $prefs[$workspaceKey]['background_type'] = 'image';
+        $prefs[$workspaceKey]['background_value'] = $uploadedUrl;
+
         $user->board_backgrounds = $prefs;
         $user->save();
 
@@ -1812,6 +1829,7 @@ class BoardController extends Controller
             $workspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
                 'boards.members',
+                'boards.creator',
                 'members',
             ])
                 ->where('is_active', true)
@@ -1823,6 +1841,7 @@ class BoardController extends Controller
             $allActiveWorkspaces = Workspace::with([
                 'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
                 'boards.members',
+                'boards.creator',
                 'members',
             ])
                 ->where('is_active', true)

@@ -209,7 +209,7 @@ class WebsiteFollowUpController extends Controller
     {
         abort_unless(auth()->user()?->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
 
-        $format = $request->get('format', 'csv');
+        $format = $request->get('format', 'pdf');
         $userId = auth()->id();
 
         $dateFrom = now()->startOfMonth()->toDateString();
@@ -248,7 +248,6 @@ class WebsiteFollowUpController extends Controller
             ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
 
         if ($userId) {
-            // Include if they were assigned to it, OR if they QC checked it (assuming QC might pull their own report)
             $query->where(function($q) use ($userId) {
                 $q->where('assigned_to', $userId)
                   ->orWhere('qc_checked_by', $userId);
@@ -257,13 +256,25 @@ class WebsiteFollowUpController extends Controller
 
         $followUps = $query->orderBy('created_at')->get();
 
-        if ($format === 'pdf') {
+        // Show preview instead of immediate download
+        if ($format !== 'csv' && !$request->boolean('download')) {
+            $userModel = $userId ? \App\Models\User::find($userId) : null;
+            return view('websites.reports.followup-preview', [
+                'followUps' => $followUps,
+                'dateFrom'  => $dateFrom,
+                'dateTo'    => $dateTo,
+                'format'    => $format,
+                'user'      => $userModel,
+            ]);
+        }
+
+        if ($format === 'pdf' || $request->boolean('download')) {
             $userModel = $userId ? \App\Models\User::find($userId) : null;
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('websites.reports.followup-personal-pdf', [
                 'followUps' => $followUps,
-                'user' => $userModel,
-                'dateFrom' => $dateFrom,
-                'dateTo' => $dateTo,
+                'user'      => $userModel,
+                'dateFrom'  => $dateFrom,
+                'dateTo'    => $dateTo,
             ])->setPaper('a4', 'landscape');
             return $pdf->download('follow-up-personal-report-' . now()->format('Y-m-d') . '.pdf');
         }

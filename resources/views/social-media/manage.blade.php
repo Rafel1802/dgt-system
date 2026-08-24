@@ -232,6 +232,10 @@
                                 <label class="form-label text-[10px] font-bold text-slate-500 uppercase mb-1">Platform Name</label>
                                 <input type="text" name="name" placeholder="Platform (e.g. Facebook)" required class="form-input py-1.5 px-3 text-sm rounded-lg w-full">
                             </div>
+                            <div class="flex-1 min-w-[200px]">
+                                <label class="form-label text-[10px] font-bold text-slate-500 uppercase mb-1">URL Link</label>
+                                <input type="url" name="url" placeholder="https://..." class="form-input py-1.5 px-3 text-sm rounded-lg w-full">
+                            </div>
                             <div class="flex-[2] min-w-[280px]">
                                 <label class="form-label text-[10px] font-bold text-slate-500 uppercase mb-1">Icon (URL or Upload)</label>
                                 <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
@@ -288,6 +292,10 @@
                                     <div class="flex-1 min-w-[150px]">
                                         <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Platform Name</label>
                                         <input type="text" name="name" value="{{ $item->name }}" required class="form-input py-1.5 px-2 text-sm w-full">
+                                    </div>
+                                    <div class="flex-1 min-w-[200px]">
+                                        <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">URL Link</label>
+                                        <input type="url" name="url" value="{{ $item->url }}" class="form-input py-1.5 px-2 text-sm w-full" placeholder="https://...">
                                     </div>
                                     <div class="flex-[2] min-w-[250px]">
                                         <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">Icon (URL or Upload)</label>

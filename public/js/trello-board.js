@@ -125,6 +125,7 @@ window.trelloBoard = function(config) {
       endDate: '',
       memberId: 'all',
       assignById: 'all',
+      labelId: 'all',
       statuses: ['draft', 'in_progress', 'review', 'completed', 'archived'],
       includeDesc: false,
       includeComments: false
@@ -2280,6 +2281,8 @@ window.trelloBoard = function(config) {
       em.startDate = '';
       em.endDate = '';
       em.memberId = 'all';
+      em.assignById = 'all';
+      em.labelId = 'all';
       em.statuses = ['draft', 'in_progress', 'review', 'completed', 'archived'];
       em.includeDesc = false;
       em.includeComments = false;
@@ -2317,6 +2320,9 @@ window.trelloBoard = function(config) {
       
       // Assign By
       params.append('assign_by_id', em.assignById);
+
+      // Label
+      params.append('label_id', em.labelId);
 
       // Statuses
       if (em.statuses.length === 0) {

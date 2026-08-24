@@ -56,8 +56,8 @@
     --shadow-xl:  0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
 
     /* Transitions */
-    --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: 75ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   [data-theme="dark"] {
@@ -917,8 +917,8 @@
     border-color: var(--border-color) !important;
   }
   [data-theme="dark"] .kanban-card:hover {
-    border-color: var(--color-primary-light) !important;
-    box-shadow: 0 8px 22px rgba(0,0,0,0.4) !important;
+    border-color: #10b981 !important;
+    box-shadow: 0 10px 25px rgba(16,185,129,.15), 0 0 0 1px #10b981 !important;
   }
   [data-theme="dark"] .kanban-card-title {
     color: var(--text-primary) !important;
@@ -1301,6 +1301,7 @@
     height: 100%;
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
+    background-color: var(--bg-page);
   }
 
   .topbar {
@@ -1313,7 +1314,7 @@
     padding: 0 1.5rem;
     position: sticky;
     top: 0;
-    z-index: 40;
+    z-index: 50;
     box-shadow: var(--shadow-sm);
   }
 
@@ -2199,3 +2200,28 @@
       box-shadow: 0 0 40px rgba(15, 23, 42, 0.4);
     }
   }
+
+  /* Fix for white backgrounds showing in dark mode */
+  [data-theme="dark"] body,
+  [data-theme="dark"] html,
+  [data-theme="dark"] #dgt-app-wrapper,
+  [data-theme="dark"] .main-wrapper,
+  [data-theme="dark"] .page-content {
+    background-color: var(--bg-page) !important;
+  }
+  
+  [data-theme="dark"] .dash-shell::before {
+    background: var(--bg-page) !important;
+  }
+
+/* ── MacOS App Performance Fixes ────────────────────────────── */
+/* WKWebView in macOS struggles heavily with complex backdrop filters
+   and multiple box-shadows, leading to severe frame drops. */
+html.dgt-macos-app * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+html.dgt-macos-app .dash-glass,
+html.dgt-macos-app .liquid-glass {
+    background: var(--bg-card) !important;
+}

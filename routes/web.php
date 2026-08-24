@@ -445,25 +445,27 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::patch('/posts/{post}/complete', [SocialMediaPostController::class, 'markCompleted'])->name('posts.complete');
 
                         // Reports
-                        Route::get('/reports', [SocialMediaReportController::class, 'index'])->name('reports.index');
-                        Route::get('/reports/export/csv', [SocialMediaReportController::class, 'exportCsv'])->name('reports.export.csv');
-                        Route::get('/reports/export/pdf', [SocialMediaReportController::class, 'exportPdf'])->name('reports.export.pdf');
-                        Route::post('/reports/export/zip', [SocialMediaReportController::class, 'exportZip'])->name('reports.export.zip');
+                        Route::middleware('role:super-admin|admin-digital|supervisor|social_qc')->group(function () {
+                            Route::get('/reports', [SocialMediaReportController::class, 'index'])->name('reports.index');
+                            Route::get('/reports/export/csv', [SocialMediaReportController::class, 'exportCsv'])->name('reports.export.csv');
+                            Route::get('/reports/export/pdf', [SocialMediaReportController::class, 'exportPdf'])->name('reports.export.pdf');
+                            Route::post('/reports/export/zip', [SocialMediaReportController::class, 'exportZip'])->name('reports.export.zip');
+                        });
+                        
+                        // Analytics View/Download/Store
+                        Route::middleware('role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team')->group(function () {
+                            Route::get('/analytics', [SocialMediaAnalyticsController::class, 'index'])->name('analytics.index');
+                            Route::get('/analytics/{analytic}/download', [SocialMediaAnalyticsController::class, 'download'])->name('analytics.download');
+                            Route::get('/analytics/{analytic}/preview', [SocialMediaAnalyticsController::class, 'preview'])->name('analytics.preview');
+                            Route::post('/analytics', [SocialMediaAnalyticsController::class, 'store'])->name('analytics.store');
+                            Route::delete('/analytics/{analytic}', [SocialMediaAnalyticsController::class, 'destroy'])->name('analytics.destroy');
+                        });
                     });
-
-                // Analytics View/Download (including Boss)
-                Route::middleware('role:super-admin|admin-digital|social_qc|boss')->group(function () {
-                    Route::get('/analytics', [SocialMediaAnalyticsController::class, 'index'])->name('analytics.index');
-                    Route::get('/analytics/{analytic}/download', [SocialMediaAnalyticsController::class, 'download'])->name('analytics.download');
-                    Route::get('/analytics/{analytic}/preview', [SocialMediaAnalyticsController::class, 'preview'])->name('analytics.preview');
-                });
 
                 // Admin/QC actions (excluding Boss)
                 Route::middleware('role:super-admin|admin-digital|social_qc')->group(function () {
                     Route::patch('/posts/{post}/check', [SocialMediaPostController::class, 'markChecked'])->name('posts.check');
                     Route::patch('/posts/{post}/unlock', [SocialMediaPostController::class, 'unlock'])->name('posts.unlock');
-                    Route::post('/analytics', [SocialMediaAnalyticsController::class, 'store'])->name('analytics.store');
-                    Route::delete('/analytics/{analytic}', [SocialMediaAnalyticsController::class, 'destroy'])->name('analytics.destroy');
                 });
 
                 // Quick create SMM Class from Board
@@ -496,8 +498,13 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
     });
 });
 
-// Root redirect
+// Blog Reports
+Route::middleware(['auth'])->group(function () {
+    Route::get('/blog-reports', [\App\Http\Controllers\BlogReportController::class, 'index'])->name('blog-reports.index');
+    Route::post('/blog-reports/generate', [\App\Http\Controllers\BlogReportController::class, 'generate'])->name('blog-reports.generate');
+});
 
+// Root redirect
 Route::get('/', [RouteClosureController::class, 'index'])->name('home');
 
 // ── Public Webhook: Google Apps Script Email Push ─────────────────────────

@@ -174,7 +174,7 @@
 
     <!-- Executive Header -->
     <div class="brand-header">
-        <div class="brand-logo-badge">KIUQ SYSTEM · CRM MANAGEMENT</div>
+        <div class="brand-logo-badge">DIGITAL SYSTEM · CRM MANAGEMENT</div>
         <h1 class="header-title">Executive Team Performance Report</h1>
         <div class="header-subtitle">
             Period: <strong>{{ $periodLabel }}</strong> &nbsp;|&nbsp; 

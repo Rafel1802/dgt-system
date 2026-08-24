@@ -2,7 +2,7 @@
 
 @section('title', 'Dashboard')
 @section('page_title', 'Dashboard')
-@section('meta_description', 'KIUQ SYSTEM overview: tasks, CRM, sales, notifications, and team activity at a glance.')
+@section('meta_description', 'DIGITAL SYSTEM overview: tasks, CRM, sales, notifications, and team activity at a glance.')
 
 @section('content')
 @php
@@ -11,15 +11,30 @@
     $offlineUsers = max($totalUsers - $onlineUsers, 0);
     $dashboardUnreadCount = (int) ($dashboardUnreadCount ?? 0);
     $permissionsCount = (int) ($permissionsCount ?? 0);
+    if (isset($appearance['background_value']) && $appearance['background_value'] === 'linear-gradient(180deg,#f8fafc,#eef2f7)') {
+        $appearance['background_value'] = 'var(--fallback-dash-bg)';
+    }
     $appearance = $appearance ?? [
         'background_type' => 'gradient',
-        'background_value' => 'linear-gradient(180deg,#f8fafc,#eef2f7)',
+        'background_value' => 'var(--fallback-dash-bg)',
         'cover_type' => 'gradient',
         'cover_value' => 'linear-gradient(135deg,#2F68ED 0%,#2457cf 46%,#173a92 100%)',
     ];
 @endphp
 
 <style>
+    :root {
+        --fallback-dash-bg: linear-gradient(135deg, rgba(14, 165, 233, 0.08), transparent 30%),
+            linear-gradient(225deg, rgba(16, 185, 129, 0.08), transparent 34%),
+            linear-gradient(180deg, #f8fafc, #eef2f7);
+    }
+    
+    [data-theme="dark"] {
+        --fallback-dash-bg: linear-gradient(135deg, rgba(14, 165, 233, 0.05), transparent 30%),
+            linear-gradient(225deg, rgba(16, 185, 129, 0.05), transparent 34%),
+            var(--bg-page);
+    }
+
     .dash-shell {
         position: relative;
         isolation: isolate;
@@ -31,10 +46,7 @@
         inset: 64px 0 0 var(--sidebar-width);
         pointer-events: none;
         z-index: -1;
-        background: var(--dashboard-bg,
-            linear-gradient(135deg, rgba(14, 165, 233, 0.08), transparent 30%),
-            linear-gradient(225deg, rgba(16, 185, 129, 0.08), transparent 34%),
-            linear-gradient(180deg, #f8fafc, #eef2f7));
+        background: var(--dashboard-bg, var(--fallback-dash-bg));
         background-size: cover;
         background-position: center;
     }
@@ -376,7 +388,7 @@
 @push('scripts')
 <script>
 function dashboardAppearance(initial) {
-    const fallbackBg = 'linear-gradient(180deg,#f8fafc,#eef2f7)';
+    const fallbackBg = 'var(--fallback-dash-bg)';
     const fallbackCover = 'linear-gradient(135deg,#2F68ED 0%,#2457cf 46%,#173a92 100%)';
 
     return {

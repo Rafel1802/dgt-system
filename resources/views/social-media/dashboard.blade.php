@@ -60,8 +60,8 @@
             
             <select x-model="filterClass" class="form-select py-1.5 text-sm flex-1 sm:w-48 shadow-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg min-w-0">
                 <option value="">All Classes</option>
-                @foreach($classesWithStats as $stat)
-                    <option value="{{ $stat['model']->id }}">{{ $stat['model']->name }}</option>
+                @foreach($classes as $class)
+                    <option value="{{ $class->id }}">{{ $class->name }}</option>
                 @endforeach
             </select>
         </div>
@@ -91,127 +91,69 @@
     </div>
 </div>
 
-{{-- Global KPIs --}}
-@if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss']))
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-    @php
-    $kpiCards = [
-        ['icon'=>'📁', 'label'=>'Classes', 'value'=>$globalStats['total_classes'], 'color'=>'text-slate-700', 'bg'=>'bg-white'],
-        ['icon'=>'📱', 'label'=>'Socials', 'value'=>$globalStats['total_items'],   'color'=>'text-indigo-600', 'bg'=>'bg-indigo-50'],
-        ['icon'=>'✅', 'label'=>'Completed','value'=>$globalStats['completed'],     'color'=>'text-emerald-600','bg'=>'bg-emerald-50'],
-        ['icon'=>'⏳', 'label'=>'Pending',  'value'=>$globalStats['pending'],       'color'=>'text-amber-600',  'bg'=>'bg-amber-50'],
-        ['icon'=>'🛡️', 'label'=>'QC Checked','value'=>$globalStats['qc_checked'],   'color'=>'text-blue-600',   'bg'=>'bg-blue-50'],
-        ['icon'=>'👀', 'label'=>'QC Pending','value'=>$globalStats['qc_pending'],   'color'=>'text-orange-600', 'bg'=>'bg-orange-50'],
-    ];
-    @endphp
-    @foreach($kpiCards as $kpi)
-    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col justify-center items-center gap-1 {{ str_replace('bg-', 'dark:bg-', $kpi['bg']) }}/10 bg-white dark:bg-slate-800 shadow-sm metric-counter" style="animation-delay: {{ $loop->index * 0.05 }}s">
-        <div class="flex items-center gap-2">
-            <span class="text-xl">{{ $kpi['icon'] }}</span>
-            <span class="text-2xl font-black {{ str_replace('text-', 'dark:text-', $kpi['color']) }}">{{ $kpi['value'] }}</span>
+{{-- Dashboard grid --}}
+<div class="mb-6 flex items-center gap-3">
+    <h2 class="text-xl font-extrabold text-slate-800 dark:text-white">All Social Media Classes</h2>
+    <div class="h-px bg-slate-200 dark:bg-slate-700/50 flex-1"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
+    @foreach($classes as $class)
+        @php
+            $classIcon = trim((string) ($class->getRawOriginal('icon') ?? ''));
+            $classInitials = collect(preg_split('/\s+|[._-]+/', $class->name))
+                ->filter()
+                ->take(2)
+                ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+                ->join('') ?: mb_strtoupper(mb_substr($class->name, 0, 2));
+            $classIconIsImage = $classIcon !== '' && (
+                filter_var($classIcon, FILTER_VALIDATE_URL)
+                || str_starts_with($classIcon, '/')
+                || str_starts_with($classIcon, 'storage/')
+                || preg_match('/\.(jpeg|jpg|png|gif|svg|webp)(\?.*)?$/i', $classIcon)
+            );
+            $classIconSrc = $classIconIsImage
+                ? (filter_var($classIcon, FILTER_VALIDATE_URL) ? $classIcon : asset(ltrim($classIcon, '/')))
+                : null;
+        @endphp
+        <div class="ws-dash-card" x-show="(filterClass === '' || filterClass === '{{ $class->id }}') && ('{{ strtolower($class->name) }}'.includes(searchQuery.toLowerCase()))">
+            {{-- Card Header --}}
+            <div class="p-5 border-b border-slate-100 dark:border-slate-700/50 flex items-start justify-between">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-1">{{ $class->name }}</h3>
+                </div>
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden bg-white ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700 text-white font-bold text-lg p-1.5">
+                    @if($classIconSrc)
+                        <img
+                            src="{{ $classIconSrc }}"
+                            alt="{{ $class->name }}"
+                            class="max-h-full max-w-full object-contain rounded-lg"
+                            loading="lazy"
+                            referrerpolicy="no-referrer"
+                            onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"
+                        >
+                        <span class="hidden h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classInitials }}</span>
+                    @elseif($classIcon !== '')
+                        <span class="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classIcon }}</span>
+                    @else
+                        <span class="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classInitials }}</span>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Spacer to push footer down --}}
+            <div class="flex-1"></div>
+
+            {{-- Card Footer --}}
+            <div class="p-4 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800 flex items-center justify-between gap-3">
+                <a wire:navigate.hover href="{{ route('social-media.class.show', $class->id) }}" class="btn btn-primary flex-1 py-2 justify-center shadow-sm">
+                    View Table
+                </a>
+            </div>
         </div>
-        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{{ $kpi['label'] }}</div>
-    </div>
     @endforeach
 </div>
-@endif
 
-@php
-    $assignedClasses = collect();
-    $otherClasses = collect();
-    foreach($classesWithStats as $stat) {
-        if ($stat['model']->assignedUsers->contains('id', auth()->id())) {
-            $assignedClasses->push($stat);
-        } else {
-            $otherClasses->push($stat);
-        }
-    }
-    
-    $sections = [
-        ['title' => 'Your Assigned Socials', 'classes' => $assignedClasses],
-        ['title' => 'Other Socials (View Only)', 'classes' => $otherClasses],
-    ];
-@endphp
-
-@foreach($sections as $section)
-    @if($section['classes']->isNotEmpty())
-        <div class="mb-6 flex items-center gap-3">
-            <h2 class="text-xl font-extrabold text-slate-800 dark:text-white">{{ $section['title'] }}</h2>
-            <div class="h-px bg-slate-200 dark:bg-slate-700/50 flex-1"></div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
-            @foreach($section['classes'] as $stat)
-                @php
-                    $class = $stat['model'];
-                    $total = $stat['total_posts'];
-                    $pctComplete = $total > 0 ? round(($stat['completed'] / $total) * 100) : 0;
-                    $pctChecked  = $total > 0 ? round(($stat['qc_checked'] / $total) * 100) : 0;
-                    $classIcon = trim((string) ($class->getRawOriginal('icon') ?? ''));
-                    $classInitials = collect(preg_split('/\s+|[._-]+/', $class->name))
-                        ->filter()
-                        ->take(2)
-                        ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
-                        ->join('') ?: mb_strtoupper(mb_substr($class->name, 0, 2));
-                    $classIconIsImage = $classIcon !== '' && (
-                        filter_var($classIcon, FILTER_VALIDATE_URL)
-                        || str_starts_with($classIcon, '/')
-                        || str_starts_with($classIcon, 'storage/')
-                        || preg_match('/\.(jpeg|jpg|png|gif|svg|webp)(\?.*)?$/i', $classIcon)
-                    );
-                    $classIconSrc = $classIconIsImage
-                        ? (filter_var($classIcon, FILTER_VALIDATE_URL) ? $classIcon : asset(ltrim($classIcon, '/')))
-                        : null;
-                @endphp
-                <div class="ws-dash-card" x-show="(filterClass === '' || filterClass === '{{ $class->id }}') && ('{{ strtolower($class->name) }}'.includes(searchQuery.toLowerCase()))">
-                    {{-- Card Header --}}
-                    <div class="p-5 border-b border-slate-100 dark:border-slate-700/50 flex items-start justify-between">
-                        <div>
-                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-1">{{ $class->name }}</h3>
-                            <div class="flex items-center gap-2">
-                                <span class="pillar-badge {{ $class->status === 'active' ? 'bg-emerald-soft' : 'bg-slate-soft' }}">
-                                    {{ ucfirst($class->status) }}
-                                </span>
-                                <span class="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
-                                    {{ $class->assignedUsers->count() }} Members
-                                </span>
-                            </div>
-                        </div>
-                        <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden bg-white ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700 text-white font-bold text-lg p-1.5">
-                            @if($classIconSrc)
-                                <img
-                                    src="{{ $classIconSrc }}"
-                                    alt="{{ $class->name }}"
-                                    class="max-h-full max-w-full object-contain rounded-lg"
-                                    loading="lazy"
-                                    referrerpolicy="no-referrer"
-                                    onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');"
-                                >
-                                <span class="hidden h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classInitials }}</span>
-                            @elseif($classIcon !== '')
-                                <span class="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classIcon }}</span>
-                            @else
-                                <span class="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">{{ $classInitials }}</span>
-                            @endif
-                        </div>
-                    </div>
-
-                    {{-- Spacer to push footer down --}}
-                    <div class="flex-1"></div>
-
-                    {{-- Card Footer --}}
-                    <div class="p-4 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800 flex items-center justify-between gap-3">
-                        <a wire:navigate.hover href="{{ route('social-media.class.show', $class->id) }}" class="btn btn-primary flex-1 py-2 justify-center shadow-sm">
-                            View Table
-                        </a>
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    @endif
-@endforeach
-
-@if($classesWithStats->isEmpty())
+@if($classes->isEmpty())
     <div class="col-span-full">
         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-12 text-center shadow-sm">
             <span class="text-5xl block mb-4">📭</span>

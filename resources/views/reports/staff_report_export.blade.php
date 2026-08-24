@@ -165,7 +165,7 @@
 
     <!-- Executive Header -->
     <div class="brand-header">
-        <div class="brand-logo-badge">KIUQ SYSTEM · STAFF PERFORMANCE</div>
+        <div class="brand-logo-badge">DIGITAL SYSTEM · STAFF PERFORMANCE</div>
         <h1 class="header-title">Staff Performance Report — {{ $user->name }}</h1>
         <div class="header-subtitle">
             Period: <strong>{{ $periodLabel }}</strong> &nbsp;|&nbsp; 

@@ -1328,20 +1328,6 @@ class WebsiteController extends Controller
                 ];
             });
 
-        $activityLogs = \App\Models\WebsiteActivityLog::with(['website', 'user'])
-            ->whereBetween('created_at', [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'])
-            ->when($userId, fn($q) => $q->where('user_id', $userId))
-            ->get()
-            ->map(function($log) {
-                return [
-                    'date' => $log->created_at,
-                    'website' => $log->website->name ?? 'Unknown',
-                    'action' => 'Activity Log',
-                    'details' => strip_tags($log->description),
-                    'user' => $log->user->name ?? '',
-                ];
-            });
-
         $followUpQc = collect();
         if (auth()->user()?->isQcOrSupervisor()) {
              $followUpQc = \App\Models\WebsiteFollowUp::with(['website', 'qcChecker'])
@@ -1360,9 +1346,21 @@ class WebsiteController extends Controller
                 });
         }
 
-        $activities = $progressLogs->concat($maintenanceLogs)->concat($activityLogs)->concat($followUpQc)->sortBy('date');
+        $activities = $progressLogs->concat($maintenanceLogs)->concat($followUpQc)->sortBy('date');
 
-        if ($format === 'pdf') {
+        // Show preview for pdf/default format (not csv, not download=1)
+        if ($format !== 'csv' && !$request->boolean('download')) {
+            $userModel = $userId ? \App\Models\User::find($userId) : null;
+            return view('websites.reports.website-personal-preview', [
+                'activities' => $activities,
+                'dateFrom'   => $dateFrom,
+                'dateTo'     => $dateTo,
+                'format'     => $format,
+                'user'       => $userModel,
+            ]);
+        }
+
+        if ($format === 'pdf' || $request->boolean('download')) {
             $userModel = $userId ? \App\Models\User::find($userId) : null;
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('websites.reports.personal-pdf', [
                 'activities' => $activities,
@@ -1385,7 +1383,7 @@ class WebsiteController extends Controller
 
             foreach ($activities as $act) {
                 fputcsv($handle, [
-                    $act['date']->format('Y-m-d H:i:s'),
+                    ($act['date'] instanceof \DateTimeInterface ? $act['date']->format('Y-m-d H:i:s') : $act['date']),
                     $act['user'],
                     $act['website'],
                     $act['action'],

@@ -81,7 +81,7 @@
       <div class="grid gap-3 text-sm sm:grid-cols-2 md:w-80">
         <div class="rounded-2xl border border-white/15 bg-white/12 p-4 backdrop-blur">
           <p class="text-xs font-black uppercase tracking-wider text-blue-100">Email</p>
-          <p class="mt-1 truncate font-bold">{{ $user->email }}</p>
+          <p class="mt-1 break-all font-bold">{{ $user->email }}</p>
         </div>
         <div class="rounded-2xl border border-white/15 bg-white/12 p-4 backdrop-blur">
           <p class="text-xs font-black uppercase tracking-wider text-blue-100">Status</p>

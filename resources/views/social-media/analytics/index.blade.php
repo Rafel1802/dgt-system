@@ -6,7 +6,7 @@
 
 @section('content')
 @php
-  $canUpload = auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
+  $canUpload = auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']);
 @endphp
 <div class="animate-fade-in w-full space-y-8">
 

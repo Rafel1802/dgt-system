@@ -55,7 +55,7 @@
     </table>
 
     <div class="footer">
-        KIUQ SYSTEM — Generated {{ now()->format('d M Y, g:i a') }}
+        DIGITAL SYSTEM — Generated {{ now()->format('d M Y, g:i a') }}
     </div>
 </body>
 </html>

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<title>Task Approved — KIUQ SYSTEM</title>
+<title>Task Approved — DIGITAL SYSTEM</title>
 <style>
   body { margin:0; padding:0; background:#f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
   .email-wrapper { background:#f1f5f9; padding: 32px 16px; }
@@ -56,7 +56,7 @@
   <div class="email-header">
     <div class="email-logo">
       <span class="email-logo-icon">⬡</span>
-      <span class="email-logo-text">KIUQ SYSTEM</span>
+      <span class="email-logo-text">DIGITAL SYSTEM</span>
     </div>
     <div class="email-hero-icon">✅</div>
     <h1 class="email-hero-title">Task Approved!</h1>
@@ -68,7 +68,7 @@
     <p class="greeting">Hello {{ $notifiable->name }},</p>
 
     <p class="email-p">
-      A task in the <strong>KIUQ SYSTEM</strong> has been approved by your supervisor and is ready for your review.
+      A task in the <strong>DIGITAL SYSTEM</strong> has been approved by your supervisor and is ready for your review.
       Here are the full details:
     </p>
 
@@ -122,7 +122,7 @@
     <hr class="divider">
 
     <p class="email-p" style="font-size:13px; color:#94a3b8; margin:0;">
-      This is an automated notification from KIUQ SYSTEM. The task status has been updated to
+      This is an automated notification from DIGITAL SYSTEM. The task status has been updated to
       <strong style="color:#059669;">Approved</strong>. No action required from you unless further follow-up is needed.
     </p>
   </div>
@@ -130,7 +130,7 @@
   <!-- Footer -->
   <div class="email-footer">
     <p class="footer-text">
-      © {{ date('Y') }} KIUQ SYSTEM — Digital & CRM Management<br>
+      © {{ date('Y') }} DIGITAL SYSTEM — Digital & CRM Management<br>
       <a href="{{ url('/') }}" class="footer-link">Open System</a> &bull;
       <a href="{{ url('/kanban') }}" class="footer-link">Kanban Board</a>
     </p>

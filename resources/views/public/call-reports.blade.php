@@ -56,7 +56,7 @@
       @endif
     </div>
 
-    <p class="text-xs text-slate-400 mt-6 text-center">Shared from KIUQ SYSTEM CRM · This link stays live and shows current data.</p>
+    <p class="text-xs text-slate-400 mt-6 text-center">Shared from DIGITAL SYSTEM CRM · This link stays live and shows current data.</p>
   </div>
 </div>
 @endsection

@@ -25,7 +25,7 @@ class SmmPlanningBoardController extends Controller
         $workspaces = Workspace::where('id', $smmWorkspace->id)
             ->with(['boards' => function ($query) {
                 $query->where('type', 'smm')->orderBy('created_at', 'desc');
-            }, 'boards.creator'])
+            }, 'boards.creator', 'boards.members', 'members'])
             ->get();
 
         // Pass all possible members (assuming digital team logic) for the workspace modal if needed

@@ -246,7 +246,7 @@
 
     <div class="footer">
         <div class="footer-left">
-            KIUQ SYSTEM &copy; {{ date('Y') }} - Website Follow Ups Report
+            DIGITAL SYSTEM &copy; {{ date('Y') }} - Website Follow Ups Report
         </div>
         <div class="footer-right">
             Confidential Document

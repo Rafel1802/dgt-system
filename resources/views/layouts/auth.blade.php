@@ -16,12 +16,12 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="KIUQ SYSTEM">
+    <meta name="apple-mobile-web-app-title" content="DIGITAL SYSTEM">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Login') | KIUQ SYSTEM</title>
-    <meta name="description" content="Sign in to KIUQ SYSTEM — Digital & CRM Management">
+    <title>@yield('title', 'Login') | DIGITAL SYSTEM</title>
+    <meta name="description" content="Sign in to DIGITAL SYSTEM — Digital & CRM Management">
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="{{ $faviconIco }}" sizes="any">
     <link rel="icon" type="image/svg+xml" href="{{ $appIcon }}">

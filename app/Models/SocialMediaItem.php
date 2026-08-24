@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SocialMediaItem extends Model
 {
-    protected $fillable = ['social_media_class_id', 'name', 'icon', 'status', 'sort_order', 'created_by'];
+    protected $fillable = ['social_media_class_id', 'name', 'url', 'icon', 'status', 'sort_order', 'created_by'];
 
     // ─── Relationships ────────────────────────────────────────────────────────
 
