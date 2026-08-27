@@ -1040,9 +1040,12 @@ class BoardExportController extends Controller
             $copyText .= "Total: " . $count . "\n";
         }
 
+        $smmData = $this->prepareSmmExportData($cards, null);
+
         return view('boards.export-pdf', [
             'board'         => null, // Consolidated report has no single board context
             'cards'         => $cards,
+            'groupedCards'  => $smmData['groupedCards'],
             'period'        => $period,
             'totalTasks'    => $totalTasks,
             'completedTasks'=> $completedTasks,

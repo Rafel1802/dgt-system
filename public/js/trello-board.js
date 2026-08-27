@@ -81,6 +81,8 @@ window.trelloBoard = function(config) {
       archivedTab: 'cards',
       archivedCards: [],
       archivedLists: [],
+      trashLoading: false,
+      trashItems: [],
       watched: false,
       copyName: '',
       copyIncludeCards: true,
@@ -324,7 +326,7 @@ window.trelloBoard = function(config) {
       // Load unique assignees dynamically from cards
       this.loadBoardMembers();
 
-      this.boardMenu.watched = localStorage.getItem(this.boardWatchStorageKey()) === 'true';
+      this.boardMenu.watched = this.board.is_watching ?? true;
 
       // Initialize SortableJS drag-and-drop
       this.initSortable();
@@ -1584,6 +1586,7 @@ window.trelloBoard = function(config) {
       this.boardMenu.view = view;
       if (view === 'activity') this.fetchBoardActivities();
       if (view === 'archived') this.fetchArchivedItems();
+      if (view === 'trash') this.fetchTrashItems();
       if (view === 'automation') {
         this.fetchAutomations();
         this.resetAutomationForm();
@@ -1601,6 +1604,7 @@ window.trelloBoard = function(config) {
         labels: 'Labels',
         activity: 'Activity',
         archived: 'Archived items',
+        trash: 'Trash',
         watch: 'Watch board',
         copy: 'Copy board',
         leave: 'Leave board',
@@ -1890,10 +1894,18 @@ window.trelloBoard = function(config) {
       return `dgt-board-watch-${this.boardId}`;
     },
 
-    toggleBoardWatch() {
-      this.boardMenu.watched = !this.boardMenu.watched;
-      localStorage.setItem(this.boardWatchStorageKey(), String(this.boardMenu.watched));
-      window.showToast(this.boardMenu.watched ? 'Watching board.' : 'Stopped watching board.');
+    async toggleBoardWatch() {
+      if (this.boardMenu.busy) return;
+      this.boardMenu.busy = true;
+      try {
+        const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/watch`, { method: 'POST' });
+        this.boardMenu.watched = res.watching;
+        window.showToast(res.message);
+      } catch (err) {
+        window.showToast('Error updating watch status', 'error');
+      } finally {
+        this.boardMenu.busy = false;
+      }
     },
 
     async copyCurrentBoardLink() {
@@ -1966,6 +1978,42 @@ window.trelloBoard = function(config) {
         window.showToast(type === 'list' ? 'List restored.' : 'Card restored.');
         await this.fetchArchivedItems();
         // setTimeout(() => window.location.reload(), 500);
+      }
+    },
+
+    async fetchTrashItems() {
+      const bm = this.boardMenu;
+      bm.trashLoading = true;
+      try {
+        const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/trash`, { method: 'GET' });
+        bm.trashItems = res.items || [];
+      } finally {
+        bm.trashLoading = false;
+      }
+    },
+
+    async restoreTrashItem(type, id) {
+      if (!await window.confirmModal(`Restore this ${type}?`)) return;
+      const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/trash/restore`, { 
+        method: 'POST', 
+        body: JSON.stringify({ type, id }) 
+      });
+      if (res.message) {
+        window.showToast(res.message);
+        await this.fetchTrashItems();
+        setTimeout(() => window.location.reload(), 500);
+      }
+    },
+
+    async forceDeleteTrashItem(type, id) {
+      if (!await window.confirmModal(`Permanently delete this ${type}? This cannot be undone.`, 'Delete Permanently', 'Cancel', 'bg-rose-600')) return;
+      const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/trash/force`, { 
+        method: 'DELETE', 
+        body: JSON.stringify({ type, id }) 
+      });
+      if (res.message) {
+        window.showToast(res.message);
+        await this.fetchTrashItems();
       }
     },
 

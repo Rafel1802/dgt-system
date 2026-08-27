@@ -11,10 +11,11 @@ def run_cmd(cmd_args):
     
     proc = subprocess.run(cmd_args, env=env)
     if proc.returncode != 0:
+        print(f"Command failed with exit code {proc.returncode}")
         sys.exit(1)
 
 ssh_cmd = [
     "ssh", "-o", "StrictHostKeyChecking=no", "-p", "65002", "u355625773@157.173.215.124",
-    "cd domains/lightcyan-weasel-711536.hostingersite.com/public_html && grep -B 2 -A 5 'production.ERROR:' storage/logs/laravel.log | tail -n 50"
+    "tail -n 150 domains/lightcyan-weasel-711536.hostingersite.com/public_html/storage/logs/laravel.log"
 ]
 run_cmd(ssh_cmd)

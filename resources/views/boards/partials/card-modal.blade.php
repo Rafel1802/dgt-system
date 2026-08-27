@@ -414,18 +414,30 @@
                       </span>
                       <span x-show="f.disk !== 'url'" x-text="amFileIcon(f)"></span>
                     </a>
-                    <div class="flex-1 min-w-0">
+                    <div class="flex-1 min-w-0 flex flex-col justify-center">
                       <button type="button"
                               x-show="f.is_video"
                               @click.stop="openVideoPreview(f)"
-                              class="text-xs font-bold text-slate-700 truncate block hover:text-[#2F68ED] text-left w-full"
-                              x-text="f.original_name"></button>
+                              class="w-full overflow-hidden whitespace-nowrap relative text-left group"
+                              style="-webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%); mask-image: linear-gradient(to right, black 85%, transparent 100%);">
+                          <span class="inline-block transition-transform duration-[4000ms] ease-linear text-xs font-bold text-slate-700 group-hover:text-[#2F68ED]"
+                                @mouseenter="if($el.scrollWidth > $el.parentElement.clientWidth) $el.style.transform = `translateX(-${$el.scrollWidth - $el.parentElement.clientWidth + 10}px)`"
+                                @mouseleave="$el.style.transform = 'translateX(0)'"
+                                x-text="f.original_name"></span>
+                      </button>
+                      
                       <a x-show="!f.is_video"
                          :href="f.disk === 'url' ? f.url : (f.preview_url || f.url)"
                          target="_blank"
                          rel="noopener"
-                         class="text-xs font-bold text-slate-700 truncate block hover:text-[#2F68ED]"
-                         x-text="f.original_name"></a>
+                         class="w-full overflow-hidden whitespace-nowrap relative block group"
+                         style="-webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%); mask-image: linear-gradient(to right, black 85%, transparent 100%);">
+                          <span class="inline-block transition-transform duration-[4000ms] ease-linear text-xs font-bold text-slate-700 group-hover:text-[#2F68ED]"
+                                @mouseenter="if($el.scrollWidth > $el.parentElement.clientWidth) $el.style.transform = `translateX(-${$el.scrollWidth - $el.parentElement.clientWidth + 10}px)`"
+                                @mouseleave="$el.style.transform = 'translateX(0)'"
+                                x-text="f.original_name"></span>
+                      </a>
+                      
                       <p class="text-[10px] text-slate-400 mt-0.5" x-text="f.disk === 'url' ? 'External link' : f.formatted_size"></p>
                       
                       {{-- Video Actions --}}

@@ -1303,6 +1303,7 @@ class CardController extends Controller
             'board_id'        => $card->board_id,
             'board_list_id'   => $card->board_list_id,
             'status'          => $card->status?->value ?? (string) $card->status,
+            'workflow_status' => $card->workflow_status,
             'block_completed_at' => $card->block_completed_at?->toISOString(),
             'block_completed_by' => $card->block_completed_by,
             'position'        => $card->position,

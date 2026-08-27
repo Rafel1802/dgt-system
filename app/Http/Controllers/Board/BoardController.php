@@ -242,6 +242,7 @@ class BoardController extends Controller
                 'creator:id,name,avatar,username',
                 'assignees:id,name,avatar,username',
                 'labels',
+                'syncSiblings.boardList:id,name',
                 'checklists' => function ($q) {
                     $q->select('id', 'card_id')->withCount([
                         'items as checklist_total',
@@ -255,6 +256,13 @@ class BoardController extends Controller
                 'comments',
             ]);
         }]);
+
+        // Append workflow_status to each card to avoid global $appends N+1
+        foreach ($board->activeLists as $list) {
+            foreach ($list->cards as $card) {
+                $card->append('workflow_status');
+            }
+        }
 
         $user = auth()->user();
         $workspaceBoards = $board->workspace
@@ -291,6 +299,11 @@ class BoardController extends Controller
             ->sortBy(fn ($member) => ($boardMemberIds->contains($member->id) ? '0_' : '1_') . strtolower($member->name))
             ->values();
 
+        $isWatching = !\Illuminate\Support\Facades\DB::table('board_unwatchers')
+            ->where('board_id', $board->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
         $boardData = [
             'board'     => [
                 'id'         => $board->id,
@@ -309,6 +322,7 @@ class BoardController extends Controller
                 'browser_notifications_enabled' => (bool) ($board->browser_notifications_enabled ?? false),
 
                 'is_starred' => (bool)$board->is_starred,
+                'is_watching' => $isWatching,
                 'can_manage_board' => $this->canManageBoard($user, $board),
                 'can_delete_board' => $this->canDeleteBoard($user, $board),
             ],
@@ -344,6 +358,7 @@ class BoardController extends Controller
                     'recurring'  => $c->recurring ?? 'none',
                     'board_list_id' => $c->board_list_id,
                     'status'     => $c->status?->value ?? (string) $c->status,
+                    'workflow_status' => $c->workflow_status,
                     'block_completed_at' => $c->block_completed_at?->toISOString(),
                     'block_completed_by' => $c->block_completed_by,
                     'smm_class_label'    => $c->smm_class_label,
@@ -1169,13 +1184,13 @@ class BoardController extends Controller
         return response()->json(['list' => $list, 'message' => 'List updated.']);
      }
 
-     /** Delete a list permanently. */
+     /** Delete a list. */
      public function destroyList(BoardList $list): JsonResponse
      {
          $this->authorizeBoard($list->board);
          
          try {
-             \App\Notifications\BoardActivityNotification::send($list->board, 'list_deleted', "permanently deleted list **{$list->name}**");
+             \App\Notifications\BoardActivityNotification::send($list->board, 'list_deleted', "deleted list **{$list->name}**");
          } catch (\Throwable $e) {
              \Illuminate\Support\Facades\Log::error("Notification failed: " . $e->getMessage());
          }
@@ -1184,7 +1199,7 @@ class BoardController extends Controller
          $list->cards()->delete();
          $list->delete();
 
-         return response()->json(['message' => 'List and its cards permanently deleted.']);
+         return response()->json(['message' => 'List and its cards deleted.']);
      }
 
      /** Clear all cards inside a list (Super Admin only). */
@@ -1903,5 +1918,89 @@ class BoardController extends Controller
             'message' => 'Label created successfully.',
             'label'   => ['id' => $label->id, 'name' => $label->name, 'color' => $label->color]
         ]);
+    }
+
+    public function getTrash(Board $board): JsonResponse
+    {
+        $this->authorizeBoard($board);
+
+        $trashedLists = \App\Models\BoardList::onlyTrashed()->where('board_id', $board->id)->get()->map(function($list) {
+            return [
+                'id' => $list->id,
+                'name' => $list->name,
+                'type' => 'list',
+                'deleted_at' => $list->deleted_at->toISOString(),
+            ];
+        });
+
+        $trashedCards = \App\Models\Card::onlyTrashed()->where('board_id', $board->id)->get()->map(function($card) {
+            return [
+                'id' => $card->id,
+                'title' => $card->title,
+                'type' => 'card',
+                'deleted_at' => $card->deleted_at->toISOString(),
+            ];
+        });
+
+        return response()->json([
+            'items' => collect($trashedLists)->merge($trashedCards)->sortByDesc('deleted_at')->values()->all()
+        ]);
+    }
+
+    public function restoreTrash(Request $request, Board $board): JsonResponse
+    {
+        $this->authorizeBoard($board);
+        $request->validate([
+            'id' => 'required',
+            'type' => 'required|in:list,card'
+        ]);
+
+        if ($request->type === 'list') {
+            $list = \App\Models\BoardList::onlyTrashed()->where('board_id', $board->id)->findOrFail($request->id);
+            $list->restore();
+            // Restore cards inside this list that were deleted at the same time? Let's just restore the list.
+        } else {
+            $card = \App\Models\Card::onlyTrashed()->where('board_id', $board->id)->findOrFail($request->id);
+            // If its list is trashed, it can't be restored properly unless list is restored.
+            $card->restore();
+        }
+
+        return response()->json(['message' => 'Item restored successfully.']);
+    }
+
+    public function forceDeleteTrash(Request $request, Board $board): JsonResponse
+    {
+        $this->authorizeBoard($board);
+        $request->validate([
+            'id' => 'required',
+            'type' => 'required|in:list,card'
+        ]);
+
+        if ($request->type === 'list') {
+            $list = \App\Models\BoardList::onlyTrashed()->where('board_id', $board->id)->findOrFail($request->id);
+            $list->forceDelete(); // this should also force delete cards in the database because of constraints, but wait, Card uses soft deletes. Let's force delete cards.
+            \App\Models\Card::onlyTrashed()->where('board_list_id', $list->id)->forceDelete();
+        } else {
+            $card = \App\Models\Card::onlyTrashed()->where('board_id', $board->id)->findOrFail($request->id);
+            $card->forceDelete();
+        }
+
+        return response()->json(['message' => 'Item permanently deleted.']);
+    }
+
+    public function toggleWatch(Board $board): JsonResponse
+    {
+        $this->authorizeBoard($board);
+        $userId = auth()->id();
+
+        if ($board->unwatchers()->where('user_id', $userId)->exists()) {
+            // Remove from unwatchers (Start watching)
+            $board->unwatchers()->detach($userId);
+            return response()->json(['watching' => true, 'message' => 'You are now watching this board.']);
+        } else {
+            // Add to unwatchers (Stop watching)
+            $board->unwatchers()->attach($userId);
+            return response()->json(['watching' => false, 'message' => 'You stopped watching this board.']);
+        }
     }
 }

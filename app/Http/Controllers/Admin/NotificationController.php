@@ -59,21 +59,39 @@ class NotificationController extends Controller
                 'created_at' => $n->created_at,
             ]);
 
-        $counts = $this->scopeToUserModules($user->unreadNotifications(), $modules)
-            ->toBase()
-            ->selectRaw("JSON_UNQUOTE(JSON_EXTRACT(data, '$.module')) as module, count(*) as aggregate")
-            ->groupBy('module')
-            ->pluck('aggregate', 'module');
-
+        // Instead of a heavy JSON_EXTRACT group by on the entire unread set (which can cause massive table scans),
+        // we'll just check if they have unread notifications, and if so, fetch a limited set to tally.
+        $unreadQuery = $this->scopeToUserModules($user->unreadNotifications(), $modules);
+        $totalUnread = $unreadQuery->count();
+        
         $unreadByModule = [
-            'boards' => $counts['kanban'] ?? 0,
-            'smm' => $counts['social-media'] ?? 0,
-            'websites' => $counts['websites'] ?? 0,
+            'Kanban' => 0,
+            'SMM' => 0,
+            'Websites' => 0,
         ];
+
+        if ($totalUnread > 0) {
+            // Only pull the latest 50 unread to tally, saving the DB from scanning thousands of rows
+            $recentUnread = $this->scopeToUserModules($user->unreadNotifications()->latest('created_at'), $modules)
+                ->take(50)
+                ->pluck('data');
+                
+            $counts = collect($recentUnread)->map(function ($data) {
+                return is_string($data) ? json_decode($data, true) : $data;
+            })->countBy(function ($data) {
+                return $data['module'] ?? 'kanban';
+            });
+            
+            $unreadByModule = [
+                'Kanban' => $counts->get('kanban', 0) + ($totalUnread > 50 ? $totalUnread - 50 : 0), // pad the remainder to kanban
+                'SMM' => $counts->get('social-media', 0),
+                'Websites' => $counts->get('websites', 0),
+            ];
+        }
 
         return response()->json([
             'notifications' => $notifications,
-            'unread_count' => $counts->sum(),
+            'unread_count' => $totalUnread,
             'unread_by_module' => $unreadByModule,
         ]);
     }

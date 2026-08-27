@@ -614,12 +614,26 @@ class SmmImportController extends Controller
     private function parseCsv(string $content): array
     {
         $rows = [];
-        $lines = explode("\n", $content);
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line)) continue;
-            $rows[] = str_getcsv($line);
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, $content);
+        rewind($stream);
+
+        while (($data = fgetcsv($stream)) !== false) {
+            if (count($data) === 1 && $data[0] === null) continue;
+
+            $isEmpty = true;
+            foreach ($data as $field) {
+                if (trim((string)$field) !== '') {
+                    $isEmpty = false;
+                    break;
+                }
+            }
+            if ($isEmpty) continue;
+
+            $rows[] = $data;
         }
+        fclose($stream);
+        
         return $rows;
     }
 

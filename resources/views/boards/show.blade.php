@@ -411,17 +411,7 @@
             </label>
           </template>
 
-          {{-- Common Date Filters --}}
-          <div class="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 mt-1">
-            <label class="block">
-              <span class="block text-[11px] font-bold text-slate-500 mb-1">From Date</span>
-              <input type="date" x-model="filterDateFrom" class="form-input w-full rounded-xl text-xs text-slate-600">
-            </label>
-            <label class="block">
-              <span class="block text-[11px] font-bold text-slate-500 mb-1">To Date</span>
-              <input type="date" x-model="filterDateTo" class="form-input w-full rounded-xl text-xs text-slate-600">
-            </label>
-          </div>
+
         </div>
       </div>
     </div>
@@ -575,11 +565,26 @@
 
             {{-- Standard Trello Layout --}}
             <div>
-                {{-- Labels --}}
-                <div x-show="card.labels && card.labels.length" class="flex flex-wrap gap-1 mb-2.5 mt-1">
-                  <template x-for="lbl in card.labels" :key="lbl.id">
-                    <span class="kanban-card-label inline-flex items-center"
-                          :style="'background:'+lbl.color" :title="lbl.name"></span>
+                {{-- Labels and Workflow Status --}}
+                <div class="flex items-start justify-between mb-2.5 mt-1">
+                  <div x-show="card.labels && card.labels.length" class="flex flex-wrap gap-1">
+                    <template x-for="lbl in card.labels" :key="lbl.id">
+                      <span class="kanban-card-label inline-flex items-center"
+                            :style="'background:'+lbl.color" :title="lbl.name"></span>
+                    </template>
+                  </div>
+                  
+                  <template x-if="board?.name?.toLowerCase().includes('planning') && card.workflow_status">
+                      <span class="text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider border whitespace-nowrap ml-2"
+                           :class="{
+                              'bg-amber-50 text-amber-600 border-amber-200': card.workflow_status === 'Draft',
+                              'bg-blue-50 text-blue-600 border-blue-200': card.workflow_status === 'Head',
+                              'bg-purple-50 text-purple-600 border-purple-200': card.workflow_status === 'QC',
+                              'bg-indigo-50 text-indigo-600 border-indigo-200': card.workflow_status === 'Supervisor',
+                              'bg-rose-50 text-rose-600 border-rose-200': card.workflow_status === 'Block/waiting'
+                           }"
+                           x-text="card.workflow_status">
+                      </span>
                   </template>
                 </div>
 

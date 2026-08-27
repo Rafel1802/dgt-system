@@ -210,6 +210,18 @@ Alpine.store('sidebar', {
         // no accumulation across Turbo navigations.
         sidebar.addEventListener('scroll', saveScrollTop, { passive: true });
 
+
+
+        // Make sidebar mouse scroll faster without breaking trackpad momentum
+        sidebar.addEventListener('wheel', (e) => {
+            // Only amplify vertical scrolling, and skip if modifying keys are pressed
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+                // We do NOT call preventDefault() so we preserve native momentum.
+                // We just manually add extra scroll distance on top of the native scroll.
+                sidebar.scrollTop += (e.deltaY * 1.5);
+            }
+        }, { passive: true });
+
         window.addEventListener('pagehide', saveScrollTop);
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') saveScrollTop();

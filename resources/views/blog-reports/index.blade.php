@@ -56,7 +56,16 @@
             </div>
 
             <!-- Date Range and Month -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <!-- Class Filter -->
+                <div>
+                    <label for="class_filter" class="block text-base font-semibold text-gray-800 mb-2">Class (Optional)</label>
+                    <div class="relative">
+                        <input type="text" name="class_filter" id="class_filter" placeholder="e.g. 2, 6, 7"
+                               class="block w-full px-4 py-4 text-lg border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow bg-gray-50 hover:bg-white">
+                    </div>
+                </div>
+
                 <!-- Date From -->
                 <div>
                     <label for="date_from" class="block text-base font-semibold text-gray-800 mb-2">From Date (Optional)</label>

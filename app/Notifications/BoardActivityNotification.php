@@ -88,8 +88,14 @@ class BoardActivityNotification extends Notification
         }
 
         dispatch(function () use ($board, $actor, $action, $payload) {
-            $board->loadMissing('members');
+            $board->loadMissing(['members', 'unwatchers']);
+            $unwatcherIds = $board->unwatchers->pluck('id')->toArray();
+            
             foreach ($board->members as $member) {
+                if (in_array($member->id, $unwatcherIds)) {
+                    continue;
+                }
+
                 $isSuperAdminTesting = $actor->hasRole('super-admin') && in_array($action, ['file_edited', 'file_replaced']);
                 
                 if ($member->id !== $actor->id || $isSuperAdminTesting) {

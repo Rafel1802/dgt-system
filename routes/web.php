@@ -196,6 +196,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::delete('/{id}/force', [BoardController::class, 'forceDelete'])->name('forceDelete');
             Route::post('/{board:slug}/copy', [BoardController::class, 'copy'])->name('copy');
             Route::get('/{board:slug}/archived', [BoardController::class, 'archivedItems'])->name('archived');
+            Route::get('/{board:slug}/trash', [BoardController::class, 'getTrash'])->name('trash');
+            Route::post('/{board:slug}/trash/restore', [BoardController::class, 'restoreTrash'])->name('trash.restore');
+            Route::delete('/{board:slug}/trash/force', [BoardController::class, 'forceDeleteTrash'])->name('trash.force');
+            Route::post('/{board:slug}/watch', [BoardController::class, 'toggleWatch'])->name('watch');
             Route::get('/{board:slug}/export/csv', [\App\Http\Controllers\Board\BoardExportController::class, 'exportCsv'])->name('export.csv');
             Route::get('/{board:slug}/export/pdf', [\App\Http\Controllers\Board\BoardExportController::class, 'exportPdf'])->name('export.pdf');
             Route::post('/{board:slug}/background', [BoardController::class, 'uploadBackground'])->name('background.upload');
@@ -370,6 +374,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/users/bulk-action', [UserController::class, 'bulkAction'])->name('users.bulk-action');
             Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
             Route::post('labels/reorder', [LabelController::class, 'reorder'])->name('labels.reorder');
+            Route::patch('popup-ads/{popupAd}/toggle-active', [\App\Http\Controllers\Admin\PopupAdController::class, 'toggleActive'])->name('popup-ads.toggle-active');
+            Route::resource('popup-ads', \App\Http\Controllers\Admin\PopupAdController::class);
             Route::resource('labels', LabelController::class)->except(['create', 'show', 'edit']);
             Route::post('smm-classes/reorder', [\App\Http\Controllers\Admin\SmmClassController::class, 'reorder'])->name('smm-classes.reorder');
             Route::resource('smm-classes', \App\Http\Controllers\Admin\SmmClassController::class)->except(['create', 'show', 'edit']);
@@ -410,6 +416,11 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::get('/', [ReportController::class, 'index'])->name('index');
             });
 
+        // ── Popup Ads (Frontend API) ──────────────────────────────────────
+        Route::get('/api/popup-ads/check', [\App\Http\Controllers\Api\PopupAdInteractionController::class, 'check'])->name('popup-ads.check');
+        Route::post('/api/popup-ads/mark-shown', [\App\Http\Controllers\Api\PopupAdInteractionController::class, 'markShown'])->name('popup-ads.mark-shown');
+        Route::post('/api/popup-ads/mark-clicked', [\App\Http\Controllers\Api\PopupAdInteractionController::class, 'markClicked'])->name('popup-ads.mark-clicked');
+
         // ── Profile & Settings ────────────────────────────────────────────
         Route::get('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'show'])->name('profile.show');
         Route::put('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'update'])->name('profile.update');
@@ -447,8 +458,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         // Reports
                         Route::middleware('role:super-admin|admin-digital|supervisor|social_qc')->group(function () {
                             Route::get('/reports', [SocialMediaReportController::class, 'index'])->name('reports.index');
-                            Route::get('/reports/export/csv', [SocialMediaReportController::class, 'exportCsv'])->name('reports.export.csv');
-                            Route::get('/reports/export/pdf', [SocialMediaReportController::class, 'exportPdf'])->name('reports.export.pdf');
+                            // Route::get('/reports/export/csv', [SocialMediaReportController::class, 'exportCsv'])->name('reports.export.csv');
+                            // Route::get('/reports/export/pdf', [SocialMediaReportController::class, 'exportPdf'])->name('reports.export.pdf');
                             Route::post('/reports/export/zip', [SocialMediaReportController::class, 'exportZip'])->name('reports.export.zip');
                         });
                         
@@ -501,8 +512,12 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 // Blog Reports
 Route::middleware(['auth'])->group(function () {
     Route::get('/blog-reports', [\App\Http\Controllers\BlogReportController::class, 'index'])->name('blog-reports.index');
+    Route::get('/blog-reports/preview', function () {
+        return redirect()->route('blog-reports.index');
+    });
     Route::post('/blog-reports/preview', [\App\Http\Controllers\BlogReportController::class, 'preview'])->name('blog-reports.preview');
     Route::post('/blog-reports/export', [\App\Http\Controllers\BlogReportController::class, 'export'])->name('blog-reports.export');
+    Route::post('/blog-reports/csv', [\App\Http\Controllers\BlogReportController::class, 'csv'])->name('blog-reports.csv');
 });
 
 // Root redirect

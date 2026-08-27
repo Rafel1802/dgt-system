@@ -67,15 +67,76 @@ class BlogReportController extends Controller
         return view('blog-reports.report', [
             'data' => $filteredData['records'],
             'monthLabel' => $request->input('month_label', 'Month'),
-            'debug' => $filteredData['debug'] ?? []
+            'debug' => $filteredData['debug'] ?? [],
+            'requestInputs' => $request->only(['sheet_url', 'date_from', 'date_to', 'month_label', 'class_filter'])
         ]);
+    }
+
+    /**
+     * Download the Blog Report as a CSV file.
+     */
+    public function csv(Request $request)
+    {
+        abort_unless(auth()->user()->can('view-blog-reports'), 403);
+        
+        $request->validate([
+            'sheet_url' => 'required|string',
+            'date_from' => 'nullable|string',
+            'date_to' => 'nullable|string',
+            'month_label' => 'nullable|string',
+        ]);
+
+        $filteredData = $this->fetchAndFilterData($request);
+
+        if (!is_array($filteredData) || !isset($filteredData['records'])) {
+            return $filteredData; // This is a redirect back with error
+        }
+
+        $records = $filteredData['records'];
+        $monthLabel = $request->input('month_label', 'Month');
+        $fileName = 'Blog_Report_' . str_replace(' ', '_', $monthLabel) . '_' . date('Ymd_His') . '.csv';
+
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $callback = function() use ($records) {
+            $file = fopen('php://output', 'w');
+            
+            // Add UTF-8 BOM for Excel compatibility
+            fputs($file, "\xEF\xBB\xBF");
+
+            // CSV Headers
+            fputcsv($file, ['No.', 'Class', 'Dated', 'Website Link', 'Google Doc Link', 'Public Link']);
+
+            $counter = 1;
+            foreach ($records as $row) {
+                fputcsv($file, [
+                    $counter++,
+                    $row['class'] ?? '',
+                    $row['dated'] ?? '',
+                    $row['website_link'] ?? '',
+                    $row['doc_link'] ?? '',
+                    $row['public_link'] ?? ''
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     private function fetchAndFilterData(Request $request)
     {
-        $url = trim($request->input('sheet_url'));
+        $url = trim((string)$request->input('sheet_url'));
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
+        $classFilter = $request->input('class_filter');
 
         // Parse boundaries in Asia/Phnom_Penh timezone
         $carbonFrom = $dateFrom ? \Carbon\Carbon::parse($dateFrom, 'Asia/Phnom_Penh')->startOfDay() : null;
@@ -118,7 +179,7 @@ class BlogReportController extends Controller
             $headerRowIndex = -1;
             $headers = [];
             foreach ($parsedRows as $index => $row) {
-                $rowLower = array_map(function($c) { return strtolower(trim($c)); }, $row);
+                $rowLower = array_map(function($c) { return strtolower(trim((string)$c)); }, $row);
                 if (in_array('dated', $rowLower)) {
                     $headerRowIndex = $index;
                     $headers = $rowLower;
@@ -167,17 +228,31 @@ class BlogReportController extends Controller
             // m/d prioritized as per prompt example "08/13"
             $formatsWithoutYear = ['m/d', 'd/m', 'm-d', 'd-m', 'M d', 'd M'];
 
+            $makeAbsolute = function($link) {
+                if (empty($link)) return '';
+                $link = trim((string)$link);
+                if (!preg_match('~^(?:f|ht)tps?://~i', $link)) {
+                    return 'http://' . $link;
+                }
+                return $link;
+            };
+
             foreach ($dataRows as $row) {
                 foreach ($blocks as $block) {
-                    $rowClass = isset($block['class']) && isset($row[$block['class']]) ? trim($row[$block['class']]) : '';
-                    $rowDocLink = isset($block['doc link']) && isset($row[$block['doc link']]) ? trim($row[$block['doc link']]) : '';
-                    $rowPublicLink = isset($block['public link']) && isset($row[$block['public link']]) ? trim($row[$block['public link']]) : '';
-                    $rowWebsiteLink = isset($block['website link']) && isset($row[$block['website link']]) ? trim($row[$block['website link']]) : '';
+                    $rowClass = isset($block['class']) && isset($row[$block['class']]) ? trim((string)$row[$block['class']]) : '';
+                    $rowDocLink = isset($block['doc link']) && isset($row[$block['doc link']]) ? $makeAbsolute($row[$block['doc link']]) : '';
+                    $rowPublicLink = isset($block['public link']) && isset($row[$block['public link']]) ? $makeAbsolute($row[$block['public link']]) : '';
+                    $rowWebsiteLink = isset($block['website link']) && isset($row[$block['website link']]) ? $makeAbsolute($row[$block['website link']]) : '';
                     
-                    $rowDated = isset($block['dated']) && isset($row[$block['dated']]) ? trim($row[$block['dated']]) : '';
+                    $rowDated = isset($block['dated']) && isset($row[$block['dated']]) ? trim((string)$row[$block['dated']]) : '';
                     
                     // A valid blog record should contain a valid Dated value. Skip empty rows.
                     if (empty($rowDated)) {
+                        continue;
+                    }
+
+                    // Apply Class filter if present
+                    if (!empty($classFilter) && $rowClass !== (string)$classFilter) {
                         continue;
                     }
 
@@ -272,7 +347,7 @@ class BlogReportController extends Controller
                 'debug' => $debug
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return back()->with('error', 'Unable to read the Blogs worksheet. Please check Google Sheet permissions. Error: ' . $e->getMessage());
         }
     }

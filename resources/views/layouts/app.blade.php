@@ -15,7 +15,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         $isMobile = $isIosApp || $isAndroidApp || preg_match('/Mobile/i', $userAgent);
     @endphp
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }} {{ $isMobile ? 'dgt-mobile-app' : '' }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full overflow-x-hidden {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }} {{ $isMobile ? 'dgt-mobile-app' : '' }}">
 <head>
     <script>localStorage.removeItem('dgt_font_scale');</script>
     <meta charset="UTF-8">
@@ -95,23 +95,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         // Self-hosted Turbo — avoid unpkg RTT on every cold load (Hostinger users often far from CDN).
         import * as Turbo from "{{ asset('js/turbo.es2017-esm.js') }}?v={{ file_exists(public_path('js/turbo.es2017-esm.js')) ? filemtime(public_path('js/turbo.es2017-esm.js')) : '8.0.4' }}";
         window.Turbo = Turbo;
-        Turbo.setProgressBarDelay(200);
+        Turbo.setProgressBarDelay(400);
         
-        // Prevent Turbo from conflicting with Livewire's wire:navigate.
-        // Both Turbo and Livewire attempt to intercept SPA links. By adding
-        // data-turbo="false" to Livewire links, Turbo ignores them and lets
-        // Livewire's faster DOM-morphing handle the navigation seamlessly.
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('[wire\\:navigate], [wire\\:navigate\\.hover]').forEach(el => {
-                el.setAttribute('data-turbo', 'false');
-            });
-        });
-        document.addEventListener('turbo:load', () => {
-            document.querySelectorAll('[wire\\:navigate], [wire\\:navigate\\.hover]').forEach(el => {
-                el.setAttribute('data-turbo', 'false');
-            });
-        });
-
         // Trigger Turbo prefetch on touch devices (Turbo 8 relies on hover/focus which doesn't trigger fast enough on mobile taps)
         document.addEventListener('touchstart', (e) => {
             const link = e.target.closest('a[href]');
@@ -607,7 +592,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @unless(auth()->user()->hasRole('boss'))
                 <span class="sidebar-section-label">Main</span>
 
-                <a wire:navigate.hover href="{{ route('dashboard') }}"
+                <a href="{{ route('dashboard') }}"
                    class="sidebar-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
                    id="nav-dashboard" data-tooltip="Dashboard">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -622,7 +607,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endcan
 
                 <!-- All Members Directory -->
-                <a wire:navigate.hover href="{{ route('members.index') }}"
+                <a href="{{ route('members.index') }}"
                    class="sidebar-item {{ request()->routeIs('members.*') ? 'active' : '' }}"
                    id="nav-all-members" data-tooltip="All Members">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -634,7 +619,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <!-- Notes -->
                 @unless(auth()->user()->hasRole('boss'))
                 <span class="sidebar-section-label">Notes</span>
-                <a wire:navigate.hover href="{{ route('notes.team') }}"
+                <a href="{{ route('notes.team') }}"
                    class="sidebar-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
                    id="nav-notes-team" data-tooltip="Team Note">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -642,7 +627,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </svg>
                     <span>Team Note</span>
                 </a>
-                <a wire:navigate.hover href="{{ route('notes.private') }}"
+                <a href="{{ route('notes.private') }}"
                    class="sidebar-item {{ request()->routeIs('notes.private*') ? 'active' : '' }}"
                    id="nav-notes-private" data-tooltip="Private Note">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -663,7 +648,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     $canSeeApprovalQueue = auth()->user()->can('kanban.approve');
                 ?>
 
-                <a wire:navigate.hover href="{{ route('boards.workspaces') }}"
+                <a href="{{ route('boards.workspaces') }}"
                    class="sidebar-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                    id="nav-boards" data-tooltip="Boards">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -676,7 +661,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
                 <div x-data="{ smOpen: localStorage.getItem('dgt-sm-menu-open') === 'true' || {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
                     <div class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'active' : '' }}" data-tooltip="Social Media Management">
-                        <a wire:navigate.hover href="{{ route('social-media.dashboard') }}" @click="smOpen = true; localStorage.setItem('dgt-sm-menu-open', 'true')" class="flex items-center gap-[0.625rem] flex-1">
+                        <a href="{{ route('social-media.dashboard') }}" @click="smOpen = true; localStorage.setItem('dgt-sm-menu-open', 'true')" class="flex items-center gap-[0.625rem] flex-1">
                             <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Management" class="w-[18px] h-[18px] flex-shrink-0 object-contain">
                             <span>Social Media Management</span>
                         </a>
@@ -689,13 +674,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <div x-show="smOpen" x-collapse x-cloak>
                         <div class="sidebar-submenu-list mt-1 space-y-1 relative">
                             
-                            <a wire:navigate.hover href="{{ route('social-media.dashboard') }}"
-                               class="sidebar-submenu-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}" data-tooltip="Post Follow Up">
+                            <a href="{{ route('social-media.dashboard') }}"
+                               class="sidebar-submenu-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}" data-tooltip="Social & Analytics">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 10 2 2 4-4" /></svg>
-                                <span>Post Follow Up</span>
+                                <span>Social & Analytics</span>
                             </a>
 
-                            <a wire:navigate.hover href="{{ route('smm-boards.index') }}"
+                            <a href="{{ route('smm-boards.index') }}"
                                class="sidebar-submenu-item {{ request()->routeIs('smm-boards.*') ? 'active' : '' }}" data-tooltip="SMM Planning Board">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
@@ -710,7 +695,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endif
 
                 @if($canSeeApprovalQueue)
-                <a wire:navigate.hover href="{{ route('approvals.index') }}"
+                <a href="{{ route('approvals.index') }}"
                    class="sidebar-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
                    id="nav-approvals" data-tooltip="Approval Queue">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -721,7 +706,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endif
 
                 @if(auth()->user()->isQcOrSupervisor())
-                <a wire:navigate.hover href="{{ route('boards.reports.personal') }}"
+                <a href="{{ route('boards.reports.personal') }}"
                    class="sidebar-item {{ request()->routeIs('boards.reports.personal') ? 'active' : '' }}"
                    id="nav-personal-report" data-tooltip="Personal Report">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -736,7 +721,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endif
 
                 @can('view-blog-reports')
-                <a wire:navigate.hover href="{{ route('blog-reports.index') }}"
+                <a href="{{ route('blog-reports.index') }}"
                    class="sidebar-item {{ request()->routeIs('blog-reports.*') ? 'active' : '' }}"
                    id="nav-blog-report" data-tooltip="Blog Report">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -754,7 +739,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         id="nav-websites-toggle"
                         data-tooltip="All Websites"
                     >
-                        <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'build']) }}" class="flex items-center gap-[0.625rem] flex-1">
+                        <a href="{{ route('websites.index', ['tab' => 'build']) }}" class="flex items-center gap-[0.625rem] flex-1">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
                             </svg>
@@ -792,7 +777,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             $wsStatusTabs = ['build','build-progress','live','maintenance','qc-error','supervisor-error'];
                             $isOnStatusTab = request()->routeIs('websites.index') && in_array(request()->get('tab','build'), $wsStatusTabs);
                         @endphp
-                        <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'build']) }}"
+                        <a href="{{ route('websites.index', ['tab' => 'build']) }}"
                            class="sidebar-submenu-item {{ $isOnStatusTab ? 'active' : '' }}"
                            id="nav-websites-status" data-tooltip="Website Status">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
@@ -804,7 +789,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             <span>Website Status</span>
                         </a>
                         {{-- 2. Follow Up --}}
-                        <a wire:navigate.hover href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
+                        <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
                            class="sidebar-submenu-item {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
                            id="nav-websites-followup" data-tooltip="Follow Up">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 14 2 2 4-4" /></svg>
@@ -819,7 +804,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 ?>
                 @unless(auth()->user()->hasRole('boss'))
                 @if($weeklyReport)
-                    <a wire:navigate.hover href="{{ $weeklyReport['url'] }}"
+                    <a href="{{ $weeklyReport['url'] }}"
                        target="_blank"
                        rel="noopener noreferrer"
                        class="sidebar-item" data-tooltip="{{ $weeklyReport['short_label'] ?? $weeklyReport['label'] ?? $weeklyReport['name'] ?? 'Weekly Report' }}">
@@ -856,7 +841,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     $toolUrl = $toolUrl . $separator . 'authuser=' . urlencode($userEmail);
                                 }
                             @endphp
-                            <a wire:navigate.hover href="{{ $toolUrl }}"
+                            <a href="{{ $toolUrl }}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item"
@@ -884,7 +869,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <div class="sidebar-tool-group">
                         <span class="sidebar-tool-heading">eBay &amp; Web Supporter</span>
                         @foreach($sidebarWebTools as $tool)
-                            <a wire:navigate.hover href="{{ $tool['url'] }}"
+                            <a href="{{ $tool['url'] }}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item sidebar-tool-item-web" data-tooltip="{{ $tool['label'] }}">
@@ -903,7 +888,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <div class="sidebar-tool-group sidebar-tool-group-system">
                         <span class="sidebar-tool-heading">System Supporter</span>
                         @foreach($sidebarSystemTools as $tool)
-                            <a wire:navigate.hover href="{{ $tool['url'] }}"
+                            <a href="{{ $tool['url'] }}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item sidebar-tool-item-system"
@@ -960,7 +945,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             class="sidebar-submenu-list mt-1 space-y-1 relative"
                         >
                              @foreach($sidebarAiTools as $tool)
-                                <a wire:navigate.hover href="{{ $tool['url'] }}"
+                                <a href="{{ $tool['url'] }}"
                                    target="_blank"
                                    rel="noopener noreferrer"
                                    class="sidebar-submenu-item" data-tooltip="{{ $tool['label'] }}">
@@ -986,7 +971,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 {{--
                 <span class="sidebar-section-label">Analytics</span>
 
-                <a wire:navigate.hover href="{{ route('reports.index') }}"
+                <a href="{{ route('reports.index') }}"
                    class="sidebar-item {{ request()->routeIs('reports.*') ? 'active' : '' }}"
                    id="nav-reports" data-tooltip="System Reports">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1003,7 +988,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
                 @can('users.view')
-                <a wire:navigate.hover href="{{ route('admin.users.index') }}"
+                <a href="{{ route('admin.users.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"
                    id="nav-users" data-tooltip="User Management">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1035,20 +1020,31 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
                     <div x-show="open" x-collapse class="sidebar-submenu-list mt-1 space-y-1 relative">
-                        <a wire:navigate.hover href="{{ route('admin.labels.index') }}"
+                        <a href="{{ route('admin.labels.index') }}"
                            class="sidebar-submenu-item {{ request()->routeIs('admin.labels.*') ? 'active' : '' }}">
                             <span>Team Labels</span>
                         </a>
-                        <a wire:navigate.hover href="{{ route('admin.smm-classes.index') }}"
+                        <a href="{{ route('admin.smm-classes.index') }}"
                            class="sidebar-submenu-item {{ request()->routeIs('admin.smm-classes.*') ? 'active' : '' }}">
                             <span>Class Labels</span>
                         </a>
                     </div>
                 </div>
                 @endhasanyrole
+                
+                @hasanyrole('super-admin|admin-digital')
+                <a href="{{ route('admin.popup-ads.index') }}"
+                   class="sidebar-item {{ request()->routeIs('admin.popup-ads.*') ? 'active' : '' }}"
+                   id="nav-popup-ads" data-tooltip="Popup Ads">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Popup Ads
+                </a>
+                @endhasanyrole
 
                 @can('security.view')
-                <a wire:navigate.hover href="{{ route('admin.security.index') }}"
+                <a href="{{ route('admin.security.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.security.*') ? 'active' : '' }}"
                    id="nav-security" data-tooltip="Security Activity">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1061,13 +1057,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
                 @hasanyrole('super-admin|admin-digital')
-                <a wire:navigate.hover href="{{ route('admin.settings.index') }}"
+                <a href="{{ route('admin.settings.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}"
                    aria-label="External Systems" data-tooltip="System Settings">
                     <x-external-tool-icon name="link" class="w-5 h-5 flex-shrink-0" />
                     <span>External Systems</span>
                 </a>
-                <a wire:navigate.hover href="{{ route('admin.maintenance.index') }}"
+                <a href="{{ route('admin.maintenance.index') }}"
                    class="sidebar-item {{ request()->routeIs('admin.maintenance.*') ? 'active' : '' }}"
                    aria-label="Maintenance System" title="Maintenance System">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1119,20 +1115,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         style="display: none;"
                         role="menu"
                     >
-                        <a wire:navigate.hover href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-profile">
+                        <a href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-profile">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
                             </svg>
                             My Profile
                         </a>
-                        <a wire:navigate.hover href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-settings">
+                        <a href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-settings">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                             </svg>
                             Settings
                         </a>
-                        <a wire:navigate.hover href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-macos-app">
+                        <a href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-macos-app">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
                             </svg>
@@ -1218,9 +1214,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     @if(!View::hasSection('hide_back'))
                     <button type="button"
                             @if(View::hasSection('back_url'))
-                                onclick="window.Livewire ? Livewire.navigate('@yield('back_url')') : window.location.href='@yield('back_url')'"
+                                onclick="window.Turbo ? Turbo.visit('@yield('back_url')') : window.location.href='@yield('back_url')'"
                             @else
-                                onclick="window.history.length > 1 ? window.history.back() : (window.Livewire ? Livewire.navigate('{{ route('boards.workspaces') }}') : window.location.href='{{ route('boards.workspaces') }}')"
+                                onclick="window.history.length > 1 ? window.history.back() : (window.Turbo ? Turbo.visit('{{ route('boards.workspaces') }}') : window.location.href='{{ route('boards.workspaces') }}')"
                             @endif
                             class="mobile-back-btn"
                             title="Back"
@@ -1238,36 +1234,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </div>
 
                 <div class="topbar-actions ml-auto">
-                    @if(auth()->check() && auth()->user()->music_player_enabled)
-                    <!-- Music Player UI -->
-                    <div x-data="globalMusicPlayerUI()" x-show="$store.musicPlayer.visible" x-cloak x-transition.opacity class="hidden md:flex items-center gap-2 bg-slate-100/80 dark:bg-slate-800/80 rounded-full pr-4 pl-2 py-1 mr-4 border border-slate-200 dark:border-slate-700">
-                        <div class="flex items-center gap-1">
-                            <button @click="$store.musicPlayer.prevTrack()" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M9.195 18.44c1.25.713 2.805-.19 2.805-1.629v-8.56c0-1.44-1.555-2.342-2.805-1.628L2.04 10.852c-1.127.643-1.127 2.308 0 2.95l7.155 4.639ZM20.75 18.44c1.25.713 2.805-.19 2.805-1.629v-8.56c0-1.44-1.555-2.342-2.805-1.628l-7.155 4.229c-1.127.643-1.127 2.308 0 2.95l7.155 4.639Z" /></svg>
-                            </button>
-                            <button @click="$store.musicPlayer.togglePlay()" class="w-8 h-8 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:scale-105 active:scale-95 transition-transform shadow-sm">
-                                <svg x-show="$store.musicPlayer.playing" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" /></svg>
-                                <svg x-show="!$store.musicPlayer.playing" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 ml-0.5"><path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" /></svg>
-                            </button>
-                            <button @click="$store.musicPlayer.nextTrack()" class="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M14.805 5.56c-1.25-.713-2.805.19-2.805 1.629v8.56c0 1.44 1.555 2.342 2.805 1.628l7.155-4.229c1.127-.643 1.127-2.308 0-2.95l-7.155-4.639ZM3.25 5.56c-1.25-.713-2.805.19-2.805 1.629v8.56c0 1.44 1.555 2.342 2.805 1.628l7.155-4.229c1.127-.643 1.127-2.308 0-2.95L3.25 5.56Z" /></svg>
-                            </button>
-                        </div>
-                        <div class="flex flex-col justify-center ml-1">
-                            <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 leading-none mb-0.5" x-text="$store.musicPlayer.playing ? 'Now Playing' : 'Paused'">Now Playing</span>
-                            <span x-text="$store.musicPlayer.title" class="text-xs font-bold text-slate-700 dark:text-slate-200 leading-none max-w-[140px] truncate" :title="$store.musicPlayer.title">Waiting for device media...</span>
-                        </div>
-                    </div>
-                    @endif
 
                     <!-- Cambodia Clock -->
-                    <div x-data="cambodiaClock()" x-init="start()" class="hidden md:flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 mr-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                    <div x-data="cambodiaClock()" x-init="start()" class="hidden md:flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 mr-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
-                        <span x-text="dateStr" class="text-xs font-bold uppercase tracking-wide"></span>
-                        <div class="w-[1px] h-3.5 bg-indigo-300 dark:bg-indigo-700/80 mx-0.5"></div>
-                        <span x-text="timeStr" class="text-sm font-extrabold tracking-tight" style="font-variant-numeric: tabular-nums;"></span>
+                        <span x-text="dateStr" class="text-sm font-bold uppercase tracking-wide"></span>
+                        <div class="w-[1px] h-5 bg-indigo-300 dark:bg-indigo-700/80 mx-1.5"></div>
+                        <span x-text="timeStr" class="text-xl font-black tracking-tight" style="font-variant-numeric: tabular-nums;"></span>
                     </div>
 
                     <!-- Dark Mode Pill Toggle (desktop) -->
@@ -1466,20 +1441,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 </div>
                             </div>
 
-                            <a wire:navigate.hover href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-profile">
+                            <a href="{{ route('profile.show') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-profile">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0"/>
                                 </svg>
                                 My Profile
                             </a>
-                            <a wire:navigate.hover href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-settings">
+                            <a href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-settings">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87l.22.127c.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992v.255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124l-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87l-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991v-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124l.22-.128c.332-.183.582-.495.644-.869l.214-1.28Z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                                 </svg>
                                 Settings
                             </a>
-                            <a wire:navigate.hover href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-macos-app">
+                            <a href="{{ route('downloads.mac-app') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-macos-app">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
                                 </svg>
@@ -1538,7 +1513,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Home (Everyone) -->
             @can('dashboard.view')
-            <a wire:navigate.hover href="{{ route('dashboard') }}"
+            <a href="{{ route('dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
                aria-label="Dashboard">
                 <span class="mobile-nav-icon">
@@ -1552,7 +1527,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Boards (Everyone) -->
             @can('kanban.view')
-            <a wire:navigate.hover href="{{ route('boards.workspaces') }}"
+            <a href="{{ route('boards.workspaces') }}"
                class="mobile-nav-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                aria-label="Boards">
                 <span class="mobile-nav-icon">
@@ -1567,7 +1542,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Boss specific items -->
             @if(auth()->user()->hasRole('boss'))
                 <!-- Approval Queue -->
-                <a wire:navigate.hover href="{{ route('approvals.index') }}"
+                <a href="{{ route('approvals.index') }}"
                    class="mobile-nav-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
                    aria-label="Approval">
                     <span class="mobile-nav-icon">
@@ -1581,7 +1556,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Social Media (Boss, super-admin, Digital Team) -->
             @if(auth()->user()->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
-            <a wire:navigate.hover href="{{ route('social-media.dashboard') }}"
+            <a href="{{ route('social-media.dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
                aria-label="Social">
                 <span class="mobile-nav-icon">
@@ -1593,7 +1568,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Websites (Boss + super-admin) -->
             @if(auth()->user()->hasAnyRole(['boss', 'super-admin']))
-            <a wire:navigate.hover href="{{ route('websites.dashboard') }}"
+            <a href="{{ route('websites.dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('websites.*') ? 'active' : '' }}"
                aria-label="Websites">
                 <span class="mobile-nav-icon">
@@ -1608,7 +1583,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Digital Team (Private Note) -->
             @hasanyrole('admin-digital|digital-team|staff|social_qc|social_admin')
                 @unless(auth()->user()->hasAnyRole(['super-admin', 'boss', 'admin-crm', 'sales-crm']))
-                <a wire:navigate.hover href="{{ route('notes.private') }}"
+                <a href="{{ route('notes.private') }}"
                    class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
                    aria-label="Note">
                     <span class="mobile-nav-icon">
@@ -1625,7 +1600,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             @hasanyrole('super-admin|admin-crm|sales-crm')
                 @unless(auth()->user()->hasRole('boss'))
                 <!-- Team Notes -->
-                <a wire:navigate.hover href="{{ route('notes.team') }}"
+                <a href="{{ route('notes.team') }}"
                    class="mobile-nav-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
                    aria-label="Notes">
                     <span class="mobile-nav-icon">
@@ -2360,7 +2335,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             
                             // Prevent browser freeze from a flood of toasts on wake-up
                             if (index < 3) {
-                                if (newNotif.data && newNotif.data.module !== 'crm' && newNotif.data.actor_name) {
+                                if (newNotif.data && newNotif.data.module === 'announcement') {
+                                    if (window.showRichNotificationToast) {
+                                        window.showRichNotificationToast({
+                                            actor_name: newNotif.data.title || 'Announcement',
+                                            description: newNotif.data.body || 'A new announcement has been posted.',
+                                            actor_avatar: newNotif.data.icon || '📢'
+                                        });
+                                    }
+                                    window.sendBrowserNotification(
+                                        newNotif.data.title || "Announcement", 
+                                        newNotif.data.body || "A new announcement has been posted."
+                                    );
+                                } else if (newNotif.data && newNotif.data.module !== 'crm' && newNotif.data.actor_name) {
                                     window.showRichNotificationToast(newNotif.data);
                                     if (newNotif.data.browser_notifications_enabled !== false) {
                                         window.sendBrowserNotification(
@@ -2423,7 +2410,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 // CRM payloads get the persistent CRM notification card instead (stacks,
                 // stays until manually closed) rather than the Board-style
                 // toast, which auto-dismisses.
-                if (notifItem.data && notifItem.data.module !== 'crm' && notifItem.data.actor_name) {
+                if (notifItem.data && notifItem.data.module === 'announcement') {
+                    if (window.showRichNotificationToast) {
+                        window.showRichNotificationToast({
+                            actor_name: notifItem.data.title || 'Announcement',
+                            description: notifItem.data.body || 'A new announcement has been posted.',
+                            actor_avatar: notifItem.data.icon || '📢'
+                        });
+                    }
+                    window.sendBrowserNotification(
+                        notifItem.data.title || "Announcement", 
+                        notifItem.data.body || "A new announcement has been posted."
+                    );
+                } else if (notifItem.data && notifItem.data.module !== 'crm' && notifItem.data.actor_name) {
                     window.showRichNotificationToast(notifItem.data);
                 } else {
                     window.showCrmNotificationCard(notifItem.data, notifItem.id);
@@ -2878,9 +2877,154 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
          <span x-text="tooltipText"></span> 
     </div>
 
-    <!-- Cambodia Clock Script -->
+    <!-- Popup Ads Manager -->
+    <div x-data="popupAdManager" x-init="init()" class="relative z-[999999]">
+        <!-- Modal -->
+        <div x-show="showModal" 
+             x-transition.opacity.duration.300ms
+             class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-[999999]"
+             style="display: none;">
+            <div x-show="showModal"
+                 @click.outside="closeModal()"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95 translate-y-8"
+                 x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 scale-95 translate-y-8"
+                 class="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden w-full max-w-2xl relative border border-slate-200 dark:border-slate-800 flex flex-col">
+                
+                <button @click="closeModal()" class="absolute top-4 right-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-colors z-20 shadow-sm">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+
+                <template x-if="ad?.image_url">
+                    <div class="w-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center overflow-hidden">
+                        <img :src="ad.image_url" class="w-full h-auto object-contain max-h-[65vh]">
+                    </div>
+                </template>
+
+                <div class="p-8 sm:p-10 text-center flex-1 bg-white dark:bg-slate-900 flex flex-col items-center justify-center relative">
+                    <div class="absolute inset-0 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-[2rem] -z-10 blur-3xl"></div>
+                    
+                    <h3 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-tight" x-text="ad?.title"></h3>
+                    <template x-if="ad?.body_text">
+                        <p class="text-slate-500 dark:text-slate-400 text-lg mb-8 max-w-xl mx-auto leading-relaxed" x-text="ad.body_text"></p>
+                    </template>
+                    
+                    <button @click="clickAd()" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base font-bold text-white transition-all bg-indigo-600 rounded-xl hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800 shadow-xl shadow-indigo-200 dark:shadow-none hover:-translate-y-1 w-full max-w-sm">
+                        <span x-text="ad?.button_text || 'Click Here'"></span>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Scripts -->
     <script>
         document.addEventListener('alpine:init', () => {
+            Alpine.data('popupAdManager', () => ({
+                ad: null,
+                showModal: false,
+                checkInterval: null,
+                
+                init() {
+                    // Only check if user is logged in
+                    if (document.querySelector('meta[name="csrf-token"]')) {
+                        this.checkAd();
+                    }
+                },
+                
+                async checkAd() {
+                    try {
+                        const response = await fetch('/api/popup-ads/check', {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        const data = await response.json();
+                        
+                        if (data && data.ad) {
+                            this.ad = data.ad;
+                            this.showAd();
+                        } else {
+                            // No ad to show right now. Check again in 5 mins just in case.
+                            this.startTimer(5);
+                        }
+                    } catch (error) {
+                        console.error('Error checking popup ads:', error);
+                        this.startTimer(5);
+                    }
+                },
+                
+                showAd() {
+                    this.showModal = true;
+                    
+                    // Show notification toast if it has text
+                    if (this.ad.notification_text && window.Notyf) {
+                        const notyf = new Notyf({
+                            duration: 5000,
+                            position: { x: 'right', y: 'top' },
+                        });
+                        notyf.success({
+                            message: `<b>${this.ad.notification_icon || '🔔'} ${this.ad.notification_text}</b>`,
+                            background: '#4f46e5'
+                        });
+                    }
+                    
+                    // Mark as shown in DB
+                    fetch('/api/popup-ads/mark-shown', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        },
+                        body: JSON.stringify({ ad_id: this.ad.id })
+                    });
+                },
+                
+                closeModal() {
+                    this.showModal = false;
+                    // Start timer to show again based on interval_minutes
+                    this.startTimer(this.ad.interval_minutes);
+                },
+                
+                async clickAd() {
+                    // Mark as clicked in DB
+                    try {
+                        await fetch('/api/popup-ads/mark-clicked', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                            },
+                            body: JSON.stringify({ ad_id: this.ad.id })
+                        });
+                        
+                        this.showModal = false;
+                        if (this.checkInterval) clearTimeout(this.checkInterval);
+                        
+                        // Open link
+                        if (this.ad && this.ad.button_link) {
+                            window.open(this.ad.button_link, '_blank');
+                        }
+
+                        this.ad = null;
+                    } catch (e) {
+                        console.error('Error marking ad as clicked', e);
+                    }
+                },
+                
+                startTimer(minutes) {
+                    if (this.checkInterval) clearTimeout(this.checkInterval);
+                    this.checkInterval = setTimeout(() => {
+                        this.checkAd();
+                    }, minutes * 60 * 1000);
+                }
+            }));
+
             Alpine.data('cambodiaClock', () => ({
                 timeStr: '',
                 dateStr: '',
@@ -2912,54 +3056,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     if (this.timer) clearInterval(this.timer);
                 }
             }));
-
-            Alpine.data('globalMusicPlayerUI', () => ({
-                // Empty since we use Alpine.store for global state
-            }));
-
-            if (!Alpine.store('musicPlayer')) {
-                Alpine.store('musicPlayer', {
-                    playing: false,
-                    visible: false,
-                    title: 'Waiting for device media...',
-                    togglePlay() {
-                        if (window.flutter_inappwebview) {
-                            window.flutter_inappwebview.callHandler('DgtNativeMediaControl', this.playing ? 'pause' : 'play');
-                        }
-                        // Optimistic UI update
-                        this.playing = !this.playing;
-                    },
-                    nextTrack() {
-                        if (window.flutter_inappwebview) {
-                            window.flutter_inappwebview.callHandler('DgtNativeMediaControl', 'next');
-                        }
-                    },
-                    prevTrack() {
-                        if (window.flutter_inappwebview) {
-                            window.flutter_inappwebview.callHandler('DgtNativeMediaControl', 'prev');
-                        }
-                    }
-                });
-            }
         });
     </script>
 
-    @if(auth()->check() && auth()->user()->music_player_enabled)
-    <!-- Native Media Bridge -->
-    <div data-turbo-permanent class="hidden">
-        <script>
-            // This function is expected to be called by the native macOS app (Flutter WebView)
-            // e.g. window.DgtUpdateMediaState({ playing: true, title: "Lofi Girl Radio" })
-            window.DgtUpdateMediaState = function(state) {
-                if (window.Alpine && window.Alpine.store('musicPlayer')) {
-                    const player = window.Alpine.store('musicPlayer');
-                    if (state.hasOwnProperty('playing')) player.playing = !!state.playing;
-                    if (state.hasOwnProperty('title')) player.title = state.title || 'Unknown Track';
-                    player.visible = true; // Show UI once we get data
-                }
-            };
-        </script>
-    </div>
-    @endif
 </body>
 </html>

@@ -140,7 +140,7 @@
                class="group block relative h-28 cursor-grab active:cursor-grabbing rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
                style="{{ $board->coverStyle() }}">
                
-            <a wire:navigate.hover href="{{ route('boards.show', $board->slug) }}" 
+            <a href="{{ route('boards.show', $board->slug) }}" 
                data-turbo="false"
                draggable="false"
                @click="if(window.isDraggingBoard || openBoardMenu) { $event.preventDefault(); }"

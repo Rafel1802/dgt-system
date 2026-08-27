@@ -419,4 +419,37 @@ class Card extends Model
         return $query->where('created_by', $userId)
                      ->orWhereHas('assignees', fn($q) => $q->where('users.id', $userId));
     }
+
+    public function syncSiblings()
+    {
+        return $this->hasMany(Card::class, 'sync_group_id', 'sync_group_id')->where('id', '!=', $this->id);
+    }
+
+    public function getWorkflowStatusAttribute(): ?string
+    {
+        if (!$this->sync_group_id) {
+            return null;
+        }
+
+        // We assume syncSiblings is eager loaded. If not, it will lazy load.
+        $siblings = $this->syncSiblings;
+        if ($siblings->isEmpty()) {
+            return null;
+        }
+
+        foreach ($siblings as $sibling) {
+            $list = $sibling->boardList;
+            if (!$list) continue;
+            
+            $name = strtolower($list->name);
+            if (str_contains($name, 'draft')) return 'Draft';
+            if (str_contains($name, 'head')) return 'Head';
+            if (str_contains($name, 'qc')) return 'QC';
+            if (str_contains($name, 'supervisor')) return 'Supervisor';
+            if (str_contains($name, 'block') || str_contains($name, 'waiting')) return 'Block/waiting';
+            // Approved doesn't get a text label because it has a green tick, per user request.
+        }
+
+        return null;
+    }
 }

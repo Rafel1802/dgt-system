@@ -103,7 +103,7 @@
             <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <button @click="showRolesModal = true" class="btn btn-secondary text-sm flex-1 sm:flex-none justify-center">👥 Team Roles</button>
                 <button @click="showCreateModal = true" class="btn btn-primary text-sm flex-1 sm:flex-none justify-center">➕ Create</button>
-                <a wire:navigate.hover href="{{ route('social-media.dashboard') }}" class="btn btn-secondary text-sm flex-none justify-center">← Back</a>
+                <a href="{{ route('social-media.dashboard') }}" class="btn btn-secondary text-sm flex-none justify-center">← Back</a>
             </div>
         </div>
     </div>

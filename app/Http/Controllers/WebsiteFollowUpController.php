@@ -41,19 +41,7 @@ class WebsiteFollowUpController extends Controller
                         : $validated['type'];
 
         $imageUrl = null;
-        if (!empty($validated['url'])) {
-            try {
-                $response = \Illuminate\Support\Facades\Http::timeout(3)->get($validated['url']);
-                if ($response->successful()) {
-                    $html = $response->body();
-                    if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
-                        $imageUrl = $matches[1];
-                    } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
-                        $imageUrl = $matches[1];
-                    }
-                }
-            } catch (\Exception $e) {}
-        }
+        $imageUrl = null;
 
         $recentDuplicate = WebsiteFollowUp::where('website_id', $validated['website_id'])
             ->where('created_by', auth()->id())
@@ -94,6 +82,27 @@ class WebsiteFollowUpController extends Controller
             $followUp->save();
         }
 
+        if (!empty($validated['url'])) {
+            $url = $validated['url'];
+            dispatch(function () use ($followUp, $url) {
+                try {
+                    $response = \Illuminate\Support\Facades\Http::timeout(5)->get($url);
+                    if ($response->successful()) {
+                        $html = $response->body();
+                        $fetchedImageUrl = null;
+                        if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
+                            $fetchedImageUrl = $matches[1];
+                        } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
+                            $fetchedImageUrl = $matches[1];
+                        }
+                        if ($fetchedImageUrl) {
+                            $followUp->updateQuietly(['image_url' => $fetchedImageUrl]);
+                        }
+                    }
+                } catch (\Exception $e) {}
+            })->afterResponse();
+        }
+
         $website = Website::find($validated['website_id']);
         $this->logActivity('followup_added', "Follow-up ({$followUp->getTypeLabel()}) added for \"{$website?->name}\".");
 
@@ -126,18 +135,6 @@ class WebsiteFollowUpController extends Controller
                         : $validated['type'];
 
         $imageUrl = $websiteFollowUp->image_url;
-        if (!empty($validated['url']) && $validated['url'] !== $websiteFollowUp->url) {
-            try {
-                $html = @file_get_contents($validated['url'], false, stream_context_create(['http' => ['timeout' => 2]]));
-                if ($html) {
-                    if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
-                        $imageUrl = $matches[1];
-                    } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
-                        $imageUrl = $matches[1];
-                    }
-                }
-            } catch (\Exception $e) {}
-        }
 
         $websiteFollowUp->update([
             'type'           => $finalType,
@@ -153,6 +150,27 @@ class WebsiteFollowUpController extends Controller
             $websiteFollowUp->created_at = \Carbon\Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
         }
         $websiteFollowUp->save();
+
+        if (!empty($validated['url']) && $validated['url'] !== $websiteFollowUp->getOriginal('url')) {
+            $url = $validated['url'];
+            dispatch(function () use ($websiteFollowUp, $url) {
+                try {
+                    $response = \Illuminate\Support\Facades\Http::timeout(5)->get($url);
+                    if ($response->successful()) {
+                        $html = $response->body();
+                        $fetchedImageUrl = null;
+                        if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
+                            $fetchedImageUrl = $matches[1];
+                        } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
+                            $fetchedImageUrl = $matches[1];
+                        }
+                        if ($fetchedImageUrl) {
+                            $websiteFollowUp->updateQuietly(['image_url' => $fetchedImageUrl]);
+                        }
+                    }
+                } catch (\Exception $e) {}
+            })->afterResponse();
+        }
 
         return redirect()->route('websites.index', ['tab' => 'follow-up'])
             ->with('success', "Follow-up updated.");

@@ -198,7 +198,7 @@
     @endphp
     @foreach($tabs as $key => $tabInfo)
     @php $isActive = $tab === $key; $c = $colorMap[$tabInfo['color']]; @endphp
-    <a wire:navigate.hover href="{{ route('websites.index', ['tab' => $key]) }}"
+    <a href="{{ route('websites.index', ['tab' => $key]) }}"
        class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all duration-150 -mb-px rounded-t-lg whitespace-nowrap flex-shrink-0
               {{ $isActive ? $c['active'] . ' bg-white dark:bg-slate-800/50' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300' }}">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4 flex-shrink-0">
@@ -1679,7 +1679,7 @@
     </div>
 
     {{-- Filters --}}
-    <form id="followUpFilterForm" method="GET" action="{{ route('websites.index') }}" class="card border border-slate-200 dark:border-slate-700 p-4 mb-5" data-turbo="true" data-turbo-action="replace">
+    <form id="followUpFilterForm" method="GET" action="{{ route('websites.index') }}" class="card border border-slate-200 dark:border-slate-700 p-4 mb-5" data-turbo="false">
         <input type="hidden" name="tab" value="follow-up">
         <div class="flex flex-wrap gap-3 items-end">
 
@@ -1724,7 +1724,7 @@
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
                 <input type="date" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? now()->format('Y-m-d') }}" 
                     @change="$el.form.requestSubmit()" 
-                    class="form-input text-sm font-bold rounded-lg py-1.5 min-w-[150px] border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
+                    class="form-input text-sm font-bold rounded-lg py-1.5 w-40 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-200">
             </div>
             <div class="flex items-center">
                 <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}" class="btn btn-secondary text-sm py-1.5 px-3">Clear</a>
@@ -1876,14 +1876,14 @@
                                 @endif
                                 @if((auth()->user()->canUpdateWebsiteProgress() || auth()->user()->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->whereIn('role', ['QC', 'Developer', 'Supervisor'])->exists()) && !auth()->user()->hasRole('boss'))
                                 <button type="button" 
-                                            @click="openEditFollowUpModal({{ $fu->id }}, {{ json_encode([
-                                                'website_id' => $fu->website_id,
-                                                'type' => $fu->type,
-                                                'url' => $fu->url,
-                                                'assigned_to' => $fu->assigned_to,
-                                                'note' => $fu->note,
-                                                'created_at' => $fu->created_at->format('Y-m-d')
-                                            ]) }})"
+                                            @click='openEditFollowUpModal({{ $fu->id }}, @json([
+                                                "website_id" => $fu->website_id,
+                                                "type" => $fu->type,
+                                                "url" => $fu->url,
+                                                "assigned_to" => $fu->assigned_to,
+                                                "note" => $fu->note,
+                                                "created_at" => $fu->created_at->format("Y-m-d")
+                                            ]))'
                                             class="group relative flex items-center justify-center w-7 h-7 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer text-indigo-500" 
                                             aria-label="Edit">
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>

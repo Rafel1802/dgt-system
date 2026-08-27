@@ -800,7 +800,9 @@
                                 @endif
                             </td>
                             <td style="text-align: center;">
-                                @if($c->is_archived)
+                                @if(isset($c->computed_status_html))
+                                    {!! $c->computed_status_html !!}
+                                @elseif($c->is_archived)
                                     <span class="status-badge status-archived">Archived</span>
                                 @else
                                     @php

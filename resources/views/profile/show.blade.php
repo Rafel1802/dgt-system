@@ -339,21 +339,7 @@
           @error('notification_sound')<p class="form-error">{{ $message }}</p>@enderror
         </div>
         
-        <div class="sm:col-span-2 border-t border-slate-100 pt-5 mt-2">
-            <div class="flex items-center justify-between mb-3">
-                <div>
-                  <label class="form-label flex gap-2 mb-1">Background Music Player</label>
-                  <p class="text-xs text-slate-500">Enable or disable the built-in music player in the top navigation bar.</p>
-                </div>
-                <div>
-                    <input type="hidden" name="music_player_enabled" value="0">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" name="music_player_enabled" value="1" class="sr-only peer" {{ old('music_player_enabled', $user->music_player_enabled) ? 'checked' : '' }}>
-                      <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                    </label>
-                </div>
-            </div>
-        </div>
+
 
 
       </div>

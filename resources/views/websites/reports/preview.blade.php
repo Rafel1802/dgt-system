@@ -122,6 +122,7 @@
             'end_date'   => $endDate,
             'member_id'  => $memberId,
             'format'     => 'html',
+            'download'   => 1,
         ]) }}" class="w-full h-full bg-slate-100 flex-1" style="border:none;"></iframe>
     </div>
     <textarea id="reportTextContent" class="hidden" readonly>{{ trim($reportText) }}</textarea>

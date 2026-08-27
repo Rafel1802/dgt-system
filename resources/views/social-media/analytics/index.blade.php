@@ -151,33 +151,55 @@
     @endif
 
     {{-- ── Uploaded Files Table ─────────────────────────────────────────────── --}}
-    <div class="space-y-5">
-      {{-- Filters --}}
-      <form method="GET" action="{{ route('social-media.analytics.index') }}" class="card p-4 border border-slate-200 dark:border-slate-700">
-        <div class="flex flex-wrap gap-3 items-end">
-          <div class="flex-1 min-w-[200px]">
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Filter by Class</label>
-            <select name="class_id" class="form-select w-full text-sm rounded-xl">
-              <option value="">All Classes</option>
-              @foreach($classes as $class)
-                <option value="{{ $class->id }}" {{ $classId == $class->id ? 'selected' : '' }}>{{ $class->name }}</option>
-              @endforeach
-            </select>
+    <turbo-frame id="analytics-manager" data-turbo-action="advance">
+      <div class="space-y-5">
+        {{-- Filters --}}
+        <form method="GET" action="{{ route('social-media.analytics.index') }}" class="card p-4 border border-slate-200 dark:border-slate-700"
+              x-data="{
+                  class_id: '{{ $classId }}',
+                  date_from: '{{ $dateFrom }}',
+                  date_to: '{{ $dateTo }}',
+                  initial_date_from: '{{ $dateFrom }}',
+                  initial_date_to: '{{ $dateTo }}',
+                  checkAutoSubmit() {
+                      // Only submit if both dates are filled OR both are empty
+                      if ((this.date_from && !this.date_to) || (!this.date_from && this.date_to)) {
+                          return;
+                      }
+                      
+                      // Prevent infinite loop if values haven't actually changed since page load
+                      if (this.date_from === this.initial_date_from && this.date_to === this.initial_date_to) {
+                          return;
+                      }
+                      
+                      this.$nextTick(() => {
+                          this.$el.requestSubmit();
+                      });
+                  }
+              }">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[200px]">
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Filter by Class</label>
+              <select name="class_id" x-model="class_id" @change="checkAutoSubmit()" class="form-select w-full text-sm rounded-xl">
+                <option value="">All Classes</option>
+                @foreach($classes as $class)
+                  <option value="{{ $class->id }}">{{ $class->name }}</option>
+                @endforeach
+              </select>
+            </div>
+            <div class="flex-1 min-w-[140px]">
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date From</label>
+              <input type="date" name="date_from" x-model="date_from" @change="checkAutoSubmit()" class="form-input w-full text-sm rounded-xl">
+            </div>
+            <div class="flex-1 min-w-[140px]">
+              <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date To</label>
+              <input type="date" name="date_to" x-model="date_to" @change="checkAutoSubmit()" class="form-input w-full text-sm rounded-xl">
+            </div>
+            <div class="flex gap-2 w-full sm:w-auto">
+              <a href="{{ route('social-media.analytics.index') }}" data-turbo-action="advance" class="btn btn-secondary text-sm flex-1 sm:flex-none px-4 py-2 text-center">Clear</a>
+            </div>
           </div>
-          <div class="flex-1 min-w-[140px]">
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date From</label>
-            <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-input w-full text-sm rounded-xl">
-          </div>
-          <div class="flex-1 min-w-[140px]">
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date To</label>
-            <input type="date" name="date_to" value="{{ $dateTo }}" class="form-input w-full text-sm rounded-xl">
-          </div>
-          <div class="flex gap-2 w-full sm:w-auto">
-            <button type="submit" class="btn btn-primary text-sm flex-1 sm:flex-none px-4 py-2">Filter</button>
-            <a href="{{ route('social-media.analytics.index') }}" class="btn btn-secondary text-sm flex-1 sm:flex-none px-4 py-2 text-center">Clear</a>
-          </div>
-        </div>
-      </form>
+        </form>
 
       {{-- ── File Manager Grid ─────────────────────────────────────────────── --}}
       <div class="card border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -310,6 +332,7 @@
           @endif
         @endif
       </div>
+    </turbo-frame>
     </div>
   </div>
 

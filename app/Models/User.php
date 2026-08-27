@@ -378,4 +378,14 @@ SVG;
         $array['avatar_color'] = $this->avatar_color;
         return $array;
     }
+
+    /**
+     * Popup ads seen by the user
+     */
+    public function popupAds()
+    {
+        return $this->belongsToMany(PopupAd::class)
+                    ->withPivot(['last_shown_at', 'is_clicked'])
+                    ->withTimestamps();
+    }
 }

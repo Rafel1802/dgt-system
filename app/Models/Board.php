@@ -68,6 +68,12 @@ class Board extends Model
                     ->withTimestamps();
     }
 
+    public function unwatchers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'board_unwatchers')
+                    ->withTimestamps();
+    }
+
     public function lists(): HasMany
     {
         return $this->hasMany(BoardList::class)->orderBy('position');

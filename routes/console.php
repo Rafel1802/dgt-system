@@ -19,3 +19,6 @@ Schedule::call(function () {
         ->where('created_at', '<', now()->subMonth())
         ->delete();
 })->monthly()->name('crm-notifications-cleanup')->withoutOverlapping();
+
+// Clean up trashed items older than 2 days
+Schedule::command('app:cleanup-trash')->daily();

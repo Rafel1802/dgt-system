@@ -116,15 +116,15 @@ class SocialMediaAnalyticsController extends Controller
         return Storage::download($analytic->file_path, $analytic->original_name);
     }
 
-    /** Preview / view a single analytics file inline */
     public function preview(SocialMediaAnalytic $analytic)
     {
         if (!$analytic->fileExists()) {
             abort(404, 'Analytics file not found.');
         }
 
-        return Storage::response($analytic->file_path, $analytic->original_name, [
-            'Content-Disposition' => 'inline; filename="' . $analytic->original_name . '"',
+        return response()->file($analytic->absolutePath(), [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . addslashes($analytic->original_name) . '"'
         ]);
     }
 

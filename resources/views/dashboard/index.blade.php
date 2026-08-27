@@ -47,8 +47,8 @@
         opacity: 0.6;
         animation: float 20s infinite ease-in-out alternate;
     }
-    .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(255,255,255,0) 70%); }
-    .blob-2 { bottom: -10%; right: -10%; width: 60vw; height: 60vw; background: radial-gradient(circle, rgba(14,165,233,0.15) 0%, rgba(255,255,255,0) 70%); animation-delay: -10s; }
+    .blob-1 { top: -10%; left: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(255,255,255,0) 70%); }
+    .blob-2 { bottom: -10%; right: -10%; width: 60%; height: 60%; background: radial-gradient(circle, rgba(14,165,233,0.15) 0%, rgba(255,255,255,0) 70%); animation-delay: -10s; }
     
     [data-theme="dark"] .blob-1 { background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(15,23,42,0) 70%); }
     [data-theme="dark"] .blob-2 { background: radial-gradient(circle, rgba(14,165,233,0.1) 0%, rgba(15,23,42,0) 70%); }
@@ -61,23 +61,23 @@
 
     /* Modern Bento Cards */
     .bento-card {
-        background: rgba(255, 255, 255, 0.6);
+        background: rgba(238, 242, 255, 0.7); /* Light blue tint */
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
         border: 1px solid rgba(255, 255, 255, 0.8);
         border-radius: 2rem;
-        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.7);
+        box-shadow: 0 10px 40px -10px rgba(79, 70, 229, 0.1), inset 0 1px 0 rgba(255,255,255,0.7);
         transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
         overflow: hidden;
     }
     
     .bento-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8);
+        box-shadow: 0 20px 40px -10px rgba(79, 70, 229, 0.15), inset 0 1px 0 rgba(255,255,255,0.8);
     }
 
     [data-theme="dark"] .bento-card {
-        background: rgba(30, 41, 59, 0.6);
+        background: rgba(30, 41, 59, 0.7); /* Slightly darker slate with blue hint */
         border-color: rgba(255, 255, 255, 0.05);
         box-shadow: 0 10px 40px -10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
     }
@@ -103,6 +103,15 @@
         100% { background-position: 200% center; }
     }
     
+    .animate-text-gradient {
+        background: linear-gradient(to right, #f472b6, #38bdf8, #f472b6);
+        background-size: 200% auto;
+        color: transparent;
+        -webkit-background-clip: text;
+        background-clip: text;
+        animation: textGradient 4s linear infinite;
+    }
+    
     .bento-card-primary {
         background: linear-gradient(135deg, #2563eb, #4f46e5);
         color: white;
@@ -125,31 +134,31 @@
     <div class="blob blob-2"></div>
 </div>
 
-<div class="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-fade-in pb-28 md:pb-12 px-2 sm:px-0">
+<div class="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-fade-in pb-28 md:pb-12 px-4 sm:px-6 lg:px-8 w-full">
     
     <!-- Hero Bento Section -->
     <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <!-- Main Welcome Card -->
-        <article class="bento-card xl:col-span-2 p-8 sm:p-12 relative flex flex-col justify-center min-h-[300px]">
-            <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 pointer-events-none"></div>
+        <article class="bento-card-primary xl:col-span-2 p-8 sm:p-12 relative flex flex-col justify-center min-h-[300px]">
+            <div class="absolute -right-20 -bottom-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
             
             <div class="relative z-10">
-                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 shadow-sm mb-6 backdrop-blur-md">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 border border-white/20 shadow-sm mb-6 backdrop-blur-md">
                     {!! $greetingIcon !!}
-                    <span class="text-sm font-bold text-slate-700 dark:text-slate-200">{{ $greeting }},</span>
+                    <span class="text-sm font-bold text-white">{{ $greeting }},</span>
                 </div>
                 
-                <h1 class="text-5xl sm:text-6xl font-black tracking-tight mb-4">
-                    <span class="text-slate-900 dark:text-white">Welcome back,</span><br/>
-                    <span class="text-gradient">{{ $user->name }}</span>
+                <h1 class="text-5xl sm:text-6xl font-black tracking-tight mb-4 animate-text-gradient">
+                    <span>Welcome back,</span><br/>
+                    <span>{{ $user->name }}</span>
                 </h1>
                 
-                <p class="text-base sm:text-lg text-slate-500 dark:text-slate-400 font-medium max-w-xl">
-                    Here is what is happening in your workspace today. You have <strong class="text-indigo-600 dark:text-indigo-400">{{ $dashboardUnreadCount }}</strong> unread alerts requiring your attention.
+                <p class="text-base sm:text-lg text-indigo-100 font-medium max-w-xl">
+                    Here is what is happening in your workspace today. You have <strong class="text-white">{{ $dashboardUnreadCount }}</strong> unread alerts requiring your attention.
                 </p>
                 
                 <div class="mt-8 flex flex-wrap gap-3">
-                    <a href="{{ route('profile.show') }}" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/30">
+                    <a href="{{ route('profile.show') }}" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-indigo-600 font-bold hover:bg-indigo-50 transition-colors shadow-lg shadow-black/10">
                         View Profile
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd" /></svg>
                     </a>
@@ -196,13 +205,13 @@
 
     <!-- Analytics Section -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <article class="bento-card-primary p-6 sm:p-8">
+        <article class="bento-card p-6 sm:p-8">
             <div class="flex items-center justify-between mb-6">
                 <div>
-                    <h3 class="text-lg font-black text-white">Active Users</h3>
-                    <p class="text-sm font-medium text-indigo-100">Workspace presence</p>
+                    <h3 class="text-lg font-black text-slate-900 dark:text-white">Active Users</h3>
+                    <p class="text-sm font-medium text-slate-500">Workspace presence</p>
                 </div>
-                <div class="p-2 bg-white/20 rounded-xl text-white">
+                <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" /></svg>
                 </div>
             </div>
@@ -211,13 +220,13 @@
             </div>
         </article>
 
-        <article class="bento-card-primary p-6 sm:p-8">
+        <article class="bento-card p-6 sm:p-8">
             <div class="flex items-center justify-between mb-6">
                 <div>
-                    <h3 class="text-lg font-black text-white">Activity Trend</h3>
-                    <p class="text-sm font-medium text-indigo-100">Actions over last days</p>
+                    <h3 class="text-lg font-black text-slate-900 dark:text-white">Activity Trend</h3>
+                    <p class="text-sm font-medium text-slate-500">Actions over last days</p>
                 </div>
-                <div class="p-2 bg-white/20 rounded-xl text-white">
+                <div class="p-2 bg-pink-50 dark:bg-pink-900/30 rounded-xl text-pink-600 dark:text-pink-400">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
                 </div>
             </div>
