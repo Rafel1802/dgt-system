@@ -11,7 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
-class WebsiteActivityNotification extends Notification
+class WebsiteActivityNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 

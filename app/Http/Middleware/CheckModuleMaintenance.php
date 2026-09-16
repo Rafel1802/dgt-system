@@ -26,8 +26,42 @@ class CheckModuleMaintenance
         $maintenanceJson = Setting::where('key', 'maintenance_modules')->value('value') ?? '[]';
         $maintenanceModules = json_decode($maintenanceJson, true) ?: [];
 
-        if (in_array($module, $maintenanceModules)) {
-            return response()->view('errors.maintenance', ['module' => $module], 503);
+        $isMaintained = false;
+        $displayModule = $module;
+
+        if ($module === 'all_websites') {
+            $tab = $request->query('tab', 'build');
+            if ($tab === 'follow-up') {
+                if (in_array('websites_followup', $maintenanceModules) || in_array('all_websites', $maintenanceModules)) {
+                    $isMaintained = true;
+                    $displayModule = 'Website Follow Up';
+                }
+            } else {
+                if (in_array('websites_status', $maintenanceModules) || in_array('all_websites', $maintenanceModules)) {
+                    $isMaintained = true;
+                    $displayModule = 'Website Status';
+                }
+            }
+        } elseif ($module === 'social_media') {
+            if ($request->is('smm-boards*')) {
+                if (in_array('social_media_planning', $maintenanceModules) || in_array('social_media', $maintenanceModules)) {
+                    $isMaintained = true;
+                    $displayModule = 'SMM Planning Board';
+                }
+            } else {
+                if (in_array('social_media_analytics', $maintenanceModules) || in_array('social_media', $maintenanceModules)) {
+                    $isMaintained = true;
+                    $displayModule = 'Social & Analytics';
+                }
+            }
+        } else {
+            if (in_array($module, $maintenanceModules)) {
+                $isMaintained = true;
+            }
+        }
+
+        if ($isMaintained) {
+            return response()->view('errors.maintenance', ['module' => $displayModule], 503);
         }
 
         return $next($request);

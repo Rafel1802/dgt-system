@@ -33,7 +33,7 @@
     <header class="flex items-start justify-between border-b border-slate-200 bg-slate-50 px-5 py-4">
       <div>
         <h3 id="card-transfer-modal-title" class="text-base font-black text-slate-900">
-          <span x-text="cardTransferModal.mode === 'copy' ? 'Copy / duplicate card' : 'Move card'"></span>
+          <span x-text="cardTransferModal.mode === 'copy' ? (cardTransferModal.cardId === 'bulk' ? `Copy ${selectedCards.length} cards to` : 'Copy card to') : (cardTransferModal.cardId === 'bulk' ? `Move ${selectedCards.length} cards to` : 'Move card')"></span>
         </h3>
         <p class="mt-0.5 text-xs font-medium text-slate-500">
           Pick destination board and list.
@@ -51,7 +51,7 @@
     </header>
 
     <div class="space-y-4 px-5 py-5">
-      <template x-if="cardTransferModal.mode === 'copy'">
+      <template x-if="cardTransferModal.mode === 'copy' && cardTransferModal.cardId !== 'bulk'">
         <label class="block">
           <span class="mb-1 block text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Title</span>
           <input type="text"
@@ -111,7 +111,7 @@
           <circle cx="12" cy="12" r="10" class="opacity-25" stroke="currentColor" stroke-width="4"></circle>
           <path d="M22 12a10 10 0 0 1-10 10" class="opacity-90" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
         </svg>
-        <span x-text="cardTransferModal.mode === 'copy' ? 'Copy card' : 'Move card'"></span>
+        <span x-text="cardTransferModal.mode === 'copy' ? (cardTransferModal.cardId === 'bulk' ? `Copy ${selectedCards.length} cards` : 'Copy card') : (cardTransferModal.cardId === 'bulk' ? `Move ${selectedCards.length} cards` : 'Move card')"></span>
       </button>
     </footer>
   </section>

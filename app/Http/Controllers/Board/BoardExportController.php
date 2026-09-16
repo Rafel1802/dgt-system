@@ -51,19 +51,32 @@ class BoardExportController extends Controller
 
     /**
      * Helper to get all workspaces and boards a user can access.
+     *
+     * @param bool $includeHidden  When true, hidden boards are included.
+     *                             Used for QC/Supervisor personal report so they
+     *                             can select past months' boards (which are hidden
+     *                             once the month ends) when exporting historical data.
      */
-    private function getAuthorizedWorkspaces(\App\Models\User $user)
+    private function getAuthorizedWorkspaces(\App\Models\User $user, bool $includeHidden = false)
     {
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
-                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position'),
+                'boards' => function($q) use ($includeHidden) {
+                    $q->where('is_archived', false)
+                      ->when(!$includeHidden, fn($q) => $q->where('is_hidden', false))
+                      ->orderBy('position');
+                },
             ])
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get();
         } else {
             $allActiveWorkspaces = Workspace::with([
-                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position'),
+                'boards' => function($q) use ($includeHidden) {
+                    $q->where('is_archived', false)
+                      ->when(!$includeHidden, fn($q) => $q->where('is_hidden', false))
+                      ->orderBy('position');
+                },
             ])
                 ->where('is_active', true)
                 ->orderBy('name')
@@ -124,6 +137,11 @@ class BoardExportController extends Controller
                 if ($user->hasRole('super-admin')) {
                     return true;
                 }
+
+                // QC users can see any board they selected — they are reviewers, not board members
+                if ($user->isQc()) {
+                    return true;
+                }
                 
                 if ($b->hasMember($user->id)) {
                     return true;
@@ -143,54 +161,91 @@ class BoardExportController extends Controller
             $boardIds = $allowedBoards->pluck('id')->toArray();
         }
 
+        // For QC personal report with no boards selected: search ALL boards.
+        // QC reviewers approve cards across every workflow board in the system,
+        // they are not board members, so we must follow their comment trail globally.
+        $isQcPersonalExport = ($request->boolean('is_personal_report', false)
+            || str_contains(request()->path(), 'personal-report')
+            || request()->routeIs('*.personal.export', 'reports.personal.export', 'boards.reports.personal.export'))
+            && auth()->user()?->isQc();
+
         if (empty($boardIds)) {
-            return Card::whereRaw('1 = 0');
+            if ($isQcPersonalExport) {
+                // No restriction — let the QC date+comment filter below narrow results
+                $boardIds = null; // null = all boards
+            } else {
+                return Card::whereRaw('1 = 0');
+            }
         }
 
-        $query = Card::whereIn('board_id', $boardIds)->with(['board', 'boardList', 'assignees', 'labels', 'files', 'activities', 'comments']);
+        // $boardIds === null means QC personal export with no specific board selection (search all boards)
+        $query = ($boardIds === null)
+            ? Card::query()->with(['board', 'boardList', 'assignees', 'labels', 'files', 'activities', 'comments'])
+            : Card::whereIn('board_id', $boardIds)->with(['board', 'boardList', 'assignees', 'labels', 'files', 'activities', 'comments']);
 
-        // Load comments and comment user if comments are included
-        if ($request->boolean('include_comments', false)) {
+        // For QC personal exports, override the default comments eager-load with only
+        // the relevant QC-approved comments. This ensures assignActivityDates has the
+        // exact same set of comments it uses for timestamp collection, and avoids
+        // loading thousands of unrelated comments into memory.
+        $isPersonalExportCheck = $request->boolean('is_personal_report', false)
+            || str_contains(request()->path(), 'personal-report')
+            || request()->routeIs('*.personal.export')
+            || request()->routeIs('reports.personal.export')
+            || request()->routeIs('boards.reports.personal.export');
+        $currentUser = auth()->user();
+        if ($isPersonalExportCheck && $currentUser && $currentUser->isQc()) {
+            $qcUserId = $currentUser->id;
+            $query->with(['comments' => function($q) use ($qcUserId) {
+                // Only load the QC-approved comments by this user — these are all
+                // that assignActivityDates needs for QC timestamp calculation.
+                $q->where('user_id', $qcUserId)
+                  ->where('is_system', false)
+                  ->whereRaw("LOWER(content) LIKE '%qc%approve%'")
+                  ->orderBy('created_at', 'asc');
+            }]);
+        } elseif ($request->boolean('include_comments', false)) {
             $query->with(['comments' => function($q) {
                 $q->where('is_system', false)->orderBy('created_at', 'asc');
             }, 'comments.user']);
         }
 
         $isPersonalExport = $request->boolean('is_personal_report', false)
+            || str_contains(request()->path(), 'personal-report')
             || request()->routeIs('*.personal.export')
             || request()->routeIs('reports.personal.export')
             || request()->routeIs('boards.reports.personal.export');
 
+        $startDate = null;
+        $endDate = null;
+
         // 1. Date Range Filtering
         if ($request->filled('date_range') && $request->date_range !== 'all_time') {
             $now = Carbon::now('Asia/Phnom_Penh');
-            $startDate = null;
-            $endDate = null;
 
             switch ($request->date_range) {
                 case 'today':
-                     $startDate = $now->copy()->startOfDay()->setTimezone('UTC');
-                     $endDate = $now->copy()->endOfDay()->setTimezone('UTC');
+                     $startDate = $now->copy()->startOfDay();
+                     $endDate = $now->copy()->endOfDay();
                      break;
                 case 'this_week':
-                     $startDate = $now->copy()->startOfWeek()->setTimezone('UTC');
-                     $endDate = $now->copy()->endOfWeek()->setTimezone('UTC');
+                     $startDate = $now->copy()->startOfWeek();
+                     $endDate = $now->copy()->endOfWeek();
                      break;
                 case 'this_month':
-                     $startDate = $now->copy()->startOfMonth()->setTimezone('UTC');
-                     $endDate = $now->copy()->endOfMonth()->setTimezone('UTC');
+                     $startDate = $now->copy()->startOfMonth();
+                     $endDate = $now->copy()->endOfMonth();
                      break;
                 case 'last_month':
-                     $startDate = $now->copy()->subMonth()->startOfMonth()->setTimezone('UTC');
-                     $endDate = $now->copy()->subMonth()->endOfMonth()->setTimezone('UTC');
+                     $startDate = $now->copy()->subMonth()->startOfMonth();
+                     $endDate = $now->copy()->subMonth()->endOfMonth();
                      break;
                 case 'custom':
                 case 'custom_period':
                      if ($request->filled('start_date')) {
-                         $startDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC');
+                         $startDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
                      }
                      if ($request->filled('end_date')) {
-                         $endDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC');
+                         $endDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay();
                      }
                      break;
             }
@@ -284,11 +339,13 @@ class BoardExportController extends Controller
             if ($user->isQc()) {
                 // QC Personal Report scope:
                 //  • ONLY cards where THIS QC user has commented "QC approved" within the selected date range
+                //  • System-generated comments are excluded to avoid false positives
                 $userId = $user->id;
                 $query->where(function($q) use ($userId, $startDate, $endDate) {
                     $q->whereHas('comments', function($qc) use ($userId, $startDate, $endDate) {
                         $qc->where('user_id', $userId)
-                           ->whereRaw("LOWER(content) LIKE '%qc approved%'");
+                           ->where('is_system', false)  // Exclude auto-generated comments that may contain "qc approved"
+                           ->whereRaw("LOWER(content) LIKE '%qc%approve%'");
                         if (isset($startDate)) $qc->where('created_at', '>=', $startDate);
                         if (isset($endDate)) $qc->where('created_at', '<=', $endDate);
                     });
@@ -298,7 +355,7 @@ class BoardExportController extends Controller
                 $query->with(['qcApprovalComments' => function($q) use ($userId) {
                     $q->where('user_id', $userId)
                       ->where('is_system', false)
-                      ->whereRaw("LOWER(content) LIKE '%qc approved%'")
+                      ->whereRaw("LOWER(content) LIKE '%qc%approve%'")
                       ->orderBy('created_at');
                 }]);
 
@@ -338,7 +395,8 @@ class BoardExportController extends Controller
                 // For QC Personal Report, ONLY look at "QC approved" comments by this user
                 $userId = auth()->id();
                 foreach ($card->comments as $comment) {
-                    if ($comment->user_id === $userId && stripos($comment->content ?? $comment->body, 'qc approved') !== false) {
+                    $cText = strtolower($comment->content ?? $comment->body ?? '');
+                    if ($comment->user_id === $userId && (str_contains($cText, 'qc approved') || str_contains($cText, 'qc  approved') || (str_contains($cText, 'qc') && str_contains($cText, 'approve')))) {
                         $timestamps->push($comment->created_at);
                     }
                 }
@@ -397,6 +455,22 @@ class BoardExportController extends Controller
         $errorTasks = 0;
         $weeks = [];
 
+        // Pre-fetch all synced cards and activity logs in bulk to eliminate N+1 queries (fixes 504 Gateway Timeout)
+        $syncGroupIds = $cards->pluck('sync_group_id')->filter()->unique();
+        $syncedCardsByGroup = $syncGroupIds->isNotEmpty()
+            ? \App\Models\Card::with('boardList')->whereIn('sync_group_id', $syncGroupIds)->get()->groupBy('sync_group_id')
+            : collect();
+
+        $cardIds = $cards->pluck('id')->filter()->unique();
+        $logsByCard = $cardIds->isNotEmpty()
+            ? \App\Models\ActivityLog::where('subject_type', \App\Models\Card::class)
+                ->whereIn('subject_id', $cardIds)
+                ->whereIn('action', ['moved', 'updated'])
+                ->orderByDesc('created_at')
+                ->get()
+                ->groupBy('subject_id')
+            : collect();
+
         foreach ($cards as $c) {
             // Determine the week
             $weekName = 'Other';
@@ -406,8 +480,9 @@ class BoardExportController extends Controller
             if (stripos($listName, 'Week') !== false || stripos($listName, 'Final') !== false) {
                 $weekName = $listName;
             } else if ($c->sync_group_id && $board) {
-                // Find the synced card in the SMM board
-                $smmCard = \App\Models\Card::with('boardList')->where('sync_group_id', $c->sync_group_id)->where('board_id', $board->id)->first();
+                // Find the synced card in the SMM board from pre-fetched collection
+                $syncedInGroup = $syncedCardsByGroup->get($c->sync_group_id, collect());
+                $smmCard = $syncedInGroup->firstWhere('board_id', $board->id);
                 if ($smmCard && $smmCard->boardList) {
                     $smmListName = $smmCard->boardList->name;
                     if (stripos($smmListName, 'Week') !== false || stripos($smmListName, 'Final') !== false) {
@@ -421,8 +496,8 @@ class BoardExportController extends Controller
             if ($c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason)) {
                 $isError = true;
             } else if ($c->sync_group_id) {
-                // Check if any synced card is in a Blocked list
-                $syncedCards = \App\Models\Card::with('boardList')->where('sync_group_id', $c->sync_group_id)->get();
+                // Check if any synced card is in a Blocked list from pre-fetched collection
+                $syncedCards = $syncedCardsByGroup->get($c->sync_group_id, collect());
                 foreach ($syncedCards as $sc) {
                     if (stripos($sc->boardList?->name ?? '', 'Block') !== false) {
                         $isError = true;
@@ -435,17 +510,20 @@ class BoardExportController extends Controller
                 $errorTasks++;
             }
             
-            // Completed date from ActivityLog
+            // Completed date from pre-fetched ActivityLog collection
             $completedDate = null;
             $isApproved = $c->status === \App\Enums\CardStatus::Approved || $c->status === \App\Enums\CardStatus::Done || stripos($listName, 'Approved') !== false;
             if ($isApproved) {
-                $log = $c->activities()->where('action', 'moved')->where(function($q) {
-                    $q->where('description', 'like', '%Approved%')->orWhere('description', 'like', '%Done%');
-                })->orderByDesc('created_at')->first();
+                $cardLogs = $logsByCard->get($c->id, collect());
+                $log = $cardLogs->first(function($l) {
+                    return $l->action === 'moved' && (stripos($l->description ?? '', 'Approved') !== false || stripos($l->description ?? '', 'Done') !== false);
+                });
                 if ($log) {
                     $completedDate = $log->created_at;
                 } else {
-                     $logStatus = $c->activities()->where('action', 'updated')->where('description', 'like', '%status to Approved%')->orderByDesc('created_at')->first();
+                     $logStatus = $cardLogs->first(function($l) {
+                         return $l->action === 'updated' && stripos($l->description ?? '', 'status to Approved') !== false;
+                     });
                      if ($logStatus) {
                          $completedDate = $logStatus->created_at;
                      } else {
@@ -495,6 +573,9 @@ class BoardExportController extends Controller
      */
     public function exportCsv(Request $request, Board $board)
     {
+        @set_time_limit(180);
+        @ini_set('memory_limit', '512M');
+
         $includeDesc = $request->boolean('include_desc', false);
         $includeComments = $request->boolean('include_comments', false);
         $cards = $this->getFilteredCardsQuery($request, $board)->get();
@@ -553,37 +634,41 @@ class BoardExportController extends Controller
             switch ($request->date_range) {
                 case 'today': 
                     $period = 'Today'; 
-                    $filterStartDate = $now->copy()->startOfDay()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfDay()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfDay();
+                    $filterEndDate = $now->copy()->endOfDay();
                     break;
                 case 'this_week': 
                     $period = 'This Week';
-                    $filterStartDate = $now->copy()->startOfWeek()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfWeek()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfWeek();
+                    $filterEndDate = $now->copy()->endOfWeek();
                     break;
                 case 'this_month': 
                     $period = 'This Month';
-                    $filterStartDate = $now->copy()->startOfMonth()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfMonth()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfMonth();
+                    $filterEndDate = $now->copy()->endOfMonth();
                     break;
                 case 'last_month': 
                     $period = 'Last Month';
-                    $filterStartDate = $now->copy()->subMonth()->startOfMonth()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->subMonth()->endOfMonth()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
                     break;
                 case 'custom':
                 case 'custom_period':
                     $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
                     $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
                     $period = "$start - $end";
-                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC');
-                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC');
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay();
                     break;
             }
         }
 
         $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, false, false);
         $smmData = $this->prepareSmmExportData($cards, $board);
+
+        if ($request->boolean('raw') || $request->input('format') === 'raw_csv') {
+            return $this->streamRawCsv($smmData['groupedCards'], "board-report-{$board->slug}-" . now()->format('Y-m-d') . '.csv');
+        }
 
         $headers = [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
@@ -621,6 +706,9 @@ class BoardExportController extends Controller
      */
     public function exportPdf(Request $request, Board $board)
     {
+        @set_time_limit(180);
+        @ini_set('memory_limit', '512M');
+
         $cards = $this->getFilteredCardsQuery($request, $board)->get();
 
         // Calculate statistics - Completed tasks includes Done and Approved
@@ -689,31 +777,31 @@ class BoardExportController extends Controller
             switch ($request->date_range) {
                 case 'today': 
                     $period = 'Today'; 
-                    $filterStartDate = $now->copy()->startOfDay()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfDay()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfDay();
+                    $filterEndDate = $now->copy()->endOfDay();
                     break;
                 case 'this_week': 
                     $period = 'This Week'; 
-                    $filterStartDate = $now->copy()->startOfWeek()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfWeek()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfWeek();
+                    $filterEndDate = $now->copy()->endOfWeek();
                     break;
                 case 'this_month': 
                     $period = 'This Month'; 
-                    $filterStartDate = $now->copy()->startOfMonth()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfMonth()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfMonth();
+                    $filterEndDate = $now->copy()->endOfMonth();
                     break;
                 case 'last_month': 
                     $period = 'Last Month'; 
-                    $filterStartDate = $now->copy()->subMonth()->startOfMonth()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->subMonth()->endOfMonth()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
                     break;
                 case 'custom':
                 case 'custom_period':
                     $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
                     $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
                     $period = "$start - $end";
-                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC');
-                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC');
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay();
                     break;
             }
         }
@@ -806,7 +894,9 @@ class BoardExportController extends Controller
     {
         abort_unless(auth()->user()->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
 
-        $workspaces = $this->getAuthorizedWorkspaces(auth()->user());
+        // Include hidden boards so QC/Supervisor can select past-month boards
+        // (boards are hidden at month-end but must still be available for historical exports)
+        $workspaces = $this->getAuthorizedWorkspaces(auth()->user(), includeHidden: true);
         $users = \App\Models\User::where('is_active', true)->orderBy('name')->get();
 
         return view('reports.personal', compact('workspaces', 'users'));
@@ -817,9 +907,21 @@ class BoardExportController extends Controller
      */
     public function exportPersonalReport(Request $request)
     {
+        @set_time_limit(180);
+        @ini_set('memory_limit', '512M');
+
         abort_unless(auth()->user()->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
 
         $cards = $this->getFilteredCardsQuery($request, null)->get();
+
+        if (auth()->user()?->isQc()) {
+            // Deduplicate twin cards across synced boards (e.g. Workflow, Planning, and SMM boards)
+            // Always prefer the Workflow board card so it has the correct list ('Approved') and assignee
+            $cards = $cards->groupBy(fn($c) => $c->sync_group_id ?: ('card_' . $c->id))->map(function($group) {
+                return $group->first(fn($c) => stripos($c->board?->name ?? '', 'workflow') !== false) ?? $group->first();
+            })->values();
+        }
+
         $format = $request->input('format', 'pdf');
         $includeDesc = $request->boolean('include_desc', false);
         $includeComments = $request->boolean('include_comments', false);
@@ -833,31 +935,31 @@ class BoardExportController extends Controller
             switch ($request->date_range) {
                 case 'today': 
                     $period = 'Today'; 
-                    $filterStartDate = $now->copy()->startOfDay()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfDay()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfDay();
+                    $filterEndDate = $now->copy()->endOfDay();
                     break;
                 case 'this_week': 
                     $period = 'This Week'; 
-                    $filterStartDate = $now->copy()->startOfWeek()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfWeek()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfWeek();
+                    $filterEndDate = $now->copy()->endOfWeek();
                     break;
                 case 'this_month': 
                     $period = 'This Month'; 
-                    $filterStartDate = $now->copy()->startOfMonth()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->endOfMonth()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->startOfMonth();
+                    $filterEndDate = $now->copy()->endOfMonth();
                     break;
                 case 'last_month': 
                     $period = 'Last Month'; 
-                    $filterStartDate = $now->copy()->subMonth()->startOfMonth()->setTimezone('UTC');
-                    $filterEndDate = $now->copy()->subMonth()->endOfMonth()->setTimezone('UTC');
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
                     break;
                 case 'custom':
                 case 'custom_period':
                     $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
                     $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
                     $period = "$start - $end";
-                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC');
-                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC');
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay();
                     break;
             }
         }
@@ -874,7 +976,14 @@ class BoardExportController extends Controller
             $completedTasks = $cards->filter($isCompleted)->count();
             $archivedTasks  = $cards->filter(fn($c) => $c->is_archived)->count();
             $pendingTasks   = $totalTasks - $completedTasks - $archivedTasks;
-            $errorTasks     = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
+
+            // For QC report: errors = cards that required revisions (had to be QC approved more than once)
+            // For Supervisor report: errors = cards with rejection_reason or Rejected status
+            if (auth()->user()->isQc()) {
+                $errorTasks = $cards->filter(fn($c) => ($c->qcApprovalComments?->count() ?? 0) > 1)->count();
+            } else {
+                $errorTasks = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
+            }
             
             // Overdue = has a past deadline AND is NOT completed (not in Approved list) AND not archived
             $overdueTasks = $cards->filter(function($c) use ($isCompleted) {
@@ -907,6 +1016,12 @@ class BoardExportController extends Controller
                 }
             }
 
+            $smmData = $this->prepareSmmExportData($cards, null);
+
+            if ($request->boolean('raw') || $format === 'raw_csv') {
+                return $this->streamRawCsv($smmData['groupedCards'], 'personal-report-' . now()->format('Y-m-d') . '.csv');
+            }
+
             $headers = [
                 'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
                 'Content-Disposition' => 'attachment; filename="personal-report-' . now()->format('Y-m-d') . '.xls"',
@@ -918,13 +1033,14 @@ class BoardExportController extends Controller
             $response = response()->view('boards.export-xls', [
                 'board' => null,
                 'cards' => $cards,
+                'groupedCards' => $smmData['groupedCards'],
                 'period' => $period,
                 'totalTasks' => $totalTasks,
                 'completedTasks' => $completedTasks,
                 'pendingTasks' => $pendingTasks,
                 'overdueTasks' => $overdueTasks,
                 'archivedTasks' => $archivedTasks,
-                'errorTasks' => $errorTasks,
+                'errorTasks' => $smmData['errorTasks'] ?? $errorTasks,
                 'memberStats' => $memberStats,
                 'includeDesc' => $includeDesc,
                 'includeComments' => $includeComments,
@@ -948,7 +1064,14 @@ class BoardExportController extends Controller
         $completedTasks = $cards->filter($isCompleted)->count();
         $archivedTasks  = $cards->filter(fn($c) => $c->is_archived)->count();
         $pendingTasks   = $totalTasks - $completedTasks - $archivedTasks;
-        $errorTasks     = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
+
+        // For QC report: errors = cards that required revisions (had to be QC approved more than once)
+        // For Supervisor report: errors = cards with rejection_reason or Rejected status
+        if (auth()->user()->isQc()) {
+            $errorTasks = $cards->filter(fn($c) => ($c->qcApprovalComments?->count() ?? 0) > 1)->count();
+        } else {
+            $errorTasks = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
+        }
         
         // Overdue = has a past deadline AND is NOT completed AND not archived
         $overdueTasks = $cards->filter(function($c) use ($isCompleted) {
@@ -1064,6 +1187,63 @@ class BoardExportController extends Controller
             'reportUrl'     => request()->fullUrl(),
             'startDate'     => $filterStartDate ?? null,
             'endDate'       => $filterEndDate ?? null,
+        ]);
+    }
+
+    /**
+     * Stream a raw RFC-4180 CSV file with UTF-8 BOM.
+     */
+    private function streamRawCsv(array $groupedCards, string $filename): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($groupedCards) {
+            $out = fopen('php://output', 'w');
+            // Write UTF-8 BOM for Excel / Numbers compatibility
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($out, ['Class', 'Task / Title', 'Status', 'Assigned Members', 'Activity Date', 'Due Date', 'Completed Date', 'Attached', 'Labels']);
+
+            foreach ($groupedCards as $cardsInWeek) {
+                foreach ($cardsInWeek as $c) {
+                    $status = $c->is_archived ? 'Archived' : ($c->status ? $c->status->label() : 'To Do');
+                    $activityDate = $c->computed_activity_date ? $c->computed_activity_date->format('Y-m-d H:i') : ($c->created_at ? $c->created_at->format('Y-m-d H:i') : 'N/A');
+                    $dueDate = $c->due_at ? $c->due_at->format('Y-m-d') : 'None';
+                    $completedDate = $c->exact_completed_date ?? '-';
+                    $labels = $c->labels->pluck('name')->join(', ');
+
+                    $attachedParts = [];
+                    $imageFiles = $c->files->filter(fn($f) => $f->is_image)->values();
+                    $linksList  = $c->files->filter(fn($f) => $f->disk === 'url' || $f->mime_type === 'link')->values();
+                    $otherFiles = $c->files->filter(fn($f) => !$f->is_image && $f->disk !== 'url' && $f->mime_type !== 'link')->values();
+
+                    foreach ($imageFiles as $i => $img) {
+                        $label = $imageFiles->count() === 1 ? '1 Images' : 'Image ' . ($i + 1);
+                        $attachedParts[] = "{$label}: {$img->preview_url}";
+                    }
+                    foreach ($otherFiles as $i => $file) {
+                        $label = $otherFiles->count() === 1 ? '1 Files' : 'File ' . ($i + 1);
+                        $attachedParts[] = "{$label}: {$file->preview_url}";
+                    }
+                    foreach ($linksList as $i => $link) {
+                        $attachedParts[] = "Link " . ($i + 1) . ": {$link->path}";
+                    }
+
+                    $attached = !empty($attachedParts) ? implode("; ", $attachedParts) : '-';
+
+                    fputcsv($out, [
+                        $c->smm_class_label ?? '-',
+                        $c->title,
+                        $status,
+                        $c->assignees->pluck('name')->join(', ') ?: 'Unassigned',
+                        $activityDate,
+                        $dueDate,
+                        $completedDate,
+                        $attached,
+                        $labels,
+                    ]);
+                }
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 }

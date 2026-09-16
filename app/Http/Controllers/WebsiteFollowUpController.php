@@ -7,7 +7,10 @@ use App\Models\WebsiteFollowUp;
 use App\Models\WebsiteMaintenanceLog;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Jobs\GoogleBlogsSyncJob;
+use App\Services\GoogleBlogsSheetService;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class WebsiteFollowUpController extends Controller
 {
@@ -25,93 +28,199 @@ class WebsiteFollowUpController extends Controller
         abort_unless($this->canManageFollowUp(auth()->user()), 403);
 
         $validated = $request->validate([
-            'website_id'     => 'required|exists:websites,id',
-            'type'           => 'required|string|max:100',
-            'custom_type'    => 'nullable|string|max:100',
-            'title'          => 'nullable|string|max:255',
-            'url'            => 'nullable|url|max:1000',
-            'google_indexed' => 'nullable|in:yes,no,pending',
-            'note'           => 'nullable|string|max:3000',
-            'assigned_to'    => 'nullable|exists:users,id',
-            'created_at'     => 'nullable|date',
+            'type'               => 'required|string|max:100',
+            'custom_type'        => 'nullable|string|max:100',
+            'assigned_to'        => 'nullable|exists:users,id',
+            'created_at'         => 'nullable|date',
+            'force_overwrite'    => 'nullable',
+            'skip_sheet_sync'    => 'nullable',
+            'items'              => 'required|array|min:1',
+            'items.*.website_id' => 'required|exists:websites,id',
+            'items.*.url'        => 'nullable|url|max:1000',
+            'items.*.blog_sheet_class' => ['nullable', 'string', function ($attribute, $value, $fail) {
+                if ($value !== '' && !array_key_exists($value, GoogleBlogsSheetService::CLASS_BLOCKS)) {
+                    $supported = implode(', ', array_keys(GoogleBlogsSheetService::CLASS_BLOCKS));
+                    $fail("Invalid blog sheet class. Supported classes: {$supported}.");
+                }
+            }],
         ]);
 
-        $finalType = ($validated['type'] === 'other' && !empty($validated['custom_type'])) 
-                        ? $validated['custom_type'] 
+        $finalType = ($validated['type'] === 'other' && !empty($validated['custom_type']))
+                        ? $validated['custom_type']
                         : $validated['type'];
 
-        $imageUrl = null;
-        $imageUrl = null;
+        $sheetEnabled   = !empty(config('services.google_blogs.apps_script_url'));
+        $forceOverwrite = $request->boolean('force_overwrite');
+        $skipSheetSync  = $request->boolean('skip_sheet_sync');
 
-        $recentDuplicate = WebsiteFollowUp::where('website_id', $validated['website_id'])
-            ->where('created_by', auth()->id())
-            ->where('type', $finalType)
-            ->where('url', $validated['url'] ?? null)
-            ->where('updated_at', '>=', now()->subSeconds(10))
-            ->first();
-
-        if ($recentDuplicate) {
-            if ($request->wantsJson() || $request->ajax()) {
-                return response()->json(['success' => true, 'message' => "Follow-up added successfully."]);
-            }
-            return redirect()->route('websites.index', ['tab' => 'follow-up'])
-                ->with('success', "Follow-up added successfully.");
-        }
-
-        $followUp = new WebsiteFollowUp([
-            'website_id'     => $validated['website_id'],
-            'type'           => $finalType,
-            'title'          => $validated['title'] ?? null,
-            'url'            => $validated['url'] ?? null,
-            'image_url'      => $imageUrl,
-            'google_indexed' => $validated['google_indexed'] ?? 'pending',
-            'note'           => $validated['note'] ?? null,
-            'assigned_to'    => $validated['assigned_to'] ?? null,
-            'qc_status'      => 'pending',
-            'created_by'     => auth()->id(),
-        ]);
-
-        $followUp->save();
-
+        $targetDate = null;
         if (!empty($validated['created_at'])) {
-            // Parse with app timezone so the stored timestamp aligns with the date filter
-            $newDate = \Carbon\Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
-            // Force update created_at after save so Laravel doesn't override it with now()
-            $followUp->timestamps = false;
-            $followUp->created_at = $newDate;
-            $followUp->save();
+            $targetDate = Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
         }
 
-        if (!empty($validated['url'])) {
-            $url = $validated['url'];
-            dispatch(function () use ($followUp, $url) {
-                try {
-                    $response = \Illuminate\Support\Facades\Http::timeout(5)->get($url);
-                    if ($response->successful()) {
-                        $html = $response->body();
-                        $fetchedImageUrl = null;
-                        if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
-                            $fetchedImageUrl = $matches[1];
-                        } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
-                            $fetchedImageUrl = $matches[1];
-                        }
-                        if ($fetchedImageUrl) {
-                            $followUp->updateQuietly(['image_url' => $fetchedImageUrl]);
-                        }
+        $successCount = 0;
+        $errors = [];
+        $hasConflict = false;
+
+        foreach ($validated['items'] as $index => $item) {
+            $websiteId = $item['website_id'];
+            $url = $item['url'] ?? null;
+            $blogClass = $item['blog_sheet_class'] ?? null;
+
+            $recentDuplicate = WebsiteFollowUp::where('website_id', $websiteId)
+                ->where('created_by', auth()->id())
+                ->where('type', $finalType)
+                ->where('url', $url)
+                ->where('updated_at', '>=', now()->subSeconds(10))
+                ->first();
+
+            if ($recentDuplicate) {
+                $successCount++;
+                continue;
+            }
+
+            // For Blog Posts, sync with Google Sheets unless user opted to skip
+            if ($finalType === 'blog_post' && $sheetEnabled && !$skipSheetSync) {
+                if (empty($blogClass) || empty($url) || empty($targetDate)) {
+                    $errors[] = "Item #" . ($index + 1) . ": Class, URL, and Date are required for Blog Posts.";
+                    continue;
+                }
+
+                $month = $targetDate->month;
+                if ($month < 9 || $month > 12) {
+                    $errors[] = "Item #" . ($index + 1) . ": Google Sheet synchronization is currently configured for September–December Blogs (found month {$month}).";
+                    continue;
+                }
+
+                $website = Website::find($websiteId);
+                $dateForSheet = $targetDate->format('m/d/Y');
+                $sheetTab = match ($month) {
+                    9  => 'Sep Blogs',
+                    10 => 'Oct Blogs',
+                    11 => 'Nov Blogs',
+                    12 => 'Dec Blogs',
+                    default => 'Blogs',
+                };
+
+                if ($index > 0) {
+                    usleep(500000); // 0.5s pause to allow Google Apps Script lock to cleanly release
+                }
+
+                $googleService = new GoogleBlogsSheetService();
+                $syncResult = $googleService->syncBlogFollowUp(
+                    (string) $blogClass,
+                    $url,
+                    $dateForSheet,
+                    $website?->name ?? 'Unknown',
+                    $forceOverwrite,
+                    $sheetTab
+                );
+
+                if (!$syncResult['success']) {
+                    $rawMsg = $syncResult['error'] ?? $syncResult['message'] ?? 'Unknown error';
+
+                    $isDocLinkError = str_contains(strtolower($rawMsg), 'doc link') || str_contains(strtolower($rawMsg), 'docs link');
+                    $isConflict = (!$isDocLinkError) && (
+                        !empty($syncResult['needs_confirmation'])
+                        || str_contains($rawMsg, 'already has a Public Link')
+                        || str_contains($rawMsg, 'replace it')
+                    );
+
+                    if ($isConflict) {
+                        $hasConflict = true;
+                        $existingLink = $syncResult['existing_link'] ?? null;
+                        $linkNote = ($existingLink && filter_var($existingLink, FILTER_VALIDATE_URL)) ? " ({$existingLink})" : "";
+                        $reason = "Row in Google Sheet ({$sheetTab} / Class {$blogClass}) for '{$website?->name}' already has a Public Link{$linkNote}. You can overwrite it by confirming replacement.";
+                    } elseif ($isDocLinkError) {
+                        $hasConflict = false;
+                        $reason = $rawMsg;
+                    } else {
+                        $hasConflict = false;
+                        $reason = "Google Sheet sync issue ({$sheetTab} / Class {$blogClass}): " . $rawMsg;
                     }
-                } catch (\Exception $e) {}
-            })->afterResponse();
+
+                    $errors[] = "Item #" . ($index + 1) . " (" . ($website?->name ?? 'Website') . "): " . $reason;
+                    continue;
+                }
+            }
+
+            $followUp = new WebsiteFollowUp([
+                'website_id'          => $websiteId,
+                'type'                => $finalType,
+                'url'                 => $url,
+                'google_indexed'      => 'pending',
+                'assigned_to'         => $validated['assigned_to'] ?? null,
+                'qc_status'           => 'pending',
+                'created_by'          => auth()->id(),
+                'blog_sheet_class'    => $blogClass,
+                'google_sheet_status' => ($finalType === 'blog_post' && $sheetEnabled && !$skipSheetSync) ? 'synced' : 'skipped',
+            ]);
+
+            $followUp->save();
+
+            if ($targetDate) {
+                // Force update created_at after save so Laravel doesn't override it with now()
+                $followUp->timestamps = false;
+                $followUp->created_at = $targetDate;
+                $followUp->save();
+            }
+
+            // Background image-fetch
+            if (!empty($url)) {
+                dispatch(function () use ($followUp, $url) {
+                    try {
+                        $response = \Illuminate\Support\Facades\Http::timeout(5)->get($url);
+                        if ($response->successful()) {
+                            $html = $response->body();
+                            $fetchedImageUrl = null;
+                            if (preg_match('/<meta[^>]*property=[\'"]og:image[\'"][^>]*content=[\'"]([^\'"]+)[\'"]/i', $html, $matches)) {
+                                $fetchedImageUrl = $matches[1];
+                            } elseif (preg_match('/<meta[^>]*content=[\'"]([^\'"]+)[\'"][^>]*property=[\'"]og:image[\'"]/i', $html, $matches)) {
+                                $fetchedImageUrl = $matches[1];
+                            }
+                            if ($fetchedImageUrl) {
+                                $followUp->updateQuietly(['image_url' => $fetchedImageUrl]);
+                            }
+                        }
+                    } catch (\Exception $e) {}
+                })->afterResponse();
+            }
+
+            $website = Website::find($websiteId);
+            $this->logActivity('followup_added', "Follow-up ({$followUp->getTypeLabel()}) added for \"{$website?->name}\".");
+            
+            $successCount++;
         }
 
-        $website = Website::find($validated['website_id']);
-        $this->logActivity('followup_added', "Follow-up ({$followUp->getTypeLabel()}) added for \"{$website?->name}\".");
+        if (count($errors) > 0) {
+            $errorMsg = implode("\n", $errors);
+            if ($successCount === 0) {
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success'            => false,
+                        'needs_confirmation' => $hasConflict,
+                        'message'            => "Failed to add follow-ups:\n\n" . $errorMsg,
+                        'confirm_message'    => "Google Sheet Conflict Detected:\n\n" . $errorMsg . "\n\nWould you like to overwrite/replace the existing Public Link in Google Sheets?",
+                    ]);
+                }
+                return back()->with('error', "Failed to add follow-ups:\n\n" . $errorMsg);
+            } else {
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => true,
+                        'warning' => "Successfully added {$successCount} follow-up(s), with some issues:\n\n" . $errorMsg,
+                    ]);
+                }
+                return redirect()->route('websites.index', ['tab' => 'follow-up'])
+                    ->with('warning', "Successfully added {$successCount} follow-ups, but with some issues:\n\n" . $errorMsg);
+            }
+        }
 
         if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['success' => true, 'message' => "Follow-up added successfully."]);
+            return response()->json(['success' => true, 'message' => "Successfully added {$successCount} follow-ups."]);
         }
-
         return redirect()->route('websites.index', ['tab' => 'follow-up'])
-            ->with('success', "Follow-up added successfully.");
+            ->with('success', "Successfully added {$successCount} follow-ups.");
     }
 
     // ── UPDATE ────────────────────────────────────────────────────────────────
@@ -180,7 +289,16 @@ class WebsiteFollowUpController extends Controller
     {
         abort_unless($this->canManageFollowUp(auth()->user()), 403);
 
+        $type = $websiteFollowUp->type;
+        $blogClass = $websiteFollowUp->blog_sheet_class;
+        $url = $websiteFollowUp->url;
+        $sheetRow = $websiteFollowUp->google_sheet_row;
+
         $websiteFollowUp->delete();
+
+        if ($type === 'blog_post' && !empty($blogClass) && (!empty($sheetRow) || !empty($url))) {
+            dispatch(new \App\Jobs\GoogleBlogsDeleteJob($blogClass, $sheetRow ?? 0, $url))->afterResponse();
+        }
 
         return redirect()->route('websites.index', ['tab' => 'follow-up'])
             ->with('success', "Follow-up deleted.");
@@ -206,6 +324,37 @@ class WebsiteFollowUpController extends Controller
 
         return redirect()->route('websites.index', ['tab' => 'follow-up'])
             ->with('success', "Follow-up QC status updated to " . ucfirst($validated['qc_status']) . ".");
+    }
+
+    // ── RETRY GOOGLE SHEET SYNC ───────────────────────────────────────────────
+    public function retrySheetSync(Request $request, WebsiteFollowUp $websiteFollowUp)
+    {
+        abort_unless(auth()->user()?->hasAnyRole(['super-admin', 'admin-digital', 'boss']), 403);
+        abort_unless(!empty(config('services.google_blogs.apps_script_url')), 422, 'Google Blogs Sheet is not configured.');
+
+        if (empty($websiteFollowUp->blog_sheet_class) || empty($websiteFollowUp->url)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This follow-up has no blog class or URL — cannot sync to Google Sheet.',
+            ], 422);
+        }
+
+        $date = Carbon::parse($websiteFollowUp->created_at, config('app.timezone', 'Asia/Phnom_Penh'))
+            ->format('d/m');
+
+        $websiteFollowUp->updateQuietly(['google_sheet_status' => 'pending', 'google_sheet_error' => null]);
+
+        GoogleBlogsSyncJob::dispatch(
+            $websiteFollowUp->id,
+            (string) $websiteFollowUp->blog_sheet_class,
+            $websiteFollowUp->url,
+            $date,
+        )->onQueue('default');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sync job re-queued. Status will update shortly.',
+        ]);
     }
 
     private function logActivity(string $action, string $description): void

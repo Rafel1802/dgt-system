@@ -22,10 +22,23 @@ class ProfileController extends Controller
                 return $file->getFilename();
             });
         }
+
+        $clockSounds = collect();
+        if (is_dir(public_path('clocksound'))) {
+            $clockFiles = \Illuminate\Support\Facades\File::files(public_path('clocksound'));
+            $clockSounds = collect($clockFiles)->map(function ($file) {
+                return $file->getFilename();
+            })->sort(function ($a, $b) {
+                if ($a === 'melodic-chime.wav') return -1;
+                if ($b === 'melodic-chime.wav') return 1;
+                return strnatcasecmp($a, $b);
+            })->values();
+        }
         
         return view('profile.show', [
             'user' => auth()->user(),
-            'sounds' => $sounds
+            'sounds' => $sounds,
+            'clockSounds' => $clockSounds,
         ]);
     }
 
@@ -40,14 +53,16 @@ class ProfileController extends Controller
             'phone'              => ['nullable', 'string', 'max:40'],
             'whatsapp'           => ['nullable', 'string', 'max:40'],
             'notification_sound' => ['nullable', 'string', 'max:255'],
+            'lunch_alarm_enabled'=> ['nullable', 'boolean'],
+            'lunch_alarm_sound'  => ['nullable', 'string', 'max:255'],
             'avatar'             => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'avatar_url'         => ['nullable', 'url', 'starts_with:http://,https://', 'max:2048'],
             'remove_avatar'      => ['nullable', 'boolean'],
         ];
 
-        if ($isPrivileged) {
-            $rules['email'] = ['required', 'email', 'max:255', 'unique:users,email,' . $user->id];
+        if ($isPrivileged && $request->filled('email')) {
             if ($request->input('email') !== $user->email) {
+                $rules['email'] = ['required', 'email', 'max:255', 'unique:users,email,' . $user->id];
                 $rules['current_password'] = ['required', 'current_password'];
             }
         }
@@ -81,6 +96,10 @@ class ProfileController extends Controller
         }
 
         unset($validated['avatar_url'], $validated['remove_avatar'], $validated['current_password']);
+
+        if ($request->has('lunch_alarm_enabled')) {
+            $validated['lunch_alarm_enabled'] = $request->boolean('lunch_alarm_enabled');
+        }
 
         $user->update($validated);
 
@@ -194,5 +213,46 @@ class ProfileController extends Controller
         }
 
         return back()->with('error', 'Sound file not found.');
+    }
+
+    public function uploadClockSound(Request $request): RedirectResponse
+    {
+        $user = auth()->user();
+        if (!$user || !$user->canManageClockSounds()) {
+            return back()->with('error', 'Unauthorized action. Only Super Admin, QC, and Supervisors can add clock ringtones.');
+        }
+
+        $request->validate([
+            'new_clock_sound' => ['required', 'file', 'mimetypes:audio/mpeg,audio/wav,audio/ogg,audio/x-wav', 'max:5120'], // 5MB max
+        ]);
+
+        $file = $request->file('new_clock_sound');
+        $filename = preg_replace('/[^A-Za-z0-9_\-\.]/', '_', $file->getClientOriginalName());
+
+        if (!is_dir(public_path('clocksound'))) {
+            @mkdir(public_path('clocksound'), 0755, true);
+        }
+
+        $file->move(public_path('clocksound'), $filename);
+
+        return back()->with('success', 'New clock ringtone added successfully!');
+    }
+
+    public function deleteClockSound(Request $request, string $sound): RedirectResponse
+    {
+        $user = auth()->user();
+        if (!$user || !$user->canManageClockSounds()) {
+            return back()->with('error', 'Unauthorized action.');
+        }
+
+        $filename = basename($sound);
+        $path = public_path('clocksound/' . $filename);
+
+        if (file_exists($path) && is_file($path)) {
+            @unlink($path);
+            return back()->with('success', 'Clock ringtone deleted successfully!');
+        }
+
+        return back()->with('error', 'Clock sound file not found.');
     }
 }

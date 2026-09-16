@@ -43,8 +43,9 @@ class ApprovalController extends Controller
      */
     public function index(Request $request): View
     {
+        $user = auth()->user();
         abort_unless(
-            auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm', 'boss']),
+            $user->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm', 'boss']) || $user->isQc(),
             403,
             'Access restricted to supervisors, admins and boss.'
         );
@@ -56,8 +57,16 @@ class ApprovalController extends Controller
         $availableBoards = Board::with('workspace')
             ->where('is_archived', false)
             ->whereHas('lists', fn($q) => $q->where('name', 'like', '%Approved%'))
-            ->orderBy('name')
-            ->get();
+            ->get()
+            ->groupBy(function($board) {
+                if (stripos($board->name, 'Workflow') !== false) {
+                    return $board->workspace_id . '_workflow';
+                }
+                return $board->id;
+            })
+            ->map(fn($boards) => $boards->sortByDesc('created_at')->first())
+            ->values()
+            ->sortBy('name');
 
         // ── Selected board IDs (admin can filter; default = all workflow boards) ─
         $selectedBoardIds = $request->input('board_ids');
@@ -109,28 +118,24 @@ class ApprovalController extends Controller
                 ->where('is_archived', false)
                 ->get();
 
-            // ── Helper: breakdown by team (checks card->label field first) ────────
-            // SMM takes priority: if a card matches 'SMM' it is only counted in the
-            // SMM bucket, never in the Graphic/Video/etc. buckets, preventing double-counting.
+            // SMM label is ignored for pipeline stats; we count the actual team label (Graphic, Video, etc.)
             $getBreakdownForCards = function($cards) {
-                $smmCards     = $cards->filter(fn($c) => $this->matchesTeam($c, 'SMM'));
-                $nonSmmCards  = $cards->reject(fn($c) => $this->matchesTeam($c, 'SMM'));
-                $smmCount     = $smmCards->count();
-                $graphicCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count();
-                $videoCount   = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count();
-                $listingCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count();
-                $contentCount = $nonSmmCards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count();
-                $qcCount      = $nonSmmCards->filter(fn($c) =>
+                $graphicCount = $cards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count();
+                $videoCount   = $cards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count();
+                $listingCount = $cards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count();
+                $contentCount = $cards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count();
+                $qcCount      = $cards->filter(fn($c) =>
                     $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
                 )->count();
+                
                 return [
-                    'total'   => $graphicCount + $videoCount + $listingCount + $contentCount + $qcCount + $smmCount,
+                    'total'   => $graphicCount + $videoCount + $listingCount + $contentCount + $qcCount,
                     'graphic' => $graphicCount,
                     'video'   => $videoCount,
                     'listing' => $listingCount,
                     'content' => $contentCount,
                     'qc'      => $qcCount,
-                    'smm'     => $smmCount,
+                    'smm'     => 0,
                 ];
             };
 
@@ -195,8 +200,57 @@ class ApprovalController extends Controller
             ];
         });
 
+        // ── Board Links ──────────────────────────────────────────────────
+        // Find active workflow board for each team
+        $boardLinks = [
+            'graphic' => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%Graphic%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+            'video'   => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%Video%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+            'listing' => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%Listing%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+            'content' => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%Conten%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+            'qc'      => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%QC%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+        ];
+
+        // ── Planning Board Stats ──────────────────────────────────────
+        $smmPlanningStats = [];
+        $teams = [
+            'graphic' => 'Graphic',
+            'video' => 'Video',
+            'listing' => 'Listing',
+            'content' => 'Conten',
+            'qc' => 'QC'
+        ];
+        
+        foreach ($teams as $key => $workspaceName) {
+            $workspace = \App\Models\Workspace::where('name', 'like', "%{$workspaceName}%")->first();
+            if ($workspace) {
+                $planningBoard = Board::where('workspace_id', $workspace->id)
+                    ->where('name', 'like', '%Planning%')
+                    ->where('is_archived', false)
+                    ->where('is_hidden', false)
+                    ->latest()
+                    ->first();
+
+                if ($planningBoard) {
+                    $teamCards = Card::where('board_id', $planningBoard->id)->with('boardList')->get();
+                    $smmPlanningStats[$key] = [
+                        'name' => str_replace('Conten', 'Content', $workspaceName), // Fix typo for display
+                        'board_name' => $planningBoard->name,
+                        'board_slug' => $planningBoard->slug,
+                        'weeks' => [],
+                    ];
+                    foreach (['Week 1', 'Week 2', 'Week 3', 'Week 4'] as $week) {
+                        $weekCards = $teamCards->filter(fn($c) => stripos($c->boardList?->name ?? '', $week) !== false);
+                        $smmPlanningStats[$key]['weeks'][$week] = [
+                            'approved' => $weekCards->filter(fn($c) => $c->status === 'approved' || !empty($c->approved_at))->count(),
+                            'unapproved' => $weekCards->filter(fn($c) => $c->status !== 'approved' && empty($c->approved_at))->count(),
+                        ];
+                    }
+                }
+            }
+        }
+
         return view('supervisor.approvals', compact(
-            'pendingCards', 'stats', 'period', 'availableBoards', 'selectedBoardIds'
+            'pendingCards', 'stats', 'period', 'availableBoards', 'selectedBoardIds', 'boardLinks', 'smmPlanningStats'
         ));
     }
 
@@ -205,8 +259,9 @@ class ApprovalController extends Controller
      */
     public function customRange(Request $request): JsonResponse
     {
+        $user = auth()->user();
         abort_unless(
-            auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm', 'boss']),
+            $user->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm', 'boss']) || $user->isQc(),
             403
         );
 

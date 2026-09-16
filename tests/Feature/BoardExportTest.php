@@ -201,7 +201,7 @@ class BoardExportTest extends TestCase
     {
         Carbon::setTestNow(Carbon::create(2026, 6, 5, 12, 0, 0));
 
-        // Card created today
+        // Card created and moved (activity) this month
         $cardToday = Card::create([
             'board_id' => $this->board->id,
             'board_list_id' => $this->list->id,
@@ -211,8 +211,17 @@ class BoardExportTest extends TestCase
         ]);
         $cardToday->created_at = now();
         $cardToday->save();
+        // A 'moved' activity in-range is required for the date filter to include this card
+        \App\Models\ActivityLog::create([
+            'subject_id'   => $cardToday->id,
+            'subject_type' => \App\Models\Card::class,
+            'user_id'      => $this->user->id,
+            'action'       => 'moved',
+            'description'  => 'Moved card to In Progress',
+            'created_at'   => now(),
+        ]);
 
-        // Card created 2 months ago
+        // Card created 2 months ago with activity also 2 months ago
         $cardOld = Card::create([
             'board_id' => $this->board->id,
             'board_list_id' => $this->list->id,
@@ -222,6 +231,14 @@ class BoardExportTest extends TestCase
         ]);
         $cardOld->created_at = now()->subMonths(2);
         $cardOld->save();
+        \App\Models\ActivityLog::create([
+            'subject_id'   => $cardOld->id,
+            'subject_type' => \App\Models\Card::class,
+            'user_id'      => $this->user->id,
+            'action'       => 'moved',
+            'description'  => 'Moved card to In Progress',
+            'created_at'   => now()->subMonths(2),
+        ]);
 
         // Request with 'this_month' filter
         $response = $this->actingAs($this->user)
@@ -238,5 +255,172 @@ class BoardExportTest extends TestCase
         $this->assertStringNotContainsString('Old Task', $content);
 
         Carbon::setTestNow(); // Reset test time
+    }
+
+    public function test_export_pdf_has_clickable_images_and_card_links(): void
+    {
+        $card = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Card With Attachments',
+            'status' => CardStatus::Todo,
+            'created_by' => $this->user->id,
+        ]);
+
+        $imageFile = \App\Models\CardFile::create([
+            'card_id' => $card->id,
+            'uploaded_by' => $this->user->id,
+            'original_name' => 'screenshot.png',
+            'stored_name' => 'screenshot.png',
+            'disk' => 'local',
+            'path' => 'kanban/' . $card->id . '/screenshot.png',
+            'mime_type' => 'image/png',
+            'size' => 1024,
+        ]);
+
+        $urlFile = \App\Models\CardFile::create([
+            'card_id' => $card->id,
+            'uploaded_by' => $this->user->id,
+            'original_name' => 'External Reference',
+            'stored_name' => 'https://drive.google.com/test-file',
+            'disk' => 'url',
+            'path' => 'https://drive.google.com/test-file',
+            'mime_type' => 'link',
+            'size' => 0,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('boards.export.pdf', [
+                'board' => $this->board->slug,
+            ]));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // Check that card title has clickable link with ?card=ID
+        $expectedCardUrl = route('boards.show', $this->board->slug) . '?card=' . $card->id;
+        $this->assertStringContainsString($expectedCardUrl, $content);
+        $this->assertStringContainsString('Card With Attachments', $content);
+
+        // Check that image has clickable link
+        $this->assertStringContainsString('1 Images', $content);
+        $this->assertStringContainsString($imageFile->preview_url, $content);
+
+        // Check that external link is present and clickable
+        $this->assertStringContainsString('https://drive.google.com/test-file', $content);
+        $this->assertStringContainsString('Link 1', $content);
+    }
+
+    public function test_export_csv_has_attached_column_and_clickable_links(): void
+    {
+        $card = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Task With CSV Attachments',
+            'status' => CardStatus::Todo,
+            'created_by' => $this->user->id,
+        ]);
+
+        $imageFile = \App\Models\CardFile::create([
+            'card_id' => $card->id,
+            'uploaded_by' => $this->user->id,
+            'original_name' => 'photo.jpg',
+            'stored_name' => 'photo.jpg',
+            'disk' => 'local',
+            'path' => 'kanban/' . $card->id . '/photo.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 2048,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('boards.export.csv', [
+                'board' => $this->board->slug,
+            ]));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // Check Attached column header
+        $this->assertStringContainsString('Attached', $content);
+
+        // Check that card title has link
+        $expectedCardUrl = route('boards.show', $this->board->slug) . '?card=' . $card->id;
+        $this->assertStringContainsString($expectedCardUrl, $content);
+
+        // Check that image link is in the Attached column
+        $this->assertStringContainsString('1 Images', $content);
+        $this->assertStringContainsString($imageFile->preview_url, $content);
+    }
+
+    public function test_export_csv_raw_streaming(): void
+    {
+        $card = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Raw CSV Task',
+            'status' => CardStatus::Todo,
+            'created_by' => $this->user->id,
+        ]);
+
+        $imageFile = \App\Models\CardFile::create([
+            'card_id' => $card->id,
+            'uploaded_by' => $this->user->id,
+            'original_name' => 'image.png',
+            'stored_name' => 'image.png',
+            'disk' => 'local',
+            'path' => 'kanban/' . $card->id . '/image.png',
+            'mime_type' => 'image/png',
+            'size' => 1024,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('boards.export.csv', [
+                'board' => $this->board->slug,
+                'raw' => 1,
+            ]));
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+
+        $content = $response->streamedContent();
+        $this->assertStringContainsString('Raw CSV Task', $content);
+        $this->assertStringContainsString($imageFile->preview_url, $content);
+    }
+
+    public function test_personal_report_csv_export_includes_tasks(): void
+    {
+        $supervisor = User::factory()->create([
+            'is_active' => true,
+            'team_role' => 'Supervisor',
+        ]);
+        $supervisor->assignRole('super-admin');
+
+        $card = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Personal Task for CSV',
+            'status' => CardStatus::Todo,
+            'created_by' => $supervisor->id,
+        ]);
+
+        \App\Models\ActivityLog::create([
+            'subject_type' => Card::class,
+            'subject_id' => $card->id,
+            'user_id' => $supervisor->id,
+            'action' => 'approved',
+            'description' => 'approved this card',
+        ]);
+
+        $response = $this->actingAs($supervisor)
+            ->get(route('boards.reports.personal.export', [
+                'format' => 'csv',
+                'board_ids' => [$this->board->id],
+            ]));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('Personal Task for CSV', $content);
+        $this->assertStringNotContainsString('No tasks found matching the selected filters.', $content);
     }
 }

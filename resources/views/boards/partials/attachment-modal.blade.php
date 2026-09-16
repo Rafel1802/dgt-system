@@ -1,3 +1,37 @@
+<style>
+  .attachment-modal-panel .attach-cancel-btn {
+    background: linear-gradient(135deg, #b91c1c, #991b1b) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(153, 27, 27, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(185, 28, 28, 0.28) !important;
+    transition: all 0.2s ease !important;
+  }
+  .attachment-modal-panel .attach-cancel-btn:hover,
+  .attachment-modal-panel .attach-cancel-btn:active {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    color: #ffffff !important;
+    border-color: #7f1d1d !important;
+    box-shadow: 0 4px 14px rgba(153, 27, 27, 0.4) !important;
+    transform: translateY(-1px);
+  }
+
+  .attachment-modal-panel .attach-submit-btn {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(29, 78, 216, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28) !important;
+    transition: all 0.2s ease !important;
+  }
+  .attachment-modal-panel .attach-submit-btn:hover,
+  .attachment-modal-panel .attach-submit-btn:active {
+    background: linear-gradient(135deg, #1d4ed8, #1e3a8a) !important;
+    color: #ffffff !important;
+    border-color: #1e3a8a !important;
+    box-shadow: 0 4px 14px rgba(29, 78, 216, 0.4) !important;
+    transform: translateY(-1px);
+  }
+</style>
+
 {{--
   Trello-style Attachment Modal
   State: attachmentModal.open, .tab ('file'|'link'), .cardId,
@@ -134,7 +168,7 @@
         </button>
         <button @click="$refs.amFileInput.click()"
                 :disabled="attachmentModal.uploading"
-                class="btn btn-primary flex-1 py-2.5">
+                class="btn btn-primary attach-submit-btn flex-1 py-2.5 font-bold">
           Choose File
         </button>
       </div>
@@ -197,7 +231,7 @@
         </button>
         <button @click="amSubmitLink()"
                 :disabled="!attachmentModal.linkUrl || attachmentModal.uploading"
-                class="btn btn-primary flex-1 py-2.5">
+                class="btn btn-primary attach-submit-btn flex-1 py-2.5 font-bold">
           Insert
         </button>
       </div>

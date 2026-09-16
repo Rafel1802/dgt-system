@@ -1,9 +1,77 @@
 {{-- Upgraded Card Detail Modal (Phase 2 Trello features) --}}
 <div x-show="activeCard !== null" x-cloak
-     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 pt-16 pb-32 lg:pb-16 overflow-y-auto"
+     class="fixed inset-0"
      style="z-index: 70;"
-     @click.self="closeCard()"
-     @keydown.escape.window="if(activeCard !== null && !imagePreview.open && !attachmentModal?.open && !exportModal?.open && !switchBoardsModal?.open && !importModal?.open && !cardTransferModal?.open) { $event.preventDefault(); closeCard(); }">
+     @keydown.escape.window="if(activeCard !== null && !imagePreview.open && !attachmentModal?.open && !exportModal?.open && !switchBoardsModal?.open && !importModal?.open && !cardTransferModal?.open) { $event.preventDefault(); closeCard(); }"
+     @keydown.window="handleCardModalKeydown($event)">
+
+  {{-- Fixed Fullscreen Backdrop with Blur --}}
+  <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+       @click="closeCard()"
+       aria-hidden="true"></div>
+
+  {{-- Floating Prev Button (Fixed on screen - Card Above) --}}
+  <button type="button"
+          @click.stop="prevCard()"
+          :disabled="!hasPrevCard()"
+          x-show="activeCard"
+          :class="hasPrevCard() 
+            ? 'bg-white/95 hover:bg-white text-slate-700 hover:text-indigo-600 shadow-2xl border-slate-200/80 hover:border-indigo-300 active:scale-95 cursor-pointer opacity-95 hover:opacity-100 dark:bg-slate-800/95 dark:hover:bg-slate-800 dark:text-slate-200 dark:hover:text-indigo-400 dark:border-slate-700' 
+            : 'bg-white/30 text-slate-400/50 border-white/20 opacity-20 cursor-not-allowed pointer-events-none dark:bg-slate-800/30 dark:text-slate-600 dark:border-slate-800'"
+          class="fixed left-3 sm:left-6 lg:left-8 xl:left-14 top-1/2 -translate-y-1/2 z-[85] transition-colors duration-150 flex flex-col items-center justify-center w-12 h-12 lg:w-14 lg:h-14 rounded-2xl border backdrop-blur-md shadow-2xl group focus:outline-none select-none"
+          :aria-label="getPrevCard() ? (getActiveCardIndex() === 0 ? 'Previous (Wrap to last card): ' + getPrevCard().title : 'Previous: ' + getPrevCard().title) : 'Previous card'">
+    <svg class="w-6 h-6 lg:w-7 lg:h-7 transition-transform duration-150 group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+    </svg>
+    <span class="text-[9px] font-black uppercase tracking-wider -mt-1 hidden lg:block text-slate-500 group-hover:text-indigo-600 dark:text-slate-400 dark:group-hover:text-indigo-400">Prev</span>
+
+    {{-- Hover Tooltip Preview (Persistent node, single smooth fade) --}}
+    <div x-show="hasPrevCard() && getPrevCard()"
+         class="absolute left-full ml-3 top-1/2 -translate-y-1/2 bg-slate-900/95 text-white p-2.5 rounded-xl shadow-2xl pointer-events-none whitespace-normal opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-[80] hidden md:block w-52 text-left border border-slate-700/60">
+      <div class="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-0.5">
+        <span x-text="getActiveCardIndex() === 0 ? '⤾ Previous (Last Card in List)' : '↑ Previous Card (Above)'"></span>
+      </div>
+      <div class="text-xs font-semibold text-slate-100 line-clamp-2 leading-snug" x-text="getPrevCard() ? getPrevCard().title : ''"></div>
+      <div class="mt-1 text-[10px] text-slate-400 flex items-center justify-between">
+        <span x-text="'Card ' + (getActiveCardIndex() === 0 ? totalCardsInActiveList() : getActiveCardIndex()) + ' of ' + totalCardsInActiveList()"></span>
+        <span class="font-mono text-[9px] bg-slate-800 px-1 py-0.5 rounded border border-slate-700">← / ↑</span>
+      </div>
+    </div>
+  </button>
+
+  {{-- Floating Next Button (Right Side - Card Below) --}}
+  <button type="button"
+          @click.stop="nextCard()"
+          :disabled="!hasNextCard()"
+          x-show="activeCard"
+          :class="hasNextCard() 
+            ? 'bg-white/95 hover:bg-white text-slate-700 hover:text-indigo-600 shadow-2xl border-slate-200/80 hover:border-indigo-300 active:scale-95 cursor-pointer opacity-95 hover:opacity-100 dark:bg-slate-800/95 dark:hover:bg-slate-800 dark:text-slate-200 dark:hover:text-indigo-400 dark:border-slate-700' 
+            : 'bg-white/30 text-slate-400/50 border-white/20 opacity-20 cursor-not-allowed pointer-events-none dark:bg-slate-800/30 dark:text-slate-600 dark:border-slate-800'"
+          class="fixed right-3 sm:right-6 lg:right-8 xl:right-14 top-1/2 -translate-y-1/2 z-[85] transition-colors duration-150 flex flex-col items-center justify-center w-12 h-12 lg:w-14 lg:h-14 rounded-2xl border backdrop-blur-md shadow-2xl group focus:outline-none select-none"
+          :aria-label="getNextCard() ? (getActiveCardIndex() === totalCardsInActiveList() - 1 ? 'Next (Wrap to first card): ' + getNextCard().title : 'Next: ' + getNextCard().title) : 'Next card'">
+    <svg class="w-6 h-6 lg:w-7 lg:h-7 transition-transform duration-150 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+    </svg>
+    <span class="text-[9px] font-black uppercase tracking-wider -mt-1 hidden lg:block text-slate-500 group-hover:text-indigo-600 dark:text-slate-400 dark:group-hover:text-indigo-400">Next</span>
+
+    {{-- Hover Tooltip Preview (Persistent node, single smooth fade) --}}
+    <div x-show="hasNextCard() && getNextCard()"
+         class="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-slate-900/95 text-white p-2.5 rounded-xl shadow-2xl pointer-events-none whitespace-normal opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-[90] hidden md:block w-52 text-left border border-slate-700/60">
+      <div class="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-0.5">
+        <span x-text="getActiveCardIndex() === totalCardsInActiveList() - 1 ? '⤿ Next (First Card in List)' : '↓ Next Card (Below)'"></span>
+      </div>
+      <div class="text-xs font-semibold text-slate-100 line-clamp-2 leading-snug" x-text="getNextCard() ? getNextCard().title : ''"></div>
+      <div class="mt-1 text-[10px] text-slate-400 flex items-center justify-between">
+        <span x-text="'Card ' + (getActiveCardIndex() === totalCardsInActiveList() - 1 ? 1 : getActiveCardIndex() + 2) + ' of ' + totalCardsInActiveList()"></span>
+        <span class="font-mono text-[9px] bg-slate-800 px-1 py-0.5 rounded border border-slate-700">→ / ↓</span>
+      </div>
+    </div>
+  </button>
+
+  {{-- Scrollable Container for Card Modal Box --}}
+  <div id="card-modal-scroll-container"
+       class="fixed inset-0 flex items-start justify-center p-4 pt-16 pb-32 lg:pb-16 overflow-y-auto z-[75]"
+       @click.self="closeCard()">
 
   <div class="trello-card-modal bg-white rounded-2xl shadow-2xl w-full max-w-4xl mb-8 overflow-hidden border border-slate-100 flex flex-col"
        x-show="activeCard"
@@ -60,17 +128,53 @@
               </div>
             </div>
           </div>
-          <button @click="closeCard()" class="text-slate-400 hover:text-slate-600 flex-shrink-0 mt-1 p-1 hover:bg-slate-200/50 rounded-full transition-colors">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-            </svg>
-          </button>
+          <div class="flex items-center gap-1.5 flex-shrink-0 mt-1">
+            {{-- Order Counter: e.g. 5 / 40 --}}
+            <div x-show="totalCardsInActiveList() > 0" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold text-slate-600 dark:text-slate-300 select-none mr-0.5">
+              <span x-text="(getActiveCardIndex() + 1)"></span>
+              <span class="text-slate-400 font-normal">/</span>
+              <span x-text="totalCardsInActiveList()"></span>
+            </div>
+
+            {{-- Prev Button (Above) --}}
+            <button type="button"
+                    @click="prevCard()"
+                    :disabled="!hasPrevCard()"
+                    :class="hasPrevCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-sm bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
+                    class="p-1.5 rounded-lg transition-all flex items-center justify-center"
+                    :title="getPrevCard() ? (getActiveCardIndex() === 0 ? 'Previous card (wrap to last): ' + getPrevCard().title + ' [← / ↑]' : 'Previous card (above): ' + getPrevCard().title + ' [← / ↑]') : 'Only 1 card in this list'">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+
+            {{-- Next Button (Below) --}}
+            <button type="button"
+                    @click="nextCard()"
+                    :disabled="!hasNextCard()"
+                    :class="hasNextCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-sm bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
+                    class="p-1.5 rounded-lg transition-all flex items-center justify-center"
+                    :title="getNextCard() ? (getActiveCardIndex() === totalCardsInActiveList() - 1 ? 'Next card (wrap to first): ' + getNextCard().title + ' [→ / ↓]' : 'Next card (below): ' + getNextCard().title + ' [→ / ↓]') : 'Only 1 card in this list'">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+
+            <div class="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
+            {{-- Close Button --}}
+            <button @click="closeCard()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 rounded-full transition-colors" title="Close (Esc)">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         {{-- Meta Badges Row --}}
         <div class="flex flex-wrap gap-6 mt-5 text-xs" style="padding-left: 40px;">
-          {{-- SMM Specific: Team & Class Labels --}}
-          <template x-if="board?.name?.toLowerCase().includes('smm') || activeCard?.smm_class_label || activeCard?.smm_cluster_label || activeCard?.content_public_date || activeCard?.labels?.some(l => l.name.toLowerCase() === 'smm')">
+          {{-- SMM Specific: Class & Content Type & Public Date --}}
+          <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow' || activeCard?.smm_class_label || activeCard?.smm_cluster_label || activeCard?.content_public_date || activeCard?.labels?.some(l => l.name.toLowerCase() === 'smm')">
             <div class="flex flex-col gap-6 text-xs w-full">
               {{-- CLASSIFICATION --}}
               <div>
@@ -94,10 +198,20 @@
                   <div class="min-w-[100px]">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Content Type</p>
                     <div x-show="activeCard?.smm_cluster_label">
-                      <span class="px-2.5 py-1 rounded-md text-indigo-700 bg-indigo-50 font-bold text-[10px] shadow-sm border border-indigo-100" x-text="activeCard?.smm_cluster_label"></span>
+                      <button type="button" @click="$dispatch('open-content-type-picker')"
+                              class="px-2.5 py-1 rounded-md font-bold text-[10px] shadow-sm inline-flex items-center gap-1.5 hover:opacity-90 transition-all cursor-pointer"
+                              :style="getContentTypeBadgeStyle(activeCard?.smm_cluster_label)"
+                              title="Click to change Content Type">
+                        <span x-text="activeCard?.smm_cluster_label"></span>
+                        <svg class="w-2.5 h-2.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                      </button>
                     </div>
                     <div x-show="!activeCard?.smm_cluster_label">
-                      <span class="text-xs text-slate-400 italic">None</span>
+                      <button type="button" @click="$dispatch('open-content-type-picker')"
+                              class="text-xs text-slate-400 italic hover:text-indigo-600 transition-colors cursor-pointer"
+                              title="Click to select Content Type">
+                        + Select
+                      </button>
                     </div>
                   </div>
                   {{-- Content Public Date --}}
@@ -106,9 +220,17 @@
                     <div class="relative flex items-center">
                       <input type="date" 
                              :value="formatInputDate(activeCard?.content_public_date)" 
-                             @change="updateCardField({ content_public_date: $event.target.value })" 
-                             class="px-2.5 py-1 rounded-md text-amber-700 bg-amber-50 font-bold text-[10px] shadow-sm border border-amber-100 focus:ring-1 focus:ring-amber-300 focus:border-amber-300 w-[125px] cursor-pointer"
+                             @change="updatePublicDate(activeCard, $event.target.value)" 
+                             class="no-flatpickr px-2.5 py-1 rounded-md text-amber-700 bg-amber-50 font-bold text-[10px] shadow-sm border border-amber-200 focus:ring-1 focus:ring-amber-300 focus:border-amber-300 w-[125px] cursor-pointer transition-colors"
                              title="Click to edit public date" />
+                      <template x-if="activeCard?.content_public_date">
+                        <button type="button"
+                                @click="updatePublicDate(activeCard, null)"
+                                class="ml-1 text-slate-300 hover:text-rose-500 p-0.5 rounded transition-colors"
+                                title="Remove public date">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                      </template>
                     </div>
                   </div>
                   {{-- Assign By --}}
@@ -257,6 +379,7 @@
                            modules: {
                              toolbar: [
                                ['bold', 'italic', 'underline', 'strike'],
+                               [{ 'color': [] }, { 'background': [] }],
                                [{ 'header': [1, 2, 3, false] }],
                                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
                                ['link', 'clean']
@@ -420,10 +543,12 @@
                               @click.stop="openVideoPreview(f)"
                               class="w-full overflow-hidden whitespace-nowrap relative text-left group"
                               style="-webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%); mask-image: linear-gradient(to right, black 85%, transparent 100%);">
-                          <span class="inline-block transition-transform duration-[4000ms] ease-linear text-xs font-bold text-slate-700 group-hover:text-[#2F68ED]"
-                                @mouseenter="if($el.scrollWidth > $el.parentElement.clientWidth) $el.style.transform = `translateX(-${$el.scrollWidth - $el.parentElement.clientWidth + 10}px)`"
-                                @mouseleave="$el.style.transform = 'translateX(0)'"
-                                x-text="f.original_name"></span>
+                          <template x-if="f.original_name.length > 15">
+                              <marquee scrollamount="1" scrolldelay="0" class="w-full text-xs font-bold text-slate-700 group-hover:text-[#2F68ED]" x-text="f.original_name"></marquee>
+                          </template>
+                          <template x-if="f.original_name.length <= 15">
+                              <span class="block text-xs font-bold text-slate-700 group-hover:text-[#2F68ED]" x-text="f.original_name"></span>
+                          </template>
                       </button>
                       
                       <a x-show="!f.is_video"
@@ -432,10 +557,12 @@
                          rel="noopener"
                          class="w-full overflow-hidden whitespace-nowrap relative block group"
                          style="-webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%); mask-image: linear-gradient(to right, black 85%, transparent 100%);">
-                          <span class="inline-block transition-transform duration-[4000ms] ease-linear text-xs font-bold text-slate-700 group-hover:text-[#2F68ED]"
-                                @mouseenter="if($el.scrollWidth > $el.parentElement.clientWidth) $el.style.transform = `translateX(-${$el.scrollWidth - $el.parentElement.clientWidth + 10}px)`"
-                                @mouseleave="$el.style.transform = 'translateX(0)'"
-                                x-text="f.original_name"></span>
+                          <template x-if="f.original_name.length > 15">
+                              <marquee scrollamount="1" scrolldelay="0" class="w-full text-xs font-bold text-slate-700 group-hover:text-[#2F68ED]" x-text="f.original_name"></marquee>
+                          </template>
+                          <template x-if="f.original_name.length <= 15">
+                              <span class="block text-xs font-bold text-slate-700 group-hover:text-[#2F68ED]" x-text="f.original_name"></span>
+                          </template>
                       </a>
                       
                       <p class="text-[10px] text-slate-400 mt-0.5" x-text="f.disk === 'url' ? 'External link' : f.formatted_size"></p>
@@ -530,7 +657,7 @@
               <div class="flex gap-3 mb-6">
                 <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->name }}"
                      class="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-sm flex-shrink-0 select-none mt-1">
-                <div class="flex-1" x-data="{ commentFocused: false }">
+                <div class="flex-1" x-data="{ commentFocused: false, quickReplies: ['Ready', 'Team approved', 'Head approved', 'QC approved', 'QC approved SMM', 'Approved', 'Blocked'] }">
                   {{-- Paste image preview --}}
                   <template x-if="pastedImage">
                     <div class="relative mb-2 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 inline-block max-w-full">
@@ -542,7 +669,7 @@
                   </template>
 
                   <div class="relative">
-                    <textarea x-ref="commentInput" x-model="newComment" rows="2" placeholder="Write a comment… or paste a screenshot (⌘+V)"
+                    <textarea x-ref="commentInput" x-model="newComment" rows="4" placeholder="Write a comment… or paste a screenshot (⌘+V)"
                               class="w-full p-3 pr-10 text-xs bg-white border border-slate-200 focus:bg-white rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none transition-all shadow-sm resize-none kanban-comment-bubble kanban-comment-text"
                               @keydown.ctrl.enter="submitComment()"
                               @keydown.meta.enter="pastedImage ? sendScreenshot() : submitComment()"
@@ -574,6 +701,19 @@
 
                     <div class="absolute right-2.5 bottom-2.5 text-slate-300 text-[10px] select-none" x-show="!newComment.trim() && !pastedImage">
                       ⌘↵
+                    </div>
+
+                    {{-- Quick Replies Dropdown --}}
+                    <div x-show="commentFocused && !newComment.trim() && !pastedImage"
+                         x-transition
+                         class="absolute z-40 bottom-full left-0 mb-1 w-56 bg-white border border-slate-200 shadow-xl rounded-xl py-1 overflow-hidden"
+                         x-cloak>
+                        <template x-for="reply in quickReplies" :key="reply">
+                            <button type="button" @mousedown.prevent="newComment = reply; setTimeout(() => $refs.commentInput.focus(), 10)"
+                                    class="w-full text-left px-3 py-1.5 text-xs text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors block font-medium">
+                                <span x-text="reply"></span>
+                            </button>
+                        </template>
                     </div>
                   </div>
 
@@ -699,7 +839,7 @@
                              class="w-5 h-5 cursor-zoom-in rounded-full object-cover border border-slate-100/50 flex-shrink-0 mt-0.5">
                         <div class="flex-1">
                           <span class="font-bold text-slate-700" x-text="item.user_name"></span>
-                          <span x-html="parseMarkdown(item.description)" class="text-slate-600 text-[11px] [&_strong]:text-slate-800 [&_strong]:font-semibold [&_strong]:not-italic"></span>
+                          <span x-html="parseMarkdown(typeof formatActivityDescription === 'function' ? formatActivityDescription(item.description) : (item.description?.replace(/\bbulk\s+copied\b/gi, 'copied') || item.description))" class="text-slate-600 text-[11px] [&_strong]:text-slate-800 [&_strong]:font-semibold [&_strong]:not-italic"></span>
                           <span class="text-[10px] text-slate-400 font-medium ml-1" x-text="item.time_ago"></span>
                         </div>
                       </div>
@@ -837,6 +977,72 @@
                 </div>
               </template>
 
+              {{-- Content Type Dropdown Action (Work Task / Content Type) --}}
+              <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow' || activeCard?.smm_class_label || activeCard?.smm_cluster_label || activeCard?.content_public_date || activeCard?.labels?.some(l => l.name.toLowerCase() === 'smm')">
+                <div class="relative" x-data="{ open: false, search: '' }" @open-content-type-picker.window="open = true; search = ''; $nextTick(() => { if($refs.contentTypeSearch) $refs.contentTypeSearch.focus() })">
+                  <button type="button" @click="open = !open; search = ''; $nextTick(() => { if(open && $refs.contentTypeSearch) $refs.contentTypeSearch.focus() })"
+                        class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl relative group">
+                    <span class="text-sm">🎬</span>
+                    <span class="font-semibold truncate" x-text="activeCard?.smm_cluster_label ? 'Content: ' + activeCard.smm_cluster_label : 'Content Type'"></span>
+                    <template x-if="activeCard?.smm_cluster_label">
+                      <span class="ml-auto w-2.5 h-2.5 rounded-full shadow-sm border border-white shrink-0" :style="'background-color:' + (getContentTypeStyle(activeCard.smm_cluster_label)?.dot || '#6366f1')"></span>
+                    </template>
+                  </button>
+                  <div x-show="open" @click.outside="open = false" x-cloak
+                       class="absolute right-0 top-11 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 py-1.5"
+                       x-transition:enter="transition ease-out duration-75"
+                       x-transition:enter-start="scale-95 opacity-0"
+                       x-transition:enter-end="scale-100 opacity-100"
+                       x-transition:leave="transition ease-in duration-75"
+                       x-transition:leave-start="scale-100 opacity-100"
+                       x-transition:leave-end="scale-95 opacity-0">
+                    <div class="flex items-center justify-between px-3 py-1.5 border-b border-slate-100">
+                      <p class="text-[10px] uppercase font-bold text-slate-400 select-none">Work Task / Content Type</p>
+                      <button type="button" @click="open = false" class="text-slate-400 hover:text-slate-600 text-xs leading-none p-0.5">✕</button>
+                    </div>
+                    
+                    <div class="px-2 py-1.5 border-b border-slate-100">
+                        <input type="text" x-model="search" x-ref="contentTypeSearch"
+                               placeholder="Search content type..." 
+                               class="form-input w-full text-xs py-1.5 px-2 rounded-lg border-slate-200 shadow-inner">
+                    </div>
+
+                    <div class="max-h-52 overflow-y-auto py-1">
+                      {{-- Clear / None option if currently selected --}}
+                      <template x-if="activeCard?.smm_cluster_label">
+                        <button type="button" @click="setSmmContentType(null); open = false"
+                                class="w-full flex items-center justify-between px-3 py-2 text-xs text-left text-rose-600 hover:bg-rose-50 transition-colors">
+                          <span class="italic font-medium">✕ Clear Content Type</span>
+                        </button>
+                      </template>
+
+                      {{-- Presets matching Google Sheets --}}
+                      <template x-for="item in (smmContentTypes || []).filter(t => t.name.toLowerCase().includes(search.toLowerCase()))" :key="item.name">
+                        <button type="button" @click="setSmmContentType(item.name); open = false"
+                                class="w-full flex items-center justify-between px-3 py-2 text-xs text-left hover:bg-slate-50 transition-colors">
+                          <div class="flex items-center gap-2">
+                            <span class="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold shadow-xs border"
+                                  :style="'background-color:' + item.bg + '; color:' + item.text + '; border-color:' + item.border"
+                                  x-text="item.name"></span>
+                          </div>
+                          <template x-if="activeCard?.smm_cluster_label?.toLowerCase() === item.name.toLowerCase()">
+                            <span class="text-indigo-600 font-extrabold text-xs ml-2">✓</span>
+                          </template>
+                        </button>
+                      </template>
+                    </div>
+
+                    {{-- Custom option if search doesn't match --}}
+                    <div x-show="(smmContentTypes || []).filter(t => t.name.toLowerCase().includes(search.toLowerCase())).length === 0 && search.trim() !== ''" class="px-3 py-2 text-center border-t border-slate-100 mt-1">
+                        <p class="text-[10px] text-slate-500 mb-1.5">No matching presets found.</p>
+                        <button type="button" @click="setSmmContentType(search.trim()); open = false" class="btn btn-primary w-full text-[10px] py-1.5 font-bold rounded shadow-sm">
+                            Use "<span x-text="search.trim()"></span>"
+                        </button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
           {{-- Dates Action --}}
           <button type="button" @click="openDatePicker(activeCard)" data-ctx-panel="dates"
                   class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl relative">
@@ -861,12 +1067,11 @@
           <template x-if="board?.name?.toLowerCase().includes('smm') || activeCard?.smm_class_label || activeCard?.smm_cluster_label || activeCard?.content_public_date || activeCard?.labels?.some(l => l.name.toLowerCase() === 'smm')">
             <div class="relative w-full">
               <input type="date"
-                     x-ref="publicDateInput"
-                     class="absolute w-0 h-0 opacity-0 pointer-events-none"
+                     class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10 no-flatpickr"
                      :value="formatInputDate(activeCard?.content_public_date)"
                      @change="updatePublicDate(activeCard, $event.target.value)">
-              <button type="button" @click="$refs.publicDateInput.showPicker ? $refs.publicDateInput.showPicker() : $refs.publicDateInput.click()"
-                      class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl relative">
+              <button type="button"
+                      class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl relative pointer-events-none">
                 <span class="text-sm">📅</span>
                 <span class="font-semibold" x-text="activeCard?.content_public_date ? 'Public: ' + formatDateShort(activeCard.content_public_date) : 'Public Date'"></span>
               </button>
@@ -886,7 +1091,7 @@
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none mb-2">Card Options</p>
             <button @click="openCardTransferModal('copy', activeCard, lists.find(l => l.id === activeCard.board_list_id))" type="button" class="w-full bg-white text-indigo-600 border border-indigo-200/60 rounded-xl text-xs justify-center gap-2 py-2.5 px-3 flex items-center hover:bg-indigo-50 hover:border-indigo-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white dark:hover:border-indigo-600 transition-all mb-2 shadow-sm">
               <span class="text-[11px]">📄</span>
-              <span class="font-bold">Copy / duplicate</span>
+              <span class="font-bold">Copy card to</span>
             </button>
             <div class="flex flex-row gap-2 w-full">
               <button @click="archiveCard()" type="button" class="bg-white text-amber-600 border border-amber-200/60 rounded-xl text-xs flex-1 flex items-center justify-center gap-1.5 py-2 shadow-sm hover:bg-amber-500 hover:text-white hover:border-amber-500 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white dark:hover:border-indigo-600 transition-all">
@@ -907,5 +1112,6 @@
 
       </div>
     </div>
+  </div>
   </div>
 </div>

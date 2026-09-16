@@ -89,7 +89,11 @@ class UserController extends Controller
             'team_role' => $validated['team_role'] ?? null,
         ]);
 
-        $user->assignRole($validated['role']);
+        $rolesToSync = [$validated['role']];
+        if (($validated['team_role'] ?? '') === 'QC' && $validated['role'] === 'digital-team') {
+            $rolesToSync[] = 'admin-digital';
+        }
+        $user->assignRole($rolesToSync);
 
         return redirect()->route('admin.users.index')
             ->with('success', "User \"{$user->name}\" created successfully.");
@@ -165,7 +169,11 @@ class UserController extends Controller
 
         // Preserve any existing social_ roles
         $socialRoles = $user->roles()->where('name', 'like', 'social_%')->pluck('name')->toArray();
-        $user->syncRoles(array_merge([$validated['role']], $socialRoles));
+        $rolesToSync = [$validated['role']];
+        if (($validated['team_role'] ?? '') === 'QC' && $validated['role'] === 'digital-team') {
+            $rolesToSync[] = 'admin-digital';
+        }
+        $user->syncRoles(array_merge($rolesToSync, $socialRoles));
 
         return redirect()->route('admin.users.edit', $user)
             ->with('success', "User \"{$user->name}\" updated.");

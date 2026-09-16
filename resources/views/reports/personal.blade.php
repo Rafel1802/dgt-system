@@ -28,6 +28,7 @@
   </div>
 
   <form :action="getExportUrl()" method="GET" target="_blank" data-turbo="false" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <input type="hidden" name="is_personal_report" value="1">
       
       {{-- Main Content Area (Left) --}}
       <div class="lg:col-span-2 space-y-6">
@@ -110,10 +111,30 @@
                           <p>No active workspaces or boards found.</p>
                       </div>
                   @else
-                      <div class="space-y-6" x-init="if(typeof Sortable !== 'undefined') { new Sortable($el, { animation: 150, handle: '.drag-handle' }) }">
+                      <div class="space-y-6" x-init="if(typeof Sortable !== 'undefined') { 
+                          new Sortable($el, { 
+                              animation: 150, 
+                              handle: '.drag-handle',
+                              onEnd: function (evt) {
+                                  let order = [];
+                                  evt.to.querySelectorAll('[data-workspace-id]').forEach((el) => {
+                                      order.push(el.getAttribute('data-workspace-id'));
+                                  });
+                                  fetch('{{ route('boards.workspaces.reorder', [], false) }}', {
+                                      method: 'POST',
+                                      headers: {
+                                          'Content-Type': 'application/json',
+                                          'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').getAttribute('content'),
+                                          'Accept': 'application/json'
+                                      },
+                                      body: JSON.stringify({ order: order })
+                                  });
+                              }
+                          }) 
+                      }">
                           @foreach($workspaces as $workspace)
                               @if($workspace->boards->isNotEmpty())
-                                  <div class="border border-slate-200 dark:border-gray-700 rounded-xl p-4 bg-slate-50/50 dark:bg-gray-800">
+                                  <div class="border border-slate-200 dark:border-gray-700 rounded-xl p-4 bg-slate-50/50 dark:bg-gray-800" data-workspace-id="{{ $workspace->id }}">
                                       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-gray-700 mb-3">
                                           <div class="flex items-center gap-2.5">
                                               <span class="drag-handle cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
@@ -136,12 +157,25 @@
                                       
                                       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                           @foreach($workspace->boards as $board)
-                                              <label class="flex items-start gap-3 p-2.5 rounded-lg bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/10 dark:hover:bg-indigo-900/20 cursor-pointer transition-all">
+                                              <label class="flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition-all
+                                                            {{ $board->is_hidden
+                                                                ? 'bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/40 hover:border-amber-400 dark:hover:border-amber-500'
+                                                                : 'bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/10 dark:hover:bg-indigo-900/20' }}">
                                                   <input type="checkbox" name="board_ids[]" value="{{ $board->id }}" 
-                                                         class="workspace-{{ $workspace->id }}-board mt-0.5 rounded text-indigo-600 border-slate-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-800">
-                                                  <div class="text-xs">
-                                                      <div class="font-semibold text-slate-700 dark:text-white">{{ $board->name }}</div>
-                                                      <div class="text-slate-400 dark:text-gray-500 mt-0.5">{{ $board->visibilityDisplay ?? ucfirst($board->visibility) }}</div>
+                                                         class="workspace-{{ $workspace->id }}-board mt-0.5 rounded border-slate-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-800
+                                                                {{ $board->is_hidden ? 'text-amber-500' : 'text-indigo-600' }}">
+                                                  <div class="text-xs flex-1 min-w-0">
+                                                      <div class="font-semibold {{ $board->is_hidden ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-white' }} truncate">
+                                                          {{ $board->name }}
+                                                      </div>
+                                                      <div class="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                                          <span class="text-slate-400 dark:text-gray-500">{{ $board->visibilityDisplay ?? ucfirst($board->visibility) }}</span>
+                                                          @if($board->is_hidden)
+                                                              <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
+                                                                  📦 Hidden / Past board
+                                                              </span>
+                                                          @endif
+                                                      </div>
                                                   </div>
                                               </label>
                                           @endforeach

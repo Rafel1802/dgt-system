@@ -6,7 +6,8 @@
 
 @section('content')
 @php
-  $canUpload = auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']);
+  $canUpload = auth()->user()?->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team', 'supervisor']);
+  $canEdit   = $canUpload;
 @endphp
 <div class="animate-fade-in w-full space-y-8">
 
@@ -43,9 +44,9 @@
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700 bg-violet-50/50 dark:bg-violet-900/10">
           <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-violet-500"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-            Upload Analytics PDF
+            Upload Analytics Report
           </h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">PDF only · Max 100 MB · Replaces existing files for the same classes and week</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">PDF & Canva link required · Max 100 MB · Replaces existing files for the same classes and week</p>
         </div>
         <form action="{{ route('social-media.analytics.store') }}" method="POST" enctype="multipart/form-data"
           class="p-6 space-y-5" x-data="analyticsUploadForm()" @submit.prevent="submit($event)">
@@ -72,7 +73,7 @@
                 </label>
               @endforeach
             </div>
-            <p class="mt-1.5 text-xs text-slate-400">Select every class covered by this PDF.</p>
+            <p class="mt-1.5 text-xs text-slate-400">Select every class covered by this report.</p>
             @error('class_ids')
               <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
             @enderror
@@ -111,20 +112,44 @@
               @dragleave.prevent="isDragging = false"
               @drop.prevent="isDragging = false; const files = $event.dataTransfer.files; if(files.length) { $refs.fileInput.files = files; fileName = files[0].name; }"
               :class="isDragging ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20' : 'border-slate-200 dark:border-slate-700 hover:border-violet-400 hover:bg-violet-50/40 dark:hover:border-violet-600 dark:hover:bg-violet-900/10'"
-              class="flex flex-col items-center justify-center gap-3 w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-all group relative">
+              class="flex flex-col items-center justify-center gap-3 w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all group relative">
               <input type="file" x-ref="fileInput" name="file" accept=".pdf" required class="hidden"
                 @change="fileName = $event.target.files[0]?.name || ''">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
                 :class="isDragging ? 'text-violet-500' : 'text-slate-300 group-hover:text-violet-500'"
-                class="w-8 h-8 transition-colors pointer-events-none">
+                class="w-7 h-7 transition-colors pointer-events-none">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
               </svg>
               <div class="text-center pointer-events-none">
-                <p class="text-sm font-semibold transition-colors" :class="isDragging ? 'text-violet-600' : 'text-slate-600 dark:text-slate-300 group-hover:text-violet-600'" x-text="isDragging ? 'Drop PDF here' : (fileName || 'Click or drag PDF file here')"></p>
-                <p class="text-xs text-slate-400 mt-0.5" x-show="!fileName && !isDragging">PDF only, max 100 MB</p>
+                <p class="text-xs font-semibold transition-colors" :class="isDragging ? 'text-violet-600' : 'text-slate-600 dark:text-slate-300 group-hover:text-violet-600'" x-text="isDragging ? 'Drop PDF here' : (fileName || 'Click or drag PDF file here')"></p>
+                <p class="text-[11px] text-slate-400 mt-0.5" x-show="!fileName && !isDragging">PDF only, max 100 MB</p>
               </div>
             </label>
             @error('file')
+              <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+            @enderror
+          </div>
+
+          {{-- Canva Link --}}
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-cyan-500" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/>
+              </svg>
+              Canva Link <span class="text-red-400">*</span>
+            </label>
+            <div class="relative rounded-xl shadow-sm">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+              </div>
+              <input type="text" name="canva_link" value="{{ old('canva_link') }}" required
+                placeholder="https://www.canva.com/design/... or URL"
+                class="form-input w-full pl-10 text-sm rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-cyan-500 focus:ring-cyan-500/20">
+            </div>
+            <p class="mt-1 text-[11px] text-slate-400">Canva presentation link is required.</p>
+            @error('canva_link')
               <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
             @enderror
           </div>
@@ -138,7 +163,7 @@
 
           <div x-show="uploading || progress === 100" x-cloak class="space-y-2" aria-live="polite">
             <div class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
-              <span x-text="progress === 100 ? 'Upload complete — refreshing…' : 'Uploading PDF…'"></span>
+              <span x-text="progress === 100 ? 'Save complete — refreshing…' : 'Uploading / Saving…'"></span>
               <span x-text="progress + '%'"></span>
             </div>
             <div class="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
@@ -146,6 +171,7 @@
                 :style="'width: ' + progress + '%'" role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100"></div>
             </div>
           </div>
+        </form>
       </div>
     </div>
     @endif
@@ -158,29 +184,12 @@
               x-data="{
                   class_id: '{{ $classId }}',
                   date_from: '{{ $dateFrom }}',
-                  date_to: '{{ $dateTo }}',
-                  initial_date_from: '{{ $dateFrom }}',
-                  initial_date_to: '{{ $dateTo }}',
-                  checkAutoSubmit() {
-                      // Only submit if both dates are filled OR both are empty
-                      if ((this.date_from && !this.date_to) || (!this.date_from && this.date_to)) {
-                          return;
-                      }
-                      
-                      // Prevent infinite loop if values haven't actually changed since page load
-                      if (this.date_from === this.initial_date_from && this.date_to === this.initial_date_to) {
-                          return;
-                      }
-                      
-                      this.$nextTick(() => {
-                          this.$el.requestSubmit();
-                      });
-                  }
+                  date_to: '{{ $dateTo }}'
               }">
           <div class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-[200px]">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Filter by Class</label>
-              <select name="class_id" x-model="class_id" @change="checkAutoSubmit()" class="form-select w-full text-sm rounded-xl">
+              <select name="class_id" x-model="class_id" class="form-select w-full text-sm rounded-xl">
                 <option value="">All Classes</option>
                 @foreach($classes as $class)
                   <option value="{{ $class->id }}">{{ $class->name }}</option>
@@ -189,13 +198,14 @@
             </div>
             <div class="flex-1 min-w-[140px]">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date From</label>
-              <input type="date" name="date_from" x-model="date_from" @change="checkAutoSubmit()" class="form-input w-full text-sm rounded-xl">
+              <input type="date" name="date_from" x-model="date_from" class="form-input w-full text-sm rounded-xl">
             </div>
             <div class="flex-1 min-w-[140px]">
               <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date To</label>
-              <input type="date" name="date_to" x-model="date_to" @change="checkAutoSubmit()" class="form-input w-full text-sm rounded-xl">
+              <input type="date" name="date_to" x-model="date_to" class="form-input w-full text-sm rounded-xl">
             </div>
             <div class="flex gap-2 w-full sm:w-auto">
+              <button type="submit" class="btn btn-primary text-sm flex-1 sm:flex-none px-4 py-2 text-center">Search</button>
               <a href="{{ route('social-media.analytics.index') }}" data-turbo-action="advance" class="btn btn-secondary text-sm flex-1 sm:flex-none px-4 py-2 text-center">Clear</a>
             </div>
           </div>
@@ -230,19 +240,34 @@
             @foreach($analytics as $analytic)
             <div class="group relative flex items-start gap-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 p-4 hover:border-violet-300 dark:hover:border-violet-600 hover:shadow-lg hover:shadow-violet-100/50 dark:hover:shadow-violet-900/20 transition-all duration-200">
 
-              {{-- PDF Icon --}}
+              {{-- Icon (PDF or Canva) --}}
+              @if($analytic->fileExists())
               <div class="flex-shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center gap-0.5 shadow-sm relative"
                 style="background: linear-gradient(145deg, #ef4444 0%, #dc2626 100%)">
                 <span class="text-[9px] font-black text-white/80 tracking-widest mt-1">PDF</span>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" class="w-5 h-5 opacity-90">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
-                @if(!$analytic->fileExists())
-                  <div class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
-                    <span class="text-white text-[8px] font-black">!</span>
-                  </div>
-                @endif
               </div>
+              @elseif($analytic->canva_link)
+              <div class="flex-shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center gap-0.5 shadow-sm relative"
+                style="background: linear-gradient(145deg, #00c4cc 0%, #7d2ae8 100%)">
+                <span class="text-[9px] font-black text-white/95 tracking-wider mt-1">CANVA</span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="white" class="w-5 h-5 opacity-95">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+              </div>
+              @else
+              <div class="flex-shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center gap-0.5 shadow-sm relative bg-slate-400">
+                <span class="text-[9px] font-black text-white/80 tracking-widest mt-1">PDF</span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" class="w-5 h-5 opacity-90">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <div class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+                  <span class="text-white text-[8px] font-black">!</span>
+                </div>
+              </div>
+              @endif
 
               {{-- File Info --}}
               <div class="flex-1 min-w-0">
@@ -265,7 +290,19 @@
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-[11px] font-semibold text-blue-700 dark:text-blue-300">{{ $class->name }}</span>
                   @endforeach
 
-                  @if(!$analytic->fileExists())
+                  {{-- Canva link chip --}}
+                  @if($analytic->canva_link)
+                    <a href="{{ $analytic->formattedCanvaLink() }}" target="_blank" rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/30 text-[11px] font-semibold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
+                      title="Open Canva link in new tab">
+                      <svg class="w-3 h-3 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      Canva Link
+                    </a>
+                  @endif
+
+                  @if(!$analytic->fileExists() && !$analytic->canva_link)
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
                       ⚠ File missing
                     </span>
@@ -306,6 +343,37 @@
                       </svg>
                       Download
                     </button>
+                  @endif
+
+                  @if($analytic->canva_link)
+                    <a href="{{ $analytic->formattedCanvaLink() }}" target="_blank" rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white text-xs font-bold transition-all duration-150 shadow-sm shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98]">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor" class="w-3.5 h-3.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                      </svg>
+                      Open Canva
+                    </a>
+                  @endif
+
+                  @if($canEdit)
+                  {{-- Edit Details button (QC, Admin Digital, Super Admin) --}}
+                  <button type="button"
+                    data-id="{{ $analytic->id }}"
+                    data-update-url="{{ route('social-media.analytics.update', $analytic) }}"
+                    data-file-name="{{ $analytic->original_name }}"
+                    data-date-from="{{ $analytic->date_from->format('Y-m-d') }}"
+                    data-date-to="{{ $analytic->date_to->format('Y-m-d') }}"
+                    data-class-ids="{{ json_encode($analytic->classes->pluck('id')->values()->all()) }}"
+                    data-uploaded-by="{{ $analytic->uploaded_by }}"
+                    data-canva-link="{{ $analytic->canva_link ?? '' }}"
+                    onclick="openEditAnalyticModalFromBtn(this)"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-violet-600 hover:text-white dark:hover:bg-violet-600 dark:hover:text-white text-xs font-semibold transition-all duration-150 shadow-sm"
+                    title="Edit date, classes & details">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                    Edit
+                  </button>
                   @endif
 
                   @if($canUpload)
@@ -488,6 +556,235 @@
   </div>
 
   {{-- ══════════════════════════════════════════════════════════════════════════
+       Beautiful Canva Link Edit/Add Modal
+  ══════════════════════════════════════════════════════════════════════════ --}}
+  <div id="canvaModal"
+    class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+    style="display:none!important"
+    aria-modal="true" role="dialog" aria-labelledby="canvaModalTitle">
+
+    {{-- Backdrop --}}
+    <div id="canvaModalBackdrop"
+      onclick="closeCanvaModal()"
+      class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+      style="opacity:0;transition:opacity .2s ease"></div>
+
+    {{-- Panel --}}
+    <div id="canvaModalPanel"
+      class="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/10 overflow-hidden"
+      style="transform:scale(.93) translateY(16px);opacity:0;transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s ease">
+
+      {{-- Cyan-teal header strip --}}
+      <div class="h-1.5 w-full" style="background:linear-gradient(90deg,#06b6d4,#0d9488)"></div>
+
+      <div class="px-7 pt-7 pb-6">
+
+        {{-- Icon --}}
+        <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-50 dark:bg-cyan-900/20 ring-1 ring-cyan-100 dark:ring-cyan-800">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-8 w-8 text-cyan-600 dark:text-cyan-400">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+          </svg>
+        </div>
+
+        {{-- Title + body --}}
+        <h3 id="canvaModalTitle" class="text-center text-xl font-black text-slate-800 dark:text-slate-100">
+          Canva Link
+        </h3>
+        <p id="canvaModalFileName"
+          class="mt-1 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 truncate px-2"></p>
+
+        <form id="canvaModalForm" method="POST" action="" class="mt-5 space-y-4" onsubmit="handleCanvaModalSubmit(event)">
+          @csrf
+          @method('PATCH')
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              Canva URL
+            </label>
+            <input type="text" id="canvaModalInput" name="canva_link"
+              placeholder="https://www.canva.com/design/... or URL"
+              class="form-input w-full text-sm rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:border-cyan-500 focus:ring-cyan-500/20">
+            <p class="mt-1 text-[11px] text-slate-400">Enter or clear the link to the Canva presentation.</p>
+          </div>
+
+          <div id="canvaModalError" style="display:none;" class="rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-600"></div>
+
+          {{-- Buttons --}}
+          <div class="mt-6 flex flex-col-reverse sm:flex-row gap-3">
+            <button type="button" onclick="closeCanvaModal()"
+              class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-600 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-500 active:scale-[0.98] transition-all duration-200 shadow-sm">
+              Cancel
+            </button>
+            <button type="submit" id="canvaModalSubmitBtn"
+              class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-md active:scale-[0.98]"
+              style="background:linear-gradient(135deg,#06b6d4 0%,#0d9488 100%);box-shadow:0 4px 14px rgba(6,182,212,.35);transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);"
+            >
+              Save Link
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  @if($canEdit)
+  {{-- ══════════════════════════════════════════════════════════════════════════
+       Beautiful Edit Analytics Modal (QC, Admin Digital, Super Admin)
+  ══════════════════════════════════════════════════════════════════════════ --}}
+  <div id="editAnalyticModal"
+    class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+    style="display:none!important"
+    aria-modal="true" role="dialog" aria-labelledby="editAnalyticModalTitle">
+
+    {{-- Backdrop --}}
+    <div id="editAnalyticModalBackdrop"
+      onclick="closeEditModal()"
+      class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+      style="opacity:0;transition:opacity .2s ease"></div>
+
+    {{-- Panel --}}
+    <div id="editAnalyticModalPanel"
+      class="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/10 overflow-hidden"
+      style="transform:scale(.93) translateY(16px);opacity:0;transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s ease">
+
+      {{-- Violet-indigo header strip --}}
+      <div class="h-1.5 w-full" style="background:linear-gradient(90deg,#6366f1,#8b5cf6,#a855f7)"></div>
+
+      {{-- Modal Header --}}
+      <div class="px-6 pt-5 pb-4 border-b border-slate-100 dark:border-slate-700/80 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-900/20 ring-1 ring-violet-200 dark:ring-violet-800 text-violet-600 dark:text-violet-400">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h3 id="editAnalyticModalTitle" class="text-base font-black text-slate-800 dark:text-slate-100 leading-tight">
+              Edit Analytics Details
+            </h3>
+            <p id="editAnalyticModalFileName" class="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[280px] sm:max-w-xs mt-0.5 font-medium"></p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditModal()"
+          class="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/60 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {{-- Form --}}
+      <form id="editAnalyticModalForm" method="POST" enctype="multipart/form-data" onsubmit="handleEditModalSubmit(event)"
+        class="flex-1 overflow-y-auto p-6 space-y-4 text-left">
+        @csrf
+        @method('PUT')
+
+        <div id="editModalError" style="display:none;" class="rounded-xl border border-red-200 bg-red-50 dark:border-red-800/60 dark:bg-red-900/20 p-3 text-xs font-semibold text-red-600 dark:text-red-400"></div>
+
+        {{-- Classes Selection --}}
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Classes <span class="text-red-400">*</span>
+            </label>
+            <div class="flex items-center gap-2 text-[11px]">
+              <button type="button" onclick="setAllEditClasses(true)" class="text-violet-600 dark:text-violet-400 hover:underline font-medium">Select all</button>
+              <span class="text-slate-300 dark:text-slate-600">·</span>
+              <button type="button" onclick="setAllEditClasses(false)" class="text-slate-500 hover:underline font-medium">Clear all</button>
+            </div>
+          </div>
+          <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-2.5 max-h-36 overflow-y-auto space-y-1">
+            @foreach($classes as $class)
+              <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-violet-50/80 dark:text-slate-200 dark:hover:bg-slate-700/60 transition-colors">
+                <input type="checkbox" name="class_ids[]" value="{{ $class->id }}"
+                  class="edit-modal-class-checkbox h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 dark:border-slate-600 dark:bg-slate-800">
+                <span class="truncate">{{ $class->name }}</span>
+              </label>
+            @endforeach
+          </div>
+          <p class="mt-1 text-[11px] text-slate-400">Assign this report to one or multiple classes.</p>
+        </div>
+
+        {{-- Date Range --}}
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              Date From <span class="text-red-400">*</span>
+            </label>
+            <input type="date" id="editDateFrom" name="date_from" required
+              class="form-input w-full text-xs sm:text-sm rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              Date To <span class="text-red-400">*</span>
+            </label>
+            <input type="date" id="editDateTo" name="date_to" required
+              class="form-input w-full text-xs sm:text-sm rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900">
+          </div>
+        </div>
+
+        {{-- Uploaded By / User --}}
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+            Uploaded By (User)
+          </label>
+          <select id="editUploadedBy" name="uploaded_by"
+            class="form-input w-full text-xs sm:text-sm rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900">
+            @foreach($users as $userOption)
+              <option value="{{ $userOption->id }}">{{ $userOption->name }}{{ $userOption->team_role ? ' (' . $userOption->team_role . ')' : '' }}</option>
+            @endforeach
+          </select>
+          <p class="mt-1 text-[11px] text-slate-400">The user credited for this analytics upload.</p>
+        </div>
+
+        {{-- Canva Link --}}
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-cyan-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/>
+            </svg>
+            Canva Link (Optional)
+          </label>
+          <input type="text" id="editCanvaLink" name="canva_link"
+            placeholder="https://www.canva.com/design/... or URL"
+            class="form-input w-full text-xs sm:text-sm rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:border-cyan-500 focus:ring-cyan-500/20">
+        </div>
+
+        {{-- Replace PDF File (Optional) --}}
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5 text-violet-500">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+            </svg>
+            Replace PDF File (Optional)
+          </label>
+          <input type="file" id="editFileInput" name="file" accept=".pdf"
+            class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100 dark:file:bg-violet-900/30 dark:file:text-violet-300 transition-colors">
+          <p class="mt-1 text-[11px] text-slate-400">
+            Leave empty to keep current file: <span id="editModalCurrentPdfName" class="font-bold text-slate-700 dark:text-slate-300"></span>
+          </p>
+        </div>
+
+        {{-- Footer Buttons --}}
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-700/80 flex flex-col-reverse sm:flex-row gap-2.5">
+          <button type="button" onclick="closeEditModal()"
+            class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition-all shadow-sm">
+            Cancel
+          </button>
+          <button type="submit" id="editModalSubmitBtn"
+            class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md active:scale-[0.98] transition-all"
+            style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);box-shadow:0 4px 14px rgba(124,58,237,.35);">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  @endif
+
+  {{-- ══════════════════════════════════════════════════════════════════════════
        Beautiful Preview Modal
   ══════════════════════════════════════════════════════════════════════════ --}}
   <div id="previewModal"
@@ -523,9 +820,9 @@
       <div class="flex-1 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
         <div id="previewModalLoader" class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-10">
           <div class="w-8 h-8 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin"></div>
-          <p class="mt-3 text-xs font-bold text-slate-500 animate-pulse">Loading preview...</p>
+          <p class="mt-3 text-xs font-bold text-slate-500">Loading preview... <span id="previewModalLoaderText">0%</span></p>
         </div>
-        <iframe id="previewModalIframe" src="" class="w-full h-full border-0" onload="document.getElementById('previewModalLoader').style.display='none'"></iframe>
+        <iframe id="previewModalIframe" class="w-full h-full border-0"></iframe>
       </div>
     </div>
   </div>
@@ -599,18 +896,20 @@ function performDownload() {
   
   xhr.addEventListener('load', () => {
     if (xhr.status === 200) {
-      const blob = xhr.response;
-      const url = window.URL.createObjectURL(blob);
+      // Trigger native download. Since it was just fetched via XHR, it's cached.
+      // This bypasses the "blob:" URL issue in macOS/Electron apps and correctly 
+      // triggers the native Save As dialog.
       const a = document.createElement('a');
       a.style.display = 'none';
-      a.href = url;
+      a.href = currentDownloadUrl;
       a.download = currentDownloadFileName;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      closeDownloadModal();
+      setTimeout(() => {
+        closeDownloadModal();
+      }, 500);
     } else {
       alert("Download failed. Server returned " + xhr.status);
       closeDownloadModal();
@@ -663,18 +962,23 @@ function handleModalEsc(e) {
 }
 
 /* ── Preview Modal ───────────────────────────────────────────────────── */
+let currentPreviewXHR = null;
+
 function openPreviewModal(previewUrl, fileName) {
   const modal   = document.getElementById('previewModal');
   const backdrop = document.getElementById('previewModalBackdrop');
   const panel   = document.getElementById('previewModalPanel');
   const iframe  = document.getElementById('previewModalIframe');
   const loader  = document.getElementById('previewModalLoader');
+  const loaderText = document.getElementById('previewModalLoaderText');
 
   document.getElementById('previewModalTitle').textContent = fileName;
   
-  // Show loader and set iframe src
+  // Show loader and clear iframe
   loader.style.display = 'flex';
-  iframe.src = previewUrl;
+  iframe.removeAttribute('src');
+  iframe.onload = null;
+  if (loaderText) loaderText.textContent = '0%';
 
   modal.style.removeProperty('display');
   // Animate in
@@ -686,6 +990,38 @@ function openPreviewModal(previewUrl, fileName) {
     });
   });
   document.addEventListener('keydown', handlePreviewModalEsc);
+
+  if (currentPreviewXHR) currentPreviewXHR.abort();
+  currentPreviewXHR = new XMLHttpRequest();
+  currentPreviewXHR.open('GET', previewUrl, true);
+  currentPreviewXHR.responseType = 'blob';
+  
+  currentPreviewXHR.addEventListener('progress', (e) => {
+    if (e.lengthComputable) {
+      const percentComplete = Math.round((e.loaded / e.total) * 100);
+      if (loaderText) loaderText.textContent = percentComplete + '%';
+    }
+  });
+  
+  currentPreviewXHR.addEventListener('load', () => {
+    if (currentPreviewXHR.status === 200) {
+      if (loaderText) loaderText.textContent = '100%';
+      const blob = currentPreviewXHR.response;
+      window.currentPreviewObjectURL = window.URL.createObjectURL(blob);
+      iframe.onload = () => {
+        loader.style.display = 'none';
+      };
+      iframe.src = window.currentPreviewObjectURL;
+    } else {
+      if (loaderText) loaderText.textContent = 'Failed';
+    }
+  });
+  
+  currentPreviewXHR.addEventListener('error', () => {
+    if (loaderText) loaderText.textContent = 'Error';
+  });
+  
+  currentPreviewXHR.send();
 }
 
 function closePreviewModal() {
@@ -694,6 +1030,11 @@ function closePreviewModal() {
   const panel   = document.getElementById('previewModalPanel');
   const iframe  = document.getElementById('previewModalIframe');
 
+  if (currentPreviewXHR) {
+    currentPreviewXHR.abort();
+    currentPreviewXHR = null;
+  }
+
   backdrop.style.opacity = '0';
   panel.style.transform  = 'scale(.95) translateY(16px)';
   panel.style.opacity    = '0';
@@ -701,6 +1042,10 @@ function closePreviewModal() {
   setTimeout(() => { 
     modal.style.display = 'none'; 
     iframe.src = ''; // Clear iframe to stop playback/loading
+    if (window.currentPreviewObjectURL) {
+      window.URL.revokeObjectURL(window.currentPreviewObjectURL);
+      window.currentPreviewObjectURL = null;
+    }
   }, 220);
   
   document.removeEventListener('keydown', handlePreviewModalEsc);
@@ -710,6 +1055,253 @@ function handlePreviewModalEsc(e) {
   if (e.key === 'Escape') closePreviewModal();
 }
 
+/* ── Canva Modal ─────────────────────────────────────────────────────── */
+function openCanvaModal(actionUrl, fileName, currentLink) {
+  const modal    = document.getElementById('canvaModal');
+  const backdrop = document.getElementById('canvaModalBackdrop');
+  const panel    = document.getElementById('canvaModalPanel');
+  const form     = document.getElementById('canvaModalForm');
+  const input    = document.getElementById('canvaModalInput');
+  const errorDiv = document.getElementById('canvaModalError');
+  const submitBtn = document.getElementById('canvaModalSubmitBtn');
+
+  form.action = actionUrl;
+  document.getElementById('canvaModalFileName').textContent = fileName ? '"' + fileName + '"' : '';
+  input.value = currentLink || '';
+  errorDiv.style.display = 'none';
+  errorDiv.textContent = '';
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Save Link';
+
+  modal.style.removeProperty('display');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.style.opacity = '1';
+      panel.style.transform  = 'scale(1) translateY(0)';
+      panel.style.opacity    = '1';
+      input.focus();
+    });
+  });
+  document.addEventListener('keydown', handleCanvaModalEsc);
+}
+
+function closeCanvaModal() {
+  const modal    = document.getElementById('canvaModal');
+  const backdrop = document.getElementById('canvaModalBackdrop');
+  const panel    = document.getElementById('canvaModalPanel');
+
+  backdrop.style.opacity = '0';
+  panel.style.transform  = 'scale(.93) translateY(16px)';
+  panel.style.opacity    = '0';
+  setTimeout(() => { modal.style.display = 'none'; }, 220);
+  document.removeEventListener('keydown', handleCanvaModalEsc);
+}
+
+function handleCanvaModalEsc(e) {
+  if (e.key === 'Escape') closeCanvaModal();
+}
+
+function handleCanvaModalSubmit(event) {
+  event.preventDefault();
+  const form = event.target;
+  const submitBtn = document.getElementById('canvaModalSubmitBtn');
+  const errorDiv = document.getElementById('canvaModalError');
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving...';
+  errorDiv.style.display = 'none';
+
+  fetch(form.action, {
+    method: 'POST',
+    body: new FormData(form),
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json'
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      if (window.showToast) window.showToast(data.message);
+      closeCanvaModal();
+      setTimeout(() => window.location.reload(), 400);
+    } else {
+      errorDiv.textContent = data.message || 'Failed to update Canva link.';
+      errorDiv.style.display = 'block';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Link';
+    }
+  })
+  .catch(err => {
+    errorDiv.textContent = 'Network error. Please try again.';
+    errorDiv.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save Link';
+  });
+}
+
+/* ── Edit Analytics Modal ────────────────────────────────────────────── */
+function openEditAnalyticModalFromBtn(btn) {
+  let classIds = [];
+  try {
+    classIds = JSON.parse(btn.dataset.classIds || '[]');
+  } catch (e) {
+    classIds = [];
+  }
+
+  openEditAnalyticModal({
+    id: btn.dataset.id,
+    updateUrl: btn.dataset.updateUrl,
+    fileName: btn.dataset.fileName,
+    dateFrom: btn.dataset.dateFrom,
+    dateTo: btn.dataset.dateTo,
+    classIds: classIds,
+    uploadedBy: btn.dataset.uploadedBy,
+    canvaLink: btn.dataset.canvaLink || '',
+  });
+}
+
+function openEditAnalyticModal(data) {
+  const modal      = document.getElementById('editAnalyticModal');
+  const backdrop   = document.getElementById('editAnalyticModalBackdrop');
+  const panel      = document.getElementById('editAnalyticModalPanel');
+  const form       = document.getElementById('editAnalyticModalForm');
+  const fileNameEl = document.getElementById('editAnalyticModalFileName');
+  const curPdfEl   = document.getElementById('editModalCurrentPdfName');
+  const dateFromEl = document.getElementById('editDateFrom');
+  const dateToEl   = document.getElementById('editDateTo');
+  const uploaderEl = document.getElementById('editUploadedBy');
+  const canvaEl    = document.getElementById('editCanvaLink');
+  const fileInput  = document.getElementById('editFileInput');
+  const errorDiv   = document.getElementById('editModalError');
+  const submitBtn  = document.getElementById('editModalSubmitBtn');
+
+  if (!modal) return;
+
+  form.action = data.updateUrl;
+  if (fileNameEl) fileNameEl.textContent = data.fileName || '';
+  if (curPdfEl) curPdfEl.textContent = data.fileName || '';
+  if (dateFromEl) dateFromEl.value = data.dateFrom || '';
+  if (dateToEl) dateToEl.value = data.dateTo || '';
+  if (uploaderEl && data.uploadedBy) uploaderEl.value = data.uploadedBy;
+  if (canvaEl) canvaEl.value = data.canvaLink || '';
+  if (fileInput) fileInput.value = '';
+
+  // Set class checkboxes
+  const classIds = (data.classIds || []).map(id => Number(id));
+  document.querySelectorAll('.edit-modal-class-checkbox').forEach(cb => {
+    cb.checked = classIds.includes(Number(cb.value));
+  });
+
+  if (errorDiv) {
+    errorDiv.style.display = 'none';
+    errorDiv.textContent = '';
+  }
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg> Save Changes`;
+  }
+
+  modal.style.removeProperty('display');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.style.opacity = '1';
+      panel.style.transform  = 'scale(1) translateY(0)';
+      panel.style.opacity    = '1';
+    });
+  });
+  document.addEventListener('keydown', handleEditModalEsc);
+}
+
+function closeEditModal() {
+  const modal    = document.getElementById('editAnalyticModal');
+  const backdrop = document.getElementById('editAnalyticModalBackdrop');
+  const panel    = document.getElementById('editAnalyticModalPanel');
+
+  if (!modal) return;
+
+  backdrop.style.opacity = '0';
+  panel.style.transform  = 'scale(.93) translateY(16px)';
+  panel.style.opacity    = '0';
+  setTimeout(() => { modal.style.display = 'none'; }, 220);
+  document.removeEventListener('keydown', handleEditModalEsc);
+}
+
+function handleEditModalEsc(e) {
+  if (e.key === 'Escape') closeEditModal();
+}
+
+function setAllEditClasses(checked) {
+  document.querySelectorAll('.edit-modal-class-checkbox').forEach(cb => {
+    cb.checked = checked;
+  });
+}
+
+function handleEditModalSubmit(event) {
+  event.preventDefault();
+  const form = event.target;
+  const submitBtn = document.getElementById('editModalSubmitBtn');
+  const errorDiv = document.getElementById('editModalError');
+
+  // Client-side validation: at least 1 class selected
+  const checkedClasses = form.querySelectorAll('input[name="class_ids[]"]:checked');
+  if (checkedClasses.length === 0) {
+    errorDiv.textContent = 'Please select at least one class.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  const dateFrom = form.querySelector('input[name="date_from"]')?.value;
+  const dateTo = form.querySelector('input[name="date_to"]')?.value;
+  if (!dateFrom || !dateTo) {
+    errorDiv.textContent = 'Please select both Date From and Date To.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+  if (dateFrom > dateTo) {
+    errorDiv.textContent = 'Date To must be equal to or after Date From.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="inline-block animate-spin mr-2">⟳</span> Saving...';
+  errorDiv.style.display = 'none';
+
+  const formData = new FormData(form);
+
+  fetch(form.action, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json'
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      if (window.showToast) window.showToast(data.message);
+      closeEditModal();
+      setTimeout(() => window.location.reload(), 400);
+    } else {
+      let errorMsg = data.message || 'Failed to update analytics.';
+      if (data.errors) {
+        errorMsg = Object.values(data.errors).flat().join(' ');
+      }
+      errorDiv.textContent = errorMsg;
+      errorDiv.style.display = 'block';
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg> Save Changes`;
+    }
+  })
+  .catch(err => {
+    errorDiv.textContent = 'Network error. Please try again.';
+    errorDiv.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg> Save Changes`;
+  });
+}
 
 function analyticsUploadForm() {
   return {
@@ -722,6 +1314,12 @@ function analyticsUploadForm() {
 
       const form = event.currentTarget;
       const file = form.querySelector('input[type="file"]')?.files?.[0];
+      const canvaLink = form.querySelector('input[name="canva_link"]')?.value?.trim();
+
+      if (!canvaLink) {
+        this.error = 'Please enter the Canva link. The Canva link is required.';
+        return;
+      }
       if (!file) {
         this.error = 'Please choose an analytics PDF.';
         return;
@@ -752,7 +1350,7 @@ function analyticsUploadForm() {
 
         if (xhr.status >= 200 && xhr.status < 300) {
           this.progress = 100;
-          if (window.showToast) window.showToast(response.message || 'Analytics uploaded successfully.');
+          if (window.showToast) window.showToast(response.message || 'Analytics saved successfully.');
           setTimeout(() => window.location.reload(), 700);
           return;
         }

@@ -165,7 +165,9 @@ class WebsiteController extends Controller
         }
 
         if (!empty($followUpFilter['fu_date'])) {
-            $followUpsQuery->whereDate('website_follow_ups.created_at', $followUpFilter['fu_date']);
+            $startDate = \Carbon\Carbon::parse($followUpFilter['fu_date'])->startOfDay();
+            $endDate = \Carbon\Carbon::parse($followUpFilter['fu_date'])->endOfDay();
+            $followUpsQuery->whereBetween('website_follow_ups.created_at', [$startDate, $endDate]);
         }
         
         if ($tab === 'follow-up') {
@@ -337,6 +339,14 @@ class WebsiteController extends Controller
 
         WebsiteActivityNotification::send($website, 'website_updated', "Website \"{$website->name}\" details updated.");
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Website \"{$website->name}\" updated successfully.",
+                'website' => $website
+            ]);
+        }
+
         return back()->with('success', "Website \"{$website->name}\" updated.");
     }
 
@@ -409,6 +419,7 @@ class WebsiteController extends Controller
 
         $validated = $request->validate([
             'qc_note' => 'nullable|string|max:2000',
+            'qc_week' => 'nullable|string|max:50',
             'qc_files' => 'nullable|array|max:8',
             'qc_files.*' => 'file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         ]);
@@ -433,12 +444,22 @@ class WebsiteController extends Controller
             'updated_by'     => auth()->id(),
         ]);
 
+        $qcNoteText = '';
+        if (!empty($validated['qc_week'])) {
+            $qcNoteText .= "[{$validated['qc_week']}] ";
+        }
+        if (!empty($validated['qc_note'])) {
+            $qcNoteText .= $validated['qc_note'];
+        }
+        $qcNoteText = trim($qcNoteText);
+        $logNote = 'QC Approved. Pending Supervisor approval.' . ($qcNoteText ? " Note: {$qcNoteText}" : '');
+
         WebsiteProgressLog::create([
             'website_id' => $website->id,
             'type'       => $isMaintenanceFlow ? 'maintenance' : 'build',
             'user_id'    => auth()->id(),
             'percent'    => $isMaintenanceFlow ? $website->maintenance_percent : $website->progress_percent,
-            'note'       => 'QC Approved. Pending Supervisor approval.' . ($validated['qc_note'] ? " Note: {$validated['qc_note']}" : ''),
+            'note'       => $logNote,
             'attachment_path' => $attachment['path'],
             'attachment_name' => $attachment['name'],
             'created_at' => now(),
@@ -448,7 +469,7 @@ class WebsiteController extends Controller
             'website_id'  => $website->id,
             'user_id'     => auth()->id(),
             'action'      => 'qc_approved',
-            'note'        => 'QC approved. Pending Supervisor approval.' . ($validated['qc_note'] ? " Note: {$validated['qc_note']}" : ''),
+            'note'        => $logNote,
             'old_status'  => $oldStatus,
             'new_status'  => $newStatus,
             'old_progress'=> $website->progress_percent,
@@ -895,9 +916,7 @@ class WebsiteController extends Controller
             Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
             Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR
         ]);
-        $newStatus = $isMaintenanceFlow 
-            ? Website::STATUS_MAINTENANCE 
-            : Website::STATUS_LIVE;
+        $newStatus = Website::STATUS_LIVE;
 
         $website->update([
             'status'                 => $newStatus,
@@ -1070,8 +1089,8 @@ class WebsiteController extends Controller
         $endDateRaw = $request->get('end_date');
         $memberId = $request->get('member_id');
         
-        $filterStart = $startDateRaw ? \Carbon\Carbon::parse($startDateRaw, 'Asia/Phnom_Penh')->startOfDay()->setTimezone('UTC') : null;
-        $filterEnd = $endDateRaw ? \Carbon\Carbon::parse($endDateRaw, 'Asia/Phnom_Penh')->endOfDay()->setTimezone('UTC') : null;
+        $filterStart = $startDateRaw ? \Carbon\Carbon::parse($startDateRaw, config('app.timezone'))->startOfDay() : null;
+        $filterEnd = $endDateRaw ? \Carbon\Carbon::parse($endDateRaw, config('app.timezone'))->endOfDay() : null;
 
         $user = auth()->user();
         if (!$user?->hasAnyRole(['super-admin', 'admin-digital']) && !$user?->hasRole('boss')) {

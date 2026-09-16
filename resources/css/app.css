@@ -1449,17 +1449,38 @@
     box-shadow: 0 4px 12px rgb(239 68 68 / 0.45);
   }
 
-  /* Board attachment modal cancel button: white hover style */
+  /* Board attachment modal buttons: slightly darker, refined red and blue */
   .attach-cancel-btn {
-    border: 1px solid transparent;
+    background: linear-gradient(135deg, #b91c1c, #991b1b) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(153, 27, 27, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(185, 28, 28, 0.28) !important;
+    transition: all 0.2s ease !important;
   }
 
   .attach-cancel-btn:hover,
   .attach-cancel-btn:active {
-    background: white;
-    color: #dc2626;
-    border-color: #fecaca;
-    box-shadow: 0 4px 12px rgb(239 68 68 / 0.15);
+    background: linear-gradient(135deg, #991b1b, #7f1d1d) !important;
+    color: #ffffff !important;
+    border-color: #7f1d1d !important;
+    box-shadow: 0 4px 14px rgba(153, 27, 27, 0.4) !important;
+    transform: translateY(-1px);
+  }
+
+  .attach-submit-btn {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(29, 78, 216, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28) !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .attach-submit-btn:hover,
+  .attach-submit-btn:active {
+    background: linear-gradient(135deg, #1d4ed8, #1e3a8a) !important;
+    color: #ffffff !important;
+    border-color: #1e3a8a !important;
+    box-shadow: 0 4px 14px rgba(29, 78, 216, 0.4) !important;
     transform: translateY(-1px);
   }
 

@@ -38,8 +38,47 @@ class SecurityController extends Controller
             ->paginate(10, ['*'], 'ip_page')
             ->withQueryString();
 
-        $activityLogs = ActivityLog::where('module', 'auth')
-            ->orWhere('action', 'like', 'user.%')
+        // ── Auto-clear retention (1 week = 7 days) and start from today ───────
+        if (! \Illuminate\Support\Facades\Cache::has('security_activity_reset_from_today_done')) {
+            try {
+                ActivityLog::where('created_at', '<', now()->startOfDay())->delete();
+                \Illuminate\Support\Facades\Cache::forever('security_activity_reset_from_today_done', true);
+            } catch (\Throwable $e) {}
+        }
+
+        // Opportunistic daily cleanup of logs older than 7 days (1 week)
+        \Illuminate\Support\Facades\Cache::remember('security_logs_weekly_cleanup', 86400, function () {
+            try {
+                ActivityLog::where('created_at', '<', now()->subDays(7))->delete();
+                LoginAttempt::where('attempted_at', '<', now()->subDays(7))->delete();
+            } catch (\Throwable $e) {}
+            return true;
+        });
+
+        // ── Search & Query for Activity Logs ─────────────────────────────────
+        $activitySearch = trim((string) $request->input('activity_q'));
+
+        $activityQuery = ActivityLog::with('user:id,name,email,username')
+            ->where(function ($query) {
+                $query->where('module', 'auth')
+                      ->orWhere('action', 'like', 'user.%')
+                      ->orWhere('action', 'like', 'security.%');
+            });
+
+        if ($activitySearch !== '') {
+            $activityQuery->where(function ($query) use ($activitySearch) {
+                $query->where('description', 'like', "%{$activitySearch}%")
+                      ->orWhere('action', 'like', "%{$activitySearch}%")
+                      ->orWhere('ip_address', 'like', "%{$activitySearch}%")
+                      ->orWhereHas('user', function ($uq) use ($activitySearch) {
+                          $uq->where('name', 'like', "%{$activitySearch}%")
+                             ->orWhere('email', 'like', "%{$activitySearch}%")
+                             ->orWhere('username', 'like', "%{$activitySearch}%");
+                      });
+            });
+        }
+
+        $activityLogs = $activityQuery
             ->orderByDesc('created_at')
             ->paginate(15, ['*'], 'activity_page')
             ->withQueryString();
@@ -67,6 +106,7 @@ class SecurityController extends Controller
             'blockedUsers',
             'bannedIps',
             'activityLogs',
+            'activitySearch',
             'stats',
             'settings'
         ));
@@ -172,5 +212,27 @@ class SecurityController extends Controller
         ]);
 
         return back()->with('success', 'Security activity logs have been cleared.');
+    }
+
+    /**
+     * Clear all failed login attempts (Super Admin only).
+     */
+    public function clearAttempts(): RedirectResponse
+    {
+        if (!auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm'])) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        LoginAttempt::where('was_successful', false)->delete();
+
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'security.attempts_cleared',
+            'description' => 'Cleared all failed login attempts.',
+            'module' => 'auth',
+            'ip_address' => request()->ip(),
+        ]);
+
+        return back()->with('success', 'Failed login attempts have been cleared.');
     }
 }

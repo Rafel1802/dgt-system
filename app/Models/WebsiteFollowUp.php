@@ -37,10 +37,17 @@ class WebsiteFollowUp extends Model
         'qc_checked_by',
         'qc_checked_at',
         'created_by',
+        // Google Sheet sync fields
+        'blog_sheet_class',
+        'google_sheet_status',
+        'google_sheet_row',
+        'google_sheet_synced_at',
+        'google_sheet_error',
     ];
 
     protected $casts = [
-        'qc_checked_at' => 'datetime',
+        'qc_checked_at'          => 'datetime',
+        'google_sheet_synced_at' => 'datetime',
     ];
 
     public function website(): BelongsTo

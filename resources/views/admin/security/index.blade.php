@@ -3,7 +3,7 @@
 @section('page_title', 'Security Command Center')
 
 @section('content')
-<div class="space-y-6 animate-fade-in pb-28 md:pb-8" x-data="{ activeTab: new URLSearchParams(location.search).has('activity_page') ? 'activity' : (new URLSearchParams(location.search).has('attempt_page') ? 'attempts' : (new URLSearchParams(location.search).has('user_page') ? 'users' : 'ips')) }">
+<div class="space-y-6 animate-fade-in pb-28 md:pb-8" x-data="{ activeTab: (new URLSearchParams(location.search).has('activity_page') || new URLSearchParams(location.search).has('activity_q') || new URLSearchParams(location.search).get('tab') === 'activity') ? 'activity' : (new URLSearchParams(location.search).has('attempt_page') ? 'attempts' : (new URLSearchParams(location.search).has('user_page') ? 'users' : 'ips')) }">
 
 <style>
 /* ── Mobile Responsive Table ── */
@@ -291,8 +291,22 @@
     {{-- TAB 3: FAILED ATTEMPTS --}}
     <div x-show="activeTab === 'attempts'" class="card overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-        <h3 class="font-display font-bold text-slate-800 text-sm">Failed Authentication Log</h3>
-        <span class="text-xs text-slate-400">{{ $failedAttempts->total() }} raw logs</span>
+        <div class="flex items-center gap-3">
+          <h3 class="font-display font-bold text-slate-800 text-sm">Failed Authentication Log</h3>
+          <span class="text-xs text-slate-400">{{ $failedAttempts->total() }} raw logs</span>
+        </div>
+        @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm']))
+          <form method="POST" action="{{ route('admin.security.attempts.clear') }}"
+                data-confirm-title="Clear all failed attempts?"
+                data-confirm="This will permanently delete all failed login attempt logs. Proceed?"
+                data-confirm-text="Clear Attempts"
+                data-confirm-tone="danger">
+            @csrf @method('DELETE')
+            <button type="submit" class="btn btn-secondary py-1 px-3 text-[11px] text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300 transition-colors">
+              🗑 Clear Attempts
+            </button>
+          </form>
+        @endif
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse responsive-table">
@@ -331,23 +345,46 @@
 
     {{-- TAB 4: ACTIVITY LOG --}}
     <div x-show="activeTab === 'activity'" class="card overflow-hidden">
-      <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+      <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h3 class="font-display font-bold text-slate-800 text-sm">Recent Authentication Activity Log</h3>
-          <span class="text-xs text-slate-400">{{ $activityLogs->total() }} events</span>
+          <span class="text-xs text-slate-400">{{ $activityLogs->total() }} events (kept for 7 days)</span>
         </div>
-        @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm']))
-          <form method="POST" action="{{ route('admin.security.activity.clear') }}"
-                data-confirm-title="Clear all activity history?"
-                data-confirm="This will permanently delete all security activity logs. Proceed?"
-                data-confirm-text="Clear History"
-                data-confirm-tone="danger">
-            @csrf @method('DELETE')
-            <button type="submit" class="btn btn-secondary py-1 px-3 text-[11px] text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300 transition-colors">
-              🗑 Clear History
-            </button>
+
+        <div class="flex items-center gap-3">
+          <!-- Search Form -->
+          <form method="GET" action="{{ route('admin.security.index') }}" class="relative flex items-center">
+            <input type="hidden" name="tab" value="activity">
+            <div class="relative w-56 sm:w-72">
+              <input type="text"
+                     name="activity_q"
+                     value="{{ $activitySearch ?? '' }}"
+                     placeholder="Search user, action, IP..."
+                     class="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-800 placeholder-slate-400">
+              <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              </div>
+              @if(!empty($activitySearch))
+                <a href="{{ route('admin.security.index', ['tab' => 'activity']) }}" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600" title="Clear search">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </a>
+              @endif
+            </div>
           </form>
-        @endif
+
+          @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm']))
+            <form method="POST" action="{{ route('admin.security.activity.clear') }}"
+                  data-confirm-title="Clear all activity history?"
+                  data-confirm="This will permanently delete all security activity logs. Proceed?"
+                  data-confirm-text="Clear History"
+                  data-confirm-tone="danger">
+              @csrf @method('DELETE')
+              <button type="submit" class="btn btn-secondary py-1.5 px-3 text-[11px] text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300 transition-colors whitespace-nowrap">
+                🗑 Clear History
+              </button>
+            </form>
+          @endif
+        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse responsive-table">

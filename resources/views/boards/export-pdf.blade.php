@@ -248,9 +248,18 @@
         /* Print Specifics */
         @media print {
             body {
-                padding: 15mm 15mm 15mm 15mm !important;
+                padding: 10mm 10mm 10mm 10mm !important;
                 background-color: #fff !important;
                 color: #0f172a !important;
+            }
+            table th, table td {
+                padding: 8px 6px !important;
+            }
+            .tag-label {
+                white-space: normal !important;
+                word-wrap: break-word !important;
+                display: inline-block !important;
+                margin-bottom: 2px !important;
             }
             .no-print {
                 display: none !important;
@@ -351,7 +360,7 @@
 
         /* Suppress browser default header/footer (URL text + page number) */
         @page {
-            size: auto;
+            size: landscape;
             margin: 0;
         }
 
@@ -732,7 +741,19 @@
                                 @endif
                             </td>
                             <td>
-                                <div class="task-title">{{ $c->title }}</div>
+                                <div class="task-title">
+                                    @php
+                                        $cardUrl = ($c->board ? route('boards.show', $c->board->slug) : (isset($board) && $board ? route('boards.show', $board->slug) : null));
+                                        if ($cardUrl) {
+                                            $cardUrl .= '?card=' . $c->id;
+                                        }
+                                    @endphp
+                                    @if($cardUrl)
+                                        <a href="{{ $cardUrl }}" target="_blank" style="color: inherit; text-decoration: underline;">{{ $c->title }}</a>
+                                    @else
+                                        {{ $c->title }}
+                                    @endif
+                                </div>
                                 @if($includeDesc && $c->description)
                                     <div class="task-desc">{!! strip_tags($c->description) !!}</div>
                                 @endif
@@ -758,8 +779,12 @@
                                                         <div class="comment-screenshots" style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px;">
                                                             @foreach($parsedComment['screenshots'] as $scrIdx => $scrSrc)
                                                                 <div class="image-item" style="display: flex; flex-direction: column; align-items: center; width: 120px; background-color: #fff; padding: 4px; border: 1px solid #e2e8f0; border-radius: 6px;">
-                                                                    <img src="{{ $scrSrc }}" style="width: 112px; max-height: 90px; object-fit: contain; border-radius: 4px;" class="task-image-thumbnail">
-                                                                    <div class="image-name" style="font-size: 8px; color: var(--text-muted); margin-top: 4px; text-align: center; width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Screenshot {{ $scrIdx + 1 }}</div>
+                                                                    <a href="{{ $scrSrc }}" target="_blank" style="display: block;">
+                                                                        <img src="{{ $scrSrc }}" style="width: 112px; max-height: 90px; object-fit: contain; border-radius: 4px;" class="task-image-thumbnail">
+                                                                    </a>
+                                                                    <div class="image-name" style="font-size: 8px; color: var(--text-muted); margin-top: 4px; text-align: center; width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                                        <a href="{{ $scrSrc }}" target="_blank" style="color: inherit; text-decoration: underline;">Screenshot {{ $scrIdx + 1 }}</a>
+                                                                    </div>
                                                                 </div>
                                                             @endforeach
                                                         </div>
@@ -790,8 +815,12 @@
                                                         }
                                                     @endphp
                                                     <div class="image-item">
-                                                        <img src="{{ $imgSrc }}" class="task-image-thumbnail">
-                                                        <div class="image-name">{{ $img->original_name }}</div>
+                                                        <a href="{{ $img->preview_url }}" target="_blank" style="display: block;">
+                                                            <img src="{{ $imgSrc }}" class="task-image-thumbnail">
+                                                        </a>
+                                                        <div class="image-name">
+                                                            <a href="{{ $img->preview_url }}" target="_blank" style="color: inherit; text-decoration: underline;">{{ $img->original_name }}</a>
+                                                        </div>
                                                     </div>
                                                 @endforeach
                                             </div>
@@ -836,15 +865,33 @@
                             </td>
                             <td style="text-align: center;">
                                 @if($c->files->isNotEmpty())
-                                    <div style="font-size: 10px; color: #4b5563;">
+                                    <div style="font-size: 10px; color: #4b5563; text-align: left;">
                                         @php
-                                            $images = $c->files->filter(fn($f) => $f->is_image)->count();
-                                            $links = $c->files->filter(fn($f) => $f->disk === 'url' || $f->mime_type === 'link')->count();
-                                            $others = $c->files->count() - $images - $links;
+                                            $imageFiles = $c->files->filter(fn($f) => $f->is_image)->values();
+                                            $linksList  = $c->files->filter(fn($f) => $f->disk === 'url' || $f->mime_type === 'link')->values();
+                                            $otherFiles = $c->files->filter(fn($f) => !$f->is_image && $f->disk !== 'url' && $f->mime_type !== 'link')->values();
                                         @endphp
-                                        @if($images > 0) <div>🖼️ {{ $images }} Images</div> @endif
-                                        @if($links > 0) <div>🔗 {{ $links }} Links</div> @endif
-                                        @if($others > 0) <div>📄 {{ $others }} Files</div> @endif
+                                        @if($imageFiles->isNotEmpty())
+                                            @foreach($imageFiles as $i => $img)
+                                                <div style="margin-top: 2px; white-space: nowrap;">
+                                                    🖼️ <a href="{{ $img->preview_url }}" target="_blank" style="color: #2563eb; text-decoration: underline;">{{ $imageFiles->count() === 1 ? '1 Images' : 'Image ' . ($i + 1) }}</a>
+                                                </div>
+                                            @endforeach
+                                        @endif
+                                        @if($otherFiles->isNotEmpty())
+                                            @foreach($otherFiles as $i => $file)
+                                                <div style="margin-top: 2px; white-space: nowrap;">
+                                                    📄 <a href="{{ $file->preview_url }}" target="_blank" style="color: #2563eb; text-decoration: underline;">{{ $otherFiles->count() === 1 ? '1 Files' : 'File ' . ($i + 1) }}</a>
+                                                </div>
+                                            @endforeach
+                                        @endif
+                                        @if($linksList->isNotEmpty())
+                                            @foreach($linksList as $i => $link)
+                                                <div style="margin-top: 2px; white-space: nowrap;">
+                                                    🔗 <a href="{{ $link->path }}" target="_blank" style="color: #2563eb; text-decoration: underline;">Link {{ $i + 1 }}</a>
+                                                </div>
+                                            @endforeach
+                                        @endif
                                     </div>
                                 @else
                                     <span style="color: var(--text-muted); font-size: 10px;">-</span>

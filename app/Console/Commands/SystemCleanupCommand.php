@@ -17,7 +17,7 @@ class SystemCleanupCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'system:cleanup {--days=30 : The number of days to keep logs}';
+    protected $signature = 'system:cleanup {--days=7 : The number of days to keep logs (1 week)}';
 
     /**
      * The console command description.

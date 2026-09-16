@@ -25,7 +25,7 @@ class DashboardController extends Controller
         $digitalOnlyModules = ['boards', 'kanban', 'social-media', 'websites'];
 
         // Only admin/supervisor tiers get the full, system-wide feed.
-        $seesEveryone = $user->hasAnyRole(['super-admin', 'admin-digital', 'boss']);
+        $seesEveryone = $user->hasAnyRole(['super-admin', 'admin-crm', 'admin-digital', 'boss']) || (($user->crm_role ?? null) === 'supervisor');
 
         // ── User stats (cached 60s — rarely change minute-to-minute) ───────
         $stats = Cache::remember("dashboard_stats_{$user->id}", 60, function () {
@@ -67,6 +67,11 @@ class DashboardController extends Controller
             if (! $seesEveryone) {
                 $query->where('user_id', $user->id);
             }
+
+            // Exclude board visits and card view/download logs from recent activity feed
+            $query->where('description', 'not like', 'Visited boards%')
+                  ->where('description', 'not like', 'Visited smm-boards%');
+
             return $query->limit(50)->get();
         };
 

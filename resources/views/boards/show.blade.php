@@ -461,6 +461,7 @@
       </div>
     @endif
 
+
     {{-- Import Button --}}
     <button @click="openImportModal()"
             class="btn btn-secondary py-1 sm:py-1.5 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5 font-semibold hover:text-white transition-colors"
@@ -517,20 +518,26 @@
               </svg>
             </button>
             <div x-show="openMenu" @click.outside="openMenu = false" x-cloak
-                 class="absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 py-1.5"
+                 class="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 py-1.5"
                  x-transition:enter="transition ease-out duration-100"
                  x-transition:enter-start="opacity-0 scale-95"
                  x-transition:enter-end="opacity-100 scale-100">
               <button @click="openMenu = false; startEditList(list.id, list.name)" class="w-full text-left px-3.5 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
                 ✏️ Rename
               </button>
+              <button @click="openMenu = false; isSelectMode ? exitSelectMode() : startSelectMode()" class="w-full text-left px-3.5 py-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5 font-medium">
+                <span x-text="isSelectMode ? '✖️ Deselect' : '☑️ Select'">☑️ Select</span>
+              </button>
+              <button @click="openMenu = false; selectAllInList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5 font-medium">
+                ☑️ Select All
+              </button>
               <button @click="openMenu = false; archiveList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-amber-600 hover:bg-amber-50 flex items-center gap-1.5 font-medium">
                 📦 Archive
               </button>
-              <button @click="openMenu = false; deleteList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 font-medium">
-                🗑️ Delete
+              <button @click="openMenu = false; deleteList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 font-medium" title="Delete list and move cards to Trash">
+                🗑️ Delete List
               </button>
-              @if(auth()->check() && auth()->user()->hasRole('super-admin'))
+              @if(auth()->check() && auth()->user()->canClearBoardList())
               <div class="border-t border-slate-100 my-1"></div>
               <button @click="openMenu = false; clearList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 font-medium" title="Delete all cards in this list">
                 🧹 Clear List
@@ -544,18 +551,24 @@
       {{-- Cards Container with SortableJS hook --}}
       <div class="list-cards flex-1 overflow-y-auto min-h-12 pb-8 scrollbar-thin transition-colors" :id="'cards-'+list.id" :data-list-id="list.id">
         <template x-for="card in filteredCards(list)" :key="card.id">
-          <div class="kanban-card select-none"
-               :class="['priority-' + card.priority, canDragCard(card, list) ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-80']"
+          <div class="kanban-card select-none relative"
+               :class="['priority-' + card.priority, isSelectMode ? 'cursor-pointer' : (canDragCard(card, list) ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'), (selectedCards || []).includes(card.id) ? 'ring-2 ring-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/50' : '']"
                :data-id="card.id"
-               :data-can-drag="canDragCard(card, list) ? '1' : '0'"
-               @click="openCard(card.id)"
-               @contextmenu.prevent="openCtxMenu($event, card, list)"
-               @touchstart="ctxTouchStart($event, card, list)"
-               @touchend="ctxTouchEnd()"
-               @touchmove="ctxTouchEnd()">
+               :data-can-drag="!isSelectMode && canDragCard(card, list) ? '1' : '0'"
+               @click="isSelectMode ? toggleCardSelection(card.id) : openCard(card.id)"
+               @contextmenu.prevent="isSelectMode ? toggleCardSelection(card.id) : openCtxMenu($event, card, list)"
+               @touchstart="isSelectMode ? null : ctxTouchStart($event, card, list)"
+               @touchend="isSelectMode ? null : ctxTouchEnd()"
+               @touchmove="isSelectMode ? null : ctxTouchEnd()">
+
+            {{-- Bulk Select Checkbox --}}
+            <div x-show="isSelectMode" x-cloak class="absolute top-2 right-2 pointer-events-none">
+                <input type="checkbox" :checked="(selectedCards || []).includes(card.id)" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+            </div>
 
             {{-- Quick-action ⋮ button (hover-visible) --}}
             <button class="card-quick-btn"
+                    x-show="!isSelectMode"
                     @click.stop="openCtxMenu($event, card, list)"
                     title="Quick actions">
               <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" class="text-slate-500">
@@ -596,16 +609,17 @@
                     <button type="button"
                             @click.stop="toggleSupervisorApprove(card, list)"
                             :class="card.status === 'Approved' || card.status === 'approved'
-                              ? 'border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white'
-                              : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400 hover:text-emerald-500'"
-                            class="w-5 h-5 rounded-full border flex flex-shrink-0 items-center justify-center mt-0.5 transition"
-                            :title="card.status === 'Approved' || card.status === 'approved' ? 'Click to untick' : 'Click to approve'">
-                      <svg x-show="card.status !== 'Approved' && card.status !== 'approved'" class="w-3.5 h-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor">
-                        <title>Click to approve</title>
+                              ? 'border-emerald-400 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white shadow-sm ring-1 ring-emerald-500/30'
+                              : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-500 shadow-sm'"
+                            class="w-7 h-7 rounded-full border flex flex-shrink-0 items-center justify-center mt-0.5 transition relative group cursor-pointer"
+                            aria-label="Toggle approval">
+                      <!-- Tooltip -->
+                      <span class="absolute right-full mr-2 top-1/2 -translate-y-1/2 invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap shadow-md z-10" x-text="card.status === 'Approved' || card.status === 'approved' ? 'Click to untick' : 'Click to approve'"></span>
+                      
+                      <svg x-show="card.status !== 'Approved' && card.status !== 'approved'" class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                         <circle cx="12" cy="12" r="8.5" />
                       </svg>
-                      <svg x-show="card.status === 'Approved' || card.status === 'approved'" x-cloak class="w-3.5 h-3.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                        <title>Click to untick</title>
+                      <svg x-show="card.status === 'Approved' || card.status === 'approved'" x-cloak class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                       </svg>
                     </button>
@@ -699,14 +713,15 @@
         {{-- Inline add card form --}}
         <div x-show="addingCardListId === list.id" x-cloak>
           <textarea x-model="newCardTitle" @keydown.enter.prevent="saveCard(list.id)"
-                    @keydown.escape="addingCardListId = null"
+                    @keydown.escape="addingCardListId = null; newCardTeam = null"
                     rows="2" placeholder="Card title…"
-                    class="form-input text-xs resize-none w-full mb-2 rounded-xl"
+                    class="form-input text-sm resize-none w-full mb-2 rounded-xl"
                     x-ref="'newcard_'+list.id"
                     :x-ref="'newcard_'+list.id"></textarea>
-          <div class="flex gap-2">
+
+          <div class="flex gap-2 items-center">
             <button @click="saveCard(list.id)" class="btn btn-primary text-xs py-1.5 px-3">Add</button>
-            <button @click="addingCardListId = null" class="text-xs text-slate-400 hover:text-slate-600">✕</button>
+            <button @click="addingCardListId = null; newCardTeam = null" class="text-xs text-slate-400 hover:text-slate-600">✕</button>
           </div>
         </div>
       </div>
@@ -715,7 +730,7 @@
 
   {{-- Add list button --}}
   <div class="add-list-wrapper flex-shrink-0" :style="'zoom: ' + (zoomLevel / 100)">
-    <button type="button" x-show="!addingList" class="add-list-btn border border-dashed border-slate-300 rounded-xl hover:border-slate-400 transition-colors" @click.stop="addingList=true; setTimeout(() => { $refs.addListInput.focus() }, 100)">
+    <button type="button" x-show="!addingList" class="add-list-btn border border-dashed border-white/40 text-white rounded-xl hover:border-white hover:bg-white/20 transition-colors drop-shadow-sm font-semibold" @click.stop="addingList=true; setTimeout(() => { $refs.addListInput.focus() }, 100)">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       Add another list
     </button>
@@ -892,7 +907,7 @@
 
 
 {{-- Switch Board Button (Fixed at bottom middle) --}}
-<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] drop-shadow-2xl" x-show="!activeCard" x-transition.opacity.duration.200ms>
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] drop-shadow-2xl" x-show="!activeCard && !isSelectMode" x-transition.opacity.duration.200ms>
   <button type="button"
           @click="openSwitchBoardsModal()"
           class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-400 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-6 py-2.5 text-sm font-extrabold text-slate-700 dark:text-slate-200 shadow-xl transition-all hover:-translate-y-1 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:hover:text-white hover:shadow-2xl">
@@ -903,6 +918,96 @@
   </button>
 </div>
 
+  {{-- Floating Action Bar for Bulk Selection --}}
+  <div x-show="isSelectMode" x-cloak
+       x-transition:enter="transition ease-out duration-300 transform"
+       x-transition:enter-start="translate-y-full opacity-0"
+       x-transition:enter-end="translate-y-0 opacity-100"
+       x-transition:leave="transition ease-in duration-200 transform"
+       x-transition:leave-start="translate-y-0 opacity-100"
+       x-transition:leave-end="translate-y-full opacity-0"
+       class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-3 bg-slate-900/95 backdrop-blur-md text-white px-5 py-2.5 rounded-full shadow-2xl shadow-slate-900/40 border border-slate-700">
+    <div class="flex items-center gap-2 mr-1 select-none">
+      <span class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-indigo-500/25 text-indigo-300 text-xs font-bold" x-text="selectedCards.length"></span>
+      <span class="font-semibold text-xs text-slate-200" x-text="selectedCards.length === 1 ? 'card selected' : 'cards selected'"></span>
+    </div>
+    <button @click="openBulkTransferModal('move')"
+            :disabled="selectedCards.length === 0"
+            class="btn btn-primary bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:pointer-events-none border-none text-xs py-1.5 px-4 rounded-full font-bold transition-all shadow-sm">
+      Move
+    </button>
+    <button @click="openBulkTransferModal('copy')"
+            :disabled="selectedCards.length === 0"
+            class="btn btn-secondary bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none border border-slate-600 text-white text-xs py-1.5 px-4 rounded-full font-bold transition-all shadow-sm">
+      Copy
+    </button>
+
+    {{-- Bulk Comment Button & Popover --}}
+    <div class="relative">
+      <button type="button"
+              @click="openBulkComment = !openBulkComment"
+              :disabled="selectedCards.length === 0"
+              class="btn btn-secondary bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none border border-slate-600 text-white text-xs py-1.5 px-3.5 rounded-full font-bold transition-all shadow-sm flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+        </svg>
+        <span>Comment</span>
+      </button>
+
+      {{-- Comment Options Popover --}}
+      <div x-show="openBulkComment"
+           @click.outside="openBulkComment = false"
+           x-cloak
+           x-transition:enter="transition ease-out duration-150 transform"
+           x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+           x-transition:leave="transition ease-in duration-100 transform"
+           x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+           x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+           class="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-72 sm:w-80 max-w-[92vw] bg-slate-900/98 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl p-3.5 z-50 text-white">
+        <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-800">
+          <span class="text-[11px] uppercase tracking-wider font-extrabold text-slate-300">
+            Comment on <span class="text-indigo-400" x-text="selectedCards.length"></span> cards
+          </span>
+          <button type="button" @click="openBulkComment = false" class="text-slate-400 hover:text-white text-xs p-1">✕</button>
+        </div>
+
+        {{-- Preset Words --}}
+        <div class="space-y-1.5">
+          <template x-for="word in ['Ready', 'Team approved', 'Head approved', 'QC approved SMM', 'Approved']" :key="word">
+            <button type="button"
+                    @click="submitBulkComment(word)"
+                    :disabled="bulkCommentSubmitting"
+                    class="w-full text-xs px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-indigo-600 hover:text-white border border-slate-700/80 hover:border-indigo-500 font-semibold transition-all text-slate-200 text-left flex items-center justify-between group">
+              <span class="font-bold" x-text="word"></span>
+              <span class="text-[10px] text-slate-400 group-hover:text-indigo-200 transition-colors">Select ↵</span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    {{-- Bulk Delete Button --}}
+    <button type="button"
+            @click="bulkDeleteCards()"
+            :disabled="!selectedCards || selectedCards.length === 0"
+            class="btn btn-danger bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:pointer-events-none border-none text-white text-xs py-1.5 px-3.5 rounded-full font-bold transition-all shadow-sm flex items-center gap-1.5"
+            title="Delete selected cards (move to Trash)">
+      <svg class="w-3.5 h-3.5 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+      </svg>
+      <span>Delete</span>
+    </button>
+
+    <div class="h-4 w-[1px] bg-slate-700 mx-0.5"></div>
+    <button @click="exitSelectMode()" class="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-white px-2 py-1 rounded-full transition-colors" title="Cancel selection">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+      <span>Cancel</span>
+    </button>
+  </div>
+
 </div>
 @endsection
 
@@ -910,9 +1015,52 @@
 <!-- Quill JS -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 @php
-    $trelloBoardVersion = file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0';
+    $trelloBoardVersion = (file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0') . '.' . time();
     $dragScrollVersion = file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0';
 @endphp
 <script src="{{ asset('js/trello-board.js') }}?v={{ $trelloBoardVersion }}"></script>
 <script src="{{ asset('js/drag-scroll.js') }}?v={{ $dragScrollVersion }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.trelloBoard) {
+        const _orig = window.trelloBoard;
+        window.trelloBoard = function(config) {
+            const data = _orig(config);
+            if (!data.bulkDeleteCards) {
+                data.bulkDeleting = false;
+                data.bulkDeleteCards = async function() {
+                    if (!this.selectedCards || !this.selectedCards.length) return;
+                    const count = this.selectedCards.length;
+                    const ok = window.confirmModal 
+                        ? await window.confirmModal({
+                            title: 'Move selected cards to Trash?',
+                            message: `Are you sure you want to move <strong>${count}</strong> selected card${count > 1 ? 's' : ''} to Trash?<br><span class="text-xs text-slate-500 mt-1 block">Items in Trash are kept for 7 days before being automatically removed.</span>`,
+                            confirmText: 'Move to Trash',
+                            tone: 'danger'
+                        })
+                        : confirm(`Move ${count} selected card(s) to Trash?`);
+                    if (!ok) return;
+
+                    try {
+                        const res = await (this.api 
+                            ? this.api(`/${this.baseRoute || 'boards'}/${this.boardSlug}/cards/bulk`, 'POST', { card_ids: this.selectedCards, action: 'delete' })
+                            : window.fetchJson(`/${this.baseRoute || 'boards'}/${this.boardSlug}/cards/bulk`, { method: 'POST', body: JSON.stringify({ card_ids: this.selectedCards, action: 'delete' }) })
+                        );
+                        const deletedIds = new Set(this.selectedCards.map(id => Number(id)));
+                        this.lists.forEach(l => {
+                            if (l.cards) l.cards = l.cards.filter(c => !deletedIds.has(Number(c.id)));
+                        });
+                        if (window.showToast) window.showToast(res.message || `${count} cards moved to Trash (auto-removes in 7 days).`);
+                        this.exitSelectMode();
+                    } catch (e) {
+                        console.error(e);
+                        if (window.showToast) window.showToast('Failed to delete selected cards.', 'error');
+                    }
+                };
+            }
+            return data;
+        };
+    }
+});
+</script>
 @endpush

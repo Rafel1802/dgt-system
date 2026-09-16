@@ -14,7 +14,25 @@ class SocialMediaReportController extends Controller
     public function index(Request $request)
     {
         $classes = SocialMediaClass::orderBy('position')->orderBy('name')->get();
-        return view('social-media.reports.index', compact('classes'));
+        $classId = $request->input('class_id');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        $availableAnalytics = collect();
+        $hasAnalytics = false;
+
+        if ($dateFrom && $dateTo) {
+            $classIds = $classId ? (is_array($classId) ? $classId : [$classId]) : $classes->pluck('id')->all();
+            $availableAnalytics = SocialMediaAnalytic::whereHas('classes', fn ($q) => $q->whereIn('social_media_classes.id', $classIds))
+                ->where(function($q) use ($dateFrom, $dateTo) {
+                    $q->whereDate('date_from', '<=', $dateTo)
+                      ->whereDate('date_to', '>=', $dateFrom);
+                })
+                ->get();
+            $hasAnalytics = $availableAnalytics->isNotEmpty();
+        }
+
+        return view('social-media.reports.index', compact('classes', 'availableAnalytics', 'hasAnalytics'));
     }
 
     public function exportZip(Request $request)
@@ -22,15 +40,17 @@ class SocialMediaReportController extends Controller
         $request->validate([
             'date_from' => ['required', 'date'],
             'date_to'   => ['required', 'date', 'after_or_equal:date_from'],
-            'class_id'  => ['nullable', 'exists:social_media_classes,id'],
+            'class_id'  => ['nullable'],
         ]);
 
         $dateFrom = $request->input('date_from');
         $dateTo   = $request->input('date_to');
-        $classId  = $request->input('class_id');
-        $exportType = $request->input('export_type', 'zip');
+        $classIdsInput = $request->input('class_id');
+        $exportType = $request->input('export_type');
 
-        $classIds = $classId ? [$classId] : SocialMediaClass::pluck('id')->toArray();
+        $classIds = !empty($classIdsInput)
+            ? (is_array($classIdsInput) ? $classIdsInput : [$classIdsInput])
+            : SocialMediaClass::pluck('id')->toArray();
 
         $analytics = SocialMediaAnalytic::whereHas('classes', fn ($q) => $q->whereIn('social_media_classes.id', $classIds))
             ->with('classes')
@@ -45,7 +65,7 @@ class SocialMediaReportController extends Controller
             return back()->with('error', 'No analytics files found for the selected period.');
         }
 
-        if ($exportType === 'single' || $analytics->count() === 1) {
+        if ($exportType === 'single' || (!$request->boolean('include_csv') && $analytics->count() === 1 && $exportType !== 'zip')) {
             // For single PDF export, if there are multiple, just take the most recent one covering the date.
             $analytic = $analytics->first();
             if ($analytic->fileExists()) {

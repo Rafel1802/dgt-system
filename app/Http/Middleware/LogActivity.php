@@ -46,8 +46,19 @@ class LogActivity
         }
 
         $method = strtoupper($request->method());
-        $routeName = $request->route()?->getName();
+        $routeName = (string) ($request->route()?->getName() ?? '');
         $path = trim($request->path(), '/');
+
+        // Do not log activity for visiting boards or viewing/downloading cards
+        if ($method === 'GET' && (
+            $request->is('boards*')
+            || $request->is('smm-boards*')
+            || str_starts_with($routeName, 'boards.')
+            || str_starts_with($routeName, 'smm-boards.')
+        )) {
+            return $response;
+        }
+
         $module = $this->moduleFromPath($path);
         $action = $method === 'GET' ? 'page.visit' : 'user.action';
         $description = $method === 'GET'
@@ -137,13 +148,23 @@ class LogActivity
 
     private function actionDescription(string $method, ?string $routeName, string $path): string
     {
+        $target = $routeName ?: $path;
+
+        if ($target) {
+            $humanized = ActivityLog::humanizeDescription($target);
+            if ($humanized !== $target && !str_contains($humanized, '.')) {
+                return $humanized;
+            }
+        }
+
         $verb = match ($method) {
-            'POST' => 'Created or submitted',
+            'POST' => 'Created',
             'PUT', 'PATCH' => 'Updated',
             'DELETE' => 'Deleted',
             default => 'Changed',
         };
 
-        return $verb . ' ' . ($routeName ?: ($path ?: 'system record'));
+        $cleanTarget = $routeName ? str_replace(['.', '_', '-'], ' ', $routeName) : str_replace(['/', '_', '-'], ' ', $path);
+        return $verb . ' ' . ucwords(trim($cleanTarget ?: 'system record'));
     }
 }

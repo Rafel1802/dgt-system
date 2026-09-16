@@ -44,3 +44,12 @@ ALL\ CODE.zip
 /*.xlsx
 /*.xls
 /*.csv
+
+# Scratch and temporary scripts
+/scratch/
+scratch_*.php
+add_block_list.php
+run_update_env.py
+/*.mp3
+/*.wav
+promptupdate.md

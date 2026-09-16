@@ -34,6 +34,20 @@ class Workspace extends Model
                 $workspace->slug = Str::slug($workspace->name) . '-' . Str::random(4);
             }
         });
+
+        static::deleting(function (Workspace $workspace) {
+            // Cascade soft delete to all boards in this workspace
+            if ($workspace->isForceDeleting()) {
+                $workspace->boards()->forceDelete();
+            } else {
+                $workspace->boards()->delete();
+            }
+        });
+
+        static::restoring(function (Workspace $workspace) {
+            // Restore all boards that were soft deleted
+            $workspace->boards()->withTrashed()->restore();
+        });
     }
 
     // ── Relationships ─────────────────────────────────────────────────────────

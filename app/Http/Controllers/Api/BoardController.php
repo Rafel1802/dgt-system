@@ -95,7 +95,6 @@ class BoardController extends Controller
         }
 
         $board->members()->syncWithoutDetaching([$request->user()->id => ['role' => 'admin']]);
-        BoardActivityNotification::send($board, 'new_board', "{$request->user()->name} created board {$board->name}", null, true);
 
         return response()->json(['board' => $board->load('lists')], 201);
     }

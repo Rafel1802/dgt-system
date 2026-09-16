@@ -24,7 +24,10 @@ class SecurityHeaders
             $response->header('Referrer-Policy', 'strict-origin-when-cross-origin');
             
             if (app()->environment('production')) {
-                $response->header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+                $host = $request->getHost();
+                if ($host !== 'localhost' && $host !== '127.0.0.1' && !str_starts_with($host, '192.168.')) {
+                    $response->header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+                }
             }
         }
 

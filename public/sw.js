@@ -1,7 +1,7 @@
 // Bumped to v2: the old v1 cache may hold personalized HTML pages cached
 // under the previous (unsafe) strategy — this forces every client to drop
 // it on next activation (see the activate handler below).
-const CACHE_NAME = 'kiuq-system-cache-v3';
+const CACHE_NAME = 'kiuq-system-cache-v4';
 const PRE_CACHE_ASSETS = [
   '/favicon.ico',
   '/manifest.json'
@@ -105,4 +105,31 @@ self.addEventListener('fetch', event => {
   // browser to subscribe to that other user's live notification channel.
   // Always hit the network for HTML; let the browser's own default
   // handling take over instead of intercepting.
+});
+
+// Handle notification clicks (deep-linking)
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  const link = event.notification.data ? event.notification.data.link : null;
+  const cardId = event.notification.data ? event.notification.data.card_id : null;
+  
+  if (link) {
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+        for (let i = 0; i < clientList.length; i++) {
+          let client = clientList[i];
+          if ('focus' in client) {
+            // Send message to client if we need to open a card
+            if (cardId) {
+                client.postMessage({ type: 'OPEN_CARD', cardId: cardId });
+            }
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(link);
+        }
+      })
+    );
+  }
 });

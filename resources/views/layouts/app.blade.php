@@ -36,9 +36,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         @endif
     @endauth
 
-    <!-- SEO -->
-    <title>@yield('title', 'DIGITAL SYSTEM') | Digital & CRM Management</title>
-    <meta name="description" content="@yield('meta_description', 'Digital Team and CRM Management System — Manage tasks, customers, and sales pipelines efficiently.')">
+    <title>@yield('title', 'DIGITAL SYSTEM') | Digital Workspace</title>
+    <meta name="description" content="@yield('meta_description', 'Digital Team Management System — Manage tasks, boards, and operations efficiently.')">
     <meta name="robots" content="noindex, nofollow">
 
     <!-- Favicon -->
@@ -447,7 +446,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             font-size: 14px !important;
             line-height: 38px !important;
             height: 38px !important;
-            max-width: 38px !important;
+            flex-basis: 14.2857% !important;
+            max-width: 14.2857% !important;
         }
         .flatpickr-day.selected {
             background: #4f46e5 !important;
@@ -589,7 +589,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 <!-- Main -->
                 @can('dashboard.view')
-                @unless(auth()->user()->hasRole('boss'))
+                @unless(auth()->user()?->hasRole('boss'))
                 <span class="sidebar-section-label">Main</span>
 
                 <a href="{{ route('dashboard') }}"
@@ -617,7 +617,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
 
                 <!-- Notes -->
-                @unless(auth()->user()->hasRole('boss'))
+                @unless(auth()->user()?->hasRole('boss'))
                 <span class="sidebar-section-label">Notes</span>
                 <a href="{{ route('notes.team') }}"
                    class="sidebar-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
@@ -645,7 +645,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     $sidebarSystemTools = \App\Models\Setting::externalToolsForGroup('generator', true);
                     $sidebarWorkspaceTools = \App\Models\Setting::externalToolsForGroup('workspace', true);
                     $sidebarAiTools = \App\Models\Setting::externalToolsForGroup('ai', true);
-                    $canSeeApprovalQueue = auth()->user()->can('kanban.approve');
+                    $canSeeApprovalQueue = auth()->user()?->can('kanban.approve');
                 ?>
 
                 <a href="{{ route('boards.workspaces') }}"
@@ -658,7 +658,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
 
                 {{-- Social Media --}}
-                @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
+                @if(auth()->user()?->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
                 <div x-data="{ smOpen: localStorage.getItem('dgt-sm-menu-open') === 'true' || {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
                     <div class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'active' : '' }}" data-tooltip="Social Media Management">
                         <a href="{{ route('social-media.dashboard') }}" @click="smOpen = true; localStorage.setItem('dgt-sm-menu-open', 'true')" class="flex items-center gap-[0.625rem] flex-1">
@@ -693,43 +693,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </div>
                 </div>
                 @endif
-
-                @if($canSeeApprovalQueue)
-                <a href="{{ route('approvals.index') }}"
-                   class="sidebar-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
-                   id="nav-approvals" data-tooltip="Approval Queue">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375"/>
-                    </svg>
-                    <span>Approval Queue</span>
-                </a>
-                @endif
-
-                @if(auth()->user()->isQcOrSupervisor())
-                <a href="{{ route('boards.reports.personal') }}"
-                   class="sidebar-item {{ request()->routeIs('boards.reports.personal') ? 'active' : '' }}"
-                   id="nav-personal-report" data-tooltip="Personal Report">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                        <polyline stroke-linecap="round" stroke-linejoin="round" points="14 2 14 8 20 8" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-6" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 18v-1" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 18v-3" />
-                    </svg>
-                    <span>Personal Report</span>
-                </a>
-                @endif
-
-                @can('view-blog-reports')
-                <a href="{{ route('blog-reports.index') }}"
-                   class="sidebar-item {{ request()->routeIs('blog-reports.*') ? 'active' : '' }}"
-                   id="nav-blog-report" data-tooltip="Blog Report">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                    </svg>
-                    <span>Blog Report</span>
-                </a>
-                @endcan
 
                 @if(auth()->user()->hasWebsiteAccess())
                 {{-- All Websites accordion sub-menu --}}
@@ -799,10 +762,48 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </div>
                 @endif
 
+                @if($canSeeApprovalQueue)
+                <a href="{{ route('approvals.index') }}"
+                   class="sidebar-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
+                   id="nav-approvals" data-tooltip="Approval Queue">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375"/>
+                    </svg>
+                    <span>Approval Queue</span>
+                </a>
+                @endif
+
+                @if(auth()->user()->isQcOrSupervisor())
+                <a href="{{ route('boards.reports.personal') }}"
+                   class="sidebar-item {{ request()->routeIs('boards.reports.personal') ? 'active' : '' }}"
+                   id="nav-personal-report" data-tooltip="Personal Report">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline stroke-linecap="round" stroke-linejoin="round" points="14 2 14 8 20 8" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-6" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 18v-1" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 18v-3" />
+                    </svg>
+                    <span>Personal Report</span>
+                </a>
+                @endif
+
+
+                @can('view-blog-reports')
+                <a href="{{ route('blog-reports.index') }}"
+                   class="sidebar-item {{ request()->routeIs('blog-reports.*') ? 'active' : '' }}"
+                   id="nav-blog-report" data-tooltip="Blog Report">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    <span>Blog Report</span>
+                </a>
+                @endcan
+
                 <?php
                     $weeklyReport = collect(\App\Models\Setting::externalToolsForGroup('board', true))->firstWhere('key', 'weekly_report_url');
                 ?>
-                @unless(auth()->user()->hasRole('boss'))
+                @unless(auth()->user()?->hasRole('boss'))
                 @if($weeklyReport)
                     <a href="{{ $weeklyReport['url'] }}"
                        target="_blank"
@@ -818,7 +819,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endif
                 @endunless
 
-                @unless(auth()->user()->hasRole('boss'))
+                @unless(auth()->user()?->hasRole('boss'))
                 @if(count($sidebarWorkspaceTools))
                     @php
                         $userEmail = auth()->user()->email ?? '';
@@ -977,13 +978,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z"/>
                     </svg>
-                    Reports
+                    <span>Reports</span>
                 </a>
                 --}}
                 @endcan
 
                 <!-- Admin -->
-                @if(auth()->check() && (auth()->user()->canany(['users.view', 'roles.view', 'security.view', 'backup.view']) || auth()->user()->hasRole('super-admin')))
+                @if(auth()->check() && (auth()->user()->canany(['users.view', 'roles.view', 'security.view', 'backup.view']) || auth()->user()->hasRole('super-admin') || auth()->user()->canAccessMaintenance() || auth()->user()->canManageClockSounds()))
                 <span class="sidebar-section-label">Administration</span>
 
 
@@ -994,7 +995,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
                     </svg>
-                    Users
+                    <span>Users</span>
                 </a>
                 @endcan
 
@@ -1007,12 +1008,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         id="nav-labels-toggle"
                         aria-expanded="open"
                         data-tooltip="Labels">
-                        <span class="flex items-center gap-3">
+                        <div class="flex items-center gap-3">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/>
                             </svg>
                             <span>Labels</span>
-                        </span>
+                        </div>
                         <svg class="w-3.5 h-3.5 text-slate-400 transition-transform flex-shrink-0"
                              :class="{'rotate-180': open}"
                              xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -1039,9 +1040,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    Popup Ads
+                    <span>Popup Ads</span>
                 </a>
                 @endhasanyrole
+
+                @if(auth()->check() && auth()->user()->canManageClockSounds())
+                <a href="{{ route('admin.meeting-alarms.index') }}"
+                   class="sidebar-item {{ request()->routeIs('admin.meeting-alarms.*') ? 'active' : '' }}"
+                   id="nav-meeting-alarms" data-tooltip="Meeting Alarms">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                    </svg>
+                    <span>Meeting Alarms</span>
+                </a>
+                @endif
 
                 @can('security.view')
                 <a href="{{ route('admin.security.index') }}"
@@ -1050,7 +1062,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/>
                     </svg>
-                    Security
+                    <span>Security</span>
                 </a>
                 @endcan
 
@@ -1072,6 +1084,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <span>Maintenance System</span>
                 </a>
                 @endhasanyrole
+
+                @if(auth()->user()->canAccessMaintenance())
+                <a href="{{ route('system.health.index') }}"
+                   class="sidebar-item {{ request()->routeIs('system.health.*') ? 'active' : '' }}"
+                   id="nav-system-health" data-tooltip="System Health">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                    </svg>
+                    <span>System Health</span>
+                </a>
+                @endif
                 @endif
 
             </nav>
@@ -1087,13 +1110,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         :aria-expanded="open"
                     >
                         <img
-                            src="{{ auth()->user()->avatar_url }}"
-                            alt="{{ auth()->user()->name }}"
+                            src="{{ auth()->user()?->avatar_url }}"
+                            alt="{{ auth()->user()?->name }}"
                             class="avatar avatar-sm"
                         >
                         <div class="flex-1 min-w-0">
-                            <div class="text-[0.8125rem] font-semibold text-slate-200 truncate">{{ auth()->user()->name }}</div>
-                            <div class="text-[0.7rem] text-slate-400 truncate">{{ auth()->user()->role_display }}</div>
+                            <div class="text-[0.8125rem] font-semibold text-slate-200 truncate">{{ auth()->user()?->name }}</div>
+                            <div class="text-[0.7rem] text-slate-400 truncate">{{ auth()->user()?->role_display }}</div>
                         </div>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-slate-500">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
@@ -1298,22 +1321,32 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                              x-transition:enter-start="opacity-0 scale-95"
                              x-transition:enter-end="opacity-100 scale-100"
                              role="menu">
-                            <div class="border-b border-slate-200/70 bg-slate-50/80 px-4 py-3">
+                            <div class="border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900 px-4 py-3">
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
-                                        <h3 class="text-sm font-black text-slate-900">Recent activity</h3>
-                                        <p class="mt-0.5 text-xs font-semibold text-slate-500" x-text="unreadCount > 0 ? unreadCount + ' unread notification' + (unreadCount === 1 ? '' : 's') : 'All notifications are read'"></p>
+                                        <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">Recent activity</h3>
+                                        <p class="mt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400" x-text="unreadCount > 0 ? unreadCount + ' unread notification' + (unreadCount === 1 ? '' : 's') : 'All notifications are read'"></p>
                                     </div>
-                                    <button type="button"
-                                            x-show="unreadCount > 0"
-                                            @click="markAllAsRead()"
-                                            class="rounded-lg px-2 py-1 text-[11px] font-black text-indigo-700 transition hover:bg-indigo-50">
-                                        Mark all as read
-                                    </button>
+                                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                                        <button type="button"
+                                                x-show="canPin"
+                                                @click="openAnnouncementModal()"
+                                                class="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-1 text-[11px] font-black transition border border-amber-500/20 shadow-xs"
+                                                title="Pin an announcement to top for all users">
+                                            <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                                            Pin
+                                        </button>
+                                        <button type="button"
+                                                x-show="unreadCount > 0"
+                                                @click="markAllAsRead()"
+                                                class="rounded-lg px-2 py-1 text-[11px] font-black text-indigo-700 dark:text-indigo-400 transition hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
+                                            Mark all as read
+                                        </button>
+                                    </div>
                                 </div>
                                 <button type="button"
                                         @click="requestBrowserPermission()"
-                                        class="mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                                        class="mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                                         :disabled="permissionBusy">
                                     <span class="flex items-center gap-2">
                                         <svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -1321,12 +1354,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                         </svg>
                                         Browser notifications
                                     </span>
-                                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase text-slate-500" x-text="browserPermissionLabel()"></span>
+                                    <span class="rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-black uppercase text-slate-500 dark:text-slate-300" x-text="browserPermissionLabel()"></span>
                                 </button>
                                 
                                 <button type="button"
                                         @click="toggleMute()"
-                                        class="mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-xs font-bold text-slate-700 transition hover:bg-slate-50">
+                                        class="mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800">
                                     <span class="flex items-center gap-2">
                                         <svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
@@ -1334,60 +1367,366 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                         Mute in-app popups
                                     </span>
                                     <div class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-100 ease-in-out"
-                                         :class="notificationsMuted ? 'bg-indigo-600' : 'bg-slate-200'"
+                                         :class="notificationsMuted ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'"
                                          role="switch" :aria-checked="notificationsMuted.toString()">
                                         <span aria-hidden="true" class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-100 ease-in-out"
                                               :class="notificationsMuted ? 'translate-x-3' : 'translate-x-0'"></span>
                                     </div>
                                 </button>
-
-                                @if(in_array('crm', auth()->user()->notificationModules(), true))
-                                <button type="button"
-                                        @click="clearCrmNotifications()"
-                                        class="mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50/50 px-3 py-2 text-left text-xs font-bold text-red-600 transition hover:bg-red-100">
-                                    <span class="flex items-center gap-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                        Clear CRM Notifications
-                                    </span>
-                                </button>
-                                @endif
                             </div>
 
-                            <div class="max-h-96 overflow-y-auto divide-y divide-slate-100 scrollbar-thin">
+                            <div class="max-h-96 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 scrollbar-thin">
                                 <template x-for="notif in notifications" :key="notif.id">
-                                    <button type="button"
-                                            class="flex w-full items-start gap-3 p-3.5 text-left transition hover:bg-slate-50"
-                                            :class="isUnread(notif) ? 'bg-indigo-50/40' : 'bg-white'"
-                                            @click="clickNotification(notif)">
+                                    <div class="group relative flex w-full items-start gap-3 p-3.5 text-left transition cursor-pointer select-none"
+                                         :class="notif.is_pinned 
+                                             ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-l-4 border-amber-500 hover:bg-amber-500/15' 
+                                             : (isUnread(notif) ? 'bg-indigo-50/40 hover:bg-slate-50 dark:bg-indigo-950/20 dark:hover:bg-slate-800/40' : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/40')"
+                                         @click="clickNotification(notif)">
                                         <img :src="actorAvatar(notif)"
-                                             class="mt-0.5 h-9 w-9 flex-shrink-0 rounded-full border border-slate-200 object-cover shadow-sm"
+                                             class="mt-0.5 h-9 w-9 flex-shrink-0 rounded-full border border-slate-200 dark:border-slate-700 object-cover shadow-sm"
                                              :alt="actorName(notif)">
                                         <span class="min-w-0 flex-1">
-                                            <span class="flex items-center gap-2">
-                                                <span class="truncate text-xs font-black text-slate-900" x-text="actorName(notif)"></span>
-                                                <span class="flex-shrink-0 text-[10px] font-bold text-slate-400" x-text="notificationTime(notif)"></span>
+                                            <span class="flex items-center justify-between gap-1">
+                                                <span class="flex items-center gap-1.5 min-w-0">
+                                                    <span class="truncate text-xs font-black text-slate-900 dark:text-slate-100" x-text="actorName(notif)"></span>
+                                                    <template x-if="notif.is_pinned">
+                                                        <span class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[9px] font-black tracking-wide border border-amber-500/30 flex-shrink-0">
+                                                            <svg class="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                                                            PINNED
+                                                        </span>
+                                                    </template>
+                                                </span>
+                                                
+                                                <span class="flex items-center gap-1.5 flex-shrink-0">
+                                                    <span class="text-[10px] font-bold text-slate-400" x-text="notificationTime(notif)"></span>
+                                                    
+                                                    <!-- Unpin Button (Visible if canPin and notif is pinned) -->
+                                                    <template x-if="canPin && notif.is_pinned">
+                                                        <button type="button"
+                                                                @click.stop="unpinNotification(notif)"
+                                                                class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 transition shadow-xs"
+                                                                title="Unpin notification">
+                                                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                            Unpin
+                                                        </button>
+                                                    </template>
+                                                    
+                                                    <!-- Pin Button (Visible on hover if canPin and not pinned) -->
+                                                    <template x-if="canPin && !notif.is_pinned">
+                                                        <button type="button"
+                                                                @click.stop="openPinModal(notif)"
+                                                                class="opacity-0 group-hover:opacity-100 focus:opacity-100 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 border border-amber-200 dark:border-amber-800 transition shadow-xs"
+                                                                title="Pin notification to top for all users">
+                                                            <svg class="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                                                            Pin
+                                                        </button>
+                                                    </template>
+                                                </span>
                                             </span>
-                                            <span class="mt-0.5 block text-xs font-semibold leading-5 text-slate-600 line-clamp-2" x-text="notificationAction(notif)" :title="(notif?.data?.message || notif?.data?.description || '')"></span>
+                                            
+                                            <span class="mt-0.5 block text-xs font-semibold leading-5 text-slate-600 dark:text-slate-300 line-clamp-2" x-text="notificationAction(notif)" :title="(notif?.data?.message || notif?.data?.description || '')"></span>
+                                            
                                             <span class="mt-1 flex flex-wrap items-center gap-1.5">
-                                                <span x-show="boardName(notif)" class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600" x-text="boardName(notif)"></span>
-                                                <span x-show="cardName(notif)" class="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-black text-indigo-700" x-text="cardName(notif)"></span>
+                                                <span x-show="boardName(notif)" class="rounded-md bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-black text-slate-600 dark:text-slate-300" x-text="boardName(notif)"></span>
+                                                <span x-show="cardName(notif)" class="rounded-md bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 text-[10px] font-black text-indigo-700 dark:text-indigo-400" x-text="cardName(notif)"></span>
+                                                
+                                                <template x-if="notif.is_pinned && notif.expires_at_human">
+                                                    <span class="inline-flex items-center gap-1 rounded-md bg-rose-50 dark:bg-rose-950/30 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/40">
+                                                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        <span x-text="'Expires ' + notif.expires_at_human"></span>
+                                                    </span>
+                                                </template>
+                                                <template x-if="notif.is_pinned && !notif.expires_at_human">
+                                                    <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                                        No expiry
+                                                    </span>
+                                                </template>
                                             </span>
                                         </span>
                                         <span class="mt-2 h-2 w-2 flex-shrink-0 rounded-full"
-                                              :class="isUnread(notif) ? 'bg-indigo-600 shadow-sm shadow-indigo-600/40' : 'bg-slate-200'"
+                                              :class="isUnread(notif) ? 'bg-indigo-600 shadow-sm shadow-indigo-600/40' : (notif.is_pinned ? 'bg-amber-400' : 'bg-slate-200 dark:bg-slate-700')"
                                               :title="isUnread(notif) ? 'Unread' : 'Read'"></span>
-                                    </button>
+                                    </div>
                                 </template>
                                 <template x-if="notifications.length === 0">
                                     <div class="px-4 py-12 text-center">
-                                        <p class="text-sm font-black text-slate-700">No recent activity</p>
+                                        <p class="text-sm font-black text-slate-700 dark:text-slate-200">No recent activity</p>
                                         <p class="mt-1 text-xs font-semibold text-slate-400">New board and card updates will appear here.</p>
                                     </div>
                                 </template>
                             </div>
                         </div>
+
+                        <!-- Teleported Modals for Pinning and Announcement -->
+                        <template x-teleport="body">
+                            <!-- Pin Existing Notification Modal -->
+                            <div x-show="pinModalOpen" 
+                                 x-transition.opacity.duration.200ms
+                                 class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[999999]"
+                                 style="display: none;"
+                                 @keydown.escape.window="pinModalOpen = false">
+                                <div x-show="pinModalOpen"
+                                     @click.outside="pinModalOpen = false"
+                                     x-transition:enter="transition ease-out duration-200"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden w-full max-w-md border border-slate-200 dark:border-slate-800 flex flex-col">
+                                    
+                                    <!-- Header -->
+                                    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                                            </div>
+                                            <div>
+                                                <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">Pin Notification to Top</h3>
+                                                <p class="text-[11px] font-semibold text-slate-500">All users will see this notification pinned on top</p>
+                                            </div>
+                                        </div>
+                                        <button type="button" @click="pinModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg">
+                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+
+                                    <!-- Body -->
+                                    <div class="p-5 space-y-4">
+                                        <!-- Selected Notification Preview -->
+                                        <template x-if="pinningNotif">
+                                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-start gap-3">
+                                                <img :src="actorAvatar(pinningNotif)" class="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 object-cover flex-shrink-0">
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="text-xs font-black text-slate-900 dark:text-slate-100" x-text="actorName(pinningNotif)"></div>
+                                                    <div class="text-xs text-slate-600 dark:text-slate-300 font-medium line-clamp-2 mt-0.5" x-text="notificationAction(pinningNotif)"></div>
+                                                    <div class="mt-1 flex gap-1">
+                                                        <span x-show="boardName(pinningNotif)" class="rounded bg-slate-200/60 dark:bg-slate-700 px-1 py-0.5 text-[9px] font-bold text-slate-600 dark:text-slate-300" x-text="boardName(pinningNotif)"></span>
+                                                        <span x-show="cardName(pinningNotif)" class="rounded bg-indigo-100/60 dark:bg-indigo-950 px-1 py-0.5 text-[9px] font-bold text-indigo-700 dark:text-indigo-300" x-text="cardName(pinningNotif)"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <!-- Schedule Expiry Selector -->
+                                        <div>
+                                            <label class="block text-xs font-black text-slate-800 dark:text-slate-200 mb-2">
+                                                Schedule Time to Disappear (Auto-Expire)
+                                            </label>
+                                            <div class="grid grid-cols-3 gap-2">
+                                                <button type="button" @click="pinDuration = '1h'" 
+                                                        :class="pinDuration === '1h' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    1 Hour
+                                                </button>
+                                                <button type="button" @click="pinDuration = '12h'" 
+                                                        :class="pinDuration === '12h' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    12 Hours
+                                                </button>
+                                                <button type="button" @click="pinDuration = '24h'" 
+                                                        :class="pinDuration === '24h' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    24 Hours
+                                                </button>
+                                                <button type="button" @click="pinDuration = '3d'" 
+                                                        :class="pinDuration === '3d' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    3 Days
+                                                </button>
+                                                <button type="button" @click="pinDuration = '7d'" 
+                                                        :class="pinDuration === '7d' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    7 Days
+                                                </button>
+                                                <button type="button" @click="pinDuration = 'never'" 
+                                                        :class="pinDuration === 'never' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    Never
+                                                </button>
+                                            </div>
+
+                                            <div class="mt-2">
+                                                <button type="button" @click="pinDuration = 'custom'" 
+                                                        :class="pinDuration === 'custom' ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500 font-black' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-dashed border-slate-300 dark:border-slate-700'"
+                                                        class="w-full py-2 px-3 text-xs rounded-xl border font-bold transition text-center flex items-center justify-center gap-1.5">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                    Pick Custom Date & Time
+                                                </button>
+
+                                                <div x-show="pinDuration === 'custom'" class="mt-2">
+                                                    <input type="datetime-local" 
+                                                           x-model="customPinExpiresAt"
+                                                           class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-semibold">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                            ℹ️ When the scheduled time arrives, the notification will automatically unpin and return to regular order. You can also manually unpin it at any time.
+                                        </p>
+                                    </div>
+
+                                    <!-- Footer -->
+                                    <div class="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+                                        <button type="button" 
+                                                @click="pinModalOpen = false"
+                                                class="px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition">
+                                            Cancel
+                                        </button>
+                                        <button type="button" 
+                                                @click="confirmPin()"
+                                                :disabled="isPinning"
+                                                class="px-4 py-2 text-xs font-black text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 rounded-xl transition flex items-center gap-1.5 shadow-sm shadow-amber-500/30">
+                                            <template x-if="isPinning">
+                                                <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                            </template>
+                                            <template x-if="!isPinning">
+                                                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                                            </template>
+                                            <span x-text="isPinning ? 'Pinning...' : 'Pin to Top'"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Create & Pin Announcement Modal -->
+                            <div x-show="announcementModalOpen" 
+                                 x-transition.opacity.duration.200ms
+                                 class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[999999]"
+                                 style="display: none;"
+                                 @keydown.escape.window="announcementModalOpen = false">
+                                <div x-show="announcementModalOpen"
+                                     @click.outside="announcementModalOpen = false"
+                                     x-transition:enter="transition ease-out duration-200"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden w-full max-w-lg border border-slate-200 dark:border-slate-800 flex flex-col">
+                                    
+                                    <!-- Header -->
+                                    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                                            </div>
+                                            <div>
+                                                <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">Pin Announcement</h3>
+                                                <p class="text-[11px] font-semibold text-slate-500">Broadcast a pinned message on top for all team members</p>
+                                            </div>
+                                        </div>
+                                        <button type="button" @click="announcementModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg">
+                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+
+                                    <!-- Body -->
+                                    <div class="p-5 space-y-4">
+                                        <div>
+                                            <label class="block text-xs font-black text-slate-800 dark:text-slate-200 mb-1">
+                                                Announcement Title <span class="text-rose-500">*</span>
+                                            </label>
+                                            <input type="text" 
+                                                   x-model="announcementTitle"
+                                                   placeholder="e.g. System Maintenance tonight at 10 PM"
+                                                   class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-semibold">
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-black text-slate-800 dark:text-slate-200 mb-1">
+                                                Message / Details <span class="text-rose-500">*</span>
+                                            </label>
+                                            <textarea rows="3"
+                                                      x-model="announcementMessage"
+                                                      placeholder="Write the announcement details here..."
+                                                      class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-semibold"></textarea>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-black text-slate-800 dark:text-slate-200 mb-1">
+                                                Action Link (Optional)
+                                            </label>
+                                            <input type="text" 
+                                                   x-model="announcementLink"
+                                                   placeholder="https://... or /social-media"
+                                                   class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-semibold">
+                                        </div>
+
+                                        <!-- Schedule Expiry Selector -->
+                                        <div>
+                                            <label class="block text-xs font-black text-slate-800 dark:text-slate-200 mb-2">
+                                                Schedule Time to Disappear (Auto-Expire)
+                                            </label>
+                                            <div class="grid grid-cols-3 gap-2">
+                                                <button type="button" @click="announcementDuration = '1h'" 
+                                                        :class="announcementDuration === '1h' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    1 Hour
+                                                </button>
+                                                <button type="button" @click="announcementDuration = '12h'" 
+                                                        :class="announcementDuration === '12h' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    12 Hours
+                                                </button>
+                                                <button type="button" @click="announcementDuration = '24h'" 
+                                                        :class="announcementDuration === '24h' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    24 Hours
+                                                </button>
+                                                <button type="button" @click="announcementDuration = '3d'" 
+                                                        :class="announcementDuration === '3d' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    3 Days
+                                                </button>
+                                                <button type="button" @click="announcementDuration = '7d'" 
+                                                        :class="announcementDuration === '7d' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    7 Days
+                                                </button>
+                                                <button type="button" @click="announcementDuration = 'never'" 
+                                                        :class="announcementDuration === 'never' ? 'bg-amber-500 text-white font-black border-amber-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                                                        class="py-2 px-3 text-xs rounded-xl border font-bold transition text-center">
+                                                    Never
+                                                </button>
+                                            </div>
+
+                                            <div class="mt-2">
+                                                <button type="button" @click="announcementDuration = 'custom'" 
+                                                        :class="announcementDuration === 'custom' ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500 font-black' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-dashed border-slate-300 dark:border-slate-700'"
+                                                        class="w-full py-2 px-3 text-xs rounded-xl border font-bold transition text-center flex items-center justify-center gap-1.5">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                    Pick Custom Date & Time
+                                                </button>
+
+                                                <div x-show="announcementDuration === 'custom'" class="mt-2">
+                                                    <input type="datetime-local" 
+                                                           x-model="customAnnouncementExpiresAt"
+                                                           class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-semibold">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Footer -->
+                                    <div class="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+                                        <button type="button" 
+                                                @click="announcementModalOpen = false"
+                                                class="px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition">
+                                            Cancel
+                                        </button>
+                                        <button type="button" 
+                                                @click="submitAnnouncement()"
+                                                :disabled="isSubmittingAnnouncement"
+                                                class="px-4 py-2 text-xs font-black text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 rounded-xl transition flex items-center gap-1.5 shadow-sm shadow-amber-500/30">
+                                            <template x-if="isSubmittingAnnouncement">
+                                                <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                            </template>
+                                            <template x-if="!isSubmittingAnnouncement">
+                                                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                                            </template>
+                                            <span x-text="isSubmittingAnnouncement ? 'Posting...' : 'Post & Pin to Top'"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
                     </div>
 
 
@@ -1404,17 +1743,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 aria-haspopup="true"
                                 :aria-expanded="open">
                             <span class="relative inline-block">
-                                <img src="{{ auth()->user()->avatar_url }}"
-                                     alt="{{ auth()->user()->name }}"
-                                     onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()->name, auth()->user()->avatar_color) }}';"
+                                <img src="{{ auth()->user()?->avatar_url }}"
+                                     alt="{{ auth()->user()?->name }}"
+                                     onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()?->name ?? 'User', auth()->user()?->avatar_color ?? '#64748b') }}';"
                                      class="avatar avatar-sm ring-2 ring-white">
                                 @if($pendingHandlerConfirmations->isNotEmpty())
                                 <span class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-black leading-4 text-center shadow border border-white">{{ $pendingHandlerConfirmations->count() }}</span>
                                 @endif
                             </span>
                             <span class="hidden sm:block min-w-0">
-                                <span class="block max-w-36 truncate text-sm font-black leading-none text-slate-800">{{ auth()->user()->name }}</span>
-                                <span class="mt-0.5 block max-w-36 truncate text-[11px] font-semibold text-slate-400">{{ auth()->user()->role_display }}</span>
+                                <span class="block max-w-36 truncate text-sm font-black leading-none text-slate-800">{{ auth()->user()?->name }}</span>
+                                <span class="mt-0.5 block max-w-36 truncate text-[11px] font-semibold text-slate-400">{{ auth()->user()?->role_display }}</span>
                             </span>
                             <svg class="hidden h-4 w-4 text-slate-400 sm:block" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
@@ -1434,10 +1773,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                              style="display: none;"
                              role="menu">
                             <div class="flex items-center gap-3 border-b border-slate-100 px-2 py-2.5">
-                                <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->name }}" onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()->name, auth()->user()->avatar_color) }}';" class="avatar avatar-md">
+                                <img src="{{ auth()->user()?->avatar_url }}" alt="{{ auth()->user()?->name }}" onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()?->name ?? 'User', auth()->user()?->avatar_color ?? '#64748b') }}';" class="avatar avatar-md">
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-black text-slate-900">{{ auth()->user()->name }}</p>
-                                    <p class="truncate text-xs font-semibold text-slate-500">{{ auth()->user()->email }}</p>
+                                    <p class="truncate text-sm font-black text-slate-900">{{ auth()->user()?->name }}</p>
+                                    <p class="truncate text-xs font-semibold text-slate-500">{{ auth()->user()?->email }}</p>
                                 </div>
                             </div>
 
@@ -1540,7 +1879,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             @endcan
 
             <!-- Boss specific items -->
-            @if(auth()->user()->hasRole('boss'))
+            @if(auth()->user()?->hasRole('boss'))
                 <!-- Approval Queue -->
                 <a href="{{ route('approvals.index') }}"
                    class="mobile-nav-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
@@ -1555,7 +1894,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             @endif
 
             <!-- Social Media (Boss, super-admin, Digital Team) -->
-            @if(auth()->user()->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
+            @if(auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
             <a href="{{ route('social-media.dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
                aria-label="Social">
@@ -1567,7 +1906,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             @endif
 
             <!-- Websites (Boss + super-admin) -->
-            @if(auth()->user()->hasAnyRole(['boss', 'super-admin']))
+            @if(auth()->user()?->hasAnyRole(['boss', 'super-admin']))
             <a href="{{ route('websites.dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('websites.*') ? 'active' : '' }}"
                aria-label="Websites">
@@ -1579,54 +1918,31 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <span class="mobile-nav-label">Websites</span>
             </a>
             @endif
+            <!-- Notes -->
+            <a href="{{ route('notes.private') }}"
+               class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
+               aria-label="Note">
+                <span class="mobile-nav-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                    </svg>
+                </span>
+                <span class="mobile-nav-label">Note</span>
+            </a>
 
-            <!-- Digital Team (Private Note) -->
-            @hasanyrole('admin-digital|digital-team|staff|social_qc|social_admin')
-                @unless(auth()->user()->hasAnyRole(['super-admin', 'boss', 'admin-crm', 'sales-crm']))
-                <a href="{{ route('notes.private') }}"
-                   class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
-                   aria-label="Note">
-                    <span class="mobile-nav-icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-                        </svg>
-                    </span>
-                    <span class="mobile-nav-label">Note</span>
-                </a>
-                @endunless
-            @endhasanyrole
-
-            <!-- CRM Team (Team Notes & More) -->
-            @hasanyrole('super-admin|admin-crm|sales-crm')
-                @unless(auth()->user()->hasRole('boss'))
-                <!-- Team Notes -->
-                <a href="{{ route('notes.team') }}"
-                   class="mobile-nav-item {{ request()->routeIs('notes.team*') ? 'active' : '' }}"
-                   aria-label="Notes">
-                    <span class="mobile-nav-icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                        </svg>
-                    </span>
-                    <span class="mobile-nav-label">Notes</span>
-                </a>
-
-                <!-- More / Menu trigger -->@unless(auth()->user()->hasRole('super-admin'))
-                <button type="button"
-                        class="mobile-nav-item {{ request()->routeIs('admin.*') || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
-                        x-data
-                        @click="$dispatch('open-mobile-sidebar')"
-                        aria-label="More">
-                    <span class="mobile-nav-icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                        </svg>
-                    </span>
-                    <span class="mobile-nav-label">More</span>
-                </button>
-@endunless
-                @endunless
-            @endhasanyrole
+            <!-- More / Menu trigger -->
+            <button type="button"
+                    class="mobile-nav-item {{ request()->routeIs('admin.*') || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
+                    x-data
+                    @click="$dispatch('open-mobile-sidebar')"
+                    aria-label="More">
+                <span class="mobile-nav-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                </span>
+                <span class="mobile-nav-label">More</span>
+            </button>
 
         </div>
     </nav>
@@ -2086,7 +2402,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         // Deliberately no auto-dismiss timer — stays until the user closes it.
     };
 
-    window.sendBrowserNotification = function(title, body, iconUrl = null) {
+    window.sendBrowserNotification = function(title, body, iconUrl = null, linkUrl = null, cardId = null) {
         if (!("Notification" in window)) return;
         const audioSrc = document.getElementById('notif-sound')?.src;
         
@@ -2095,11 +2411,30 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             icon: iconUrl || window.dgtInitialsAvatar('KQ', '#4f46e5'),
             silent: true, // Prevent OS default sound so we only hear our custom sound
             sound: audioSrc, // For custom app wrappers (e.g. macOS WKWebView) that might support this
-            data: { sound: audioSrc }
+            data: { sound: audioSrc, link: linkUrl, card_id: cardId }
         };
 
         if (Notification.permission === "granted") {
-            new Notification(title, options);
+            const notif = new Notification(title, options);
+            if (linkUrl) {
+                notif.onclick = function(e) {
+                    e.preventDefault();
+                    window.focus(); // Focus the browser window
+                    
+                    try {
+                        const targetUrl = new URL(linkUrl, window.location.origin);
+                        if (cardId && window.location.pathname === targetUrl.pathname) {
+                            window.dispatchEvent(new CustomEvent('kiuq:open-card', { detail: { cardId: cardId } }));
+                        } else {
+                            window.location.href = linkUrl;
+                        }
+                    } catch (e) {
+                        window.location.href = linkUrl;
+                    }
+                    
+                    notif.close();
+                };
+            }
         }
     };
 
@@ -2221,6 +2556,21 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             open: false,
             notifications: [],
             unreadCount: 0,
+            canPin: {{ auth()->check() && auth()->user()->canPinNotifications() ? 'true' : 'false' }},
+            pinModalOpen: false,
+            pinningNotif: null,
+            pinDuration: '24h',
+            customPinExpiresAt: '',
+            isPinning: false,
+
+            announcementModalOpen: false,
+            announcementTitle: '',
+            announcementMessage: '',
+            announcementLink: '',
+            announcementDuration: '24h',
+            customAnnouncementExpiresAt: '',
+            isSubmittingAnnouncement: false,
+
             // Guards against overlapping fetchData() calls — the interval poll
             // (every 10-30s) and toggleOpen() (clicking the bell) both call
             // fetchData() independently. If a click lands while the interval's
@@ -2345,7 +2695,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     }
                                     window.sendBrowserNotification(
                                         newNotif.data.title || "Announcement", 
-                                        newNotif.data.body || "A new announcement has been posted."
+                                        newNotif.data.body || "A new announcement has been posted.",
+                                        newNotif.data.icon || null,
+                                        newNotif.data.link || null
                                     );
                                 } else if (newNotif.data && newNotif.data.module !== 'crm' && newNotif.data.actor_name) {
                                     window.showRichNotificationToast(newNotif.data);
@@ -2353,13 +2705,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                         window.sendBrowserNotification(
                                             "KIUQ Board Update",
                                             `${newNotif.data.actor_name} ${newNotif.data.description?.replace(/\*\*/g, '') || ''}`,
-                                            newNotif.data.actor_avatar
+                                            newNotif.data.actor_avatar,
+                                            newNotif.data.link || null,
+                                            newNotif.data.card_id || null
                                         );
                                     }
                                 } else {
                                     if (window.dgtShouldSuppressDuplicateContent?.(newNotif.data)) return;
                                     window.showCrmNotificationCard(newNotif.data, newNotif.id);
-                                    window.sendBrowserNotification("DIGITAL SYSTEM Update", newNotif.data.message || "New update");
+                                    window.sendBrowserNotification(
+                                        "DIGITAL SYSTEM Update", 
+                                        newNotif.data.message || "New update", 
+                                        null, 
+                                        newNotif.data.link || null
+                                    );
                                 }
                             }
                         });
@@ -2375,6 +2734,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         }
                     }
 
+                    if (typeof data.can_pin !== 'undefined') {
+                        this.canPin = !!data.can_pin;
+                    }
                     this.notifications = data.notifications || [];
                     this.unreadCount = data.unread_count || 0;
                 } catch (e) {
@@ -2420,13 +2782,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     }
                     window.sendBrowserNotification(
                         notifItem.data.title || "Announcement", 
-                        notifItem.data.body || "A new announcement has been posted."
+                        notifItem.data.body || "A new announcement has been posted.",
+                        notifItem.data.icon || null,
+                        notifItem.data.link || null
                     );
                 } else if (notifItem.data && notifItem.data.module !== 'crm' && notifItem.data.actor_name) {
                     window.showRichNotificationToast(notifItem.data);
                 } else {
                     window.showCrmNotificationCard(notifItem.data, notifItem.id);
-                    window.sendBrowserNotification("DIGITAL SYSTEM Update", notifItem.data.message || "New update");
+                    window.sendBrowserNotification(
+                        "DIGITAL SYSTEM Update", 
+                        notifItem.data.message || "New update", 
+                        null, 
+                        notifItem.data.link || null
+                    );
                 }
             },
 
@@ -2482,9 +2851,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             notificationAction(notif) {
                 const data = notif?.data || {};
                 let text = '';
-                if (data.description) text = this.stripMarkdown(data.description);
-                else if (data.message) text = this.stripMarkdown(data.message);
-                else text = data.action ? this.stripMarkdown(String(data.action).replace(/_/g, ' ')) : 'sent a notification';
+                if (data.title && data.message) {
+                    text = data.title + ' — ' + this.stripMarkdown(data.message);
+                } else if (data.description) {
+                    text = this.stripMarkdown(data.description);
+                } else if (data.message) {
+                    text = this.stripMarkdown(data.message);
+                } else {
+                    text = data.action ? this.stripMarkdown(String(data.action).replace(/_/g, ' ')) : 'sent a notification';
+                }
                 return window.dgtShortenNotificationText ? window.dgtShortenNotificationText(text, 90) : text;
             },
 
@@ -2517,56 +2892,170 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 }
             },
 
-            async clearCrmNotifications() {
-                if (!confirm('Are you sure you want to delete all CRM notifications? This action cannot be undone.')) {
-                    return;
-                }
-                
-                try {
-                    await fetch('{{ route('notifications.clear-crm') }}', {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        }
-                    });
-                    
-                    // Filter out CRM notifications from local state
-                    this.notifications = this.notifications.filter(n => n.data?.module !== 'crm');
-                    
-                    // Recalculate unread count
-                    this.unreadCount = this.notifications.filter(n => !n.read_at).length;
-                    
-                    window.showToast("CRM notifications cleared!");
-                } catch(e) {
-                    console.error(e);
-                    window.showToast("Failed to clear notifications.", "error");
-                }
-            },
 
             async clickNotification(notif) {
                 try {
-                    await fetch(`/notifications/${notif.id}/read`, {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        }
-                    });
-                    notif.read_at = new Date().toISOString();
-                    if (this.unreadCount > 0) this.unreadCount--;
+                    if (!notif.is_pinned && !notif.read_at) {
+                        fetch(`/notifications/${notif.id}/read`, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            }
+                        }).catch(() => {});
+                        notif.read_at = new Date().toISOString();
+                        if (this.unreadCount > 0) this.unreadCount--;
+                    }
 
-                    if (notif.data.link) {
-                        const targetUrl = new URL(notif.data.link, window.location.origin);
-                        if (notif.data.card_id && window.location.pathname === targetUrl.pathname) {
-                            window.dispatchEvent(new CustomEvent('kiuq:open-card', { detail: { cardId: notif.data.card_id } }));
+                    const link = notif.link || notif.data?.link;
+                    if (link) {
+                        const targetUrl = new URL(link, window.location.origin);
+                        const cardId = notif.card_id || notif.data?.card_id;
+                        if (cardId && window.location.pathname === targetUrl.pathname) {
+                            window.dispatchEvent(new CustomEvent('kiuq:open-card', { detail: { cardId: cardId } }));
                             this.open = false; // close the dropdown
                         } else {
-                            window.location.href = notif.data.link;
+                            window.location.href = link;
                         }
                     }
                 } catch(e) {
                     console.error(e);
+                }
+            },
+
+            openPinModal(notif) {
+                this.pinningNotif = notif;
+                this.pinDuration = '24h';
+                this.customPinExpiresAt = '';
+                this.pinModalOpen = true;
+            },
+
+            async confirmPin() {
+                if (!this.pinningNotif) return;
+                this.isPinning = true;
+                try {
+                    const notif = this.pinningNotif;
+                    const res = await fetch('{{ route('notifications.pin') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            notification_id: notif.id,
+                            title: notif.data?.title || notif.data?.card_title || 'Pinned Notification',
+                            message: notif.data?.message || notif.data?.description || '',
+                            duration: this.pinDuration,
+                            custom_expires_at: this.customPinExpiresAt,
+                            link: notif.data?.link || '',
+                            actor_name: this.actorName(notif),
+                            actor_avatar: notif.data?.actor_avatar || '',
+                            board_name: this.boardName(notif),
+                            card_title: this.cardName(notif),
+                            card_id: notif.data?.card_id || null,
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        this.pinModalOpen = false;
+                        this.pinningNotif = null;
+                        window.showToast(data.message || 'Notification pinned to top!', 'success');
+                        await this.fetchData();
+                    } else {
+                        window.showToast(data.message || 'Failed to pin notification.', 'error');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    window.showToast('Error pinning notification.', 'error');
+                } finally {
+                    this.isPinning = false;
+                }
+            },
+
+            async unpinNotification(notif) {
+                if (!confirm('Are you sure you want to unpin this notification? It will return to regular order.')) {
+                    return;
+                }
+                const pinId = notif.pinned_id || (String(notif.id).startsWith('pinned_') ? String(notif.id).replace('pinned_', '') : null);
+                if (!pinId) return;
+
+                try {
+                    const res = await fetch(`/notifications/${pinId}/unpin`, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        window.showToast(data.message || 'Notification unpinned.', 'success');
+                        await this.fetchData();
+                    } else {
+                        window.showToast(data.message || 'Failed to unpin.', 'error');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    window.showToast('Error unpinning notification.', 'error');
+                }
+            },
+
+            openAnnouncementModal() {
+                this.announcementTitle = '';
+                this.announcementMessage = '';
+                this.announcementLink = '';
+                this.announcementDuration = '24h';
+                this.customAnnouncementExpiresAt = '';
+                this.announcementModalOpen = true;
+            },
+
+            async submitAnnouncement() {
+                if (!this.announcementTitle.trim()) {
+                    window.showToast('Please enter an announcement title.', 'error');
+                    return;
+                }
+                if (!this.announcementMessage.trim()) {
+                    window.showToast('Please enter an announcement message.', 'error');
+                    return;
+                }
+
+                this.isSubmittingAnnouncement = true;
+                try {
+                    const res = await fetch('{{ route('notifications.pin') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            title: this.announcementTitle.trim(),
+                            message: this.announcementMessage.trim(),
+                            link: this.announcementLink.trim(),
+                            duration: this.announcementDuration,
+                            custom_expires_at: this.customAnnouncementExpiresAt,
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        this.announcementModalOpen = false;
+                        this.announcementTitle = '';
+                        this.announcementMessage = '';
+                        this.announcementLink = '';
+                        window.showToast(data.message || 'Announcement pinned to top!', 'success');
+                        await this.fetchData();
+                    } else {
+                        window.showToast(data.message || 'Failed to pin announcement.', 'error');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    window.showToast('Error posting announcement.', 'error');
+                } finally {
+                    this.isSubmittingAnnouncement = false;
                 }
             }
         };
@@ -2584,6 +3073,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         $notifSoundUrl = file_exists(public_path($notifSoundPath)) ? asset($notifSoundPath) : 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
     @endphp
     <audio id="notif-sound" src="{{ $notifSoundUrl }}" preload="auto"></audio>
+
+    {{-- Lunch Time Alarm Pop-up & Audio --}}
+    @include('partials.lunch-alarm-modal')
 
     {{-- iOS Style Drag & Slide Navigation Logic --}}
     <script>
@@ -2830,7 +3322,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         // Consistent Date Pickers across OS (Fixes macOS native calendar being too small)
         const initDatePickers = () => {
             if (typeof flatpickr !== 'undefined') {
-                flatpickr('input[type="date"]:not(.flatpickr-input)', {
+                flatpickr('input[type="date"]:not(.flatpickr-input):not(.no-flatpickr)', {
                     disableMobile: true,
                     altInput: true,
                     altFormat: "m/d/Y",
@@ -2846,7 +3338,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             for (let m of mutations) {
                 if (m.addedNodes.length > 0) {
                     m.addedNodes.forEach(node => {
-                        if (node.nodeType === 1 && (node.matches('input[type="date"]') || node.querySelector('input[type="date"]'))) {
+                        if (node.nodeType === 1 && ((node.matches && node.matches('input[type="date"]:not(.no-flatpickr)')) || (node.querySelector && node.querySelector('input[type="date"]:not(.no-flatpickr)')))) {
                             hasNewInputs = true;
                         }
                     });

@@ -13,9 +13,6 @@ class RouteClosureController extends Controller
     public function index()
     {
         if (auth()->check()) {
-            if (auth()->user()->hasRole('admin-crm')) {
-                return redirect()->route('crm.dashboard');
-            }
             return redirect()->route('dashboard');
         }
         return redirect()->route('login');

@@ -126,50 +126,78 @@
 
 {{-- ── Tab Navigation ──────────────────────────────────────────────────────── --}}
 @if($tab !== 'follow-up')
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-    <div class="relative w-full md:w-64">
-        <input type="text" x-model="searchQuery" placeholder="Search websites..." class="form-input text-xs py-1.5 pl-8 pr-3 rounded-lg w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all">
-        <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-3.5 mb-5">
+    {{-- Upgraded Prominent Search Bar --}}
+    <div class="relative w-full sm:w-80 md:w-96 lg:w-[420px]">
+        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+        </div>
+        <input type="text"
+               x-model="searchQuery"
+               placeholder="Search websites, domains, members..."
+               class="w-full text-sm py-2 pl-10 pr-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
+        <button type="button"
+                x-show="searchQuery"
+                @click="searchQuery = ''"
+                x-cloak
+                class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                title="Clear search">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+        </button>
     </div>
-    <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
-        <select x-model="filterMember" class="form-select text-xs py-1.5 px-3 rounded-lg min-w-[140px] shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-            <option value="">All Members</option>
-            @php
-                $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
-                $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
-            @endphp
-            @foreach($activeUsers as $u)
-                <option value="{{ $u->id }}">{{ $u->name }}</option>
-            @endforeach
-        </select>
-        <select x-model="filterClass" class="form-select text-xs py-1.5 px-3 rounded-lg min-w-[130px] shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-            <option value="">All Classes</option>
-            @foreach($orderArray as $cat)
-                <option value="{{ $cat }}">{{ $cat }}</option>
-            @endforeach
-        </select>
+
+    {{-- Filters & Action Buttons --}}
+    <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+        <div class="relative min-w-[145px]">
+            <select x-model="filterMember" class="w-full text-sm py-2 pl-3 pr-8 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer">
+                <option value="">All Members</option>
+                @php
+                    $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
+                    $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
+                @endphp
+                @foreach($activeUsers as $u)
+                    <option value="{{ $u->id }}">{{ $u->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="relative min-w-[135px]">
+            <select x-model="filterClass" class="w-full text-sm py-2 pl-3 pr-8 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer">
+                <option value="">All Classes</option>
+                @foreach($orderArray as $cat)
+                    <option value="{{ $cat }}">{{ $cat }}</option>
+                @endforeach
+            </select>
+        </div>
 
         @if(in_array($tab, ['maintenance', 'build-progress']))
             @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'boss', 'supervisor']) || auth()->user()->isQcOrSupervisor())
-            <select x-model="filterApprovalStatus" class="form-select text-xs py-1.5 px-3 rounded-lg min-w-[150px] shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-                <option value="">All Statuses</option>
-                <option value="qc-approved">QC Approved</option>
-                <option value="supervisor-approved">Supervisor Approved</option>
-            </select>
+            <div class="relative min-w-[150px]">
+                <select x-model="filterApprovalStatus" class="w-full text-sm py-2 pl-3 pr-8 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer">
+                    <option value="">All Statuses</option>
+                    <option value="qc-approved">QC Approved</option>
+                    <option value="supervisor-approved">Supervisor Approved</option>
+                </select>
+            </div>
             @endif
         @endif
         
         @if(auth()->user()->canUpdateWebsiteProgress())
-            <button type="button" @click="showManageClassesModal = true" class="btn btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm flex-shrink-0">
+            <button type="button" @click="showManageClassesModal = true" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-semibold text-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-sm transition-all active:scale-[0.98] flex-shrink-0">
                 <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
                 <span class="hidden sm:inline">Manage Classes</span>
                 <span class="sm:hidden">Classes</span>
             </button>
-            @endif
+        @endif
+
         {{-- Export button --}}
         <button type="button" @click="showExportModal = true"
-           class="btn btn-primary px-3 py-1.5 text-sm flex-shrink-0">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-600/20 transition-all active:scale-[0.98] flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
             <span class="hidden sm:inline">Export Report</span>
             <span class="sm:hidden">Export</span>
         </button>
@@ -268,7 +296,7 @@
             $catIndex = array_search($groupName, $realCats);
             $isRealCat = ($catIndex !== false);
         @endphp
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()) }})">
+        <div class="mb-8" x-show="hasMatchingWebsites(@js($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()))">
             <h3 @click="toggleGroup('build-{{ addslashes($groupName ?? "") }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
                 <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('build-{{ addslashes($groupName ?? "") }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -442,7 +470,7 @@
             $catIndex = array_search($groupName, $realCats);
             $isRealCat = ($catIndex !== false);
         @endphp
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by, 'status' => $w->status])->values()) }})">
+        <div class="mb-8" x-show="hasMatchingWebsites(@js($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by, 'status' => $w->status])->values()))">
             <h3 @click="toggleGroup('progress-{{ addslashes($groupName ?? "") }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
                 <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('progress-{{ addslashes($groupName ?? "") }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -708,7 +736,7 @@
             $catIndex = array_search($groupName, $realCats);
             $isRealCat = ($catIndex !== false);
         @endphp
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()) }})">
+        <div class="mb-8" x-show="hasMatchingWebsites(@js($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by])->values()))">
             <h3 @click="toggleGroup('live-{{ addslashes($groupName ?? "") }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
                 <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('live-{{ addslashes($groupName ?? "") }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -902,7 +930,7 @@
             $catIndex = array_search($groupName, $realCats);
             $isRealCat = ($catIndex !== false);
         @endphp
-        <div class="mb-8" x-show="hasMatchingWebsites({{ json_encode($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by, 'status' => $w->status])->values()) }})">
+        <div class="mb-8" x-show="hasMatchingWebsites(@js($groupWebsites->map(fn($w) => ['name' => $w->name, 'url' => $w->url, 'handled_by' => $w->handled_by, 'status' => $w->status])->values()))">
             <h3 @click="toggleGroup('maintenance-{{ addslashes($groupName ?? "") }}')" class="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2 cursor-pointer select-none hover:text-indigo-600 transition-colors">
                 <svg class="w-4 h-4 text-slate-400 transform transition-transform duration-200 flex-shrink-0" :class="isGroupCollapsed('maintenance-{{ addslashes($groupName ?? "") }}') ? '-rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -1658,20 +1686,25 @@
             <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Follow Up</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">Track blog posts, indexed pages, and website follow-ups.</p>
         </div>
-        <div class="flex items-center gap-2 w-full sm:w-auto">
-            <div class="relative flex-1 sm:flex-none">
-                <input type="text" x-model="searchQuery" placeholder="Search follow-ups..." class="form-input text-xs py-1.5 pl-8 pr-3 rounded-lg w-full sm:w-56 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-all">
-                <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+        <div class="flex items-center gap-2.5 w-full sm:w-auto">
+            <div class="relative w-full sm:w-72">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+                </div>
+                <input type="text" x-model="searchQuery" placeholder="Search follow-ups..." class="w-full text-sm py-2 pl-10 pr-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
+                <button type="button" x-show="searchQuery" @click="searchQuery = ''" x-cloak class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="Clear search">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
             </div>
             
             <button type="button" @click="showExportModal = true"
-               class="btn btn-primary px-3 py-1.5 text-sm flex-shrink-0">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+               class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-semibold text-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-sm transition-all active:scale-[0.98] flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                 <span class="hidden sm:inline">Export Report</span>
                 <span class="sm:hidden">Export</span>
             </button>
 
-            <button type="button" @click="showFollowUpModal = true" class="btn btn-primary flex items-center gap-2 text-sm ml-2">
+            <button type="button" @click="showFollowUpModal = true" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-600/20 transition-all active:scale-[0.98] flex-shrink-0">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                 Add Follow Up
             </button>
@@ -1743,7 +1776,7 @@
     </div>
     @else
         @php $fuItems = $followUps instanceof \Illuminate\Pagination\LengthAwarePaginator ? $followUps->getCollection() : $followUps; @endphp
-        <div class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-8" x-init="filterMember = ''; filterClass = ''; filterApprovalStatus = '';" x-show="hasMatchingWebsites({{ json_encode($fuItems->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()) }}, true)">
+        <div class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-8" x-init="filterMember = ''; filterClass = ''; filterApprovalStatus = '';">
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
                     <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
@@ -1757,6 +1790,13 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    <tr x-cloak x-show="!hasMatchingWebsites(@js($fuItems->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()), true)">
+                        <td colspan="7" class="px-4 py-16 text-center text-slate-500">
+                            <div class="text-3xl mb-3 opacity-50">🔍</div>
+                            <p class="font-medium">No follow-ups match your search.</p>
+                            <p class="text-xs mt-1 opacity-75" x-text="searchQuery ? 'Try a different keyword.' : 'Try adjusting your filters.'"></p>
+                        </td>
+                    </tr>
                     @foreach($followUps as $fu)
                     <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ addslashes($fu->website?->category ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}', '{{ $fu->website?->status ?? '' }}', true)" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                         <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
@@ -1927,7 +1967,7 @@
 ════════════════════════════════════════════════════════════════ --}}
 
 {{-- Manage Classes Modal --}}
-<div id="show-manage-classes-modal" data-turbo-permanent x-show="showManageClassesModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-manage-classes-modal" x-show="showManageClassesModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-4xl max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -2017,10 +2057,12 @@
         <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
     </div>
 </button>
-                    <form :id="'delete-class-' + '{{ md5($cat) }}'" action="{{ route('websites.destroyCategory') }}" method="POST" class="inline">
+                    <form action="{{ route('websites.destroyCategory') }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to remove the class \'' + '{{ addslashes($cat ?? '') }}' + '\'?
+
+Don\'t worry, the websites inside this class will NOT be deleted. They will just become Uncategorized and you can assign them to a new class later.')">
                         @csrf @method('DELETE')
                         <input type="hidden" name="category" value="{{ $cat }}">
-                        <button type="button" @click="classToDelete = '{{ addslashes($cat ?? "") }}'; classToDeleteId = 'delete-class-' + '{{ md5($cat) }}'; showDeleteClassModal = true;" class="p-1.5 text-slate-400 hover:text-rose-500 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors relative group"  aria-label="Remove Class">
+                        <button type="submit" class="p-1.5 text-slate-400 hover:text-rose-500 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors relative group"  aria-label="Remove Class">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                         
     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
@@ -2038,32 +2080,8 @@
     </div>
 </div>
 
-{{-- Delete Class Confirmation Modal --}}
-<div id="show-delete-class-modal" data-turbo-permanent x-show="showDeleteClassModal" x-cloak class="fixed inset-0 z-[110] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
-    <div class="card border border-rose-200 dark:border-rose-800 w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl overflow-hidden" @click.stop>
-        <div class="p-6">
-            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-500 mb-4">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
-            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Remove Class</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                Are you sure you want to remove the class <span class="font-bold text-slate-800 dark:text-slate-200" x-text="'\'' + classToDelete + '\''"></span>?
-            </p>
-            <p class="text-xs text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-100 dark:border-amber-800/30">
-                Don't worry, the websites inside this class will <strong>NOT</strong> be deleted. They will just become Uncategorized and you can assign them to a new class later.
-            </p>
-        </div>
-        <div class="p-4 bg-slate-50 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-            <button @click="showDeleteClassModal = false; classToDelete = ''; classToDeleteId = '';" type="button" class="btn btn-cancel btn-secondary text-sm px-4">Cancel</button>
-            <button @click="document.getElementById(classToDeleteId).submit()" type="button" class="btn btn-danger text-sm px-4">Yes, Remove</button>
-        </div>
-    </div>
-</div>
-
 {{-- Manage Website Members Modal --}}
-<div id="show-manage-members-modal" data-turbo-permanent x-show="showManageMembersModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-manage-members-modal" x-show="showManageMembersModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-6xl max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -2230,7 +2248,7 @@
 </div>
 
 {{-- Create Website Modal --}}
-<div id="show-create-modal" data-turbo-permanent x-show="showCreateModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-create-modal" x-show="showCreateModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Add New Website</h3>
@@ -2293,7 +2311,7 @@
 </div>
 
 {{-- Edit Website Modal --}}
-<div id="show-edit-modal" data-turbo-permanent x-show="showEditModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-edit-modal" x-show="showEditModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Edit Website</h3>
@@ -2301,7 +2319,7 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="editModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4">
+        <form :action="editModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitAjaxForm($event, 'showEditModal')">
             @csrf
             @method('PUT')
             <input type="hidden" name="return_tab" value="{{ $tab }}">
@@ -2358,7 +2376,7 @@
 </div>
 
 {{-- Progress Update Modal --}}
-<div id="show-progress-modal" data-turbo-permanent x-show="showProgressModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-progress-modal" x-show="showProgressModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div>
@@ -2403,7 +2421,7 @@
 </div>
 
 {{-- QC Approval Modal --}}
-<div id="show-qc-modal" data-turbo-permanent x-show="showQcModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-qc-modal" x-show="showQcModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-amber-200 dark:border-amber-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-amber-100 dark:border-amber-800 flex items-center justify-between bg-amber-50/50 dark:bg-amber-900/20">
             <div>
@@ -2425,6 +2443,14 @@
                 </ul>
             </div>
             <div>
+                <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Week</label>
+                <select name="qc_week" class="form-select w-full rounded-xl text-sm p-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-amber-500 focus:ring focus:ring-amber-500/20 mb-4">
+                    <option value="">-- Select Week --</option>
+                    <option value="Week 1">Week 1</option>
+                    <option value="Week 2">Week 2</option>
+                    <option value="Week 3">Week 3</option>
+                    <option value="Week 4">Week 4</option>
+                </select>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">QC Note <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional)</span></label>
                 <textarea name="qc_note" rows="3" 
                           @paste="handlePasteRef($event, 'qcApproveFiles')"
@@ -2452,7 +2478,7 @@
 </div>
 
 {{-- Supervisor Approval Modal --}}
-<div id="show-supervisor-modal" data-turbo-permanent x-show="showSupervisorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-supervisor-modal" x-show="showSupervisorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-cyan-200 dark:border-cyan-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-cyan-100 dark:border-cyan-800 flex items-center justify-between bg-cyan-50/50 dark:bg-cyan-900/20">
             <div>
@@ -2501,7 +2527,7 @@
 </div>
 
 {{-- Start Maintenance Modal --}}
-<div id="show-maintenance-modal" data-turbo-permanent x-show="showMaintenanceModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-maintenance-modal" x-show="showMaintenanceModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-orange-200 dark:border-orange-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-orange-100 dark:border-orange-800 flex items-center justify-between bg-orange-50/50 dark:bg-orange-900/20">
             <div>
@@ -2567,7 +2593,7 @@
 </div>
 
 {{-- QC Error Modal --}}
-<div id="show-qc-error-modal" data-turbo-permanent x-show="showQcErrorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
+<div id="show-qc-error-modal" x-show="showQcErrorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.6)">
     <div class="card border border-red-300 dark:border-red-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-red-100 dark:border-red-800 flex items-center justify-between bg-red-50/50 dark:bg-red-900/20">
             <div>
@@ -2644,7 +2670,7 @@
 </div>
 
 {{-- Supervisor Error Modal --}}
-<div id="show-supervisor-error-modal" data-turbo-permanent x-show="showSupervisorErrorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
+<div id="show-supervisor-error-modal" x-show="showSupervisorErrorModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.6)">
     <div class="card border border-red-300 dark:border-red-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-red-100 dark:border-red-800 flex items-center justify-between bg-red-50/50 dark:bg-red-900/20">
             <div>
@@ -2721,7 +2747,7 @@
 </div>
 
 {{-- Error Fix Progress Modal --}}
-<div id="show-error-progress-modal" data-turbo-permanent x-show="showErrorProgressModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
+<div id="show-error-progress-modal" x-show="showErrorProgressModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.6)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-md" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div>
@@ -2766,7 +2792,7 @@
 </div>
 
 {{-- Follow Up Modal --}}
-<div id="show-follow-up-modal" data-turbo-permanent x-show="showFollowUpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-follow-up-modal" x-show="showFollowUpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Add Follow Up</h3>
@@ -2774,104 +2800,235 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ isSubmitting: false, selectedId: '' }" @submit.prevent="
-            if(!selectedId) { alert('Please select a website first.'); return; } 
-            if(isSubmitting) { return; } 
-            isSubmitting = true; 
-            fetch($el.action, { 
-                method: 'POST', 
-                body: new FormData($el), 
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } 
-            })
-            .then(async res => {
-                let data;
-                try {
-                    data = await res.json();
-                } catch (e) {
-                    throw new Error('Server returned an invalid response (not JSON). Code: ' + res.status);
+        <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ 
+            isSubmitting: false, 
+            selectedType: 'blog_post', 
+            customType: '',
+            dateVal: '{{ now()->format('Y-m-d') }}',
+            assignedTo: '',
+            forceOverwriteCheck: false,
+            items: [{
+                id: Date.now(),
+                selectedId: '',
+                selectedName: 'Select website...',
+                search: '',
+                openDropdown: false,
+                blogClass: '',
+                url: '',
+                openBlock: true
+            }],
+            get sheetName() {
+                if (!this.dateVal) return 'Unknown';
+                let d = new Date(this.dateVal);
+                if (isNaN(d)) return 'Unknown';
+                let m = d.getMonth() + 1;
+                let map = { 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec' };
+                return map[m] ? map[m] + ' Blogs' : 'Unsupported (Sep-Dec only)';
+            },
+            addItem() {
+                this.items.push({
+                    id: Date.now(),
+                    selectedId: '',
+                    selectedName: 'Select website...',
+                    search: '',
+                    openDropdown: false,
+                    blogClass: '',
+                    url: '',
+                    openBlock: true
+                });
+            },
+            removeItem(index) {
+                if(confirm('Are you sure you want to remove this item?')) {
+                    this.items.splice(index, 1);
                 }
-                
-                if (!res.ok) {
-                    if (res.status === 422 && data.errors) {
-                        const firstError = Object.values(data.errors)[0][0];
-                        throw new Error(firstError || data.message || 'Validation failed');
+            }
+        }" @submit.prevent="
+            if(items.some(i => !i.selectedId)) { alert('Please select a website for all follow ups.'); return; }
+            if(selectedType === 'blog_post' && items.some(i => !i.url)) { alert('Please enter the blog URL for all follow ups.'); return; }
+            if(isSubmitting) { return; }
+            isSubmitting = true;
+
+            const sendRequest = (forceOverwrite = false, skipSheetSync = false) => {
+                const formData = new FormData($el);
+                if (forceOverwrite) {
+                    formData.set('force_overwrite', '1');
+                }
+                if (skipSheetSync) {
+                    formData.set('skip_sheet_sync', '1');
+                }
+                return fetch($el.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                })
+                .then(async res => {
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw new Error('Server returned an invalid response (not JSON). Code: ' + res.status);
                     }
-                    throw new Error(data.message || 'Server error occurred');
-                }
-                
-                return data;
-            })
-            .then(data => { 
-                if(data.success) { 
-                    showFollowUpModal = false; 
-                    if (window.Turbo) { if (typeof window.Turbo.refresh === 'function') window.Turbo.refresh(); else window.Turbo.visit(window.location.href, { action: 'replace' }); } else window.location.reload(); 
-                } else { 
-                    alert(data.message || 'Error occurred.'); 
-                } 
-            })
-            .catch(err => alert(err.message || 'An error occurred.'))
-            .finally(() => { isSubmitting = false; });">
+
+                    if (!res.ok) {
+                        if (res.status === 422 && data.errors) {
+                            const firstError = Object.values(data.errors)[0][0];
+                            throw new Error(firstError || data.message || 'Validation failed');
+                        }
+                        throw new Error(data.message || 'Server error occurred');
+                    }
+
+                    return data;
+                })
+                .then(data => {
+                    if(data.success) {
+                        showFollowUpModal = false;
+                        if (data.warning) {
+                            alert(data.warning);
+                        }
+                        // Smoothly refresh just the table container without reloading the page
+                        fetch(window.location.href)
+                            .then(r => r.text())
+                            .then(html => {
+                                let doc = new DOMParser().parseFromString(html, 'text/html');
+                                let newTable = doc.querySelector('#followUpTableContainer');
+                                if (newTable) {
+                                    document.querySelector('#followUpTableContainer').innerHTML = newTable.innerHTML;
+                                } else {
+                                    window.location.reload();
+                                }
+                            });
+                    } else if (data.needs_confirmation) {
+                        const replaceConfirm = confirm((data.confirm_message || data.message || 'Google Sheet row already has a Public Link.') + '\n\nClick OK to replace/overwrite the existing link in Google Sheets.\nClick Cancel for more options.');
+                        if (replaceConfirm) {
+                            return sendRequest(true, false);
+                        } else {
+                            const saveAnyway = confirm('Do you want to save this Follow Up to the system anyway without updating Google Sheets?');
+                            if (saveAnyway) {
+                                return sendRequest(false, true);
+                            }
+                        }
+                    } else {
+                        const saveAnyway = confirm((data.message || 'An error occurred.') + '\n\nDo you want to save this Follow Up to the system anyway without Google Sheets?');
+                        if (saveAnyway) {
+                            return sendRequest(false, true);
+                        }
+                    }
+                })
+                .catch(err => alert(err.message || 'An error occurred.'))
+                .finally(() => { isSubmitting = false; });
+            };
+
+            sendRequest(forceOverwriteCheck, false);
+        ">
             @csrf
-            <div class="grid grid-cols-2 gap-4">
+            
+            {{-- Global Settings --}}
+            <div class="grid grid-cols-2 gap-4 pb-4 border-b border-slate-100 dark:border-slate-700">
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Website *</label>
-                    <div x-data="{ open: false, search: '', selectedName: 'Select website...' }" class="relative">
-                        <input type="hidden" name="website_id" x-model="selectedId">
-                        <button type="button" @click="open = !open" @click.outside="open = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
-                            <span x-text="selectedName" :class="{ 'text-slate-400': !selectedId }"></span>
-                        </button>
-                        <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
-                            <div class="p-2 sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 z-10">
-                                <input type="text" x-model="search" placeholder="Search websites..." class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-900">
-                            </div>
-                            <ul class="py-1">
-                                <li class="px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer" @click="selectedId = ''; selectedName = 'Select website...'; open = false">Select website...</li>
-                                @foreach($allWebsites as $ws)
-                                <li x-show="search === '' || '{{ strtolower(addslashes($ws->name ?? "")) }}'.includes(search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 cursor-pointer" @click="selectedId = '{{ $ws->id }}'; selectedName = '{{ addslashes($ws->name ?? "") }}'; open = false">{{ $ws->name }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <div x-data="{ selectedType: 'blog_post' }" class="col-span-2">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Type *</label>
                     <select name="type" required x-model="selectedType" class="form-select w-full rounded-xl text-sm">
                         @foreach(\App\Models\WebsiteFollowUp::TYPES as $key => $label)
                         <option value="{{ $key }}">{{ $label }}</option>
                         @endforeach
                     </select>
-                    <input type="text" name="custom_type" x-show="selectedType === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="selectedType === 'other'">
-                </div>
-                <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Blog URL</label>
-                    <input type="url" name="url" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
+                    <input type="text" name="custom_type" x-model="customType" x-show="selectedType === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="selectedType === 'other'">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Upload by</label>
-                    <select name="assigned_to" class="form-select w-full rounded-xl text-sm">
+                    <select name="assigned_to" x-model="assignedTo" class="form-select w-full rounded-xl text-sm">
                         <option value="">None</option>
                         @foreach($websiteTeamMembers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
                     </select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Date *</label>
-                    <input type="date" name="created_at" required class="form-input w-full rounded-xl text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800" value="{{ now()->format('Y-m-d') }}">
+                    <input type="date" name="created_at" x-model="dateVal" required class="form-input w-full rounded-xl text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800">
                 </div>
-                <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Note</label>
-                    <textarea name="note" rows="3" class="form-textarea w-full rounded-xl text-sm p-3 resize-none" placeholder="Optional notes..."></textarea>
+                <div class="col-span-2 pt-2" x-show="selectedType === 'blog_post'" x-transition>
+                    <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" name="force_overwrite" value="1" x-model="forceOverwriteCheck" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                        <span>Overwrite/replace existing Public Link in Google Sheet if already filled</span>
+                    </label>
                 </div>
             </div>
-            <div class="flex items-center justify-end gap-3 pt-2">
+
+            {{-- Repeatable Items --}}
+            <div class="max-h-[50vh] overflow-y-auto px-1 pt-1 hide-scrollbar">
+                <template x-for="(item, index) in items" :key="item.id">
+                    <div class="border border-slate-200 dark:border-slate-600 rounded-xl mb-4 overflow-visible shadow-sm">
+                        <div class="p-3 bg-slate-50 dark:bg-slate-800/80 flex items-center justify-between cursor-pointer border-b border-slate-200 dark:border-slate-700 rounded-t-xl" @click="item.openBlock = !item.openBlock">
+                            <h4 class="font-bold text-sm text-slate-700 dark:text-slate-200" x-text="'Follow Up' + (item.selectedName !== 'Select website...' ? ' - ' + item.selectedName : '')"></h4>
+                            <div class="flex items-center gap-3">
+                                <button type="button" @click.stop="if(confirm('Are you sure you want to delete this follow up?')) removeItem(index)" x-show="items.length > 1" class="text-rose-400 hover:text-rose-600 p-1">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15" /></svg>
+                                </button>
+                                <svg class="w-4 h-4 text-slate-400 transition-transform" :class="item.openBlock ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 grid grid-cols-2 gap-4 bg-white dark:bg-slate-900 rounded-b-xl" x-show="item.openBlock" x-collapse>
+                            <div class="col-span-2">
+                                <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Website *</label>
+                                <div class="relative">
+                                    <input type="hidden" :name="'items[' + index + '][website_id]'" x-model="item.selectedId">
+                                    <button type="button" @click="item.openDropdown = !item.openDropdown" @click.outside="item.openDropdown = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600">
+                                        <span x-text="item.selectedName" :class="{ 'text-slate-400': !item.selectedId }"></span>
+                                    </button>
+                                    <div x-show="item.openDropdown" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg overflow-y-auto overflow-x-hidden">
+                                        <div class="p-2 sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 z-10">
+                                            <input type="text" x-model="item.search" placeholder="Search websites..." class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-900">
+                                        </div>
+                                        <ul class="py-1">
+                                            <li class="px-3 py-2 text-sm text-slate-500 hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-500 dark:hover:text-white cursor-pointer" @click="item.selectedId = ''; item.selectedName = 'Select website...'; item.openDropdown = false">Select website...</li>
+                                            @foreach($allWebsites as $ws)
+                                            <li x-show="item.search === '' || '{{ strtolower(addslashes($ws->name ?? "")) }}'.includes(item.search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-500 dark:hover:text-white cursor-pointer" @click="item.selectedId = '{{ $ws->id }}'; item.selectedName = '{{ addslashes($ws->name ?? "") }}'; item.openDropdown = false">{{ $ws->name }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Blog Sheet Class — shown only for blog_post type --}}
+                            <div class="col-span-2" x-show="selectedType === 'blog_post'" x-transition>
+                                <label class="block text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0c0 .621.504 1.125 1.125 1.125"/></svg>
+                                    Blog Sheet Class
+                                    <span class="text-[10px] font-normal text-slate-400 ml-auto">Syncs to Google Sheets</span>
+                                </label>
+                                <select :name="'items[' + index + '][blog_sheet_class]'" x-model="item.blogClass" class="form-select w-full rounded-xl text-sm border-indigo-200 dark:border-indigo-800 focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="">— No sheet sync —</option>
+                                    @foreach(array_keys(\App\Services\GoogleBlogsSheetService::CLASS_BLOCKS) as $classNum)
+                                    <option value="{{ $classNum }}">Class {{ $classNum }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="col-span-2">
+                                <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Blog URL</label>
+                                <input type="url" :name="'items[' + index + '][url]'" x-model="item.url" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="pt-2">
+                    <button type="button" @click="addItem()" class="btn btn-secondary w-full text-sm border-dashed border-2 hover:border-indigo-500 hover:bg-indigo-500 hover:text-white transition-colors flex justify-center items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        More Follow Up
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
                 <button type="button" @click="showFollowUpModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm" x-bind:disabled="isSubmitting" x-text="isSubmitting ? 'Adding...' : 'Add Follow Up'">Add Follow Up</button>
+                <button type="submit" class="btn btn-primary text-sm" x-bind:disabled="isSubmitting" x-text="isSubmitting ? 'Saving...' : 'Save All'">Save All</button>
             </div>
         </form>
     </div>
 </div>
 
 {{-- Edit Follow Up Modal --}}
-<div id="show-edit-follow-up-modal" data-turbo-permanent x-show="showEditFollowUpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-edit-follow-up-modal" x-show="showEditFollowUpModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Edit Follow Up</h3>
@@ -2946,7 +3103,7 @@
 </div>
 
 {{-- Export Modal --}}
-<div id="show-export-modal" data-turbo-permanent x-show="showExportModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-export-modal" x-show="showExportModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg" @click.stop x-data="{ exportLoading: false }">
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-bold text-slate-800 dark:text-slate-100">Export Websites Report</h3>
@@ -3015,7 +3172,7 @@
 </div>
 
 {{-- History Modal --}}
-<div id="show-history-modal" data-turbo-permanent x-show="showHistoryModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5)">
+<div id="show-history-modal" x-show="showHistoryModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
     <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg" @click.stop>
         <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div>
@@ -3063,7 +3220,7 @@
                     <template x-if="extractLink(log.note)">
                         <a :href="extractLink(log.note)" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 mb-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg px-3 py-1.5 transition-colors">
                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
-                            <span class="truncate max-w-[220px]" x-text="extractLink(log.note)"></span>
+                            <span class="truncate max-w-[220px]">Link</span>
                         </a>
                     </template>
                     <template x-if="log.attachments && log.attachments.length">
@@ -3348,8 +3505,8 @@ function websitesApp() {
                 let matchMember = true;
                 let matchClass = true;
                 let matchStatus = true;
-                if (this.searchQuery) {
-                    let q = this.searchQuery.toLowerCase();
+                if (this.searchQuery && this.searchQuery.trim() !== '') {
+                    let q = this.searchQuery.toLowerCase().trim();
                     matchText = (w.name && w.name.toLowerCase().includes(q)) || (w.url && w.url.toLowerCase().includes(q));
                 }
                 if (this.filterMember) {
@@ -3374,8 +3531,8 @@ function websitesApp() {
             let matchMember = true;
             let matchClass = true;
             let matchStatus = true;
-            if (this.searchQuery) {
-                let q = this.searchQuery.toLowerCase();
+            if (this.searchQuery && this.searchQuery.trim() !== '') {
+                let q = this.searchQuery.toLowerCase().trim();
                 matchText = (name && name.toLowerCase().includes(q)) || (url && url.toLowerCase().includes(q));
             }
             if (!isFollowUpTab) {
@@ -3397,9 +3554,9 @@ function websitesApp() {
         },
         hasMatchingWebsites(websites, isFollowUpTab = false) {
             if (isFollowUpTab) {
-                if (!this.searchQuery) return true;
+                if (!this.searchQuery || this.searchQuery.trim() === '') return true;
             } else {
-                if (!this.searchQuery && !this.filterMember && !this.filterClass && !this.filterApprovalStatus) return true;
+                if ((!this.searchQuery || this.searchQuery.trim() === '') && !this.filterMember && !this.filterClass && !this.filterApprovalStatus) return true;
             }
             return websites.some(w => {
                 let matchText = true;
@@ -3407,8 +3564,8 @@ function websitesApp() {
                 let matchClass = true;
                 let matchStatus = true;
                 
-                if (this.searchQuery) {
-                    const q = this.searchQuery.toLowerCase();
+                if (this.searchQuery && this.searchQuery.trim() !== '') {
+                    const q = this.searchQuery.toLowerCase().trim();
                     matchText = (w.name && w.name.toLowerCase().includes(q)) || 
                                   (w.url && w.url.toLowerCase().includes(q));
                 }
@@ -3446,7 +3603,7 @@ function websitesApp() {
 
         // Modal state
         showCreateModal:      false,
-        showManageClassesModal: localStorage.getItem('showManageClassesModal') === 'true',
+        showManageClassesModal: false,
         showManageMembersModal: localStorage.getItem('showManageMembersModal') === 'true',
         showProgressModal:    false,
         showQcModal:          false,
@@ -3613,9 +3770,9 @@ function websitesApp() {
         historyEditSelectedFileNames: [],
 
         // Delete class modal
-        showDeleteClassModal: false,
-        classToDelete: '',
-        classToDeleteId: '',
+        
+        
+        
         
         // Edit class state
         editingClass: null,
@@ -3684,6 +3841,13 @@ function websitesApp() {
             inputEl.files = dt.files;
             this.updateSupervisorApproveFilesCount();
         },
+        supervisorErrorFilesCount: 0,
+        supervisorErrorFileNames: [],
+        updateSupervisorErrorFilesCount() {
+            const files = this.$refs.supervisorErrorFiles?.files || [];
+            this.supervisorErrorFilesCount = files.length;
+            this.supervisorErrorFileNames = Array.from(files).map(f => f.name);
+        },
 
         // Maintenance modal
         maintenanceModalName:   '',
@@ -3709,7 +3873,7 @@ function websitesApp() {
             }
 
             // Watch visibility states to save to localStorage
-            this.$watch('showManageClassesModal', value => localStorage.setItem('showManageClassesModal', value));
+            
             this.$watch('showManageMembersModal', value => {
                 localStorage.setItem('showManageMembersModal', value);
                 if (!value) {

@@ -3,9 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InquirySource;
-use App\Enums\LeadTemperature;
 use App\Enums\WebsiteLeadStatus;
-use App\Services\TechSupportCaseService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,27 +26,7 @@ class Lead extends Model
      */
     public ?string $pendingTechNote = null;
 
-    protected static function booted(): void
-    {
-        static::created(function (self $lead) {
-            if ($lead->status === WebsiteLeadStatus::TechnicalIssues) {
-                app(TechSupportCaseService::class)->createCaseFor($lead, $lead->pendingTechNote);
-            }
-        });
 
-        static::updated(function (self $lead) {
-            if ($lead->wasChanged('status') && $lead->status === WebsiteLeadStatus::TechnicalIssues) {
-                app(TechSupportCaseService::class)->createCaseFor($lead, $lead->pendingTechNote);
-            }
-
-            if ($lead->wasChanged('status') && in_array($lead->status, [WebsiteLeadStatus::Resolve, WebsiteLeadStatus::SuccessfulLead], true)) {
-                $case = $lead->techSupportCase;
-                if ($case && $case->status !== TechSupportCase::STATUS_RESOLVED) {
-                    app(TechSupportCaseService::class)->changeStatus($case, TechSupportCase::STATUS_RESOLVED);
-                }
-            }
-        });
-    }
 
     protected $fillable = [
         'customer_id', 'handled_by', 'assigned_to',

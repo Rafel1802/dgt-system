@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Services\TechSupportCaseService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,32 +16,6 @@ class EbayCustomerRecord extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'ebay_customer_records';
-
-    protected static function booted(): void
-    {
-        static::created(function (self $record) {
-            if ($record->shouldCreateTechSupportCase()) {
-                app(TechSupportCaseService::class)->createCaseFor($record);
-            }
-        });
-
-        static::updated(function (self $record) {
-            if (
-                ($record->wasChanged('tab_type') || $record->wasChanged('negative_feedback_causes'))
-                && $record->shouldCreateTechSupportCase()
-            ) {
-                app(TechSupportCaseService::class)->createCaseFor($record);
-            }
-
-            if ($record->wasChanged('tab_type') && $record->tab_type === self::TAB_RESOLVED) {
-                $case = $record->techSupportCase;
-                if ($case && $case->status !== TechSupportCase::STATUS_RESOLVED) {
-                    app(TechSupportCaseService::class)->changeStatus($case, TechSupportCase::STATUS_RESOLVED);
-                }
-            }
-        });
-    }
-
     /**
      * True when this record needs a real Tech Support case: either directly
      * in the Technical Issues category, or in one of the negative-feedback

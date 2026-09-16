@@ -14,20 +14,6 @@ use App\Http\Controllers\Kanban\KanbanController;
 use App\Http\Controllers\Kanban\CardCommentController;
 use App\Http\Controllers\Kanban\CardChecklistController;
 use App\Http\Controllers\Kanban\CardFileController;
-use App\Http\Controllers\CRM\CustomerController;
-use App\Http\Controllers\CRM\CrmDashboardController;
-use App\Http\Controllers\CRM\WebsiteCrmController;
-use App\Http\Controllers\CRM\EbayCrmController;
-use App\Http\Controllers\CRM\EbayStoreController;
-use App\Http\Controllers\CRM\TruckingCompanyController;
-use App\Http\Controllers\CRM\ShipmentController;
-use App\Http\Controllers\CRM\ProductController;
-use App\Http\Controllers\CRM\EbayCustomerController;
-use App\Http\Controllers\CRM\CrmExternalLinkController;
-use App\Http\Controllers\CRM\CrmReportController;
-use App\Http\Controllers\CRM\EbayReportController;
-use App\Http\Controllers\CRM\TechSupportController;
-use App\Http\Controllers\CRM\CrmStaffReportController;
 use App\Http\Controllers\Board\BoardController;
 use App\Http\Controllers\Board\CardController as BoardCardController;
 use App\Http\Controllers\Board\BoardImportController;
@@ -65,15 +51,6 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::post('/login', [LoginController::class, 'login'])->name('login.submit');
     });
 
-    // Public share links — no login required; access is gated by the
-    // unguessable token itself, not by auth middleware.
-    Route::get('/share/call-reports/{token}', [\App\Http\Controllers\Public\CallReportShareController::class, 'show'])
-        ->name('public.call-reports.show');
-    Route::get('/share/staff-report/{token}', [\App\Http\Controllers\Public\ReportShareController::class, 'showStaff'])
-        ->name('public.staff-report.show');
-    Route::get('/share/team-report/{token}', [\App\Http\Controllers\Public\ReportShareController::class, 'showTeam'])
-        ->name('public.team-report.show');
-
     // Authenticated routes
     Route::middleware(['auth', 'ensure.active', 'log.activity'])->group(function () {
 
@@ -91,6 +68,15 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         // Internal-only: validates Livewire + Turbo coexist safely. Not linked from any menu. Remove after Livewire rollout is verified stable.
         Route::view('/internal/livewire-test', 'internal.livewire-test')->name('internal.livewire-test');
         Route::get('/mac-app/download', [RouteClosureController::class, 'downloadMacApp'])->name('downloads.mac-app.file');
+
+        // ── System Health & Maintenance Diagnostics (QC & Super-Admin) ───────
+        Route::prefix('system-health')->name('system.health.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\SystemHealthController::class, 'index'])->name('index');
+            Route::post('/repair', [\App\Http\Controllers\Admin\SystemHealthController::class, 'repair'])->name('repair');
+            Route::post('/optimize', [\App\Http\Controllers\Admin\SystemHealthController::class, 'optimize'])->name('optimize');
+            Route::get('/copy-report', [\App\Http\Controllers\Admin\SystemHealthController::class, 'copyReport'])->name('copy-report');
+            Route::post('/clear-logs', [\App\Http\Controllers\Admin\SystemHealthController::class, 'clearLogs'])->name('clear-logs');
+        });
 
         // Polymorphic attachments download/delete/view
         Route::get('/attachments/{attachment}/download', [\App\Http\Controllers\AttachmentController::class, 'download'])->name('attachments.download');
@@ -148,6 +134,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
             // Follow Ups
             Route::post('/websites/follow-ups/{websiteFollowUp}/qc', [\App\Http\Controllers\WebsiteFollowUpController::class, 'qcCheck'])->name('websites.followups.qc');
+            Route::post('/websites/follow-ups/{websiteFollowUp}/retry-sheet-sync', [\App\Http\Controllers\WebsiteFollowUpController::class, 'retrySheetSync'])->name('websites.followups.retry-sheet-sync');
             Route::resource('websites/follow-ups', \App\Http\Controllers\WebsiteFollowUpController::class, [
                 'as'        => 'websites',
                 'names'     => [
@@ -173,6 +160,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::prefix('boards')->name('boards.')->middleware('maintenance:boards')->group(function () {
             Route::get('/', [BoardController::class, 'workspaces'])->name('workspaces');
             Route::post('/workspaces', [BoardController::class, 'storeWorkspace'])->name('workspaces.store');
+            Route::post('/workspaces/reorder', [BoardController::class, 'reorderWorkspaces'])->name('workspaces.reorder');
             Route::post('/workspaces/{workspace}/move-up', [BoardController::class, 'moveUpWorkspace'])->name('workspaces.moveUp');
             Route::post('/workspaces/{workspace}/move-down', [BoardController::class, 'moveDownWorkspace'])->name('workspaces.moveDown');
             Route::put('/workspaces/{workspace}', [BoardController::class, 'updateWorkspace'])->name('workspaces.update');
@@ -199,11 +187,16 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/{board:slug}/trash', [BoardController::class, 'getTrash'])->name('trash');
             Route::post('/{board:slug}/trash/restore', [BoardController::class, 'restoreTrash'])->name('trash.restore');
             Route::delete('/{board:slug}/trash/force', [BoardController::class, 'forceDeleteTrash'])->name('trash.force');
+            Route::post('/{board:slug}/trash/restore-bulk', [BoardController::class, 'restoreTrashBulk'])->name('trash.restoreBulk');
+            Route::delete('/{board:slug}/trash/force-bulk', [BoardController::class, 'forceDeleteTrashBulk'])->name('trash.forceBulk');
             Route::post('/{board:slug}/watch', [BoardController::class, 'toggleWatch'])->name('watch');
             Route::get('/{board:slug}/export/csv', [\App\Http\Controllers\Board\BoardExportController::class, 'exportCsv'])->name('export.csv');
             Route::get('/{board:slug}/export/pdf', [\App\Http\Controllers\Board\BoardExportController::class, 'exportPdf'])->name('export.pdf');
             Route::post('/{board:slug}/background', [BoardController::class, 'uploadBackground'])->name('background.upload');
             Route::post('/{board:slug}/labels', [BoardController::class, 'createLabel'])->name('labels.create');
+            
+            // Bulk card actions
+            Route::post('/{board:slug}/cards/bulk', [\App\Http\Controllers\Board\CardController::class, 'bulkAction'])->name('cards.bulkAction');
 
             // Workspace member management
             Route::post('/workspaces/{workspace}/members', [BoardController::class, 'addWorkspaceMember'])->name('workspaces.members.add');
@@ -322,10 +315,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             ->group(function () {
                 Route::get('/', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'index'])->name('index');
                 Route::post('/', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'store'])->name('store');
-                Route::post('/{board}/duplicate', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'duplicate'])->name('duplicate');
-                Route::patch('/{board}/toggle-active', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'toggleActive'])->name('toggle-active');
-                Route::patch('/{board}/toggle-hidden', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'toggleHidden'])->name('toggle-hidden');
-                Route::delete('/{board}', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'destroy'])->name('destroy');
+                Route::post('/{board:slug}/duplicate', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'duplicate'])->name('duplicate');
+                Route::patch('/{board:slug}/toggle-active', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'toggleActive'])->name('toggle-active');
+                Route::patch('/{board:slug}/toggle-hidden', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'toggleHidden'])->name('toggle-hidden');
+                Route::delete('/{board:slug}', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'destroy'])->name('destroy');
                 
                 // Import
                 Route::get('/{board:slug}/import/template', [\App\Http\Controllers\SocialMedia\SmmImportController::class, 'template'])->name('import.template');
@@ -335,6 +328,20 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 // Export
                 Route::get('/{board:slug}/export/csv', [\App\Http\Controllers\Board\BoardExportController::class, 'exportCsv'])->name('export.csv');
                 Route::get('/{board:slug}/export/pdf', [\App\Http\Controllers\Board\BoardExportController::class, 'exportPdf'])->name('export.pdf');
+
+                // Bulk card actions
+                Route::post('/{board:slug}/cards/bulk', [\App\Http\Controllers\Board\CardController::class, 'bulkAction'])->name('cards.bulkAction');
+
+                // Trash & Archived items
+                Route::get('/{board:slug}/archived', [BoardController::class, 'archivedItems'])->name('archived');
+                Route::get('/{board:slug}/trash', [BoardController::class, 'getTrash'])->name('trash');
+                Route::post('/{board:slug}/trash/restore', [BoardController::class, 'restoreTrash'])->name('trash.restore');
+                Route::delete('/{board:slug}/trash/force', [BoardController::class, 'forceDeleteTrash'])->name('trash.force');
+                Route::post('/{board:slug}/trash/restore-bulk', [BoardController::class, 'restoreTrashBulk'])->name('trash.restoreBulk');
+                Route::delete('/{board:slug}/trash/force-bulk', [BoardController::class, 'forceDeleteTrashBulk'])->name('trash.forceBulk');
+
+                // Watch
+                Route::post('/{board:slug}/watch', [BoardController::class, 'toggleWatch'])->name('watch');
             });
 
         // ── Settings ────────────────────────────────────────────────────────
@@ -356,6 +363,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/api/folders/{folder}/download', [\App\Http\Controllers\Note\NoteController::class, 'downloadFolder'])->name('api.folder.download');
             Route::post('/api/download', [\App\Http\Controllers\Note\NoteController::class, 'downloadSelected'])->name('api.download');
             Route::post('/api/bulk-delete', [\App\Http\Controllers\Note\NoteController::class, 'bulkDestroy'])->name('api.bulk-destroy');
+            Route::post('/api/bulk-move', [\App\Http\Controllers\Note\NoteController::class, 'bulkMove'])->name('api.bulk-move');
+            Route::post('/api/bulk-duplicate', [\App\Http\Controllers\Note\NoteController::class, 'bulkDuplicate'])->name('api.bulk-duplicate');
             Route::put('/api/{noteId}/restore', [\App\Http\Controllers\Note\NoteController::class, 'restore'])->name('api.restore');
             Route::delete('/api/{noteId}/force', [\App\Http\Controllers\Note\NoteController::class, 'forceDestroy'])->name('api.force-destroy');
             Route::put('/api/{note}', [\App\Http\Controllers\Note\NoteController::class, 'update'])->name('api.update');
@@ -394,7 +403,15 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/security/ban-ip', [SecurityController::class, 'banIp'])->name('security.ban-ip');
             Route::delete('/security/unban-ip/{ipBan}', [SecurityController::class, 'unbanIp'])->name('security.unban-ip');
             Route::post('/security/users/{user}/unblock', [SecurityController::class, 'unblockUser'])->name('security.unblock-user');
+            Route::delete('/security/attempts/clear', [SecurityController::class, 'clearAttempts'])->name('security.attempts.clear');
             Route::delete('/security/activity/clear', [SecurityController::class, 'clearActivity'])->name('security.activity.clear');
+
+        });
+
+        // ── Admin: Meeting Alarms (Super Admin, QC, Supervisor) ───────────
+        Route::prefix('admin')->name('admin.')->group(function () {
+            Route::patch('meeting-alarms/{meetingAlarm}/toggle-active', [\App\Http\Controllers\Admin\MeetingAlarmController::class, 'toggleActive'])->name('meeting-alarms.toggle-active');
+            Route::resource('meeting-alarms', \App\Http\Controllers\Admin\MeetingAlarmController::class)->except(['create', 'show', 'edit']);
         });
 
         // ── Supervisor Approval Panel ─────────────────────────────────────
@@ -421,11 +438,16 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::post('/api/popup-ads/mark-shown', [\App\Http\Controllers\Api\PopupAdInteractionController::class, 'markShown'])->name('popup-ads.mark-shown');
         Route::post('/api/popup-ads/mark-clicked', [\App\Http\Controllers\Api\PopupAdInteractionController::class, 'markClicked'])->name('popup-ads.mark-clicked');
 
+        // ── Meeting Alarms (Frontend API) ──────────────────────────────────
+        Route::get('/api/meeting-alarms/upcoming', [\App\Http\Controllers\Api\MeetingAlarmApiController::class, 'upcoming'])->name('meeting-alarms.upcoming');
+
         // ── Profile & Settings ────────────────────────────────────────────
         Route::get('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'show'])->name('profile.show');
         Route::put('/profile', [App\Http\Controllers\Auth\ProfileController::class, 'update'])->name('profile.update');
         Route::post('/profile/sound', [App\Http\Controllers\Auth\ProfileController::class, 'uploadSound'])->name('profile.sound.upload');
         Route::delete('/profile/sound/{sound}', [App\Http\Controllers\Auth\ProfileController::class, 'deleteSound'])->name('profile.sound.delete');
+        Route::post('/profile/clock-sound', [App\Http\Controllers\Auth\ProfileController::class, 'uploadClockSound'])->name('profile.clock-sound.upload');
+        Route::delete('/profile/clock-sound/{sound}', [App\Http\Controllers\Auth\ProfileController::class, 'deleteClockSound'])->name('profile.clock-sound.delete');
         Route::get('/settings', [App\Http\Controllers\Auth\ProfileController::class, 'settings'])->name('settings');
         Route::put('/settings/password', [App\Http\Controllers\Auth\ProfileController::class, 'updatePassword'])->name('settings.password');
 
@@ -433,7 +455,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::get('/notifications', [App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('notifications.index');
         Route::post('/notifications/{id}/read', [App\Http\Controllers\Admin\NotificationController::class, 'markAsRead'])->name('notifications.read');
         Route::post('/notifications/read-all', [App\Http\Controllers\Admin\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
-        Route::post('/notifications/clear-crm', [App\Http\Controllers\Admin\NotificationController::class, 'clearCrm'])->name('notifications.clear-crm');
+        Route::post('/notifications/pin', [App\Http\Controllers\Admin\NotificationController::class, 'pin'])->name('notifications.pin');
+        Route::post('/notifications/{id}/unpin', [App\Http\Controllers\Admin\NotificationController::class, 'unpin'])->name('notifications.unpin');
 
         // ── Social Media Team ─────────────────────────────────────────────
         Route::prefix('social-media')
@@ -448,8 +471,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::get('/class/{class}', [SocialMediaPostController::class, 'show'])->name('class.show');
                     });
 
-                // Post updates and Reports (controls/management) — SM roles only
-                Route::middleware('role:super-admin|admin-digital|social_admin|social_qc|boss')
+                // Post updates and Reports (controls/management)
+                Route::middleware('role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team|supervisor')
                     ->group(function () {
                         // AJAX post actions
                         Route::post('/posts/upsert', [SocialMediaPostController::class, 'storeOrUpdate'])->name('posts.upsert');
@@ -464,11 +487,13 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         });
                         
                         // Analytics View/Download/Store
-                        Route::middleware('role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team')->group(function () {
+                        Route::middleware('role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team|supervisor')->group(function () {
                             Route::get('/analytics', [SocialMediaAnalyticsController::class, 'index'])->name('analytics.index');
                             Route::get('/analytics/{analytic}/download', [SocialMediaAnalyticsController::class, 'download'])->name('analytics.download');
                             Route::get('/analytics/{analytic}/preview', [SocialMediaAnalyticsController::class, 'preview'])->name('analytics.preview');
                             Route::post('/analytics', [SocialMediaAnalyticsController::class, 'store'])->name('analytics.store');
+                            Route::match(['put', 'patch'], '/analytics/{analytic}', [SocialMediaAnalyticsController::class, 'update'])->name('analytics.update');
+                            Route::patch('/analytics/{analytic}/canva-link', [SocialMediaAnalyticsController::class, 'updateCanvaLink'])->name('analytics.canva-link');
                             Route::delete('/analytics/{analytic}', [SocialMediaAnalyticsController::class, 'destroy'])->name('analytics.destroy');
                         });
                     });

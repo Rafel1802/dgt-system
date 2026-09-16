@@ -89,4 +89,33 @@ class DashboardActivityScopeTest extends TestCase
         $this->assertTrue($recent->contains('id', $mine->id));
         $this->assertTrue($recent->contains('id', $theirs->id));
     }
+
+    public function test_board_and_card_visit_logs_are_excluded_from_recent_activities(): void
+    {
+        $admin = $this->makeUser('super-admin');
+
+        $normalLog = $this->makeLog($admin, 'websites');
+        $boardVisitLog = ActivityLog::create([
+            'user_id' => $admin->id,
+            'action' => 'page.visit',
+            'module' => 'boards',
+            'description' => 'Visited boards.show',
+            'created_at' => now(),
+        ]);
+        $cardFileLog = ActivityLog::create([
+            'user_id' => $admin->id,
+            'action' => 'page.visit',
+            'module' => 'boards',
+            'description' => 'Visited boards.cards.files.download',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+        $response->assertOk();
+        $recent = $response->viewData('recentActivitiesFn')();
+
+        $this->assertTrue($recent->contains('id', $normalLog->id));
+        $this->assertFalse($recent->contains('id', $boardVisitLog->id));
+        $this->assertFalse($recent->contains('id', $cardFileLog->id));
+    }
 }

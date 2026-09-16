@@ -4,6 +4,10 @@
 
 @section('content')
 <div class="animate-fade-in space-y-8 pb-28 md:pb-8" x-data="workspacePage()" x-init="selectedWorkspaceId = {{ $workspaces->first()?->id ?? 'null' }}">
+  @php
+    $hiddenBoardsList = isset($hiddenBoardsFn) ? $hiddenBoardsFn() : collect();
+    $hiddenBoardsCount = $hiddenBoardsList->count();
+  @endphp
 
   {{-- ── Header ───────────────────────────────────────────────────────── --}}
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -21,11 +25,17 @@
         </button>
       @endif
 
+      <button @click="showHiddenBoards = true" class="btn btn-secondary gap-2 border border-slate-200">
+        <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+        Hidden Boards
+        @if($hiddenBoardsCount > 0)
+          <span class="px-1.5 py-0.5 text-xs font-bold rounded-full bg-violet-100 text-violet-700">
+            {{ $hiddenBoardsCount }}
+          </span>
+        @endif
+      </button>
+
       @if(auth()->user()->canManageBoards())
-        <button @click="showHiddenBoards = true" class="btn btn-secondary gap-2 border border-slate-200">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
-          Hidden Boards
-        </button>
         <button @click="showTrashWorkspaces = true" class="btn bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 gap-2 shadow-sm transition-colors">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
           Trash
@@ -181,12 +191,12 @@
                 <div x-show="openBoardMenu" @click.outside="openBoardMenu = false" x-cloak
                      x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-90" x-transition:enter-end="opacity-100 scale-100"
                      class="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden py-1 z-30">
-                  <button @click.stop.prevent="openBoardMenu = false; boardQuickAction('hide', '{{ $board->slug }}', '{{ addslashes($board->name) }}')"
+                  <button @click.stop.prevent="openBoardMenu = false; boardQuickAction('hide', '{{ $board->slug }}', '{{ addslashes($board->name) }}', '{{ isset($isSmmModule) && $isSmmModule ? '/smm-boards' : '/boards' }}')"
                           class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
                     Hide Board
                   </button>
-                  <button @click.stop.prevent="openBoardMenu = false; boardQuickAction('delete', '{{ $board->slug }}', '{{ addslashes($board->name) }}')"
+                  <button @click.stop.prevent="openBoardMenu = false; boardQuickAction('delete', '{{ $board->slug }}', '{{ addslashes($board->name) }}', '{{ isset($isSmmModule) && $isSmmModule ? '/smm-boards' : '/boards' }}')"
                           class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
                     Delete Board
@@ -234,7 +244,7 @@
          @click.stop>
       <h3 class="font-display font-bold text-slate-800 text-lg mb-5">Create New Board</h3>
 
-      <form method="POST" action="{{ isset($isSmmModule) && $isSmmModule ? route('smm-boards.store') : route('boards.store') }}" enctype="multipart/form-data" class="space-y-4" x-data="{ template: 'normal', bgType: 'color', customColor: '#6366f1', customImage: '', month: '{{ date('F') }}', year: '{{ date('Y') }}' }" x-init="$watch('template', value => { if (value === 'workflow') customColor = '#ffffff'; else if (value === 'planning') customColor = '#ef4444'; else customColor = '#6366f1'; })">
+      <form method="POST" action="{{ isset($isSmmModule) && $isSmmModule ? route('smm-boards.store') : route('boards.store') }}" enctype="multipart/form-data" class="space-y-4" x-data="{ template: 'normal', bgType: 'color', customColor: '#6366f1', customImage: '', month: '{{ session('last_selected_month', date('F')) }}', year: '{{ session('last_selected_year', date('Y')) }}' }" x-init="$watch('template', value => { if (value === 'workflow') customColor = '#ffffff'; else if (value === 'planning') customColor = '#ef4444'; else customColor = '#6366f1'; })">
         @csrf
         @if(!isset($isSmmModule) || !$isSmmModule)
         <div>
@@ -274,7 +284,7 @@
         @if(!isset($isSmmModule) || !$isSmmModule)
         <div x-show="template === 'normal'" x-cloak>
           <label class="form-label">Board Name <span class="text-red-500">*</span></label>
-          <input type="text" name="name" class="form-input" placeholder="e.g. Planning Board - August 2026" :required="template === 'normal'" autofocus>
+          <input type="text" name="name" class="form-input" placeholder="e.g. Planning Board - August 2026" :required="template === 'normal'" autocomplete="off" autofocus>
         </div>
         @endif
         
@@ -375,7 +385,7 @@
 
         <div>
           <label class="form-label">Color Theme <span class="text-red-500">*</span></label>
-          <input type="text" name="color" class="form-input font-mono uppercase" value="#6366f1" pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" required>
+          <input type="color" name="color" class="h-10 w-full rounded-xl border border-slate-200 p-1 cursor-pointer shadow-sm" value="#6366f1" required>
         </div>
 
         <div>
@@ -411,7 +421,7 @@
 
         <div>
           <label class="form-label">Color Theme <span class="text-red-500">*</span></label>
-          <input type="text" name="color" x-model="editWorkspaceModal.color" class="form-input font-mono uppercase" pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" required>
+          <input type="color" name="color" x-model="editWorkspaceModal.color" class="h-10 w-full rounded-xl border border-slate-200 p-1 cursor-pointer shadow-sm" required>
         </div>
 
         <div>
@@ -440,7 +450,6 @@
   </div>
 
   {{-- ── Hidden Boards Modal ─────────────────────────────────────────────── --}}
-  @if(auth()->user()->canManageBoards())
   <div x-show="showHiddenBoards" x-cloak
        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity"
        x-transition:enter="ease-out duration-300"
@@ -450,7 +459,58 @@
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
        @click.self="showHiddenBoards = false">
-    <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden transform transition-all"
+    @php
+      $hiddenBoards = $hiddenBoardsList ?? (isset($hiddenBoardsFn) ? $hiddenBoardsFn() : collect());
+      $monthPatterns = [
+          'January'   => ['january', 'jan'],
+          'February'  => ['february', 'feb'],
+          'March'     => ['march', 'mar'],
+          'April'     => ['april', 'apr'],
+          'May'       => ['may'],
+          'June'      => ['june', 'jun'],
+          'July'      => ['july', 'jul'],
+          'August'    => ['august', 'aug'],
+          'September' => ['september', 'sept', 'sep'],
+          'October'   => ['october', 'oct'],
+          'November'  => ['november', 'nov'],
+          'December'  => ['december', 'dec'],
+      ];
+      $allMonths = array_keys($monthPatterns);
+      $monthCounts = [];
+      $boardMeta = [];
+
+      foreach ($hiddenBoards as $hb) {
+          $bName = $hb->name;
+          $matchedMonth = null;
+          foreach ($monthPatterns as $mName => $patterns) {
+              $regex = '/\b(' . implode('|', $patterns) . ')\b/i';
+              if (preg_match($regex, $bName)) {
+                  $matchedMonth = $mName;
+                  break;
+              }
+          }
+          if (!$matchedMonth && $hb->created_at) {
+              $matchedMonth = $hb->created_at->format('F');
+          }
+          if ($matchedMonth && in_array($matchedMonth, $allMonths)) {
+              $monthCounts[$matchedMonth] = ($monthCounts[$matchedMonth] ?? 0) + 1;
+          }
+
+          $matchedYear = null;
+          if (preg_match('/\b(20\d{2})\b/', $bName, $yMatch)) {
+              $matchedYear = $yMatch[1];
+          } elseif ($hb->created_at) {
+              $matchedYear = $hb->created_at->format('Y');
+          }
+
+          $boardMeta[$hb->id] = [
+              'month' => $matchedMonth ?? '',
+              'year'  => $matchedYear ?? '',
+          ];
+      }
+    @endphp
+    <div x-data="hiddenBoardsManager()"
+         class="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden transform transition-all"
          x-transition:enter="ease-out duration-300"
          x-transition:enter-start="opacity-0 translate-y-8 sm:translate-y-0 sm:scale-95"
          x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
@@ -460,13 +520,20 @@
          @click.stop>
       
       {{-- Modal Header --}}
-      <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
+      <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between flex-shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 flex items-center justify-center shadow-sm border border-violet-200 dark:border-violet-800">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19.5c-4.638 0-8.573-3.007-9.963-7.178.709-2.056 2.008-3.685 3.65-4.851zm0 0l-3.414-3.414m3.414 3.414L15 15m0 0l-3.414-3.414M15 15l-3.414-3.414m0 0L8.172 8.172m0 0L3 3m5.172 5.172A10.04 10.04 0 0112 4.5c4.638 0 8.573 3.007 9.963 7.178-.316.916-.763 1.776-1.32 2.56m-5.46 2.093A3.001 3.001 0 019.586 9.586" /></svg>
           </div>
           <div>
-            <h3 class="font-display font-bold text-slate-800 dark:text-slate-100 text-lg">Hidden Boards</h3>
+            <div class="flex items-center gap-2">
+              <h3 class="font-display font-bold text-slate-800 dark:text-slate-100 text-lg">Hidden Boards</h3>
+              @if(count($hiddenBoards) > 0)
+                <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300">
+                  {{ count($hiddenBoards) }}
+                </span>
+              @endif
+            </div>
             <p class="text-xs text-slate-500 dark:text-slate-400">Manage boards that are currently hidden from workspaces.</p>
           </div>
         </div>
@@ -475,11 +542,92 @@
         </button>
       </div>
 
+      {{-- Search & Month Filter Toolbar --}}
+      @if(count($hiddenBoards) > 0)
+      <div class="px-6 py-3.5 bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-3 flex-shrink-0">
+        <!-- Search Input -->
+        <div class="relative flex-1 w-full">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+          </div>
+          <input type="text"
+                 x-model="search"
+                 placeholder="Search hidden boards or workspaces..."
+                 class="w-full pl-9 pr-8 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm">
+          <button x-show="search.length > 0"
+                  @click="search = ''"
+                  type="button"
+                  x-cloak
+                  class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Month Filter Dropdown -->
+        <div class="relative w-full sm:w-48 flex-shrink-0">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+          </div>
+          <select x-model="selectedMonth"
+                  class="w-full pl-9 pr-8 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-slate-800 dark:text-slate-200 appearance-none transition-all shadow-sm cursor-pointer">
+            <option value="">All Months</option>
+            @foreach($allMonths as $monthName)
+              @php $cnt = $monthCounts[$monthName] ?? 0; @endphp
+              <option value="{{ $monthName }}">{{ $monthName }}{{ $cnt > 0 ? " ({$cnt})" : '' }}</option>
+            @endforeach
+          </select>
+          <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Reset Button -->
+        <button x-show="search.length > 0 || selectedMonth !== ''"
+                @click="clearFilters()"
+                type="button"
+                x-cloak
+                title="Reset filters"
+                class="px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-xl border border-rose-200 dark:border-rose-800 transition-colors whitespace-nowrap active:scale-95 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          Reset
+        </button>
+      </div>
+
+      <!-- Active Filter Status Indicator -->
+      <div x-show="search.length > 0 || selectedMonth !== ''"
+           x-cloak
+           class="px-6 py-2 bg-violet-50/60 dark:bg-violet-950/20 text-xs text-violet-700 dark:text-violet-300 flex items-center justify-between border-b border-violet-100/80 dark:border-violet-900/30 flex-shrink-0">
+        <span>Showing <strong x-text="filteredCount"></strong> of <strong x-text="totalCount"></strong> hidden boards</span>
+        <button @click="clearFilters()" type="button" class="font-medium hover:underline">Clear all</button>
+      </div>
+      @endif
+
       {{-- Modal Body --}}
       <div class="overflow-y-auto flex-1 p-6 space-y-3 scrollbar-thin bg-white dark:bg-slate-900">
-        @php $hiddenBoards = $hiddenBoardsFn(); @endphp
         @forelse($hiddenBoards as $hb)
-          <div class="hidden-board-item flex items-center justify-between bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-violet-300 dark:hover:border-violet-600 transition-all duration-200">
+          @php
+            $bMonth = $boardMeta[$hb->id]['month'] ?? '';
+            $bYear  = $boardMeta[$hb->id]['year'] ?? '';
+          @endphp
+          <div class="hidden-board-item flex items-center justify-between bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-violet-300 dark:hover:border-violet-600 transition-all duration-200"
+               data-name="{{ $hb->name }}"
+               data-workspace="{{ $hb->workspace->name ?? '' }}"
+               data-month="{{ $bMonth }}"
+               data-year="{{ $bYear }}"
+               x-show="isItemVisible(@js($hb->name), @js($hb->workspace->name ?? ''), @js($bMonth), @js($bYear))"
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 scale-98"
+               x-transition:enter-end="opacity-100 scale-100">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-inner"
                    style="{{ $hb->backgroundStyle() }}">
@@ -487,17 +635,36 @@
               </div>
               <div>
                 <h4 class="font-bold text-slate-800 dark:text-slate-100 text-base mb-0.5">{{ $hb->name }}</h4>
-                <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
-                  <span>{{ $hb->workspace->name ?? 'Unknown Workspace' }}</span>
+                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                  <span class="flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+                    <span>{{ $hb->workspace->name ?? 'Unknown Workspace' }}</span>
+                  </span>
+                  @if($bMonth)
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200/60 dark:border-violet-800/60">
+                      <svg class="w-3 h-3 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                      </svg>
+                      <span>{{ $bMonth }}{{ $bYear ? ' ' . $bYear : '' }}</span>
+                    </span>
+                  @endif
                 </div>
               </div>
             </div>
-            <button onclick="unhideBoard('{{ $hb->slug }}', this)" 
-                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-violet-700 bg-violet-50 hover:bg-violet-600 hover:text-white hover:shadow-lg hover:shadow-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-600 dark:hover:text-white transition-all duration-200 active:scale-95">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.22.611.22 1.28 0 1.889-1.4 4.172-5.337 7.178-9.963 7.178-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              Restore Board
-            </button>
+            <div class="flex items-center gap-2">
+              <a href="{{ route('boards.show', $hb->slug) }}" 
+                 class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-sky-700 bg-sky-50 hover:bg-sky-600 hover:text-white hover:shadow-lg hover:shadow-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:hover:bg-sky-600 dark:hover:text-white transition-all duration-200 active:scale-95">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                Open
+              </a>
+              @if(auth()->user()->canManageBoards())
+              <button onclick="unhideBoard('{{ $hb->slug }}', this, '{{ isset($isSmmModule) && $isSmmModule ? '/smm-boards' : '/boards' }}')" 
+                      class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-violet-700 bg-violet-50 hover:bg-violet-600 hover:text-white hover:shadow-lg hover:shadow-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-600 dark:hover:text-white transition-all duration-200 active:scale-95">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.22.611.22 1.28 0 1.889-1.4 4.172-5.337 7.178-9.963 7.178-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Restore
+              </button>
+              @endif
+            </div>
           </div>
         @empty
           <div class="flex flex-col items-center justify-center py-12 text-center">
@@ -509,10 +676,29 @@
           </div>
         @endforelse
 
+        {{-- Filter empty state --}}
+        @if(count($hiddenBoards) > 0)
+        <div x-show="totalCount > 0 && filteredCount === 0" x-cloak class="flex flex-col items-center justify-center py-12 text-center">
+          <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-3 text-slate-400 dark:text-slate-500 shadow-inner">
+            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+          </div>
+          <h4 class="text-base font-bold text-slate-700 dark:text-slate-200">No matching hidden boards</h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">No hidden boards matched your search query or selected month.</p>
+          <button @click="clearFilters()" type="button" class="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/30 hover:bg-violet-100 dark:hover:bg-violet-900/50 rounded-xl transition-all active:scale-95 border border-violet-200 dark:border-violet-800">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            Clear Filters
+          </button>
+        </div>
+        @endif
+
       </div>
     </div>
   </div>
-  @endif
+  
 
   {{-- ── Trash Workspaces Modal (with checkboxes & bulk actions) ───────────── --}}
   @if(auth()->user()->canManageBoards())
@@ -687,13 +873,29 @@
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" @click.stop>
       <h3 class="font-display font-bold text-slate-800 text-lg mb-5">Edit Board</h3>
 
-      <form method="POST" :action="`/boards/${editBoardModal.id}/basic-update`" enctype="multipart/form-data" class="space-y-4">
+      <form @submit.prevent="submitEditBoard($event)" :action="`/boards/${editBoardModal.id}/basic-update`" enctype="multipart/form-data" class="space-y-4">
         @csrf
         <div>
           <label class="form-label">Board Name <span class="text-red-500">*</span></label>
-          <input type="text" name="name" x-model="editBoardModal.name" class="form-input" 
+          <input type="text" name="board_name_edit" x-model="editBoardModal.name" class="form-input" autocomplete="new-password" 
                  {{ auth()->user()->canManageBoards() ? 'required' : 'readonly disabled' }} 
                  :class="{ 'bg-slate-50 text-slate-500': !{{ auth()->user()->canManageBoards() ? 'true' : 'false' }} }">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">Month</label>
+            <select x-model="editBoardModal.month" @change="updateEditBoardName()" class="form-input" {{ auth()->user()->canManageBoards() ? '' : 'disabled' }}>
+              <option value="">- Select -</option>
+              @foreach(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as $m)
+                <option value="{{ $m }}">{{ $m }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Year</label>
+            <input type="number" x-model="editBoardModal.year" @input="updateEditBoardName()" class="form-input w-full" min="2000" max="2100" {{ auth()->user()->canManageBoards() ? '' : 'disabled' }}>
+          </div>
         </div>
 
         <div>

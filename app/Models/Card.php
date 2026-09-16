@@ -118,22 +118,8 @@ class Card extends Model
         });
 
         static::deleted(function ($card) {
-            if (self::$isSyncing) {
-                return;
-            }
-            if ($card->sync_group_id) {
-                self::$isSyncing = true;
-                try {
-                    $replicas = self::where('sync_group_id', $card->sync_group_id)
-                                    ->where('id', '!=', $card->id)
-                                    ->get();
-                    foreach ($replicas as $replica) {
-                        $replica->delete();
-                    }
-                } finally {
-                    self::$isSyncing = false;
-                }
-            }
+            // Cascade deletion removed per user request: deleting a card 
+            // in one board should not delete its synced siblings.
         });
     }
 
@@ -155,7 +141,7 @@ class Card extends Model
         $replica->board_list_id = $targetListId;
         $replica->title = $newTitle;
         $replica->position = 0;
-        $replica->created_by = $this->created_by;
+        $replica->created_by = $createdBy ?? $this->created_by;
         if ($enableSync) {
             $replica->sync_group_id = $this->sync_group_id;
         } else {
@@ -173,9 +159,20 @@ class Card extends Model
         self::$isSyncing = true;
 
         try {
-            // Copy assignees
+            // Copy assignees from database directly (avoid stale cached relation)
+            $assigneeUsers = $this->assignees()->get();
+            if ($assigneeUsers->isEmpty() && $this->sync_group_id) {
+                $twin = Card::where('sync_group_id', $this->sync_group_id)
+                    ->where('id', '!=', $this->id)
+                    ->whereHas('assignees')
+                    ->first();
+                if ($twin) {
+                    $assigneeUsers = $twin->assignees()->get();
+                }
+            }
+
             $replica->assignees()->sync(
-                collect($this->assignees)->mapWithKeys(fn($user) => [
+                $assigneeUsers->mapWithKeys(fn($user) => [
                     $user->id => ['assigned_at' => $user->pivot->assigned_at ?? now()]
                 ])->all()
             );
@@ -257,6 +254,32 @@ class Card extends Model
         return $replica;
     }
 
+    /**
+     * Synchronize this card's assignees to all other cards in its sync group.
+     */
+    public function syncAssigneesToTwins(?array $assigneeIds = null): void
+    {
+        if (!$this->sync_group_id) {
+            return;
+        }
+
+        $twins = self::where('sync_group_id', $this->sync_group_id)
+            ->where('id', '!=', $this->id)
+            ->get();
+
+        if ($twins->isEmpty()) {
+            return;
+        }
+
+        $assigneeData = $assigneeIds !== null
+            ? collect($assigneeIds)->mapWithKeys(fn($id) => [$id => ['assigned_at' => now()]])->all()
+            : $this->assignees()->get()->mapWithKeys(fn($u) => [$u->id => ['assigned_at' => $u->pivot->assigned_at ?? now()]])->all();
+
+        foreach ($twins as $twin) {
+            $twin->assignees()->sync($assigneeData);
+        }
+    }
+
     // ─── New Board-Hierarchy Relationships ───────────────────────────────────
 
     public function board(): BelongsTo
@@ -315,7 +338,9 @@ class Card extends Model
     {
         return $this->hasMany(CardComment::class)
                     ->where('is_system', false)
-                    ->whereRaw("LOWER(content) LIKE '%qc approved%'")
+                    ->where(function($q) {
+                        $q->whereRaw("LOWER(content) LIKE '%qc%approve%'");
+                    })
                     ->orderBy('created_at');
     }
 

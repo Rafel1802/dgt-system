@@ -49,6 +49,17 @@ class Board extends Model
         });
     }
 
+    public function resolveRouteBinding($value, $field = null)
+    {
+        if ($field === 'slug' || $field === null) {
+            return $this->where('slug', $value)
+                ->orWhere('id', is_numeric($value) ? $value : 0)
+                ->firstOrFail();
+        }
+
+        return parent::resolveRouteBinding($value, $field);
+    }
+
     // ── Relationships ─────────────────────────────────────────────────────────
 
     public function workspace(): BelongsTo
@@ -191,7 +202,7 @@ class Board extends Model
     public function getNameAttribute($value)
     {
         // If the stored name already has a month suffix, extract and preserve it
-        $pattern = '/\s+[-–]\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:\s+(\d{4}))?$/i';
+        $pattern = '/\s+[-–—]\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:\s+(\d{4}))?\s*$/iu';
         if (preg_match($pattern, (string)$value, $matches)) {
             $month = $matches[1];
             $year = $matches[2] ?? ($this->created_at ? $this->created_at->format('Y') : date('Y'));
@@ -210,7 +221,7 @@ class Board extends Model
         }
 
         // Clean up old "- June" or "– June 2026" suffixes
-        $cleanName = preg_replace('/ [-–] [A-Za-z]+( \d{4})?$/u', '', (string)$value);
+        $cleanName = preg_replace('/(?:\s*[-–—]\s*|\s+)(?:January|February|March|April|May|June|July|August|September|October|November|December)(?:\s+\d{4})?\s*$/iu', '', (string)$value);
 
         return $cleanName . $suffix;
     }

@@ -19,14 +19,15 @@ class CleanupTrashCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Permanently delete trashed cards and lists older than 2 days';
+    protected $description = 'Permanently delete trashed cards and lists older than 7 days';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $threshold = Carbon::now()->subDays(2);
+        // Delete items that have been in the trash for more than 7 days
+        $threshold = Carbon::now()->subDays(7);
 
         $deletedLists = \App\Models\BoardList::onlyTrashed()->where('deleted_at', '<=', $threshold)->forceDelete();
         $deletedCards = \App\Models\Card::onlyTrashed()->where('deleted_at', '<=', $threshold)->forceDelete();

@@ -49,202 +49,314 @@
   </div>
   @endif
 
-  {{-- ── Pipeline Stats Row ──────────────────────────────────────────────── --}}
-  <div class="mobile-scroll-x lg:grid lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-    {{-- Drafting --}}
-    <div class="stat-card !p-4 flex items-center justify-between flex-shrink-0 w-[280px] lg:w-auto">
-      <div class="flex items-center gap-3">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#f3f4f6,#e5e7eb)">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#6b7280" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+  @php
+    $totalGraphic = $stats['drafting']['graphic'] + $stats['head_review']['graphic'] + $stats['qc_review']['graphic'] + $stats['supervisor_review']['graphic'];
+    $totalVideo = $stats['drafting']['video'] + $stats['head_review']['video'] + $stats['qc_review']['video'] + $stats['supervisor_review']['video'];
+    $totalListing = $stats['drafting']['listing'] + $stats['head_review']['listing'] + $stats['qc_review']['listing'] + $stats['supervisor_review']['listing'];
+    $totalContent = $stats['drafting']['content'] + $stats['head_review']['content'] + $stats['qc_review']['content'] + $stats['supervisor_review']['content'];
+    $totalQc = $stats['drafting']['qc'] + $stats['head_review']['qc'] + $stats['qc_review']['qc'] + $stats['supervisor_review']['qc'];
+  @endphp
+
+  {{-- ── Hero Banner ──────────────────────────────────────────────────────── --}}
+  <div class="relative overflow-hidden rounded-2xl mb-6 sticky top-[80px] z-30 shadow-lg shadow-indigo-200/50" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 40%, #818cf8 100%)">
+    {{-- Pattern overlay --}}
+    <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size: 28px 28px;"></div>
+    <div class="relative flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 px-7 py-6">
+      
+      <div class="flex items-center gap-5">
+        <div class="flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center" style="background:rgba(255,255,255,0.15); backdrop-filter:blur(8px)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="white" class="w-8 h-8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+          </svg>
         </div>
-        <div><div class="stat-value">{{ $stats['drafting']['total'] }}</div><div class="stat-label">Drafting</div></div>
-      </div>
-      <div class="flex flex-col gap-1 pl-3 border-l border-slate-100 text-[10px] font-bold min-w-[3.5rem]">
-        <span class="bg-sky-50 text-sky-600 px-2 py-0.5 rounded text-center">G: {{ $stats['drafting']['graphic'] }}</span>
-        <span class="bg-violet-50 text-violet-600 px-2 py-0.5 rounded text-center">V: {{ $stats['drafting']['video'] }}</span>
-        <span class="bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-center">L: {{ $stats['drafting']['listing'] }}</span>
-        <span class="bg-fuchsia-50 text-fuchsia-600 px-2 py-0.5 rounded text-center">C: {{ $stats['drafting']['content'] }}</span>
-        <span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-center">Q: {{ $stats['drafting']['qc'] }}</span>
-      </div>
-    </div>
-    {{-- Head Review --}}
-    <div class="stat-card !p-4 flex items-center justify-between flex-shrink-0 w-[280px] lg:w-auto">
-      <div class="flex items-center gap-3">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#e0e7ff,#c7d2fe)">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#4f46e5" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+        <div>
+          <p class="text-[11px] font-bold uppercase tracking-widest text-indigo-200 mb-0.5">Pipeline Overview</p>
+          <h2 class="text-3xl font-black text-white leading-tight">All Card Status</h2>
+          <p class="text-sm text-indigo-100 mt-1 max-w-lg">Live snapshot of every task across all workflow boards — from drafting through to supervisor approval.</p>
         </div>
-        <div><div class="stat-value">{{ $stats['head_review']['total'] }}</div><div class="stat-label">Head Review</div></div>
       </div>
-      <div class="flex flex-col gap-1 pl-3 border-l border-slate-100 text-[10px] font-bold min-w-[3.5rem]">
-        <span class="bg-sky-50 text-sky-600 px-2 py-0.5 rounded text-center">G: {{ $stats['head_review']['graphic'] }}</span>
-        <span class="bg-violet-50 text-violet-600 px-2 py-0.5 rounded text-center">V: {{ $stats['head_review']['video'] }}</span>
-        <span class="bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-center">L: {{ $stats['head_review']['listing'] }}</span>
-        <span class="bg-fuchsia-50 text-fuchsia-600 px-2 py-0.5 rounded text-center">C: {{ $stats['head_review']['content'] }}</span>
-        <span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-center">Q: {{ $stats['head_review']['qc'] }}</span>
-      </div>
-    </div>
-    {{-- QC Review --}}
-    <div class="stat-card !p-4 flex items-center justify-between flex-shrink-0 w-[280px] lg:w-auto">
-      <div class="flex items-center gap-3">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#e0f2fe,#bae6fd)">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#0284c7" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+
+      {{-- Total Badges --}}
+      <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-4 min-w-[7.5rem] shadow-sm">
+          <div class="flex flex-col">
+            <svg class="w-4 h-4 text-sky-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+            <span class="text-[9px] font-bold uppercase tracking-wider text-sky-700">Graphic</span>
+          </div>
+          <span class="text-2xl font-black text-sky-700">{{ $totalGraphic }}</span>
         </div>
-        <div><div class="stat-value">{{ $stats['qc_review']['total'] }}</div><div class="stat-label">QC Review</div></div>
-      </div>
-      <div class="flex flex-col gap-1 pl-3 border-l border-slate-100 text-[10px] font-bold min-w-[3.5rem]">
-        <span class="bg-sky-50 text-sky-600 px-2 py-0.5 rounded text-center">G: {{ $stats['qc_review']['graphic'] }}</span>
-        <span class="bg-violet-50 text-violet-600 px-2 py-0.5 rounded text-center">V: {{ $stats['qc_review']['video'] }}</span>
-        <span class="bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-center">L: {{ $stats['qc_review']['listing'] }}</span>
-        <span class="bg-fuchsia-50 text-fuchsia-600 px-2 py-0.5 rounded text-center">C: {{ $stats['qc_review']['content'] }}</span>
-        <span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-center">Q: {{ $stats['qc_review']['qc'] }}</span>
-      </div>
-    </div>
-    {{-- Supervisor Review --}}
-    <div class="stat-card !p-4 flex items-center justify-between flex-shrink-0 w-[280px] lg:w-auto">
-      <div class="flex items-center gap-3">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a)">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#d97706" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" /></svg>
+        
+        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-4 min-w-[7.5rem] shadow-sm">
+          <div class="flex flex-col">
+            <svg class="w-4 h-4 text-violet-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" /></svg>
+            <span class="text-[9px] font-bold uppercase tracking-wider text-violet-700">Video</span>
+          </div>
+          <span class="text-2xl font-black text-violet-700">{{ $totalVideo }}</span>
         </div>
-        <div><div class="stat-value">{{ $stats['supervisor_review']['total'] }}</div><div class="stat-label">Supervisor</div></div>
+
+        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-4 min-w-[7.5rem] shadow-sm">
+          <div class="flex flex-col">
+            <svg class="w-4 h-4 text-amber-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+            <span class="text-[9px] font-bold uppercase tracking-wider text-amber-700">Listing</span>
+          </div>
+          <span class="text-2xl font-black text-amber-700">{{ $totalListing }}</span>
+        </div>
+
+        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-4 min-w-[7.5rem] shadow-sm">
+          <div class="flex flex-col">
+            <svg class="w-4 h-4 text-fuchsia-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm3.75 11.625a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
+            <span class="text-[9px] font-bold uppercase tracking-wider text-fuchsia-700">Content</span>
+          </div>
+          <span class="text-2xl font-black text-fuchsia-700">{{ $totalContent }}</span>
+        </div>
+
+        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-4 min-w-[7.5rem] shadow-sm">
+          <div class="flex flex-col">
+            <svg class="w-4 h-4 text-emerald-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+            <span class="text-[9px] font-bold uppercase tracking-wider text-emerald-700">QC</span>
+          </div>
+          <span class="text-2xl font-black text-emerald-700">{{ $totalQc }}</span>
+        </div>
       </div>
-      <div class="flex flex-col gap-1 pl-3 border-l border-slate-100 text-[10px] font-bold min-w-[3.5rem]">
-        <span class="bg-sky-50 text-sky-600 px-2 py-0.5 rounded text-center">G: {{ $stats['supervisor_review']['graphic'] }}</span>
-        <span class="bg-violet-50 text-violet-600 px-2 py-0.5 rounded text-center">V: {{ $stats['supervisor_review']['video'] }}</span>
-        <span class="bg-amber-50 text-amber-600 px-2 py-0.5 rounded text-center">L: {{ $stats['supervisor_review']['listing'] }}</span>
-        <span class="bg-fuchsia-50 text-fuchsia-600 px-2 py-0.5 rounded text-center">C: {{ $stats['supervisor_review']['content'] }}</span>
-        <span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-center">Q: {{ $stats['supervisor_review']['qc'] }}</span>
-      </div>
+      
     </div>
   </div>
 
-  {{-- ── Completed Tasks Section ──────────────────────────────────────────── --}}
-  <div class="card p-5 mb-6">
-    {{-- Header + Period Tabs --}}
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-      <div>
-        <h3 class="font-display font-black text-slate-800 text-base flex items-center gap-2">
-          <span>✅ Completed Tasks</span>
-          <span class="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-md">
-            All Time: {{ $stats['approved_all']['total'] }}
-          </span>
-        </h3>
-        <p class="text-xs text-slate-400 mt-0.5">
-          Tasks in the <strong>"Approved"</strong> list — recognised as Supervisor-approved completions.
-          {{ count($selectedBoardIds) < $availableBoards->count() ? count($selectedBoardIds).' board(s) selected.' : 'All boards.' }}
-        </p>
+  {{-- ── Pipeline Stats (Masonry Grid) ──────────────────────────────────────── --}}
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-8" id="pipeline-stats-container">
+    
+    {{-- Left Side: Drafting, Head Review, Supervisor Review --}}
+    <div class="lg:col-span-7 xl:col-span-8 flex flex-col gap-5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {{-- Drafting --}}
+        <div class="bg-white rounded-3xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100/60 flex flex-col gap-5 justify-center">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center bg-slate-100/80">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#64748b" class="w-7 h-7"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[2.25rem] font-black text-slate-800 leading-none">{{ $stats['drafting']['total'] }}</span>
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Drafting</span>
+            </div>
+          </div>
+          <div class="w-20 border-b-2 border-slate-100 mx-auto mt-2"></div>
+          <div class="flex items-center gap-2 flex-wrap justify-center mt-2">
+            <span class="bg-sky-50/80 text-sky-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">G: {{ $stats['drafting']['graphic'] }}</span>
+            <span class="bg-violet-50/80 text-violet-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">V: {{ $stats['drafting']['video'] }}</span>
+            <span class="bg-amber-50/80 text-amber-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">L: {{ $stats['drafting']['listing'] }}</span>
+            <span class="bg-fuchsia-50/80 text-fuchsia-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">C: {{ $stats['drafting']['content'] }}</span>
+            <span class="bg-emerald-50/80 text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">Q: {{ $stats['drafting']['qc'] }}</span>
+          </div>
+        </div>
+
+        {{-- Head Review --}}
+        <div class="bg-white rounded-3xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100/60 flex flex-col gap-5 justify-center">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center bg-indigo-100/60">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#4f46e5" class="w-7 h-7"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[2.25rem] font-black text-slate-800 leading-none">{{ $stats['head_review']['total'] }}</span>
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Head Review</span>
+            </div>
+          </div>
+          <div class="w-20 border-b-2 border-slate-100 mx-auto mt-2"></div>
+          <div class="flex items-center gap-2 flex-wrap justify-center mt-2">
+            <span class="bg-sky-50/80 text-sky-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">G: {{ $stats['head_review']['graphic'] }}</span>
+            <span class="bg-violet-50/80 text-violet-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">V: {{ $stats['head_review']['video'] }}</span>
+            <span class="bg-amber-50/80 text-amber-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">L: {{ $stats['head_review']['listing'] }}</span>
+            <span class="bg-fuchsia-50/80 text-fuchsia-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">C: {{ $stats['head_review']['content'] }}</span>
+            <span class="bg-emerald-50/80 text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">Q: {{ $stats['head_review']['qc'] }}</span>
+          </div>
+        </div>
       </div>
-      {{-- Period tabs --}}
-      <div class="flex gap-1 bg-slate-100 rounded-xl p-1 flex-shrink-0">
-        <a href="{{ route('approvals.index', array_merge(request()->except('period'), ['period' => 'today', 'board_ids' => $selectedBoardIds])) }}"
-           class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {{ $period === 'today' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700' }}">
-          Today
-        </a>
-        <a href="{{ route('approvals.index', array_merge(request()->except('period'), ['period' => 'week', 'board_ids' => $selectedBoardIds])) }}"
-           class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {{ $period === 'week' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700' }}">
-          This Week
-        </a>
-        <a href="{{ route('approvals.index', array_merge(request()->except('period'), ['period' => 'month', 'board_ids' => $selectedBoardIds])) }}"
-           class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all {{ $period === 'month' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700' }}">
-          This Month
-        </a>
+      
+      @if(auth()->user() && auth()->user()->isSupervisorRole() && !auth()->user()->isQc())
+      {{-- QC Review (Wide) --}}
+      <div class="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-indigo-100/60 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-5">
+          <div class="w-16 h-16 rounded-[1.25rem] flex items-center justify-center bg-indigo-100/70">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#4f46e5" class="w-8 h-8"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-[3rem] font-black text-slate-800 leading-none">{{ $stats['qc_review']['total'] }}</span>
+            <span class="text-[12px] font-bold text-slate-500 uppercase tracking-widest mt-1">QC Review</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <span class="bg-sky-50 text-sky-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">G: {{ $stats['qc_review']['graphic'] }}</span>
+          <span class="bg-violet-50 text-violet-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">V: {{ $stats['qc_review']['video'] }}</span>
+          <span class="bg-amber-50 text-amber-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">L: {{ $stats['qc_review']['listing'] }}</span>
+          <span class="bg-fuchsia-50 text-fuchsia-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">C: {{ $stats['qc_review']['content'] }}</span>
+          <span class="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">Q: {{ $stats['qc_review']['qc'] }}</span>
+        </div>
       </div>
+      @else
+      {{-- Supervisor Review --}}
+      <div class="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-amber-100/60 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-5">
+          <div class="w-16 h-16 rounded-[1.25rem] flex items-center justify-center bg-amber-100/50">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#d97706" class="w-8 h-8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" /></svg>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-[3rem] font-black text-slate-800 leading-none">{{ $stats['supervisor_review']['total'] }}</span>
+            <span class="text-[12px] font-bold text-slate-500 uppercase tracking-widest mt-1">Supervisor Review</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <span class="bg-sky-50 text-sky-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">G: {{ $stats['supervisor_review']['graphic'] }}</span>
+          <span class="bg-violet-50 text-violet-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">V: {{ $stats['supervisor_review']['video'] }}</span>
+          <span class="bg-amber-50 text-amber-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">L: {{ $stats['supervisor_review']['listing'] }}</span>
+          <span class="bg-fuchsia-50 text-fuchsia-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">C: {{ $stats['supervisor_review']['content'] }}</span>
+          <span class="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">Q: {{ $stats['supervisor_review']['qc'] }}</span>
+        </div>
+      </div>
+      @endif
+    
+{{-- ── Planning Boards Stats ────────────────────────────────────────── --}}
+  @if(!empty($smmPlanningStats))
+  <div class="mb-8 mt-2">
+    <div class="flex items-center gap-2 mb-4">
+      <svg class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+      <h3 class="text-lg font-black text-slate-800 tracking-tight">Team Planning Boards</h3>
+    </div>
+    
+    <div class="flex flex-col gap-4">
+      @foreach($smmPlanningStats as $key => $teamStat)
+        <div class="stat-card !p-6 flex items-start justify-between gap-6 flex-shrink-0 w-full hover:shadow-md transition-shadow bg-white border border-slate-200">
+          <div class="flex items-start gap-4">
+            @php
+              $iconBg = match($key) {
+                'graphic' => 'bg-sky-100 text-sky-600',
+                'video' => 'bg-violet-100 text-violet-600',
+                'listing' => 'bg-amber-100 text-amber-600',
+                'content' => 'bg-fuchsia-100 text-fuchsia-600',
+                'qc' => 'bg-emerald-100 text-emerald-600',
+                default => 'bg-slate-100 text-slate-600'
+              };
+            @endphp
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 {{ $iconBg }}">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path d="M3 4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8l-7.5 4L2 8V6a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2z"/></svg>
+            </div>
+            <div class="flex flex-col pt-0.5">
+              <span class="text-lg font-black text-slate-800 leading-tight uppercase">{{ $teamStat['name'] }}</span>
+              <span class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">{{ $teamStat['board_name'] }}</span>
+            </div>
+          </div>
+          
+          <div class="flex flex-col gap-3 pl-6 border-l-2 border-slate-100 flex-1">
+            @foreach($teamStat['weeks'] as $weekName => $weekData)
+              <div class="flex items-center gap-3 text-sm">
+                <span class="font-bold text-slate-500 uppercase w-20 shrink-0">{{ $weekName }}:</span>
+                <span class="font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100 shadow-sm" title="Approved">Approved: {{ $weekData['approved'] }}</span>
+                <span class="font-bold text-slate-600 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200 shadow-sm" title="Unapproved">Unapproved: {{ $weekData['unapproved'] }}</span>
+              </div>
+            @endforeach
+          </div>
+        </div>
+      @endforeach
+    </div>
+  </div>
+  @endif
+
+  
     </div>
 
-    {{-- Period Label --}}
+    @if(auth()->user() && auth()->user()->isSupervisorRole() && !auth()->user()->isQc())
+    {{-- Right Side: Supervisor Review (Giant Box) --}}
     @php
-      $periodLabel = match($period) {
-        'week'  => 'This Week (' . now()->startOfWeek()->format('d M') . ' – ' . now()->endOfWeek()->format('d M Y') . ')',
-        'month' => 'This Month (' . now()->format('F Y') . ')',
-        default => 'Today — ' . now()->timezone('Asia/Phnom_Penh')->format('d M Y') . ' (Cambodia Time)',
-      };
-      $breakdown = $stats['approved'];
+      $isSupervisor = auth()->user() && auth()->user()->isSupervisorRole();
+      $supClass = $isSupervisor ? 'ring-2 ring-amber-500 shadow-xl scale-[1.02] transform z-10 bg-white border-none' : 'bg-white shadow-sm border border-slate-100/50';
     @endphp
-    <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-4">{{ $periodLabel }}</p>
-
-    {{-- Stat Tiles --}}
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      {{-- Total --}}
-      <div class="rounded-xl p-4 text-center border-2 border-indigo-200 bg-indigo-50 col-span-2 sm:col-span-1">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-500 mb-1">Total</p>
-        <p class="text-3xl font-black text-indigo-700">{{ $breakdown['total'] }}</p>
-        <p class="text-[10px] text-indigo-400 mt-0.5">Completed</p>
-      </div>
-      {{-- Graphic --}}
-      <div class="rounded-xl p-4 text-center border border-sky-100 bg-sky-50">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-sky-500 mb-1">Graphic</p>
-        <p class="text-2xl font-black text-sky-700">{{ $breakdown['graphic'] }}</p>
-      </div>
-      {{-- Video --}}
-      <div class="rounded-xl p-4 text-center border border-violet-100 bg-violet-50">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-violet-500 mb-1">Video</p>
-        <p class="text-2xl font-black text-violet-700">{{ $breakdown['video'] }}</p>
-      </div>
-      {{-- Listing --}}
-      <div class="rounded-xl p-4 text-center border border-amber-100 bg-amber-50">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-amber-500 mb-1">Listing</p>
-        <p class="text-2xl font-black text-amber-700">{{ $breakdown['listing'] }}</p>
-      </div>
-      {{-- Content --}}
-      <div class="rounded-xl p-4 text-center border border-fuchsia-100 bg-fuchsia-50">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-fuchsia-500 mb-1">Content</p>
-        <p class="text-2xl font-black text-fuchsia-700">{{ $breakdown['content'] }}</p>
-      </div>
-      {{-- QC --}}
-      <div class="rounded-xl p-4 text-center border border-emerald-100 bg-emerald-50">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-500 mb-1">QC</p>
-        <p class="text-2xl font-black text-emerald-700">{{ $breakdown['qc'] }}</p>
-      </div>
-      {{-- SMM --}}
-      <div class="rounded-xl p-4 text-center border border-rose-100 bg-rose-50">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-rose-500 mb-1">SMM</p>
-        <p class="text-2xl font-black text-rose-700">{{ $breakdown['smm'] ?? 0 }}</p>
-      </div>
-    </div>
-
-    {{-- Mini comparison row --}}
-    <div class="mt-5 pt-4 border-t border-slate-100">
-      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Quick Comparison</p>
-      <div class="grid grid-cols-3 gap-3">
-        <div class="text-center">
-          <p class="text-[10px] text-slate-400 mb-0.5">Today</p>
-          <p class="text-xl font-black {{ $period === 'today' ? 'text-indigo-700' : 'text-slate-700' }}">{{ $stats['approved_today']['total'] }}</p>
-          <div class="flex justify-center gap-1 mt-1 flex-wrap text-[9px] font-bold">
-            <span class="text-sky-600">G:{{ $stats['approved_today']['graphic'] }}</span>
-            <span class="text-violet-600">V:{{ $stats['approved_today']['video'] }}</span>
-            <span class="text-amber-600">L:{{ $stats['approved_today']['listing'] }}</span>
-            <span class="text-fuchsia-600">C:{{ $stats['approved_today']['content'] }}</span>
-            <span class="text-emerald-600">Q:{{ $stats['approved_today']['qc'] }}</span>
-            <span class="text-rose-600">S:{{ $stats['approved_today']['smm'] ?? 0 }}</span>
-          </div>
+    <div class="lg:col-span-5 xl:col-span-4 sticky top-[240px] z-20 self-start">
+      <div class="rounded-[2.5rem] !p-10 flex flex-col justify-center items-center text-center hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] transition-all {{ $supClass }}">
+        
+        <div class="w-24 h-24 mb-8 flex items-center justify-center rounded-[2rem] bg-amber-100/70">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#d97706" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" /></svg>
         </div>
-        <div class="text-center border-x border-slate-100">
-          <p class="text-[10px] text-slate-400 mb-0.5">This Week</p>
-          <p class="text-xl font-black {{ $period === 'week' ? 'text-indigo-700' : 'text-slate-700' }}">{{ $stats['approved_week']['total'] }}</p>
-          <div class="flex justify-center gap-1 mt-1 flex-wrap text-[9px] font-bold">
-            <span class="text-sky-600">G:{{ $stats['approved_week']['graphic'] }}</span>
-            <span class="text-violet-600">V:{{ $stats['approved_week']['video'] }}</span>
-            <span class="text-amber-600">L:{{ $stats['approved_week']['listing'] }}</span>
-            <span class="text-fuchsia-600">C:{{ $stats['approved_week']['content'] }}</span>
-            <span class="text-emerald-600">Q:{{ $stats['approved_week']['qc'] }}</span>
-            <span class="text-rose-600">S:{{ $stats['approved_week']['smm'] ?? 0 }}</span>
-          </div>
-        </div>
-        <div class="text-center">
-          <p class="text-[10px] text-slate-400 mb-0.5">This Month</p>
-          <p class="text-xl font-black {{ $period === 'month' ? 'text-indigo-700' : 'text-slate-700' }}">{{ $stats['approved_month']['total'] }}</p>
-          <div class="flex justify-center gap-1 mt-1 flex-wrap text-[9px] font-bold">
-            <span class="text-sky-600">G:{{ $stats['approved_month']['graphic'] }}</span>
-            <span class="text-violet-600">V:{{ $stats['approved_month']['video'] }}</span>
-            <span class="text-amber-600">L:{{ $stats['approved_month']['listing'] }}</span>
-            <span class="text-fuchsia-600">C:{{ $stats['approved_month']['content'] }}</span>
-            <span class="text-emerald-600">Q:{{ $stats['approved_month']['qc'] }}</span>
-            <span class="text-rose-600">S:{{ $stats['approved_month']['smm'] ?? 0 }}</span>
-          </div>
+        
+        <div class="text-[6.5rem] font-black text-amber-600 leading-none mb-3">{{ $stats['supervisor_review']['total'] }}</div>
+        <div class="text-xl font-black text-slate-800 uppercase tracking-widest mb-4">Supervisor Review</div>
+        @if($isSupervisor)
+          <div class="mb-10"><span class="bg-amber-500 text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-md">Your Queue</span></div>
+        @else
+          <div class="mb-10"><span class="text-slate-400 text-sm font-medium">Tasks awaiting supervisor approval</span></div>
+        @endif
+
+        <div class="w-24 border-b-2 border-slate-100 mx-auto mb-6"></div>
+
+        <div class="flex items-center gap-3 flex-wrap justify-center w-full">
+          <a href="{{ $boardLinks['graphic'] ? route('boards.show', $boardLinks['graphic']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open Graphic Board">
+            <span class="text-sky-600 font-bold text-sm bg-sky-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-sky-100 group-hover:scale-105 transition-all">Graphic</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['supervisor_review']['graphic'] }}</span>
+          </a>
+          <a href="{{ $boardLinks['video'] ? route('boards.show', $boardLinks['video']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open Video Board">
+            <span class="text-violet-600 font-bold text-sm bg-violet-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-violet-100 group-hover:scale-105 transition-all">Video</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['supervisor_review']['video'] }}</span>
+          </a>
+          <a href="{{ $boardLinks['listing'] ? route('boards.show', $boardLinks['listing']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open Listing Board">
+            <span class="text-amber-600 font-bold text-sm bg-amber-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-amber-100 group-hover:scale-105 transition-all">Listing</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['supervisor_review']['listing'] }}</span>
+          </a>
+          <a href="{{ $boardLinks['content'] ? route('boards.show', $boardLinks['content']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open Content Board">
+            <span class="text-fuchsia-600 font-bold text-sm bg-fuchsia-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-fuchsia-100 group-hover:scale-105 transition-all">Content</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['supervisor_review']['content'] }}</span>
+          </a>
+          <a href="{{ $boardLinks['qc'] ? route('boards.show', $boardLinks['qc']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open QC Board">
+            <span class="text-emerald-600 font-bold text-sm bg-emerald-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-emerald-100 group-hover:scale-105 transition-all">QC</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['supervisor_review']['qc'] }}</span>
+          </a>
         </div>
       </div>
     </div>
-  </div>
+    @else
+    {{-- Right Side: QC Review (Giant Box) --}}
+    @php
+      $isQc = auth()->user() && auth()->user()->isQc();
+      $qcClass = $isQc ? 'ring-2 ring-indigo-500 shadow-xl scale-[1.02] transform z-10 bg-white border-none' : 'bg-white shadow-sm border border-slate-100/50';
+    @endphp
+    <div class="lg:col-span-5 xl:col-span-4 sticky top-[240px] z-20 self-start">
+      <div class="rounded-[2.5rem] !p-10 flex flex-col justify-center items-center text-center hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.1)] transition-all {{ $qcClass }}">
+        
+        <div class="w-24 h-24 mb-8 flex items-center justify-center rounded-[2rem] bg-indigo-100/70">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="#4f46e5" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+        </div>
+        
+        <div class="text-[6.5rem] font-black text-indigo-900 leading-none mb-3">{{ $stats['qc_review']['total'] }}</div>
+        <div class="text-xl font-black text-slate-800 uppercase tracking-widest mb-4">QC Review</div>
+        @if($isQc)
+          <div class="mb-10"><span class="bg-indigo-600 text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-md">Your Queue</span></div>
+        @else
+          <div class="mb-10"><span class="text-slate-400 text-sm font-medium">Tasks awaiting quality control review</span></div>
+        @endif
 
+        <div class="w-24 border-b-2 border-slate-100 mx-auto mb-6"></div>
+
+        <div class="flex items-center gap-3 flex-wrap justify-center w-full">
+          <a href="{{ $boardLinks['graphic'] ? route('boards.show', $boardLinks['graphic']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open Graphic Board">
+            <span class="text-sky-600 font-bold text-sm bg-sky-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-sky-100 group-hover:scale-105 transition-all">Graphic</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['qc_review']['graphic'] }}</span>
+          </a>
+          <a href="{{ $boardLinks['video'] ? route('boards.show', $boardLinks['video']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open Video Board">
+            <span class="text-violet-600 font-bold text-sm bg-violet-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-violet-100 group-hover:scale-105 transition-all">Video</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['qc_review']['video'] }}</span>
+          </a>
+          <a href="{{ $boardLinks['listing'] ? route('boards.show', $boardLinks['listing']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open Listing Board">
+            <span class="text-amber-600 font-bold text-sm bg-amber-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-amber-100 group-hover:scale-105 transition-all">Listing</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['qc_review']['listing'] }}</span>
+          </a>
+          <a href="{{ $boardLinks['content'] ? route('boards.show', $boardLinks['content']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open Content Board">
+            <span class="text-fuchsia-600 font-bold text-sm bg-fuchsia-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-fuchsia-100 group-hover:scale-105 transition-all">Content</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['qc_review']['content'] }}</span>
+          </a>
+          <a href="{{ $boardLinks['qc'] ? route('boards.show', $boardLinks['qc']) : '#' }}" class="flex flex-col items-center gap-1 group cursor-pointer" title="Open QC Board">
+            <span class="text-emerald-600 font-bold text-sm bg-emerald-50 px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-emerald-100 group-hover:scale-105 transition-all">QC</span>
+            <span class="text-lg font-black text-slate-800">{{ $stats['qc_review']['qc'] }}</span>
+          </a>
+        </div>
+      </div>
+    </div>
+    @endif
   {{-- ── Overdue Banner ───────────────────────────────────────────────────── --}}
   @if($stats['overdue'] > 0)
   <div class="flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-xl px-5 py-3 mb-6">
@@ -252,51 +364,6 @@
     <span class="text-sm font-semibold text-rose-700">{{ $stats['overdue'] }} task{{ $stats['overdue'] !== 1 ? 's are' : ' is' }} overdue across selected boards — please action immediately.</span>
   </div>
   @endif
-
-  {{-- ── Custom Range Filter ──────────────────────────────────────────────── --}}
-  <div class="card p-5 mb-8" x-data="customRangeFilter()">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
-      <div>
-        <h3 class="font-display font-semibold text-slate-800">Custom Range — Completed Tasks</h3>
-        <p class="text-xs text-slate-400 mt-0.5">Select a date range to see how many tasks were moved to the "Approved" list.</p>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <input type="date" x-model="startDate" class="form-input text-xs py-1.5 px-3 rounded-lg border-slate-200 w-32">
-        <span class="text-slate-400 font-bold px-1">to</span>
-        <input type="date" x-model="endDate" class="form-input text-xs py-1.5 px-3 rounded-lg border-slate-200 w-32">
-        <button @click="fetchStats()" class="btn btn-primary text-xs py-1.5 px-3 shadow-sm flex items-center gap-1" :disabled="loading">
-          <svg x-show="loading" class="animate-spin -ml-1 mr-1 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-          Check
-        </button>
-      </div>
-    </div>
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" x-show="hasSearched" x-transition x-cloak>
-      <div class="bg-indigo-50 rounded-xl p-4 text-center border-2 border-indigo-200 col-span-2 sm:col-span-1">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-500 mb-1">Total</p>
-        <p class="text-2xl font-black text-indigo-700" x-text="results.total">0</p>
-      </div>
-      <div class="bg-sky-50 rounded-xl p-4 text-center border border-sky-100">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-sky-500 mb-1">Graphic</p>
-        <p class="text-2xl font-black text-sky-700" x-text="results.graphic">0</p>
-      </div>
-      <div class="bg-violet-50 rounded-xl p-4 text-center border border-violet-100">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-violet-500 mb-1">Video</p>
-        <p class="text-2xl font-black text-violet-700" x-text="results.video">0</p>
-      </div>
-      <div class="bg-amber-50 rounded-xl p-4 text-center border border-amber-100">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-amber-500 mb-1">Listing</p>
-        <p class="text-2xl font-black text-amber-700" x-text="results.listing">0</p>
-      </div>
-      <div class="bg-fuchsia-50 rounded-xl p-4 text-center border border-fuchsia-100">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-fuchsia-500 mb-1">Content</p>
-        <p class="text-2xl font-black text-fuchsia-700" x-text="results.content">0</p>
-      </div>
-      <div class="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-100">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-500 mb-1">QC</p>
-        <p class="text-2xl font-black text-emerald-700" x-text="results.qc">0</p>
-      </div>
-    </div>
-  </div>
 
 
 
@@ -318,6 +385,54 @@ function approvalQueue() {
     activeTitle:  '',
     rejectReason: '',
     loading: false,
+
+    refreshTimer: null,
+    
+    init() {
+      // Connect to Pusher for real-time dashboard updates when cards move on selected boards
+      if (typeof window.kiuqGetPusherClient === 'function') {
+        const pusher = window.kiuqGetPusherClient();
+        if (pusher && Array.isArray(_selectedBoardIds)) {
+          _selectedBoardIds.forEach(boardId => {
+            const channel = pusher.subscribe(`private-boards.${boardId}`);
+            channel.bind('board.updated', (data) => {
+              this.scheduleRefresh();
+            });
+          });
+        }
+      }
+    },
+
+    scheduleRefresh() {
+      if (this.refreshTimer) clearTimeout(this.refreshTimer);
+      // Wait a short time to batch rapid rapid board updates
+      this.refreshTimer = setTimeout(() => {
+        this.fetchLatestStats();
+      }, 1000);
+    },
+
+    async fetchLatestStats() {
+      try {
+        const url = new URL(window.location.href);
+        // Add a parameter to bypass full page cache if any
+        url.searchParams.set('t', Date.now());
+        const res = await fetch(url.toString(), {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const text = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        
+        const currentContainer = document.getElementById('pipeline-stats-container');
+        const newContainer = doc.getElementById('pipeline-stats-container');
+        
+        if (currentContainer && newContainer) {
+          currentContainer.innerHTML = newContainer.innerHTML;
+        }
+      } catch (err) {
+        console.error('Failed to auto-refresh stats:', err);
+      }
+    },
 
     openApprove(id, title) {
       this.activeCardId = id;
@@ -381,49 +496,5 @@ function approvalQueue() {
   };
 }
 
-function customRangeFilter() {
-  return {
-    startDate: '',
-    endDate: '',
-    loading: false,
-    hasSearched: false,
-    results: { total: 0, graphic: 0, video: 0, listing: 0, content: 0, qc: 0 },
 
-    async fetchStats() {
-      if (!this.startDate || !this.endDate) {
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'Please select both start and end dates', type: 'error' } }));
-        return;
-      }
-      if (this.startDate > this.endDate) {
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: 'End date must be after start date', type: 'error' } }));
-        return;
-      }
-      this.loading = true;
-      try {
-        const res = await fetch('{{ route("approvals.custom-range") }}', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-          },
-          body: JSON.stringify({
-            start_date: this.startDate,
-            end_date: this.endDate,
-            board_ids: _selectedBoardIds,
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw data;
-        this.results = data;
-        this.hasSearched = true;
-      } catch(err) {
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: { msg: err.message || 'Failed to fetch data', type: 'error' } }));
-      } finally {
-        this.loading = false;
-      }
-    }
-  };
-}
-</script>
 @endpush

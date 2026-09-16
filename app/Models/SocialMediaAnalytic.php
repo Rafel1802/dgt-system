@@ -14,6 +14,7 @@ class SocialMediaAnalytic extends Model
         'date_to',
         'file_path',
         'original_name',
+        'canva_link',
         'uploaded_by',
     ];
 
@@ -48,19 +49,34 @@ class SocialMediaAnalytic extends Model
     }
 
     /** Full storage URL for serving/download */
-    public function storageUrl(): string
+    public function storageUrl(): ?string
     {
-        return Storage::url($this->file_path);
+        return !empty($this->file_path) ? Storage::url($this->file_path) : null;
     }
 
     /** Absolute path for ZipArchive */
-    public function absolutePath(): string
+    public function absolutePath(): ?string
     {
-        return Storage::path($this->file_path);
+        return !empty($this->file_path) ? Storage::path($this->file_path) : null;
     }
 
     public function fileExists(): bool
     {
-        return Storage::exists($this->file_path);
+        return !empty($this->file_path) && Storage::exists($this->file_path);
+    }
+
+    /** Ensure Canva link has a valid URL scheme */
+    public function formattedCanvaLink(): ?string
+    {
+        if (empty($this->canva_link)) {
+            return null;
+        }
+
+        $link = trim($this->canva_link);
+        if (!preg_match('~^(?:f|ht)tps?://~i', $link)) {
+            $link = 'https://' . $link;
+        }
+
+        return $link;
     }
 }

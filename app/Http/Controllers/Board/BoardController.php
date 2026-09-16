@@ -59,8 +59,9 @@ class BoardController extends Controller
             ->get()
             ->values();
 
-        $hiddenBoardsFn = function() {
-            return \App\Models\Board::where('is_hidden', true)->with('workspace')->get();
+        $workspaceIds = $workspaces->pluck('id');
+        $hiddenBoardsFn = function() use ($workspaceIds) {
+            return \App\Models\Board::where('is_hidden', true)->whereIn('workspace_id', $workspaceIds)->with('workspace')->get();
         };
         $trashedWorkspacesFn = function() {
             return \App\Models\Workspace::onlyTrashed()->get();
@@ -189,6 +190,17 @@ class BoardController extends Controller
         return back()->with('success', 'Workspace moved down.');
     }
 
+    public function reorderWorkspaces(Request $request)
+    {
+        $order = $request->input('order');
+        if (is_array($order)) {
+            foreach ($order as $index => $id) {
+                Workspace::where('id', $id)->update(['position' => $index]);
+            }
+        }
+        return response()->json(['status' => 'success']);
+    }
+
     /** Persist drag-and-drop board ordering inside a workspace. */
     public function reorderWorkspaceBoards(Request $request, Workspace $workspace): JsonResponse
     {
@@ -242,6 +254,9 @@ class BoardController extends Controller
                 'creator:id,name,avatar,username',
                 'assignees:id,name,avatar,username',
                 'labels',
+                'syncSiblings' => function($q) {
+                    $q->select('id', 'sync_group_id', 'board_list_id');
+                },
                 'syncSiblings.boardList:id,name',
                 'checklists' => function ($q) {
                     $q->select('id', 'card_id')->withCount([
@@ -324,6 +339,8 @@ class BoardController extends Controller
                 'is_starred' => (bool)$board->is_starred,
                 'is_watching' => $isWatching,
                 'can_manage_board' => $this->canManageBoard($user, $board),
+                'can_move_list' => $user->hasAnyRole(['super-admin', 'admin-digital']),
+                'can_bulk_action' => true,
                 'can_delete_board' => $this->canDeleteBoard($user, $board),
             ],
             'boardId'   => $board->id,
@@ -331,6 +348,15 @@ class BoardController extends Controller
             'boardType' => $board->type,
             'baseRoute' => $board->type === 'smm' ? 'smm-boards' : 'boards',
             'smmClasses' => \App\Models\SocialMediaClass::active()->orderBy('position')->get(['id', 'name', 'color'])->toArray(),
+            'smmTeams' => ['Graphic Team', 'Video Team', 'Listing Team', 'Content Writing Team', 'QC Team'],
+            'smmContentTypes' => [
+                ['name' => 'Long Landscape', 'bg' => '#dcfce7', 'text' => '#166534', 'border' => '#bbf7d0', 'dot' => '#22c55e'],
+                ['name' => 'Short Reel',     'bg' => '#ffd7d7', 'text' => '#991b1b', 'border' => '#fecaca', 'dot' => '#ef4444'],
+                ['name' => 'Poster Design',  'bg' => '#ebd9fc', 'text' => '#6b21a8', 'border' => '#e9d5ff', 'dot' => '#a855f7'],
+                ['name' => 'Share Blog',     'bg' => '#1e6f82', 'text' => '#ffffff', 'border' => '#155e75', 'dot' => '#06b6d4'],
+                ['name' => 'Urgent Task',    'bg' => '#6f3710', 'text' => '#ffffff', 'border' => '#572b0d', 'dot' => '#ea580c'],
+                ['name' => 'Press Release',  'bg' => '#136e43', 'text' => '#ffffff', 'border' => '#0e5333', 'dot' => '#10b981'],
+            ],
             'csrfToken' => csrf_token(),
             'currentUserId' => $user->id,
             'currentUser' => [
@@ -511,6 +537,7 @@ class BoardController extends Controller
             $prefix = $validated['template'] === 'workflow' ? 'Workflow board' : 'Planning board';
             if ($month && $year) {
                 $boardName = "{$prefix} - {$month} {$year}";
+                session(['last_selected_month' => $month, 'last_selected_year' => $year]);
             } else {
                 $boardName = $prefix;
             }
@@ -518,12 +545,20 @@ class BoardController extends Controller
 
         $position = Board::where('workspace_id', $validated['workspace_id'])->count();
 
+        $coverType = $validated['background_type'];
+        $coverValue = $backgroundValue;
+
+        if (($validated['template'] ?? '') === 'planning') {
+            $coverType = 'image';
+            $coverValue = 'https://img.magnific.com/free-vector/business-background-design_1300-348.jpg';
+        }
+
         $board = Board::create([
             'workspace_id' => $validated['workspace_id'],
             'background_type' => $validated['background_type'],
             'background_value' => $backgroundValue,
-            'cover_type' => $validated['background_type'],
-            'cover_value' => $backgroundValue,
+            'cover_type' => $coverType,
+            'cover_value' => $coverValue,
             'visibility' => $validated['visibility'],
             'name' => $boardName,
             'created_by' => auth()->id(),
@@ -536,11 +571,42 @@ class BoardController extends Controller
             $prefix = $validated['template'] === 'workflow' ? 'Workflow board' : 'Planning board';
             
             $templateBoard = \App\Models\Board::where('workspace_id', $board->workspace_id)
+                ->where('id', '!=', $board->id)
+                ->where('name', '!=', $boardName)
                 ->where('name', 'like', "%{$prefix}%")
-                ->orderBy('created_at', 'asc')
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            $userHistoryBoard = \App\Models\Board::where('workspace_id', $board->workspace_id)
+                ->where('created_by', auth()->id())
+                ->where('id', '!=', $board->id)
+                ->where('name', '!=', $boardName)
+                ->where('name', 'like', "%{$prefix}%")
+                ->orderBy('created_at', 'desc')
                 ->first();
 
             if ($templateBoard) {
+                // If they didn't upload a new file, copy the background/cover from their history (or fallback to template)
+                if (!$request->hasFile('background_image_file')) {
+                    $bgBoard = $userHistoryBoard ?: $templateBoard;
+                    $bgType = $bgBoard->background_type;
+                    $bgVal = $bgBoard->background_value;
+                    $coverType = $bgBoard->cover_type;
+                    $coverVal = $bgBoard->cover_value;
+                    
+                    // Enforce the specific cover image for Planning Boards if copied from template
+                    if (($validated['template'] ?? '') === 'planning') {
+                        $coverType = 'image';
+                        $coverVal = 'https://img.magnific.com/free-vector/business-background-design_1300-348.jpg';
+                    }
+
+                    $board->update([
+                        'background_type' => $bgType,
+                        'background_value' => $bgVal,
+                        'cover_type' => $coverType,
+                        'cover_value' => $coverVal,
+                    ]);
+                }
                 $listMap = [];
                 $sourceLists = $templateBoard->lists()->where('is_archived', false)->get();
                 foreach ($sourceLists as $sourceList) {
@@ -553,16 +619,56 @@ class BoardController extends Controller
                     $listMap[$sourceList->id] = $newList->id;
                 }
 
+                $oldSuffix = trim(str_ireplace($prefix, '', $templateBoard->name));
+                $newSuffix = trim(str_ireplace($prefix, '', $boardName));
+
                 $sourceAutomations = \App\Models\BoardAutomation::where('board_id', $templateBoard->id)->get();
                 foreach ($sourceAutomations as $auto) {
+                    $triggerBoardId = $auto->trigger_board_id;
+                    $triggerListId = $auto->trigger_list_id;
+                    $targetBoardId = $auto->target_board_id;
+                    $targetListId = $auto->target_list_id;
+
+                    // Remap trigger board if it was the template
+                    if ($triggerBoardId == $templateBoard->id) {
+                        $triggerBoardId = $board->id;
+                        $triggerListId = $listMap[$auto->trigger_list_id] ?? $auto->trigger_list_id;
+                    }
+
+                    // Remap target board if it was the template
+                    if ($targetBoardId == $templateBoard->id) {
+                        $targetBoardId = $board->id;
+                        $targetListId = $listMap[$auto->target_list_id] ?? $auto->target_list_id;
+                    } elseif ($targetBoardId && $oldSuffix && $newSuffix && $oldSuffix !== $newSuffix) {
+                        // Remap to a different board based on suffix (e.g. Workflow board - August -> Workflow board - September)
+                        $oldTargetBoard = \App\Models\Board::find($targetBoardId);
+                        if ($oldTargetBoard && str_contains($oldTargetBoard->name, $oldSuffix)) {
+                            $expectedName = str_replace($oldSuffix, $newSuffix, $oldTargetBoard->name);
+                            $newTargetBoard = \App\Models\Board::where('workspace_id', $board->workspace_id)
+                                ->where('name', $expectedName)->first();
+                            
+                            if ($newTargetBoard) {
+                                $targetBoardId = $newTargetBoard->id;
+                                // Also remap the list ID
+                                $oldList = \App\Models\BoardList::find($targetListId);
+                                if ($oldList) {
+                                    $newList = $newTargetBoard->lists()->where('name', $oldList->name)->first();
+                                    if ($newList) {
+                                        $targetListId = $newList->id;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     \App\Models\BoardAutomation::create([
                         'board_id'             => $board->id,
                         'trigger_type'         => $auto->trigger_type,
                         'trigger_word'         => $auto->trigger_word,
-                        'trigger_board_id'     => $auto->trigger_board_id == $templateBoard->id ? $board->id : $auto->trigger_board_id,
-                        'trigger_list_id'      => $listMap[$auto->trigger_list_id] ?? $auto->trigger_list_id,
-                        'target_board_id'      => $auto->target_board_id == $templateBoard->id ? $board->id : $auto->target_board_id,
-                        'target_list_id'       => $listMap[$auto->target_list_id] ?? $auto->target_list_id,
+                        'trigger_board_id'     => $triggerBoardId,
+                        'trigger_list_id'      => $triggerListId,
+                        'target_board_id'      => $targetBoardId,
+                        'target_list_id'       => $targetListId,
                         'action_type'          => $auto->action_type,
                         'target_assignee_role' => $auto->target_assignee_role,
                     ]);
@@ -666,9 +772,7 @@ class BoardController extends Controller
                 }
             }
         }
-
-        return redirect()->route('boards.show', $board)
-            ->with('success', "Board \"{$board->name}\" created.");
+        return back()->with('success', "Board \"{$board->name}\" created.");
     }
 
     /** Update board settings (name, background, etc.). */
@@ -743,11 +847,6 @@ class BoardController extends Controller
             $prefs[$board->id]['background_type'] = $backgroundType ?? $board->background_type;
             $prefs[$board->id]['background_value'] = $backgroundValue ?? $board->background_value;
             
-            $workspaceKey = 'workspace_' . $board->workspace_id;
-            if (!isset($prefs[$workspaceKey])) $prefs[$workspaceKey] = [];
-            $prefs[$workspaceKey]['background_type'] = $prefs[$board->id]['background_type'];
-            $prefs[$workspaceKey]['background_value'] = $prefs[$board->id]['background_value'];
-
             $user->board_backgrounds = $prefs;
             $user->save();
 
@@ -848,12 +947,13 @@ class BoardController extends Controller
     }
 
     /** Basic update for board name and background from the workspaces view. */
-    public function updateBoardBasic(Request $request, Board $board): RedirectResponse
+    public function updateBoardBasic(Request $request, Board $board)
     {
         $this->authorizeBoard($board);
 
         $validated = $request->validate([
             'name' => ['nullable', 'string', 'max:100'],
+            'board_name_edit' => ['nullable', 'string', 'max:100'],
             'cover_type' => ['required', 'in:color,image'],
             'cover_value' => ['nullable', 'string', 'max:2048'],
             'cover_image_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:8192'],
@@ -884,17 +984,27 @@ class BoardController extends Controller
         $prefs[$board->id]['cover_type'] = $validated['cover_type'];
         $prefs[$board->id]['cover_value'] = $coverValue;
         
-        $workspaceKey = 'workspace_' . $board->workspace_id;
-        if (!isset($prefs[$workspaceKey])) $prefs[$workspaceKey] = [];
-        $prefs[$workspaceKey]['cover_type'] = $validated['cover_type'];
-        $prefs[$workspaceKey]['cover_value'] = $coverValue;
-        
         $user->board_backgrounds = $prefs;
         $user->save();
 
-        if (!empty($validated['name']) && ($user->canManageBoards() || $board->workspace->owner_id === $user->id)) {
+        $nameToSave = $validated['board_name_edit'] ?? $validated['name'] ?? null;
+
+        if (!empty($nameToSave) && ($user->canManageBoards() || $board->workspace->owner_id === $user->id)) {
             $board->update([
-                'name' => $validated['name'],
+                'name' => $nameToSave,
+            ]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true, 
+                'message' => 'Board cover updated successfully.',
+                'board' => [
+                    'id' => $board->id,
+                    'name' => $board->name,
+                    'cover_type' => $validated['cover_type'],
+                    'cover_value' => $coverValue,
+                ]
             ]);
         }
 
@@ -928,11 +1038,6 @@ class BoardController extends Controller
         $prefs[$board->id]['background_type'] = 'image';
         $prefs[$board->id]['background_value'] = $uploadedUrl;
         
-        $workspaceKey = 'workspace_' . $board->workspace_id;
-        if (!isset($prefs[$workspaceKey])) $prefs[$workspaceKey] = [];
-        $prefs[$workspaceKey]['background_type'] = 'image';
-        $prefs[$workspaceKey]['background_value'] = $uploadedUrl;
-
         $user->board_backgrounds = $prefs;
         $user->save();
 
@@ -1202,11 +1307,11 @@ class BoardController extends Controller
          return response()->json(['message' => 'List and its cards deleted.']);
      }
 
-     /** Clear all cards inside a list (Super Admin only). */
+     /** Clear all cards inside a list (Super Admin, Mr Dara QC, Lyza, Sreypich). */
      public function clearList(BoardList $list): JsonResponse
      {
-         if (!auth()->user()->hasRole('super-admin')) {
-             return response()->json(['message' => 'Unauthorized. Super Admin only.'], 403);
+         if (!auth()->user() || !auth()->user()->canClearBoardList()) {
+             return response()->json(['message' => 'Unauthorized. Super Admin and authorized managers only.'], 403);
          }
          
          $this->authorizeBoard($list->board);
@@ -1227,6 +1332,7 @@ class BoardController extends Controller
     public function reorderLists(Request $request, Board $board): JsonResponse
     {
         $this->authorizeBoard($board);
+        abort_unless(auth()->user()->hasAnyRole(['super-admin', 'admin-digital']), 403, 'You do not have permission to reorder lists.');
 
         $request->validate([
             'order'   => ['required', 'array'],
@@ -1297,16 +1403,8 @@ class BoardController extends Controller
             && $request->filled('source_list_id')
             && (int) $request->source_list_id === (int) $targetList->id
         ) {
-            try {
-                BoardActivityNotification::send(
-                    $board,
-                    'card_reordered',
-                    "reordered card **{$movingCard->title}**",
-                    $movingCard
-                );
-            } catch (\Throwable $e) {
-                Log::error('Failed sending board reorder notification: ' . $e->getMessage());
-            }
+            // Realtime board sync for active viewers only; no user notification or activity entry sent
+            event(new \App\Events\BoardUpdated($board->id, $board->slug, 'card_reordered', $movingCard->id, auth()->id()));
         }
 
         return response()->json(['message' => 'Cards reordered.']);
@@ -1489,6 +1587,7 @@ class BoardController extends Controller
 
             'is_starred' => (bool) $board->is_starred,
             'is_archived' => (bool) $board->is_archived,
+            'is_hidden' => (bool) $board->is_hidden,
             'workspace_name' => $board->workspace?->name,
             'can_manage_board' => $this->canManageBoard(auth()->user(), $board),
             'can_delete_board' => $this->canDeleteBoard(auth()->user(), $board),
@@ -1511,6 +1610,11 @@ class BoardController extends Controller
             ])->with([
                 'assignees',
                 'labels',
+                'creator',
+                'syncSiblings' => function($q) {
+                    $q->select('id', 'sync_group_id', 'board_list_id');
+                },
+                'syncSiblings.boardList:id,name',
                 'checklists.items',
                 'files:id,card_id',
                 'comments:id,card_id',
@@ -1546,8 +1650,21 @@ class BoardController extends Controller
                     'recurring' => $card->recurring ?? 'none',
                     'board_list_id' => $card->board_list_id,
                     'status' => $card->status?->value ?? (string) $card->status,
+                    'workflow_status' => $card->workflow_status,
                     'block_completed_at' => $card->block_completed_at?->toISOString(),
                     'block_completed_by' => $card->block_completed_by,
+                    'smm_class_label'    => $card->smm_class_label,
+                    'smm_team_label'     => $card->smm_team_label,
+                    'smm_cluster_label'  => $card->smm_cluster_label,
+                    'content_public_date'=> $card->content_public_date?->format('Y-m-d'),
+                    'creator' => $card->creator ? [
+                        'id' => $card->creator->id,
+                        'name' => $card->creator->name,
+                        'avatar' => $card->creator->avatar_url,
+                        'initials' => $card->creator->avatar_initials,
+                        'avatar_color' => $card->creator->avatar_color,
+                    ] : null,
+                    'has_description' => !empty($card->description),
                     'labels' => $card->labels->map(fn($label) => [
                         'id' => $label->id,
                         'name' => $label->name,
@@ -1681,9 +1798,35 @@ class BoardController extends Controller
             ->map(fn($u) => $mapUser($u, 'workspace'))
             ->values();
 
+        // For SMM boards or planning boards, also return matching digital system members so other team members can be assigned
+        $isSmmOrPlanning = $board->type === 'smm'
+            || !empty($board->is_active_smm)
+            || stripos($board->name ?? '', 'smm') !== false
+            || stripos($board->name ?? '', 'planning') !== false
+            || stripos($board->workspace?->name ?? '', 'social media') !== false;
+
+        $otherMembers = collect();
+        if ($isSmmOrPlanning) {
+            $existingIds = $boardMemberIds->concat($board->workspace->members->pluck('id'))->unique();
+            $otherMembers = User::active()
+                ->whereNotIn('id', $existingIds)
+                ->where(function ($query) use ($q) {
+                    if ($q) {
+                        $query->whereRaw('LOWER(name) LIKE ?', ["%{$q}%"])
+                              ->orWhereRaw('LOWER(username) LIKE ?', ["%{$q}%"])
+                              ->orWhereRaw('LOWER(email) LIKE ?', ["%{$q}%"]);
+                    }
+                })
+                ->take(30)
+                ->get()
+                ->map(fn($u) => $mapUser($u, 'system'))
+                ->values();
+        }
+
         return response()->json([
             'board_members'     => $boardMembers,
             'workspace_members' => $workspaceMembers,
+            'other_members'     => $otherMembers,
         ]);
     }
 
@@ -1837,15 +1980,15 @@ class BoardController extends Controller
     {
         $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
         $isHead = str_contains(strtolower($user->team_role ?? ''), 'head');
-        $canSeeSMM = $user->hasRole('admin-digital') || $isQc || $isHead;
+        $canSeeSMM = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'supervisor', 'boss', 'digital-team']) || $isQc || $isHead;
         $userId = $user->id;
 
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([
-                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
-                'boards.members',
-                'boards.creator',
-                'members',
+                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by', 'created_at'),
+                'boards.members:id,name,avatar,team_role',
+                'boards.creator:id,name,avatar,team_role',
+                'members:id,name,avatar,team_role',
             ])
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
@@ -1854,10 +1997,10 @@ class BoardController extends Controller
                 ->get();
         } else {
             $allActiveWorkspaces = Workspace::with([
-                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by'),
-                'boards.members',
-                'boards.creator',
-                'members',
+                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by', 'created_at'),
+                'boards.members:id,name,avatar,team_role',
+                'boards.creator:id,name,avatar,team_role',
+                'members:id,name,avatar,team_role',
             ])
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
@@ -1875,12 +2018,17 @@ class BoardController extends Controller
             });
         }
 
+        $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
+
         foreach ($workspaces as $workspace) {
-            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($userId, $workspace, $canSeeSMM) {
+            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($userId, $workspace, $canSeeSMM, $isBypassed) {
                 if ($canSeeSMM && $workspace->name === 'Social Media Management') {
                     return true;
                 }
-                if ($workspace->owner_id === $userId || $workspace->members->contains('id', $userId)) {
+                if ($isBypassed) {
+                    return true;
+                }
+                if ($workspace->owner_id === $userId) {
                     return true;
                 }
                 if ($board->created_by === $userId) {
@@ -1890,7 +2038,6 @@ class BoardController extends Controller
             }));
         }
 
-        $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
         if (!$isBypassed && $user->hasRole('digital-team')) {
             $workspaces = $workspaces->filter(function ($ws) {
                 return $ws->boards->isNotEmpty();
@@ -1924,6 +2071,8 @@ class BoardController extends Controller
     {
         $this->authorizeBoard($board);
 
+        $boardListIds = \App\Models\BoardList::withTrashed()->where('board_id', $board->id)->pluck('id');
+
         $trashedLists = \App\Models\BoardList::onlyTrashed()->where('board_id', $board->id)->get()->map(function($list) {
             return [
                 'id' => $list->id,
@@ -1933,14 +2082,20 @@ class BoardController extends Controller
             ];
         });
 
-        $trashedCards = \App\Models\Card::onlyTrashed()->where('board_id', $board->id)->get()->map(function($card) {
-            return [
-                'id' => $card->id,
-                'title' => $card->title,
-                'type' => 'card',
-                'deleted_at' => $card->deleted_at->toISOString(),
-            ];
-        });
+        $trashedCards = \App\Models\Card::onlyTrashed()
+            ->where(function($q) use ($board, $boardListIds) {
+                $q->where('board_id', $board->id)
+                  ->orWhereIn('board_list_id', $boardListIds);
+            })
+            ->get()
+            ->map(function($card) {
+                return [
+                    'id' => $card->id,
+                    'title' => $card->title,
+                    'type' => 'card',
+                    'deleted_at' => $card->deleted_at->toISOString(),
+                ];
+            });
 
         return response()->json([
             'items' => collect($trashedLists)->merge($trashedCards)->sortByDesc('deleted_at')->values()->all()
@@ -1955,17 +2110,98 @@ class BoardController extends Controller
             'type' => 'required|in:list,card'
         ]);
 
+        $boardListIds = \App\Models\BoardList::withTrashed()->where('board_id', $board->id)->pluck('id');
+
         if ($request->type === 'list') {
             $list = \App\Models\BoardList::onlyTrashed()->where('board_id', $board->id)->findOrFail($request->id);
             $list->restore();
-            // Restore cards inside this list that were deleted at the same time? Let's just restore the list.
+            \App\Models\Card::onlyTrashed()->where('board_list_id', $list->id)->restore();
         } else {
-            $card = \App\Models\Card::onlyTrashed()->where('board_id', $board->id)->findOrFail($request->id);
-            // If its list is trashed, it can't be restored properly unless list is restored.
+            $card = \App\Models\Card::onlyTrashed()
+                ->where(function($q) use ($board, $boardListIds) {
+                    $q->where('board_id', $board->id)
+                      ->orWhereIn('board_list_id', $boardListIds);
+                })
+                ->findOrFail($request->id);
+
+            if (!$card->board_id) {
+                $card->board_id = $board->id;
+                $card->save();
+            }
             $card->restore();
         }
 
         return response()->json(['message' => 'Item restored successfully.']);
+    }
+
+    public function restoreTrashBulk(Request $request, Board $board): JsonResponse
+    {
+        $this->authorizeBoard($board);
+        $request->validate([
+            'items' => 'required|array',
+            'items.*.id' => 'required',
+            'items.*.type' => 'required|in:list,card'
+        ]);
+
+        $boardListIds = \App\Models\BoardList::withTrashed()->where('board_id', $board->id)->pluck('id');
+
+        foreach ($request->items as $item) {
+            if ($item['type'] === 'list') {
+                $list = \App\Models\BoardList::onlyTrashed()->where('board_id', $board->id)->find($item['id']);
+                if ($list) {
+                    $list->restore();
+                    \App\Models\Card::onlyTrashed()->where('board_list_id', $list->id)->restore();
+                }
+            } else {
+                $card = \App\Models\Card::onlyTrashed()
+                    ->where(function($q) use ($board, $boardListIds) {
+                        $q->where('board_id', $board->id)
+                          ->orWhereIn('board_list_id', $boardListIds);
+                    })
+                    ->find($item['id']);
+                if ($card) {
+                    if (!$card->board_id) {
+                        $card->board_id = $board->id;
+                        $card->save();
+                    }
+                    $card->restore();
+                }
+            }
+        }
+
+        return response()->json(['message' => count($request->items) . ' items restored successfully.']);
+    }
+
+    public function forceDeleteTrashBulk(Request $request, Board $board): JsonResponse
+    {
+        $this->authorizeBoard($board);
+        $request->validate([
+            'items' => 'required|array',
+            'items.*.id' => 'required',
+            'items.*.type' => 'required|in:list,card'
+        ]);
+
+        $boardListIds = \App\Models\BoardList::withTrashed()->where('board_id', $board->id)->pluck('id');
+
+        foreach ($request->items as $item) {
+            if ($item['type'] === 'list') {
+                $list = \App\Models\BoardList::onlyTrashed()->where('board_id', $board->id)->find($item['id']);
+                if ($list) {
+                    $list->forceDelete();
+                    \App\Models\Card::onlyTrashed()->where('board_list_id', $list->id)->forceDelete();
+                }
+            } else {
+                $card = \App\Models\Card::onlyTrashed()
+                    ->where(function($q) use ($board, $boardListIds) {
+                        $q->where('board_id', $board->id)
+                          ->orWhereIn('board_list_id', $boardListIds);
+                    })
+                    ->find($item['id']);
+                if ($card) $card->forceDelete();
+            }
+        }
+
+        return response()->json(['message' => count($request->items) . ' items permanently deleted.']);
     }
 
     public function forceDeleteTrash(Request $request, Board $board): JsonResponse
@@ -1976,12 +2212,19 @@ class BoardController extends Controller
             'type' => 'required|in:list,card'
         ]);
 
+        $boardListIds = \App\Models\BoardList::withTrashed()->where('board_id', $board->id)->pluck('id');
+
         if ($request->type === 'list') {
             $list = \App\Models\BoardList::onlyTrashed()->where('board_id', $board->id)->findOrFail($request->id);
-            $list->forceDelete(); // this should also force delete cards in the database because of constraints, but wait, Card uses soft deletes. Let's force delete cards.
+            $list->forceDelete();
             \App\Models\Card::onlyTrashed()->where('board_list_id', $list->id)->forceDelete();
         } else {
-            $card = \App\Models\Card::onlyTrashed()->where('board_id', $board->id)->findOrFail($request->id);
+            $card = \App\Models\Card::onlyTrashed()
+                ->where(function($q) use ($board, $boardListIds) {
+                    $q->where('board_id', $board->id)
+                      ->orWhereIn('board_list_id', $boardListIds);
+                })
+                ->findOrFail($request->id);
             $card->forceDelete();
         }
 

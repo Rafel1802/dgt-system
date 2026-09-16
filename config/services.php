@@ -42,4 +42,15 @@ return [
         'service_account_path' => env('GOOGLE_SERVICE_ACCOUNT_PATH'),
     ],
 
+    'google_blogs' => [
+        // Google Apps Script Web App URL — acts as the authenticated middleware
+        // between Laravel and the Blogs Google Sheet.
+        // Set GOOGLE_BLOGS_APPS_SCRIPT_URL in .env (never commit the actual URL).
+        'apps_script_url' => env('GOOGLE_BLOGS_APPS_SCRIPT_URL'),
+
+        // Shared secret validated by the Apps Script before any sheet write.
+        // Set GOOGLE_BLOGS_API_SECRET in .env (never commit the actual secret).
+        'api_secret' => env('GOOGLE_BLOGS_API_SECRET'),
+    ],
+
 ];

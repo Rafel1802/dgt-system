@@ -6,17 +6,12 @@ use App\Enums\CardStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Board;
 use App\Models\Card;
-use Illuminate\Support\Facades\Cache;
-use App\Models\Customer;
-use App\Models\EbayOffer;
-use App\Models\Lead;
-use App\Models\Logistic;
 use App\Models\Note;
-use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Website;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
@@ -34,11 +29,6 @@ class DashboardController extends Controller
                 'boards' => Board::where('is_archived', false)->count(),
                 'open_cards' => Card::where('is_archived', false)->whereNotIn('status', [CardStatus::Done->value, CardStatus::Approved->value])->count(),
                 'websites' => Website::where('is_archived', false)->count(),
-                'crm_customers' => Customer::count(),
-                'logistics' => Logistic::count(),
-                'shipments' => Shipment::count(),
-                'ebay_offers' => EbayOffer::count(),
-                'website_leads' => Lead::active()->count(),
             ];
         });
         
@@ -51,7 +41,7 @@ class DashboardController extends Controller
         return response()->json([
             'hero' => [
                 'title' => 'DGT System',
-                'subtitle' => 'Company workspace, CRM and operations synced from Laravel.',
+                'subtitle' => 'Digital workspace and team operations synced from Laravel.',
                 'user_name' => $user->name,
                 'unread_notifications' => $user->unreadNotifications()->count(),
             ],

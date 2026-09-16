@@ -63,7 +63,7 @@ class CommentReactionController extends Controller
         }
 
         // Return the updated reactions for this comment
-        $reactions = $comment->reactions()->with('user:id,name,avatar_url')->get();
+        $reactions = $comment->reactions()->with('user:id,name,avatar')->get();
 
         return response()->json([
             'success' => true,

@@ -16,7 +16,8 @@ class ApprovalController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        abort_unless($request->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm', 'boss']), 403);
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['super-admin', 'admin-digital', 'admin-crm', 'boss']) || $user->isQc(), 403);
 
         $boardIds = $request->input('board_ids');
         if (is_array($boardIds) && count($boardIds) > 0) {

@@ -42,8 +42,11 @@ class User extends Authenticatable
         'dashboard_appearance',
         'can_edit_profile',
         'team_role',
+        'crm_role',
         'notification_sound',
         'music_player_enabled',
+        'lunch_alarm_enabled',
+        'lunch_alarm_sound',
         'board_backgrounds',
         'theme',
     ];
@@ -73,6 +76,7 @@ class User extends Authenticatable
             'locked_until' => 'datetime',
             'two_factor_enabled' => 'boolean',
             'is_active' => 'boolean',
+            'lunch_alarm_enabled' => 'boolean',
             'dashboard_appearance' => 'array',
             'password' => 'hashed',
             'board_backgrounds' => 'array',
@@ -109,6 +113,11 @@ class User extends Authenticatable
     public function isLockedOut(): bool
     {
         return $this->locked_until !== null && $this->locked_until->isFuture();
+    }
+
+    public function isCrmSupervisor(): bool
+    {
+        return $this->crm_role === 'supervisor';
     }
 
     /**
@@ -239,8 +248,11 @@ SVG;
      */
     public function getRoleDisplayAttribute(): string
     {
-        $role = $this->roles->first();
-        return $role ? $role->display_name ?? ucfirst($role->name) : 'No Role';
+        if ($this->hasRole('digital-team')) {
+            return 'Digital Team';
+        }
+        $role = $this->roles->first(fn($r) => strpos($r->name, 'social_') !== 0);
+        return $role ? $role->display_name ?? ucwords(str_replace(['-', '_'], ' ', $role->name)) : 'No Role';
     }
 
     /**
@@ -255,8 +267,7 @@ SVG;
 
     public function canCreateBoards(): bool
     {
-        // All active members can create boards
-        return true;
+        return $this->canManageBoards();
     }
 
     public function canManageBoards(): bool
@@ -292,19 +303,32 @@ SVG;
 
     public function canApproveWebsiteQc(): bool
     {
-        if ($this->hasAnyRole(['super-admin', 'admin-digital'])) {
+        $role = $this->websiteRole();
+        if ($role && strtolower($role) === 'qc') {
             return true;
         }
-        $role = $this->websiteRole();
-        return $role && strtolower($role) === 'qc';
+        if ($this->isQc()) {
+            return true;
+        }
+        
+        return $this->hasAnyRole(['super-admin', 'admin-digital']);
     }
 
     public function canApproveWebsiteSupervisor(): bool
     {
+        // Explicitly block QC users from Supervisor approval even if they have blanket admin-digital roles
+        $role = $this->websiteRole();
+        if ($role && strtolower($role) === 'qc') {
+            return false;
+        }
+        if ($this->isQc()) {
+            return false;
+        }
+
         if ($this->hasAnyRole(['super-admin', 'admin-digital'])) {
             return true;
         }
-        $role = $this->websiteRole();
+        
         return $role && strtolower($role) === 'supervisor';
     }
 
@@ -351,6 +375,114 @@ SVG;
         return $this->isQc() || $this->isSupervisorRole();
     }
 
+    /**
+     * TRUE if the user is a QC reviewer OR a Super-Admin / Admin.
+     * Gates access to the System Health & Maintenance Diagnostics Center.
+     */
+    public function canAccessMaintenance(): bool
+    {
+        return $this->isQc() || $this->hasAnyRole(['super-admin', 'admin', 'admin-digital']);
+    }
+
+    /**
+     * Check if user is allowed to pin/unpin notifications for all users.
+     * Allowed for: super-admin, admin-digital, social_qc, boss, supervisor, and any QC role.
+     */
+    public function canPinNotifications(): bool
+    {
+        $allowedRoles = ['super-admin', 'admin-digital', 'social_qc', 'boss', 'supervisor', 'admin'];
+        $userRole = strtolower($this->role ?? '');
+
+        if (in_array($userRole, $allowedRoles, true) || str_contains($userRole, 'qc')) {
+            return true;
+        }
+
+        if ($this->isQc() || str_contains(strtolower($this->team_role ?? ''), 'qc')) {
+            return true;
+        }
+
+        try {
+            if ($this->hasAnyRole($allowedRoles)) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // fallback if roles relation is not loaded or db not connected
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user is allowed to add and manage clock sounds.
+     * Allowed for: super-admin, supervisor, and QC roles.
+     */
+    public function canManageClockSounds(): bool
+    {
+        try {
+            if ($this->hasRole('super-admin')) {
+                return true;
+            }
+
+            if ($this->isQcOrSupervisor()) {
+                return true;
+            }
+
+            $supervisorRoles = ['supervisor', 'ebay-supervisor', 'logistic-supervisor', 'admin-digital', 'admin'];
+            if ($this->hasAnyRole($supervisorRoles)) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // fallback if roles relation is not loaded or db not connected
+        }
+
+        if (str_contains(strtolower($this->team_role ?? ''), 'supervisor')) {
+            return true;
+        }
+
+        if ($this->isQc() || str_contains(strtolower($this->team_role ?? ''), 'qc') || str_contains(strtolower($this->name ?? ''), 'qc')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if lunch alarm is enabled for this user.
+     * Default: FALSE for supervisor or admin-digital roles, TRUE for everyone else.
+     */
+    public function isLunchAlarmEnabled(): bool
+    {
+        if ($this->lunch_alarm_enabled !== null) {
+            return (bool) $this->lunch_alarm_enabled;
+        }
+
+        try {
+            if ($this->hasAnyRole(['admin-digital', 'supervisor', 'ebay-supervisor', 'logistic-supervisor', 'super-admin'])) {
+                return false;
+            }
+        } catch (\Throwable $e) {}
+
+        $teamRole = strtolower($this->team_role ?? '');
+        if (str_contains($teamRole, 'supervisor') || str_contains($teamRole, 'admin digital') || str_contains($teamRole, 'super admin') || str_contains($teamRole, 'superuser')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get the active lunch alarm sound URL.
+     */
+    public function getLunchAlarmSoundUrlAttribute(): string
+    {
+        $sound = $this->lunch_alarm_sound ?: 'melodic-chime.wav';
+        $path = 'clocksound/' . $sound;
+        if (file_exists(public_path($path))) {
+            return asset($path);
+        }
+        return asset('clocksound/melodic-chime.wav');
+    }
+
 
     /**
      * Which notification "modules" this user should see in their bell —
@@ -380,12 +512,27 @@ SVG;
     }
 
     /**
-     * Popup ads seen by the user
+     * Check if user can clear a board list (Super Admin, Mr Dara QC, Lyza, Sreypich).
      */
-    public function popupAds()
+    public function canClearBoardList(): bool
     {
-        return $this->belongsToMany(PopupAd::class)
-                    ->withPivot(['last_shown_at', 'is_clicked'])
-                    ->withTimestamps();
+        if ($this->hasRole('super-admin')) {
+            return true;
+        }
+
+        $allowedUsernames = ['dara', 'lyza', 'sreypich'];
+        $allowedIds = [12, 22, 23];
+
+        if (in_array($this->id, $allowedIds) || in_array(strtolower($this->username ?? ''), $allowedUsernames)) {
+            return true;
+        }
+
+        $name = strtolower($this->name ?? '');
+        if (str_contains($name, 'dara') && (str_contains($name, 'qc') || str_contains(strtolower($this->team_role ?? ''), 'qc'))) {
+            return true;
+        }
+
+        return false;
     }
 }
+

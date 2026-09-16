@@ -48,30 +48,30 @@
     <table cellspacing="0" cellpadding="0">
         <!-- Section 1: Header / Title -->
         <tr>
-            <td class="s0" colspan="8" style="height: 40px; vertical-align: middle;">
+            <td class="s0" colspan="9" style="height: 40px; vertical-align: middle;">
                 <img src="{{ url('images/kiuqlogo.png') }}" alt="Logo" style="height: 25px; vertical-align: middle; margin-right: 10px;">
                 <span style="vertical-align: middle;">{{ $board ? $board->name : 'Personal Consolidated Report' }}</span>
             </td>
         </tr>
         <tr>
             <td class="s1">Workspace:</td>
-            <td class="s2" colspan="7">{{ $board ? ($board->workspace->name ?? 'N/A') : 'Consolidated' }}</td>
+            <td class="s2" colspan="8">{{ $board ? ($board->workspace->name ?? 'N/A') : 'Consolidated' }}</td>
         </tr>
         <tr>
             <td class="s1">Report Period:</td>
-            <td class="s2" colspan="7">{{ $period }}</td>
+            <td class="s2" colspan="8">{{ $period }}</td>
         </tr>
         <tr>
             <td class="s1">Export Date:</td>
-            <td class="s2" colspan="7">{{ $exportDate }}</td>
+            <td class="s2" colspan="8">{{ $exportDate }}</td>
         </tr>
         <tr>
-            <td colspan="8"></td>
+            <td colspan="9"></td>
         </tr>
 
         <!-- Section 2: KPI Summary -->
         <tr>
-            <td class="s3" colspan="8">📊 KPI SUMMARY</td>
+            <td class="s3" colspan="9">📊 KPI SUMMARY</td>
         </tr>
         <tr>
             <td class="s4">Total Tasks</td>
@@ -79,7 +79,7 @@
             <td class="s4">Pending</td>
             <td class="s4">Overdue</td>
             <td class="s4">Errors</td>
-            <td class="s5" colspan="3"></td>
+            <td class="s5" colspan="4"></td>
         </tr>
         <tr>
             <td class="s6">{{ $totalTasks }}</td>
@@ -87,44 +87,44 @@
             <td class="s8">{{ $pendingTasks }}</td>
             <td class="s9">{{ $overdueTasks }}</td>
             <td class="s9">{{ $errorTasks ?? 0 }}</td>
-            <td class="s10" colspan="3"></td>
+            <td class="s10" colspan="4"></td>
         </tr>
         <tr>
-            <td colspan="8"></td>
+            <td colspan="9"></td>
         </tr>
 
         <!-- Section 3: Team Productivity Summary -->
         <tr>
-            <td class="s3" colspan="8">📊 Team Productivity Summary</td>
+            <td class="s3" colspan="9">📊 Team Productivity Summary</td>
         </tr>
         <tr>
             <td class="s5" colspan="3">Member Name</td>
-            <td class="s4">Completed Tasks</td>
-            <td class="s4">Pending Tasks</td>
-            <td class="s4" colspan="3">Total Tasks</td>
+            <td class="s4" colspan="2">Completed Tasks</td>
+            <td class="s4" colspan="2">Pending Tasks</td>
+            <td class="s4" colspan="2">Total Tasks</td>
         </tr>
         @php $rowNum = 0; @endphp
         @foreach($memberStats as $name => $stats)
         @php $rowNum++; @endphp
         <tr>
             <td class="{{ $rowNum % 2 == 0 ? 's2' : 's10' }}" colspan="3">{{ $name }}</td>
-            <td class="{{ $rowNum % 2 == 0 ? 's11' : 's7' }}">{{ $stats['completed'] }}</td>
-            <td class="{{ $rowNum % 2 == 0 ? 's12' : 's8' }}">{{ $stats['pending'] }}</td>
-            <td class="{{ $rowNum % 2 == 0 ? 's13' : 's6' }}" colspan="3">{{ $stats['total'] }}</td>
+            <td class="{{ $rowNum % 2 == 0 ? 's11' : 's7' }}" colspan="2">{{ $stats['completed'] }}</td>
+            <td class="{{ $rowNum % 2 == 0 ? 's12' : 's8' }}" colspan="2">{{ $stats['pending'] }}</td>
+            <td class="{{ $rowNum % 2 == 0 ? 's13' : 's6' }}" colspan="2">{{ $stats['total'] }}</td>
         </tr>
         @endforeach
         @if(empty($memberStats))
         <tr>
-            <td class="s10" colspan="8" style="text-align: center;">No member productivity details.</td>
+            <td class="s10" colspan="9" style="text-align: center;">No member productivity details.</td>
         </tr>
         @endif
         <tr>
-            <td colspan="8"></td>
+            <td colspan="9"></td>
         </tr>
 
         <!-- Section 4: Task Details -->
         <tr>
-            <td class="s3" colspan="8">📋 Task Details</td>
+            <td class="s3" colspan="9">📋 Task Details</td>
         </tr>
         <tr>
             <td class="s5" x:autofilter="all">Class</td>
@@ -134,6 +134,7 @@
             <td class="s5" x:autofilter="all">Activity Date</td>
             <td class="s5" x:autofilter="all">Due Date</td>
             <td class="s5" x:autofilter="all">Completed Date</td>
+            <td class="s4" x:autofilter="all">Attached</td>
             <td class="s5" x:autofilter="all">Labels</td>
         </tr>
 
@@ -142,7 +143,7 @@
             @foreach($groupedCards as $weekName => $cardsInWeek)
                 @if($weekName !== 'Other')
                 <tr>
-                    <td class="s14" colspan="8" style="background-color: #f1f5f9; color: #475569; font-weight: bold; text-align: center;">
+                    <td class="s14" colspan="9" style="background-color: #f1f5f9; color: #475569; font-weight: bold; text-align: center;">
                         {{ strtoupper($weekName) }}
                     </td>
                 </tr>
@@ -155,13 +156,24 @@
                     $rowClassText = $taskRowNum % 2 == 0 ? 's2' : 's10'; // Normal
                     $rowClassDate = $taskRowNum % 2 == 0 ? 's18' : 's15'; // Right
                     $rowClassCenter = $taskRowNum % 2 == 0 ? 's13' : 's6'; // Center
+                    $cardUrl = ($c->board ? route('boards.show', $c->board->slug) : (isset($board) && $board ? route('boards.show', $board->slug) : null));
+                    if ($cardUrl) {
+                        $cardUrl .= '?card=' . $c->id;
+                    }
                 @endphp
                 <tr>
                     <td class="{{ $rowClassText }}" style="background-color: {{ $c->smm_class_color }}; color: #fff; font-weight: bold; text-align: center;">
                         {{ $c->smm_class_label ?? '-' }}
                     </td>
                     <td class="{{ $rowClassPrefix }}">
-                        {{ $c->title }}
+                        @if($cardUrl)
+                            <a href="{{ $cardUrl }}" target="_blank" style="color: #0f172a; text-decoration: underline;">{{ $c->title }}</a>
+                        @else
+                            {{ $c->title }}
+                        @endif
+                        @if(($includeDesc ?? false) && !empty($c->description))
+                            <div style="font-size: 8pt; color: #64748b; margin-top: 4px;">{{ Str::limit(strip_tags($c->description), 200) }}</div>
+                        @endif
                     </td>
                     <td class="{{ $rowClassCenter }}">
                         @if($c->is_archived)
@@ -182,6 +194,37 @@
                     <td class="{{ $rowClassDate }}" style="mso-number-format: '\@';">
                         {{ $c->exact_completed_date ?? '-' }}
                     </td>
+                    <td class="{{ $rowClassText }}" style="text-align: left;">
+                        @php
+                            $imageFiles = $c->files->filter(fn($f) => $f->is_image)->values();
+                            $linksList  = $c->files->filter(fn($f) => $f->disk === 'url' || $f->mime_type === 'link')->values();
+                            $otherFiles = $c->files->filter(fn($f) => !$f->is_image && $f->disk !== 'url' && $f->mime_type !== 'link')->values();
+                        @endphp
+                        @if($imageFiles->isNotEmpty())
+                            @foreach($imageFiles as $idx => $img)
+                                <div style="margin-top: 2px; white-space: nowrap;">
+                                    🖼️ <a href="{{ $img->preview_url }}" target="_blank" style="color: #2563eb; text-decoration: underline;">{{ $imageFiles->count() === 1 ? '1 Images' : 'Image ' . ($idx + 1) }}</a>
+                                </div>
+                            @endforeach
+                        @endif
+                        @if($otherFiles->isNotEmpty())
+                            @foreach($otherFiles as $idx => $file)
+                                <div style="margin-top: 2px; white-space: nowrap;">
+                                    📄 <a href="{{ $file->preview_url }}" target="_blank" style="color: #2563eb; text-decoration: underline;">{{ $otherFiles->count() === 1 ? '1 Files' : 'File ' . ($idx + 1) }}</a>
+                                </div>
+                            @endforeach
+                        @endif
+                        @if($linksList->isNotEmpty())
+                            @foreach($linksList as $idx => $link)
+                                <div style="margin-top: 2px; white-space: nowrap;">
+                                    🔗 <a href="{{ $link->path }}" target="_blank" style="color: #2563eb; text-decoration: underline;">Link {{ $idx + 1 }}</a>
+                                </div>
+                            @endforeach
+                        @endif
+                        @if($imageFiles->isEmpty() && $otherFiles->isEmpty() && $linksList->isEmpty())
+                            -
+                        @endif
+                    </td>
                     <td class="{{ $rowClassText }}">
                         @foreach($c->labels as $lbl)
                             <span style="background-color: {{ $lbl->color }}; color: #000; padding: 2px 4px; font-weight: bold;">
@@ -194,7 +237,7 @@
             @endforeach
         @else
             <tr>
-                <td class="s10" colspan="8" style="text-align: center;">No tasks found matching the selected filters.</td>
+                <td class="s10" colspan="9" style="text-align: center;">No tasks found matching the selected filters.</td>
             </tr>
         @endif
     </table>

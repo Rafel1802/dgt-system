@@ -21,14 +21,14 @@ class SmmImportController extends Controller
     /** Standard import columns */
     private const HEADERS = [
         'Class', 'Team', 'Work Task / Content Type', 'Title', 'Description', 'Attachement',
-        'Assigned To', 'Assigned By', 'Content Public Date', 'Deadline Date', 'Deadline Time', 'Weeks'
+        'Assigned To', 'Assigned By', 'Content Public Date', 'Deadline Date', 'Deadline Time', 'Weeks', 'Status', 'Note'
     ];
 
     public function template(Board $board): Response
     {
         $headers = implode(',', self::HEADERS);
-        $sample1 = 'ImpossibleMachinery,Graphic Team,Poster Design,TYPH-1702 Ebay Content,Desing 3 posters,https://example.com,Pich,Srey Pich,6-August-2026,29-July-2026,12:00';
-        $sample2 = 'MachineryAsia,Video Team,Short Reel,TYPH-1703,Create short reel,https://example.com/video,Lyhour,Srey Pich,5-August-2026,30-July-2026,15:00';
+        $sample1 = 'ImpossibleMachinery,Graphic Team,Poster Design,TYPH-1702 Ebay Content,Desing 3 posters,https://example.com,Pich,Srey Pich,6-August-2026,29-July-2026,12:00,Week1,Not yet,Test note';
+        $sample2 = 'MachineryAsia,Video Team,Short Reel,TYPH-1703,Create short reel,https://example.com/video,Lyhour,Srey Pich,5-August-2026,30-July-2026,15:00,Week1,Not yet,';
         $csv = implode("\n", [$headers, $sample1, $sample2]) . "\n";
 
         return response($csv, 200, [
@@ -83,18 +83,7 @@ class SmmImportController extends Controller
         $boardLists = $board->activeLists()->pluck('id', 'name')->all();
         $firstListId = $board->activeLists()->orderBy('position')->value('id');
 
-        $allUsers = User::select('id', 'name', 'username')->get();
-        $userLookup = [];
-        foreach ($allUsers as $u) {
-            $userLookup[strtolower(trim($u->name))] = ['id' => $u->id, 'name' => $u->name];
-            $userLookup[strtolower(trim($u->username))] = ['id' => $u->id, 'name' => $u->name];
-            $coreName = preg_replace('/^(Mr\.|Ms\.|Mrs\.)\s*/i', '', $u->name);
-            $coreName = preg_replace('/\s*\(.*?\)/', '', $coreName);
-            $coreName = strtolower(trim($coreName));
-            if ($coreName) {
-                $userLookup[$coreName] = ['id' => $u->id, 'name' => $u->name];
-            }
-        }
+        $userLookup = $this->buildUserLookup();
 
         $preview = [];
         $totalValid = 0;
@@ -115,6 +104,12 @@ class SmmImportController extends Controller
 
             if (empty($row['Work Task / Content Type']) && empty($row['Class'])) {
                 continue; // Skip formatting rows
+            }
+
+            // Only import if Status is empty or 'Not yet'
+            $status = strtolower(trim($row['Status'] ?? ''));
+            if ($status !== '' && $status !== 'not yet') {
+                continue;
             }
 
             $errors = [];
@@ -258,19 +253,7 @@ class SmmImportController extends Controller
         // Ensure standard Social Media Classes exist if missing
         $existingClasses = SocialMediaClass::pluck('name')->map(fn($n) => strtolower($n))->toArray();
 
-        // 1. Pre-load all users for Assign To & By matching
-        $allUsers = User::select('id', 'name', 'username')->get();
-        $userLookup = [];
-        foreach ($allUsers as $u) {
-            $userLookup[strtolower(trim($u->name))] = ['id' => $u->id, 'name' => $u->name];
-            $userLookup[strtolower(trim($u->username))] = ['id' => $u->id, 'name' => $u->name];
-            $coreName = preg_replace('/^(Mr\.|Ms\.|Mrs\.)\s*/i', '', $u->name);
-            $coreName = preg_replace('/\s*\(.*?\)/', '', $coreName);
-            $coreName = strtolower(trim($coreName));
-            if ($coreName) {
-                $userLookup[$coreName] = ['id' => $u->id, 'name' => $u->name];
-            }
-        }
+        $userLookup = $this->buildUserLookup();
 
             // 2. Pre-load existing cards for this board to update duplicates efficiently
             $existingCards = Card::where('board_id', $board->id)
@@ -279,8 +262,14 @@ class SmmImportController extends Controller
                 
             $existingCardsMap = [];
             foreach ($existingCards as $ec) {
-                $dateKey = $ec->start_date ?? $ec->content_public_date;
-                $key = strtolower($ec->title) . '|' . $dateKey;
+                $rawDate = $ec->start_date ?? $ec->content_public_date;
+                $dateKey = '';
+                if ($rawDate instanceof \Carbon\CarbonInterface) {
+                    $dateKey = $rawDate->format('Y-m-d');
+                } elseif (!empty($rawDate)) {
+                    $dateKey = substr(trim((string)$rawDate), 0, 10);
+                }
+                $key = strtolower(trim($ec->title)) . '|' . $dateKey;
                 $existingCardsMap[$key] = $ec;
             }
 
@@ -329,9 +318,10 @@ class SmmImportController extends Controller
             $createdById = $assignByUserId ?: auth()->id();
 
             // Check if card exists for updating from pre-loaded map
-            $dateKey = $row['start_date'] ?: $row['content_public_date'];
-            $lookupKey = strtolower($row['title']) . '|' . $dateKey;
-            $existingCard = $existingCardsMap[$lookupKey] ?? null;
+            $rawRowDate = $row['start_date'] ?: $row['content_public_date'];
+            $dateKey = !empty($rawRowDate) ? substr(trim((string)$rawRowDate), 0, 10) : '';
+            $lookupKey = strtolower(trim($row['title'])) . '|' . $dateKey;
+            $existingCard = $existingCardsMap[$lookupKey] ?? ($existingCardsMap[strtolower(trim($row['title'])) . '|'] ?? null);
 
             if ($existingCard) {
                 $existingCard->update([
@@ -341,6 +331,7 @@ class SmmImportController extends Controller
                     'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
                     'due_at' => $row['deadline'] ?: null,
                     'due_time' => $row['due_time'] ?? null,
+                    'created_by' => $createdById,
                 ]);
 
                 // Cascade update to distributed cards
@@ -348,6 +339,7 @@ class SmmImportController extends Controller
                     Card::where('sync_group_id', $existingCard->sync_group_id)->update([
                         'smm_class_label' => $clusterName ?: null,
                         'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
+                        'created_by' => $createdById,
                     ]);
                 }
 
@@ -360,10 +352,26 @@ class SmmImportController extends Controller
                 $labelIds[] = $smmLabel->id;
                 $existingCard->labels()->sync($labelIds);
 
-                if ($assignToUserId) {
-                    $existingCard->assignees()->sync([$assignToUserId => ['assigned_at' => now()]]);
+                $assigneesData = $assignToUserId ? [$assignToUserId => ['assigned_at' => now()]] : [];
+                $existingCard->assignees()->sync($assigneesData);
+
+                // Cascade assignees to twin cards in sync_group
+                if ($existingCard->sync_group_id) {
+                    $siblings = Card::where('sync_group_id', $existingCard->sync_group_id)
+                        ->where('id', '!=', $existingCard->id)
+                        ->get();
+                    foreach ($siblings as $sibling) {
+                        $sibling->assignees()->sync($assigneesData);
+                    }
                 } else {
-                    $existingCard->assignees()->detach();
+                    // Distribute to team workspace if not previously synced
+                    $teamBoard = $this->distributeToTeamWorkspace($existingCard, $row['smm_team_label'] ?? null, $workspaces);
+                    if ($teamBoard) {
+                        if (!isset($distributedCounts[$teamBoard->id])) {
+                            $distributedCounts[$teamBoard->id] = ['board' => $teamBoard, 'count' => 0];
+                        }
+                        $distributedCounts[$teamBoard->id]['count']++;
+                    }
                 }
                 
                 $updated[] = $existingCard;
@@ -492,89 +500,10 @@ class SmmImportController extends Controller
         ]);
     }
     
-    /** Distribute card directly to the team workspace Planning Board using preloaded workspaces */
+    /** Distribute card directly to the team workspace Planning Board using BoardWorkflowService */
     private function distributeToTeamWorkspace(Card $card, ?string $teamLabel, $workspaces)
     {
-        if (empty($teamLabel)) return null;
-
-        $normalizedTeamLabel = str_replace(' ', '', strtolower($teamLabel));
-        $targetWorkspace = null;
-        foreach ($workspaces as $workspace) {
-            $normalizedWorkspaceName = str_replace(' ', '', strtolower($workspace->name));
-            if (strpos($normalizedWorkspaceName, $normalizedTeamLabel) !== false) {
-                $targetWorkspace = $workspace;
-                break;
-            }
-        }
-        
-        if (!$targetWorkspace || $targetWorkspace->boards->isEmpty()) return null;
-        
-        // Extract month/year from main board (e.g. "August 2026")
-        $mainBoardName = $card->board->name ?? '';
-        $monthYear = '';
-        if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i', $mainBoardName, $matches)) {
-            $monthYear = $matches[0];
-        }
-        
-        $teamBoard = $targetWorkspace->boards->first(function($board) use ($monthYear) {
-            $isPlanning = stripos($board->name, 'Planning') !== false;
-            if ($monthYear) {
-                return $isPlanning && stripos($board->name, $monthYear) !== false;
-            }
-            return $isPlanning;
-        });
-
-        if (!$teamBoard) {
-            $teamBoard = $targetWorkspace->boards->first(function($board) {
-                return stripos($board->name, 'Planning') !== false;
-            });
-        }
-
-        if (!$teamBoard) {
-            $teamBoard = $targetWorkspace->boards->first(function($board) {
-                return stripos($board->name, 'Workflow') === false;
-            });
-        }
-        
-        if (!$teamBoard) {
-            $teamBoard = $targetWorkspace->boards->first();
-        }
-        
-        if (!$teamBoard || $teamBoard->lists->isEmpty()) return null;
-        
-        $originalListName = $card->boardList->name ?? '';
-        $teamList = $teamBoard->lists->first(function($list) use ($originalListName) {
-            $lName = trim($list->name);
-            $oName = trim($originalListName);
-            if (strcasecmp($lName, $oName) === 0) return true;
-            
-            // Allow matching "Week 1" to "Week 1 (1st-4th)"
-            if (preg_match('/^Week\s+\d+/i', $lName, $lMatch) && preg_match('/^Week\s+\d+/i', $oName, $oMatch)) {
-                return strcasecmp($lMatch[0], $oMatch[0]) === 0;
-            }
-            return false;
-        });
-
-        if (!$teamList) {
-            $teamList = $teamBoard->lists->first();
-        }
-        
-        // Ensure sync_group_id exists
-        if (!$card->sync_group_id) {
-            Card::withoutEvents(function () use ($card) {
-                $card->sync_group_id = \Illuminate\Support\Str::uuid();
-                $card->save();
-            });
-        }
-        
-        // Quick check if already synced (still 1 query per card distributed, but better than 5 per card)
-        $alreadySynced = Card::where('board_id', $teamBoard->id)->where('sync_group_id', $card->sync_group_id)->exists();
-        if (!$alreadySynced) {
-            $clone = $card->replicateRelationally($teamBoard->id, $teamList->id);
-            $clone->update(['status' => 'todo']);
-            return $teamBoard;
-        }
-        return null;
+        return app(\App\Services\BoardWorkflowService::class)->distributeSmmCardToTeam($card, $teamLabel, $workspaces);
     }
 
     private function parseFlexibleDate($dateStr)
@@ -655,39 +584,132 @@ class SmmImportController extends Controller
             elseif (str_contains($cleanName, 'attach')) $map['Attachement'] = $idx; // Map back to what mapRow expects
             elseif ($cleanName === 'assigned to' || $cleanName === 'assign to') $map['Assigned To'] = $idx;
             elseif ($cleanName === 'assigned by' || $cleanName === 'assign by') $map['Assigned By'] = $idx;
-            elseif (str_contains($cleanName, 'content public')) $map['Content Public Date'] = $idx;
+            elseif (str_contains($cleanName, 'content public') || str_contains($cleanName, 'public date') || str_contains($cleanName, 'publish date') || str_contains($cleanName, 'content publish') || $cleanName === 'public' || $cleanName === 'publish') $map['Content Public Date'] = $idx;
             elseif (str_contains($cleanName, 'deadline date')) $map['Deadline Date'] = $idx;
             elseif (str_contains($cleanName, 'deadline time')) $map['Deadline Time'] = $idx;
             elseif (str_contains($cleanName, 'start date')) $map['Start Date'] = $idx;
+            elseif ($cleanName === 'status') $map['Status'] = $idx;
+            elseif ($cleanName === 'weeks') $map['Weeks'] = $idx;
+            elseif ($cleanName === 'note') $map['Note'] = $idx;
             else $map[$colName] = $idx;
         }
         return $map;
     }
 
+    /**
+     * Build indexed lookup tables for fast, precise member matching.
+     */
+    private function buildUserLookup(): array
+    {
+        $allUsers = User::select('id', 'name', 'username')->get();
+        $cleanAlpha = fn(string $s) => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $s));
+
+        $lookup = [
+            'exact'  => [], // full lowercased name or username -> user
+            'norm'   => [], // alphanumeric normalized -> user
+            'tokens' => [], // individual first/last name word tokens -> user
+        ];
+
+        foreach ($allUsers as $u) {
+            $userEntry = ['id' => $u->id, 'name' => $u->name];
+
+            // 1. Exact full name & username
+            $rawName = strtolower(trim($u->name));
+            $rawUsername = strtolower(trim($u->username ?? ''));
+
+            if (!empty($rawName)) {
+                $lookup['exact'][$rawName] = $userEntry;
+                $normName = $cleanAlpha($rawName);
+                if (!empty($normName)) {
+                    $lookup['norm'][$normName] = $userEntry;
+                }
+            }
+
+            if (!empty($rawUsername)) {
+                $lookup['exact'][$rawUsername] = $userEntry;
+                $normUser = $cleanAlpha($rawUsername);
+                if (!empty($normUser)) {
+                    $lookup['norm'][$normUser] = $userEntry;
+                }
+            }
+
+            // 2. Core name without honorifics (Mr., Ms., Dr.) and bracketed tags
+            $coreName = preg_replace('/^(Mr\.|Ms\.|Mrs\.|Miss|Dr\.)\s*/i', '', $u->name);
+            $coreName = preg_replace('/\s*\(.*?\)/', '', $coreName);
+            $coreName = preg_replace('/\s*\[.*?\]/', '', $coreName);
+            $coreName = strtolower(trim($coreName));
+
+            if (!empty($coreName)) {
+                $lookup['exact'][$coreName] = $userEntry;
+                $normCore = $cleanAlpha($coreName);
+                if (!empty($normCore)) {
+                    $lookup['norm'][$normCore] = $userEntry;
+                }
+
+                // 3. Individual name tokens (e.g. "Keo Poly" -> tokens: "keo", "poly")
+                $tokens = preg_split('/[\s\-\_\/]+/', $coreName, -1, PREG_SPLIT_NO_EMPTY);
+                foreach ($tokens as $token) {
+                    $token = trim($token);
+                    if (strlen($token) >= 2) {
+                        // If exact name matches token, it always takes precedence
+                        if (!isset($lookup['tokens'][$token]) || strtolower(trim($lookup['tokens'][$token]['name'])) !== $token) {
+                            $lookup['tokens'][$token] = $userEntry;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $lookup;
+    }
+
     private function resolveMember($rawName, $userLookup)
     {
-        $rawName = trim($rawName);
-        if (empty($rawName) || in_array(strtolower($rawName), ['none', 'n/a', '-', 'blank', 'no member'])) {
+        $rawName = trim((string)$rawName);
+        if (empty($rawName) || in_array(strtolower($rawName), ['none', 'n/a', '-', 'blank', 'no member', 'unassigned'])) {
             return ['id' => null, 'warning' => null, 'resolved_name' => ''];
         }
 
-        $lowerRaw = strtolower($rawName);
-        if (isset($userLookup[$lowerRaw])) {
-            return ['id' => $userLookup[$lowerRaw]['id'], 'warning' => null, 'resolved_name' => $userLookup[$lowerRaw]['name']];
+        // Support comma / slash separated multiple names, resolving primary
+        $parts = preg_split('/[,&\/]+/', $rawName, -1, PREG_SPLIT_NO_EMPTY);
+        $primaryRaw = trim($parts[0] ?? $rawName);
+
+        $cleanAlpha = fn(string $s) => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $s));
+
+        // 1. Direct exact match
+        $lowerRaw = strtolower($primaryRaw);
+        if (isset($userLookup['exact'][$lowerRaw])) {
+            return ['id' => $userLookup['exact'][$lowerRaw]['id'], 'warning' => null, 'resolved_name' => $userLookup['exact'][$lowerRaw]['name']];
         }
 
-        $core = preg_replace('/^(Mr\.|Ms\.|Mrs\.)\s*/i', '', $rawName);
+        // 2. Strip honorifics & bracketed tags: e.g. "Mr. Pich (Graphic)" -> "Pich"
+        $core = preg_replace('/^(Mr\.|Ms\.|Mrs\.|Miss|Dr\.)\s*/i', '', $primaryRaw);
         $core = preg_replace('/\s*\(.*?\)/', '', $core);
-        $core = strtolower(trim($core));
+        $core = preg_replace('/\s*\[.*?\]/', '', $core);
+        $core = trim(strtolower($core));
 
-        if (isset($userLookup[$core])) {
-            return ['id' => $userLookup[$core]['id'], 'warning' => null, 'resolved_name' => $userLookup[$core]['name']];
+        if (isset($userLookup['exact'][$core])) {
+            return ['id' => $userLookup['exact'][$core]['id'], 'warning' => null, 'resolved_name' => $userLookup['exact'][$core]['name']];
         }
 
-        // Partial match fallback
-        foreach ($userLookup as $key => $user) {
-            if (str_contains($key, $core)) {
-                return ['id' => $user['id'], 'warning' => null, 'resolved_name' => $user['name']];
+        // 3. Clean alphanumeric normalized match: "Srey Pich" == "Sreypich"
+        $normCore = $cleanAlpha($core);
+        if (!empty($normCore) && isset($userLookup['norm'][$normCore])) {
+            return ['id' => $userLookup['norm'][$normCore]['id'], 'warning' => null, 'resolved_name' => $userLookup['norm'][$normCore]['name']];
+        }
+
+        // 4. Standalone token match (e.g. "Pich" matches user whose first/last name or username is "Pich")
+        // This ensures "Pich" will match user "Pich" or "Keo Pich", but NEVER incorrectly match "Srey Pich"
+        if (isset($userLookup['tokens'][$core])) {
+            return ['id' => $userLookup['tokens'][$core]['id'], 'warning' => null, 'resolved_name' => $userLookup['tokens'][$core]['name']];
+        }
+
+        // 5. Whole word boundary match (only for query strings >= 4 chars to avoid false positives on 2-3 char tokens like "Ly", "Na")
+        if (strlen($core) >= 4) {
+            foreach ($userLookup['exact'] as $key => $user) {
+                if (preg_match('/\b' . preg_quote($core, '/') . '\b/i', $key)) {
+                    return ['id' => $user['id'], 'warning' => null, 'resolved_name' => $user['name']];
+                }
             }
         }
 

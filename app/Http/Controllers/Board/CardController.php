@@ -49,6 +49,8 @@ class CardController extends Controller
         $activities = ActivityLog::with('user')
             ->where('subject_type', Card::class)
             ->where('subject_id', $card->id)
+            ->whereNotIn('action', ['card_reordered', 'reordered', 'card.reordered'])
+            ->where('description', 'not like', '%reordered%')
             ->orderByDesc('created_at')
             ->get()
             ->map(fn($log) => [
@@ -57,7 +59,7 @@ class CardController extends Controller
                 'user_avatar' => $log->user?->avatar_url ?? $this->defaultAvatar(),
                 'user_initials' => $log->user?->avatar_initials ?? 'SY',
                 'user_avatar_color' => $log->user?->avatar_color ?? '#64748b',
-                'description' => $log->description,
+                'description' => preg_replace(['/\bbulk\s+copied\b/i', '/\bbulk\s+moved\b/i'], ['copied', 'moved'], $log->description),
                 'action'      => $log->action,
                 'created_at'  => $log->created_at?->toISOString(),
                 'time_ago'    => $log->created_at ? $log->created_at->format('M j, Y, g:i A') : 'N/A',
@@ -65,6 +67,7 @@ class CardController extends Controller
 
         // Build a clean card payload with correct avatar URLs
         $cardData = $card->toArray();
+        $cardData['content_public_date'] = $card->content_public_date?->format('Y-m-d');
         $cardData['board_list_name'] = $card->boardList?->name;
         $cardData['files'] = $card->files->map(fn($file) => $this->filePayload($file))->values()->all();
         $cardData['assignees'] = $card->assignees->map(fn($u) => [
@@ -122,18 +125,26 @@ class CardController extends Controller
     public function store(Request $request, Board $board): JsonResponse
     {
         $validated = $request->validate([
-            'board_list_id' => ['required', 'exists:board_lists,id'],
-            'title'         => ['required', 'string', 'max:255'],
-            'description'   => ['nullable', 'string'],
-            'priority'      => ['nullable', 'in:low,medium,high,urgent'],
-            'due_at'        => ['nullable', 'date'],
-            'label'         => ['nullable', 'string', 'max:50'],
+            'board_list_id'  => ['required', 'exists:board_lists,id'],
+            'title'          => ['required', 'string', 'max:255'],
+            'description'    => ['nullable', 'string'],
+            'priority'       => ['nullable', 'in:low,medium,high,urgent'],
+            'due_at'         => ['nullable', 'date'],
+            'label'          => ['nullable', 'string', 'max:50'],
+            'smm_team_label' => ['nullable', 'string', 'max:100'],
+            'smm_cluster_label' => ['nullable', 'string', 'max:100'],
+            'smm_class_label'   => ['nullable', 'string', 'max:100'],
+            'content_public_date' => ['nullable', 'date'],
+            'label_ids'      => ['nullable', 'array'],
+            'label_ids.*'    => ['integer', 'exists:labels,id'],
         ]);
 
         $position = Card::where('board_list_id', $validated['board_list_id'])->max('position') + 1;
 
+        $cardData = collect($validated)->except(['label_ids'])->all();
+
         $card = Card::create([
-            ...$validated,
+            ...$cardData,
             'board_id'   => $board->id,
             'status'     => 'todo',
             'priority'   => $validated['priority'] ?? 'medium',
@@ -141,14 +152,33 @@ class CardController extends Controller
             'created_by' => auth()->id(),
         ]);
 
+        if (!empty($validated['label_ids'])) {
+            $card->labels()->sync($validated['label_ids']);
+        }
+
         $card->load('assignees:id,name,avatar', 'labels');
 
         $this->logCardActivity($card, 'created', "created this card");
         $this->checkAutomations($card, null, null, true); // new cards can trigger keyword rules if title has it
 
+        // Auto-distribute SMM card to Team Planning Board if board is SMM
+        try {
+            $isSmmBoard = $board->type === 'smm'
+                || !empty($board->is_active_smm)
+                || stripos($board->name ?? '', 'smm') !== false
+                || stripos($board->workspace?->name ?? '', 'social media') !== false;
+
+            if ($isSmmBoard) {
+                $teamLabel = $validated['smm_team_label'] ?? $validated['label'] ?? null;
+                app(\App\Services\BoardWorkflowService::class)->distributeSmmCardToTeam($card, $teamLabel);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning("Error distributing SMM card to team workspace on store: " . $e->getMessage());
+        }
+
         return response()->json([
-            'card'    => $card,
-            'message' => 'Card created.',
+            'card'    => $this->formatCardForBoard($card),
+            'message' => 'Card created successfully.'
         ], 201);
     }
 
@@ -170,11 +200,15 @@ class CardController extends Controller
             'created_by'    => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
             'content_public_date' => ['sometimes', 'nullable', 'date'],
             'smm_class_label' => ['sometimes', 'nullable', 'string'],
+            'smm_cluster_label' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'smm_team_label'  => ['sometimes', 'nullable', 'string', 'max:100'],
         ]);
 
+        $originalBoardId = $card->board_id;
+        $originalListId = $card->board_list_id;
         $oldValues = $card->only(array_keys($validated));
         $card->update($validated);
-        $card->load('assignees:id,name,avatar', 'labels');
+        $card->load('assignees:id,name,avatar', 'labels', 'boardList.board');
 
         // Log what actually changed
         foreach ($validated as $key => $val) {
@@ -194,14 +228,17 @@ class CardController extends Controller
                     "set recurring to **{$val}**"),
                 'priority'    => $this->logCardActivity($card, 'priority_changed',
                     "changed priority to **{$val}**"),
-                'description' => $this->logCardActivity($card, 'desc_changed',
-                    'updated card description'),
+                'description' => ($this->normalizeDescriptionContent($old) !== $this->normalizeDescriptionContent($val))
+                    ? $this->logCardActivity($card, 'desc_changed', 'updated card description')
+                    : null,
                 'title'       => $this->logCardActivity($card, 'title_changed',
                     "renamed card to **{$val}**"),
                 'created_by'  => $this->logCardActivity($card, 'creator_changed',
                     "changed Assigned By user"),
                 'smm_class_label' => $this->logCardActivity($card, 'smm_class_changed',
                     "changed SMM Class to **{$val}**"),
+                'smm_cluster_label' => $this->logCardActivity($card, 'smm_cluster_changed',
+                    $val ? "changed Content Type to **{$val}**" : 'cleared Content Type'),
                 'content_public_date' => $this->logCardActivity($card, 'content_public_date_changed',
                     "changed Public Date to **{$val}**"),
                 default       => null,
@@ -228,12 +265,31 @@ class CardController extends Controller
 
         $titleChanged = array_key_exists('title', $validated) && (string)($oldValues['title'] ?? '') !== (string)$validated['title'];
 
-        $originalBoardId = $card->board_id;
-        $originalListId = $card->board_list_id;
-
         $this->checkAutomations($card, null, null, $titleChanged);
 
         $cardMoved = $card->board_id !== $originalBoardId || $card->board_list_id !== $originalListId;
+
+        if ($cardMoved && $card->boardList) {
+            app(\App\Services\BoardWorkflowService::class)->syncPlanningWeekList($card, $card->boardList);
+        }
+
+        // Auto-distribute SMM card to Team Planning Board if board is SMM
+        $board = $card->board;
+        $isSmmBoard = $board && (
+            $board->type === 'smm'
+            || !empty($board->is_active_smm)
+            || stripos($board->name ?? '', 'smm') !== false
+            || stripos($board->workspace?->name ?? '', 'social media') !== false
+        );
+
+        if ($isSmmBoard && ($request->filled('smm_team_label') || $request->filled('label') || ($titleChanged && empty($card->sync_group_id)))) {
+            try {
+                $teamLabel = $request->input('smm_team_label') ?: $request->input('label');
+                app(\App\Services\BoardWorkflowService::class)->distributeSmmCardToTeam($card, $teamLabel);
+            } catch (\Throwable $e) {
+                \Log::warning("Error auto-distributing SMM card on update: " . $e->getMessage());
+            }
+        }
 
         return response()->json([
             'card' => $this->formatCardForBoard($card), 
@@ -251,6 +307,12 @@ class CardController extends Controller
             
         if ($automations->isEmpty()) return null;
 
+        $automations = $automations->sortByDesc(function ($automation) {
+            return strlen($automation->trigger_word ?? '');
+        });
+
+        $triggeredKeyword = null;
+
         foreach ($automations as $automation) {
             $isMatch = false;
             
@@ -265,9 +327,20 @@ class CardController extends Controller
 
             // If a trigger word is specified, we check either the new comment text OR the card title (only if title changed)
             if ($automation->trigger_word) {
+                if ($triggeredKeyword !== null && strtolower($automation->trigger_word) !== strtolower($triggeredKeyword)) {
+                    continue; // Skip less specific trigger words
+                }
+
                 $wordMatch = false;
                 if ($commentText) {
                     $wordMatch = stripos($commentText, $automation->trigger_word) !== false;
+                    // If trigger word is "approved", do not match if it's "qc approved", "head approved", or "team approved"
+                    if ($wordMatch && strcasecmp(trim($automation->trigger_word), 'approved') === 0) {
+                        $lowerComment = strtolower($commentText);
+                        if (str_contains($lowerComment, 'qc approved') || str_contains($lowerComment, 'head approved') || str_contains($lowerComment, 'team approved')) {
+                            $wordMatch = false;
+                        }
+                    }
                 }
                 if (!$wordMatch && $titleChanged) {
                     $wordMatch = stripos($card->title, $automation->trigger_word) !== false;
@@ -275,6 +348,7 @@ class CardController extends Controller
                 
                 if ($wordMatch) {
                     $isMatch = true;
+                    $triggeredKeyword = $automation->trigger_word;
                 }
             } else {
                 // If NO trigger word is specified, and it matched the list condition above, it's a match!
@@ -288,28 +362,26 @@ class CardController extends Controller
                 // CUSTOM DGT WORKFLOW CONSTRAINTS
                 if ($commentText) {
                     $trigger = strtolower($automation->trigger_word ?? '');
+                    $isAdmin = auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || auth()->user()->isSupervisorRole();
                     
                     if (str_contains($trigger, 'ready')) {
                         $assignees = $card->assignees;
-                        if (!$assignees->contains('id', auth()->id())) continue; // Commenter not assigned
-                        
-                        // We no longer require ALL assignees to comment 'ready'. 
-                        // If ANY assignee comments 'ready', this automation triggers immediately.
+                        if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', auth()->id())) continue; // Commenter not assigned
                     }
 
                     if (str_contains($trigger, 'head approved')) {
-                        if (stripos(auth()->user()->team_role ?? '', 'head') === false) continue;
+                        if (!$isAdmin && stripos(auth()->user()->team_role ?? '', 'head') === false) continue;
                     }
                     if (str_contains($trigger, 'qc approved') || str_contains($trigger, 'error')) {
-                        if (stripos(auth()->user()->team_role ?? '', 'qc') === false) continue;
+                        if (!$isAdmin && stripos(auth()->user()->team_role ?? '', 'qc') === false) continue;
                     }
                     if (str_contains($trigger, 'approved') && !str_contains($trigger, 'head') && !str_contains($trigger, 'qc') && !str_contains($trigger, 'team') || str_contains($trigger, 'rejected')) {
-                        if (stripos(auth()->user()->team_role ?? '', 'supervisor') === false) continue;
+                        if (!$isAdmin && stripos(auth()->user()->team_role ?? '', 'supervisor') === false) continue;
                     }
                     if (str_contains($trigger, 'team approved')) {
                         // "Team approved" can be triggered by any assigned member (or any digital team member if unassigned)
                         $assignees = $card->assignees;
-                        if ($assignees->count() > 0 && !$assignees->contains('id', auth()->id())) {
+                        if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', auth()->id())) {
                             continue; // Must be assigned to trigger this
                         }
                     }
@@ -321,6 +393,46 @@ class CardController extends Controller
                 if ($automation->trigger_type === 'keyword') $reason = "keyword '{$automation->trigger_word}'";
                 elseif ($automation->trigger_type === 'list') $reason = "moving to list";
                 elseif ($automation->trigger_type === 'both') $reason = "moving to list and keyword '{$automation->trigger_word}'";
+
+                // DYNAMIC MONTH DETECTOR: Ensure it copies to the matching month's workflow board
+                $targetBoard = \App\Models\Board::find($automation->target_board_id);
+                if ($targetBoard && $card->board) {
+                    if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i', $card->board->name, $currMatch)) {
+                        if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i', $targetBoard->name, $tgtMatch)) {
+                            $currentMonth = $currMatch[0];
+                            $targetMonth = $tgtMatch[0];
+                            if (strtolower($currentMonth) !== strtolower($targetMonth)) {
+                                $baseTargetNameClean = trim(preg_replace('/[^a-zA-Z0-9\s]/', '', str_ireplace($targetMonth, '', $targetBoard->name)));
+                                $baseTargetNameClean = preg_replace('/\s+/', ' ', $baseTargetNameClean);
+
+                                $dynamicTargetBoard = null;
+                                $workspaceBoards = \App\Models\Board::where('workspace_id', $targetBoard->workspace_id)->get();
+                                foreach ($workspaceBoards as $wb) {
+                                    if (stripos($wb->name, $currentMonth) !== false) {
+                                        $wbBaseNameClean = trim(preg_replace('/[^a-zA-Z0-9\s]/', '', str_ireplace($currentMonth, '', $wb->name)));
+                                        $wbBaseNameClean = preg_replace('/\s+/', ' ', $wbBaseNameClean);
+                                        if (strtolower($wbBaseNameClean) === strtolower($baseTargetNameClean)) {
+                                            $dynamicTargetBoard = $wb;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if ($dynamicTargetBoard) {
+                                    $automation->target_board_id = $dynamicTargetBoard->id;
+                                    $targetList = \App\Models\BoardList::find($automation->target_list_id);
+                                    if ($targetList) {
+                                        $dynamicTargetList = \App\Models\BoardList::where('board_id', $dynamicTargetBoard->id)
+                                            ->whereRaw('TRIM(LOWER(name)) = ?', [trim(strtolower($targetList->name))])->first();
+                                        if ($dynamicTargetList) {
+                                            $automation->target_list_id = $dynamicTargetList->id;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 if ($automation->action_type === 'copy') {
                     $isSameBoard = (int)$automation->target_board_id === (int)$card->board_id;
@@ -350,7 +462,10 @@ class CardController extends Controller
                     if (str_contains(strtolower($targetList->name), 'block/waiting')) {
                         app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Block/Waiting');
                     } elseif (str_contains(strtolower($targetList->name), 'approved')) {
-                        $card->update(['status' => 'approved']);
+                        $card->update([
+                            'status' => 'approved',
+                            'approved_at' => $card->approved_at ?? now()
+                        ]);
                         app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Approved');
                     }
 
@@ -376,14 +491,20 @@ class CardController extends Controller
         return null;
     }
 
-    /** Soft-delete a card. */
+    /** Soft-delete a card (move to Trash). */
     public function destroy(Card $card): JsonResponse
     {
         $user = auth()->user();
 
-        $this->logCardActivity($card, 'deleted', "deleted card '{$card->title}'");
+        // Ensure board_id is set so it consistently appears in this board's trash
+        if (!$card->board_id && $card->board_list_id) {
+            $card->board_id = $card->boardList?->board_id;
+            $card->save();
+        }
+
+        $this->logCardActivity($card, 'deleted', "moved card '{$card->title}' to Trash");
         $card->delete();
-        return response()->json(['message' => 'Card deleted.']);
+        return response()->json(['message' => 'Card moved to Trash.']);
     }
 
     /** Toggle a user's membership on a card. */
@@ -456,6 +577,22 @@ class CardController extends Controller
             $card->labels()->attach($labelId);
             $message = 'Label added.';
             $this->logCardActivity($card, 'label_added', "added label **{$label->name}**");
+
+            // Auto-distribute SMM card to Team Planning Board only if card is on SMM board
+            try {
+                $board = $card->board;
+                $isSmmBoard = $board && (
+                    $board->type === 'smm'
+                    || !empty($board->is_active_smm)
+                    || stripos($board->name ?? '', 'smm') !== false
+                    || stripos($board->workspace?->name ?? '', 'social media') !== false
+                );
+                if ($isSmmBoard) {
+                    app(\App\Services\BoardWorkflowService::class)->distributeSmmCardToTeam($card, $label->name);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning("Error auto-distributing SMM card on label toggle: " . $e->getMessage());
+            }
         }
 
         // Sync labels to other cards in the sync group
@@ -467,9 +604,13 @@ class CardController extends Controller
             }
         }
 
+        $refreshed = $card->fresh(['assignees:id,name,avatar', 'labels', 'checklists.items', 'files', 'comments']);
+
         return response()->json([
-            'message' => $message,
-            'labels'  => $card->labels()->get(),
+            'message'        => $message,
+            'labels'         => $refreshed->labels,
+            'smm_team_label' => $refreshed->smm_team_label,
+            'card'           => $this->formatCardForBoard($refreshed),
         ]);
     }
 
@@ -527,12 +668,22 @@ class CardController extends Controller
         $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$newList}**");
 
         if (str_contains(strtolower($newList), 'approved')) {
-            $card->update(['status' => 'approved']);
+            $card->update([
+                'status' => 'approved',
+                'approved_at' => $card->approved_at ?? now()
+            ]);
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Approved');
         } elseif (str_contains(strtolower($oldList), 'approved') && !str_contains(strtolower($newList), 'approved')) {
-            $card->update(['status' => 'todo']);
+            $card->update([
+                'status' => 'todo',
+                'approved_at' => null
+            ]);
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($card, 'Todo');
         }
+
+        // Sync week/planning list across twin cards on planning boards
+        app(\App\Services\BoardWorkflowService::class)->syncPlanningWeekList($card, $targetList);
+
         $automation = $this->checkAutomations($card, $targetList->id);
 
         return response()->json([
@@ -786,7 +937,12 @@ class CardController extends Controller
         $originalBoardId = $card->board_id;
         $originalListId = $card->board_list_id;
 
-        $this->checkAutomations($card, null, $validated['body']);
+        $autoResult = $this->checkAutomations($card, null, $validated['body']);
+
+        // Fallback to workflow service only if no database automation rule triggered
+        if (!$autoResult) {
+            app(\App\Services\BoardWorkflowService::class)->handleCommentTrigger($card, $comment);
+        }
 
         // Reload board relation in case the card was moved to another board by automation
         $card->load('board');
@@ -1168,11 +1324,6 @@ class CardController extends Controller
             abort(404, 'Attachment not found.');
         }
 
-        // Don't log download activity for comment-only screenshot files
-        if (!$file->is_comment_image) {
-            $this->logCardActivity($card, 'file_downloaded', "downloaded attachment **{$file->original_name}**");
-        }
-
         return Storage::disk($disk)->download($file->path, $file->original_name);
     }
 
@@ -1228,6 +1379,36 @@ class CardController extends Controller
     private function safeAttachmentName(string $name): string
     {
         return str_replace(['"', "\r", "\n"], '', $name);
+    }
+
+    /**
+     * Normalize rich text HTML to plain text content (preserving images)
+     * to verify whether actual text/image content was added, deleted, or edited,
+     * ignoring pure formatting changes like font color, font family, or font size.
+     */
+    private function normalizeDescriptionContent(?string $html): string
+    {
+        if ($html === null || trim($html) === '') {
+            return '';
+        }
+
+        // Extract image src attributes so adding/removing images is treated as actual content edit
+        preg_match_all('/<img[^>]+src=[\'"]([^\'"]+)[\'"]/i', $html, $matches);
+        $imgs = implode(',', $matches[1] ?? []);
+
+        // Strip HTML tags (colors, fonts, span, p, strong, em, etc.)
+        $text = strip_tags($html);
+
+        // Decode HTML entities (e.g., &nbsp;, &amp;)
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Replace non-breaking spaces with standard space
+        $text = preg_replace('/\x{00A0}/u', ' ', $text);
+
+        // Collapse whitespace
+        $text = trim(preg_replace('/\s+/', ' ', $text));
+
+        return $imgs ? "{$text} [IMG:{$imgs}]" : $text;
     }
 
     private function logCardActivity(Card $card, string $action, string $description): void
@@ -1289,6 +1470,7 @@ class CardController extends Controller
             'checklists.items',
             'files',
             'comments',
+            'creator',
         ]);
 
         return [
@@ -1306,7 +1488,19 @@ class CardController extends Controller
             'workflow_status' => $card->workflow_status,
             'block_completed_at' => $card->block_completed_at?->toISOString(),
             'block_completed_by' => $card->block_completed_by,
+            'smm_class_label'    => $card->smm_class_label,
+            'smm_team_label'     => $card->smm_team_label,
+            'smm_cluster_label'  => $card->smm_cluster_label,
+            'content_public_date'=> $card->content_public_date?->format('Y-m-d'),
             'position'        => $card->position,
+            'sync_group_id'   => $card->sync_group_id,
+            'creator'         => $card->creator ? [
+                'id'           => $card->creator->id,
+                'name'         => $card->creator->name,
+                'avatar'       => $card->creator->avatar_url,
+                'initials'     => $card->creator->avatar_initials,
+                'avatar_color' => $card->creator->avatar_color,
+            ] : null,
             'labels'          => $card->labels->map(fn($lb) => ['id' => $lb->id, 'name' => $lb->name, 'color' => $lb->color])->values()->all(),
             'assignees'       => $card->assignees->map(fn($u) => [
                 'id'           => $u->id,
@@ -1320,6 +1514,7 @@ class CardController extends Controller
             'checklist_done'  => $card->checklists->flatMap->items->where('is_completed', true)->count(),
             'has_files'       => $card->files->count() > 0,
             'comment_count'   => $card->comments->count(),
+            'has_description' => !empty($card->description),
         ];
     }
 
@@ -1353,5 +1548,139 @@ class CardController extends Controller
     private function isBlockList(?string $name): bool
     {
         return str_contains(strtolower($name ?? ''), 'block');
+    }
+
+    public function bulkAction(Request $request, Board $board): JsonResponse
+    {
+        $user = auth()->user();
+
+        $validated = $request->validate([
+            'card_ids' => 'required|array',
+            'card_ids.*' => 'integer|exists:cards,id',
+            'action' => 'required|in:move,copy,comment,delete',
+            'target_board_id' => 'required_if:action,move,copy|nullable|exists:boards,id',
+            'target_list_id' => 'required_if:action,move,copy|nullable|exists:board_lists,id',
+            'comment' => 'required_if:action,comment|nullable|string',
+        ]);
+
+        $action = $validated['action'];
+        $cardIds = $validated['card_ids'];
+
+        if ($action === 'delete') {
+            $successful = 0;
+            $failed = 0;
+
+            foreach ($cardIds as $id) {
+                $card = Card::find($id);
+                if (!$card) {
+                    $failed++;
+                    continue;
+                }
+
+                try {
+                    if (!$card->board_id && $card->board_list_id) {
+                        $card->board_id = $card->boardList?->board_id ?? $board->id;
+                        $card->save();
+                    }
+                    $this->logCardActivity($card, 'deleted', "moved card '{$card->title}' to Trash");
+                    $card->delete();
+                    $successful++;
+                } catch (\Exception $e) {
+                    \Log::error("Bulk delete error on card {$id}: " . $e->getMessage());
+                    $failed++;
+                }
+            }
+
+            return response()->json([
+                'message' => "Successfully moved {$successful} card" . ($successful === 1 ? '' : 's') . " to Trash."
+            ]);
+        }
+
+        if ($action === 'comment') {
+            $commentText = trim((string)($validated['comment'] ?? ''));
+            if (empty($commentText)) {
+                return response()->json(['message' => 'Comment cannot be empty.'], 422);
+            }
+
+            $successful = 0;
+            $failed = 0;
+
+            foreach ($cardIds as $id) {
+                $card = Card::find($id);
+                if (!$card) {
+                    $failed++;
+                    continue;
+                }
+
+                try {
+                    $comment = $card->comments()->create([
+                        'user_id'   => auth()->id(),
+                        'content'   => $commentText,
+                        'is_system' => false,
+                    ]);
+
+                    // Check and trigger automations
+                    $autoResult = $this->checkAutomations($card, null, $commentText);
+
+                    // Fallback to workflow service only if no database automation rule triggered
+                    if (!$autoResult) {
+                        app(\App\Services\BoardWorkflowService::class)->handleCommentTrigger($card, $comment);
+                    }
+
+                    // Log activity
+                    $plainText = trim(preg_replace('/!\[.*?\]\([^)]+\)/', '', $commentText));
+                    $this->logCardActivity($card, 'comment_added', "added comment: \"" . \Illuminate\Support\Str::limit($plainText, 100) . "\"");
+
+                    $successful++;
+                } catch (\Exception $e) {
+                    \Log::error("Bulk comment error on card {$id}: " . $e->getMessage());
+                    $failed++;
+                }
+            }
+
+            return response()->json([
+                'message' => "Comment \"{$commentText}\" posted to {$successful} card" . ($successful === 1 ? '' : 's') . "."
+            ]);
+        }
+
+        $targetBoardId = $validated['target_board_id'];
+        $targetListId = $validated['target_list_id'];
+        $targetBoard = Board::findOrFail($targetBoardId);
+        $targetList = BoardList::findOrFail($targetListId);
+
+        $successful = 0;
+        $failed = 0;
+
+        foreach ($cardIds as $id) {
+            $card = Card::find($id);
+            if (!$card) {
+                $failed++;
+                continue;
+            }
+
+            try {
+                if ($action === 'move') {
+                    $oldList = $card->boardList?->name ?? 'Unknown list';
+                    $card->board_id = $targetBoardId;
+                    $card->board_list_id = $targetListId;
+                    $card->position = 65535; // Put at bottom
+                    $card->saveQuietly();
+                    $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$targetList->name}**");
+                    app(\App\Services\BoardWorkflowService::class)->syncPlanningWeekList($card, $targetList);
+                } elseif ($action === 'copy') {
+                    $newTitle = ((int)$targetBoardId === (int)$card->board_id) ? $card->title . ' (copy)' : $card->title;
+                    $copy = $card->replicateRelationally($targetBoardId, $targetListId, $newTitle, auth()->id() ?? $card->created_by, true);
+                    $sourceListName = $card->boardList?->name ?? 'Unknown list';
+                    $this->logCardActivity($copy, 'copied', "copied this card from **{$sourceListName}**");
+                }
+                $successful++;
+            } catch (\Exception $e) {
+                $failed++;
+            }
+        }
+
+        return response()->json([
+            'message' => "Bulk {$action} complete. {$successful} succeeded, {$failed} failed."
+        ]);
     }
 }

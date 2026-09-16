@@ -339,6 +339,178 @@
           @error('notification_sound')<p class="form-error">{{ $message }}</p>@enderror
         </div>
         
+        {{-- ── Shift Clock Alarms (12:00 PM Lunch & 4:00 PM Off Work) ─────────────── --}}
+        <div class="sm:col-span-2 border-t border-slate-100 pt-5 mt-2" x-data="{
+          lunchAlarmEnabled: {{ old('lunch_alarm_enabled', $user->isLunchAlarmEnabled()) ? 'true' : 'false' }},
+          currentClockSound: '{{ old('lunch_alarm_sound', $user->lunch_alarm_sound ?? 'melodic-chime.wav') }}',
+          previewAudio: null,
+          previewPlaying: false,
+          previewFile: '',
+          playPreview(sound) {
+            if (this.previewAudio) {
+              this.previewAudio.pause();
+              this.previewAudio.currentTime = 0;
+            }
+            if (this.previewPlaying && this.previewFile === sound) {
+              this.previewPlaying = false;
+              this.previewFile = '';
+              return;
+            }
+            this.previewAudio = new Audio('{{ asset('clocksound') }}/' + sound);
+            this.previewAudio.volume = 1.0;
+            this.previewFile = sound;
+            this.previewPlaying = true;
+            this.previewAudio.play().catch(e => console.log('Preview error:', e));
+            this.previewAudio.onended = () => {
+              this.previewPlaying = false;
+              this.previewFile = '';
+            };
+            setTimeout(() => {
+              if (this.previewPlaying && this.previewFile === sound) {
+                if (this.previewAudio) this.previewAudio.pause();
+                this.previewPlaying = false;
+                this.previewFile = '';
+              }
+            }, 10000);
+          }
+        }">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+            <div>
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <label class="form-label mb-0 text-slate-800 font-bold flex items-center gap-2">
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                  </span>
+                  Shift Clock Alarms
+                </label>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm">
+                  12:00 PM Lunch
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm">
+                  4:00 PM Off Work
+                </span>
+              </div>
+              <p class="text-xs text-slate-500">Play a 10-second ringtone and pop up reminder at 12:00 PM (Lunch Time) & 4:00 PM (Getting Off Work).</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+              {{-- Test Preview 12 PM Button --}}
+              <button type="button"
+                      onclick="if (window.triggerLunchAlarm) window.triggerLunchAlarm(true, 'lunch')"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-lg transition-colors cursor-pointer"
+                      title="Test 12:00 PM Lunch Popup">
+                <span class="text-xs">🍽️</span>
+                <span>Preview 12 PM</span>
+              </button>
+              {{-- Test Preview 4 PM Button --}}
+              <button type="button"
+                      onclick="if (window.triggerOffWorkAlarm) window.triggerOffWorkAlarm(true)"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 rounded-lg transition-colors cursor-pointer"
+                      title="Test 4:00 PM Off Work Popup">
+                <span class="text-xs">🎉</span>
+                <span>Preview 4 PM</span>
+              </button>
+
+              {{-- Add Clock Ringtone (QC, Super Admin, Supervisor) --}}
+              @if($user->canManageClockSounds())
+              <button type="button" 
+                      @click="$refs.newClockSoundInput.click()" 
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                      title="QC, Super Admin, and Supervisors can upload new clock ringtones">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>Add Clock Sound</span>
+              </button>
+              @endif
+
+              {{-- On/Off Switch --}}
+              <div class="flex items-center gap-2 pl-2 border-l border-slate-200">
+                <input type="hidden" name="lunch_alarm_enabled" :value="lunchAlarmEnabled ? 1 : 0">
+                <button type="button"
+                        @click="lunchAlarmEnabled = !lunchAlarmEnabled"
+                        :class="lunchAlarmEnabled ? 'bg-amber-500' : 'bg-slate-200'"
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                        role="switch"
+                        :aria-checked="lunchAlarmEnabled.toString()">
+                  <span :class="lunchAlarmEnabled ? 'translate-x-5' : 'translate-x-0'"
+                        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out"></span>
+                </button>
+                <span class="text-xs font-bold" :class="lunchAlarmEnabled ? 'text-amber-700' : 'text-slate-500'" x-text="lunchAlarmEnabled ? 'Alarm On' : 'Alarm Off'"></span>
+              </div>
+            </div>
+          </div>
+
+          {{-- Sound Chooser Grid --}}
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 transition-opacity duration-200" :class="!lunchAlarmEnabled ? 'opacity-40 pointer-events-none' : ''">
+            @foreach($clockSounds as $cSound)
+            <label class="relative flex cursor-pointer rounded-xl border p-3 focus:outline-none group transition-all"
+                   :class="currentClockSound === '{{ $cSound }}' ? 'bg-amber-50/80 border-amber-300 ring-2 ring-amber-400/40 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'">
+              <input type="radio" name="lunch_alarm_sound" value="{{ $cSound }}" class="sr-only"
+                     x-model="currentClockSound"
+                     @change="playPreview('{{ $cSound }}')">
+
+              <span class="flex flex-1 flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full" :class="currentClockSound === '{{ $cSound }}' ? 'bg-amber-500' : 'bg-slate-300'"></span>
+                    <span class="block text-sm font-semibold truncate" :class="currentClockSound === '{{ $cSound }}' ? 'text-amber-950 font-bold' : 'text-slate-800'">
+                      {{ Str::title(str_replace(['-', '_'], ' ', Str::beforeLast($cSound, '.'))) }}
+                    </span>
+                  </div>
+                  <span class="text-[10px] uppercase font-bold text-slate-400 mt-0.5 block tracking-wider">
+                    {{ Str::afterLast($cSound, '.') }} ringtone
+                  </span>
+                </div>
+
+                {{-- Preview Button --}}
+                <button type="button"
+                        @click.stop="playPreview('{{ $cSound }}')"
+                        class="mt-2.5 inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md transition-colors w-fit"
+                        :class="previewPlaying && previewFile === '{{ $cSound }}' ? 'bg-amber-600 text-white' : 'bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900'">
+                  <template x-if="previewPlaying && previewFile === '{{ $cSound }}'">
+                    <svg class="w-3 h-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 9v6m4-6v6" />
+                    </svg>
+                  </template>
+                  <template x-if="!(previewPlaying && previewFile === '{{ $cSound }}')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                    </svg>
+                  </template>
+                  <span x-text="previewPlaying && previewFile === '{{ $cSound }}' ? 'Playing (8s)...' : 'Preview'"></span>
+                </button>
+              </span>
+
+              {{-- Active Selection Checkmark --}}
+              <div class="absolute top-2.5 right-2.5">
+                <svg class="h-5 w-5 text-amber-600 transition-opacity" :class="currentClockSound === '{{ $cSound }}' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                </svg>
+              </div>
+
+              {{-- Delete Clock Sound (QC, Super Admin, Supervisor) --}}
+              @if($user->canManageClockSounds())
+              <button type="button" 
+                      class="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all z-10"
+                      title="Remove Clock Ringtone"
+                      onclick="event.preventDefault(); event.stopPropagation(); if(confirm('Are you sure you want to delete this clock ringtone?')) { const f = document.getElementById('delete-clock-sound-form'); f.action = '{{ route('profile.clock-sound.delete', $cSound) }}'; f.submit(); }">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+              @endif
+            </label>
+            @endforeach
+
+            @if($clockSounds->isEmpty())
+              <div class="col-span-full text-sm text-slate-500 italic py-2">
+                No clock sounds available in the public/clocksound directory.
+              </div>
+            @endif
+          </div>
+          @error('lunch_alarm_sound')<p class="form-error">{{ $message }}</p>@enderror
+        </div>
 
 
 
@@ -379,5 +551,18 @@
       @method('DELETE')
   </form>
   @endhasrole
+
+  {{-- Clock Sound Management Forms (QC, Super Admin, Supervisor) --}}
+  @if($user->canManageClockSounds())
+  <form x-ref="clockSoundUploadForm" method="POST" action="{{ route('profile.clock-sound.upload') }}" enctype="multipart/form-data" class="hidden">
+      @csrf
+      <input type="file" name="new_clock_sound" x-ref="newClockSoundInput" accept="audio/mpeg,audio/wav,audio/ogg" @change="$refs.clockSoundUploadForm.submit()">
+  </form>
+
+  <form id="delete-clock-sound-form" method="POST" action="" class="hidden">
+      @csrf
+      @method('DELETE')
+  </form>
+  @endif
 </div>
 @endsection

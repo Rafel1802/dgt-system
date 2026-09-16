@@ -18,17 +18,6 @@ class ShipmentCustomer extends Model
                 $customer->updateQuietly([
                     'problem_occurrences' => $customer->problem_occurrences + 1,
                 ]);
-
-                try {
-                    \App\Support\CrmTeamNotifier::notifyEbayAndSalesTeams(
-                        'logistic_problem',
-                        "Logistic issue · {$customer->recipient_name}",
-                        route('crm.logistics.issues.index'),
-                        auth()->id()
-                    );
-                } catch (\Throwable $e) {
-                    // Ignore notification failures in CLI/seeders
-                }
             }
         });
 
@@ -38,17 +27,6 @@ class ShipmentCustomer extends Model
                     $customer->updateQuietly([
                         'problem_occurrences' => $customer->problem_occurrences + 1,
                     ]);
-
-                    try {
-                        \App\Support\CrmTeamNotifier::notifyEbayAndSalesTeams(
-                            'logistic_problem',
-                            "Logistic issue · {$customer->recipient_name}",
-                            route('crm.logistics.issues.index'),
-                            auth()->id()
-                        );
-                    } catch (\Throwable $e) {
-                        // Ignore notification failures in CLI/seeders
-                    }
                 }
 
                 // Sync the new logistics status back to the Customer, Website Lead, and eBay records

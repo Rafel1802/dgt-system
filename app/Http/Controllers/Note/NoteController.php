@@ -27,7 +27,6 @@ class NoteController extends Controller
 
         return match ($team) {
             'digital' => $user->hasAnyRole(['admin-digital', 'digital-team']),
-            'crm' => $user->hasAnyRole(\App\Models\User::CRM_ROLES),
             default => false,
         };
     }
@@ -158,10 +157,8 @@ class NoteController extends Controller
         
         // Determine which teams the user can access
         $accessibleTeams = [];
-        if ($user->hasAnyRole(['super-admin', 'boss'])) {
-            $accessibleTeams = ['digital', 'crm'];
-        } else {
-            if ($user->hasAnyRole(['admin-digital', 'digital-team'])) $accessibleTeams[] = 'digital';
+        if ($user->hasAnyRole(['super-admin', 'boss', 'admin-digital', 'digital-team'])) {
+            $accessibleTeams = ['digital'];
         }
 
         // Determine current selected team
@@ -349,6 +346,47 @@ class NoteController extends Controller
         }
 
         return response()->json(['deleted_ids' => $notes->pluck('id')->values()]);
+    }
+
+    public function bulkMove(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'note_ids' => 'required|array|min:1',
+            'note_ids.*' => 'integer',
+            'folder_id' => 'nullable|exists:note_folders,id',
+        ]);
+
+        $notes = Note::whereIn('id', $validated['note_ids'])->get();
+
+        foreach ($notes as $note) {
+            $this->authorize('update', $note);
+            $note->update(['folder_id' => $validated['folder_id']]);
+        }
+
+        return response()->json(['moved_ids' => $notes->pluck('id')->values()]);
+    }
+
+    public function bulkDuplicate(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'note_ids' => 'required|array|min:1',
+            'note_ids.*' => 'integer',
+        ]);
+
+        $notes = Note::whereIn('id', $validated['note_ids'])->get();
+        $duplicated = [];
+
+        foreach ($notes as $note) {
+            $this->authorize('view', $note);
+            $newNote = $note->replicate();
+            $newNote->title = $newNote->title . ' (Copy)';
+            $newNote->user_id = auth()->id();
+            $newNote->last_edited_by = auth()->id();
+            $newNote->save();
+            $duplicated[] = $newNote;
+        }
+
+        return response()->json($duplicated);
     }
 
     /**

@@ -65,15 +65,23 @@
                     </div>
 
                     {{-- Actions --}}
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
+                        @if($analytic->fileExists())
                         <a href="{{ route('social-media.analytics.preview', $analytic) }}" target="_blank"
-                           class="flex-1 text-center btn btn-secondary text-xs py-1.5 rounded-lg">
+                           class="flex-1 min-w-[80px] text-center btn btn-secondary text-xs py-1.5 rounded-lg">
                             👁 Preview
                         </a>
                         <a href="{{ route('social-media.analytics.download', $analytic) }}"
-                           class="flex-1 text-center btn btn-primary text-xs py-1.5 rounded-lg">
+                           class="flex-1 min-w-[80px] text-center btn btn-primary text-xs py-1.5 rounded-lg">
                             ⬇ Download
                         </a>
+                        @endif
+                        @if($analytic->canva_link)
+                        <a href="{{ $analytic->formattedCanvaLink() }}" target="_blank" rel="noopener noreferrer"
+                           class="flex-1 min-w-[80px] text-center inline-flex items-center justify-center gap-1 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white text-xs py-1.5 rounded-lg font-bold shadow-sm shadow-cyan-500/20">
+                            🎨 Canva
+                        </a>
+                        @endif
                     </div>
                 </div>
             </div>

@@ -24,16 +24,3 @@ Broadcast::channel('boards.{boardId}', function ($user, $boardId) {
 Broadcast::channel('websites', function ($user) {
     return $user->hasWebsiteAccess();
 });
-
-Broadcast::channel('tech-support', function ($user) {
-    return $user !== null;
-});
-
-Broadcast::channel('crm.customer.{type}.{id}', function ($user, $type, $id) {
-    return $user->isCrmMember();
-});
-
-
-Broadcast::channel('crm.global', function ($user) {
-    return $user->isCrmMember();
-});

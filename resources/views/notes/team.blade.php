@@ -19,6 +19,8 @@
     .notes-list-scroll::-webkit-scrollbar-thumb,
     .notes-editor-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
     .notes-editor-card .ql-toolbar.ql-snow {
+        position: sticky;
+        top: 0;
         flex-shrink: 0;
         z-index: 20;
         border: none;
@@ -141,7 +143,7 @@
 
     <!-- ── Column 1: Folders Panel ── -->
     <div class="notes-col-folder w-64 bg-slate-100 border-r border-slate-200 flex flex-col flex-shrink-0"
-         x-show="!fullNoteMode"
+         x-show="showFolders"
          x-transition:leave="transition-none">
 
         <!-- Mobile folder panel topbar -->
@@ -154,7 +156,12 @@
         </div>
 
         <div class="p-4 pt-6">
-            <h2 class="hidden lg:block text-xs font-black uppercase tracking-wider text-slate-400 mb-3 px-2">Team Notes</h2>
+            <h2 class="hidden lg:flex text-xs font-black uppercase tracking-wider text-slate-400 mb-3 px-2 justify-between items-center">
+                Team
+                <button @click="showFolders = false" class="hover:text-slate-600" title="Collapse Folders">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                </button>
+            </h2>
 
             <!-- Team Switcher (if multiple) -->
             @if(count($accessibleTeams) > 1)
@@ -191,7 +198,12 @@
                     <div :class="{'bg-yellow-400 text-yellow-900 font-semibold shadow-sm': activeFolder == folder.id && viewMode === 'notes', 'text-slate-600 hover:bg-slate-200/50': activeFolder != folder.id || viewMode !== 'notes'}" class="group w-full flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors">
                         <button @click="selectFolder(folder.id); mobileGotoList()" class="min-w-0 flex flex-1 items-center gap-3 text-left">
                             <svg class="w-5 h-5 text-yellow-500 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
-                            <span x-text="folder.name" class="truncate"></span>
+                            <template x-if="folder.name.length > 15">
+                                <marquee scrollamount="3" scrolldelay="0" class="min-w-0 flex-1" x-text="folder.name"></marquee>
+                            </template>
+                            <template x-if="folder.name.length <= 15">
+                                <span x-text="folder.name" class="truncate min-w-0 flex-1"></span>
+                            </template>
                         </button>
                         <button @click.stop="openFolderModal(folder)" class="rounded-md p-1 opacity-0 transition group-hover:opacity-100 hover:bg-white/60" title="Rename folder">
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L8.25 18.402 3.75 19.5l1.098-4.5L16.862 4.487Z"/></svg>
@@ -210,7 +222,7 @@
 
     <!-- ── Column 2: Note List Panel ── -->
     <div class="notes-col-list w-80 bg-white border-r border-slate-200 flex flex-col flex-shrink-0"
-         x-show="!fullNoteMode"
+         x-show="showNotes"
          x-transition:leave="transition-none">
 
         <!-- Mobile note list topbar -->
@@ -226,10 +238,20 @@
         </div>
 
         <div class="hidden lg:flex p-4 border-b border-slate-100 items-center justify-between">
-            <h1 class="text-xl font-bold text-slate-800" x-text="viewMode === 'bin' ? 'Note Bin' : 'Notes'"></h1>
-            <button @click="createNewNote()" x-show="viewMode !== 'bin'" class="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Compose New Note">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-            </button>
+            <div class="flex items-center gap-2">
+                <button x-show="!showFolders" @click="showFolders = true" class="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Expand Folders" x-cloak>
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                </button>
+                <h1 class="text-xl font-bold text-slate-800" x-text="viewMode === 'bin' ? 'Note Bin' : 'Notes'"></h1>
+            </div>
+            <div class="flex items-center gap-1">
+                <button @click="showNotes = false" class="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Collapse Notes List">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                </button>
+                <button @click="createNewNote()" x-show="viewMode !== 'bin'" class="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Compose New Note">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                </button>
+            </div>
         </div>
 
         <div class="p-3">
@@ -248,6 +270,24 @@
                 <div class="mb-2 text-xs font-bold text-slate-500" x-text="`${selectedNoteIds.length} selected`"></div>
                 <div class="flex flex-wrap gap-2">
                     <button @click="downloadSelected()" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700">Download ZIP</button>
+                    <button x-show="viewMode !== 'bin'" @click="bulkDuplicate()" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200">Duplicate</button>
+                    
+                    <div x-show="viewMode !== 'bin'" class="relative" x-data="{ openMove: false }" @click.away="openMove = false">
+                        <button @click="openMove = !openMove" class="rounded-lg bg-yellow-100 px-3 py-1.5 text-xs font-bold text-yellow-800 hover:bg-yellow-200">Move To...</button>
+                        <div x-show="openMove" x-transition x-cloak class="absolute left-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden py-1">
+                            <button @click="bulkMove(null); openMove = false" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                                All Notes
+                            </button>
+                            <template x-for="folder in folders" :key="folder.id">
+                                <button @click="bulkMove(folder.id); openMove = false" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
+                                    <span x-text="folder.name" class="truncate"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
                     <button x-show="viewMode !== 'bin'" @click="bulkDelete()" class="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100">Move to Bin</button>
                     <button x-show="viewMode === 'bin'" @click="restoreSelected()" class="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100">Restore</button>
                     <button x-show="viewMode === 'bin'" @click="forceDeleteSelected()" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700">Delete Forever</button>
@@ -296,22 +336,45 @@
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
                         Notes
                     </button>
-                    <!-- Back button in full note mode -->
-                    <button x-show="fullNoteMode" @click="exitFullNote()" x-cloak
-                            class="hidden lg:flex items-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors text-xs font-bold">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
-                        Back
+                    <!-- Expand Notes List button -->
+                    <button x-show="!showNotes" @click="showNotes = true" x-cloak
+                            class="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors" title="Show Notes List">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
                     </button>
-                    <span x-show="!fullNoteMode" class="hidden lg:inline" x-text="formatFullDate(activeNote?.updated_at)"></span>
+                    <span x-show="showFolders || showNotes" class="hidden lg:inline" x-text="formatFullDate(activeNote?.updated_at)"></span>
                     <span id="save-status" class="text-slate-400 select-none"></span>
                 </div>
                 <div class="flex items-center gap-2">
                     <!-- View Full Note button (desktop only) -->
-                    <button x-show="activeNote && !fullNoteMode && viewMode !== 'bin'" @click="enterFullNote()" x-cloak
+                    <button x-show="activeNote && (showFolders || showNotes) && viewMode !== 'bin'" @click="enterFullNote()" x-cloak
                             class="hidden lg:flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors" title="View Full Note">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
                         Full Note
                     </button>
+                    
+                    <button @click="duplicateActiveNote()" x-show="activeNote && viewMode !== 'bin'" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Duplicate Note">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                    </button>
+                    
+                    <div class="relative" x-data="{ openMoveSingle: false }" @click.away="openMoveSingle = false" x-show="activeNote && viewMode !== 'bin'">
+                        <button @click="openMoveSingle = !openMoveSingle" class="p-2 text-slate-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors" title="Move to folder">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                        </button>
+                        <div x-show="openMoveSingle" x-transition x-cloak class="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden py-1">
+                            <div class="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Move to</div>
+                            <button @click="moveActiveNote(null); openMoveSingle = false" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                                All Notes
+                            </button>
+                            <template x-for="folder in folders" :key="folder.id">
+                                <button @click="moveActiveNote(folder.id); openMoveSingle = false" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 truncate">
+                                    <svg class="w-4 h-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
+                                    <span x-text="folder.name" class="truncate"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
                     <button x-show="viewMode === 'bin' && activeNote" @click="restoreNote(activeNote)" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Restore Note">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14.25 4.5 9.75 9 5.25m-4.5 4.5h11.25a4.5 4.5 0 0 1 0 9H12" /></svg>
                     </button>
@@ -385,7 +448,11 @@
             isSelectMode: false,
             selectedNoteIds: [],
             loadingNotes: false,
-            fullNoteMode: false,
+            showFolders: true,
+            showNotes: true,
+            get fullNoteMode() {
+                return !this.showFolders && !this.showNotes;
+            },
             mobilePanel: 1, // 0=folders, 1=noteList, 2=editor
 
             showFolderModal: false,
@@ -428,6 +495,7 @@
                 quillInstance = new Quill('#editor-container', {
                     theme: 'snow',
                     bounds: '.notes-editor-card',
+                    scrollingContainer: '.notes-editor-scroll',
                     placeholder: 'Start writing your note...',
                     modules: {
                         toolbar: [
@@ -565,7 +633,8 @@
             },
 
             enterFullNote() {
-                this.fullNoteMode = true;
+                this.showFolders = false;
+                this.showNotes = false;
                 this.$nextTick(() => {
                     if (quillInstance?.root) {
                         quillInstance.root.focus({ preventScroll: true });
@@ -574,7 +643,8 @@
             },
 
             exitFullNote() {
-                this.fullNoteMode = false;
+                this.showFolders = true;
+                this.showNotes = true;
             },
 
             selectNote(note) {
@@ -798,11 +868,82 @@
 
             toggleNoteSelection(id) {
                 if (this.isSelected(id)) {
-                    this.selectedNoteIds = this.selectedNoteIds.filter((item) => item !== id);
-                    return;
+                    this.selectedNoteIds = this.selectedNoteIds.filter(nId => nId !== id);
+                } else {
+                    this.selectedNoteIds.push(id);
                 }
+            },
 
-                this.selectedNoteIds.push(id);
+            async bulkMove(folderId) {
+                if (!this.selectedNoteIds.length) return;
+                
+                await fetch('/notes/api/bulk-move', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                    body: JSON.stringify({ note_ids: this.selectedNoteIds, folder_id: folderId })
+                });
+
+                if (this.activeFolder !== folderId) {
+                    this.notes = this.notes.filter(n => !this.selectedNoteIds.includes(n.id));
+                    if (this.activeNote && this.selectedNoteIds.includes(this.activeNote.id)) {
+                        this.activeNote = null;
+                    }
+                }
+                
+                this.isSelectMode = false;
+                this.clearSelection();
+            },
+
+            async bulkDuplicate() {
+                if (!this.selectedNoteIds.length) return;
+                
+                const res = await fetch('/notes/api/bulk-duplicate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                    body: JSON.stringify({ note_ids: this.selectedNoteIds })
+                });
+                const duplicates = await res.json();
+                
+                // Add duplicates to current list
+                this.notes = [...duplicates, ...this.notes];
+                
+                this.isSelectMode = false;
+                this.clearSelection();
+                
+                if (duplicates.length > 0) {
+                    this.selectNote(duplicates[0]);
+                }
+            },
+
+            async moveActiveNote(folderId) {
+                if (!this.activeNote || this.activeNote.id === 'temp') return;
+                
+                await fetch(`/notes/api/${this.activeNote.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                    body: JSON.stringify({ folder_id: folderId })
+                });
+
+                if (this.activeFolder !== folderId) {
+                    this.notes = this.notes.filter(n => n.id !== this.activeNote.id);
+                    this.activeNote = null;
+                }
+            },
+
+            async duplicateActiveNote() {
+                if (!this.activeNote || this.activeNote.id === 'temp') return;
+                
+                const res = await fetch('/notes/api/bulk-duplicate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                    body: JSON.stringify({ note_ids: [this.activeNote.id] })
+                });
+                
+                const duplicates = await res.json();
+                if (duplicates.length > 0) {
+                    this.notes.unshift(duplicates[0]);
+                    this.selectNote(duplicates[0]);
+                }
             },
 
             selectAllVisible() {

@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BoardController;
 use App\Http\Controllers\Api\CardController;
-use App\Http\Controllers\Api\CrmController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\MemberController;
 use App\Http\Controllers\Api\NoteController;
@@ -29,19 +28,6 @@ Route::middleware(['check.ip.ban'])->group(function () {
 
         Route::apiResource('boards', BoardController::class)->names('api.boards');
         Route::apiResource('cards', CardController::class)->except(['show'])->names('api.cards');
-
-        Route::middleware(['tech-support-view-only'])->group(function () {
-            Route::get('/crm/customers', [CrmController::class, 'customers']);
-            Route::get('/crm/logistics', [CrmController::class, 'logistics']);
-            Route::post('/crm/logistics', [CrmController::class, 'storeLogistic']);
-            Route::put('/crm/logistics/{logistic}', [CrmController::class, 'updateLogistic']);
-            Route::delete('/crm/logistics/{logistic}', [CrmController::class, 'deleteLogistic']);
-            Route::get('/crm/shipments', [CrmController::class, 'shipments']);
-            Route::get('/crm/ebay/stores', [CrmController::class, 'ebayStores']);
-            Route::get('/crm/ebay/offers', [CrmController::class, 'ebayOffers']);
-            Route::get('/crm/ebay/customers', [CrmController::class, 'ebayCustomerRecords']);
-            Route::get('/crm/website/leads', [CrmController::class, 'websiteLeads']);
-        });
 
         Route::get('/notes/team', [NoteController::class, 'index'])->defaults('type', 'team');
         Route::get('/notes/private', [NoteController::class, 'index'])->defaults('type', 'private');

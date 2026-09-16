@@ -24,15 +24,33 @@ class SmmPlanningBoardController extends Controller
 
         $workspaces = Workspace::where('id', $smmWorkspace->id)
             ->with(['boards' => function ($query) {
-                $query->where('type', 'smm')->orderBy('created_at', 'desc');
+                $query->where('type', 'smm')
+                    ->where('is_hidden', false)
+                    ->where('is_archived', false)
+                    ->orderBy('created_at', 'desc');
             }, 'boards.creator', 'boards.members', 'members'])
             ->get();
+
+        $user = auth()->user();
+        $userId = $user->id;
+        $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
+        $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
+
+        foreach ($workspaces as $workspace) {
+            $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($userId, $workspace, $isBypassed) {
+                if ($isBypassed) return true;
+                if ($workspace->owner_id === $userId) return true;
+                if ($board->created_by === $userId) return true;
+                return $board->members->contains('id', $userId);
+            }));
+        }
 
         // Pass all possible members (assuming digital team logic) for the workspace modal if needed
         $possibleWorkspaceMembers = \App\Models\User::role(['admin', 'admin-digital', 'digital-team', 'boss'])->get();
 
-        $hiddenBoardsFn = function() {
-            return \App\Models\Board::where('is_hidden', true)->where('type', 'smm')->with('workspace')->get();
+        $workspaceIds = $workspaces->pluck('id');
+        $hiddenBoardsFn = function() use ($workspaceIds) {
+            return \App\Models\Board::where('is_hidden', true)->where('type', 'smm')->whereIn('workspace_id', $workspaceIds)->with('workspace')->get();
         };
         $trashedWorkspacesFn = function() {
             return collect(); // SMM workspace is fixed, no need to show trashed workspaces here
@@ -90,7 +108,7 @@ class SmmPlanningBoardController extends Controller
         ]);
 
         // Auto-create default lists
-        $defaultLists = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Final Captions'];
+        $defaultLists = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Final Captions', 'Block/Waiting'];
         foreach ($defaultLists as $index => $listName) {
             BoardList::create([
                 'board_id' => $board->id,
@@ -169,6 +187,15 @@ class SmmPlanningBoardController extends Controller
     {
         abort_unless($board->type === 'smm', 403);
         $board->update(['is_hidden' => !$board->is_hidden]);
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $board->is_hidden ? 'Board hidden successfully.' : 'Board unhidden successfully.',
+                'is_hidden' => $board->is_hidden
+            ]);
+        }
+
         return back()->with('success', 'Board visibility updated.');
     }
 
@@ -176,6 +203,14 @@ class SmmPlanningBoardController extends Controller
     {
         abort_unless($board->type === 'smm', 403);
         $board->delete();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Board deleted successfully.'
+            ]);
+        }
+
         return back()->with('success', 'Board deleted successfully.');
     }
 }

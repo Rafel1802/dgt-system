@@ -106,7 +106,7 @@
               <div class="flex gap-2 mt-2">
                 <img src="{{ auth()->user()->avatar_url }}" class="avatar avatar-sm flex-shrink-0">
                 <div class="flex-1 flex gap-2">
-                  <textarea x-model="newComment" rows="2" class="form-input text-sm flex-1" placeholder="Write a comment…" @keydown.ctrl.enter="submitComment(detailCard.card.id)"></textarea>
+                  <textarea x-model="newComment" rows="4" class="form-input text-sm flex-1" placeholder="Write a comment…" @keydown.ctrl.enter="submitComment(detailCard.card.id)"></textarea>
                   <button @click="submitComment(detailCard.card.id)" :disabled="commentLoading" class="btn btn-primary self-end">
                     <span x-show="!commentLoading">Send</span>
                     <span x-show="commentLoading" x-cloak>…</span>
