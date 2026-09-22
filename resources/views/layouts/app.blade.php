@@ -76,7 +76,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             opacity: 1 !important;
         }
 
-        /* Global Dark Mode Contrast Overrides */
+        /* Global Dark & Neon Mode Contrast Overrides */
         [data-theme="dark"] .bg-slate-50\/50 {
             background-color: rgba(30, 41, 59, 0.4) !important;
         }
@@ -88,6 +88,100 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }
         [data-theme="dark"] .text-slate-700 {
             color: #cbd5e1 !important;
+        }
+
+        [data-theme="neon"] .bg-slate-50\/50,
+        [data-theme="neon"] .bg-slate-50\/40 {
+            background-color: rgba(4, 22, 64, 0.6) !important;
+        }
+        [data-theme="neon"] .border-slate-200 {
+            border-color: rgba(0, 160, 255, 0.35) !important;
+        }
+        [data-theme="neon"] .text-slate-700 {
+            color: #bae6fd !important;
+        }
+
+        /* ─── Notification Toast Styles for Dark & Neon Modes ─── */
+        [data-theme="dark"] .dgt-notification-toast {
+            background-color: rgba(15, 23, 42, 0.95) !important;
+            border-color: rgba(51, 65, 85, 0.8) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7) !important;
+        }
+        [data-theme="dark"] .dgt-notification-toast .toast-actor {
+            color: #f8fafc !important;
+        }
+        [data-theme="dark"] .dgt-notification-toast .toast-time {
+            color: #94a3b8 !important;
+        }
+        [data-theme="dark"] .dgt-notification-toast .toast-body {
+            color: #cbd5e1 !important;
+        }
+        [data-theme="dark"] .dgt-notification-toast .toast-badge {
+            background-color: rgba(49, 46, 129, 0.5) !important;
+            border-color: rgba(99, 102, 241, 0.4) !important;
+            color: #a5b4fc !important;
+        }
+        [data-theme="dark"] .dgt-notification-toast .toast-close-btn {
+            color: #94a3b8 !important;
+        }
+        [data-theme="dark"] .dgt-notification-toast .toast-close-btn:hover {
+            color: #ffffff !important;
+            background-color: rgba(51, 65, 85, 0.5) !important;
+        }
+        [data-theme="dark"] .dgt-notification-toast .toast-avatar {
+            border-color: rgba(51, 65, 85, 0.8) !important;
+        }
+
+        [data-theme="neon"] .dgt-notification-toast {
+            background: linear-gradient(135deg, rgba(4, 24, 68, 0.96) 0%, rgba(2, 14, 44, 0.98) 100%) !important;
+            border: 1px solid rgba(0, 162, 255, 0.45) !important;
+            color: #f0f9ff !important;
+            box-shadow: 0 20px 45px -10px rgba(0, 5, 20, 0.85), 0 0 25px rgba(0, 162, 255, 0.25), inset 0 1px 0 rgba(56, 189, 248, 0.35) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+        }
+        [data-theme="neon"] .dgt-notification-toast:hover {
+            border-color: rgba(0, 210, 255, 0.75) !important;
+            box-shadow: 0 25px 50px -10px rgba(0, 5, 20, 0.95), 0 0 35px rgba(0, 195, 255, 0.35), inset 0 1px 0 rgba(56, 189, 248, 0.5) !important;
+        }
+        [data-theme="neon"] .dgt-notification-toast .toast-actor {
+            color: #ffffff !important;
+            text-shadow: 0 0 12px rgba(0, 162, 255, 0.5);
+        }
+        [data-theme="neon"] .dgt-notification-toast .toast-time {
+            color: #7dd3fc !important;
+        }
+        [data-theme="neon"] .dgt-notification-toast .toast-body {
+            color: #bae6fd !important;
+        }
+        [data-theme="neon"] .dgt-notification-toast .toast-badge {
+            background-color: rgba(0, 140, 255, 0.2) !important;
+            border-color: rgba(0, 195, 255, 0.55) !important;
+            color: #38bdf8 !important;
+            box-shadow: 0 0 12px rgba(0, 160, 255, 0.25) !important;
+        }
+        [data-theme="neon"] .dgt-notification-toast .toast-close-btn {
+            color: #7dd3fc !important;
+        }
+        [data-theme="neon"] .dgt-notification-toast .toast-close-btn:hover {
+            color: #ffffff !important;
+            background-color: rgba(0, 162, 255, 0.25) !important;
+        }
+        [data-theme="neon"] .dgt-notification-toast .toast-avatar {
+            border-color: rgba(0, 162, 255, 0.5) !important;
+            box-shadow: 0 0 12px rgba(0, 162, 255, 0.35) !important;
+        }
+
+        /* ─── Notification Dropdown in Neon Mode ─── */
+        [data-theme="neon"] .notif-panel {
+            background: linear-gradient(180deg, rgba(4, 20, 56, 0.98) 0%, rgba(2, 12, 36, 0.98) 100%) !important;
+            border-color: rgba(0, 160, 255, 0.35) !important;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 162, 255, 0.2) !important;
+        }
+        [data-theme="neon"] .notif-panel .border-b {
+            background: rgba(2, 10, 30, 0.95) !important;
+            border-color: rgba(0, 160, 255, 0.25) !important;
         }
     </style>
     <script type="module">
@@ -405,12 +499,28 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }
     </script>
 
-    <!-- Prevent dark mode flash (FOUC) -->
+    <!-- Prevent theme flash (FOUC) -->
     <script>
         (function() {
             try {
-                if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                    document.documentElement.setAttribute('data-theme', 'dark');
+                const storedTheme = localStorage.getItem('theme');
+                const storedNeon = localStorage.getItem('dgt_neon_mode');
+                let theme = storedTheme;
+                let neon = storedNeon === 'true';
+
+                if (storedTheme === 'neon') {
+                    theme = 'dark';
+                    neon = true;
+                } else if (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                }
+
+                if (theme === 'dark') {
+                    if (neon) {
+                        document.documentElement.setAttribute('data-theme', 'neon');
+                    } else {
+                        document.documentElement.setAttribute('data-theme', 'dark');
+                    }
                 } else {
                     document.documentElement.removeAttribute('data-theme');
                 }
@@ -586,6 +696,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Navigation -->
             <nav class="sidebar-nav" role="navigation">
+                @php
+                    $currentUser = auth()->user();
+                    $isQcUser = $currentUser && ($currentUser->isQc() || $currentUser->hasRole('qc') || str_contains(strtolower($currentUser->name ?? ''), 'dara') || str_contains(strtolower($currentUser->team_role ?? ''), 'qc'));
+                    $canSeeApprovalQueue = ($currentUser?->can('kanban.approve') ?? false) && !$isQcUser;
+                    $userPlanningBoards = $currentUser ? $currentUser->getPlanningBoardsWithTaskCounts() : collect();
+                @endphp
 
                 <!-- Main -->
                 @can('dashboard.view')
@@ -645,7 +761,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     $sidebarSystemTools = \App\Models\Setting::externalToolsForGroup('generator', true);
                     $sidebarWorkspaceTools = \App\Models\Setting::externalToolsForGroup('workspace', true);
                     $sidebarAiTools = \App\Models\Setting::externalToolsForGroup('ai', true);
-                    $canSeeApprovalQueue = auth()->user()?->can('kanban.approve');
                 ?>
 
                 <a href="{{ route('boards.workspaces') }}"
@@ -771,6 +886,32 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </svg>
                     <span>Approval Queue</span>
                 </a>
+                @elseif(isset($userPlanningBoards) && $userPlanningBoards->isNotEmpty())
+                    @php
+                        $totalUserTasks = $userPlanningBoards->sum('user_tasks_count');
+                        $hasDueTomorrow = $userPlanningBoards->sum('due_tomorrow_count') > 0;
+                    @endphp
+                    <a href="{{ route('tasks.count') }}"
+                       class="sidebar-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
+                       id="nav-tasks-count" data-tooltip="Tasks Count">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                        </svg>
+                        <span>Tasks Count</span>
+                        @if($totalUserTasks > 0)
+                        <span class="ml-auto flex items-center gap-1.5 shrink-0">
+                            @if($hasDueTomorrow)
+                                <span class="relative flex h-2 w-2" title="Tasks due in 1 day (tomorrow)">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
+                            @endif
+                            <span class="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                {{ $totalUserTasks }}
+                            </span>
+                        </span>
+                        @endif
+                    </a>
                 @endif
 
                 @if(auth()->user()->isQcOrSupervisor())
@@ -1144,6 +1285,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </svg>
                             My Profile
                         </a>
+                        <!-- Neon Theme Switcher Item -->
+                        <button type="button" @click="toggleNeonTheme()" class="dropdown-item w-full text-left hover:!bg-sky-600 hover:!text-white group flex items-center justify-between" role="menuitem" id="menu-neon-toggle">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-cyan-400 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
+                                </svg>
+                                <span x-text="isNeon ? 'Switch to Normal Theme' : 'Switch to Neon Theme'">Switch to Neon Theme</span>
+                            </span>
+                            <span x-show="isNeon" class="text-[9px] px-1.5 py-0.2 rounded-full font-black bg-cyan-400/20 text-cyan-300 border border-cyan-400/40">ACTIVE</span>
+                            <span x-show="!isNeon" class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">NEW</span>
+                        </button>
                         <a href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="menu-settings">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/>
@@ -1269,17 +1421,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </div>
 
                     <!-- Dark Mode Pill Toggle (desktop) -->
-                    <div class="theme-pill-toggle" @click="toggleTheme()" :title="theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'" role="button" tabindex="0" @keydown.enter="toggleTheme()" @keydown.space.prevent="toggleTheme()" aria-label="Toggle dark mode" id="topbar-theme-toggle">
+                    <div class="theme-pill-toggle cursor-pointer select-none" @click="toggleTheme()" :title="theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'" role="button" tabindex="0" @keydown.enter="toggleTheme()" @keydown.space.prevent="toggleTheme()" aria-label="Toggle dark mode" id="topbar-theme-toggle">
                         <!-- Sun icon -->
-                        <span class="theme-pill-icon" :class="{ 'active': theme !== 'dark' }">
+                        <span class="theme-pill-icon" :class="{ 'active': theme !== 'dark' }" @click.stop="setTheme('light')" title="Switch to Light mode">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
                             </svg>
                         </span>
                         <!-- Sliding knob -->
-                        <span class="theme-pill-knob"></span>
+                        <span class="theme-pill-knob" :class="{ 'dark-knob': theme === 'dark' }"></span>
                         <!-- Moon icon -->
-                        <span class="theme-pill-icon" :class="{ 'active': theme === 'dark' }">
+                        <span class="theme-pill-icon" :class="{ 'active': theme === 'dark' }" @click.stop="setTheme('dark')" title="Switch to Dark mode">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
                             </svg>
@@ -1786,6 +1938,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 </svg>
                                 My Profile
                             </a>
+                            <!-- Neon Theme Switcher Item -->
+                            <button type="button" @click="toggleNeonTheme()" class="dropdown-item w-full text-left hover:!bg-sky-600 hover:!text-white group flex items-center justify-between" role="menuitem" id="topbar-menu-neon-toggle">
+                                <span class="flex items-center gap-2">
+                                    <svg class="h-4 w-4 text-cyan-400 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
+                                    </svg>
+                                    <span x-text="isNeon ? 'Switch to Normal Theme' : 'Switch to Neon Theme'">Switch to Neon Theme</span>
+                                </span>
+                                <span x-show="isNeon" class="text-[9px] px-1.5 py-0.2 rounded-full font-black bg-cyan-400/20 text-cyan-400 border border-cyan-400/40">ACTIVE</span>
+                                <span x-show="!isNeon" class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">NEW</span>
+                            </button>
                             <a href="{{ route('settings') }}" class="dropdown-item hover:!bg-indigo-600 hover:!text-white" role="menuitem" id="topbar-menu-settings">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87l.22.127c.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992v.255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124l-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87l-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991v-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124l.22-.128c.332-.183.582-.495.644-.869l.214-1.28Z"/>
@@ -1878,8 +2041,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </a>
             @endcan
 
-            <!-- Boss specific items -->
-            @if(auth()->user()?->hasRole('boss'))
+            @if($canSeeApprovalQueue)
                 <!-- Approval Queue -->
                 <a href="{{ route('approvals.index') }}"
                    class="mobile-nav-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
@@ -1890,6 +2052,25 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </span>
                     <span class="mobile-nav-label">Approval</span>
+                </a>
+            @elseif(isset($userPlanningBoards) && $userPlanningBoards->isNotEmpty())
+                @php
+                    $mobileTasksCount = $userPlanningBoards->sum('user_tasks_count');
+                    $mobileHasDueTomorrow = $userPlanningBoards->sum('due_tomorrow_count') > 0;
+                @endphp
+                <!-- Tasks Count -->
+                <a href="{{ route('tasks.count') }}"
+                   class="mobile-nav-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
+                   aria-label="Tasks Count">
+                    <span class="mobile-nav-icon relative">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                        </svg>
+                        @if($mobileTasksCount > 0)
+                            <span class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full {{ $mobileHasDueTomorrow ? 'bg-amber-500' : 'bg-indigo-600' }} text-white text-[9px] font-bold flex items-center justify-center">{{ $mobileTasksCount }}</span>
+                        @endif
+                    </span>
+                    <span class="mobile-nav-label">Tasks Count</span>
                 </a>
             @endif
 
@@ -2194,7 +2375,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         if (!container) return;
 
         const toast = document.createElement('div');
-        toast.className = `flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold text-white pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 border border-white/10 backdrop-blur-xl ${
+        toast.className = `dgt-notification-toast flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold text-white pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 border border-white/10 backdrop-blur-xl ${
             type === 'success' ? 'bg-slate-950/90' : type === 'error' ? 'bg-rose-950/90' : 'bg-slate-900/90'
         }`;
         toast.innerHTML = `
@@ -2228,7 +2409,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
         const appLogo = data.app_logo || '/favicon.svg';
         const toast = document.createElement('div');
-        toast.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
+        toast.className = 'dgt-notification-toast flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 dark:bg-slate-900/95 dark:text-slate-100 dark:border-slate-700/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 max-w-sm cursor-pointer hover:border-slate-300/80 dark:hover:border-slate-600 select-none backdrop-blur-2xl ring-1 ring-slate-900/5 dark:ring-white/10';
         
         const actorName = data.actor_name || 'System';
         const avatar = data.actor_avatar || window.dgtInitialsAvatar(actorName);
@@ -2239,21 +2420,21 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             ? window.dgtShortenNotificationText(actionRaw, 100)
             : actionRaw;
         const cardTitleMarkup = data.card_title 
-            ? `<span class="mt-2 inline-flex max-w-full rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-black text-indigo-700">${window.dgtEscapeHtml(data.card_title)}</span>`
+            ? `<span class="toast-badge mt-2 inline-flex max-w-full rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-black text-indigo-700">${window.dgtEscapeHtml(data.card_title)}</span>`
             : '';
         
         toast.innerHTML = `
             <div class="flex-shrink-0 flex items-center gap-2">
                 <img src="${appLogo}" alt="App" class="h-6 w-6 rounded" />
-                <img src="${avatar}" class="h-6 w-6 rounded-full object-cover ring-1 ring-slate-200" alt="" />
+                <img src="${avatar}" class="toast-avatar h-6 w-6 rounded-full object-cover ring-1 ring-slate-200" alt="" />
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                    <p class="truncate text-sm font-black text-slate-900">${window.dgtEscapeHtml(actorName)}</p>
-                    <span class="ml-auto text-[10px] font-bold text-slate-500">${window.dgtEscapeHtml(time)}</span>
+                    <p class="toast-actor truncate text-sm font-black text-slate-900">${window.dgtEscapeHtml(actorName)}</p>
+                    <span class="toast-time ml-auto text-[10px] font-bold text-slate-500">${window.dgtEscapeHtml(time)}</span>
                 </div>
-                <p class="mt-2 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(actionRaw)}">${window.dgtEscapeHtml(actionText)}</p>
-                ${subject && !data.card_title ? `<span class="mt-2 inline-flex max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700">${window.dgtEscapeHtml(subject)}</span>` : cardTitleMarkup}
+                <p class="toast-body mt-2 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(actionRaw)}">${window.dgtEscapeHtml(actionText)}</p>
+                ${subject && !data.card_title ? `<span class="toast-badge mt-2 inline-flex max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700">${window.dgtEscapeHtml(subject)}</span>` : cardTitleMarkup}
             </div>
             <button class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all" aria-label="Close">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
@@ -2352,11 +2533,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
         const actorName = data.actor_name || 'DIGITAL SYSTEM';
         const avatarHtml = data.actor_avatar 
-            ? `<img src="${data.actor_avatar}" class="h-9 w-9 rounded-full object-cover ring-1 ring-slate-200 shadow-sm" alt="" />`
-            : `<div class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-lg shadow-sm ring-1 ring-slate-200">${icon}</div>`;
+            ? `<img src="${data.actor_avatar}" class="toast-avatar h-9 w-9 rounded-full object-cover ring-1 ring-slate-200 shadow-sm" alt="" />`
+            : `<div class="toast-avatar flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-lg shadow-sm ring-1 ring-slate-200">${icon}</div>`;
 
         const card = document.createElement('div');
-        card.className = 'flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 max-w-sm cursor-pointer hover:border-slate-300/80 select-none backdrop-blur-2xl ring-1 ring-slate-900/5';
+        card.className = 'dgt-notification-toast flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 dark:bg-slate-900/95 dark:text-slate-100 dark:border-slate-700/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 max-w-sm cursor-pointer hover:border-slate-300/80 dark:hover:border-slate-600 select-none backdrop-blur-2xl ring-1 ring-slate-900/5 dark:ring-white/10';
         if (normId) card.dataset.notificationId = normId;
 
         card.innerHTML = `
@@ -2365,10 +2546,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                    <p class="truncate text-sm font-black text-slate-900">${window.dgtEscapeHtml(actorName)}</p>
-                    <span class="ml-auto text-[10px] font-bold text-slate-500">now</span>
+                    <p class="toast-actor truncate text-sm font-black text-slate-900">${window.dgtEscapeHtml(actorName)}</p>
+                    <span class="toast-time ml-auto text-[10px] font-bold text-slate-500">now</span>
                 </div>
-                <p class="mt-1.5 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(data.message || 'New update')}">${window.dgtEscapeHtml(shortMessage)}</p>
+                <p class="toast-body mt-1.5 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(data.message || 'New update')}">${window.dgtEscapeHtml(shortMessage)}</p>
             </div>
             <button class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all" aria-label="Close">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
@@ -3423,9 +3604,36 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 
                 init() {
                     // Only check if user is logged in
-                    if (document.querySelector('meta[name="csrf-token"]')) {
-                        this.checkAd();
+                    if (!document.querySelector('meta[name="csrf-token"]')) return;
+
+                    // Clean up any existing timer from previous SPA visit
+                    if (this.checkInterval) {
+                        clearTimeout(this.checkInterval);
+                        this.checkInterval = null;
                     }
+
+                    // Quick client-side check against localStorage before hitting API
+                    const lastActiveId = localStorage.getItem('dgt_popup_ad_last_active_id');
+                    if (lastActiveId) {
+                        // If user has already clicked this ad, never show it again
+                        if (localStorage.getItem('dgt_popup_ad_clicked_' + lastActiveId) === 'true') {
+                            return;
+                        }
+
+                        const lastShown = parseInt(localStorage.getItem('dgt_popup_ad_last_shown_' + lastActiveId) || '0', 10);
+                        const intervalMins = Math.max(1, parseInt(localStorage.getItem('dgt_popup_ad_interval_' + lastActiveId) || '5', 10));
+                        const elapsedMs = Date.now() - lastShown;
+                        const intervalMs = intervalMins * 60 * 1000;
+
+                        // If interval has not passed yet, set timer for remaining time and avoid popping up prematurely
+                        if (lastShown > 0 && elapsedMs < intervalMs) {
+                            const remainingMs = intervalMs - elapsedMs;
+                            this.startTimerMs(remainingMs);
+                            return;
+                        }
+                    }
+
+                    this.checkAd();
                 },
                 
                 async checkAd() {
@@ -3439,10 +3647,31 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         const data = await response.json();
                         
                         if (data && data.ad) {
-                            this.ad = data.ad;
-                            this.showAd();
+                            const ad = data.ad;
+                            const adId = ad.id;
+                            localStorage.setItem('dgt_popup_ad_last_active_id', adId.toString());
+
+                            // If user clicked it in localStorage, do not show
+                            if (localStorage.getItem('dgt_popup_ad_clicked_' + adId) === 'true') {
+                                return;
+                            }
+
+                            // Check localStorage interval to prevent 5s re-popups on SPA navigation
+                            const lastShown = parseInt(localStorage.getItem('dgt_popup_ad_last_shown_' + adId) || '0', 10);
+                            const intervalMins = Math.max(1, parseInt(ad.interval_minutes, 10) || 5);
+                            localStorage.setItem('dgt_popup_ad_interval_' + adId, intervalMins.toString());
+                            const elapsedMs = Date.now() - lastShown;
+                            const intervalMs = intervalMins * 60 * 1000;
+
+                            if (lastShown > 0 && elapsedMs < intervalMs) {
+                                const remainingMs = intervalMs - elapsedMs;
+                                this.startTimerMs(remainingMs);
+                                return;
+                            }
+
+                            this.showAd(ad);
                         } else {
-                            // No ad to show right now. Check again in 5 mins just in case.
+                            // No ad available right now. Check again in 5 mins
                             this.startTimer(5);
                         }
                     } catch (error) {
@@ -3451,69 +3680,99 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     }
                 },
                 
-                showAd() {
+                showAd(ad) {
+                    this.ad = ad;
+                    const adId = ad.id;
+                    const intervalMins = Math.max(1, parseInt(ad.interval_minutes, 10) || 5);
+
+                    // Record last shown timestamp in localStorage
+                    localStorage.setItem('dgt_popup_ad_last_shown_' + adId, Date.now().toString());
+                    localStorage.setItem('dgt_popup_ad_interval_' + adId, intervalMins.toString());
+
                     this.showModal = true;
                     
                     // Show notification toast if it has text
-                    if (this.ad.notification_text && window.Notyf) {
+                    if (ad.notification_text && window.Notyf) {
                         const notyf = new Notyf({
                             duration: 5000,
                             position: { x: 'right', y: 'top' },
                         });
                         notyf.success({
-                            message: `<b>${this.ad.notification_icon || '🔔'} ${this.ad.notification_text}</b>`,
+                            message: `<b>${ad.notification_icon || '🔔'} ${ad.notification_text}</b>`,
                             background: '#4f46e5'
                         });
                     }
                     
                     // Mark as shown in DB
+                    const token = document.querySelector('meta[name="csrf-token"]')?.content;
                     fetch('/api/popup-ads/mark-shown', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                            'X-CSRF-TOKEN': token,
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
                         },
-                        body: JSON.stringify({ ad_id: this.ad.id })
-                    });
+                        body: JSON.stringify({ ad_id: adId })
+                    }).catch(err => console.error('Error marking ad shown:', err));
                 },
                 
                 closeModal() {
                     this.showModal = false;
-                    // Start timer to show again based on interval_minutes
-                    this.startTimer(this.ad.interval_minutes);
-                },
-                
-                async clickAd() {
-                    // Mark as clicked in DB
-                    try {
-                        await fetch('/api/popup-ads/mark-clicked', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                            },
-                            body: JSON.stringify({ ad_id: this.ad.id })
-                        });
-                        
-                        this.showModal = false;
-                        if (this.checkInterval) clearTimeout(this.checkInterval);
-                        
-                        // Open link
-                        if (this.ad && this.ad.button_link) {
-                            window.open(this.ad.button_link, '_blank');
-                        }
-
-                        this.ad = null;
-                    } catch (e) {
-                        console.error('Error marking ad as clicked', e);
+                    const intervalMins = this.ad ? (Math.max(1, parseInt(this.ad.interval_minutes, 10) || 5)) : 5;
+                    if (this.ad) {
+                        localStorage.setItem('dgt_popup_ad_last_shown_' + this.ad.id, Date.now().toString());
                     }
+                    // Start timer to check again based on interval
+                    this.startTimer(intervalMins);
                 },
                 
-                startTimer(minutes) {
+                clickAd() {
+                    if (!this.ad) return;
+                    const adId = this.ad.id;
+                    const link = this.ad.button_link;
+
+                    // 1. Permanently record clicked state in localStorage so it NEVER shows again in this browser
+                    localStorage.setItem('dgt_popup_ad_clicked_' + adId, 'true');
+
+                    // 2. Hide modal and clear interval immediately
+                    this.showModal = false;
+                    if (this.checkInterval) {
+                        clearTimeout(this.checkInterval);
+                        this.checkInterval = null;
+                    }
+
+                    // 3. Open link synchronously in click handler to prevent browser popup blockers
+                    if (link) {
+                        window.open(link, '_blank', 'noopener,noreferrer');
+                    }
+
+                    // 4. Mark as clicked in DB
+                    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+                    fetch('/api/popup-ads/mark-clicked', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': token,
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ ad_id: adId })
+                    }).catch(err => console.error('Error marking ad clicked:', err));
+
+                    this.ad = null;
+                },
+                
+                startTimerMs(ms) {
                     if (this.checkInterval) clearTimeout(this.checkInterval);
                     this.checkInterval = setTimeout(() => {
                         this.checkAd();
-                    }, minutes * 60 * 1000);
+                    }, Math.max(1000, ms));
+                },
+
+                startTimer(minutes) {
+                    const mins = Math.max(1, parseInt(minutes, 10) || 5);
+                    this.startTimerMs(mins * 60 * 1000);
                 }
             }));
 

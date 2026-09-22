@@ -15,14 +15,14 @@
        @click="closeMemberPicker()"></div>
 
   {{-- Panel --}}
-  <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden"
+  <div class="member-picker-modal-panel relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden"
        x-transition:enter="transition ease-out duration-150"
        x-transition:enter-start="opacity-0 scale-95"
        x-transition:enter-end="opacity-100 scale-100"
        @click.stop>
 
     {{-- Header --}}
-    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+    <div class="member-picker-modal-header flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/60">
       <h3 class="text-xs font-black text-slate-700 tracking-wide uppercase">👥 Members</h3>
       <button @click="closeMemberPicker()"
               class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">

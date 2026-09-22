@@ -129,7 +129,19 @@ class Board extends Model
         $val = $this->cover_value ?? $this->background_value;
 
         if ($type === 'image' && $val) {
-            return "background-image: url('{$val}'); background-color: #6366f1; background-size: cover; background-position: center;";
+            $url = $val;
+            if (str_contains($url, 'images.unsplash.com')) {
+                $url = preg_replace('/w=\d+/', 'w=1600', $url);
+                $url = preg_replace('/q=\d+/', 'q=90', $url);
+                $url = preg_replace('/dpr=\d+/', 'dpr=2', $url);
+                if (!str_contains($url, 'dpr=')) {
+                    $url .= (str_contains($url, '?') ? '&' : '?') . 'dpr=2';
+                }
+                if (!str_contains($url, 'w=')) {
+                    $url .= (str_contains($url, '?') ? '&' : '?') . 'w=1600&q=90';
+                }
+            }
+            return "background-image: url('{$url}'); background-color: #030e2e; background-size: cover; background-position: center; background-repeat: no-repeat; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;";
         }
         if ($type === 'color' && $val) {
             return "background-color: {$val};";

@@ -85,6 +85,55 @@
         box-shadow: 0 20px 40px -10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
     }
 
+    /* ─── Neon Blue Theme for Bento Dashboard ─── */
+    [data-theme="neon"] .bg-animated-mesh {
+        background: #02081c !important;
+    }
+    [data-theme="neon"] .blob-1 {
+        background: radial-gradient(circle, rgba(0, 119, 255, 0.28) 0%, rgba(2, 8, 28, 0) 70%) !important;
+    }
+    [data-theme="neon"] .blob-2 {
+        background: radial-gradient(circle, rgba(0, 210, 255, 0.22) 0%, rgba(2, 8, 28, 0) 70%) !important;
+    }
+    [data-theme="neon"] .bento-card {
+        background: rgba(4, 20, 56, 0.9) !important;
+        backdrop-filter: blur(24px) !important;
+        -webkit-backdrop-filter: blur(24px) !important;
+        border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+        box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.65), 0 0 20px rgba(0, 140, 255, 0.2), inset 0 1px 0 rgba(0, 210, 255, 0.25) !important;
+        color: #f0f9ff !important;
+    }
+    [data-theme="neon"] .bento-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(0, 220, 255, 0.75) !important;
+        box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.75), 0 0 30px rgba(0, 180, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+    }
+    [data-theme="neon"] .bento-card-primary {
+        background: linear-gradient(135deg, #0055ff 0%, #002b80 50%, #001440 100%) !important;
+        border: 1.5px solid rgba(0, 180, 255, 0.55) !important;
+        box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 140, 255, 0.35), inset 0 1px 0 rgba(0, 220, 255, 0.3) !important;
+    }
+    [data-theme="neon"] .bento-card-primary:hover {
+        box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.8), 0 0 35px rgba(0, 180, 255, 0.55) !important;
+    }
+    [data-theme="neon"] .text-gradient {
+        background-image: linear-gradient(135deg, #00f0ff, #38bdf8, #818cf8) !important;
+    }
+    [data-theme="neon"] .animate-text-gradient {
+        background: linear-gradient(to right, #00f0ff, #60a5fa, #00e5ff) !important;
+        -webkit-background-clip: text !important;
+        background-clip: text !important;
+    }
+    [data-theme="neon"] .bg-white\/80 {
+        background-color: rgba(4, 20, 56, 0.9) !important;
+        border-color: rgba(0, 160, 255, 0.35) !important;
+    }
+    [data-theme="neon"] a[href*="tasks/count"].bg-white {
+        background-color: rgba(3, 14, 44, 0.95) !important;
+        border-color: rgba(0, 160, 255, 0.4) !important;
+        box-shadow: 0 0 15px rgba(0, 140, 255, 0.2) !important;
+    }
+
     /* Hero Gradient Text */
     .text-gradient {
         background-clip: text;
@@ -162,6 +211,12 @@
                         View Profile
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd" /></svg>
                     </a>
+                    @if(($totalTasksCount ?? 0) > 0)
+                    <a href="{{ route('tasks.count') }}" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-white font-bold transition-colors backdrop-blur-md">
+                        <span>Tasks Count ({{ $totalTasksCount }})</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                    </a>
+                    @endif
                 </div>
             </div>
         </article>
@@ -203,6 +258,88 @@
         </article>
     </section>
 
+    {{-- ── Assigned Tasks & Deadline Warning Section (for planning board members) ── --}}
+    @if(($totalTasksCount ?? 0) > 0 || ($totalWarningCount ?? 0) > 0)
+    <section class="space-y-4">
+        {{-- Task Overview Quick Stats Bar --}}
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">Your Assigned Tasks</h3>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                            {{ $totalTasksCount }} total
+                        </span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Personal tasks overview across your team planning boards</p>
+                </div>
+            </div>
+
+            {{-- Stat Cards matching the user's uploaded images --}}
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                {{-- Total Tasks Card --}}
+                <a href="{{ route('tasks.count') }}" class="bg-white dark:bg-slate-900/90 rounded-2xl px-5 py-3.5 flex items-center gap-4 shadow-sm border border-slate-200/80 dark:border-slate-700 hover:scale-[1.02] transition-transform min-w-[8.5rem]">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">TOTAL TASKS</span>
+                        <span class="text-2xl font-black text-slate-900 dark:text-white">{{ $totalTasksCount }}</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
+                        </svg>
+                    </div>
+                </a>
+
+                {{-- Overdue Tasks Card --}}
+                @if(!empty($overdueCount) && $overdueCount > 0)
+                <a href="{{ route('tasks.count') }}" class="bg-rose-500 text-white rounded-2xl px-5 py-3.5 flex items-center gap-4 shadow-sm shadow-rose-500/20 border border-rose-400 hover:scale-[1.02] transition-transform min-w-[8.5rem]">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-rose-100">OVERDUE</span>
+                        <span class="text-2xl font-black text-white">{{ $overdueCount }}</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                        </svg>
+                    </div>
+                </a>
+                @endif
+
+                {{-- Due in 1 Day (Tomorrow) Card --}}
+                @if(!empty($dueTomorrowCount) && $dueTomorrowCount > 0)
+                <a href="{{ route('tasks.count') }}" class="bg-amber-500 text-white rounded-2xl px-5 py-3.5 flex items-center gap-4 shadow-sm shadow-amber-500/20 border border-amber-400 hover:scale-[1.02] transition-transform min-w-[8.5rem] animate-pulse">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-black uppercase tracking-wider text-amber-100">DUE IN 1 DAY</span>
+                        <span class="text-2xl font-black text-white">{{ $dueTomorrowCount }}</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                    </div>
+                </a>
+                @endif
+
+                {{-- Button to full Tasks Count page --}}
+                <a href="{{ route('tasks.count') }}" class="inline-flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 transition-all">
+                    <span>Tasks Count</span>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                </a>
+            </div>
+        </div>
+
+        {{-- Deadline Warning Alert Banner (Due in 1 Day / Today / Overdue) --}}
+        @if(!empty($totalWarningCount) && $totalWarningCount > 0)
+            @include('partials.deadline-warning-alert')
+        @endif
+    </section>
+    @endif
+
     <!-- Analytics Section -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <article class="bento-card p-6 sm:p-8">
@@ -236,52 +373,10 @@
         </article>
     </section>
 
-    <!-- Recent Activity -->
-    <section class="bento-card p-6 sm:p-8">
-        <div class="flex items-center justify-between mb-8">
-            <div>
-                <h3 class="text-xl font-black text-slate-900 dark:text-white">Recent Activities</h3>
-                <p class="text-sm font-medium text-slate-500">Live feed of what's happening across the system.</p>
-            </div>
-            <span class="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-black uppercase text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Audit Log</span>
-        </div>
-        
-        @php $recentActivities = $recentActivitiesFn(); @endphp
-        @if($recentActivities->isEmpty())
-            <div class="py-12 text-center bg-white/40 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
-                <svg class="mx-auto w-12 h-12 text-slate-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                <p class="text-base font-bold text-slate-700 dark:text-slate-300">No activity recorded yet</p>
-                <p class="mt-1 text-sm font-medium text-slate-500">System actions will stream here in real-time.</p>
-            </div>
-        @else
-            <div class="space-y-6 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
-                @foreach($recentActivities as $log)
-                    <div class="group flex items-start gap-4 p-4 rounded-2xl hover:bg-white/60 dark:hover:bg-slate-800/60 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
-                        <img src="{{ $log->user?->avatar_url ?? 'https://ui-avatars.com/api/?name=System&size=64&background=6366f1&color=fff' }}"
-                             alt="{{ $log->user?->name ?? 'System' }}"
-                             class="w-10 h-10 rounded-full object-cover shadow-sm ring-2 ring-white dark:ring-slate-800 flex-shrink-0">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm text-slate-700 dark:text-slate-300 leading-snug">
-                                <span class="font-bold text-slate-900 dark:text-white">{{ $log->user?->name ?? 'System' }}</span>
-                                {{ $log->description }}
-                            </p>
-                            <div class="mt-1.5 flex items-center gap-3 text-xs font-bold text-slate-400">
-                                <span class="flex items-center gap-1">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                                    {{ $log->created_at?->diffForHumans() ?? 'live' }}
-                                </span>
-                                @if($log->module)
-                                <span class="px-2 py-0.5 bg-slate-200/50 dark:bg-slate-700/50 rounded text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                    {{ $log->module }}
-                                </span>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        @endif
-    </section>
+    {{-- Approval Queue & Review Pipeline (Moved into Dashboard for QC / Approvers) --}}
+    @if(isset($approvalQueueData) && !empty($approvalQueueData))
+        @include('dashboard.partials.approval-queue', ['data' => $approvalQueueData])
+    @endif
 
 </div>
 @endsection
@@ -295,8 +390,9 @@ async function initDashboardCharts() {
     if (!window.Chart) return;
 
     Chart.defaults.font.family = "'Inter', sans-serif";
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
+    const isNeon = document.documentElement.getAttribute('data-theme') === 'neon';
+    const isDark = isNeon || document.documentElement.getAttribute('data-theme') === 'dark';
+    Chart.defaults.color = isNeon ? '#7dd3fc' : (isDark ? '#94a3b8' : '#64748b');
 
     const userChart = document.getElementById('dashboardUserChart');
     if (userChart) {
@@ -307,8 +403,12 @@ async function initDashboardCharts() {
                 labels: ['Active', 'Offline'],
                 datasets: [{
                     data: [{{ $onlineUsers }}, {{ $offlineUsers }}],
-                    backgroundColor: ['#6366f1', isDark ? '#334155' : '#e2e8f0'],
-                    borderWidth: 0,
+                    backgroundColor: [
+                        isNeon ? '#00e5ff' : '#6366f1', 
+                        isNeon ? '#0c2656' : (isDark ? '#334155' : '#e2e8f0')
+                    ],
+                    borderWidth: isNeon ? 1 : 0,
+                    borderColor: isNeon ? 'rgba(0, 220, 255, 0.4)' : 'transparent',
                     hoverOffset: 4,
                 }],
             },
@@ -319,13 +419,19 @@ async function initDashboardCharts() {
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: { usePointStyle: true, boxWidth: 8, padding: 20, font: { weight: 700 } },
+                        labels: { 
+                            usePointStyle: true, 
+                            boxWidth: 8, 
+                            padding: 20, 
+                            font: { weight: 700 },
+                            color: isNeon ? '#bae6fd' : undefined
+                        },
                     },
                     tooltip: {
-                        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-                        titleColor: isDark ? '#fff' : '#0f172a',
-                        bodyColor: isDark ? '#e2e8f0' : '#475569',
-                        borderColor: isDark ? '#334155' : '#e2e8f0',
+                        backgroundColor: isNeon ? 'rgba(3, 14, 44, 0.95)' : (isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)'),
+                        titleColor: '#fff',
+                        bodyColor: isNeon ? '#bae6fd' : (isDark ? '#e2e8f0' : '#475569'),
+                        borderColor: isNeon ? '#00c3ff' : (isDark ? '#334155' : '#e2e8f0'),
                         borderWidth: 1,
                         padding: 12,
                         cornerRadius: 12,
@@ -343,8 +449,13 @@ async function initDashboardCharts() {
         // Create gradient for bars
         const ctx = activityChart.getContext('2d');
         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, '#a855f7');
-        gradient.addColorStop(1, '#6366f1');
+        if (isNeon) {
+            gradient.addColorStop(0, '#00f0ff');
+            gradient.addColorStop(1, '#0066ff');
+        } else {
+            gradient.addColorStop(0, '#a855f7');
+            gradient.addColorStop(1, '#6366f1');
+        }
 
         new Chart(activityChart, {
             type: 'bar',
@@ -365,23 +476,33 @@ async function initDashboardCharts() {
                 scales: {
                     x: { 
                         grid: { display: false }, 
-                        ticks: { font: { weight: 600 } },
+                        ticks: { 
+                            font: { weight: 600 },
+                            color: isNeon ? '#7dd3fc' : undefined
+                        },
                         border: { display: false }
                     },
                     y: { 
                         beginAtZero: true, 
-                        ticks: { precision: 0, padding: 10 }, 
-                        grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', drawBorder: false },
+                        ticks: { 
+                            precision: 0, 
+                            padding: 10,
+                            color: isNeon ? '#7dd3fc' : undefined
+                        }, 
+                        grid: { 
+                            color: isNeon ? 'rgba(0, 160, 255, 0.15)' : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'), 
+                            drawBorder: false 
+                        },
                         border: { display: false }
                     },
                 },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-                        titleColor: isDark ? '#fff' : '#0f172a',
-                        bodyColor: isDark ? '#e2e8f0' : '#475569',
-                        borderColor: isDark ? '#334155' : '#e2e8f0',
+                        backgroundColor: isNeon ? 'rgba(3, 14, 44, 0.95)' : (isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)'),
+                        titleColor: '#fff',
+                        bodyColor: isNeon ? '#bae6fd' : (isDark ? '#e2e8f0' : '#475569'),
+                        borderColor: isNeon ? '#00c3ff' : (isDark ? '#334155' : '#e2e8f0'),
                         borderWidth: 1,
                         padding: 12,
                         cornerRadius: 12,

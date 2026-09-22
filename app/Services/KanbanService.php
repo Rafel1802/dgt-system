@@ -3,13 +3,17 @@
 namespace App\Services;
 
 use App\Enums\CardStatus;
+use App\Models\Board;
 use App\Models\Card;
 use App\Models\CardFile;
 use App\Models\User;
+use App\Models\Workspace;
 use App\Jobs\SendTaskApprovalEmailJob;
 use App\Jobs\SendTaskRejectionEmailJob;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -300,6 +304,259 @@ class KanbanService
             Card::where('id', $cardId)->where('status', $status->value)
                 ->update(['position' => $position + 1]);
         }
+    }
+
+    /**
+     * Team classification: checks the card's `label` field, Labels pivot, and SMM team label
+     */
+    public function matchesTeam(Card $card, string $keyword): bool
+    {
+        if (stripos($card->label ?? '', $keyword) !== false) {
+            return true;
+        }
+        if ($card->relationLoaded('labels') &&
+            $card->labels->contains(fn($l) => stripos($l->name ?? '', $keyword) !== false)) {
+            return true;
+        }
+        if (stripos($card->smm_team_label ?? '', $keyword) !== false) {
+            return true;
+        }
+        if ($card->relationLoaded('board') && $card->board) {
+            if (stripos($card->board->name ?? '', $keyword) !== false) {
+                return true;
+            }
+            if ($card->board->relationLoaded('workspace') && $card->board->workspace) {
+                if (stripos($card->board->workspace->name ?? '', $keyword) !== false) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get complete approval queue data & pipeline statistics (cached).
+     */
+    public function getApprovalQueueData(?array $selectedBoardIds = null, string $period = 'today', ?User $user = null): array
+    {
+        $user = $user ?? auth()->user();
+        $isQc = $user && ($user->isQc() || str_contains(strtolower($user->name ?? ''), 'dara') || str_contains(strtolower($user->team_role ?? ''), 'qc'));
+        $isSupervisor = $user && ($user->isSupervisorOrAdminDigital() || $user->isSupervisorRole()) && !$isQc;
+
+        // Available workflow boards (with an "Approved" list)
+        $availableBoards = Board::with('workspace')
+            ->where('is_archived', false)
+            ->whereHas('lists', fn($q) => $q->where('name', 'like', '%Approved%'))
+            ->get()
+            ->groupBy(function($board) {
+                if (stripos($board->name, 'Workflow') !== false) {
+                    return $board->workspace_id . '_workflow';
+                }
+                return $board->id;
+            })
+            ->map(fn($boards) => $boards->sortByDesc('created_at')->first())
+            ->values()
+            ->sortBy('name');
+
+        if ($selectedBoardIds && count($selectedBoardIds) > 0) {
+            $selectedBoardIds = array_map('intval', $selectedBoardIds);
+        } else {
+            $selectedBoardIds = $availableBoards->pluck('id')->toArray();
+        }
+
+        [$rangeStart, $rangeEnd] = match($period) {
+            'week'  => [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()],
+            'month' => [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()],
+            default => [Carbon::now()->startOfDay(), Carbon::now()->endOfDay()],
+        };
+
+        $cacheKey = 'approval_stats_' . md5(json_encode($selectedBoardIds)) . '_' . $period;
+
+        $stats = Cache::remember($cacheKey, 10, function() use ($selectedBoardIds, $rangeStart, $rangeEnd) {
+            $activeCards = Card::with(['boardList', 'labels', 'board.workspace'])
+                ->whereIn('board_id', $selectedBoardIds)
+                ->whereNotNull('board_id')
+                ->whereHas('board')
+                ->where('is_archived', false)
+                ->get();
+
+            $getBreakdownForCards = function($cards) {
+                $graphicCount = $cards->filter(fn($c) => $this->matchesTeam($c, 'Graphic'))->count();
+                $videoCount   = $cards->filter(fn($c) => $this->matchesTeam($c, 'Video'))->count();
+                $listingCount = $cards->filter(fn($c) => $this->matchesTeam($c, 'Listing'))->count();
+                $contentCount = $cards->filter(fn($c) => $this->matchesTeam($c, 'Content'))->count();
+                $qcCount      = $cards->filter(fn($c) =>
+                    $this->matchesTeam($c, 'QC') || $this->matchesTeam($c, 'Text')
+                )->count();
+
+                return [
+                    'total'   => $graphicCount + $videoCount + $listingCount + $contentCount + $qcCount,
+                    'graphic' => $graphicCount,
+                    'video'   => $videoCount,
+                    'listing' => $listingCount,
+                    'content' => $contentCount,
+                    'qc'      => $qcCount,
+                    'smm'     => 0,
+                ];
+            };
+
+            $getBreakdown = function($keywords) use ($activeCards, $getBreakdownForCards) {
+                $keywords = (array) $keywords;
+                $cards = $activeCards->filter(function($c) use ($keywords) {
+                    $listName = $c->boardList?->name ?? '';
+                    foreach ($keywords as $kw) {
+                        if (stripos($listName, $kw) !== false) return true;
+                    }
+                    return false;
+                });
+                return $getBreakdownForCards($cards);
+            };
+
+            $urgentCards = $activeCards->filter(fn($c) =>
+                stripos($c->boardList?->name ?? '', 'Urgent') !== false
+            );
+            $urgent  = $getBreakdownForCards($urgentCards);
+            $overdue = $activeCards->filter(fn($c) => $c->isOverdue())->count();
+
+            $queryApproved = function(?Carbon $start = null, ?Carbon $end = null) use ($selectedBoardIds) {
+                $q = Card::with(['boardList', 'labels', 'board.workspace'])
+                    ->whereIn('board_id', $selectedBoardIds)
+                    ->whereHas('boardList', fn($bl) => $bl->where('name', 'like', '%Approved%'));
+
+                if ($start && $end) {
+                    $q->where(function ($query) use ($start, $end) {
+                        $query->whereBetween('approved_at', [$start, $end])
+                              ->orWhere(function ($sub) use ($start, $end) {
+                                  $sub->whereNull('approved_at')
+                                      ->whereBetween('updated_at', [$start, $end]);
+                              });
+                    });
+                }
+                return $q->get();
+            };
+
+            $approvedCards = $queryApproved($rangeStart, $rangeEnd);
+            $todayCards = $queryApproved(Carbon::now()->startOfDay(), Carbon::now()->endOfDay());
+            $weekCards = $queryApproved(Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek());
+            $monthCards = $queryApproved(Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth());
+            $allTimeCards = $queryApproved();
+
+            return [
+                'drafting'          => $getBreakdown(['Drafting', 'Draft', 'To do', 'Todo']),
+                'head_review'       => $getBreakdown(['Head Review']),
+                'qc_review'         => $getBreakdown(['QC', 'Text Review']),
+                'supervisor_review' => $getBreakdown(['Supervisor Review', 'Supervisor']),
+                'urgent'            => $urgent,
+                'overdue'           => $overdue,
+                'approved'          => $getBreakdownForCards($approvedCards),
+                'approved_today'    => $getBreakdownForCards($todayCards),
+                'approved_week'     => $getBreakdownForCards($weekCards),
+                'approved_month'    => $getBreakdownForCards($monthCards),
+                'approved_all'      => $getBreakdownForCards($allTimeCards),
+            ];
+        });
+
+        // Board Links
+        $boardLinks = [
+            'graphic' => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%Graphic%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+            'video'   => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%Video%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+            'listing' => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%Listing%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+            'content' => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%Conten%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+            'qc'      => Board::whereHas('workspace', fn($q) => $q->where('name', 'like', '%QC%'))->where('is_archived', false)->where('name', 'like', '%Workflow%')->latest()->first()?->slug,
+        ];
+
+        // SMM Planning Board Stats
+        $smmPlanningStats = [];
+        $teams = [
+            'graphic' => 'Graphic',
+            'video'   => 'Video',
+            'listing' => 'Listing',
+            'content' => 'Conten',
+            'qc'      => 'QC'
+        ];
+
+        foreach ($teams as $key => $workspaceName) {
+            $workspace = Workspace::where('name', 'like', "%{$workspaceName}%")->first();
+            if ($workspace) {
+                $planningBoard = Board::where('workspace_id', $workspace->id)
+                    ->where('name', 'like', '%Planning%')
+                    ->where('is_archived', false)
+                    ->where('is_hidden', false)
+                    ->latest()
+                    ->first();
+
+                if ($planningBoard) {
+                    $teamCards = Card::where('board_id', $planningBoard->id)->with('boardList')->get();
+                    $smmPlanningStats[$key] = [
+                        'name' => str_replace('Conten', 'Content', $workspaceName),
+                        'board_name' => $planningBoard->name,
+                        'board_slug' => $planningBoard->slug,
+                        'weeks' => [],
+                    ];
+                    foreach (['Week 1', 'Week 2', 'Week 3', 'Week 4'] as $week) {
+                        $weekCards = $teamCards->filter(fn($c) => stripos($c->boardList?->name ?? '', $week) !== false);
+                        $smmPlanningStats[$key]['weeks'][$week] = [
+                            'approved'   => $weekCards->filter(fn($c) => $c->status === 'approved' || !empty($c->approved_at))->count(),
+                            'unapproved' => $weekCards->filter(fn($c) => $c->status !== 'approved' && empty($c->approved_at))->count(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Pending cards for user review queue
+        $pendingCardsQuery = Card::with([
+            'boardList',
+            'board.workspace',
+            'creator:id,name,avatar',
+            'assignees:id,name,avatar',
+            'labels',
+        ])
+        ->whereIn('board_id', $selectedBoardIds)
+        ->whereHas('board')
+        ->where('is_archived', false);
+
+        if ($isQc) {
+            $pendingCardsQuery->whereHas('boardList', function($q) {
+                $q->where('name', 'like', '%QC%')
+                  ->orWhere('name', 'like', '%Text Review%');
+            });
+        } else {
+            $pendingCardsQuery->whereHas('boardList', function($q) {
+                $q->where('name', 'like', '%Supervisor Review%')
+                  ->orWhere('name', 'like', '%Supervisor%');
+            });
+        }
+
+        $pendingCards = $pendingCardsQuery
+            ->orderByRaw("CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END")
+            ->orderBy('deadline')
+            ->orderBy('created_at')
+            ->limit($isSupervisor ? 500 : 30)
+            ->get();
+
+        $totalGraphic = ($stats['drafting']['graphic'] ?? 0) + ($stats['head_review']['graphic'] ?? 0) + ($stats['qc_review']['graphic'] ?? 0) + ($stats['supervisor_review']['graphic'] ?? 0);
+        $totalVideo   = ($stats['drafting']['video'] ?? 0) + ($stats['head_review']['video'] ?? 0) + ($stats['qc_review']['video'] ?? 0) + ($stats['supervisor_review']['video'] ?? 0);
+        $totalListing = ($stats['drafting']['listing'] ?? 0) + ($stats['head_review']['listing'] ?? 0) + ($stats['qc_review']['listing'] ?? 0) + ($stats['supervisor_review']['listing'] ?? 0);
+        $totalContent = ($stats['drafting']['content'] ?? 0) + ($stats['head_review']['content'] ?? 0) + ($stats['qc_review']['content'] ?? 0) + ($stats['supervisor_review']['content'] ?? 0);
+        $totalQc      = ($stats['drafting']['qc'] ?? 0) + ($stats['head_review']['qc'] ?? 0) + ($stats['qc_review']['qc'] ?? 0) + ($stats['supervisor_review']['qc'] ?? 0);
+
+        return [
+            'stats'            => $stats,
+            'availableBoards'  => $availableBoards,
+            'selectedBoardIds' => $selectedBoardIds,
+            'boardLinks'       => $boardLinks,
+            'smmPlanningStats' => $smmPlanningStats,
+            'pendingCards'     => $pendingCards,
+            'totalGraphic'     => $totalGraphic,
+            'totalVideo'       => $totalVideo,
+            'totalListing'     => $totalListing,
+            'totalContent'     => $totalContent,
+            'totalQc'          => $totalQc,
+            'isQc'             => $isQc,
+            'isSupervisor'     => $isSupervisor,
+            'period'           => $period,
+        ];
     }
 
     // ─── Private Helpers ──────────────────────────────────────────────────────

@@ -2802,6 +2802,7 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
         </div>
         <form action="{{ route('websites.followups.store') }}" method="POST" class="p-5 space-y-4" data-no-processing="true" x-data="{ 
             isSubmitting: false, 
+            submitProgressText: '',
             selectedType: 'blog_post', 
             customType: '',
             dateVal: '{{ now()->format('Y-m-d') }}',
@@ -2847,15 +2848,38 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
             if(selectedType === 'blog_post' && items.some(i => !i.url)) { alert('Please enter the blog URL for all follow ups.'); return; }
             if(isSubmitting) { return; }
             isSubmitting = true;
+            submitProgressText = 'Starting...';
 
-            const sendRequest = (forceOverwrite = false, skipSheetSync = false) => {
-                const formData = new FormData($el);
+            const postSingleItem = (item, forceOverwrite = false, skipSheetSync = false) => {
+                const formData = new FormData();
+                const tokenEl = $el.querySelector('input[name=_token]');
+                if (tokenEl && tokenEl.value) {
+                    formData.set('_token', tokenEl.value);
+                }
+                formData.set('type', selectedType);
+                if (selectedType === 'other' && customType) {
+                    formData.set('custom_type', customType);
+                }
+                if (assignedTo) {
+                    formData.set('assigned_to', assignedTo);
+                }
+                if (dateVal) {
+                    formData.set('created_at', dateVal);
+                }
                 if (forceOverwrite) {
                     formData.set('force_overwrite', '1');
                 }
                 if (skipSheetSync) {
                     formData.set('skip_sheet_sync', '1');
                 }
+                formData.set('items[0][website_id]', item.selectedId);
+                if (item.blogClass) {
+                    formData.set('items[0][blog_sheet_class]', item.blogClass);
+                }
+                if (item.url) {
+                    formData.set('items[0][url]', item.url);
+                }
+
                 return fetch($el.action, {
                     method: 'POST',
                     body: formData,
@@ -2866,7 +2890,20 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     try {
                         data = await res.json();
                     } catch (e) {
-                        throw new Error('Server returned an invalid response (not JSON). Code: ' + res.status);
+                        if (res.status === 504) {
+                            return {
+                                success: false,
+                                isTimeout504: true,
+                                message: 'Google Sheets sync timed out (HTTP 504 Gateway Timeout). The server took too long to connect to Google Sheets.'
+                            };
+                        }
+                        if (res.status === 502 || res.status === 503) {
+                            return {
+                                success: false,
+                                message: 'Server temporarily unavailable (HTTP ' + res.status + ').'
+                            };
+                        }
+                        throw new Error('Server returned an invalid response (Code ' + res.status + ').');
                     }
 
                     if (!res.ok) {
@@ -2878,47 +2915,123 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     }
 
                     return data;
-                })
-                .then(data => {
-                    if(data.success) {
-                        showFollowUpModal = false;
-                        if (data.warning) {
-                            alert(data.warning);
-                        }
-                        // Smoothly refresh just the table container without reloading the page
-                        fetch(window.location.href)
-                            .then(r => r.text())
-                            .then(html => {
-                                let doc = new DOMParser().parseFromString(html, 'text/html');
-                                let newTable = doc.querySelector('#followUpTableContainer');
-                                if (newTable) {
-                                    document.querySelector('#followUpTableContainer').innerHTML = newTable.innerHTML;
-                                } else {
-                                    window.location.reload();
-                                }
-                            });
-                    } else if (data.needs_confirmation) {
-                        const replaceConfirm = confirm((data.confirm_message || data.message || 'Google Sheet row already has a Public Link.') + '\n\nClick OK to replace/overwrite the existing link in Google Sheets.\nClick Cancel for more options.');
-                        if (replaceConfirm) {
-                            return sendRequest(true, false);
-                        } else {
-                            const saveAnyway = confirm('Do you want to save this Follow Up to the system anyway without updating Google Sheets?');
-                            if (saveAnyway) {
-                                return sendRequest(false, true);
-                            }
-                        }
-                    } else {
-                        const saveAnyway = confirm((data.message || 'An error occurred.') + '\n\nDo you want to save this Follow Up to the system anyway without Google Sheets?');
-                        if (saveAnyway) {
-                            return sendRequest(false, true);
-                        }
-                    }
-                })
-                .catch(err => alert(err.message || 'An error occurred.'))
-                .finally(() => { isSubmitting = false; });
+                });
             };
 
-            sendRequest(forceOverwriteCheck, false);
+            const runSequentialSubmission = async () => {
+                let savedCount = 0;
+                let warnings = [];
+                const total = items.length;
+
+                for (let idx = 0; idx < total; idx++) {
+                    const item = items[idx];
+                    const siteLabel = (item.selectedName && item.selectedName !== 'Select website...') ? item.selectedName : ('Item #' + (idx + 1));
+                    
+                    let forceOverwrite = forceOverwriteCheck;
+                    let skipSheetSync = false;
+                    let itemDone = false;
+
+                    while (!itemDone) {
+                        submitProgressText = total > 1 ? `Saving ${idx + 1} of ${total} (${siteLabel})...` : 'Saving...';
+
+                        let data;
+                        try {
+                            data = await postSingleItem(item, forceOverwrite, skipSheetSync);
+                        } catch (err) {
+                            alert('Error saving ' + siteLabel + ': ' + (err.message || 'An error occurred.'));
+                            const retryWithoutSheet = confirm('Do you want to retry saving ' + siteLabel + ' to the system without Google Sheets?');
+                            if (retryWithoutSheet) {
+                                skipSheetSync = true;
+                                continue;
+                            } else {
+                                isSubmitting = false;
+                                submitProgressText = '';
+                                return;
+                            }
+                        }
+
+                        if (data.success) {
+                            itemDone = true;
+                            savedCount++;
+                            if (data.warning) {
+                                warnings.push(siteLabel + ': ' + data.warning);
+                            }
+                        } else if (data.isTimeout504) {
+                            const saveAnyway = confirm(siteLabel + ': Google Sheet sync timed out (504).\n\nDo you want to save this follow-up to the system anyway without Google Sheets?');
+                            if (saveAnyway) {
+                                skipSheetSync = true;
+                            } else {
+                                const skipThis = confirm('Do you want to skip ' + siteLabel + ' and continue with remaining items?');
+                                if (skipThis) {
+                                    break;
+                                } else {
+                                    isSubmitting = false;
+                                    submitProgressText = '';
+                                    return;
+                                }
+                            }
+                        } else if (data.needs_confirmation) {
+                            const replaceConfirm = confirm((data.confirm_message || data.message || 'Google Sheet row already has a Public Link.') + '\n\nClick OK to replace/overwrite the existing link in Google Sheets.\nClick Cancel for more options.');
+                            if (replaceConfirm) {
+                                forceOverwrite = true;
+                                skipSheetSync = false;
+                            } else {
+                                const saveAnyway = confirm('Do you want to save this Follow Up for ' + siteLabel + ' to the system anyway without updating Google Sheets?');
+                                if (saveAnyway) {
+                                    skipSheetSync = true;
+                                } else {
+                                    const skipThis = confirm('Skip ' + siteLabel + ' and continue saving remaining follow ups?');
+                                    if (skipThis) {
+                                        break;
+                                    } else {
+                                        isSubmitting = false;
+                                        submitProgressText = '';
+                                        return;
+                                    }
+                                }
+                            }
+                        } else {
+                            const saveAnyway = confirm((data.message || 'An error occurred.') + '\n\nDo you want to save ' + siteLabel + ' to the system anyway without Google Sheets?');
+                            if (saveAnyway) {
+                                skipSheetSync = true;
+                            } else {
+                                const skipThis = confirm('Skip ' + siteLabel + ' and continue saving remaining follow ups?');
+                                if (skipThis) {
+                                    break;
+                                } else {
+                                    isSubmitting = false;
+                                    submitProgressText = '';
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                isSubmitting = false;
+                submitProgressText = '';
+
+                if (savedCount > 0) {
+                    showFollowUpModal = false;
+                    if (warnings.length > 0) {
+                        alert('Saved ' + savedCount + ' follow up(s) with notices:\n\n' + warnings.join('\n'));
+                    }
+                    // Smoothly refresh just the table container without reloading the page
+                    fetch(window.location.href)
+                        .then(r => r.text())
+                        .then(html => {
+                            let doc = new DOMParser().parseFromString(html, 'text/html');
+                            let newTable = doc.querySelector('#followUpTableContainer');
+                            if (newTable) {
+                                document.querySelector('#followUpTableContainer').innerHTML = newTable.innerHTML;
+                            } else {
+                                window.location.reload();
+                            }
+                        });
+                }
+            };
+
+            runSequentialSubmission();
         ">
             @csrf
             
@@ -3021,7 +3134,7 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
 
             <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
                 <button type="button" @click="showFollowUpModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm" x-bind:disabled="isSubmitting" x-text="isSubmitting ? 'Saving...' : 'Save All'">Save All</button>
+                <button type="submit" class="btn btn-primary text-sm" x-bind:disabled="isSubmitting" x-text="isSubmitting ? (submitProgressText || 'Saving...') : 'Save All'">Save All</button>
             </div>
         </form>
     </div>

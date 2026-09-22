@@ -340,4 +340,102 @@ class SocialMediaAnalyticsMultiClassTest extends TestCase
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['class_ids']);
     }
+
+    public function test_reports_export_single_pdf_explicit(): void
+    {
+        Storage::fake('local');
+        config(['app.url' => 'http://localhost']);
+
+        $user = User::factory()->create(['is_active' => true]);
+        Role::firstOrCreate(['name' => 'social_qc', 'guard_name' => 'web']);
+        $user->assignRole('social_qc');
+
+        $class = SocialMediaClass::create(['name' => 'ClassSingle', 'created_by' => $user->id]);
+
+        $file = UploadedFile::fake()->create('report-single.pdf', 100, 'application/pdf');
+        $path = $file->storeAs('social-analytics/shared', 'test-single.pdf');
+
+        $analytic = SocialMediaAnalytic::create([
+            'date_from' => '2026-09-01',
+            'date_to' => '2026-09-07',
+            'file_path' => $path,
+            'original_name' => 'report-single.pdf',
+            'uploaded_by' => $user->id,
+        ]);
+        $analytic->classes()->attach($class->id);
+
+        $response = $this->actingAs($user)
+            ->post('http://localhost' . route('social-media.reports.export.zip', [
+                'date_from' => '2026-09-01',
+                'date_to' => '2026-09-07',
+                'class_id' => [$class->id],
+                'export_type' => 'single',
+            ], false));
+
+        $response->assertOk();
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+    }
+
+    public function test_reports_export_via_get_method(): void
+    {
+        Storage::fake('local');
+        config(['app.url' => 'http://localhost']);
+
+        $user = User::factory()->create(['is_active' => true]);
+        Role::firstOrCreate(['name' => 'social_qc', 'guard_name' => 'web']);
+        $user->assignRole('social_qc');
+
+        $class = SocialMediaClass::create(['name' => 'ClassGet', 'created_by' => $user->id]);
+
+        $file = UploadedFile::fake()->create('report-get.pdf', 100, 'application/pdf');
+        $path = $file->storeAs('social-analytics/shared', 'test-get.pdf');
+
+        $analytic = SocialMediaAnalytic::create([
+            'date_from' => '2026-09-01',
+            'date_to' => '2026-09-07',
+            'file_path' => $path,
+            'original_name' => 'report-get.pdf',
+            'uploaded_by' => $user->id,
+        ]);
+        $analytic->classes()->attach($class->id);
+
+        $response = $this->actingAs($user)
+            ->get('http://localhost' . route('social-media.reports.export.zip', [
+                'date_from' => '2026-09-01',
+                'date_to' => '2026-09-07',
+                'class_id' => [$class->id],
+                'export_type' => 'single',
+            ], false));
+
+        $response->assertOk();
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+    }
+
+    public function test_reports_index_view_shares_latest_analytic(): void
+    {
+        Storage::fake('local');
+        config(['app.url' => 'http://localhost']);
+
+        $user = User::factory()->create(['is_active' => true]);
+        Role::firstOrCreate(['name' => 'social_qc', 'guard_name' => 'web']);
+        $user->assignRole('social_qc');
+
+        $class = SocialMediaClass::create(['name' => 'ClassIndex', 'created_by' => $user->id]);
+
+        $analytic = SocialMediaAnalytic::create([
+            'date_from' => '2026-09-10',
+            'date_to' => '2026-09-17',
+            'file_path' => 'social-analytics/shared/test-index.pdf',
+            'original_name' => 'test-index.pdf',
+            'uploaded_by' => $user->id,
+        ]);
+        $analytic->classes()->attach($class->id);
+
+        $response = $this->actingAs($user)
+            ->get('http://localhost' . route('social-media.reports.index', [], false));
+
+        $response->assertOk();
+        $response->assertViewHas('latestAnalytic');
+        $this->assertEquals($analytic->id, $response->viewData('latestAnalytic')->id);
+    }
 }

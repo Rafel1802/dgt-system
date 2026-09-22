@@ -154,12 +154,12 @@
                      class="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
               <a :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
                  @click="b.id === boardId ? (closeSwitchBoardsModal(), $event.preventDefault()) : null"
-                 class="block h-28 w-full overflow-hidden bg-slate-200 text-left"
+                 class="block h-28 w-full overflow-hidden bg-slate-900 text-left relative transition-transform"
                  :style="sbmCoverStyle(b)"
                  :aria-label="'Switch to ' + b.name">
-                <div class="relative h-full w-full bg-slate-950/15 transition group-hover:bg-slate-950/5">
+                <div class="relative h-full w-full switch-board-cover-overlay bg-slate-950/15 transition group-hover:bg-transparent">
                   <div class="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] items-center gap-2">
-                    <span class="rounded-md bg-white/90 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700 shadow-sm" x-text="sbmBoardWorkspaceName(b)"></span>
+                    <span class="switch-board-ws-tag rounded-md bg-white/90 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700 shadow-sm" x-text="sbmBoardWorkspaceName(b)"></span>
                   </div>
 
                 </div>

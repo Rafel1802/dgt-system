@@ -6,8 +6,44 @@
 <div class="animate-fade-in space-y-8 pb-32" x-data="{ 
     dateRange: 'today',
     reportType: 'kanban',
+    showHiddenBoards: false,
+    restoringSlug: null,
     selectAll(workspaceId, checked) {
-        document.querySelectorAll(`.workspace-${workspaceId}-board`).forEach(cb => cb.checked = checked);
+        document.querySelectorAll(`.workspace-${workspaceId}-board`).forEach(cb => {
+            // Only toggle checkboxes that are currently visible
+            const parentLabel = cb.closest('label');
+            if (!parentLabel || parentLabel.offsetParent !== null || window.getComputedStyle(parentLabel).display !== 'none') {
+                cb.checked = checked;
+            }
+        });
+    },
+    async restoreBoard(slug, btn) {
+        if (!confirm('Are you sure you want to restore this board back to active boards?')) return;
+        this.restoringSlug = slug;
+        try {
+            const res = await fetch(`/boards/${slug}/toggle-hidden`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').getAttribute('content'),
+                    'Accept': 'application/json'
+                }
+            });
+            const data = await res.json();
+            if (data && data.success) {
+                if (window.Notyf) {
+                    new Notyf().success('Board restored back successfully!');
+                }
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                alert('Could not restore board.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to restore board.');
+        } finally {
+            this.restoringSlug = null;
+        }
     },
     getExportUrl() {
         if (this.reportType === 'social_media') return '{{ route('boards.reports.personal.social_media.export') }}';
@@ -99,16 +135,39 @@
                           <option value="{{ $class->id }}">{{ $class->name }}</option>
                       @endforeach
                   </select>
-              </div>
-
-              {{-- Workspace & Boards Selection (Kanban only) --}}
+                          {{-- Workspace & Boards Selection (Kanban only) --}}
               <div x-show="reportType === 'kanban'" x-transition>
-                  <h2 class="text-lg font-bold text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                      <span>📁</span> Select Boards to Include
-                  </h2>
+                  <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                      <div>
+                          <h2 class="text-lg font-bold text-slate-700 dark:text-white flex items-center gap-2">
+                              <span>📁</span> Select Boards to Include
+                          </h2>
+                          <p class="text-xs text-slate-400 dark:text-slate-400 mt-0.5">Showing latest month workflow boards by default.</p>
+                      </div>
+
+                      {{-- Old Hidden Board Button --}}
+                      <button type="button" 
+                              @click="showHiddenBoards = !showHiddenBoards"
+                              class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-xs cursor-pointer select-none"
+                              :class="showHiddenBoards 
+                                  ? 'bg-amber-500 text-white border-amber-600 shadow-amber-500/20 ring-2 ring-amber-400/40' 
+                                  : 'bg-white dark:bg-gray-800 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-700/60 hover:bg-amber-50 dark:hover:bg-amber-900/20'">
+                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/>
+                          </svg>
+                          <span>Old Hidden Board</span>
+                          @if(isset($hiddenBoardsCount) && $hiddenBoardsCount > 0)
+                              <span class="px-1.5 py-0.5 text-[10px] font-black rounded-full transition-colors"
+                                    :class="showHiddenBoards ? 'bg-amber-700 text-white' : 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300'">
+                                  {{ $hiddenBoardsCount }}
+                              </span>
+                          @endif
+                      </button>
+                  </div>
+
                   @if($workspaces->isEmpty())
                       <div class="text-center py-8 text-slate-400 dark:text-gray-500">
-                          <p>No active workspaces or boards found.</p>
+                          <p>No active workspaces or workflow boards found.</p>
                       </div>
                   @else
                       <div class="space-y-6" x-init="if(typeof Sortable !== 'undefined') { 
@@ -134,7 +193,9 @@
                       }">
                           @foreach($workspaces as $workspace)
                               @if($workspace->boards->isNotEmpty())
-                                  <div class="border border-slate-200 dark:border-gray-700 rounded-xl p-4 bg-slate-50/50 dark:bg-gray-800" data-workspace-id="{{ $workspace->id }}">
+                                  <div class="border border-slate-200 dark:border-gray-700 rounded-xl p-4 bg-slate-50/50 dark:bg-gray-800 transition-all" 
+                                       data-workspace-id="{{ $workspace->id }}"
+                                       x-show="showHiddenBoards || {{ $workspace->has_active_workflow_boards ? 'true' : 'false' }}">
                                       <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-gray-700 mb-3">
                                           <div class="flex items-center gap-2.5">
                                               <span class="drag-handle cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
@@ -157,26 +218,43 @@
                                       
                                       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                           @foreach($workspace->boards as $board)
-                                              <label class="flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition-all
+                                              <label class="flex items-start justify-between gap-2.5 p-2.5 rounded-lg cursor-pointer transition-all
                                                             {{ $board->is_hidden
                                                                 ? 'bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/40 hover:border-amber-400 dark:hover:border-amber-500'
-                                                                : 'bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/10 dark:hover:bg-indigo-900/20' }}">
-                                                  <input type="checkbox" name="board_ids[]" value="{{ $board->id }}" 
-                                                         class="workspace-{{ $workspace->id }}-board mt-0.5 rounded border-slate-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-800
-                                                                {{ $board->is_hidden ? 'text-amber-500' : 'text-indigo-600' }}">
-                                                  <div class="text-xs flex-1 min-w-0">
-                                                      <div class="font-semibold {{ $board->is_hidden ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-white' }} truncate">
-                                                          {{ $board->name }}
-                                                      </div>
-                                                      <div class="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                                          <span class="text-slate-400 dark:text-gray-500">{{ $board->visibilityDisplay ?? ucfirst($board->visibility) }}</span>
-                                                          @if($board->is_hidden)
-                                                              <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
-                                                                  📦 Hidden / Past board
-                                                              </span>
-                                                          @endif
+                                                                : 'bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/10 dark:hover:bg-indigo-900/20' }}"
+                                                     @if($board->is_hidden) x-show="showHiddenBoards" x-cloak @endif>
+                                                  <div class="flex items-start gap-3 flex-1 min-w-0">
+                                                      <input type="checkbox" name="board_ids[]" value="{{ $board->id }}" 
+                                                             class="workspace-{{ $workspace->id }}-board mt-0.5 rounded border-slate-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-800
+                                                                    {{ $board->is_hidden ? 'text-amber-500' : 'text-indigo-600' }}">
+                                                      <div class="text-xs flex-1 min-w-0">
+                                                          <div class="font-semibold {{ $board->is_hidden ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-white' }} truncate">
+                                                              {{ $board->name }}
+                                                          </div>
+                                                          <div class="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                                              <span class="text-slate-400 dark:text-gray-500">{{ $board->visibilityDisplay ?? ucfirst($board->visibility) }}</span>
+                                                              @if($board->is_hidden)
+                                                                  <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
+                                                                      📦 Hidden / Past board
+                                                                  </span>
+                                                              @endif
+                                                          </div>
                                                       </div>
                                                   </div>
+
+                                                  {{-- Quick Restore Button for QC on Hidden Boards --}}
+                                                  @if($board->is_hidden && auth()->user()->canManageBoards())
+                                                  <button type="button" 
+                                                          @click.stop.prevent="restoreBoard('{{ $board->slug }}', $el)"
+                                                          :disabled="restoringSlug === '{{ $board->slug }}'"
+                                                          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-800 hover:text-white bg-amber-100 hover:bg-emerald-600 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-emerald-600 dark:hover:text-white border border-amber-300 dark:border-amber-700/60 transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0"
+                                                          title="Restore this board back to active boards">
+                                                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                                      </svg>
+                                                      <span x-text="restoringSlug === '{{ $board->slug }}' ? '...' : 'Restore'"></span>
+                                                  </button>
+                                                  @endif
                                               </label>
                                           @endforeach
                                       </div>

@@ -359,6 +359,16 @@ class Card extends Model
         return $this->hasMany(CardFile::class)->where('is_comment_image', false)->orderBy('created_at');
     }
 
+    public function commentFiles(): HasMany
+    {
+        return $this->hasMany(CardFile::class)->where('is_comment_image', true)->orderBy('created_at');
+    }
+
+    public function allFiles(): HasMany
+    {
+        return $this->hasMany(CardFile::class)->orderBy('created_at');
+    }
+
     public function activities(): MorphMany
     {
         return $this->morphMany(ActivityLog::class, 'subject')->orderByDesc('created_at');
@@ -413,11 +423,92 @@ class Card extends Model
         return $classColors[$this->smm_class_label] ?? '#6366f1';
     }
 
-    public function isOverdue(): bool
+    /**
+     * Check if the card is considered approved or completed,
+     * checking approved_at, block_completed_at, status enum, list names,
+     * 100% checklists, or connected sync twin cards on workflow boards.
+     */
+    public function isCompletedOrApproved(?array $approvedSyncGroupIds = null): bool
     {
-        return $this->deadline
-            && $this->deadline->isPast()
-            && ! in_array($this->status, [CardStatus::Done, CardStatus::Approved]);
+        // 1. Direct approved timestamp
+        if (!empty($this->approved_at)) {
+            return true;
+        }
+
+        // 2. Direct block completed timestamp
+        if (!empty($this->block_completed_at)) {
+            return true;
+        }
+
+        // 3. Status column is approved, done, or completed
+        $statusStr = is_object($this->status) ? ($this->status->value ?? '') : (string)$this->status;
+        $statusLower = strtolower(trim($statusStr));
+        if (in_array($statusLower, ['approved', 'done', 'completed', 'complete'])) {
+            return true;
+        }
+
+        // 4. Current list name indicates approved, done, or completed
+        $listName = strtolower(trim($this->boardList?->name ?? ''));
+        if ($listName !== '') {
+            if (str_contains($listName, 'approved') ||
+                str_contains($listName, 'done') ||
+                str_contains($listName, 'completed') ||
+                str_contains($listName, 'complete') ||
+                str_contains($listName, 'finish') ||
+                str_contains($listName, 'published')) {
+                return true;
+            }
+        }
+
+        // 5. Check connected sync twin cards (e.g. Workflow board card)
+        if ($this->sync_group_id) {
+            if ($approvedSyncGroupIds !== null) {
+                if (in_array($this->sync_group_id, $approvedSyncGroupIds)) {
+                    return true;
+                }
+            } else {
+                $twinApproved = self::where('sync_group_id', $this->sync_group_id)
+                    ->where('id', '!=', $this->id)
+                    ->where(function ($q) {
+                        $q->whereNotNull('approved_at')
+                          ->orWhereNotNull('block_completed_at')
+                          ->orWhereIn('status', ['approved', 'done', 'completed'])
+                          ->orWhereHas('boardList', function ($lq) {
+                              $lq->where('name', 'like', '%approved%')
+                                 ->orWhere('name', 'like', '%done%')
+                                 ->orWhere('name', 'like', '%completed%')
+                                 ->orWhere('name', 'like', '%complete%')
+                                 ->orWhere('name', 'like', '%finish%')
+                                 ->orWhere('name', 'like', '%published%');
+                          });
+                    })
+                    ->exists();
+
+                if ($twinApproved) {
+                    return true;
+                }
+            }
+        }
+
+        // 6. If card has checklist items and all are completed (100%)
+        if ($this->relationLoaded('checklists') && $this->checklists->isNotEmpty()) {
+            $allItems = $this->checklists->flatMap->items;
+            if ($allItems->isNotEmpty() && $allItems->every(fn($item) => (bool)$item->is_completed)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function isOverdue(?array $approvedSyncGroupIds = null): bool
+    {
+        $due = $this->due_at ?? ($this->deadline ? \Carbon\Carbon::parse($this->deadline) : null);
+        if (!$due || !$due->isPast()) {
+            return false;
+        }
+
+        return !$this->isCompletedOrApproved($approvedSyncGroupIds);
     }
 
     public function checklistProgress(): array

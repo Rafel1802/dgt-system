@@ -26,6 +26,7 @@ class WebsiteFollowUpController extends Controller
     public function store(Request $request)
     {
         abort_unless($this->canManageFollowUp(auth()->user()), 403);
+        @set_time_limit(120);
 
         $validated = $request->validate([
             'type'               => 'required|string|max:100',

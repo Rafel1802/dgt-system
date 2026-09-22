@@ -29,8 +29,12 @@ class ProfileController extends Controller
             $clockSounds = collect($clockFiles)->map(function ($file) {
                 return $file->getFilename();
             })->sort(function ($a, $b) {
-                if ($a === 'melodic-chime.wav') return -1;
-                if ($b === 'melodic-chime.wav') return 1;
+                if ($a === 'lunch.wav') return -1;
+                if ($b === 'lunch.wav') return 1;
+                if ($a === 'funny.wav') return -1;
+                if ($b === 'funny.wav') return 1;
+                if ($a === '02.wav') return -1;
+                if ($b === '02.wav') return 1;
                 return strnatcasecmp($a, $b);
             })->values();
         }
@@ -55,6 +59,8 @@ class ProfileController extends Controller
             'notification_sound' => ['nullable', 'string', 'max:255'],
             'lunch_alarm_enabled'=> ['nullable', 'boolean'],
             'lunch_alarm_sound'  => ['nullable', 'string', 'max:255'],
+            'offwork_alarm_sound'=> ['nullable', 'string', 'max:255'],
+            'sat_alarm_sound'    => ['nullable', 'string', 'max:255'],
             'avatar'             => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'avatar_url'         => ['nullable', 'url', 'starts_with:http://,https://', 'max:2048'],
             'remove_avatar'      => ['nullable', 'boolean'],
@@ -254,5 +260,65 @@ class ProfileController extends Controller
         }
 
         return back()->with('error', 'Clock sound file not found.');
+    }
+
+    public function updateShiftAlarmDuration(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->canSetAlarmDuration()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized action. Only Super Admin and QC can configure shift alarm duration.',
+                ], 403);
+            }
+            return back()->with('error', 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'shift_alarm_duration' => ['required', 'integer', 'min:3', 'max:60'],
+        ]);
+
+        $duration = (int) $validated['shift_alarm_duration'];
+
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'shift_alarm_duration'],
+            ['value' => (string) $duration]
+        );
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'duration' => $duration,
+                'message' => "Shift alarm duration updated to {$duration}s successfully!",
+            ]);
+        }
+
+        return back()->with('success', "Shift alarm duration updated to {$duration} seconds!");
+    }
+
+    public function toggleShiftAlarm(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        $validated = $request->validate([
+            'lunch_alarm_enabled' => ['required', 'boolean'],
+        ]);
+
+        $user->lunch_alarm_enabled = (bool) $validated['lunch_alarm_enabled'];
+        $user->save();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'lunch_alarm_enabled' => $user->lunch_alarm_enabled,
+                'message' => $user->lunch_alarm_enabled ? 'Shift alarms turned on!' : 'Shift alarms turned off!',
+            ]);
+        }
+
+        return back()->with('success', $user->lunch_alarm_enabled ? 'Shift alarms turned on!' : 'Shift alarms turned off!');
     }
 }

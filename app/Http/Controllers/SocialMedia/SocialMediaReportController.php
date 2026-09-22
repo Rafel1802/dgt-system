@@ -32,7 +32,9 @@ class SocialMediaReportController extends Controller
             $hasAnalytics = $availableAnalytics->isNotEmpty();
         }
 
-        return view('social-media.reports.index', compact('classes', 'availableAnalytics', 'hasAnalytics'));
+        $latestAnalytic = SocialMediaAnalytic::with('classes')->orderByDesc('date_to')->first();
+
+        return view('social-media.reports.index', compact('classes', 'availableAnalytics', 'hasAnalytics', 'latestAnalytic'));
     }
 
     public function exportZip(Request $request)
@@ -62,13 +64,13 @@ class SocialMediaReportController extends Controller
             ->get();
 
         if ($analytics->isEmpty()) {
-            return back()->with('error', 'No analytics files found for the selected period.');
+            return back()->with('error', "No analytics files found for the period {$dateFrom} to {$dateTo}.");
         }
 
         if ($exportType === 'single' || (!$request->boolean('include_csv') && $analytics->count() === 1 && $exportType !== 'zip')) {
-            // For single PDF export, if there are multiple, just take the most recent one covering the date.
-            $analytic = $analytics->first();
-            if ($analytic->fileExists()) {
+            // For single PDF export, take the first one that exists on disk, or the first one
+            $analytic = $analytics->first(fn ($a) => $a->fileExists()) ?? $analytics->first();
+            if ($analytic && $analytic->fileExists()) {
                 return Storage::download($analytic->file_path, $analytic->original_name);
             }
             return back()->with('error', 'The requested analytics file is missing from storage.');
@@ -94,15 +96,26 @@ class SocialMediaReportController extends Controller
             return true;
         });
 
+        if ($analyticsToZip->isEmpty()) {
+            $analyticsToZip = $analytics;
+        }
+
+        $filesAdded = 0;
         foreach ($analyticsToZip as $analytic) {
             if ($analytic->fileExists()) {
                 $className = $analytic->classes->pluck('name')->map(fn ($name) => preg_replace('/[^A-Za-z0-9_\-]/', '-', $name))->join('_');
                 $entryName  = ($className ?: 'classes') . '-' . $analytic->date_from->format('Y-m-d') . '-to-' . $analytic->date_to->format('Y-m-d') . '.pdf';
                 $zip->addFile($analytic->absolutePath(), $entryName);
+                $filesAdded++;
             }
         }
 
         $zip->close();
+
+        if ($filesAdded === 0) {
+            @unlink($tmpPath);
+            return back()->with('error', 'No physical analytics files found on the server for the selected period.');
+        }
 
         return response()->download($tmpPath, $zipName, [
             'Content-Type' => 'application/zip',

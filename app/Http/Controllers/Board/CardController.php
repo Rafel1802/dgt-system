@@ -1340,6 +1340,25 @@ class CardController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Resolve a Canva share/short URL into its canonical presentation embed URL.
+     */
+    public function resolveCanvaEmbed(Request $request): JsonResponse
+    {
+        $url = (string) $request->query('url', '');
+        if (empty($url)) {
+            return response()->json(['success' => false, 'embed_url' => null, 'total_pages' => 1], 400);
+        }
+
+        $details = CardFile::getCanvaDetails($url);
+
+        return response()->json([
+            'success'     => !empty($details['embed_url']),
+            'embed_url'   => $details['embed_url'] ?: $url,
+            'total_pages' => (!empty($details['total_pages']) && $details['total_pages'] > 1) ? $details['total_pages'] : 16,
+        ]);
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private function defaultAvatar(): string
@@ -1354,6 +1373,10 @@ class CardController extends Controller
             'original_name'  => $file->original_name,
             'formatted_size' => $file->formatted_size,
             'is_image'       => $file->isImage(),
+            'is_video'       => (bool) $file->is_video,
+            'is_canva'       => (bool) $file->is_canva,
+            'embed_url'      => $file->embed_url,
+            'thumbnail_url'  => $file->thumbnail_url,
             'mime_type'      => $file->mime_type,
             'icon'           => $file->icon,
             'url'            => $file->url,

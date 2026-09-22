@@ -16,37 +16,222 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class BoardExportController extends Controller
 {
     /**
-     * Extracts markdown image tags (both base64 and URLs) from text.
-     * Returns an array with 'text' (cleaned) and 'screenshots' (array of image sources).
+     * Extracts markdown image tags (both base64 and URLs) and HTML img tags from text.
+     * Returns an array with 'text' (cleaned), 'formatted_html' (clean formatted HTML),
+     * and 'screenshots' (array of resolved screenshots with 'src', 'url', and 'name').
      */
-    public static function extractScreenshotsAndClean(?string $text): array
+    public static function extractScreenshotsAndClean(?string $text, ?\App\Models\Card $card = null): array
     {
         if (empty($text)) {
             return [
                 'text' => '',
+                'formatted_html' => '',
                 'screenshots' => []
             ];
         }
 
         $screenshots = [];
-        // Match standard markdown image syntax: ![alt](src)
-        // Group 1 catches base64 data URIs or standard web URLs.
-        $pattern = '/!\[.*?\]\((data:image\/[a-zA-Z0-9\+\-\.]+;base64,[A-Za-z0-9\+\/=\s]+|https?:\/\/[^\s\)]+)\)/i';
+        $cleanedText = $text;
 
-        if (preg_match_all($pattern, $text, $matches)) {
-            $screenshots = $matches[1];
-            // Clean the text by removing the image markdown tags
-            $cleanedText = preg_replace($pattern, '', $text);
-        } else {
-            $cleanedText = $text;
+        // 1. Match markdown image syntax: ![alt](url)
+        $mdPattern = '/!\[([^\]]*?)\]\(([^)]+?)\)/i';
+        if (preg_match_all($mdPattern, $cleanedText, $mdMatches, PREG_SET_ORDER)) {
+            foreach ($mdMatches as $m) {
+                $alt = trim($m[1]);
+                $url = trim($m[2]);
+                $screenshots[] = self::resolveScreenshotData($url, $alt, $card);
+            }
+            $cleanedText = preg_replace($mdPattern, '', $cleanedText);
         }
 
-        $cleanedText = str_replace('**', '', $cleanedText);
+        // 2. Match HTML <img> tags: <img ... src="..." ...>
+        $htmlImgPattern = '/<img[^>]+src=["\']([^"\']+)["\'][^>]*>/i';
+        if (preg_match_all($htmlImgPattern, $cleanedText, $htmlMatches, PREG_SET_ORDER)) {
+            foreach ($htmlMatches as $m) {
+                $url = trim($m[1]);
+                $screenshots[] = self::resolveScreenshotData($url, 'Screenshot', $card);
+            }
+            $cleanedText = preg_replace($htmlImgPattern, '', $cleanedText);
+        }
+
+        // 3. Match markdown links pointing directly to card files or images: [alt](.../files/\d+/(download|preview))
+        $fileLinkPattern = '/\[([^\]]*?)\]\((https?:\/\/[^\s\)]*\/files\/\d+\/(?:download|preview)|[^\s\)]*\/files\/\d+\/(?:download|preview))\)/i';
+        if (preg_match_all($fileLinkPattern, $cleanedText, $linkMatches, PREG_SET_ORDER)) {
+            foreach ($linkMatches as $m) {
+                $alt = trim($m[1]);
+                $url = trim($m[2]);
+                $screenshots[] = self::resolveScreenshotData($url, $alt ?: 'Screenshot', $card);
+            }
+            $cleanedText = preg_replace($fileLinkPattern, '', $cleanedText);
+        }
+
+        $cleanedText = trim(str_replace(['**', '__'], '', $cleanedText));
+        $formattedHtml = self::formatCommentText($cleanedText);
 
         return [
-            'text' => trim($cleanedText),
+            'text' => $cleanedText,
+            'formatted_html' => $formattedHtml,
             'screenshots' => $screenshots
         ];
+    }
+
+    /**
+     * Resolves screenshot image data, reading local files into Base64 data URIs
+     * so that printing/PDF exports never fail or trigger attachment downloads.
+     */
+    public static function resolveScreenshotData(string $rawUrl, string $alt = '', ?\App\Models\Card $card = null): array
+    {
+        $rawUrl = trim($rawUrl);
+        $displaySrc = $rawUrl;
+        $openUrl = $rawUrl;
+        $name = !empty($alt) ? $alt : 'Screenshot';
+
+        // Base64 data URI already
+        if (str_starts_with($rawUrl, 'data:image/')) {
+            return [
+                'src' => $rawUrl,
+                'url' => '#',
+                'name' => $name,
+            ];
+        }
+
+        // Check if URL references a card file by ID: /files/(\d+)
+        $cardFile = null;
+        if (preg_match('/files\/(\d+)/', $rawUrl, $fileIdMatch)) {
+            $fileId = (int) $fileIdMatch[1];
+            if ($card && $card->relationLoaded('allFiles')) {
+                $cardFile = $card->allFiles->firstWhere('id', $fileId);
+            }
+            if (!$cardFile) {
+                $cardFile = \App\Models\CardFile::find($fileId);
+            }
+        } elseif ($card && $card->relationLoaded('allFiles')) {
+            $cardFile = $card->allFiles->first(fn($f) => !empty($f->stored_name) && str_contains($rawUrl, $f->stored_name));
+        }
+
+        if ($cardFile) {
+            $name = !empty($cardFile->original_name) ? $cardFile->original_name : $name;
+            $openUrl = $cardFile->preview_url ?: $cardFile->url;
+
+            // Attempt to read physical file and convert to base64
+            $disk = $cardFile->disk && $cardFile->disk !== 'url' ? $cardFile->disk : config('filesystems.default', 'local');
+            $storage = \Illuminate\Support\Facades\Storage::disk($disk);
+
+            $candidatePaths = [
+                $cardFile->path,
+                storage_path('app/' . $cardFile->path),
+                storage_path('app/private/' . $cardFile->path),
+                storage_path('app/public/' . $cardFile->path),
+                public_path('storage/' . $cardFile->path),
+                public_path($cardFile->path),
+            ];
+
+            foreach ($candidatePaths as $p) {
+                if (file_exists($p) && is_file($p)) {
+                    $size = filesize($p);
+                    if ($size > 0 && $size < 15 * 1024 * 1024) {
+                        $mime = $cardFile->mime_type ?: (mime_content_type($p) ?: 'image/jpeg');
+                        $fileData = file_get_contents($p);
+                        if ($fileData !== false) {
+                            $displaySrc = 'data:' . $mime . ';base64,' . base64_encode($fileData);
+                            break;
+                        }
+                    }
+                } elseif ($storage->exists($cardFile->path)) {
+                    $mime = $cardFile->mime_type ?: 'image/jpeg';
+                    $fileData = $storage->get($cardFile->path);
+                    if ($fileData !== null && strlen($fileData) > 0 && strlen($fileData) < 15 * 1024 * 1024) {
+                        $displaySrc = 'data:' . $mime . ';base64,' . base64_encode($fileData);
+                        break;
+                    }
+                }
+            }
+
+            // Fallback: use preview URL rather than download URL (avoids Content-Disposition: attachment)
+            if ($displaySrc === $rawUrl) {
+                $displaySrc = $cardFile->preview_url;
+            }
+        } else {
+            // Check if URL points to storage /storage/...
+            if (str_contains($rawUrl, '/storage/')) {
+                $subPath = preg_replace('/^.*\/storage\//', '', $rawUrl);
+                $fullPath = public_path('storage/' . $subPath);
+                if (!file_exists($fullPath)) {
+                    $fullPath = storage_path('app/public/' . $subPath);
+                }
+                if (file_exists($fullPath) && is_file($fullPath)) {
+                    $size = filesize($fullPath);
+                    if ($size > 0 && $size < 15 * 1024 * 1024) {
+                        $mime = mime_content_type($fullPath) ?: 'image/jpeg';
+                        $data = file_get_contents($fullPath);
+                        if ($data !== false) {
+                            $displaySrc = 'data:' . $mime . ';base64,' . base64_encode($data);
+                        }
+                    }
+                }
+            }
+
+            // Make relative URLs absolute
+            if (str_starts_with($rawUrl, '/')) {
+                $openUrl = url($rawUrl);
+                if ($displaySrc === $rawUrl) {
+                    $displaySrc = url($rawUrl);
+                }
+            }
+
+            // Avoid /download endpoint in displaySrc
+            if (str_contains($displaySrc, '/download')) {
+                $displaySrc = str_replace('/download', '/preview', $displaySrc);
+            }
+            if (str_contains($openUrl, '/download')) {
+                $openUrl = str_replace('/download', '/preview', $openUrl);
+            }
+        }
+
+        return [
+            'src'  => $displaySrc,
+            'url'  => $openUrl,
+            'name' => $name,
+        ];
+    }
+
+    /**
+     * Formats comment text with clean HTML escaping, styled @mentions, bold markdown, and clickable links.
+     */
+    public static function formatCommentText(?string $text): string
+    {
+        if (empty($text)) {
+            return '';
+        }
+
+        // HTML escape
+        $html = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+
+        // Mentions @username -> clean pill badge
+        $html = preg_replace(
+            '/(?:^|(?<=\s))@([\w.\-]+)/',
+            '<span style="display: inline-block; font-weight: 600; color: #4f46e5; background-color: #eef2ff; padding: 0.5px 6px; border-radius: 9999px; font-size: 10px;">@$1</span>',
+            $html
+        );
+
+        // Markdown bold **text**
+        $html = preg_replace('/\*\*(.*?)\*\*/s', '<strong style="font-weight: 700; color: #0f172a;">$1</strong>', $html);
+
+        // Markdown links [label](url)
+        $html = preg_replace(
+            '/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/',
+            '<a href="$2" target="_blank" style="color: #4f46e5; text-decoration: underline;">$1</a>',
+            $html
+        );
+
+        // Raw URLs
+        $html = preg_replace(
+            '/(?<!href="|">)(https?:\/\/[^\s<]+[^<.,:;"\')\]\s])/i',
+            '<a href="$1" target="_blank" style="color: #4f46e5; text-decoration: underline; word-break: break-all;">$1</a>',
+            $html
+        );
+
+        return nl2br($html);
     }
 
     /**
@@ -180,20 +365,22 @@ class BoardExportController extends Controller
 
         // $boardIds === null means QC personal export with no specific board selection (search all boards)
         $query = ($boardIds === null)
-            ? Card::query()->with(['board', 'boardList', 'assignees', 'labels', 'files', 'activities', 'comments'])
-            : Card::whereIn('board_id', $boardIds)->with(['board', 'boardList', 'assignees', 'labels', 'files', 'activities', 'comments']);
+            ? Card::query()->with(['board', 'boardList', 'assignees', 'labels', 'files', 'allFiles', 'activities', 'comments'])
+            : Card::whereIn('board_id', $boardIds)->with(['board', 'boardList', 'assignees', 'labels', 'files', 'allFiles', 'activities', 'comments']);
 
-        // For QC personal exports, override the default comments eager-load with only
-        // the relevant QC-approved comments. This ensures assignActivityDates has the
-        // exact same set of comments it uses for timestamp collection, and avoids
-        // loading thousands of unrelated comments into memory.
+        // When include_comments is requested, load all non-system comments with author information.
+        // Otherwise, for QC personal exports, load only QC-approved comments for timestamp calculation.
         $isPersonalExportCheck = $request->boolean('is_personal_report', false)
             || str_contains(request()->path(), 'personal-report')
             || request()->routeIs('*.personal.export')
             || request()->routeIs('reports.personal.export')
             || request()->routeIs('boards.reports.personal.export');
         $currentUser = auth()->user();
-        if ($isPersonalExportCheck && $currentUser && $currentUser->isQc()) {
+        if ($request->boolean('include_comments', false)) {
+            $query->with(['comments' => function($q) {
+                $q->where('is_system', false)->orderBy('created_at', 'asc');
+            }, 'comments.user', 'allFiles']);
+        } elseif ($isPersonalExportCheck && $currentUser && $currentUser->isQc()) {
             $qcUserId = $currentUser->id;
             $query->with(['comments' => function($q) use ($qcUserId) {
                 // Only load the QC-approved comments by this user — these are all
@@ -203,10 +390,6 @@ class BoardExportController extends Controller
                   ->whereRaw("LOWER(content) LIKE '%qc%approve%'")
                   ->orderBy('created_at', 'asc');
             }]);
-        } elseif ($request->boolean('include_comments', false)) {
-            $query->with(['comments' => function($q) {
-                $q->where('is_system', false)->orderBy('created_at', 'asc');
-            }, 'comments.user']);
         }
 
         $isPersonalExport = $request->boolean('is_personal_report', false)
@@ -667,7 +850,7 @@ class BoardExportController extends Controller
         $smmData = $this->prepareSmmExportData($cards, $board);
 
         if ($request->boolean('raw') || $request->input('format') === 'raw_csv') {
-            return $this->streamRawCsv($smmData['groupedCards'], "board-report-{$board->slug}-" . now()->format('Y-m-d') . '.csv');
+            return $this->streamRawCsv($smmData['groupedCards'], "board-report-{$board->slug}-" . now()->format('Y-m-d') . '.csv', $includeComments);
         }
 
         $headers = [
@@ -897,9 +1080,29 @@ class BoardExportController extends Controller
         // Include hidden boards so QC/Supervisor can select past-month boards
         // (boards are hidden at month-end but must still be available for historical exports)
         $workspaces = $this->getAuthorizedWorkspaces(auth()->user(), includeHidden: true);
+
+        // Filter to include ONLY Workflow boards (strictly exclude Planning boards)
+        $hiddenBoardsCount = 0;
+        foreach ($workspaces as $workspace) {
+            $filteredBoards = $workspace->boards->filter(function ($board) {
+                $name = strtolower($board->name ?? '');
+                return str_contains($name, 'workflow') && !str_contains($name, 'planning');
+            })->values();
+
+            $workspace->setRelation('boards', $filteredBoards);
+            $workspace->has_active_workflow_boards = $filteredBoards->contains(fn($b) => !$b->is_hidden);
+            $workspace->active_workflow_boards_count = $filteredBoards->filter(fn($b) => !$b->is_hidden)->count();
+            $workspace->hidden_workflow_boards_count = $filteredBoards->filter(fn($b) => (bool) $b->is_hidden)->count();
+
+            $hiddenBoardsCount += $workspace->hidden_workflow_boards_count;
+        }
+
+        // Filter out workspaces that have no workflow boards
+        $workspaces = $workspaces->filter(fn($ws) => $ws->boards->isNotEmpty())->values();
+
         $users = \App\Models\User::where('is_active', true)->orderBy('name')->get();
 
-        return view('reports.personal', compact('workspaces', 'users'));
+        return view('reports.personal', compact('workspaces', 'users', 'hiddenBoardsCount'));
     }
 
     /**
@@ -1019,7 +1222,7 @@ class BoardExportController extends Controller
             $smmData = $this->prepareSmmExportData($cards, null);
 
             if ($request->boolean('raw') || $format === 'raw_csv') {
-                return $this->streamRawCsv($smmData['groupedCards'], 'personal-report-' . now()->format('Y-m-d') . '.csv');
+                return $this->streamRawCsv($smmData['groupedCards'], 'personal-report-' . now()->format('Y-m-d') . '.csv', $includeComments);
             }
 
             $headers = [
@@ -1193,13 +1396,17 @@ class BoardExportController extends Controller
     /**
      * Stream a raw RFC-4180 CSV file with UTF-8 BOM.
      */
-    private function streamRawCsv(array $groupedCards, string $filename): StreamedResponse
+    private function streamRawCsv(array $groupedCards, string $filename, bool $includeComments = false): StreamedResponse
     {
-        return response()->streamDownload(function () use ($groupedCards) {
+        return response()->streamDownload(function () use ($groupedCards, $includeComments) {
             $out = fopen('php://output', 'w');
             // Write UTF-8 BOM for Excel / Numbers compatibility
             fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
-            fputcsv($out, ['Class', 'Task / Title', 'Status', 'Assigned Members', 'Activity Date', 'Due Date', 'Completed Date', 'Attached', 'Labels']);
+            $columns = ['Class', 'Task / Title', 'Status', 'Assigned Members', 'Activity Date', 'Due Date', 'Completed Date', 'Attached', 'Labels'];
+            if ($includeComments) {
+                $columns[] = 'Comments';
+            }
+            fputcsv($out, $columns);
 
             foreach ($groupedCards as $cardsInWeek) {
                 foreach ($cardsInWeek as $c) {
@@ -1228,7 +1435,7 @@ class BoardExportController extends Controller
 
                     $attached = !empty($attachedParts) ? implode("; ", $attachedParts) : '-';
 
-                    fputcsv($out, [
+                    $row = [
                         $c->smm_class_label ?? '-',
                         $c->title,
                         $status,
@@ -1238,7 +1445,32 @@ class BoardExportController extends Controller
                         $completedDate,
                         $attached,
                         $labels,
-                    ]);
+                    ];
+
+                    if ($includeComments) {
+                        $commentEntries = [];
+                        if ($c->relationLoaded('comments') && $c->comments->isNotEmpty()) {
+                            foreach ($c->comments as $cmt) {
+                                $parsed = self::extractScreenshotsAndClean($cmt->body);
+                                $author = $cmt->user->name ?? 'System';
+                                $date = $cmt->created_at ? $cmt->created_at->format('Y-m-d H:i') : '';
+                                $entry = "[{$author} - {$date}]: " . $parsed['text'];
+                                if (!empty($parsed['screenshots'])) {
+                                    $scrList = [];
+                                    foreach ($parsed['screenshots'] as $sIdx => $scr) {
+                                        $sUrl = is_array($scr) ? ($scr['url'] ?? $scr['src'] ?? '') : $scr;
+                                        $sName = is_array($scr) ? ($scr['name'] ?? ('Screenshot ' . ($sIdx + 1))) : ('Screenshot ' . ($sIdx + 1));
+                                        $scrList[] = "{$sName}: {$sUrl}";
+                                    }
+                                    $entry .= " [Screenshots: " . implode(', ', $scrList) . "]";
+                                }
+                                $commentEntries[] = $entry;
+                            }
+                        }
+                        $row[] = !empty($commentEntries) ? implode("\n", $commentEntries) : '-';
+                    }
+
+                    fputcsv($out, $row);
                 }
             }
             fclose($out);

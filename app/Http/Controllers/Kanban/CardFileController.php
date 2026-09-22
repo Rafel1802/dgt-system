@@ -47,6 +47,10 @@ class CardFileController extends Controller
                 'formatted_size'=> $f->formatted_size,
                 'icon'          => $f->icon,
                 'is_image'      => $f->isImage(),
+                'is_video'      => (bool) $f->is_video,
+                'is_canva'      => (bool) $f->is_canva,
+                'embed_url'     => $f->embed_url,
+                'thumbnail_url' => $f->thumbnail_url,
                 'url'           => $f->url,
             ]),
         ], 201);

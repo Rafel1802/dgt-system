@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -47,9 +48,29 @@ class User extends Authenticatable
         'music_player_enabled',
         'lunch_alarm_enabled',
         'lunch_alarm_sound',
+        'offwork_alarm_sound',
+        'sat_alarm_sound',
         'board_backgrounds',
         'theme',
+        'google_id',
+        'google_email',
     ];
+
+    /**
+     * Check if user has linked their Google Account.
+     */
+    public function isGoogleLinked(): bool
+    {
+        return !empty($this->google_id);
+    }
+
+    /**
+     * Check if user can safely unlink Google (must have a password set).
+     */
+    public function canUnlinkGoogle(): bool
+    {
+        return !empty($this->password);
+    }
 
     /**
      * The attributes that should be hidden for serialization.
@@ -376,6 +397,258 @@ SVG;
     }
 
     /**
+     * Relationship to boards where the user is an explicit member.
+     */
+    public function boards(): BelongsToMany
+    {
+        return $this->belongsToMany(Board::class, 'board_members')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    /**
+     * Popup ads seen or interacted with by this user.
+     */
+    public function popupAds(): BelongsToMany
+    {
+        return $this->belongsToMany(PopupAd::class, 'popup_ad_user')
+            ->withPivot(['last_shown_at', 'is_clicked'])
+            ->withTimestamps();
+    }
+
+    /**
+     * TRUE if the user is Boss, Supervisor, or QC, or has Approval Queue permissions.
+     * These roles already have the Approval Queue, so they do not see the member board menu.
+     */
+    public function isBossSupervisorOrQc(): bool
+    {
+        if ($this->hasAnyRole(['boss', 'supervisor', 'admin-digital', 'super-admin'])) {
+            return true;
+        }
+        return $this->isQc() || $this->isSupervisorRole() || $this->can('kanban.approve');
+    }
+
+    /**
+     * Get planning boards with active task counts for this member.
+     * Excludes Workflow boards and excludes Boss/Supervisor/QC.
+     */
+    public function getPlanningBoardsWithTaskCounts()
+    {
+        if ($this->isBossSupervisorOrQc()) {
+            return collect();
+        }
+
+        $tomorrowDate = \Carbon\Carbon::tomorrow()->toDateString();
+
+        $boards = Board::query()
+            ->with(['workspace', 'lists' => fn($q) => $q->orderBy('position')])
+            ->where('is_archived', false)
+            ->where('is_hidden', false)
+            ->where('name', 'not like', '%Workflow%')
+            ->where(function ($q) {
+                $q->whereNull('type')->orWhere('type', '!=', 'smm');
+            })
+            ->where('name', 'not like', '%SMM%')
+            ->whereDoesntHave('workspace', function ($wq) {
+                $wq->where('name', 'like', '%Social Media%')
+                   ->orWhere('name', 'like', '%SMM%');
+            })
+            ->where(function ($q) {
+                $q->whereHas('members', fn($m) => $m->where('users.id', $this->id))
+                  ->orWhere('created_by', $this->id)
+                  ->orWhereHas('cards.assignees', fn($aq) => $aq->where('users.id', $this->id))
+                  ->orWhereHas('workspace.members', fn($wm) => $wm->where('users.id', $this->id));
+            })
+            ->withCount([
+                'cards as user_tasks_count' => function ($q) {
+                    $q->where('is_archived', false)
+                      ->whereHas('assignees', fn($aq) => $aq->where('users.id', $this->id));
+                },
+                'cards as due_tomorrow_count' => function ($q) use ($tomorrowDate) {
+                    $q->where('is_archived', false)
+                      ->where('deadline', $tomorrowDate)
+                      ->whereNull('approved_at')
+                      ->whereNull('block_completed_at')
+                      ->whereNotIn('status', ['approved', 'done', 'completed'])
+                      ->whereHas('assignees', fn($aq) => $aq->where('users.id', $this->id));
+                },
+                'cards as total_active_cards_count' => function ($q) {
+                    $q->where('is_archived', false);
+                },
+                'cards as total_assigned_cards_count' => function ($q) {
+                    $q->where('is_archived', false)
+                      ->whereHas('assignees');
+                }
+            ])
+            ->orderBy('position')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        foreach ($boards as $board) {
+            if ($board->user_tasks_count == 0 && $board->total_assigned_cards_count == 0) {
+                $board->user_tasks_count = $board->total_active_cards_count;
+            }
+        }
+
+        return $boards->sortByDesc('user_tasks_count')->values();
+    }
+
+    /**
+     * Get deadline warning tasks (due tomorrow, due today, overdue)
+     * and task summary counts for active cards assigned to this member in planning boards.
+     */
+    public function getDeadlineWarningData(): array
+    {
+        $default = [
+            'warningTasks'       => collect(),
+            'dueTomorrowCount'   => 0,
+            'dueTodayCount'      => 0,
+            'overdueCount'       => 0,
+            'totalWarningCount'  => 0,
+            'totalTasksCount'    => 0,
+            'userCards'          => collect(),
+            'boards'             => collect(),
+        ];
+
+        if ($this->isBossSupervisorOrQc()) {
+            return $default;
+        }
+
+        $boards = $this->getPlanningBoardsWithTaskCounts();
+        $allBoardIds = $boards->pluck('id')->toArray();
+
+        if (empty($allBoardIds)) {
+            return $default;
+        }
+
+        $now = \Carbon\Carbon::now();
+        $nowStr = $now->toDateTimeString();
+        $todayDate = \Carbon\Carbon::today()->toDateString();
+        $tomorrowDate = \Carbon\Carbon::tomorrow()->toDateString();
+
+        // Query active cards assigned to this user in these planning boards
+        $userCards = \App\Models\Card::with(['board.workspace', 'boardList', 'labels', 'checklists.items', 'assignees'])
+            ->whereIn('board_id', $allBoardIds)
+            ->where('is_archived', false)
+            ->whereHas('assignees', fn($aq) => $aq->where('users.id', $this->id))
+            ->orderByRaw("CASE WHEN deadline IS NOT NULL AND deadline < '{$nowStr}' THEN 0 ELSE 1 END")
+            ->orderBy('deadline')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Batch pre-fetch approved sync group IDs to check twin workflow cards in 1 efficient query
+        $syncGroupIds = $userCards->pluck('sync_group_id')->filter()->unique()->toArray();
+        $approvedSyncGroupIds = [];
+        if (!empty($syncGroupIds)) {
+            $approvedSyncGroupIds = \App\Models\Card::whereIn('sync_group_id', $syncGroupIds)
+                ->where(function ($q) {
+                    $q->whereNotNull('approved_at')
+                      ->orWhereNotNull('block_completed_at')
+                      ->orWhereIn('status', ['approved', 'done', 'completed'])
+                      ->orWhereHas('boardList', function ($lq) {
+                          $lq->where('name', 'like', '%approved%')
+                             ->orWhere('name', 'like', '%done%')
+                             ->orWhere('name', 'like', '%completed%')
+                             ->orWhere('name', 'like', '%complete%')
+                             ->orWhere('name', 'like', '%finish%')
+                             ->orWhere('name', 'like', '%published%');
+                      });
+                })
+                ->pluck('sync_group_id')
+                ->unique()
+                ->toArray();
+        }
+
+        $warningTasks = collect();
+        $dueTomorrowCount = 0;
+        $dueTodayCount = 0;
+        $overdueCount = 0;
+
+        foreach ($userCards as $card) {
+            $dueDate = $card->due_at ?? ($card->deadline ? \Carbon\Carbon::parse($card->deadline) : null);
+            if (!$dueDate) {
+                continue;
+            }
+
+            // Exclude already completed or approved tasks (approved_at, block_completed_at, status, list, twin cards, 100% checklists)
+            if ($card->isCompletedOrApproved($approvedSyncGroupIds)) {
+                continue;
+            }
+
+            $cardDateStr = $dueDate->toDateString();
+
+            if ($cardDateStr === $tomorrowDate || (!$dueDate->isPast() && !$dueDate->isToday() && $now->diffInHours($dueDate, false) <= 36 && $now->diffInHours($dueDate, false) >= 0)) {
+                $dueTomorrowCount++;
+                $warningTasks->push([
+                    'card'               => $card,
+                    'title'              => $card->title,
+                    'board_name'         => $card->board?->name ?? 'Board',
+                    'workspace_name'     => $card->board?->workspace?->name ?? 'Team',
+                    'list_name'          => $card->boardList?->name ?? 'List',
+                    'deadline'           => $dueDate,
+                    'due_type'           => 'tomorrow',
+                    'badge_text'         => 'Due in 1 Day (Tomorrow)',
+                    'badge_color'        => 'amber',
+                    'due_formatted'      => $dueDate->format('M d, Y') . ($dueDate->format('H:i') !== '00:00' ? ' at ' . $dueDate->format('g:i A') : ''),
+                    'open_url'           => $card->board ? route('boards.show', $card->board) . '?card=' . $card->id : '#',
+                ]);
+            } elseif ($cardDateStr === $todayDate) {
+                $dueTodayCount++;
+                $warningTasks->push([
+                    'card'               => $card,
+                    'title'              => $card->title,
+                    'board_name'         => $card->board?->name ?? 'Board',
+                    'workspace_name'     => $card->board?->workspace?->name ?? 'Team',
+                    'list_name'          => $card->boardList?->name ?? 'List',
+                    'deadline'           => $dueDate,
+                    'due_type'           => 'today',
+                    'badge_text'         => 'Due Today',
+                    'badge_color'        => 'orange',
+                    'due_formatted'      => $dueDate->format('M d, Y') . ($dueDate->format('H:i') !== '00:00' ? ' at ' . $dueDate->format('g:i A') : ''),
+                    'open_url'           => $card->board ? route('boards.show', $card->board) . '?card=' . $card->id : '#',
+                ]);
+            } elseif ($dueDate->isPast()) {
+                $overdueCount++;
+                $warningTasks->push([
+                    'card'               => $card,
+                    'title'              => $card->title,
+                    'board_name'         => $card->board?->name ?? 'Board',
+                    'workspace_name'     => $card->board?->workspace?->name ?? 'Team',
+                    'list_name'          => $card->boardList?->name ?? 'List',
+                    'deadline'           => $dueDate,
+                    'due_type'           => 'overdue',
+                    'badge_text'         => 'Overdue (' . $dueDate->diffForHumans($now, true) . ')',
+                    'badge_color'        => 'rose',
+                    'due_formatted'      => $dueDate->format('M d, Y'),
+                    'open_url'           => $card->board ? route('boards.show', $card->board) . '?card=' . $card->id : '#',
+                ]);
+            }
+        }
+
+        // Sort warning tasks: Overdue first, then Today, then Tomorrow
+        $warningTasks = $warningTasks->sortBy(function ($item) {
+            return match($item['due_type']) {
+                'overdue' => 1,
+                'today'   => 2,
+                'tomorrow'=> 3,
+                default   => 4,
+            };
+        })->values();
+
+        return [
+            'warningTasks'          => $warningTasks,
+            'dueTomorrowCount'      => $dueTomorrowCount,
+            'dueTodayCount'         => $dueTodayCount,
+            'overdueCount'          => $overdueCount,
+            'totalWarningCount'     => $warningTasks->count(),
+            'totalTasksCount'       => $userCards->count(),
+            'userCards'             => $userCards,
+            'boards'                => $boards,
+            'approvedSyncGroupIds'  => $approvedSyncGroupIds,
+        ];
+    }
+
+    /**
      * TRUE if the user is a QC reviewer OR a Super-Admin / Admin.
      * Gates access to the System Health & Maintenance Diagnostics Center.
      */
@@ -447,8 +720,32 @@ SVG;
     }
 
     /**
-     * Check if lunch alarm is enabled for this user.
-     * Default: FALSE for supervisor or admin-digital roles, TRUE for everyone else.
+     * Check if user has supervisor or admin-digital role.
+     * Shift clock alarms are turned off by default only for these roles.
+     */
+    public function isSupervisorOrAdminDigital(): bool
+    {
+        try {
+            if ($this->hasAnyRole(['admin-digital', 'supervisor', 'ebay-supervisor', 'logistic-supervisor'])) {
+                return true;
+            }
+        } catch (\Throwable $e) {}
+
+        $teamRole = strtolower($this->team_role ?? '');
+        if (
+            str_contains($teamRole, 'supervisor') ||
+            str_contains($teamRole, 'admin digital') ||
+            str_contains($teamRole, 'admin-digital')
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if shift clock alarm (12 PM lunch, 4 PM off work & Saturday 11 AM) is enabled for this user.
+     * Default: FALSE for all users. Users can turn it on individually from their profile settings.
      */
     public function isLunchAlarmEnabled(): bool
     {
@@ -456,31 +753,98 @@ SVG;
             return (bool) $this->lunch_alarm_enabled;
         }
 
+        return false;
+    }
+
+    /**
+     * Check if user can configure shift alarm duration in seconds.
+     * Allowed for: Super Admin and QC.
+     */
+    public function canSetAlarmDuration(): bool
+    {
         try {
-            if ($this->hasAnyRole(['admin-digital', 'supervisor', 'ebay-supervisor', 'logistic-supervisor', 'super-admin'])) {
-                return false;
+            if ($this->hasRole('super-admin')) {
+                return true;
+            }
+            if ($this->isQc() || $this->hasRole('social_qc')) {
+                return true;
             }
         } catch (\Throwable $e) {}
 
         $teamRole = strtolower($this->team_role ?? '');
-        if (str_contains($teamRole, 'supervisor') || str_contains($teamRole, 'admin digital') || str_contains($teamRole, 'super admin') || str_contains($teamRole, 'superuser')) {
-            return false;
+        if (str_contains($teamRole, 'super admin') || str_contains($teamRole, 'qc')) {
+            return true;
         }
 
-        return true;
+        $name = strtolower($this->name ?? '');
+        if (str_contains($name, 'qc')) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
-     * Get the active lunch alarm sound URL.
+     * Get the user's lunch alarm sound (12:00 PM), defaulting to lunch.wav.
+     */
+    public function getLunchAlarmSoundAttribute($value): string
+    {
+        return $value ?: 'lunch.wav';
+    }
+
+    /**
+     * Get the active lunch alarm sound URL (12:00 PM).
      */
     public function getLunchAlarmSoundUrlAttribute(): string
     {
-        $sound = $this->lunch_alarm_sound ?: 'melodic-chime.wav';
+        $sound = $this->lunch_alarm_sound ?: 'lunch.wav';
         $path = 'clocksound/' . $sound;
         if (file_exists(public_path($path))) {
             return asset($path);
         }
-        return asset('clocksound/melodic-chime.wav');
+        return asset('clocksound/lunch.wav');
+    }
+
+    /**
+     * Get the user's off work alarm sound (4:00 PM), defaulting to funny.wav.
+     */
+    public function getOffworkAlarmSoundAttribute($value): string
+    {
+        return $value ?: 'funny.wav';
+    }
+
+    /**
+     * Get the active off work alarm sound URL (4:00 PM).
+     */
+    public function getOffworkAlarmSoundUrlAttribute(): string
+    {
+        $sound = $this->offwork_alarm_sound ?: 'funny.wav';
+        $path = 'clocksound/' . $sound;
+        if (file_exists(public_path($path))) {
+            return asset($path);
+        }
+        return asset('clocksound/funny.wav');
+    }
+
+    /**
+     * Get the user's Saturday half day alarm sound (11:00 AM), defaulting to funny.wav.
+     */
+    public function getSatAlarmSoundAttribute($value): string
+    {
+        return $value ?: 'funny.wav';
+    }
+
+    /**
+     * Get the active Saturday half day alarm sound URL (11:00 AM).
+     */
+    public function getSatAlarmSoundUrlAttribute(): string
+    {
+        $sound = $this->sat_alarm_sound ?: 'funny.wav';
+        $path = 'clocksound/' . $sound;
+        if (file_exists(public_path($path))) {
+            return asset($path);
+        }
+        return asset('clocksound/funny.wav');
     }
 
 

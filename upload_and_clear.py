@@ -2,16 +2,52 @@ import os
 import sys
 import subprocess
 
-SSH_PASSWORD = "Digital@KiuQ$#!2030%"
-SSHPASS = "/opt/homebrew/bin/sshpass"
+import getpass
 
-def run_cmd(cmd_args):
-    # Prepend sshpass so ssh/rsync gets the password non-interactively
-    full_cmd = [SSHPASS, "-p", SSH_PASSWORD] + cmd_args
+SSH_PASSWORD = os.environ.get("SSH_PASSWORD", "1Rollercompactor.orgmail")
+SSHPASS = "/opt/homebrew/bin/sshpass" if os.path.exists("/opt/homebrew/bin/sshpass") else "sshpass"
+
+def run_cmd(cmd_args, allow_fail=False):
+    global SSH_PASSWORD
     print(f"Running: {' '.join(cmd_args)}")
-    proc = subprocess.run(full_cmd)
+
+    # If --interactive is passed in CLI or SSH_PASSWORD is empty, run command natively
+    if "--interactive" in sys.argv or not SSH_PASSWORD:
+        proc = subprocess.run(cmd_args)
+    else:
+        full_cmd = [SSHPASS, "-p", SSH_PASSWORD] + cmd_args
+        proc = subprocess.run(full_cmd)
+
     if proc.returncode != 0:
-        print(f"Command failed with exit code {proc.returncode}")
+        if allow_fail:
+            print(f"Command failed with exit code {proc.returncode} (non-fatal, proceeding...)")
+            return
+
+        # Handle Permission Denied (sshpass exit code 5 or 255)
+        if proc.returncode in (5, 255) and sys.stdin.isatty():
+            print("\n[!] SSH Permission Denied with stored password.")
+            print("[?] Please enter the current Hostinger SSH password:")
+            try:
+                new_pass = getpass.getpass("Hostinger SSH Password: ")
+                if new_pass:
+                    SSH_PASSWORD = new_pass
+                    print("Retrying with entered password...\n")
+                    full_cmd = [SSHPASS, "-p", SSH_PASSWORD] + cmd_args
+                    retry_proc = subprocess.run(full_cmd)
+                    if retry_proc.returncode == 0:
+                        print("\n--- Command Finished ---\n")
+                        return
+            except Exception:
+                pass
+
+        print(f"\n[ERROR] Command failed with exit code {proc.returncode}")
+        print("\nIf you are seeing 'Permission denied (publickey,password)':")
+        print("1. Verify your SSH password in Hostinger hPanel -> Advanced -> SSH Access.")
+        print("2. Make sure 'SSH Access' is toggled ON in Hostinger.")
+        print("3. You can pass the correct password directly:")
+        print("   SSH_PASSWORD='your_password' python3 upload_and_clear.py")
+        print("   OR run with interactive prompt:")
+        print("   python3 upload_and_clear.py --interactive\n")
         sys.exit(1)
     print("\n--- Command Finished ---\n")
 
@@ -38,7 +74,7 @@ if __name__ == "__main__":
     # excluding root-level *.php/*.py/*.sh/*.exp files is safe and closes this
     # class of leak for good, not just for the specific filenames seen so far.
     rsync_cmd = [
-        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p 65002",
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
         "--exclude", ".git/",
         "--exclude", "vendor/",
         "--exclude", "node_modules/",
@@ -71,6 +107,8 @@ if __name__ == "__main__":
         "--exclude", "/*.xls",
         "--exclude", "/*.csv",
         "--exclude", ".phpunit.result.cache",
+        "--exclude", "dgt_macos_app/",
+        "--exclude", "dgt-mobile/",
         "./",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/"
     ]
@@ -79,27 +117,34 @@ if __name__ == "__main__":
     # 1c. Sync user-uploaded files (QC error images, avatars, attachments, etc.)
     # These are stored in storage/app/public/ locally and served via storage symlink on server.
     rsync_storage_cmd = [
-        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p 65002",
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
         "--ignore-existing",  # Don't overwrite files that already exist on the server
         "storage/app/public/",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/storage/app/public/"
     ]
-    run_cmd(rsync_storage_cmd)
+    run_cmd(rsync_storage_cmd, allow_fail=True)
 
     # 1b. Upload assets directly to public_html/js/ (without public/ prefix) just in case public_html is the document root
     rsync_workspace_alpine_cmd = [
-        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p 65002",
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
         "public/js/workspace-alpine.js",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/js/"
     ]
-    run_cmd(rsync_workspace_alpine_cmd)
+    run_cmd(rsync_workspace_alpine_cmd, allow_fail=True)
 
     rsync_trello_board_cmd = [
-        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p 65002",
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
         "public/js/trello-board.js",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/js/"
     ]
-    run_cmd(rsync_trello_board_cmd)
+    run_cmd(rsync_trello_board_cmd, allow_fail=True)
+
+    rsync_images_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/images/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/images/"
+    ]
+    run_cmd(rsync_images_cmd, allow_fail=True)
 
     # 2. Remove hot file + optimize caching on server.
     # Do not run migrations from this performance deploy: the optimization pass
@@ -165,7 +210,7 @@ if __name__ == "__main__":
     tinker_clean_reorder = PHP + ' artisan tinker --execute="\\Illuminate\\Support\\Facades\\DB::table(\'notifications\')->where(\'data\', \'like\', \'%card_reordered%\')->orWhere(\'data\', \'like\', \'%reordered card%\')->delete(); App\\\\Models\\\\ActivityLog::where(\'description\', \'like\', \'%reordered%\')->orWhere(\'action\', \'like\', \'%reorder%\')->delete(); echo \'Cleaned up reorder notifications and activities\\n\';" && '
 
     ssh_cmd = [
-        "ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=30", "-p", "65002", "u355625773@157.173.215.124",
+        "ssh", "-o", "StrictHostKeyChecking=no", "-o", "PubkeyAuthentication=no", "-o", "ConnectTimeout=30", "-p", "65002", "u355625773@157.173.215.124",
         (
             "cd domains/lightcyan-weasel-711536.hostingersite.com/public_html && "
             + "mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions && "
@@ -173,6 +218,7 @@ if __name__ == "__main__":
             + "rm -f public/hot && rm -f bootstrap/cache/*.php && rm -f database/migrations/2026_08_07_075801_modify_unique_constraint_on_comment_reactions.php && "
             + PHP + " artisan optimize && "
             + PHP + " artisan migrate --force && "
+            + PHP + " artisan alarm:apply-defaults --force && "
             + tinker_sync
             + tinker_clean
             + tinker_fix_colors

@@ -32,8 +32,10 @@ class MeetingAlarmController extends Controller
         if (is_dir(public_path('clocksound'))) {
             $clockFiles = File::files(public_path('clocksound'));
             $clockSounds = collect($clockFiles)->map(fn($file) => $file->getFilename())->sort(function ($a, $b) {
-                if ($a === 'melodic-chime.wav') return -1;
-                if ($b === 'melodic-chime.wav') return 1;
+                if ($a === 'funny.wav') return -1;
+                if ($b === 'funny.wav') return 1;
+                if ($a === '02.wav') return -1;
+                if ($b === '02.wav') return 1;
                 return strnatcasecmp($a, $b);
             })->values();
         }
@@ -43,18 +45,21 @@ class MeetingAlarmController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $this->checkPermission();
+        $user = auth()->user();
+        if (!$user || !$user->canManageClockSounds()) {
+            return back()->with('error', 'Unauthorized action.');
+        }
 
         $validated = $request->validate([
             'title'         => ['required', 'string', 'max:255'],
             'description'   => ['nullable', 'string', 'max:1000'],
             'meeting_time'  => ['required', 'date'],
-            'meeting_link'  => ['nullable', 'string', 'max:500'],
+            'meeting_link'  => ['nullable', 'url', 'max:500'],
             'sound'         => ['nullable', 'string', 'max:255'],
-            'ring_duration' => ['nullable', 'integer', 'min:3', 'max:60'],
+            'ring_duration' => ['nullable', 'integer', 'min:5', 'max:60'],
         ]);
 
-        $validated['sound'] = $validated['sound'] ?: 'melodic-chime.wav';
+        $validated['sound'] = $validated['sound'] ?: 'funny.wav';
         $validated['ring_duration'] = $validated['ring_duration'] ?? 10;
         $validated['created_by'] = auth()->id();
         $validated['is_active'] = $request->boolean('is_active', true);

@@ -50,6 +50,8 @@ class LunchAlarmTest extends TestCase
         $this->assertNotEmpty($files);
 
         $filenames = collect($files)->map(fn($f) => $f->getFilename())->all();
+        $this->assertContains('funny.wav', $filenames);
+        $this->assertContains('02.wav', $filenames);
         $this->assertContains('classic-alarm.wav', $filenames);
         $this->assertContains('digital-alarm.wav', $filenames);
     }
@@ -114,20 +116,27 @@ class LunchAlarmTest extends TestCase
         $this->assertFileDoesNotExist($uploadedPath);
     }
 
-    public function test_melodic_chime_is_default_sound_url(): void
+    public function test_shift_alarm_default_sounds_and_urls(): void
     {
         $user = new User([
             'name' => 'Default Sound User',
             'email' => 'default@example.com',
         ]);
 
-        $this->assertStringContainsString('melodic-chime.wav', $user->lunch_alarm_sound_url);
+        $this->assertEquals('lunch.wav', $user->lunch_alarm_sound);
+        $this->assertStringContainsString('lunch.wav', $user->lunch_alarm_sound_url);
+
+        $this->assertEquals('funny.wav', $user->offwork_alarm_sound);
+        $this->assertStringContainsString('funny.wav', $user->offwork_alarm_sound_url);
+
+        $this->assertEquals('funny.wav', $user->sat_alarm_sound);
+        $this->assertStringContainsString('funny.wav', $user->sat_alarm_sound_url);
     }
 
-    public function test_admin_digital_and_supervisor_are_disabled_by_default(): void
+    public function test_shift_alarms_are_disabled_by_default_for_all_users(): void
     {
         $regularUser = new User(['team_role' => 'Digital Staff']);
-        $this->assertTrue($regularUser->isLunchAlarmEnabled());
+        $this->assertFalse($regularUser->isLunchAlarmEnabled());
 
         $supervisorUser = new User(['team_role' => 'Team Supervisor']);
         $this->assertFalse($supervisorUser->isLunchAlarmEnabled());
@@ -137,6 +146,90 @@ class LunchAlarmTest extends TestCase
 
         $superAdminUser = new User(['team_role' => 'Super Admin']);
         $this->assertFalse($superAdminUser->isLunchAlarmEnabled());
+
+        $qcUser = new User(['team_role' => 'QC Specialist']);
+        $this->assertFalse($qcUser->isLunchAlarmEnabled());
+
+        // When a user explicitly enables it, it returns true
+        $enabledUser = new User(['team_role' => 'Digital Staff', 'lunch_alarm_enabled' => true]);
+        $this->assertTrue($enabledUser->isLunchAlarmEnabled());
+    }
+
+    public function test_can_set_alarm_duration_permissions(): void
+    {
+        $superAdmin = new User(['name' => 'Admin', 'team_role' => 'Super Admin']);
+        $this->assertTrue($superAdmin->canSetAlarmDuration());
+
+        $qcUser = new User(['name' => 'QC Dara', 'team_role' => 'QC Specialist']);
+        $this->assertTrue($qcUser->canSetAlarmDuration());
+
+        $supervisor = new User(['name' => 'Jane', 'team_role' => 'Team Supervisor']);
+        $this->assertFalse($supervisor->canSetAlarmDuration());
+
+        $adminDigital = new User(['name' => 'Bob', 'team_role' => 'Admin Digital']);
+        $this->assertFalse($adminDigital->canSetAlarmDuration());
+
+        $regular = new User(['name' => 'Staff', 'team_role' => 'Digital Staff']);
+        $this->assertFalse($regular->canSetAlarmDuration());
+    }
+
+    public function test_superadmin_and_qc_can_update_shift_alarm_duration(): void
+    {
+        $qcUser = User::factory()->create([
+            'name' => 'QC Member',
+            'team_role' => 'QC Specialist',
+            'is_active' => true,
+        ]);
+        $this->actingAs($qcUser);
+
+        $response = $this->postJson(route('profile.clock-sound.duration'), [
+            'shift_alarm_duration' => 15,
+        ]);
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'duration' => 15]);
+        $this->assertEquals('15', \App\Models\Setting::get('shift_alarm_duration'));
+
+        // Regular user should get 403 Forbidden
+        $regularUser = User::factory()->create([
+            'name' => 'Regular Member',
+            'team_role' => 'Digital Staff',
+            'is_active' => true,
+        ]);
+        $this->actingAs($regularUser);
+
+        $failResponse = $this->postJson(route('profile.clock-sound.duration'), [
+            'shift_alarm_duration' => 20,
+        ]);
+        $failResponse->assertStatus(403);
+    }
+
+    public function test_user_can_update_individual_sounds_for_each_shift(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Custom Shift User',
+            'email' => 'custom@example.com',
+            'lunch_alarm_sound' => 'lunch.wav',
+            'offwork_alarm_sound' => 'funny.wav',
+            'sat_alarm_sound' => 'funny.wav',
+            'lunch_alarm_enabled' => true,
+        ]);
+        $this->actingAs($user);
+
+        $response = $this->put(route('profile.update'), [
+            'name' => 'Custom Shift User',
+            'lunch_alarm_sound' => 'dinner-bell.wav',
+            'offwork_alarm_sound' => '02.wav',
+            'sat_alarm_sound' => 'whistle-chime.mp3',
+            'lunch_alarm_enabled' => '1',
+        ]);
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $fresh = $user->fresh();
+        $this->assertEquals('dinner-bell.wav', $fresh->lunch_alarm_sound);
+        $this->assertEquals('02.wav', $fresh->offwork_alarm_sound);
+        $this->assertEquals('whistle-chime.mp3', $fresh->sat_alarm_sound);
+        $this->assertTrue($fresh->lunch_alarm_enabled);
     }
 
     public function test_alarm_apply_defaults_artisan_command(): void
@@ -144,22 +237,75 @@ class LunchAlarmTest extends TestCase
         $reg = User::factory()->create([
             'team_role' => 'Digital Staff',
             'lunch_alarm_sound' => 'alarm1.mp3',
+            'offwork_alarm_sound' => 'alarm1.mp3',
+            'sat_alarm_sound' => 'alarm1.mp3',
             'lunch_alarm_enabled' => false,
         ]);
 
         $sup = User::factory()->create([
             'team_role' => 'Team Supervisor',
             'lunch_alarm_sound' => 'alarm1.mp3',
+            'offwork_alarm_sound' => 'alarm1.mp3',
+            'sat_alarm_sound' => 'alarm1.mp3',
             'lunch_alarm_enabled' => true,
+        ]);
+
+        $superAdmin = User::factory()->create([
+            'team_role' => 'Super Admin',
+            'lunch_alarm_sound' => 'alarm1.mp3',
+            'offwork_alarm_sound' => 'alarm1.mp3',
+            'sat_alarm_sound' => 'alarm1.mp3',
+            'lunch_alarm_enabled' => false,
         ]);
 
         $this->artisan('alarm:apply-defaults')
             ->assertSuccessful();
 
-        $this->assertEquals('melodic-chime.wav', $reg->fresh()->lunch_alarm_sound);
-        $this->assertTrue($reg->fresh()->lunch_alarm_enabled);
+        $this->assertEquals('lunch.wav', $reg->fresh()->lunch_alarm_sound);
+        $this->assertEquals('funny.wav', $reg->fresh()->offwork_alarm_sound);
+        $this->assertEquals('funny.wav', $reg->fresh()->sat_alarm_sound);
+        $this->assertFalse($reg->fresh()->lunch_alarm_enabled);
 
-        $this->assertEquals('melodic-chime.wav', $sup->fresh()->lunch_alarm_sound);
+        $this->assertEquals('lunch.wav', $sup->fresh()->lunch_alarm_sound);
+        $this->assertEquals('funny.wav', $sup->fresh()->offwork_alarm_sound);
+        $this->assertEquals('funny.wav', $sup->fresh()->sat_alarm_sound);
         $this->assertFalse($sup->fresh()->lunch_alarm_enabled);
+
+        $this->assertEquals('lunch.wav', $superAdmin->fresh()->lunch_alarm_sound);
+        $this->assertEquals('funny.wav', $superAdmin->fresh()->offwork_alarm_sound);
+        $this->assertEquals('funny.wav', $superAdmin->fresh()->sat_alarm_sound);
+        $this->assertFalse($superAdmin->fresh()->lunch_alarm_enabled);
+
+        $this->assertEquals('15', \App\Models\Setting::get('shift_alarm_duration'));
+    }
+
+    public function test_user_can_toggle_shift_alarm_via_endpoint(): void
+    {
+        $user = User::factory()->create([
+            'lunch_alarm_enabled' => false,
+        ]);
+        $this->actingAs($user);
+
+        // Turn on
+        $response = $this->postJson(route('profile.clock-sound.toggle'), [
+            'lunch_alarm_enabled' => true,
+        ]);
+        $response->assertSuccessful();
+        $response->assertJson([
+            'success' => true,
+            'lunch_alarm_enabled' => true,
+        ]);
+        $this->assertTrue($user->fresh()->lunch_alarm_enabled);
+
+        // Turn off
+        $response2 = $this->postJson(route('profile.clock-sound.toggle'), [
+            'lunch_alarm_enabled' => false,
+        ]);
+        $response2->assertSuccessful();
+        $response2->assertJson([
+            'success' => true,
+            'lunch_alarm_enabled' => false,
+        ]);
+        $this->assertFalse($user->fresh()->lunch_alarm_enabled);
     }
 }

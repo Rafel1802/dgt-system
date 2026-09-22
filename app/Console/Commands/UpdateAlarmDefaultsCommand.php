@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
 class UpdateAlarmDefaultsCommand extends Command
 {
     protected $signature = 'alarm:apply-defaults {--force : Force apply without confirmation}';
-    protected $description = 'Update all users to use melodic-chime.wav ringtone, keep admin-digital and supervisors disabled, and set duration to 10s';
+    protected $description = 'Update all users to use lunch.wav for 12PM, funny.wav for 4PM and Sat 11AM, turn off shift clock alarms for everyone by default, and set duration to 15s';
 
     public function handle(): int
     {
@@ -24,49 +24,39 @@ class UpdateAlarmDefaultsCommand extends Command
 
         $users = User::all();
         $updatedCount = 0;
-        $disabledCount = 0;
-        $enabledCount = 0;
 
         foreach ($users as $user) {
-            $isExcluded = false;
-
-            try {
-                if ($user->hasAnyRole(['admin-digital', 'supervisor', 'ebay-supervisor', 'logistic-supervisor', 'super-admin'])) {
-                    $isExcluded = true;
-                }
-            } catch (\Throwable $e) {}
-
-            $teamRole = strtolower($user->team_role ?? '');
-            if (
-                str_contains($teamRole, 'supervisor') ||
-                str_contains($teamRole, 'admin digital') ||
-                str_contains($teamRole, 'super admin') ||
-                str_contains($teamRole, 'superuser')
-            ) {
-                $isExcluded = true;
+            $user->lunch_alarm_sound = 'lunch.wav';
+            if (Schema::hasColumn('users', 'offwork_alarm_sound')) {
+                $user->offwork_alarm_sound = 'funny.wav';
             }
-
-            $user->lunch_alarm_sound = 'melodic-chime.wav';
-            $user->lunch_alarm_enabled = !$isExcluded;
+            if (Schema::hasColumn('users', 'sat_alarm_sound')) {
+                $user->sat_alarm_sound = 'funny.wav';
+            }
+            $user->lunch_alarm_enabled = false;
             $user->save();
 
             $updatedCount++;
-            if ($isExcluded) {
-                $disabledCount++;
-            } else {
-                $enabledCount++;
-            }
         }
 
         $this->info("✓ Successfully updated {$updatedCount} users:");
-        $this->line("   - {$enabledCount} users enabled with 'melodic-chime.wav'");
-        $this->line("   - {$disabledCount} users (admin-digital, supervisor, super-admin) kept turned off");
+        $this->line("   - Default sounds set (12PM: lunch.wav, 4PM: funny.wav, Sat 11AM: funny.wav)");
+        $this->line("   - Shift clock alarms turned OFF for all {$updatedCount} users (opt-in via profile)");
+
+        // Ensure default shift alarm duration in settings is 15s
+        if (Schema::hasTable('settings')) {
+            \App\Models\Setting::updateOrCreate(
+                ['key' => 'shift_alarm_duration'],
+                ['value' => '15']
+            );
+            $this->info("✓ Set shift alarm duration to 15 seconds in settings.");
+        }
 
         if (Schema::hasTable('meeting_alarms') && Schema::hasColumn('meeting_alarms', 'ring_duration')) {
-            MeetingAlarm::whereNull('ring_duration')->orWhere('ring_duration', 5)->orWhere('ring_duration', 8)->update([
-                'ring_duration' => 10,
+            MeetingAlarm::whereNull('ring_duration')->orWhere('ring_duration', '<', 10)->update([
+                'ring_duration' => 15,
             ]);
-            $this->info("✓ Updated meeting alarms to 10 seconds ring duration.");
+            $this->info("✓ Updated meeting alarms default ring duration to 15 seconds.");
         }
 
         return 0;

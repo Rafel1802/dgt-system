@@ -40,7 +40,8 @@ class PopupAdInteractionController extends Controller
             // If they have seen it, check if interval has passed
             if ($pivot && $pivot->last_shown_at) {
                 $lastShown = Carbon::parse($pivot->last_shown_at);
-                if ($lastShown->addMinutes($ad->interval_minutes)->isFuture()) {
+                $interval = max(1, (int) ($ad->interval_minutes ?: 5));
+                if (now()->lessThan($lastShown->copy()->addMinutes($interval))) {
                     return false; // Interval not passed yet
                 }
             }
@@ -59,7 +60,7 @@ class PopupAdInteractionController extends Controller
                     'button_link' => $activeAd->button_link,
                     'notification_text' => $activeAd->notification_text,
                     'notification_icon' => $activeAd->notification_icon,
-                    'interval_minutes' => $activeAd->interval_minutes,
+                    'interval_minutes' => (int) ($activeAd->interval_minutes ?: 5),
                 ]
             ]);
         }
@@ -71,28 +72,50 @@ class PopupAdInteractionController extends Controller
     {
         $request->validate(['ad_id' => 'required|exists:popup_ads,id']);
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['status' => 'unauthenticated'], 401);
+        }
         
-        $pivot = $user->popupAds()->where('popup_ad_id', $request->ad_id)->first()?->pivot;
+        $pivot = null;
+        if (method_exists($user, 'popupAds')) {
+            $pivot = $user->popupAds()->where('popup_ad_id', $request->ad_id)->first()?->pivot;
+        } else {
+            $pivot = \Illuminate\Support\Facades\DB::table('popup_ad_user')
+                ->where('user_id', $user->id)
+                ->where('popup_ad_id', $request->ad_id)
+                ->first();
+        }
 
         // If it's the very first time being shown to this user, send the system notification
         if (!$pivot) {
             $ad = PopupAd::find($request->ad_id);
             if ($ad && $ad->notification_text) {
-                \App\Support\InstantNotifier::send($user, new \App\Notifications\GenericDatabaseNotification([
-                    'icon' => $ad->notification_icon ?? '📢',
-                    'title' => $ad->title,
-                    'body' => $ad->notification_text,
-                    'url' => $ad->button_link ?? '#',
-                    'module' => 'announcement',
-                ]));
+                try {
+                    \App\Support\InstantNotifier::send($user, new \App\Notifications\GenericDatabaseNotification([
+                        'icon' => $ad->notification_icon ?? '📢',
+                        'title' => $ad->title,
+                        'body' => $ad->notification_text,
+                        'url' => $ad->button_link ?? '#',
+                        'module' => 'announcement',
+                    ]));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed sending instant notification for popup ad: ' . $e->getMessage());
+                }
             }
         }
 
-        $user->popupAds()->syncWithoutDetaching([
-            $request->ad_id => [
-                'last_shown_at' => now(),
-            ]
-        ]);
+        if (method_exists($user, 'popupAds')) {
+            $user->popupAds()->syncWithoutDetaching([
+                $request->ad_id => [
+                    'last_shown_at' => now(),
+                ]
+            ]);
+        } else {
+            \Illuminate\Support\Facades\DB::table('popup_ad_user')->updateOrInsert(
+                ['popup_ad_id' => $request->ad_id, 'user_id' => $user->id],
+                ['last_shown_at' => now(), 'updated_at' => now()]
+            );
+        }
 
         return response()->json(['status' => 'success']);
     }
@@ -101,12 +124,23 @@ class PopupAdInteractionController extends Controller
     {
         $request->validate(['ad_id' => 'required|exists:popup_ads,id']);
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['status' => 'unauthenticated'], 401);
+        }
         
-        $user->popupAds()->syncWithoutDetaching([
-            $request->ad_id => [
-                'is_clicked' => true,
-            ]
-        ]);
+        if (method_exists($user, 'popupAds')) {
+            $user->popupAds()->syncWithoutDetaching([
+                $request->ad_id => [
+                    'is_clicked' => true,
+                    'last_shown_at' => now(),
+                ]
+            ]);
+        } else {
+            \Illuminate\Support\Facades\DB::table('popup_ad_user')->updateOrInsert(
+                ['popup_ad_id' => $request->ad_id, 'user_id' => $user->id],
+                ['is_clicked' => true, 'last_shown_at' => now(), 'updated_at' => now()]
+            );
+        }
 
         return response()->json(['status' => 'success']);
     }

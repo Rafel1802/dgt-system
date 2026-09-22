@@ -20,12 +20,12 @@ String _resolveAppBaseUrl() {
       : configuredApiBaseUrl;
 
   if (rawUrl.isEmpty) {
-    return 'https://rosybrown-baboon-228003.hostingersite.com';
+    return 'https://lightcyan-weasel-711536.hostingersite.com';
   }
 
   final uri = Uri.tryParse(rawUrl);
   if (uri == null || !uri.hasScheme) {
-    return 'https://rosybrown-baboon-228003.hostingersite.com';
+    return 'https://lightcyan-weasel-711536.hostingersite.com';
   }
 
   final normalizedPath = uri.path.replaceFirst(RegExp(r'/api/?$'), '');
@@ -161,6 +161,142 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  void _showInAppVideoDialog(String url, String title) {
+    String playUrl = url;
+    if (playUrl.contains('drive.google.com')) {
+      final match = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(playUrl);
+      if (match != null && match.group(1) != null) {
+        playUrl = 'https://drive.google.com/file/d/${match.group(1)}/preview';
+      }
+    }
+
+    final isGoogleDrive = playUrl.contains('drive.google.com');
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        final size = MediaQuery.of(dialogCtx).size;
+        final dialogWidth = (size.width * 0.90).clamp(650.0, 1150.0);
+        final dialogHeight = (size.height * 0.88).clamp(480.0, 780.0);
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          clipBehavior: Clip.antiAlias,
+          child: Container(
+            width: dialogWidth,
+            height: dialogHeight,
+            decoration: BoxDecoration(
+              color: const Color(0xFF030A1C),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFF1E293B), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.75),
+                  blurRadius: 36,
+                  spreadRadius: 8,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0B1329),
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFF1E293B), width: 1),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🎥', style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          title.isNotEmpty ? title : 'Video Preview',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (isGoogleDrive) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF065F46).withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.6)),
+                          ),
+                          child: const Text(
+                            'Google Drive',
+                            style: TextStyle(
+                              color: Color(0xFF34D399),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      IconButton(
+                        icon: const Icon(Icons.open_in_browser, color: Color(0xFF94A3B8), size: 18),
+                        splashRadius: 16,
+                        tooltip: 'Open in Default Browser',
+                        onPressed: () {
+                          final ext = playUrl.contains('drive.google.com')
+                              ? playUrl.replaceAll('/preview', '/view')
+                              : playUrl;
+                          final u = Uri.tryParse(ext);
+                          if (u != null) _openExternalUrl(u);
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 20),
+                        splashRadius: 18,
+                        tooltip: 'Close (Esc)',
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                    child: InAppWebView(
+                      initialUrlRequest: URLRequest(url: WebUri(playUrl)),
+                      initialSettings: InAppWebViewSettings(
+                        userAgent:
+                            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+                        javaScriptEnabled: true,
+                        javaScriptCanOpenWindowsAutomatically: true,
+                        allowsInlineMediaPlayback: true,
+                        mediaPlaybackRequiresUserGesture: false,
+                        allowsAirPlayForMediaPlayback: true,
+                        allowsPictureInPictureMediaPlayback: true,
+                        sharedCookiesEnabled: true,
+                        thirdPartyCookiesEnabled: true,
+                        limitsNavigationsToAppBoundDomains: false,
+                        supportZoom: true,
+                        hardwareAcceleration: true,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -212,28 +348,32 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       (() => {
         if (!window.__dgtOfficialAppReady) {
           window.__dgtOfficialAppReady = true;
+          window.isDgtDesktopApp = true;
+          window.__dgtMacApp = true;
           document.addEventListener('contextmenu', event => {
             event.preventDefault();
           }, { capture: true });
           document.documentElement.classList.add('dgt-macos-app');
+          window.dispatchEvent(new CustomEvent('dgt-macos-app-ready'));
           
           // Remove scrollbars without layout thrashing
           const style = document.createElement('style');
           style.innerHTML = `
             ::-webkit-scrollbar { display: none; }
-            body { background-color: #f4f7fb !important; -ms-overflow-style: none; scrollbar-width: none; }
+            html:not([data-theme="dark"]):not([data-theme="neon"]) body { background-color: #f4f7fb !important; }
+            body { -ms-overflow-style: none; scrollbar-width: none; }
           `;
           document.head.appendChild(style);
 
-          // Intercept external links and downloads since we disabled shouldOverrideUrlLoading for performance
+          // Intercept external links and downloads
           document.addEventListener('click', function(e) {
             var a = e.target.closest('a');
             if (!a || !a.href) return;
             
-            if (a.hasAttribute('download') || a.href.toLowerCase().endsWith('.pdf')) {
+            if (a.hasAttribute('download') || a.href.toLowerCase().endsWith('.pdf') || a.href.toLowerCase().endsWith('.xlsx') || a.href.toLowerCase().endsWith('.csv')) {
                e.preventDefault();
                window.flutter_inappwebview.callHandler('DgtNativeDownload', a.href);
-            } else if (a.host !== window.location.host && a.host !== '') {
+            } else if ((a.host !== window.location.host && a.host !== '') || a.target === '_blank') {
                e.preventDefault();
                window.flutter_inappwebview.callHandler('DgtOpenExternal', a.href);
             }
@@ -517,14 +657,21 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 child: InAppWebView(
                   initialUrlRequest: URLRequest(url: WebUri(appUri.toString())),
                   initialSettings: InAppWebViewSettings(
-                    userAgent: 'DGTSystemMacOSApp/1.0',
+                    userAgent:
+                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
                     javaScriptEnabled: true,
+                    javaScriptCanOpenWindowsAutomatically: true,
                     transparentBackground: false,
                     cacheEnabled: true,
                     useShouldOverrideUrlLoading: false,
                     useOnDownloadStart: true,
                     allowsBackForwardNavigationGestures: true,
                     isInspectable: false,
+                    // Media & caption capabilities for macOS WebKit
+                    allowsInlineMediaPlayback: true,
+                    mediaPlaybackRequiresUserGesture: false,
+                    allowsAirPlayForMediaPlayback: true,
+                    allowsPictureInPictureMediaPlayback: true,
                     // Performance: use desktop rendering engine, not mobile
                     preferredContentMode: UserPreferredContentMode.DESKTOP,
                     // Performance: disable unnecessary features
@@ -535,6 +682,9 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     // Performance: hardware acceleration
                     hardwareAcceleration: true,
                     supportMultipleWindows: true,
+                    sharedCookiesEnabled: true,
+                    thirdPartyCookiesEnabled: true,
+                    limitsNavigationsToAppBoundDomains: false,
                   ),
                   onWebViewCreated: (webViewController) {
                     controller = webViewController;
@@ -561,6 +711,25 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                         if (args.isNotEmpty) {
                           final uri = Uri.parse(args[0].toString());
                           await _openExternalUrl(uri);
+                        }
+                      },
+                    );
+                    controller?.addJavaScriptHandler(
+                      handlerName: 'DgtPlayInAppVideo',
+                      callback: (args) {
+                        if (args.isNotEmpty) {
+                          final payload = args[0];
+                          String url = '';
+                          String title = 'Video Preview';
+                          if (payload is Map) {
+                            url = (payload['url'] ?? '').toString();
+                            title = (payload['title'] ?? 'Video Preview').toString();
+                          } else if (payload is String) {
+                            url = payload;
+                          }
+                          if (url.isNotEmpty) {
+                            _showInAppVideoDialog(url, title);
+                          }
                         }
                       },
                     );
@@ -592,20 +761,26 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     notificationPoller.start();
                   },
                   onReceivedError: (controller, request, error) {
-                    if (request.isForMainFrame ?? false) {
-                      final desc = error.description.toLowerCase();
-                      // Ignore harmless cancellation errors caused by Turbo routing/back navigation
-                      if (desc.contains('-999') ||
-                          desc.contains('cancelled') ||
-                          desc.contains('aborted')) {
-                        return;
-                      }
+                    final desc = error.description.toLowerCase();
+                    // Ignore ALL harmless cancellation, redirect, policy change, and subframe errors
+                    if (desc.contains('-999') ||
+                        desc.contains('102') ||
+                        desc.contains('frame load interrupted') ||
+                        desc.contains('cancelled') ||
+                        desc.contains('canceled') ||
+                        desc.contains('aborted') ||
+                        desc.contains('webkiterrordomain')) {
+                      return;
+                    }
+
+                    // Only main frame connection failures before initial load should ever display the error screen
+                    if (request.isForMainFrame == true && !hasLoadedFirstPage) {
                       setState(() => loadError = error.description);
                     }
                   },
                   onCreateWindow: (controller, createWindowAction) async {
                     final uri = createWindowAction.request.url;
-                    if (uri != null) {
+                    if (uri != null && !_isInternalUrl(uri)) {
                       await _openExternalUrl(uri);
                       return true;
                     }
@@ -625,26 +800,25 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        width: 90,
-                        height: 90,
+                        width: 100,
+                        height: 100,
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(24),
                           boxShadow: const [
                             BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 20,
-                              offset: Offset(0, 8),
+                              color: Colors.black26,
+                              blurRadius: 28,
+                              offset: Offset(0, 10),
                             ),
                           ],
                         ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'KQ',
-                          style: TextStyle(
-                            color: Color(0xFF2F68ED),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 36,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Image.asset(
+                            'assets/app_icon.png',
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -916,15 +1090,22 @@ class _LoadErrorPanel extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF2FF),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
               ),
-              alignment: Alignment.center,
-              child: const Text(
-                'KQ',
-                style: TextStyle(
-                  color: Color(0xFF2F68ED),
-                  fontWeight: FontWeight.w900,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/app_icon.png',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.cover,
                 ),
               ),
             ),

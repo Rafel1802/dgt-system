@@ -409,8 +409,12 @@
 /* ── Dark Mode ─────────────────────────────────────────────────────── */
 [data-theme="dark"] .stat-card,
 [data-theme="dark"] .search-bar   { background: rgba(15,23,42,0.85); border-color: rgba(51,65,85,0.9); }
-[data-theme="dark"] .member-card  { background: rgba(15,23,42,0.85); border-color: rgba(51,65,85,0.9); }
+[data-theme="dark"] .search-bar input,
+[data-theme="dark"] .search-bar select { background: rgba(30,41,59,0.8); border-color: rgba(51,65,85,0.9); color: #f1f5f9; }
+[data-theme="dark"] .search-bar button.bg-white { background: rgba(30,41,59,0.9); border-color: rgba(51,65,85,0.9); color: #94a3b8; }
+[data-theme="dark"] .member-card  { background: rgba(15,23,42,0.85); border-color: rgba(51,65,85,0.9); color: #f1f5f9; }
 [data-theme="dark"] .member-card:hover { border-color: rgba(96,165,250,0.32); box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+[data-theme="dark"] .member-avatar { border-color: rgba(51,65,85,0.9); }
 [data-theme="dark"] .member-name  { color: #f1f5f9; }
 [data-theme="dark"] .member-role  { color: #94a3b8; }
 [data-theme="dark"] .member-team-role { color: #64748b; }
@@ -422,6 +426,134 @@
 [data-theme="dark"] .empty-icon   { background: rgba(30,41,59,0.8); }
 [data-theme="dark"] .stat-card p.text-slate-950 { color: #f1f5f9 !important; }
 [data-theme="dark"] .stat-card p.text-slate-500 { color: #94a3b8 !important; }
+
+/* ── Neon Theme for Members Directory (Never White) ───────────────── */
+[data-theme="neon"] .members-hero {
+    background: linear-gradient(135deg, #031238 0%, #004494 50%, #0066cc 100%) !important;
+    border: 1.5px solid rgba(0, 180, 255, 0.5) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 140, 255, 0.3) !important;
+}
+[data-theme="neon"] .stat-card {
+    background: rgba(4, 20, 56, 0.9) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 15px rgba(0, 120, 255, 0.2) !important;
+    border-radius: 20px !important;
+}
+[data-theme="neon"] .stat-card:hover {
+    border-color: rgba(0, 220, 255, 0.75) !important;
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.75), 0 0 25px rgba(0, 180, 255, 0.45) !important;
+}
+[data-theme="neon"] .stat-card p.text-slate-950 { color: #f0f9ff !important; text-shadow: 0 0 10px rgba(0, 180, 255, 0.3); }
+[data-theme="neon"] .stat-card p.text-slate-500 { color: #7dd3fc !important; }
+
+[data-theme="neon"] .search-bar {
+    background: rgba(4, 20, 56, 0.9) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 15px rgba(0, 120, 255, 0.2) !important;
+    border-radius: 20px !important;
+}
+[data-theme="neon"] .search-bar input,
+[data-theme="neon"] .search-bar select {
+    background: rgba(2, 10, 32, 0.9) !important;
+    border: 1px solid rgba(0, 160, 255, 0.4) !important;
+    color: #f0f9ff !important;
+}
+[data-theme="neon"] .search-bar input::placeholder {
+    color: #64748b !important;
+}
+[data-theme="neon"] .search-bar input:focus,
+[data-theme="neon"] .search-bar select:focus {
+    border-color: rgba(0, 220, 255, 0.8) !important;
+    box-shadow: 0 0 15px rgba(0, 180, 255, 0.4) !important;
+}
+[data-theme="neon"] .search-bar button.bg-white {
+    background: rgba(2, 10, 32, 0.8) !important;
+    border-color: rgba(0, 160, 255, 0.4) !important;
+    color: #bae6fd !important;
+}
+[data-theme="neon"] .search-bar button.bg-white:hover {
+    background: rgba(0, 100, 220, 0.35) !important;
+    border-color: rgba(0, 220, 255, 0.7) !important;
+    color: #ffffff !important;
+}
+
+/* ── Member card in Neon (Sapphire Glass) ── */
+[data-theme="neon"] .member-card {
+    background: rgba(4, 20, 56, 0.92) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 15px rgba(0, 120, 255, 0.15) !important;
+    color: #f0f9ff !important;
+}
+[data-theme="neon"] .member-card:hover {
+    transform: translateY(-6px) scale(1.01);
+    border-color: rgba(0, 220, 255, 0.85) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 180, 255, 0.45) !important;
+}
+[data-theme="neon"] .member-avatar {
+    border: 3px solid rgba(0, 180, 255, 0.6) !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 160, 255, 0.3) !important;
+}
+[data-theme="neon"] .member-avatar-wrap:hover .member-avatar {
+    border-color: rgba(0, 230, 255, 0.95) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 200, 255, 0.6) !important;
+}
+[data-theme="neon"] .online-dot {
+    border-color: #041438 !important;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.8) !important;
+}
+[data-theme="neon"] .member-name {
+    color: #ffffff !important;
+    text-shadow: 0 0 10px rgba(0, 180, 255, 0.4);
+}
+[data-theme="neon"] .member-role {
+    color: #bae6fd !important;
+}
+[data-theme="neon"] .member-team-role {
+    color: #7dd3fc !important;
+}
+[data-theme="neon"] .card-contact-row {
+    border-top: 1px solid rgba(0, 160, 255, 0.25) !important;
+}
+[data-theme="neon"] .card-contact-item {
+    color: #93c5fd !important;
+}
+[data-theme="neon"] .card-contact-item svg {
+    color: #38bdf8 !important;
+}
+[data-theme="neon"] .card-contact-item.no-info {
+    color: rgba(148, 163, 184, 0.5) !important;
+}
+[data-theme="neon"] .btn-phone {
+    background: rgba(0, 50, 130, 0.4) !important;
+    border: 1px solid rgba(0, 160, 255, 0.4) !important;
+    color: #bae6fd !important;
+}
+[data-theme="neon"] .btn-phone:hover {
+    background: rgba(0, 100, 220, 0.55) !important;
+    border-color: rgba(0, 220, 255, 0.85) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 15px rgba(0, 160, 255, 0.45) !important;
+}
+[data-theme="neon"] .role-super-admin  { background: rgba(239,68,68,0.25) !important;  color: #f87171 !important; border: 1px solid rgba(239,68,68,0.4) !important; }
+[data-theme="neon"] .role-admin        { background: rgba(245,158,11,0.25) !important; color: #fbbf24 !important; border: 1px solid rgba(245,158,11,0.4) !important; }
+[data-theme="neon"] .role-boss         { background: rgba(139,92,246,0.25) !important; color: #c084fc !important; border: 1px solid rgba(139,92,246,0.4) !important; }
+[data-theme="neon"] .role-digital      { background: rgba(99,102,241,0.25) !important; color: #818cf8 !important; border: 1px solid rgba(99,102,241,0.4) !important; }
+[data-theme="neon"] .role-crm          { background: rgba(14,165,233,0.25) !important; color: #38bdf8 !important; border: 1px solid rgba(14,165,233,0.4) !important; }
+[data-theme="neon"] .role-sales        { background: rgba(16,185,129,0.25) !important; color: #34d399 !important; border: 1px solid rgba(16,185,129,0.4) !important; }
+[data-theme="neon"] .role-default      { background: rgba(100,116,139,0.25) !important; color: #94a3b8 !important; border: 1px solid rgba(100,116,139,0.4) !important; }
+[data-theme="neon"] .empty-members {
+    background: rgba(4, 20, 56, 0.6) !important;
+    border-color: rgba(0, 160, 255, 0.35) !important;
+}
+[data-theme="neon"] .empty-icon {
+    background: rgba(0, 50, 130, 0.5) !important;
+    color: #7dd3fc !important;
+}
 </style>
 
 <div class="space-y-6 animate-fade-in" x-data="membersApp()" x-init="init()">

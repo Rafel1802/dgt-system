@@ -60,6 +60,27 @@
                 <span class="font-mono text-indigo-600 dark:text-indigo-400" x-text="livePhnomPenhTime">--:--:--</span>
             </div>
 
+            @if(auth()->user()?->canSetAlarmDuration())
+            {{-- Shift Clock Alarms Duration Setting (Super Admin & QC) --}}
+            <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs font-bold text-amber-900 dark:text-amber-300 shadow-sm"
+                 title="Configure shift alarms ring duration for all users (Mon-Fri 12 PM & 4 PM, Sat 11 AM)">
+                <span class="text-sm">⏱️</span>
+                <span>Shift Alarms:</span>
+                <input type="number" min="3" max="60" x-model.number="shiftAlarmDuration"
+                       @change="saveShiftDuration()"
+                       @keydown.enter.prevent="saveShiftDuration()"
+                       class="w-12 h-6 px-1 text-center font-mono font-black text-xs rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                <span>s</span>
+                <button type="button" @click="saveShiftDuration()"
+                        :disabled="savingShiftDuration"
+                        class="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase transition-colors cursor-pointer disabled:opacity-50">
+                    <span x-show="!savingShiftDuration && !shiftDurationSaved">Save</span>
+                    <span x-show="savingShiftDuration">...</span>
+                    <span x-show="shiftDurationSaved" class="text-emerald-200">✓</span>
+                </button>
+            </div>
+            @endif
+
             {{-- Schedule Meeting Button --}}
             <button type="button"
                     @click="openCreateModal()"
@@ -128,7 +149,7 @@
             </div>
 
             <div class="flex items-center gap-2">
-                <span class="text-xs text-slate-400 font-semibold">Sound default: <strong class="text-indigo-600 dark:text-indigo-400">melodic-chime.wav</strong></span>
+                <span class="text-xs text-slate-400 font-semibold">Sound default: <strong class="text-indigo-600 dark:text-indigo-400">funny.wav</strong></span>
             </div>
         </div>
 
@@ -423,7 +444,7 @@
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                                Alarm Ringtone Sound <span class="text-indigo-600 dark:text-indigo-400 font-bold">(Auto-selected: melodic-chime.wav)</span>
+                                Alarm Ringtone Sound <span class="text-indigo-600 dark:text-indigo-400 font-bold">(Auto-selected: 02.wav)</span>
                             </label>
                             <button type="button"
                                     @click="toggleSoundPreview(selectedCreateSound, '/clocksound/' + selectedCreateSound)"
@@ -444,7 +465,7 @@
                                     <p class="text-xs font-bold truncate" :class="selectedCreateSound === '{{ $sound }}' ? 'text-indigo-950 dark:text-indigo-200' : 'text-slate-800 dark:text-slate-200'">
                                         {{ Str::title(str_replace(['-', '_'], ' ', Str::beforeLast($sound, '.'))) }}
                                     </p>
-                                    @if($sound === 'melodic-chime.wav')
+                                    @if($sound === 'funny.wav')
                                         <span class="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400">Default</span>
                                     @endif
                                 </div>
@@ -576,7 +597,7 @@
                                     <p class="text-xs font-bold truncate" :class="editData.sound === '{{ $sound }}' ? 'text-indigo-950 dark:text-indigo-200' : 'text-slate-800 dark:text-slate-200'">
                                         {{ Str::title(str_replace(['-', '_'], ' ', Str::beforeLast($sound, '.'))) }}
                                     </p>
-                                    @if($sound === 'melodic-chime.wav')
+                                    @if($sound === 'funny.wav')
                                         <span class="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400">Default</span>
                                     @endif
                                 </div>
@@ -623,17 +644,50 @@ function meetingAlarmsManager() {
     return {
         showCreateModal: false,
         showEditModal: false,
-        selectedCreateSound: 'melodic-chime.wav',
+        selectedCreateSound: 'funny.wav',
         defaultMeetingTime: '',
         playingSound: null,
         livePhnomPenhTime: '',
+        shiftAlarmDuration: {{ (int) \App\Models\Setting::get('shift_alarm_duration', 15) }},
+        savingShiftDuration: false,
+        shiftDurationSaved: false,
+        saveShiftDuration() {
+            if (!this.shiftAlarmDuration || this.shiftAlarmDuration < 3 || this.shiftAlarmDuration > 60) {
+                alert('Shift alarm duration must be between 3 and 60 seconds.');
+                return;
+            }
+            this.savingShiftDuration = true;
+            fetch('{{ route('meeting-alarms.shift-duration') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ shift_alarm_duration: this.shiftAlarmDuration })
+            })
+            .then(res => res.json())
+            .then(data => {
+                this.savingShiftDuration = false;
+                if (data && data.success) {
+                    this.shiftDurationSaved = true;
+                    setTimeout(() => { this.shiftDurationSaved = false; }, 2500);
+                } else {
+                    alert(data.message || 'Failed to save shift alarm duration.');
+                }
+            })
+            .catch(err => {
+                this.savingShiftDuration = false;
+                alert('Network error saving shift alarm duration.');
+            });
+        },
         editData: {
             id: null,
             title: '',
             description: '',
             meeting_time: '',
             meeting_link: '',
-            sound: 'melodic-chime.wav',
+            sound: 'funny.wav',
             ring_duration: 10,
             is_active: true
         },
@@ -660,7 +714,7 @@ function meetingAlarmsManager() {
         },
 
         openCreateModal() {
-            this.selectedCreateSound = 'melodic-chime.wav';
+            this.selectedCreateSound = '02.wav';
             this.showCreateModal = true;
         },
 

@@ -45,6 +45,9 @@ Route::post('/export/download-pdf-base64', [RouteClosureController::class, 'down
 Route::post('/export/save-pdf-temp', [RouteClosureController::class, 'savePdfTemp'])->name('export.save-pdf-temp')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
 Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
+    // Google OAuth Callback (available for guests to login and existing sessions to authenticate/re-link)
+    Route::post('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'handleCredential'])->name('auth.google.callback');
+
     // Guest-only routes
     Route::middleware('guest')->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -242,6 +245,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/cards/{card}/files/{file}/preview', [BoardCardController::class, 'previewFile'])->name('cards.files.preview');
             Route::get('/cards/{card}/files/{file}/download', [BoardCardController::class, 'downloadFile'])->name('cards.files.download');
             Route::delete('/cards/{card}/files/{file}', [BoardCardController::class, 'deleteFile'])->name('cards.files.destroy');
+            Route::get('/canva/resolve', [BoardCardController::class, 'resolveCanvaEmbed'])->name('cards.canva.resolve');
 
             // Board Members Management
             Route::post('/{board:slug}/members', [BoardController::class, 'addMember'])->name('members.add');
@@ -423,6 +427,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::post('/custom-range', [ApprovalController::class, 'customRange'])->name('custom-range');
             });
 
+        // ── Member Tasks Count Panel (Planning Boards) ────────────────────
+        Route::get('/tasks-count', [\App\Http\Controllers\Board\TaskCountController::class, 'index'])->name('tasks.count');
+
 
 
         // ── Reports — Phase 5 ─────────────────────────────────────────────
@@ -447,9 +454,14 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::post('/profile/sound', [App\Http\Controllers\Auth\ProfileController::class, 'uploadSound'])->name('profile.sound.upload');
         Route::delete('/profile/sound/{sound}', [App\Http\Controllers\Auth\ProfileController::class, 'deleteSound'])->name('profile.sound.delete');
         Route::post('/profile/clock-sound', [App\Http\Controllers\Auth\ProfileController::class, 'uploadClockSound'])->name('profile.clock-sound.upload');
+        Route::post('/profile/clock-sound/duration', [App\Http\Controllers\Auth\ProfileController::class, 'updateShiftAlarmDuration'])->name('profile.clock-sound.duration');
+        Route::post('/profile/clock-sound/toggle', [App\Http\Controllers\Auth\ProfileController::class, 'toggleShiftAlarm'])->name('profile.clock-sound.toggle');
         Route::delete('/profile/clock-sound/{sound}', [App\Http\Controllers\Auth\ProfileController::class, 'deleteClockSound'])->name('profile.clock-sound.delete');
+        Route::post('/admin/meeting-alarms/shift-duration', [App\Http\Controllers\Auth\ProfileController::class, 'updateShiftAlarmDuration'])->name('meeting-alarms.shift-duration');
         Route::get('/settings', [App\Http\Controllers\Auth\ProfileController::class, 'settings'])->name('settings');
         Route::put('/settings/password', [App\Http\Controllers\Auth\ProfileController::class, 'updatePassword'])->name('settings.password');
+        Route::post('/profile/google/link', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'link'])->name('profile.google.link');
+        Route::post('/profile/google/unlink', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'unlink'])->name('profile.google.unlink');
 
         // ── Notifications ─────────────────────────────────────────────────
         Route::get('/notifications', [App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('notifications.index');
@@ -483,7 +495,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                             Route::get('/reports', [SocialMediaReportController::class, 'index'])->name('reports.index');
                             // Route::get('/reports/export/csv', [SocialMediaReportController::class, 'exportCsv'])->name('reports.export.csv');
                             // Route::get('/reports/export/pdf', [SocialMediaReportController::class, 'exportPdf'])->name('reports.export.pdf');
-                            Route::post('/reports/export/zip', [SocialMediaReportController::class, 'exportZip'])->name('reports.export.zip');
+                            Route::match(['get', 'post'], '/reports/export/zip', [SocialMediaReportController::class, 'exportZip'])->name('reports.export.zip');
                         });
                         
                         // Analytics View/Download/Store

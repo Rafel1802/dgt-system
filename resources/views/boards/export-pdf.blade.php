@@ -410,48 +410,131 @@
 
         /* Card comments rendering */
         .task-comments {
-            margin-top: 8px;
-            background-color: #f1f5f9;
-            padding: 8px 12px;
+            margin-top: 10px;
+            background-color: #f8fafc;
+            padding: 10px 12px;
             border-radius: 8px;
             font-size: 11px;
+            border: 1px solid #e2e8f0;
             border-left: 3px solid #6366f1;
             text-align: left;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         .comments-header {
             font-weight: 700;
             color: #475569;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             text-transform: uppercase;
             font-size: 9px;
             letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .comments-header-title {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         .comments-list {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
         .comment-item {
-            padding-bottom: 4px;
-            border-bottom: 1px dashed #e2e8f0;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
-        .comment-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
+        .comment-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .comment-author-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
         .comment-author {
-            font-weight: 600;
-            color: #1e293b;
+            font-weight: 700;
+            color: #0f172a;
+            font-size: 11px;
+        }
+        .comment-role-pill {
+            font-size: 8px;
+            color: #64748b;
+            background-color: #f1f5f9;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-weight: 500;
         }
         .comment-date {
-            color: var(--text-muted);
+            color: #94a3b8;
             font-size: 9px;
-            margin-left: 6px;
+            font-weight: 500;
         }
         .comment-body {
             color: #334155;
-            margin-top: 2px;
-            white-space: pre-line;
+            font-size: 10.5px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .comment-screenshots {
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px dashed #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .comment-screenshot-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 130px;
+            background-color: #f8fafc;
+            padding: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            text-decoration: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .comment-screenshot-card:hover {
+            border-color: #6366f1;
+        }
+        .comment-screenshot-thumbnail {
+            width: 120px;
+            max-height: 95px;
+            object-fit: contain;
+            border-radius: 4px;
+            background-color: #ffffff;
+            display: block;
+            border: 1px solid #e2e8f0;
+        }
+        .comment-screenshot-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            font-size: 8px;
+            font-weight: 600;
+            color: #4338ca;
+            margin-top: 4px;
+            text-align: center;
+            width: 115px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         /* Task images rendering */
@@ -764,26 +847,49 @@
                                 @endif
                                 @if(($includeComments ?? false) && $c->comments->isNotEmpty())
                                     <div class="task-comments">
-                                        <div class="comments-header">💬 Comments ({{ $c->comments->count() }})</div>
+                                        <div class="comments-header">
+                                            <div class="comments-header-title">
+                                                <span>💬</span> Task Comments ({{ $c->comments->count() }})
+                                            </div>
+                                        </div>
                                         <div class="comments-list">
                                             @foreach($c->comments as $cmt)
                                                 @php
-                                                    $parsedComment = \App\Http\Controllers\Board\BoardExportController::extractScreenshotsAndClean($cmt->body);
+                                                    $parsedComment = \App\Http\Controllers\Board\BoardExportController::extractScreenshotsAndClean($cmt->body ?? $cmt->content, $c);
                                                 @endphp
                                                 <div class="comment-item">
-                                                    <span class="comment-author">{{ $cmt->user->name ?? 'System' }}</span>
-                                                    <span class="comment-date">{{ $cmt->created_at->format('M d, Y g:i A') }}</span>
-                                                    <div class="comment-body">{{ $parsedComment['text'] }}</div>
+                                                    <div class="comment-item-header">
+                                                        <div class="comment-author-badge">
+                                                            <span class="comment-author">{{ $cmt->user->name ?? 'System' }}</span>
+                                                            @if(!empty($cmt->user?->team_role))
+                                                                <span class="comment-role-pill">{{ $cmt->user->team_role }}</span>
+                                                            @endif
+                                                        </div>
+                                                        <span class="comment-date">{{ $cmt->created_at->format('M d, Y • g:i A') }}</span>
+                                                    </div>
+
+                                                    @if(!empty($parsedComment['text']))
+                                                        <div class="comment-body">
+                                                            {!! $parsedComment['formatted_html'] ?? nl2br(e($parsedComment['text'])) !!}
+                                                        </div>
+                                                    @endif
                                                     
                                                     @if(!empty($parsedComment['screenshots']))
-                                                        <div class="comment-screenshots" style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px;">
-                                                            @foreach($parsedComment['screenshots'] as $scrIdx => $scrSrc)
-                                                                <div class="image-item" style="display: flex; flex-direction: column; align-items: center; width: 120px; background-color: #fff; padding: 4px; border: 1px solid #e2e8f0; border-radius: 6px;">
-                                                                    <a href="{{ $scrSrc }}" target="_blank" style="display: block;">
-                                                                        <img src="{{ $scrSrc }}" style="width: 112px; max-height: 90px; object-fit: contain; border-radius: 4px;" class="task-image-thumbnail">
+                                                        <div class="comment-screenshots">
+                                                            @foreach($parsedComment['screenshots'] as $scrIdx => $scr)
+                                                                @php
+                                                                    $scrSrc = is_array($scr) ? ($scr['src'] ?? $scr['url'] ?? '') : $scr;
+                                                                    $scrUrl = is_array($scr) ? ($scr['url'] ?? $scr['src'] ?? '') : $scr;
+                                                                    $scrName = is_array($scr) ? ($scr['name'] ?? ('Screenshot ' . ($scrIdx + 1))) : ('Screenshot ' . ($scrIdx + 1));
+                                                                @endphp
+                                                                <div class="comment-screenshot-card">
+                                                                    <a href="{{ $scrUrl }}" target="_blank" style="display: block;">
+                                                                        <img src="{{ $scrSrc }}" class="comment-screenshot-thumbnail" alt="{{ $scrName }}">
                                                                     </a>
-                                                                    <div class="image-name" style="font-size: 8px; color: var(--text-muted); margin-top: 4px; text-align: center; width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                                                        <a href="{{ $scrSrc }}" target="_blank" style="color: inherit; text-decoration: underline;">Screenshot {{ $scrIdx + 1 }}</a>
+                                                                    <div class="comment-screenshot-info">
+                                                                        <a href="{{ $scrUrl }}" target="_blank" style="color: inherit; text-decoration: none;">
+                                                                            <span>🔍</span> {{ $scrName }}
+                                                                        </a>
                                                                     </div>
                                                                 </div>
                                                             @endforeach

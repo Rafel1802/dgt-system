@@ -34,7 +34,7 @@ class MeetingAlarmApiController extends Controller
                     'meeting_time'           => $ppTime->format('Y-m-d H:i:s'),
                     'meeting_time_formatted' => $ppTime->format('h:i A'),
                     'meeting_link'           => $alarm->meeting_link,
-                    'sound'                  => $alarm->sound ?: 'melodic-chime.wav',
+                    'sound'                  => $alarm->sound ?: '02.wav',
                     'sound_url'              => $alarm->sound_url,
                     'ring_duration'          => $alarm->ring_duration ?? 10,
                 ];

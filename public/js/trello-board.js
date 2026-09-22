@@ -291,11 +291,23 @@ window.trelloBoard = function(config) {
     newCardTitle:     '',
     newCardTeam:      null,
 
-    // Card modal
-    activeCard:        null,
+    // Card modal - pre-initialize synchronously if ?card= is in query string or autoOpenCardId is passed
+    activeCard: (function() {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetCardId = urlParams.get('card') || config.autoOpenCardId;
+        if (!targetCardId) return null;
+        for (const l of (config.lists || [])) {
+          const c = l.cards?.find(card => card.id == targetCardId);
+          if (c) return JSON.parse(JSON.stringify(c));
+        }
+      } catch (_) {}
+      return null;
+    })(),
     cardLoading:       false,
     sendingScreenshot: false,
     pastedImage:       null,
+    pastedImages:      [],
     newComment:        '',
     mentionState: {
       show: false,
@@ -316,6 +328,30 @@ window.trelloBoard = function(config) {
       embedUrl: '',
       title: '',
     },
+    canvaPreview: {
+      open: false,
+      loading: false,
+      url: '',
+      embedUrl: '',
+      title: '',
+      scale: 1,
+      panX: 0,
+      panY: 0,
+      isDragging: false,
+      startX: 0,
+      startY: 0,
+      dragMoved: false,
+      currentPage: 1,
+      totalPages: 16,
+      isFullscreen: false,
+    },
+    googleDocsPreview: {
+      open: false,
+      url: '',
+      embedUrl: '',
+      title: '',
+      type: 'doc', // 'doc' | 'sheet' | 'slide' | 'form'
+    },
     khTimeZone: 'Asia/Phnom_Penh',
     realtimeBound: false,
     realtimeTimer: null,
@@ -325,18 +361,64 @@ window.trelloBoard = function(config) {
     realtimeInFlight: false,
     realtimeDragging: false,
     lastSnapshotAt: 0,
+    isMacPlatform: false,
+
+    checkIsMacApp() {
+      return (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList.contains('dgt-macos-app')) ||
+             window.__dgtOfficialAppReady === true ||
+             window.isDgtDesktopApp === true ||
+             window.__dgtMacApp === true ||
+             (typeof navigator !== 'undefined' && (navigator.userAgent.includes('DGTSystemMacOSApp') || navigator.userAgent.includes('dgt-macos')));
+    },
+
+    isMacApp() {
+      return this.isMacPlatform || this.checkIsMacApp();
+    },
 
     // ── Init ─────────────────────────────────────────────────────────────────
     init() {
+      this.isMacPlatform = this.checkIsMacApp();
+      window.addEventListener('dgt-macos-app-ready', () => {
+        this.isMacPlatform = true;
+      });
+      if (typeof MutationObserver !== 'undefined' && document.documentElement) {
+        const macObserver = new MutationObserver(() => {
+          if (document.documentElement.classList.contains('dgt-macos-app')) {
+            this.isMacPlatform = true;
+          }
+        });
+        macObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      }
+
       // Prompt desktop notifications permission on mount
       if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission();
       }
 
-      // Close context menu on ESC or outside click
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') this.closeCtxMenu();
-      });
+      // Close context menu and preview modals on ESC (using capturing listener)
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (this.canvaPreview && this.canvaPreview.open) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeCanvaPreview();
+            return;
+          }
+          if (this.videoPreview && this.videoPreview.open) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeVideoPreview();
+            return;
+          }
+          if (this.imagePreview && this.imagePreview.open) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeImagePreview();
+            return;
+          }
+          this.closeCtxMenu();
+        }
+      }, true);
       document.addEventListener('click', (e) => {
         const menu = document.getElementById('card-ctx-menu');
         if (menu && !menu.contains(e.target)) this.closeCtxMenu();
@@ -367,7 +449,7 @@ window.trelloBoard = function(config) {
 
       // Auto-open card if passed in query param
       const urlParams = new URLSearchParams(window.location.search);
-      const cardId = urlParams.get('card');
+      const cardId = urlParams.get('card') || config.autoOpenCardId;
       if (cardId) {
         this.openCard(cardId);
       }
@@ -1234,19 +1316,19 @@ window.trelloBoard = function(config) {
       if (!cell.day) return 'cursor-default';
       const dp   = this.datePicker;
       const iso  = cell.date;
-      const base = 'hover:bg-indigo-100 hover:text-indigo-700 text-slate-700';
+      const base = 'hover:bg-indigo-100 hover:text-indigo-700 text-slate-700 dark:text-slate-200';
       const today = new Date().toISOString().substring(0,10);
 
-      if (iso === dp.dueDate && dp.useDue)   return 'bg-indigo-600 text-white font-bold rounded-lg';
-      if (iso === dp.startDate && dp.useStart) return 'bg-slate-200 text-slate-800 font-bold rounded-lg';
-      if (iso === today)   return base + ' ring-1 ring-indigo-400 rounded-lg font-bold';
+      if (iso === dp.dueDate && dp.useDue)   return 'dp-day-due bg-indigo-600 text-white font-bold rounded-xl shadow-sm';
+      if (iso === dp.startDate && dp.useStart) return 'dp-day-start bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold rounded-xl';
+      if (iso === today)   return base + ' dp-day-today ring-2 ring-indigo-400 dark:ring-cyan-400 rounded-xl font-bold';
       // Highlight range between start and due
       if (dp.startDate && dp.dueDate && dp.useStart && dp.useDue) {
         if (iso > dp.startDate && iso < dp.dueDate) {
-          return 'bg-indigo-50 text-indigo-600 rounded-lg';
+          return 'dp-day-range bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-cyan-300 rounded-xl';
         }
       }
-      return base + ' rounded-lg';
+      return base + ' rounded-xl';
     },
 
     loadBoardMembers() {
@@ -3071,6 +3153,12 @@ window.trelloBoard = function(config) {
     },
 
     closeCard() {
+      if (this.videoPreview && this.videoPreview.open) {
+        this.closeVideoPreview();
+      }
+      if (this.canvaPreview && this.canvaPreview.open) {
+        this.closeCanvaPreview();
+      }
       this.activeCard = null;
     },
 
@@ -3472,6 +3560,14 @@ window.trelloBoard = function(config) {
       this.refreshCardActivities();
     },
 
+    isSmmCard(card) {
+      if (!card) return false;
+      const hasSmmLabel = Array.isArray(card.labels) && card.labels.some(l => (l.name || '').trim().toLowerCase() === 'smm');
+      if (hasSmmLabel) return true;
+      const isSmmBoard = (this.board?.name || '').toLowerCase().includes('smm') || this.board?.type === 'smm' || this.board?.is_active_smm;
+      return Boolean(isSmmBoard);
+    },
+
     getContentTypeStyle(name) {
       if (!name) return { bg: '#f1f5f9', text: '#475569', border: '#e2e8f0', dot: '#94a3b8' };
       const lower = name.toLowerCase().trim();
@@ -3802,8 +3898,13 @@ window.trelloBoard = function(config) {
     sbmBoardPreviewStyle(board) {
       const value = board?.background_value || '#0f172a';
       if (board?.background_type === 'image') {
-        const safeUrl = String(value).replace(/"/g, '\\"');
-        return `background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url("${safeUrl}"); background-color: #0f172a; background-size: cover; background-position: center;`;
+        let safeUrl = String(value);
+        if (safeUrl.includes('images.unsplash.com')) {
+          safeUrl = safeUrl.replace(/w=\d+/, 'w=1920').replace(/q=\d+/, 'q=90');
+          if (!safeUrl.includes('w=')) safeUrl += (safeUrl.includes('?') ? '&' : '?') + 'w=1920&q=90';
+        }
+        safeUrl = safeUrl.replace(/"/g, '\\"');
+        return `background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url("${safeUrl}"); background-color: #0f172a; background-size: cover; background-position: center; image-rendering: -webkit-optimize-contrast;`;
       }
 
       return `background: ${value};`;
@@ -3811,11 +3912,29 @@ window.trelloBoard = function(config) {
 
     sbmCoverStyle(board) {
       const type = board?.cover_type || board?.background_type || 'color';
-      const value = board?.cover_value || board?.background_value || '#6366f1';
+      let value = board?.cover_value || board?.background_value || '#0ea5e9';
+      const isNeon = (this.currentTheme === 'neon' || document.documentElement.getAttribute('data-theme') === 'neon');
+
       if (type === 'image') {
-        const safeUrl = String(value).replace(/"/g, '\\"');
-        return `background-image: url("${safeUrl}"); background-size: cover; background-position: center;`;
+        let safeUrl = String(value);
+        if (safeUrl.includes('images.unsplash.com')) {
+          safeUrl = safeUrl.replace(/w=\d+/g, 'w=1600').replace(/q=\d+/g, 'q=90').replace(/dpr=\d+/g, 'dpr=2');
+          if (!safeUrl.includes('w=')) safeUrl += (safeUrl.includes('?') ? '&' : '?') + 'w=1600&q=90&dpr=2';
+        }
+        safeUrl = safeUrl.replace(/"/g, '\\"');
+        return `background-image: url("${safeUrl}"); background-size: cover; background-position: center; background-repeat: no-repeat; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;`;
       }
+
+      if (isNeon) {
+        if (type === 'gradient' && value) {
+          return `background: ${value}; background-size: cover;`;
+        }
+        if (type === 'color' && value) {
+          return `background: radial-gradient(circle at 80% 20%, rgba(0, 242, 254, 0.45) 0%, transparent 60%), linear-gradient(135deg, ${value} 0%, #030e2e 100%); background-size: cover;`;
+        }
+        return `background: radial-gradient(circle at 80% 20%, rgba(0, 242, 254, 0.5) 0%, transparent 60%), linear-gradient(135deg, #0b1a4a 0%, #0044aa 50%, #00c3ff 100%); background-size: cover;`;
+      }
+
       return `background: ${value};`;
     },
 
@@ -4210,13 +4329,21 @@ window.trelloBoard = function(config) {
       am.error = '';
       const tempId = 'temp-link-' + Date.now();
       const linkUrl = am.linkUrl;
-      const linkName = am.linkName || am.linkUrl;
+      let linkName = am.linkName;
+      if (!linkName) {
+        if (this.isCanvaFile({ url: linkUrl })) {
+          linkName = 'Canva Design';
+        } else {
+          linkName = linkUrl;
+        }
+      }
 
       const fakeFile = {
         id: tempId,
         original_name: linkName,
         path: linkUrl,
         url: linkUrl,
+        disk: 'url',
         created_at: new Date().toISOString(),
         time_ago: 'Just now',
         is_link: true,
@@ -4358,7 +4485,11 @@ window.trelloBoard = function(config) {
     amAutoFillName() {
       const am = this.attachmentModal;
       // Auto-populate display name from URL hostname if the field is empty
-      if (!am.linkName && am.linkUrl.length > 8) {
+      if (!am.linkName && am.linkUrl && am.linkUrl.length > 8) {
+        if (this.isCanvaFile({ url: am.linkUrl })) {
+          am.linkName = 'Canva Design';
+          return;
+        }
         try {
           const u = new URL(am.linkUrl);
           am.linkName = u.hostname.replace('www.', '');
@@ -4404,6 +4535,7 @@ window.trelloBoard = function(config) {
 
       try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error('Network response was not ok');
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         
@@ -4425,19 +4557,286 @@ window.trelloBoard = function(config) {
       }
     },
 
-    openVideoPreview(file) {
-      if (!file || !file.url) return;
-      let embedUrl = file.url;
-      // Convert standard drive view links to embedded preview links
-      if (file.url.includes('drive.google.com')) {
-        // Strip query params and replace view with preview
-        const cleanUrl = file.url.split('?')[0];
-        embedUrl = cleanUrl.replace('/view', '/preview');
+    isCanvaFile(file) {
+      if (!file) return false;
+      const url = (file.url || file.preview_url || file.path || file.stored_name || '').toLowerCase();
+      const name = (file.original_name || '').toLowerCase();
+      return url.includes('canva.com') ||
+             url.includes('canva.link') ||
+             url.includes('canva.me') ||
+             url.includes('canva.site') ||
+             name.includes('canva.com') ||
+             name.includes('canva.link');
+    },
+
+    isVideoFile(file) {
+      if (!file) return false;
+      if (this.isCanvaFile(file)) return false;
+      const url = (file.url || file.preview_url || file.download_url || file.path || file.stored_name || '').toLowerCase();
+      const name = (file.original_name || '').toLowerCase();
+
+      if (file.is_video === true) return true;
+      const mime = (file.mime_type || '').toLowerCase();
+      if (mime.startsWith('video/')) return true;
+
+      if (url.includes('drive.google.com')) {
+        const nonVideoExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.zip', '.rar', '.7z'];
+        return !nonVideoExts.some(ext => name.endsWith(ext));
       }
+      if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('loom.com') || url.includes('vimeo.com')) {
+        return true;
+      }
+      const videoExts = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.wmv', '.flv', '.m4v', '.3gp'];
+      return videoExts.some(ext => name.endsWith(ext) || url.endsWith(ext));
+    },
+
+    getVideoThumbnailUrl(file) {
+      if (!file) return '';
+      if (file.thumbnail_url) return file.thumbnail_url;
+      const url = file.url || file.preview_url || file.download_url || file.path || file.stored_name || '';
+      if (!url) return '';
+
+      // Google Drive thumbnail fallback
+      if (url.includes('drive.google.com')) {
+        const matchFile = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i);
+        if (matchFile && matchFile[1]) {
+          return `https://drive.google.com/thumbnail?id=${matchFile[1]}&sz=w320`;
+        }
+        const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+        if (matchId && matchId[1]) {
+          return `https://drive.google.com/thumbnail?id=${matchId[1]}&sz=w320`;
+        }
+      }
+
+      // YouTube video thumbnail
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+        if (ytMatch && ytMatch[1]) {
+          return `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg`;
+        }
+      }
+
+      return '';
+    },
+
+    isDirectVideoFile(file) {
+      if (!file) return false;
+      const url = (file.url || file.preview_url || file.download_url || file.path || file.stored_name || '').toLowerCase();
+      const name = (file.original_name || '').toLowerCase();
+      const mime = (file.mime_type || '').toLowerCase();
+      if (mime.startsWith('video/')) return true;
+      const videoExts = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.wmv', '.flv', '.m4v', '.3gp'];
+      return videoExts.some(ext => name.endsWith(ext) || url.endsWith(ext));
+    },
+
+    // ── Google Docs / Sheets / Slides helpers ─────────────────────────────────
+    isGoogleDocsFile(file) {
+      if (!file) return false;
+      const url = (file.url || file.preview_url || file.path || file.stored_name || '').toLowerCase();
+      return url.includes('docs.google.com/document') ||
+             url.includes('docs.google.com/spreadsheets') ||
+             url.includes('docs.google.com/presentation') ||
+             url.includes('docs.google.com/forms');
+    },
+
+    getGoogleDocsType(file) {
+      if (!file) return 'doc';
+      const url = (file.url || file.preview_url || file.path || file.stored_name || '').toLowerCase();
+      if (url.includes('/spreadsheets')) return 'sheet';
+      if (url.includes('/presentation')) return 'slide';
+      if (url.includes('/forms')) return 'form';
+      return 'doc';
+    },
+
+    getGoogleDocsEmbedUrl(file) {
+      if (!file) return '';
+      const rawUrl = file.url || file.preview_url || file.path || file.stored_name || '';
+      if (!rawUrl) return '';
+      const lower = rawUrl.toLowerCase();
+
+      // Helper to extract doc ID and return embed URL
+      const extractId = (pattern) => {
+        const m = rawUrl.match(pattern);
+        return m ? m[1] : null;
+      };
+
+      if (lower.includes('/document/d/')) {
+        const id = extractId(/\/document\/d\/([a-zA-Z0-9_-]+)/i);
+        if (id) return `https://docs.google.com/document/d/${id}/edit?usp=sharing&embedded=true&rm=minimal`;
+      }
+      if (lower.includes('/spreadsheets/d/')) {
+        const id = extractId(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/i);
+        if (id) return `https://docs.google.com/spreadsheets/d/${id}/edit?usp=sharing&embedded=true&rm=minimal`;
+      }
+      if (lower.includes('/presentation/d/')) {
+        const id = extractId(/\/presentation\/d\/([a-zA-Z0-9_-]+)/i);
+        if (id) return `https://docs.google.com/presentation/d/${id}/embed?start=false&loop=false&delayms=3000`;
+      }
+      if (lower.includes('/forms/d/')) {
+        const id = extractId(/\/forms\/d\/([a-zA-Z0-9_-]+)/i);
+        if (id) return `https://docs.google.com/forms/d/${id}/viewform?embedded=true`;
+      }
+      // fallback – strip trailing /view, /edit etc and embed
+      return rawUrl.replace(/\/(view|edit|pub)(\?.*)?$/i, '') + '/edit?usp=sharing&embedded=true&rm=minimal';
+    },
+
+    openGoogleDocsPreview(file) {
+      if (!file) return;
+      const rawUrl = file.url || file.preview_url || file.path || file.stored_name || '';
+      if (!rawUrl) return;
+      const embedUrl = this.getGoogleDocsEmbedUrl(file);
+      const title = file.original_name || 'Document';
+      const type = this.getGoogleDocsType(file);
+      this.googleDocsPreview.url = rawUrl;
+      this.googleDocsPreview.embedUrl = embedUrl;
+      this.googleDocsPreview.title = title;
+      this.googleDocsPreview.type = type;
+      this.googleDocsPreview.open = true;
+    },
+
+    closeGoogleDocsPreview() {
+      this.googleDocsPreview.open = false;
+      this.googleDocsPreview.embedUrl = '';
+      this.googleDocsPreview.url = '';
+      this.googleDocsPreview.title = '';
+    },
+
+    openGoogleDocsDirect(url) {
+      const target = url || this.googleDocsPreview.url;
+      if (!target) return;
+      if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.flutter_inappwebview.callHandler('DgtOpenExternal', target);
+      } else {
+        window.open(target, '_blank', 'noopener,noreferrer');
+      }
+    },
+    // ─────────────────────────────────────────────────────────────────────────
+
+    getVideoEmbedUrl(file) {
+      if (!file) return '';
+      if (file.embed_url) {
+        let embed = file.embed_url;
+        if (embed.includes('youtube.com') && !embed.includes('autoplay=')) {
+          embed += (embed.includes('?') ? '&' : '?') + 'autoplay=1&enablejsapi=1';
+        }
+        if (embed.includes('drive.google.com')) {
+          embed = embed.replace(/[?&]autoplay=[^&]*/gi, '').replace(/\?$/, '');
+        }
+        if (embed.includes('loom.com') && !embed.includes('autoplay=')) {
+          embed += (embed.includes('?') ? '&' : '?') + 'autoplay=1';
+        }
+        if (embed.includes('vimeo.com') && !embed.includes('autoplay=')) {
+          embed += (embed.includes('?') ? '&' : '?') + 'autoplay=1';
+        }
+        return embed;
+      }
+      const url = file.url || file.preview_url || file.download_url || file.path || file.stored_name || '';
+      if (!url) return '';
+
+      // Google Drive: extract file ID
+      if (url.includes('drive.google.com')) {
+        const matchFile = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i);
+        if (matchFile && matchFile[1]) {
+          return `https://drive.google.com/file/d/${matchFile[1]}/preview?autoplay=1`;
+        }
+        const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+        if (matchId && matchId[1]) {
+          return `https://drive.google.com/file/d/${matchId[1]}/preview?autoplay=1`;
+        }
+        const cleanUrl = url.split('?')[0];
+        return cleanUrl.replace('/view', '/preview') + '?autoplay=1';
+      }
+
+      // YouTube
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+        if (ytMatch && ytMatch[1]) {
+          return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&enablejsapi=1&mute=0`;
+        }
+      }
+
+      // Loom
+      if (url.includes('loom.com/share/')) {
+        const loomMatch = url.match(/loom\.com\/share\/([a-zA-Z0-9]+)/i);
+        if (loomMatch && loomMatch[1]) {
+          return `https://www.loom.com/embed/${loomMatch[1]}?autoplay=1`;
+        }
+      }
+
+      // Vimeo
+      if (url.includes('vimeo.com')) {
+        const vimeoMatch = url.match(/vimeo\.com\/(\d+)/i);
+        if (vimeoMatch && vimeoMatch[1]) {
+          return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`;
+        }
+      }
+
+      return file.preview_url || file.download_url || url;
+    },
+
+    openVideoPreview(file) {
+      if (!file) return;
+      const rawUrl = file.url || file.preview_url || file.download_url || file.path || file.stored_name || '';
+      if (!rawUrl && !file.embed_url) return;
+
+      const embedUrl = this.getVideoEmbedUrl(file);
+      const title = file.original_name || 'Video Preview';
+
       this.videoPreview.embedUrl = embedUrl;
-      this.videoPreview.url = file.url;
-      this.videoPreview.title = file.original_name || 'Video Preview';
+      this.videoPreview.url = rawUrl || embedUrl;
+      this.videoPreview.title = title;
       this.videoPreview.open = true;
+
+      // Automatically trigger play for native HTML5 video and iframe players immediately
+      const triggerAutoplay = () => {
+        const videoEl = document.querySelector('#systemVideoPlayer') || document.querySelector('[x-show="videoPreview.open"] video');
+        if (videoEl) {
+          const playPromise = videoEl.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {
+              // If browser blocks unmuted autoplay, mute to start playback immediately without requiring user click
+              videoEl.muted = true;
+              videoEl.play().catch(() => {});
+            });
+          }
+        }
+        const iframeEl = document.querySelector('[x-show="videoPreview.open"] iframe');
+        if (iframeEl) {
+          this.onVideoIframeLoad({ target: iframeEl });
+        }
+      };
+
+      this.$nextTick(() => {
+        triggerAutoplay();
+        setTimeout(triggerAutoplay, 60);
+        setTimeout(triggerAutoplay, 180);
+        setTimeout(triggerAutoplay, 400);
+        setTimeout(triggerAutoplay, 800);
+      });
+    },
+
+    onVideoIframeLoad(event) {
+      try {
+        const iframe = event?.target;
+        if (!iframe) return;
+        const sendPlay = () => {
+          try {
+            const win = iframe.contentWindow;
+            if (!win) return;
+            // YouTube & Google Drive embedded player handshake & play commands
+            win.postMessage(JSON.stringify({ event: 'listening' }), '*');
+            win.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+            win.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+            // Vimeo / Loom play commands
+            win.postMessage(JSON.stringify({ method: 'play' }), '*');
+          } catch (err) {}
+        };
+        sendPlay();
+        setTimeout(sendPlay, 100);
+        setTimeout(sendPlay, 300);
+        setTimeout(sendPlay, 700);
+        setTimeout(sendPlay, 1500);
+      } catch (e) {}
     },
 
     closeVideoPreview() {
@@ -4445,6 +4844,309 @@ window.trelloBoard = function(config) {
       this.videoPreview.embedUrl = ''; // Clear iframe src to stop playback
       this.videoPreview.url = '';
       this.videoPreview.title = '';
+    },
+
+    openVideoDirect(url) {
+      let targetUrl = url || this.videoPreview?.url;
+      if (!targetUrl) return;
+
+      // Normalize Google Drive preview / embed URLs to standard view URL for external browser
+      if (targetUrl.includes('drive.google.com')) {
+        const matchFile = targetUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i);
+        if (matchFile && matchFile[1]) {
+          targetUrl = `https://drive.google.com/file/d/${matchFile[1]}/view`;
+        } else {
+          targetUrl = targetUrl.replace(/\/preview(\?.*)?$/i, '/view');
+        }
+      }
+
+      if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.flutter_inappwebview.callHandler('DgtOpenExternal', targetUrl);
+      } else {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      }
+    },
+
+    getCanvaEmbedUrl(file) {
+      if (!file) return '';
+      // If embed_url is already a canonical design embed URL, return it directly
+      if (file.embed_url && file.embed_url.includes('canva.com/design/')) {
+        return file.embed_url;
+      }
+      const rawUrl = file.url || file.preview_url || file.path || file.stored_name || '';
+      if (!rawUrl) return '';
+
+      const match = rawUrl.match(/\/design\/([a-zA-Z0-9_-]+)(?:\/([a-zA-Z0-9_-]+))?(?:\/([a-zA-Z0-9_-]+))?/i);
+      if (match) {
+        const id = match[1];
+        const p2 = match[2] || '';
+        const p3 = match[3] || '';
+        if (['view', 'edit', 'watch', 'present', ''].includes(p2)) {
+          return `https://www.canva.com/design/${id}/view?embed`;
+        } else if (['view', 'edit', 'watch', 'present', ''].includes(p3)) {
+          return `https://www.canva.com/design/${id}/${p2}/view?embed`;
+        } else {
+          return `https://www.canva.com/design/${id}/view?embed`;
+        }
+      }
+
+      if (file.embed_url && !file.embed_url.includes('canva.link') && !file.embed_url.includes('canva.me') && !file.embed_url.includes('canva.site')) {
+        return file.embed_url;
+      }
+      return '';
+    },
+
+    openCanva(file) {
+      if (!file) return;
+      this.openCanvaPreview(file);
+    },
+
+    openCanvaDirect(file) {
+      if (!file) return;
+      const rawUrl = file.url || file.preview_url || file.path || file.stored_name || '';
+      if (!rawUrl) return;
+
+      if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.flutter_inappwebview.callHandler('DgtOpenExternal', rawUrl);
+      } else {
+        window.open(rawUrl, '_blank', 'noopener,noreferrer');
+      }
+    },
+
+    openCanvaPreview(file) {
+      if (!file) return;
+      const rawUrl = file.url || file.preview_url || file.path || file.stored_name || '';
+      if (!rawUrl) return;
+
+      const embedUrl = this.getCanvaEmbedUrl(file);
+      const cleanEmbed = (embedUrl || '').split('#')[0];
+      this.canvaPreview.embedUrl = cleanEmbed ? `${cleanEmbed}#1` : '';
+      this.canvaPreview.url = rawUrl;
+      this.canvaPreview.title = file.original_name || 'Canva Design';
+      this.canvaPreview.scale = 1;
+      this.canvaPreview.panX = 0;
+      this.canvaPreview.panY = 0;
+      this.canvaPreview.isDragging = false;
+      this.canvaPreview.dragMoved = false;
+      this.canvaPreview.loading = false;
+      this.canvaPreview.currentPage = 1;
+      this.canvaPreview.totalPages = (file.total_pages && file.total_pages > 1) ? file.total_pages : 16;
+      this.canvaPreview.isFullscreen = false;
+      this.canvaPreview.open = true;
+
+      // Resolve embed URL and total page count via backend
+      const needsResolve = !embedUrl || !embedUrl.includes('canva.com/design/') || !file.total_pages;
+      if (needsResolve) {
+        if (!this.canvaPreview.embedUrl) {
+          this.canvaPreview.loading = true;
+        }
+        fetch(`/boards/canva/resolve?url=${encodeURIComponent(rawUrl)}`, {
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.embed_url && data.embed_url.includes('canva.com/design/')) {
+            const clean = data.embed_url.split('#')[0];
+            this.canvaPreview.embedUrl = `${clean}#${this.canvaPreview.currentPage}`;
+            file.embed_url = data.embed_url;
+          }
+          if (data && data.total_pages && data.total_pages > 1) {
+            this.canvaPreview.totalPages = data.total_pages;
+            file.total_pages = data.total_pages;
+          }
+        })
+        .catch(err => {
+          console.warn('Canva embed resolve error:', err);
+        })
+        .finally(() => {
+          this.canvaPreview.loading = false;
+        });
+      }
+    },
+
+    closeCanvaPreview() {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        try {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch (_) {}
+      }
+      this.canvaPreview.open = false;
+      this.canvaPreview.embedUrl = '';
+      this.canvaPreview.url = '';
+      this.canvaPreview.title = '';
+      this.canvaPreview.scale = 1;
+      this.canvaPreview.panX = 0;
+      this.canvaPreview.panY = 0;
+      this.canvaPreview.isDragging = false;
+      this.canvaPreview.currentPage = 1;
+      this.canvaPreview.totalPages = 16;
+      this.canvaPreview.isFullscreen = false;
+    },
+
+    canvaZoomIn() {
+      this.canvaPreview.scale = Math.min(4, +(this.canvaPreview.scale + 0.25).toFixed(2));
+    },
+
+    canvaZoomOut() {
+      this.canvaPreview.scale = Math.max(0.5, +(this.canvaPreview.scale - 0.25).toFixed(2));
+      if (this.canvaPreview.scale <= 1) {
+        this.canvaPreview.panX = 0;
+        this.canvaPreview.panY = 0;
+      }
+    },
+
+    canvaResetZoom() {
+      this.canvaPreview.scale = 1;
+      this.canvaPreview.panX = 0;
+      this.canvaPreview.panY = 0;
+      this.canvaPreview.isDragging = false;
+      this.canvaPreview.dragMoved = false;
+    },
+
+    canvaToggleFullScreen() {
+      const elem = document.getElementById('canvaModalPanel') || document.documentElement;
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          elem.webkitRequestFullscreen();
+        }
+        this.canvaPreview.isFullscreen = true;
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+        this.canvaPreview.isFullscreen = false;
+      }
+    },
+
+    canvaGetTotalPages() {
+      const t = parseInt(this.canvaPreview.totalPages, 10);
+      return (t && t > 1) ? t : 16;
+    },
+
+    canvaGoToPage(page) {
+      const total = this.canvaGetTotalPages();
+      let targetPage = parseInt(page, 10);
+      if (isNaN(targetPage)) targetPage = 1;
+
+      // Infinite loop wrap-around
+      if (targetPage < 1) targetPage = total;
+      if (targetPage > total) targetPage = 1;
+
+      this.canvaPreview.currentPage = targetPage;
+
+      const iframe = document.getElementById('canvaPreviewIframe');
+      if (iframe && this.canvaPreview.embedUrl) {
+        const baseUrl = this.canvaPreview.embedUrl.split('#')[0];
+        const targetUrl = `${baseUrl}#${targetPage}`;
+        iframe.src = targetUrl;
+
+        try {
+          const win = iframe.contentWindow;
+          if (win) {
+            win.postMessage({ type: 'canva:goto', page: targetPage }, '*');
+            win.postMessage({ type: 'page', page: targetPage }, '*');
+            win.postMessage({ type: 'presentation:page', page: targetPage }, '*');
+          }
+        } catch (_) {}
+      }
+    },
+
+    canvaPrevPage() {
+      const total = this.canvaGetTotalPages();
+      let prevPage = this.canvaPreview.currentPage - 1;
+      if (prevPage < 1) {
+        prevPage = total; // Loop to last page (e.g. 16)
+      }
+      this.canvaGoToPage(prevPage);
+    },
+
+    canvaNextPage() {
+      const total = this.canvaGetTotalPages();
+      let nextPage = this.canvaPreview.currentPage + 1;
+      if (nextPage > total) {
+        nextPage = 1; // Loop to first page (1)
+      }
+      this.canvaGoToPage(nextPage);
+    },
+
+    canvaPan(dx, dy) {
+      this.canvaPreview.panX += dx;
+      this.canvaPreview.panY += dy;
+    },
+
+    canvaPanLeft() {
+      // Pan viewport left (moves design right to show left side)
+      this.canvaPan(150, 0);
+    },
+
+    canvaPanRight() {
+      // Pan viewport right (moves design left to show right side)
+      this.canvaPan(-150, 0);
+    },
+
+    canvaPanUp() {
+      // Pan viewport up (moves design down to show top side)
+      this.canvaPan(0, 150);
+    },
+
+    canvaPanDown() {
+      // Pan viewport down (moves design up to show bottom side)
+      this.canvaPan(0, -150);
+    },
+
+    canvaResetPan() {
+      this.canvaPreview.panX = 0;
+      this.canvaPreview.panY = 0;
+    },
+
+    canvaStartDrag(e) {
+      if (e.button !== 0) return;
+      if (this.canvaPreview.scale <= 1) return;
+      e.preventDefault();
+      this.canvaPreview.isDragging = true;
+      this.canvaPreview.dragMoved = false;
+      this.canvaPreview.startX = e.clientX - this.canvaPreview.panX;
+      this.canvaPreview.startY = e.clientY - this.canvaPreview.panY;
+    },
+
+    canvaOnDrag(e) {
+      if (!this.canvaPreview.isDragging) return;
+      const newPanX = e.clientX - this.canvaPreview.startX;
+      const newPanY = e.clientY - this.canvaPreview.startY;
+      if (Math.abs(newPanX - this.canvaPreview.panX) > 2 || Math.abs(newPanY - this.canvaPreview.panY) > 2) {
+        this.canvaPreview.dragMoved = true;
+      }
+      this.canvaPreview.panX = newPanX;
+      this.canvaPreview.panY = newPanY;
+    },
+
+    canvaStopDrag() {
+      this.canvaPreview.isDragging = false;
+    },
+
+    canvaHandleWheel(e) {
+      e.preventDefault();
+      // Trackpad pinch zoom (Ctrl + wheel) or normal mouse scroll wheel
+      if (e.ctrlKey || Math.abs(e.deltaY) > 10) {
+        const zoomDelta = -e.deltaY * (e.ctrlKey ? 0.015 : 0.002);
+        const newScale = Math.min(Math.max(0.5, +(this.canvaPreview.scale + zoomDelta).toFixed(2)), 4);
+        this.canvaPreview.scale = newScale;
+        if (this.canvaPreview.scale <= 1) {
+          this.canvaPreview.panX = 0;
+          this.canvaPreview.panY = 0;
+        }
+      } else if (this.canvaPreview.scale > 1) {
+        this.canvaPreview.panX -= e.deltaX;
+        this.canvaPreview.panY -= e.deltaY;
+      }
     },
 
     // Return an emoji icon for a file based on its MIME or name
@@ -4670,7 +5372,7 @@ window.trelloBoard = function(config) {
       // Step 2: Parse mentions AFTER escaping — so the span tags are NOT escaped
       html = html.replace(/(?:^|(?<=\s))@([\w.\-]+)/g, (match, username) => {
         return match.replace('@' + username,
-          `<span class="inline-flex items-center gap-0.5 font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full text-[11px]">@${username}</span>`);
+          `<span class="comment-mention inline-flex items-center gap-0.5 font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full text-[11px]">@${username}</span>`);
       });
 
       // Step 3: Bold and italic markdown
@@ -4732,49 +5434,78 @@ window.trelloBoard = function(config) {
     async handlePaste(event) {
       const items = event.clipboardData?.items;
       if (!items) return;
+      if (!this.pastedImages) this.pastedImages = [];
+      let added = 0;
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
           event.preventDefault();
           const blob = items[i].getAsFile();
-          // Compress to max 1200×900 at 80% quality for inline storage
-          this.pastedImage = await this.compressImage(blob, 1200, 900, 0.80);
-          break;
+          if (blob) {
+            // Compress to max 1200×900 at 80% quality for inline storage
+            const compressed = await this.compressImage(blob, 1200, 900, 0.80);
+            if (compressed) {
+              this.pastedImages.push(compressed);
+              this.pastedImage = this.pastedImages[0];
+              added++;
+            }
+          }
         }
+      }
+      if (added > 0) {
+        const total = this.pastedImages.length;
+        window.showToast(total > 1 ? `${total} screenshots ready! Press ⌘+V to paste more` : 'Screenshot attached! Press ⌘+V to paste more 📸', 'info');
       }
     },
 
+    removePastedImage(index) {
+      if (!this.pastedImages) return;
+      this.pastedImages.splice(index, 1);
+      this.pastedImage = this.pastedImages.length ? this.pastedImages[0] : null;
+    },
+
+    clearPastedImages() {
+      this.pastedImages = [];
+      this.pastedImage = null;
+    },
+
     async sendScreenshot() {
-      if (!this.pastedImage || !this.activeCard) return;
+      const imagesToSend = (this.pastedImages && this.pastedImages.length)
+        ? [...this.pastedImages]
+        : (this.pastedImage ? [this.pastedImage] : []);
+      if (!imagesToSend.length || !this.activeCard) return;
+
       this.sendingScreenshot = true;
       try {
-        // 1. Upload the image as a file (with comment_only flag so it won't show in Attachments)
-        const fetchRes = await fetch(this.pastedImage);
-        const blob = await fetchRes.blob();
-        const formData = new FormData();
-        formData.append('file', blob, 'screenshot.jpg');
-        formData.append('comment_only', '1');
+        // 1. Upload all images as files (with comment_only flag so they won't show in Attachments)
+        const uploadPromises = imagesToSend.map(async (dataUrl, idx) => {
+          const fetchRes = await fetch(dataUrl);
+          const blob = await fetchRes.blob();
+          const formData = new FormData();
+          formData.append('file', blob, `screenshot-${Date.now()}-${idx + 1}.jpg`);
+          formData.append('comment_only', '1');
 
-        const fileRes = await fetch(`/boards/cards/${this.activeCard.id}/files`, {
-          method: 'POST',
-          headers: {
-            'X-CSRF-TOKEN': this.csrfToken,
-            'Accept': 'application/json'
-          },
-          body: formData
+          const fileRes = await fetch(`/boards/cards/${this.activeCard.id}/files`, {
+            method: 'POST',
+            headers: {
+              'X-CSRF-TOKEN': this.csrfToken,
+              'Accept': 'application/json'
+            },
+            body: formData
+          });
+          const fileData = await fileRes.json();
+          if (!fileRes.ok) {
+            throw new Error(fileData.error || `Failed to upload screenshot #${idx + 1}`);
+          }
+          return fileData.file.url;
         });
-        const fileData = await fileRes.json();
-        
-        if (!fileRes.ok) {
-           window.showToast(fileData.error || 'Failed to upload screenshot.', 'error');
-           this.sendingScreenshot = false;
-           return;
-        }
 
-        // NOTE: Do NOT add to activeCard.files — comment screenshots should only appear in comments
+        const uploadedUrls = await Promise.all(uploadPromises);
 
-        // 2. Post the comment referencing the fast URL instead of huge base64
+        // 2. Post the comment referencing all URLs
         const textPrefix = this.newComment.trim() ? this.newComment.trim() + '\n\n' : '';
-        const body = textPrefix + '![screenshot](' + fileData.file.url + ')';
+        const imgMarkdown = uploadedUrls.map(url => `![screenshot](${url})`).join('\n\n');
+        const body = textPrefix + imgMarkdown;
+
         const res = await this.api(`/boards/cards/${this.activeCard.id}/comments`, 'POST', { body });
         if (res.comment) {
           if (res.card_moved) {
@@ -4796,6 +5527,7 @@ window.trelloBoard = function(config) {
           if (!this.activeCard.comments) this.activeCard.comments = [];
           this.activeCard.comments.push(res.comment);
           this.newComment = '';
+          this.pastedImages = [];
           this.pastedImage = null;
           
           this.lists.forEach(l => {
@@ -4803,11 +5535,11 @@ window.trelloBoard = function(config) {
             if (c) c.comment_count = (c.comment_count ?? 0) + 1;
           });
 
-          window.showToast('Screenshot shared in comments! 📸');
+          window.showToast(imagesToSend.length > 1 ? `${imagesToSend.length} screenshots shared in comments! 📸` : 'Screenshot shared in comments! 📸');
           this.refreshCardActivities();
         }
       } catch(e) {
-        window.showToast('Failed to send screenshot', 'error');
+        window.showToast(e.message || 'Failed to send screenshot', 'error');
       } finally {
         this.sendingScreenshot = false;
       }

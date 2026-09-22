@@ -35,13 +35,18 @@ class MeetingAlarm extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function getSoundAttribute($value): string
+    {
+        return $value ?: 'funny.wav';
+    }
+
     public function getSoundUrlAttribute(): string
     {
-        $sound = $this->sound ?: 'melodic-chime.wav';
+        $sound = $this->sound ?: 'funny.wav';
         $path = 'clocksound/' . $sound;
         if (file_exists(public_path($path))) {
             return asset($path);
         }
-        return asset('clocksound/melodic-chime.wav');
+        return asset('clocksound/funny.wav');
     }
 }

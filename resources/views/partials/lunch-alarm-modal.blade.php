@@ -1,13 +1,33 @@
 @php
     $lunchUser = auth()->user();
-    $lunchSound = $lunchUser && $lunchUser->lunch_alarm_sound ? $lunchUser->lunch_alarm_sound : 'melodic-chime.wav';
+
+    $lunchSound = $lunchUser && $lunchUser->lunch_alarm_sound ? $lunchUser->lunch_alarm_sound : 'lunch.wav';
     $lunchPath = 'clocksound/' . $lunchSound;
-    $lunchSoundUrl = file_exists(public_path($lunchPath)) ? asset($lunchPath) : asset('clocksound/melodic-chime.wav');
+    $lunchSoundUrl = file_exists(public_path($lunchPath)) ? asset($lunchPath) : asset('clocksound/lunch.wav');
+
+    $offworkSound = $lunchUser && $lunchUser->offwork_alarm_sound ? $lunchUser->offwork_alarm_sound : 'funny.wav';
+    $offworkPath = 'clocksound/' . $offworkSound;
+    $offworkSoundUrl = file_exists(public_path($offworkPath)) ? asset($offworkPath) : asset('clocksound/funny.wav');
+
+    $satSound = $lunchUser && $lunchUser->sat_alarm_sound ? $lunchUser->sat_alarm_sound : 'funny.wav';
+    $satPath = 'clocksound/' . $satSound;
+    $satSoundUrl = file_exists(public_path($satPath)) ? asset($satPath) : asset('clocksound/funny.wav');
+
     $lunchEnabled = $lunchUser ? $lunchUser->isLunchAlarmEnabled() : false;
+    $shiftAlarmDuration = (int) \App\Models\Setting::get('shift_alarm_duration', 15);
+    if ($shiftAlarmDuration < 3 || $shiftAlarmDuration > 60) {
+        $shiftAlarmDuration = 15;
+    }
 @endphp
 
 <!-- Global Clock & Meeting Alarm Audio Element -->
-<audio id="lunch-alarm-sound" src="{{ $lunchSoundUrl }}" data-default-src="{{ $lunchSoundUrl }}" preload="auto"></audio>
+<audio id="lunch-alarm-sound"
+       src="{{ $lunchSoundUrl }}"
+       data-default-src="{{ $lunchSoundUrl }}"
+       data-lunch-src="{{ $lunchSoundUrl }}"
+       data-offwork-src="{{ $offworkSoundUrl }}"
+       data-sat-src="{{ $satSoundUrl }}"
+       preload="auto"></audio>
 
 <!-- Workplace & Meeting Alarm Pop-up Modal -->
 <div x-data="lunchAlarmModal()"
@@ -15,6 +35,7 @@
      x-show="isOpen"
      x-cloak
      @keydown.window.escape="close()"
+     @lunch-alarm-toggle.window="userEnabled = $event.detail.enabled"
      class="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
      style="display: none;">
 
@@ -34,7 +55,7 @@
     <div class="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border transition-all transform duration-300 ease-out z-10 p-6 sm:p-8 bg-white text-slate-800"
          :class="{
              'border-amber-200 shadow-amber-500/10 ring-1 ring-amber-300/30': mode === 'lunch',
-             'border-emerald-200 shadow-emerald-500/10 ring-1 ring-emerald-300/30': mode === 'offwork',
+             'border-emerald-200 shadow-emerald-500/10 ring-1 ring-emerald-300/30': mode === 'offwork' || mode === 'sat_offwork',
              'border-indigo-200 shadow-indigo-500/10 ring-1 ring-indigo-300/30': mode === 'meeting'
          }"
          x-show="isOpen"
@@ -50,13 +71,13 @@
         <div class="absolute -top-24 -left-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-60"
              :class="{
                  'bg-amber-100': mode === 'lunch',
-                 'bg-emerald-100': mode === 'offwork',
+                 'bg-emerald-100': mode === 'offwork' || mode === 'sat_offwork',
                  'bg-indigo-100': mode === 'meeting'
              }"></div>
         <div class="absolute -bottom-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-60"
              :class="{
                  'bg-rose-100': mode === 'lunch',
-                 'bg-teal-100': mode === 'offwork',
+                 'bg-teal-100': mode === 'offwork' || mode === 'sat_offwork',
                  'bg-purple-100': mode === 'meeting'
              }"></div>
 
@@ -87,12 +108,12 @@
                 <div class="w-14 h-14 rounded-2xl p-0.5 shadow-md flex items-center justify-center animate-bounce duration-1000"
                      :class="{
                          'bg-gradient-to-tr from-amber-400 via-orange-400 to-rose-400 shadow-orange-400/20': mode === 'lunch',
-                         'bg-gradient-to-tr from-emerald-400 via-teal-400 to-sky-400 shadow-emerald-400/20': mode === 'offwork',
+                         'bg-gradient-to-tr from-emerald-400 via-teal-400 to-sky-400 shadow-emerald-400/20': mode === 'offwork' || mode === 'sat_offwork',
                          'bg-gradient-to-tr from-indigo-400 via-purple-400 to-pink-400 shadow-indigo-400/20': mode === 'meeting'
                      }">
                     <div class="w-full h-full bg-white rounded-[14px] flex items-center justify-center text-2xl shadow-inner">
                         <template x-if="mode === 'lunch'"><span>🍽️</span></template>
-                        <template x-if="mode === 'offwork'"><span>🎉</span></template>
+                        <template x-if="mode === 'offwork' || mode === 'sat_offwork'"><span>🎉</span></template>
                         <template x-if="mode === 'meeting'"><span>🔔</span></template>
                     </div>
                 </div>
@@ -101,7 +122,7 @@
                      class="absolute -inset-2 rounded-2xl border-2 animate-ping pointer-events-none"
                      :class="{
                          'border-amber-400/50': mode === 'lunch',
-                         'border-emerald-400/50': mode === 'offwork',
+                         'border-emerald-400/50': mode === 'offwork' || mode === 'sat_offwork',
                          'border-indigo-400/50': mode === 'meeting'
                      }"></div>
             </div>
@@ -125,6 +146,17 @@
                     </h2>
                     <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1 max-w-sm">
                         Great job today! The workday is officially complete — time to wrap up, relax, and head home!
+                    </p>
+                </div>
+            </template>
+
+            <template x-if="mode === 'sat_offwork'">
+                <div>
+                    <h2 class="text-3xl sm:text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600">
+                        Saturday Half Day Off!
+                    </h2>
+                    <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1 max-w-sm">
+                        Great job today! The Saturday half-day shift (7:00 AM – 11:00 AM) is complete — time to get off work and enjoy your weekend!
                     </p>
                 </div>
             </template>
@@ -177,7 +209,7 @@
                 <div class="relative w-36 h-36 sm:w-44 sm:h-44 rounded-3xl overflow-hidden shadow-xl border-4 bg-white transition-all transform hover:scale-105 duration-300"
                      :class="{
                          'border-amber-300 shadow-amber-500/15 ring-4 ring-amber-100': mode === 'lunch',
-                         'border-emerald-300 shadow-emerald-500/15 ring-4 ring-emerald-100': mode === 'offwork',
+                         'border-emerald-300 shadow-emerald-500/15 ring-4 ring-emerald-100': mode === 'offwork' || mode === 'sat_offwork',
                          'border-indigo-300 shadow-indigo-500/15 ring-4 ring-indigo-100': mode === 'meeting'
                      }">
                     {{-- Lunch Mode: Cartoon Smile Enjoying Meal with Chef Hat & Cutlery --}}
@@ -187,8 +219,8 @@
                          loading="eager"
                          class="w-full h-full object-cover select-none pointer-events-none transition-transform duration-500 ease-out hover:scale-110">
                     
-                    {{-- Off Work Mode: Cartoon Smile Celebrating with Party Hat & Confetti --}}
-                    <img x-show="mode === 'offwork'"
+                    {{-- Off Work & Saturday Half Day Mode: Cartoon Smile Celebrating with Party Hat & Confetti --}}
+                    <img x-show="mode === 'offwork' || mode === 'sat_offwork'"
                          src="{{ asset('images/alarms/smile-offwork.jpg') }}" 
                          alt="Off Work Celebration Smile" 
                          loading="eager"
@@ -207,7 +239,7 @@
                      class="absolute -bottom-2.5 px-3.5 py-1 rounded-full text-xs font-black text-white shadow-lg flex items-center gap-1.5 animate-bounce"
                      :class="{
                          'bg-gradient-to-r from-amber-500 to-orange-500 shadow-amber-500/30': mode === 'lunch',
-                         'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30': mode === 'offwork',
+                         'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/30': mode === 'offwork' || mode === 'sat_offwork',
                          'bg-gradient-to-r from-indigo-500 to-purple-500 shadow-indigo-500/30': mode === 'meeting'
                      }">
                     <span class="text-[11px]">🔔</span>
@@ -220,7 +252,7 @@
                 <div class="text-2xl sm:text-3xl font-black font-mono tracking-wider"
                      :class="{
                          'text-amber-600': mode === 'lunch',
-                         'text-emerald-600': mode === 'offwork',
+                         'text-emerald-600': mode === 'offwork' || mode === 'sat_offwork',
                          'text-indigo-600': mode === 'meeting'
                      }"
                      x-text="timeStr"
@@ -240,7 +272,7 @@
                 <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-bold shadow-sm"
                      :class="{
                          'bg-amber-50 border-amber-200 text-amber-900': mode === 'lunch',
-                         'bg-emerald-50 border-emerald-200 text-emerald-900': mode === 'offwork',
+                         'bg-emerald-50 border-emerald-200 text-emerald-900': mode === 'offwork' || mode === 'sat_offwork',
                          'bg-indigo-50 border-indigo-200 text-indigo-900': mode === 'meeting'
                      }">
                     {{-- Waveform bars --}}
@@ -261,6 +293,7 @@
                 <div class="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
                     <template x-if="mode === 'lunch'"><span>✨ Have a wonderful lunch break!</span></template>
                     <template x-if="mode === 'offwork'"><span>🎉 Great work today! See you tomorrow!</span></template>
+                    <template x-if="mode === 'sat_offwork'"><span>☀️ Happy weekend! See you on Monday!</span></template>
                     <template x-if="mode === 'meeting'"><span>👥 Please attend the meeting on time!</span></template>
                 </div>
             </template>
@@ -284,7 +317,7 @@
                     class="w-full flex-1 inline-flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl font-bold text-sm text-white shadow-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2"
                     :class="{
                         'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 shadow-orange-500/25 focus:ring-amber-500/50': mode === 'lunch',
-                        'bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 hover:from-emerald-600 hover:to-sky-600 shadow-emerald-500/25 focus:ring-emerald-500/50': mode === 'offwork',
+                        'bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 hover:from-emerald-600 hover:to-sky-600 shadow-emerald-500/25 focus:ring-emerald-500/50': mode === 'offwork' || mode === 'sat_offwork',
                         'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 focus:ring-slate-300': mode === 'meeting' && meetingData.link,
                         'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-500/30 focus:ring-indigo-500/50': mode === 'meeting' && !meetingData.link
                     }">
@@ -355,13 +388,16 @@ function registerLunchAlarmModal() {
         isOpen: false,
         isRinging: false,
         autoplayBlocked: false,
-        ringCountdown: 10,
+        shiftAlarmDuration: {{ $shiftAlarmDuration }},
+        ringCountdown: {{ $shiftAlarmDuration }},
         countdownTimer: null,
         stopAudioTimeout: null,
         checkTicker: null,
         worker: null,
         mode: 'lunch', // 'lunch' (12:00 PM), 'offwork' (4:00 PM), or 'meeting'
         userEnabled: {{ $lunchEnabled ? 'true' : 'false' }},
+        isTestModal: false,
+        testAutoCloseTimeout: null,
         hourDeg: 0,
         minuteDeg: 0,
         secondDeg: 0,
@@ -377,9 +413,27 @@ function registerLunchAlarmModal() {
             title: '',
             description: '',
             link: '',
-            sound: 'melodic-chime.wav',
+            sound: 'funny.wav',
             sound_url: '{{ $lunchSoundUrl }}',
-            ring_duration: 10
+            ring_duration: 15
+        },
+
+        setAudioSource(targetMode = null) {
+            const currentTarget = targetMode || this.mode || 'lunch';
+            const audio = document.getElementById('lunch-alarm-sound');
+            if (!audio) return;
+            let targetSrc = audio.dataset.lunchSrc || audio.dataset.defaultSrc;
+            if (currentTarget === 'offwork') {
+                targetSrc = audio.dataset.offworkSrc || audio.dataset.defaultSrc;
+            } else if (currentTarget === 'sat_offwork') {
+                targetSrc = audio.dataset.satSrc || audio.dataset.defaultSrc;
+            } else if (currentTarget === 'meeting') {
+                targetSrc = (this.meetingData && this.meetingData.sound_url) ? this.meetingData.sound_url : audio.dataset.defaultSrc;
+            }
+            if (targetSrc && audio.src !== targetSrc) {
+                audio.src = targetSrc;
+                audio.load();
+            }
         },
 
         init() {
@@ -396,28 +450,89 @@ function registerLunchAlarmModal() {
                             this.isOpen = true;
                             this.updateClock();
                         } else if (e.data.type === 'close') {
-                            this.close(false); // Close without re-broadcasting
+                            this.close(false, e.data.mode); // Close without re-broadcasting
                         }
                     };
                 }
             } catch (e) {}
 
-            // Restore active alarm pop-up if user is navigating across system pages
-            try {
-                const saved = sessionStorage.getItem('dgt_active_alarm_modal');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    const pp = this.getPhnomPenhParts();
-                    if (parsed && parsed.dateKey === pp.dateKey && parsed.mode) {
-                        this.mode = parsed.mode;
-                        if (parsed.meetingData) {
-                            this.meetingData = parsed.meetingData;
-                        }
+            // Restore / Show active alarm pop-up across any page in the system
+            if (this.userEnabled) {
+                const pp = this.getPhnomPenhParts();
+                const isWeekday = pp.dayOfWeek >= 1 && pp.dayOfWeek <= 5;
+                const isSaturday = pp.dayOfWeek === 6;
+
+                const dismissedLunch = localStorage.getItem('dgt_alarm_dismissed_lunch_' + pp.dateKey);
+                const dismissedOffwork = localStorage.getItem('dgt_alarm_dismissed_offwork_' + pp.dateKey);
+                const dismissedSaturday = localStorage.getItem('dgt_alarm_dismissed_sat11_' + pp.dateKey);
+
+                // 1. Monday to Friday Schedule
+                if (isWeekday) {
+                    // 12:00 PM - 12:09:59 PM Lunch Time (auto-closes at 12:10 PM)
+                    if (pp.hour === 12 && pp.minute < 10 && !dismissedLunch) {
+                        this.mode = 'lunch';
                         this.isOpen = true;
-                        this.isRinging = false; // Popup remains visible, but do not re-ring audio on page navigation
+                        const rungLunch = localStorage.getItem('dgt_alarm_rung_lunch_' + pp.dateKey);
+                        if (!rungLunch) {
+                            localStorage.setItem('dgt_alarm_rung_lunch_' + pp.dateKey, 'true');
+                            this.playRingtone(this.shiftAlarmDuration);
+                            this.startTitleFlashing('🍽️ It\'s Lunch Time!');
+                            this.sendDesktopNotification('🍽️ It\'s Lunch Time!', 'Time for lunch break!');
+                        }
+                    }
+                    // 4:00 PM - 4:09:59 PM Off Work Time (auto-closes at 4:10 PM)
+                    else if (pp.hour === 16 && pp.minute < 10 && !dismissedOffwork) {
+                        this.mode = 'offwork';
+                        this.isOpen = true;
+                        const rungOffwork = localStorage.getItem('dgt_alarm_rung_offwork_' + pp.dateKey);
+                        if (!rungOffwork) {
+                            localStorage.setItem('dgt_alarm_rung_offwork_' + pp.dateKey, 'true');
+                            this.playRingtone(this.shiftAlarmDuration);
+                            this.startTitleFlashing('🎉 Getting Off Work!');
+                            this.sendDesktopNotification('🎉 Getting Off Work!', 'Workday is complete. Great job today!');
+                        }
                     }
                 }
-            } catch (e) {}
+                // 2. Saturday Half Day Schedule (7:00 AM - 11:00 AM, alarm at 11:00 AM, auto-closes at 11:10 AM)
+                else if (isSaturday) {
+                    if ((pp.hour === 11 || pp.hour === 23) && pp.minute < 10 && !dismissedSaturday) {
+                        this.mode = 'sat_offwork';
+                        this.isOpen = true;
+                        const rungSat = localStorage.getItem('dgt_alarm_rung_sat11_' + pp.dateKey);
+                        if (!rungSat) {
+                            localStorage.setItem('dgt_alarm_rung_sat11_' + pp.dateKey, 'true');
+                            this.playRingtone(this.shiftAlarmDuration);
+                            this.startTitleFlashing('🎉 Saturday Half Day Off!');
+                            this.sendDesktopNotification('🎉 Saturday Half Day Complete!', 'Time to get off work! Enjoy your weekend!');
+                        }
+                    }
+                }
+                // Sunday: Off, no shift alarms
+                else {
+                    try {
+                        const saved = sessionStorage.getItem('dgt_active_alarm_modal');
+                        if (saved) {
+                            const parsed = JSON.parse(saved);
+                            if (parsed && parsed.dateKey === pp.dateKey && parsed.mode) {
+                                if (parsed.mode === 'lunch' && (pp.hour !== 12 || pp.minute >= 10 || !isWeekday)) {
+                                    sessionStorage.removeItem('dgt_active_alarm_modal');
+                                } else if (parsed.mode === 'offwork' && (pp.hour !== 16 || pp.minute >= 10 || !isWeekday)) {
+                                    sessionStorage.removeItem('dgt_active_alarm_modal');
+                                } else if (parsed.mode === 'sat_offwork' && ((pp.hour !== 11 && pp.hour !== 23) || pp.minute >= 10 || !isSaturday)) {
+                                    sessionStorage.removeItem('dgt_active_alarm_modal');
+                                } else if (parsed.mode === 'meeting') {
+                                    this.mode = 'meeting';
+                                    if (parsed.meetingData) {
+                                        this.meetingData = parsed.meetingData;
+                                    }
+                                    this.isOpen = true;
+                                    this.isRinging = false;
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                }
+            }
 
             // Expose globally so users/admins can test anytime
             window.triggerLunchAlarm = (isTest = false, mode = 'lunch') => {
@@ -426,6 +541,10 @@ function registerLunchAlarmModal() {
 
             window.triggerOffWorkAlarm = (isTest = false) => {
                 this.triggerAlarm(isTest, 'offwork');
+            };
+
+            window.triggerSaturdayAlarm = (isTest = false) => {
+                this.triggerAlarm(isTest, 'sat_offwork');
             };
 
             window.triggerMeetingAlarm = (meeting) => {
@@ -523,11 +642,17 @@ function registerLunchAlarmModal() {
                 hour: 'numeric',
                 minute: 'numeric',
                 second: 'numeric',
+                weekday: 'short',
                 hourCycle: 'h23'
             });
             const parts = formatter.formatToParts(now);
             const p = {};
             parts.forEach(part => p[part.type] = part.value);
+
+            // Wall-clock day of week in Phnom Penh (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+            const ppDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' }));
+            const dayOfWeek = ppDate.getDay();
+
             return {
                 year: p.year,
                 month: p.month,
@@ -535,6 +660,8 @@ function registerLunchAlarmModal() {
                 hour: parseInt(p.hour, 10),
                 minute: parseInt(p.minute, 10),
                 second: parseInt(p.second, 10),
+                dayOfWeek: dayOfWeek,
+                weekday: p.weekday,
                 dateKey: `${p.year}-${p.month}-${p.day}`
             };
         },
@@ -566,27 +693,86 @@ function registerLunchAlarmModal() {
         },
 
         checkTimeTrigger() {
+            const pp = this.getPhnomPenhParts();
+            const isWeekday = pp.dayOfWeek >= 1 && pp.dayOfWeek <= 5;
+            const isSaturday = pp.dayOfWeek === 6;
+
+            // Auto-close check:
+            // 1. Lunch (Mon-Fri): When past 12:10 PM (or not weekday), auto-close!
+            if (this.isOpen && this.mode === 'lunch' && !this.isTestModal) {
+                if (pp.hour !== 12 || pp.minute >= 10 || !isWeekday) {
+                    this.close(true, 'lunch');
+                    try { sessionStorage.removeItem('dgt_active_alarm_modal'); } catch (e) {}
+                    return;
+                }
+            }
+
+            // 2. Off Work (Mon-Fri): When past 4:10 PM (or not weekday), auto-close!
+            if (this.isOpen && this.mode === 'offwork' && !this.isTestModal) {
+                if (pp.hour !== 16 || pp.minute >= 10 || !isWeekday) {
+                    this.close(true, 'offwork');
+                    try { sessionStorage.removeItem('dgt_active_alarm_modal'); } catch (e) {}
+                    return;
+                }
+            }
+
+            // 3. Saturday Half Day: When past 11:10 AM (or not Saturday), auto-close!
+            if (this.isOpen && this.mode === 'sat_offwork' && !this.isTestModal) {
+                if (((pp.hour !== 11 && pp.hour !== 23) || pp.minute >= 10) || !isSaturday) {
+                    this.close(true, 'sat_offwork');
+                    try { sessionStorage.removeItem('dgt_active_alarm_modal'); } catch (e) {}
+                    return;
+                }
+            }
+
             if (!this.userEnabled) return;
 
-            const pp = this.getPhnomPenhParts();
+            // Monday to Friday:
+            if (isWeekday) {
+                // 1. 12:00 PM (12:00 - 12:09 window)
+                if (pp.hour === 12 && pp.minute < 10) {
+                    const dismissed = localStorage.getItem('dgt_alarm_dismissed_lunch_' + pp.dateKey);
+                    if (!dismissed) {
+                        this.mode = 'lunch';
+                        this.isOpen = true;
+                        const rung = localStorage.getItem('dgt_alarm_rung_lunch_' + pp.dateKey);
+                        if (!rung) {
+                            localStorage.setItem('dgt_alarm_rung_lunch_' + pp.dateKey, 'true');
+                            this.triggerAlarm(false, 'lunch');
+                        }
+                    }
+                }
 
-            // 1. Trigger when Phnom Penh time is 12:00 PM (12:00 PM - 12:59 PM lunch hour)
-            if (pp.hour === 12) {
-                const storageKey = 'dgt_alarm_shown_lunch_' + pp.dateKey;
-                if (!localStorage.getItem(storageKey)) {
-                    localStorage.setItem(storageKey, 'true');
-                    this.triggerAlarm(false, 'lunch');
+                // 2. 4:00 PM (16:00 - 16:09 window)
+                if (pp.hour === 16 && pp.minute < 10) {
+                    const dismissed = localStorage.getItem('dgt_alarm_dismissed_offwork_' + pp.dateKey);
+                    if (!dismissed) {
+                        this.mode = 'offwork';
+                        this.isOpen = true;
+                        const rung = localStorage.getItem('dgt_alarm_rung_offwork_' + pp.dateKey);
+                        if (!rung) {
+                            localStorage.setItem('dgt_alarm_rung_offwork_' + pp.dateKey, 'true');
+                            this.triggerAlarm(false, 'offwork');
+                        }
+                    }
                 }
             }
-
-            // 2. Trigger when Phnom Penh time is 4:00 PM (16:00 - 19:59 end-of-shift window)
-            if (pp.hour >= 16 && pp.hour < 20) {
-                const storageKey = 'dgt_alarm_shown_offwork_' + pp.dateKey;
-                if (!localStorage.getItem(storageKey)) {
-                    localStorage.setItem(storageKey, 'true');
-                    this.triggerAlarm(false, 'offwork');
+            // Saturday Half Day (11:00 AM):
+            else if (isSaturday) {
+                if ((pp.hour === 11 || pp.hour === 23) && pp.minute < 10) {
+                    const dismissed = localStorage.getItem('dgt_alarm_dismissed_sat11_' + pp.dateKey);
+                    if (!dismissed) {
+                        this.mode = 'sat_offwork';
+                        this.isOpen = true;
+                        const rung = localStorage.getItem('dgt_alarm_rung_sat11_' + pp.dateKey);
+                        if (!rung) {
+                            localStorage.setItem('dgt_alarm_rung_sat11_' + pp.dateKey, 'true');
+                            this.triggerAlarm(false, 'sat_offwork');
+                        }
+                    }
                 }
             }
+            // Sunday: off
         },
 
         checkMeetingTriggers() {
@@ -618,9 +804,9 @@ function registerLunchAlarmModal() {
                 title: meeting.title || 'Team Meeting',
                 description: meeting.description || '',
                 link: meeting.meeting_link || '',
-                sound: meeting.sound || 'melodic-chime.wav',
-                sound_url: meeting.sound_url || '{{ asset('clocksound/melodic-chime.wav') }}',
-                ring_duration: meeting.ring_duration || 10
+                sound: meeting.sound || 'funny.wav',
+                sound_url: meeting.sound_url || '{{ asset('clocksound/funny.wav') }}',
+                ring_duration: meeting.ring_duration || 15
             };
 
             this.isOpen = true;
@@ -633,7 +819,7 @@ function registerLunchAlarmModal() {
                 audio.load();
             }
 
-            const duration = this.meetingData.ring_duration || 10;
+            const duration = this.meetingData.ring_duration || 15;
             this.playRingtone(duration);
 
             // Notify in background tab:
@@ -653,17 +839,28 @@ function registerLunchAlarmModal() {
 
         triggerAlarm(isTest = false, targetMode = 'lunch') {
             this.mode = targetMode;
+            this.isTestModal = isTest;
             this.isOpen = true;
             this.updateClock();
 
-            // Persist in sessionStorage so pop-up stays visible if user navigates across system pages
-            const pp = this.getPhnomPenhParts();
-            try {
-                sessionStorage.setItem('dgt_active_alarm_modal', JSON.stringify({
-                    mode: targetMode,
-                    dateKey: pp.dateKey
-                }));
-            } catch (e) {}
+            // Persist in sessionStorage only during real alarm window so it stays visible across page navigation
+            if (!isTest) {
+                const pp = this.getPhnomPenhParts();
+                try {
+                    sessionStorage.setItem('dgt_active_alarm_modal', JSON.stringify({
+                        mode: targetMode,
+                        dateKey: pp.dateKey
+                    }));
+                } catch (e) {}
+            } else {
+                // For preview / test mode, auto-close after 15 seconds so test modal doesn't persist forever
+                if (this.testAutoCloseTimeout) clearTimeout(this.testAutoCloseTimeout);
+                this.testAutoCloseTimeout = setTimeout(() => {
+                    if (this.isOpen && this.isTestModal) {
+                        this.close(false);
+                    }
+                }, 15000);
+            }
 
             // Broadcast to other open tabs in the system
             if (this.broadcastChannel) {
@@ -675,15 +872,12 @@ function registerLunchAlarmModal() {
                 } catch (e) {}
             }
 
-            // Reset sound src to user's default lunch sound
-            const audio = document.getElementById('lunch-alarm-sound');
-            if (audio && audio.dataset.defaultSrc) {
-                audio.src = audio.dataset.defaultSrc;
-                audio.load();
-            }
+            // Set sound src to matching alarm mode
+            this.setAudioSource(targetMode);
 
-            // Play ringtone for 10 seconds, then sound automatically stops while pop-up remains open
-            this.playRingtone(10);
+            // Play ringtone for configured duration (15s default), then sound automatically stops while pop-up remains open
+            const duration = this.shiftAlarmDuration || 15;
+            this.playRingtone(duration);
 
             const title = targetMode === 'lunch' ? '🍽️ It\'s Lunch Time!' : '🎉 Getting Off Work!';
             const body = targetMode === 'lunch' ? 'Time for lunch break!' : 'Workday is complete. Great job today!';
@@ -698,17 +892,21 @@ function registerLunchAlarmModal() {
             } catch (e) {}
         },
 
-        playRingtone(durationSeconds = 10) {
+        playRingtone(durationSeconds = null) {
+            const finalDuration = durationSeconds || this.shiftAlarmDuration || 15;
             this.isRinging = true;
             this.autoplayBlocked = false;
-            this.ringCountdown = durationSeconds;
+            this.ringCountdown = finalDuration;
+
+            // Ensure correct sound is loaded for current mode
+            this.setAudioSource(this.mode);
 
             const audio = document.getElementById('lunch-alarm-sound');
             if (audio) {
                 audio.currentTime = 0;
                 audio.volume = 1.0;
                 audio.muted = false;
-                audio.loop = true; // Ensure continuous ring for full 10 seconds duration
+                audio.loop = true; // Ensure continuous ring for full duration
                 const playPromise = audio.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
@@ -716,11 +914,11 @@ function registerLunchAlarmModal() {
                     }).catch(e => {
                         console.log('Autoplay blocked audio element, using Web Audio chime fallback:', e);
                         this.autoplayBlocked = true;
-                        this.playWebAudioBeep(durationSeconds * 1000);
+                        this.playWebAudioBeep(finalDuration * 1000);
                     });
                 }
             } else {
-                this.playWebAudioBeep(durationSeconds * 1000);
+                this.playWebAudioBeep(finalDuration * 1000);
             }
 
             // Countdown timer: ticks down every second
@@ -733,15 +931,16 @@ function registerLunchAlarmModal() {
                 }
             }, 1000);
 
-            // Stop audio timeout after durationSeconds (10s)
+            // Stop audio timeout after finalDuration
             // Note: stopRingtone() mutes and stops sound, while this.isOpen remains true so pop-up still shows!
             if (this.stopAudioTimeout) clearTimeout(this.stopAudioTimeout);
             this.stopAudioTimeout = setTimeout(() => {
                 this.stopRingtone();
-            }, durationSeconds * 1000);
+            }, finalDuration * 1000);
         },
 
-        playWebAudioBeep(durationMs = 10000) {
+        playWebAudioBeep(durationMs = null) {
+            const finalMs = durationMs || (this.shiftAlarmDuration || 15) * 1000;
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 if (!AudioContext) return;
@@ -751,7 +950,7 @@ function registerLunchAlarmModal() {
                 }
                 window.__dgtAudioContext = ctx;
                 const now = ctx.currentTime;
-                const bursts = Math.max(3, Math.round(durationMs / 1000));
+                const bursts = Math.max(3, Math.round(finalMs / 1000));
                 
                 for (let b = 0; b < bursts; b++) {
                     const burstStart = now + b * 1.0;
@@ -828,10 +1027,32 @@ function registerLunchAlarmModal() {
             // The pop up still shows on screen until the user manually clicks Close / Got It.
         },
 
-        close(shouldBroadcast = true) {
+        close(shouldBroadcast = true, forceMode = null) {
+            const currentMode = forceMode || this.mode;
             this.stopRingtone();
             this.stopTitleFlashing();
             this.isOpen = false;
+            this.isTestModal = false;
+            if (this.testAutoCloseTimeout) {
+                clearTimeout(this.testAutoCloseTimeout);
+                this.testAutoCloseTimeout = null;
+            }
+            try {
+                sessionStorage.removeItem('dgt_active_alarm_modal');
+            } catch (e) {}
+
+            const pp = this.getPhnomPenhParts();
+
+            // Record dismissal for today so it doesn't pop up again once dismissed
+            if (currentMode === 'lunch') {
+                localStorage.setItem('dgt_alarm_dismissed_lunch_' + pp.dateKey, 'true');
+            } else if (currentMode === 'offwork') {
+                localStorage.setItem('dgt_alarm_dismissed_offwork_' + pp.dateKey, 'true');
+            } else if (currentMode === 'sat_offwork') {
+                localStorage.setItem('dgt_alarm_dismissed_sat11_' + pp.dateKey, 'true');
+            } else if (currentMode === 'meeting' && this.meetingData && this.meetingData.id) {
+                localStorage.setItem('dgt_meeting_alarm_' + this.meetingData.id, 'dismissed');
+            }
 
             try {
                 sessionStorage.removeItem('dgt_active_alarm_modal');
@@ -839,7 +1060,7 @@ function registerLunchAlarmModal() {
 
             if (shouldBroadcast && this.broadcastChannel) {
                 try {
-                    this.broadcastChannel.postMessage({ type: 'close' });
+                    this.broadcastChannel.postMessage({ type: 'close', mode: currentMode });
                 } catch (e) {}
             }
 

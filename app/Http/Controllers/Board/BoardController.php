@@ -346,6 +346,7 @@ class BoardController extends Controller
             'boardId'   => $board->id,
             'boardSlug' => $board->slug,
             'boardType' => $board->type,
+            'autoOpenCardId' => request()->filled('card') ? (int) request('card') : null,
             'baseRoute' => $board->type === 'smm' ? 'smm-boards' : 'boards',
             'smmClasses' => \App\Models\SocialMediaClass::active()->orderBy('position')->get(['id', 'name', 'color'])->toArray(),
             'smmTeams' => ['Graphic Team', 'Video Team', 'Listing Team', 'Content Writing Team', 'QC Team'],

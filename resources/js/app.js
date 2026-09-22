@@ -238,28 +238,102 @@ Alpine.store('sidebar', {
 
 // Theme System
 Alpine.data('themeSystem', () => ({
-    theme: 'light',
+    theme: 'light', // 'light' | 'dark'
+    neonMode: false,
+
     initTheme() {
-        if (localStorage.getItem('theme')) {
-            this.theme = localStorage.getItem('theme');
-        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        const storedTheme = localStorage.getItem('theme');
+        const storedNeon = localStorage.getItem('dgt_neon_mode');
+
+        // Migration: If theme was previously stored as 'neon', convert to theme='dark' & dgt_neon_mode='true'
+        if (storedTheme === 'neon') {
+            this.neonMode = true;
             this.theme = 'dark';
+            localStorage.setItem('dgt_neon_mode', 'true');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            this.neonMode = storedNeon === 'true';
+            if (storedTheme === 'dark' || storedTheme === 'light') {
+                this.theme = storedTheme;
+            } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                this.theme = 'dark';
+            } else {
+                this.theme = 'light';
+            }
         }
         this.applyTheme();
+
+        window.addEventListener('dgt-theme-toggle-neon', () => {
+            this.toggleNeonTheme();
+        });
     },
+
+    get isNeon() {
+        return this.neonMode && this.theme === 'dark';
+    },
+
+    get isDark() {
+        return this.theme === 'dark';
+    },
+
     toggleTheme() {
-        this.theme = this.theme === 'light' ? 'dark' : 'light';
+        // Standard topbar Sun/Moon toggle: always toggles between light and dark
+        this.theme = this.theme === 'dark' ? 'light' : 'dark';
         localStorage.setItem('theme', this.theme);
         this.applyTheme();
     },
+
+    setTheme(targetTheme) {
+        if (this.theme === targetTheme) return;
+        this.theme = targetTheme;
+        localStorage.setItem('theme', this.theme);
+        this.applyTheme();
+    },
+
+    toggleNeonTheme() {
+        // Controlled in profile and topbar: toggles neon mode on / off
+        if (this.isNeon) {
+            // Already in neon dark mode -> disable neon mode
+            this.neonMode = false;
+            localStorage.setItem('dgt_neon_mode', 'false');
+        } else {
+            // Activating neon -> ensure dark mode is active and neon is enabled
+            this.neonMode = true;
+            this.theme = 'dark';
+            localStorage.setItem('dgt_neon_mode', 'true');
+            localStorage.setItem('theme', 'dark');
+        }
+        this.applyTheme();
+    },
+
     applyTheme() {
         if (this.theme === 'dark') {
-            document.documentElement.setAttribute('data-theme', 'dark');
+            if (this.neonMode) {
+                document.documentElement.setAttribute('data-theme', 'neon');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
         } else {
+            // Light mode is always clean normal light mode (Neon NEVER in light mode)
             document.documentElement.removeAttribute('data-theme');
         }
+        window.dispatchEvent(new CustomEvent('theme-changed', { 
+            detail: { 
+                theme: this.theme, 
+                neon: this.isNeon,
+                dataTheme: document.documentElement.getAttribute('data-theme') || 'light'
+            } 
+        }));
     }
 }));
+
+// Global helpers accessible from non-Alpine or isolated templates
+window.toggleNeonTheme = function() {
+    window.dispatchEvent(new CustomEvent('dgt-theme-toggle-neon'));
+};
+window.isNeonTheme = function() {
+    return document.documentElement.getAttribute('data-theme') === 'neon';
+};
 
 // Toast
 Alpine.data('toast', () => ({

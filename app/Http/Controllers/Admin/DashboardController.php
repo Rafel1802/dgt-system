@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Services\KanbanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -14,6 +15,10 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private readonly KanbanService $kanbanService
+    ) {}
+
     /**
      * Show the main admin dashboard.
      * Returns aggregated stats for the logged-in user's role level.
@@ -84,6 +89,22 @@ class DashboardController extends Controller
         $user->loadMissing('roles.permissions');
         $permissionsCount = $user->getAllPermissions()->count();
 
+        $deadlineData = $user->getDeadlineWarningData();
+        $warningTasks = $deadlineData['warningTasks'];
+        $dueTomorrowCount = $deadlineData['dueTomorrowCount'];
+        $dueTodayCount = $deadlineData['dueTodayCount'];
+        $overdueCount = $deadlineData['overdueCount'];
+        $totalWarningCount = $deadlineData['totalWarningCount'];
+        $totalTasksCount = $deadlineData['totalTasksCount'];
+
+        $isQcUser = $user->isQc() || $user->hasRole('qc') || str_contains(strtolower($user->name ?? ''), 'dara') || str_contains(strtolower($user->team_role ?? ''), 'qc');
+        $canSeeApprovals = $isQcUser || $user->can('kanban.approve') || $user->hasAnyRole(['super-admin', 'admin-digital', 'boss', 'supervisor']) || $user->isSupervisorOrAdminDigital() || $user->isSupervisorRole();
+
+        $approvalQueueData = null;
+        if ($canSeeApprovals) {
+            $approvalQueueData = $this->kanbanService->getApprovalQueueData(null, 'today', $user);
+        }
+
         return view('dashboard.index', compact(
             'user',
             'stats',
@@ -92,6 +113,13 @@ class DashboardController extends Controller
             'dashboardUnreadCount',
             'permissionsCount',
             'recentActivitiesFn',
+            'warningTasks',
+            'dueTomorrowCount',
+            'dueTodayCount',
+            'overdueCount',
+            'totalWarningCount',
+            'totalTasksCount',
+            'approvalQueueData',
         ));
     }
 

@@ -19,6 +19,26 @@
 .ws-dash-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.1); transform: translateY(-3px); }
 [data-theme="dark"] .ws-dash-card { background: #0f172a; border-color: #1e293b; }
 [data-theme="dark"] .ws-dash-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+[data-theme="neon"] .ws-dash-card {
+    background: rgba(4, 20, 56, 0.92) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 120, 255, 0.15) !important;
+}
+[data-theme="neon"] .ws-dash-card:hover {
+    border-color: rgba(0, 220, 255, 0.8) !important;
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 180, 255, 0.4) !important;
+    transform: translateY(-3px) !important;
+}
+[data-theme="neon"] .ws-dash-card h3 {
+    color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(0, 190, 255, 0.4) !important;
+}
+[data-theme="neon"] .ws-dash-card .w-12.h-12.bg-white {
+    background: rgba(2, 10, 32, 0.85) !important;
+    border-color: rgba(0, 160, 255, 0.35) !important;
+}
 
 .status-bar-track { height: 8px; border-radius: 9999px; overflow: hidden; display: flex; gap: 1px; background: var(--bg-page, #f1f5f9); }
 [data-theme="dark"] .status-bar-track { background: #1e293b; }

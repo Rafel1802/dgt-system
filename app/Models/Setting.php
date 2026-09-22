@@ -270,7 +270,8 @@ class Setting extends Model
     {
         if (self::$cachedSettings === null) {
             self::$cachedSettings = \Illuminate\Support\Facades\Cache::rememberForever('global_settings', function () {
-                return self::pluck('value', 'key')->all();
+                $plucked = self::pluck('value', 'key');
+                return is_array($plucked) ? $plucked : $plucked->all();
             });
         }
 

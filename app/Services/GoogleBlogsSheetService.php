@@ -87,11 +87,15 @@ class GoogleBlogsSheetService
         ]);
 
         try {
-            $response = Http::timeout(60)
-                ->connectTimeout(15)
-                ->retry(2, 1000)
-                ->withHeaders(['Accept' => 'application/json'])
-                ->post($scriptUrl, $payload);
+            $client = Http::timeout(25)
+                ->connectTimeout(5)
+                ->withHeaders(['Accept' => 'application/json']);
+
+            if (app()->environment('local', 'testing')) {
+                $client = $client->withoutVerifying();
+            }
+
+            $response = $client->post($scriptUrl, $payload);
 
             $json = $response->json();
 
@@ -167,10 +171,14 @@ class GoogleBlogsSheetService
         ];
 
         try {
-            $response = Http::timeout(60)
-                ->connectTimeout(15)
-                ->retry(2, 1000)
-                ->post($url, $payload);
+            $client = Http::timeout(20)
+                ->connectTimeout(5);
+
+            if (app()->environment('local', 'testing')) {
+                $client = $client->withoutVerifying();
+            }
+
+            $response = $client->post($url, $payload);
             
             if (!$response->successful()) {
                 return ['success' => false, 'error' => 'HTTP ' . $response->status() . ' from Apps Script.'];
@@ -235,11 +243,15 @@ class GoogleBlogsSheetService
         ];
 
         try {
-            $response = Http::timeout(60)
-                ->connectTimeout(15)
-                ->retry(2, 1000)
-                ->withHeaders(['Accept' => 'application/json'])
-                ->post($scriptUrl, $payload);
+            $client = Http::timeout(12)
+                ->connectTimeout(5)
+                ->withHeaders(['Accept' => 'application/json']);
+
+            if (app()->environment('local', 'testing')) {
+                $client = $client->withoutVerifying();
+            }
+
+            $response = $client->post($scriptUrl, $payload);
 
             $json = $response->json();
 

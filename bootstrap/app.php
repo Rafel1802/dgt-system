@@ -27,9 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        // ── Exclude webhooks from CSRF ────────────────────────────────────
+        // ── Exclude webhooks & OAuth callbacks from CSRF ─────────────────
         $middleware->validateCsrfTokens(except: [
             'webhook/*',
+            'auth/google/callback',
+            'profile/google/link',
         ]);
 
         // ── Named middleware aliases ──────────────────────────────────────

@@ -54,7 +54,7 @@
         font-size: 1rem;
     }
     .notes-editor-card .ql-editor {
-        min-height: clamp(420px, calc(100vh - 250px), 980px);
+        min-height: clamp(320px, calc(100vh - 380px), 800px);
         padding: 22px 40px 56px;
         color: #1e293b;
         line-height: 1.65;
@@ -72,13 +72,124 @@
     .notes-editor-card .ql-editor h2,
     .notes-editor-card .ql-editor h3 { color: #0f172a; margin: 1.1em 0 .45em; font-weight: 800; }
     
-    /* Dark mode text colors */
+    /* Dark mode text colors & unified background */
+    html[data-theme="dark"] .notes-col-editor,
+    html[data-theme="dark"] .notes-editor-card,
+    html[data-theme="dark"] .notes-editor-scroll { background: #1e293b !important; }
+    html[data-theme="dark"] .notes-editor-card #editor-container,
+    html[data-theme="dark"] .notes-editor-card .ql-container.ql-snow,
+    html[data-theme="dark"] .notes-editor-card .ql-editor { background: transparent !important; border: none !important; border-radius: 0 !important; }
     html[data-theme="dark"] .notes-editor-card .ql-editor { color: #f8fafc; }
     html[data-theme="dark"] .notes-editor-card .ql-editor h1,
     html[data-theme="dark"] .notes-editor-card .ql-editor h2,
     html[data-theme="dark"] .notes-editor-card .ql-editor h3 { color: #ffffff; }
     html[data-theme="dark"] .notes-editor-card .ql-editor.ql-blank::before { color: #94a3b8; }
+
+    /* Neon mode text colors & unified midnight sapphire background */
+    html[data-theme="neon"] .notes-col-editor,
+    html[data-theme="neon"] .notes-editor-card,
+    html[data-theme="neon"] .notes-editor-scroll { background: rgba(3, 14, 44, 0.96) !important; }
+    html[data-theme="neon"] .notes-editor-card #editor-container,
+    html[data-theme="neon"] .notes-editor-card .ql-container.ql-snow,
+    html[data-theme="neon"] .notes-editor-card .ql-editor { background: transparent !important; background-color: transparent !important; border: none !important; border-radius: 0 !important; }
+    html[data-theme="neon"] .notes-editor-card .ql-editor { color: #ffffff !important; caret-color: #00d2ff; }
+    html[data-theme="neon"] .notes-editor-card .ql-editor h1,
+    html[data-theme="neon"] .notes-editor-card .ql-editor h2,
+    html[data-theme="neon"] .notes-editor-card .ql-editor h3 { color: #ffffff !important; }
+    html[data-theme="neon"] .notes-editor-card .ql-editor.ql-blank::before { color: #64748b; }
+    html[data-theme="neon"] .notes-editor-card .ql-toolbar.ql-snow { background: rgba(3, 14, 44, 0.98) !important; border-bottom: 1px solid rgba(0, 160, 255, 0.25) !important; }
+    html[data-theme="neon"] .notes-editor-card .ql-editor code {
+        background: rgba(0, 55, 150, 0.45) !important;
+        background-color: rgba(0, 55, 150, 0.45) !important;
+        color: #00f0ff !important;
+        border: 1px solid rgba(0, 180, 255, 0.5) !important;
+        border-radius: 6px !important;
+        padding: 2px 6px !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    }
+    html[data-theme="neon"] .notes-editor-card .ql-editor pre,
+    html[data-theme="neon"] .notes-editor-card .ql-editor .ql-syntax {
+        background: rgba(2, 10, 32, 0.92) !important;
+        background-color: rgba(2, 10, 32, 0.92) !important;
+        color: #e0f2fe !important;
+        border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+        border-radius: 10px !important;
+        padding: 12px 16px !important;
+    }
+    html[data-theme="neon"] .notes-editor-card .ql-editor pre code,
+    html[data-theme="neon"] .notes-editor-card .ql-editor .ql-syntax code {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: rgb(255, 255, 255)"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: #ffffff"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color:#ffffff"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: #fff"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color:#fff"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: white"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background: white"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background: #ffffff"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background:#ffffff"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background: rgb(255, 255, 255)"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: rgb(240, 240, 240)"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: rgb(248, 249, 250)"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: rgb(241, 243, 244)"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: rgb(245, 245, 245)"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: rgb(238, 238, 238)"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor [style*="background-color: rgb(232, 234, 237)"],
+    html[data-theme="neon"] .notes-editor-card .ql-editor .ql-bg-white {
+        background: rgba(0, 55, 150, 0.45) !important;
+        background-color: rgba(0, 55, 150, 0.45) !important;
+        color: #00f0ff !important;
+        border: 1px solid rgba(0, 180, 255, 0.45) !important;
+        border-radius: 6px !important;
+        padding: 1px 6px !important;
+    }
+    html[data-theme="dark"] .notes-editor-card .ql-editor code {
+        background: rgba(51, 65, 85, 0.7) !important;
+        background-color: rgba(51, 65, 85, 0.7) !important;
+        color: #38bdf8 !important;
+        border: 1px solid rgba(100, 116, 139, 0.5) !important;
+        border-radius: 6px !important;
+        padding: 2px 6px !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    }
+    html[data-theme="dark"] .notes-editor-card .ql-editor pre,
+    html[data-theme="dark"] .notes-editor-card .ql-editor .ql-syntax {
+        background: #0f172a !important;
+        color: #f1f5f9 !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+    }
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: rgb(255, 255, 255)"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: #ffffff"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color:#ffffff"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: #fff"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color:#fff"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: white"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background: white"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background: #ffffff"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background:#ffffff"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background: rgb(255, 255, 255)"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: rgb(240, 240, 240)"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: rgb(248, 249, 250)"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: rgb(241, 243, 244)"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: rgb(245, 245, 245)"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: rgb(238, 238, 238)"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor [style*="background-color: rgb(232, 234, 237)"],
+    html[data-theme="dark"] .notes-editor-card .ql-editor .ql-bg-white {
+        background: rgba(51, 65, 85, 0.7) !important;
+        background-color: rgba(51, 65, 85, 0.7) !important;
+        color: #f1f5f9 !important;
+        border: 1px solid rgba(100, 116, 139, 0.5) !important;
+        border-radius: 6px !important;
+        padding: 1px 6px !important;
+    }
+
     .notes-editor-card #editor-container { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; outline: none; }
+    .notes-editor-card #editor-container .ql-editor { flex: 1 1 auto; }
     .notes-editor-card .ql-picker-options { z-index: 50; border-color: #e2e8f0 !important; border-radius: 10px; box-shadow: 0 18px 40px rgba(15, 23, 42, .14); }
     .notes-editor-card .ql-tooltip { z-index: 60; border-radius: 12px; box-shadow: 0 18px 40px rgba(15, 23, 42, .14); }
     .notes-editor-card .ql-toolbar svg,

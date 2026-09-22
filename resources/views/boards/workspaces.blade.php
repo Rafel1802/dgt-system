@@ -210,7 +210,7 @@
         {{-- Create new board tile --}}
         @if(auth()->user()->canCreateBoards())
         <button @click="openCreateBoard({{ $workspace->id }})"
-                class="h-28 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/50 transition-all duration-200">
+                class="create-board-tile h-28 rounded-xl border-2 border-dashed border-slate-200 dark:border-sky-500/30 flex flex-col items-center justify-center gap-1.5 text-slate-400 dark:text-sky-300 hover:border-indigo-400 dark:hover:border-cyan-400 hover:text-indigo-600 dark:hover:text-cyan-300 hover:bg-indigo-50/40 dark:hover:bg-cyan-500/15 transition-all duration-200">
           <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
           </svg>

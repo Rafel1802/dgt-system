@@ -57,6 +57,62 @@
     }
   }"
 >
+  {{-- ── Connected Google Account (Top of Profile) ─────────────────────── --}}
+  <div class="mb-6 rounded-[1.75rem] border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 sm:p-6 shadow-sm backdrop-blur-md">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0 shadow-xs">
+          <svg class="w-6 h-6" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24Z"/>
+            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15Z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-bold text-sm sm:text-base text-slate-800 dark:text-slate-100">Google Account</h3>
+            @if($user->isGoogleLinked())
+              <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500 text-white">Linked</span>
+            @else
+              <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">Not Linked</span>
+            @endif
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            @if($user->isGoogleLinked())
+              Connected with <strong class="text-slate-700 dark:text-slate-200">{{ $user->google_email ?: $user->email }}</strong> for one-click login and seamless Google Drive access.
+            @else
+              Link your @kiuq.com Google account to sign in with one click and access Google Drive videos seamlessly.
+            @endif
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-shrink-0">
+        @if($user->isGoogleLinked())
+          <button type="button"
+                  onclick="event.preventDefault(); if(confirm('Are you sure you want to unlink your Google account?')) { document.getElementById('unlink-google-form').submit(); }"
+                  class="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition shadow-xs cursor-pointer">
+            Unlink Account
+          </button>
+        @else
+          <button type="button"
+                  id="btn-link-google"
+                  onclick="triggerGoogleProfileLink()"
+                  class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95">
+            <svg class="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24Z"/>
+              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15Z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"/>
+            </svg>
+            <span id="btn-link-google-text">Link Google Account</span>
+          </button>
+        @endif
+      </div>
+    </div>
+  </div>
+
   <div class="mb-6 overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#2F68ED] via-[#2457cf] to-[#173a92] p-6 text-white shadow-xl shadow-blue-900/20 sm:p-8">
     <div class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
       <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
@@ -339,13 +395,49 @@
           @error('notification_sound')<p class="form-error">{{ $message }}</p>@enderror
         </div>
         
-        {{-- ── Shift Clock Alarms (12:00 PM Lunch & 4:00 PM Off Work) ─────────────── --}}
+        {{-- ── Shift Clock Alarms (12:00 PM Lunch, 4:00 PM Off Work & Saturday 11:00 AM) ─────────────── --}}
         <div class="sm:col-span-2 border-t border-slate-100 pt-5 mt-2" x-data="{
+          activeShiftTab: 'lunch', // 'lunch' (12 PM), 'offwork' (4 PM), 'sat' (Sat 11 AM)
           lunchAlarmEnabled: {{ old('lunch_alarm_enabled', $user->isLunchAlarmEnabled()) ? 'true' : 'false' }},
-          currentClockSound: '{{ old('lunch_alarm_sound', $user->lunch_alarm_sound ?? 'melodic-chime.wav') }}',
+          lunchAlarmSound: '{{ old('lunch_alarm_sound', $user->lunch_alarm_sound ?? 'lunch.wav') }}',
+          offworkAlarmSound: '{{ old('offwork_alarm_sound', $user->offwork_alarm_sound ?? 'funny.wav') }}',
+          satAlarmSound: '{{ old('sat_alarm_sound', $user->sat_alarm_sound ?? 'funny.wav') }}',
+          alarmDuration: {{ (int) \App\Models\Setting::get('shift_alarm_duration', 15) }},
+          savingDuration: false,
+          durationSaved: false,
+          durationError: '',
           previewAudio: null,
           previewPlaying: false,
           previewFile: '',
+
+          getCurrentSound() {
+            if (this.activeShiftTab === 'lunch') return this.lunchAlarmSound;
+            if (this.activeShiftTab === 'offwork') return this.offworkAlarmSound;
+            return this.satAlarmSound;
+          },
+
+          isSoundSelected(sound) {
+            return this.getCurrentSound() === sound;
+          },
+
+          selectSound(sound) {
+            if (this.activeShiftTab === 'lunch') {
+              this.lunchAlarmSound = sound;
+            } else if (this.activeShiftTab === 'offwork') {
+              this.offworkAlarmSound = sound;
+            } else if (this.activeShiftTab === 'sat') {
+              this.satAlarmSound = sound;
+            }
+            // Update live data attributes on modal audio tag for instant preview
+            const audio = document.getElementById('lunch-alarm-sound');
+            if (audio) {
+              if (this.activeShiftTab === 'lunch') audio.dataset.lunchSrc = '{{ asset('clocksound') }}/' + sound;
+              if (this.activeShiftTab === 'offwork') audio.dataset.offworkSrc = '{{ asset('clocksound') }}/' + sound;
+              if (this.activeShiftTab === 'sat') audio.dataset.satSrc = '{{ asset('clocksound') }}/' + sound;
+            }
+            this.playPreview(sound);
+          },
+
           playPreview(sound) {
             if (this.previewAudio) {
               this.previewAudio.pause();
@@ -371,12 +463,71 @@
                 this.previewPlaying = false;
                 this.previewFile = '';
               }
-            }, 10000);
+            }, (this.alarmDuration || 15) * 1000);
+          },
+          saveDuration() {
+            if (!this.alarmDuration || this.alarmDuration < 3 || this.alarmDuration > 60) {
+              this.durationError = 'Must be 3-60s';
+              return;
+            }
+            this.durationError = '';
+            this.savingDuration = true;
+            fetch('{{ route('profile.clock-sound.duration') }}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ shift_alarm_duration: this.alarmDuration })
+            })
+            .then(res => res.json())
+            .then(data => {
+              this.savingDuration = false;
+              if (data && data.success) {
+                this.durationSaved = true;
+                setTimeout(() => { this.durationSaved = false; }, 2500);
+              } else {
+                this.durationError = data.message || 'Failed';
+              }
+            })
+            .catch(err => {
+              this.savingDuration = false;
+              this.durationError = 'Error';
+            });
+          },
+          togglingAlarm: false,
+          toggleLunchAlarm() {
+            this.lunchAlarmEnabled = !this.lunchAlarmEnabled;
+            this.togglingAlarm = true;
+
+            // Notify alarm modal on page
+            window.dispatchEvent(new CustomEvent('lunch-alarm-toggle', {
+              detail: { enabled: this.lunchAlarmEnabled }
+            }));
+
+            // Auto-save setting immediately via AJAX
+            fetch('{{ route('profile.clock-sound.toggle') }}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ lunch_alarm_enabled: this.lunchAlarmEnabled })
+            })
+            .then(res => res.json())
+            .then(data => {
+              this.togglingAlarm = false;
+            })
+            .catch(() => {
+              this.togglingAlarm = false;
+            });
           }
         }">
           <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
             <div>
-              <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <label class="form-label mb-0 text-slate-800 font-bold flex items-center gap-2">
                   <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
                     <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -385,14 +536,55 @@
                   </span>
                   Shift Clock Alarms
                 </label>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm">
-                  12:00 PM Lunch
-                </span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm">
-                  4:00 PM Off Work
+
+                {{-- Interactive Shift Time Tabs --}}
+                <button type="button"
+                        @click="activeShiftTab = 'lunch'"
+                        :class="activeShiftTab === 'lunch'
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md ring-2 ring-amber-400/60 font-black scale-[1.02]'
+                          : 'bg-amber-50/80 text-amber-800 border border-amber-200/80 hover:bg-amber-100 font-bold opacity-85 hover:opacity-100'"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all cursor-pointer shadow-sm"
+                        title="Click to customize 12:00 PM Lunch sound">
+                  <span>🍽️</span>
+                  <span>Mon-Fri: 12:00 PM Lunch</span>
+                  <span class="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black"
+                        :class="activeShiftTab === 'lunch' ? 'bg-white/25 text-white' : 'bg-amber-200/80 text-amber-950'"
+                        x-text="lunchAlarmSound"></span>
+                </button>
+
+                <button type="button"
+                        @click="activeShiftTab = 'offwork'"
+                        :class="activeShiftTab === 'offwork'
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md ring-2 ring-emerald-400/60 font-black scale-[1.02]'
+                          : 'bg-emerald-50/80 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 font-bold opacity-85 hover:opacity-100'"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all cursor-pointer shadow-sm"
+                        title="Click to customize 4:00 PM Off Work sound">
+                  <span>🎉</span>
+                  <span>Mon-Fri: 4:00 PM Off Work</span>
+                  <span class="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black"
+                        :class="activeShiftTab === 'offwork' ? 'bg-white/25 text-white' : 'bg-emerald-200/80 text-emerald-950'"
+                        x-text="offworkAlarmSound"></span>
+                </button>
+
+                <button type="button"
+                        @click="activeShiftTab = 'sat'"
+                        :class="activeShiftTab === 'sat'
+                          ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md ring-2 ring-teal-400/60 font-black scale-[1.02]'
+                          : 'bg-teal-50/80 text-teal-800 border border-teal-200/80 hover:bg-teal-100 font-bold opacity-85 hover:opacity-100'"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all cursor-pointer shadow-sm"
+                        title="Click to customize Saturday 11:00 AM Half Day sound">
+                  <span>☀️</span>
+                  <span>Sat: 11:00 AM Half Day</span>
+                  <span class="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black"
+                        :class="activeShiftTab === 'sat' ? 'bg-white/25 text-white' : 'bg-teal-200/80 text-teal-950'"
+                        x-text="satAlarmSound"></span>
+                </button>
+
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200" title="Sunday Off">
+                  Sun: Off
                 </span>
               </div>
-              <p class="text-xs text-slate-500">Play a 10-second ringtone and pop up reminder at 12:00 PM (Lunch Time) & 4:00 PM (Getting Off Work).</p>
+              <p class="text-xs text-slate-500">Play a <span class="font-bold text-amber-600" x-text="alarmDuration"></span>-second ringtone and pop up reminder at 12:00 PM & 4:00 PM (Mon–Fri), 11:00 AM (Sat Half Day 7–11 AM), Sunday Off.</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-2.5">
@@ -412,6 +604,14 @@
                 <span class="text-xs">🎉</span>
                 <span>Preview 4 PM</span>
               </button>
+              {{-- Test Preview Saturday 11 AM Button --}}
+              <button type="button"
+                      onclick="if (window.triggerSaturdayAlarm) window.triggerSaturdayAlarm(true)"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded-lg transition-colors cursor-pointer"
+                      title="Test Saturday 11:00 AM Half Day Popup">
+                <span class="text-xs">☀️</span>
+                <span>Preview Sat 11 AM</span>
+              </button>
 
               {{-- Add Clock Ringtone (QC, Super Admin, Supervisor) --}}
               @if($user->canManageClockSounds())
@@ -426,50 +626,150 @@
               </button>
               @endif
 
+              {{-- Duration Setter for Super Admin & QC --}}
+              @if($user->canSetAlarmDuration())
+              <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-purple-200 dark:border-purple-800/60 bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 text-xs font-bold shadow-sm"
+                   title="Super Admin & QC can set the alarm ring duration for all users">
+                <svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Duration:</span>
+                <input type="number" min="3" max="60" x-model.number="alarmDuration"
+                       @change="saveDuration()"
+                       @keydown.enter.prevent="saveDuration()"
+                       class="w-12 h-6 px-1 text-center font-mono font-black text-xs rounded border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                <span>s</span>
+                <button type="button" @click="saveDuration()"
+                        :disabled="savingDuration"
+                        class="px-1.5 py-0.5 rounded bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50">
+                  <span x-show="!savingDuration && !durationSaved">Set</span>
+                  <span x-show="savingDuration">...</span>
+                  <span x-show="durationSaved" class="text-emerald-300">✓</span>
+                </button>
+              </div>
+              @endif
+
               {{-- On/Off Switch --}}
-              <div class="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div class="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
                 <input type="hidden" name="lunch_alarm_enabled" :value="lunchAlarmEnabled ? 1 : 0">
+                <input type="hidden" name="lunch_alarm_sound" :value="lunchAlarmSound">
+                <input type="hidden" name="offwork_alarm_sound" :value="offworkAlarmSound">
+                <input type="hidden" name="sat_alarm_sound" :value="satAlarmSound">
                 <button type="button"
-                        @click="lunchAlarmEnabled = !lunchAlarmEnabled"
-                        :class="lunchAlarmEnabled ? 'bg-amber-500' : 'bg-slate-200'"
-                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                        @click="toggleLunchAlarm()"
+                        :disabled="togglingAlarm"
+                        :class="lunchAlarmEnabled ? 'bg-amber-500' : 'bg-slate-200 dark:bg-slate-700'"
+                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-75"
                         role="switch"
-                        :aria-checked="lunchAlarmEnabled.toString()">
+                        :aria-checked="lunchAlarmEnabled.toString()"
+                        title="Click to turn shift clock alarms on or off">
                   <span :class="lunchAlarmEnabled ? 'translate-x-5' : 'translate-x-0'"
                         class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out"></span>
                 </button>
-                <span class="text-xs font-bold" :class="lunchAlarmEnabled ? 'text-amber-700' : 'text-slate-500'" x-text="lunchAlarmEnabled ? 'Alarm On' : 'Alarm Off'"></span>
+                <span class="text-xs font-bold" :class="lunchAlarmEnabled ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'" x-text="lunchAlarmEnabled ? 'Alarm On' : 'Alarm Off'"></span>
               </div>
+            </div>
+          </div>
+
+          {{-- Informational Banner showing which time slot is currently being customized --}}
+          <div class="mb-3.5 p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all shadow-sm"
+               :class="{
+                 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 text-amber-950': activeShiftTab === 'lunch',
+                 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 text-emerald-950': activeShiftTab === 'offwork',
+                 'bg-gradient-to-r from-teal-50 to-cyan-50 border-teal-200 text-teal-950': activeShiftTab === 'sat'
+               }">
+            <div class="flex items-center gap-2 text-xs font-medium">
+              <template x-if="activeShiftTab === 'lunch'">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">🍽️</span>
+                  <div>
+                    <span class="font-bold text-amber-900">Customizing Sound for 12:00 PM Lunch:</span>
+                    <span class="ml-1 text-slate-600">Currently set to <strong class="font-mono bg-white px-2 py-0.5 rounded-md border border-amber-300 text-amber-900 shadow-sm" x-text="lunchAlarmSound"></strong></span>
+                  </div>
+                </div>
+              </template>
+              <template x-if="activeShiftTab === 'offwork'">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">🎉</span>
+                  <div>
+                    <span class="font-bold text-emerald-900">Customizing Sound for 4:00 PM Off Work:</span>
+                    <span class="ml-1 text-slate-600">Currently set to <strong class="font-mono bg-white px-2 py-0.5 rounded-md border border-emerald-300 text-emerald-900 shadow-sm" x-text="offworkAlarmSound"></strong></span>
+                  </div>
+                </div>
+              </template>
+              <template x-if="activeShiftTab === 'sat'">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg">☀️</span>
+                  <div>
+                    <span class="font-bold text-teal-900">Customizing Sound for Saturday 11:00 AM Half Day:</span>
+                    <span class="ml-1 text-slate-600">Currently set to <strong class="font-mono bg-white px-2 py-0.5 rounded-md border border-teal-300 text-teal-900 shadow-sm" x-text="satAlarmSound"></strong></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div class="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5">
+              <span>👉 Click any ringtone below to choose it for this shift time</span>
             </div>
           </div>
 
           {{-- Sound Chooser Grid --}}
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 transition-opacity duration-200" :class="!lunchAlarmEnabled ? 'opacity-40 pointer-events-none' : ''">
             @foreach($clockSounds as $cSound)
-            <label class="relative flex cursor-pointer rounded-xl border p-3 focus:outline-none group transition-all"
-                   :class="currentClockSound === '{{ $cSound }}' ? 'bg-amber-50/80 border-amber-300 ring-2 ring-amber-400/40 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'">
-              <input type="radio" name="lunch_alarm_sound" value="{{ $cSound }}" class="sr-only"
-                     x-model="currentClockSound"
-                     @change="playPreview('{{ $cSound }}')">
+            <label class="relative flex cursor-pointer rounded-xl border p-3 focus:outline-none group transition-all select-none"
+                   @click.prevent="selectSound('{{ $cSound }}')"
+                   :class="isSoundSelected('{{ $cSound }}')
+                     ? (activeShiftTab === 'lunch'
+                         ? 'bg-amber-50/90 border-amber-300 ring-2 ring-amber-400/50 shadow-sm'
+                         : (activeShiftTab === 'offwork'
+                             ? 'bg-emerald-50/90 border-emerald-300 ring-2 ring-emerald-400/50 shadow-sm'
+                             : 'bg-teal-50/90 border-teal-300 ring-2 ring-teal-400/50 shadow-sm'))
+                     : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'">
 
               <span class="flex flex-1 flex-col justify-between">
                 <div>
                   <div class="flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full" :class="currentClockSound === '{{ $cSound }}' ? 'bg-amber-500' : 'bg-slate-300'"></span>
-                    <span class="block text-sm font-semibold truncate" :class="currentClockSound === '{{ $cSound }}' ? 'text-amber-950 font-bold' : 'text-slate-800'">
+                    <span class="w-2 h-2 rounded-full"
+                          :class="isSoundSelected('{{ $cSound }}')
+                            ? (activeShiftTab === 'lunch' ? 'bg-amber-500' : (activeShiftTab === 'offwork' ? 'bg-emerald-500' : 'bg-teal-500'))
+                            : 'bg-slate-300'"></span>
+                    <span class="block text-sm font-semibold truncate"
+                          :class="isSoundSelected('{{ $cSound }}')
+                            ? (activeShiftTab === 'lunch' ? 'text-amber-950 font-bold' : (activeShiftTab === 'offwork' ? 'text-emerald-950 font-bold' : 'text-teal-950 font-bold'))
+                            : 'text-slate-800'">
                       {{ Str::title(str_replace(['-', '_'], ' ', Str::beforeLast($cSound, '.'))) }}
                     </span>
                   </div>
                   <span class="text-[10px] uppercase font-bold text-slate-400 mt-0.5 block tracking-wider">
                     {{ Str::afterLast($cSound, '.') }} ringtone
                   </span>
+
+                  {{-- Active Shift Tags for this sound --}}
+                  <div class="flex flex-wrap items-center gap-1 mt-1.5">
+                    <span x-show="lunchAlarmSound === '{{ $cSound }}'"
+                          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300/80 shadow-xs"
+                          title="Assigned to 12:00 PM Lunch">
+                      🍽️ 12 PM
+                    </span>
+                    <span x-show="offworkAlarmSound === '{{ $cSound }}'"
+                          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300/80 shadow-xs"
+                          title="Assigned to 4:00 PM Off Work">
+                      🎉 4 PM
+                    </span>
+                    <span x-show="satAlarmSound === '{{ $cSound }}'"
+                          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-teal-100 text-teal-900 border border-teal-300/80 shadow-xs"
+                          title="Assigned to Saturday 11:00 AM">
+                      ☀️ Sat 11 AM
+                    </span>
+                  </div>
                 </div>
 
                 {{-- Preview Button --}}
                 <button type="button"
                         @click.stop="playPreview('{{ $cSound }}')"
-                        class="mt-2.5 inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md transition-colors w-fit"
-                        :class="previewPlaying && previewFile === '{{ $cSound }}' ? 'bg-amber-600 text-white' : 'bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900'">
+                        class="mt-2.5 inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md transition-colors w-fit cursor-pointer"
+                        :class="previewPlaying && previewFile === '{{ $cSound }}'
+                          ? (activeShiftTab === 'lunch' ? 'bg-amber-600 text-white' : (activeShiftTab === 'offwork' ? 'bg-emerald-600 text-white' : 'bg-teal-600 text-white'))
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'">
                   <template x-if="previewPlaying && previewFile === '{{ $cSound }}'">
                     <svg class="w-3 h-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 9v6m4-6v6" />
@@ -480,13 +780,20 @@
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
                     </svg>
                   </template>
-                  <span x-text="previewPlaying && previewFile === '{{ $cSound }}' ? 'Playing (8s)...' : 'Preview'"></span>
+                  <span x-text="previewPlaying && previewFile === '{{ $cSound }}' ? 'Playing...' : 'Preview'"></span>
                 </button>
               </span>
 
               {{-- Active Selection Checkmark --}}
               <div class="absolute top-2.5 right-2.5">
-                <svg class="h-5 w-5 text-amber-600 transition-opacity" :class="currentClockSound === '{{ $cSound }}' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg class="h-5 w-5 transition-opacity"
+                     :class="{
+                       'opacity-100 scale-100 text-amber-600': isSoundSelected('{{ $cSound }}') && activeShiftTab === 'lunch',
+                       'opacity-100 scale-100 text-emerald-600': isSoundSelected('{{ $cSound }}') && activeShiftTab === 'offwork',
+                       'opacity-100 scale-100 text-teal-600': isSoundSelected('{{ $cSound }}') && activeShiftTab === 'sat',
+                       'opacity-0 scale-75': !isSoundSelected('{{ $cSound }}')
+                     }"
+                     xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
                 </svg>
               </div>
@@ -510,12 +817,8 @@
             @endif
           </div>
           @error('lunch_alarm_sound')<p class="form-error">{{ $message }}</p>@enderror
-        </div>
-
-
-
-      </div>
-
+          @error('offwork_alarm_sound')<p class="form-error">{{ $message }}</p>@enderror
+          @error('sat_alarm_sound')<p class="form-error">{{ $message }}</p>@enderror
 
 
       <div class="mt-7 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-between">
@@ -564,5 +867,175 @@
       @method('DELETE')
   </form>
   @endif
+
+  {{-- Google Unlink Form --}}
+  <form id="unlink-google-form" method="POST" action="{{ route('profile.google.unlink') }}" class="hidden">
+      @csrf
+  </form>
 </div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+// Check for google_linked query parameter on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('google_linked') === '1') {
+        if (window.toast) {
+            toast.success('Google account linked successfully!');
+        }
+        urlParams.delete('google_linked');
+        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+        window.history.replaceState({}, document.title, newUrl);
+    }
+});
+
+// Listen for popup message
+window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'GOOGLE_AUTH_TOKEN' && event.data.accessToken) {
+        submitProfileGoogleData({ access_token: event.data.accessToken });
+    }
+});
+
+function triggerGoogleProfileLink() {
+    const btn = document.getElementById('btn-link-google');
+    const btnText = document.getElementById('btn-link-google-text');
+    if (btnText) btnText.textContent = 'Connecting...';
+    if (btn) btn.disabled = true;
+
+    const clientId = "{{ config('services.google_oauth.client_id') }}";
+    const redirectUri = window.location.origin; // e.g. https://lightcyan-weasel-711536.hostingersite.com
+    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'token',
+        scope: 'email profile openid',
+        state: 'link_profile',
+        prompt: 'select_account'
+    }).toString();
+
+    // In macOS desktop app (flutter_inappwebview), navigate directly to OAuth
+    if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.location.href = authUrl;
+        return;
+    }
+
+    // Try popup for desktop web browsers
+    const w = 520;
+    const h = 650;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+    const popup = window.open(authUrl, 'googleLinkPopup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes`);
+
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        // Popup was blocked -> use direct navigation
+        window.location.href = authUrl;
+    } else {
+        popup.focus();
+        const checkClosed = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(checkClosed);
+                if (btn) btn.disabled = false;
+                if (btnText) btnText.textContent = 'Link Google Account';
+            }
+        }, 1000);
+    }
+}
+
+function handleGoogleProfileToken(tokenResponse) {
+    const btn = document.getElementById('btn-link-google');
+    const btnText = document.getElementById('btn-link-google-text');
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = 'Link Google Account';
+
+    if (!tokenResponse || !tokenResponse.access_token) {
+        return;
+    }
+    submitProfileGoogleData({ access_token: tokenResponse.access_token });
+}
+
+function handleGoogleProfileCredential(credentialResponse) {
+    if (!credentialResponse || !credentialResponse.credential) return;
+    submitProfileGoogleData({ credential: credentialResponse.credential });
+}
+
+function submitProfileGoogleData(payload) {
+    const btn = document.getElementById('btn-link-google');
+    const btnText = document.getElementById('btn-link-google-text');
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.textContent = 'Linking...';
+
+    fetch("{{ route('profile.google.link') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+        if (data && data.success) {
+            if (window.toast) {
+                toast.success(data.message || 'Google account linked successfully!');
+            }
+            setTimeout(() => { window.location.reload(); }, 600);
+        } else {
+            alert(data.message || 'Failed to link Google account.');
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.textContent = 'Link Google Account';
+        }
+    })
+    .catch(err => {
+        console.error('Error linking Google account:', err);
+        alert('Network error while linking Google account.');
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = 'Link Google Account';
+    });
+}
+
+function confirmAndUnlinkGoogle() {
+    if (!confirm('Are you sure you want to unlink your Google account?')) {
+        return;
+    }
+
+    const btn = document.getElementById('btn-unlink-google');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Unlinking...';
+    }
+
+    fetch("{{ route('profile.google.unlink') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        }
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+        if (data && data.success) {
+            if (window.toast) {
+                toast.success(data.message || 'Google account unlinked successfully.');
+            }
+            setTimeout(() => { window.location.reload(); }, 600);
+        } else {
+            alert(data.message || 'Failed to unlink Google account.');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Unlink Account';
+            }
+        }
+    })
+    .catch(err => {
+        console.error('Unlink error:', err);
+        alert('Network error unlinking Google account.');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Unlink Account';
+        }
+    });
+}
 @endsection
+

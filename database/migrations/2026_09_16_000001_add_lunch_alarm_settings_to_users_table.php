@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             if (!Schema::hasColumn('users', 'lunch_alarm_enabled')) {
-                $table->boolean('lunch_alarm_enabled')->default(true)->after('notification_sound');
+                $table->boolean('lunch_alarm_enabled')->default(false)->after('notification_sound');
             }
             if (!Schema::hasColumn('users', 'lunch_alarm_sound')) {
                 $table->string('lunch_alarm_sound')->nullable()->default('melodic-chime.wav')->after('lunch_alarm_enabled');

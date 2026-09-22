@@ -174,6 +174,35 @@
                         @if(($includeDesc ?? false) && !empty($c->description))
                             <div style="font-size: 8pt; color: #64748b; margin-top: 4px;">{{ Str::limit(strip_tags($c->description), 200) }}</div>
                         @endif
+                        @if(($includeComments ?? false) && $c->comments->isNotEmpty())
+                            <div style="margin-top: 6px; padding: 4px 6px; background-color: #f8fafc; border-left: 2px solid #6366f1; font-size: 8pt;">
+                                <div style="font-weight: bold; color: #475569; margin-bottom: 2px;">💬 Comments ({{ $c->comments->count() }}):</div>
+                                @foreach($c->comments as $cmt)
+                                    @php
+                                        $parsedCmt = \App\Http\Controllers\Board\BoardExportController::extractScreenshotsAndClean($cmt->body ?? $cmt->content, $c);
+                                    @endphp
+                                    <div style="margin-bottom: 4px; color: #334155;">
+                                        <strong>{{ $cmt->user->name ?? 'System' }}</strong> <span style="color: #94a3b8; font-size: 7pt;">({{ $cmt->created_at ? $cmt->created_at->format('M d, Y g:i A') : '' }})</span>:
+                                        @if(!empty($parsedCmt['text']))
+                                            <span>{{ Str::limit($parsedCmt['text'], 250) }}</span>
+                                        @endif
+                                        @if(!empty($parsedCmt['screenshots']))
+                                            <div style="margin-top: 2px;">
+                                                @foreach($parsedCmt['screenshots'] as $sIdx => $scr)
+                                                    @php
+                                                        $sUrl = is_array($scr) ? ($scr['url'] ?? $scr['src']) : $scr;
+                                                        $sName = is_array($scr) ? ($scr['name'] ?? ('Screenshot ' . ($sIdx + 1))) : ('Screenshot ' . ($sIdx + 1));
+                                                    @endphp
+                                                    <span style="display: inline-block; margin-right: 6px;">
+                                                        📷 <a href="{{ $sUrl }}" target="_blank" style="color: #2563eb; text-decoration: underline;">{{ $sName }}</a>
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </td>
                     <td class="{{ $rowClassCenter }}">
                         @if($c->is_archived)
@@ -221,7 +250,25 @@
                                 </div>
                             @endforeach
                         @endif
-                        @if($imageFiles->isEmpty() && $otherFiles->isEmpty() && $linksList->isEmpty())
+                        @if(($includeComments ?? false) && $c->comments->isNotEmpty())
+                            @foreach($c->comments as $cmt)
+                                @php
+                                    $parsedCmt = \App\Http\Controllers\Board\BoardExportController::extractScreenshotsAndClean($cmt->body);
+                                @endphp
+                                @if(!empty($parsedCmt['screenshots']))
+                                    @foreach($parsedCmt['screenshots'] as $sIdx => $scr)
+                                        @php
+                                            $sUrl = is_array($scr) ? ($scr['url'] ?? $scr['src']) : $scr;
+                                            $sName = is_array($scr) ? ($scr['name'] ?? ('Comment Screenshot ' . ($sIdx + 1))) : ('Comment Screenshot ' . ($sIdx + 1));
+                                        @endphp
+                                        <div style="margin-top: 2px; white-space: nowrap;">
+                                            📷 <a href="{{ $sUrl }}" target="_blank" style="color: #2563eb; text-decoration: underline;">{{ $sName }}</a>
+                                        </div>
+                                    @endforeach
+                                @endif
+                            @endforeach
+                        @endif
+                        @if($imageFiles->isEmpty() && $otherFiles->isEmpty() && $linksList->isEmpty() && (!($includeComments ?? false) || $c->comments->isEmpty()))
                             -
                         @endif
                     </td>

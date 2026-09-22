@@ -423,4 +423,140 @@ class BoardExportTest extends TestCase
         $this->assertStringContainsString('Personal Task for CSV', $content);
         $this->assertStringNotContainsString('No tasks found matching the selected filters.', $content);
     }
+
+    public function test_pdf_export_with_comments_and_screenshots_renders_clean_format(): void
+    {
+        $card = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Task With Comment Screenshots',
+            'status' => CardStatus::Todo,
+            'created_by' => $this->user->id,
+        ]);
+
+        $cardFile = \App\Models\CardFile::create([
+            'card_id' => $card->id,
+            'uploaded_by' => $this->user->id,
+            'original_name' => 'screenshot-proof.png',
+            'stored_name' => 'screenshot-proof.png',
+            'disk' => 'url',
+            'path' => 'https://example.com/screenshot-proof.png',
+            'mime_type' => 'image/png',
+            'size' => 1024,
+            'is_comment_image' => true,
+        ]);
+
+        $comment = $card->comments()->create([
+            'user_id' => $this->user->id,
+            'content' => "Please see the design update:\n![proof]({$cardFile->download_url})",
+            'is_system' => false,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('boards.export.pdf', [
+                'board' => $this->board->slug,
+                'include_comments' => '1',
+            ]));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('Task Comments', $content);
+        $this->assertStringContainsString($this->user->name, $content);
+        $this->assertStringContainsString('Please see the design update:', $content);
+        $this->assertStringContainsString('comment-screenshot-card', $content);
+        $this->assertStringContainsString('comment-screenshot-thumbnail', $content);
+        $this->assertStringContainsString('screenshot-proof.png', $content);
+    }
+
+    public function test_qc_personal_report_with_include_comments_includes_screenshots(): void
+    {
+        $qcUser = User::factory()->create([
+            'is_active' => true,
+            'team_role' => 'QC Reviewer',
+        ]);
+        $qcUser->assignRole('super-admin');
+
+        $card = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'QC Task With Screenshot',
+            'status' => CardStatus::Todo,
+            'created_by' => $qcUser->id,
+        ]);
+
+        // QC approval comment for activity date
+        $card->comments()->create([
+            'user_id' => $qcUser->id,
+            'content' => 'QC approved task',
+            'is_system' => false,
+        ]);
+
+        // Team comment with screenshot
+        $card->comments()->create([
+            'user_id' => $this->user->id,
+            'content' => "Here is the screenshot:\n![screenshot](https://example.com/screenshot.jpg)",
+            'is_system' => false,
+        ]);
+
+        $response = $this->actingAs($qcUser)
+            ->get(route('boards.reports.personal.export', [
+                'format' => 'pdf',
+                'board_ids' => [$this->board->id],
+                'include_comments' => '1',
+            ]));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('QC Task With Screenshot', $content);
+        $this->assertStringContainsString('Here is the screenshot:', $content);
+        $this->assertStringContainsString('comment-screenshot-card', $content);
+        $this->assertStringContainsString('https://example.com/screenshot.jpg', $content);
+    }
+
+    public function test_personal_report_csv_with_include_comments_renders_comments_and_screenshots(): void
+    {
+        $supervisor = User::factory()->create([
+            'is_active' => true,
+            'team_role' => 'Supervisor',
+        ]);
+        $supervisor->assignRole('super-admin');
+
+        $card = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'CSV Task With Screenshot',
+            'status' => CardStatus::Todo,
+            'created_by' => $supervisor->id,
+        ]);
+
+        \App\Models\ActivityLog::create([
+            'subject_type' => Card::class,
+            'subject_id' => $card->id,
+            'user_id' => $supervisor->id,
+            'action' => 'approved',
+            'description' => 'approved this card',
+        ]);
+
+        $card->comments()->create([
+            'user_id' => $this->user->id,
+            'content' => "Tested on staging:\n![stage_screen](https://example.com/stage.png)",
+            'is_system' => false,
+        ]);
+
+        $response = $this->actingAs($supervisor)
+            ->get(route('boards.reports.personal.export', [
+                'format' => 'csv',
+                'board_ids' => [$this->board->id],
+                'include_comments' => '1',
+            ]));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('CSV Task With Screenshot', $content);
+        $this->assertStringContainsString('Tested on staging:', $content);
+        $this->assertStringContainsString('https://example.com/stage.png', $content);
+    }
 }

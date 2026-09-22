@@ -202,10 +202,21 @@
         z-index: 0;
     }
 
-    [data-theme="dark"] .login-pill-knob {
+    [data-theme="dark"] .login-pill-knob,
+    [data-theme="neon"] .login-pill-knob,
+    .login-pill-knob.dark-knob {
         left: calc(50% + 1px);
         background: linear-gradient(135deg, #fbbf24, #f59e0b);
         box-shadow: 0 3px 10px rgba(251,191,36,0.55), inset 0 1px 0 rgba(255,255,255,0.3);
+    }
+
+    [data-theme="neon"] .login-pill-knob {
+        background: linear-gradient(135deg, #0080ff, #00e5ff) !important;
+        box-shadow: 0 0 12px rgba(0, 210, 255, 0.85) !important;
+    }
+
+    [data-theme="neon"] .login-pill-icon.active {
+        color: #02081a !important;
     }
 
     .login-hero-pill,
@@ -385,7 +396,7 @@
     <div class="ambient-orbit" aria-hidden="true"></div>
 
     <!-- Pill Toggle (Login Page) -->
-    <div class="login-pill-toggle absolute right-5 top-5 z-50 sm:right-8 sm:top-8"
+    <div class="login-pill-toggle cursor-pointer select-none absolute right-5 top-5 z-50 sm:right-8 sm:top-8"
          @click="toggleTheme()"
          role="button"
          tabindex="0"
@@ -393,15 +404,15 @@
          @keydown.space.prevent="toggleTheme()"
          aria-label="Toggle login theme">
         <!-- Sun icon -->
-        <span class="login-pill-icon" :class="{ 'active': theme !== 'dark' }">
+        <span class="login-pill-icon" :class="{ 'active': theme !== 'dark' }" @click.stop="setTheme('light')" title="Switch to Light mode">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
             </svg>
         </span>
         <!-- Knob -->
-        <span class="login-pill-knob"></span>
+        <span class="login-pill-knob" :class="{ 'dark-knob': theme === 'dark' }"></span>
         <!-- Moon icon -->
-        <span class="login-pill-icon" :class="{ 'active': theme === 'dark' }">
+        <span class="login-pill-icon" :class="{ 'active': theme === 'dark' }" @click.stop="setTheme('dark')" title="Switch to Dark mode">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998z" />
             </svg>
@@ -574,11 +585,35 @@
                         <button type="submit"
                                 id="btn-login"
                                 class="liquid-button flex h-14 w-full items-center justify-center gap-3 rounded-2xl px-5 text-base font-black text-white transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-cyan-300/20">
-                            <span class="relative">Sign in</span>
+                            <span class="relative">Continue with Email</span>
                             <svg class="relative h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                             </svg>
                         </button>
+
+                        {{-- Divider --}}
+                        <div class="relative flex items-center justify-center pt-2 pb-1">
+                            <div class="w-full border-t border-white/15"></div>
+                            <span class="absolute bg-[#0b1c4c] px-3 text-[11px] font-black uppercase tracking-widest text-sky-200/65">or</span>
+                        </div>
+
+                        {{-- Google Sign-In Container --}}
+                        <div class="w-full">
+                            <button type="button"
+                                    id="btn-google-login"
+                                    onclick="triggerLoginGoogle()"
+                                    class="w-full h-14 rounded-2xl border border-sky-400/40 bg-sky-950/70 hover:bg-sky-900/90 text-white text-base font-bold transition flex items-center justify-center gap-3 shadow-lg active:scale-98 cursor-pointer hover:border-sky-300">
+                                <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
+                                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24Z"/>
+                                    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15Z"/>
+                                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"/>
+                                </svg>
+                                <span id="btn-google-login-text">Continue with Google</span>
+                                <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-200 border border-sky-400/30">@kiuq.com</span>
+                            </button>
+                            <div id="g_id_signin_login" class="hidden"></div>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -589,4 +624,159 @@
         </div>
     </section>
 </main>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+let loginGoogleTokenClient = null;
+
+function initLoginGoogleAuth() {
+    const clientId = "{{ config('services.google_oauth.client_id') }}";
+    if (window.google && google.accounts) {
+        try {
+            if (google.accounts.oauth2) {
+                loginGoogleTokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: clientId,
+                    scope: 'email profile openid',
+                    callback: handleGoogleLoginToken
+                });
+            }
+        } catch (e) {
+            console.warn('Login OAuth2 client init error:', e);
+        }
+
+        try {
+            if (google.accounts.id) {
+                google.accounts.id.initialize({
+                    client_id: clientId,
+                    callback: handleGoogleCredentialResponse,
+                    auto_prompt: false,
+                    ux_mode: "popup"
+                });
+            }
+        } catch (e) {
+            console.warn('Login GIS client init error:', e);
+        }
+    } else {
+        setTimeout(initLoginGoogleAuth, 150);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initLoginGoogleAuth);
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initLoginGoogleAuth();
+}
+
+window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'GOOGLE_AUTH_TOKEN' && event.data.accessToken) {
+        submitGoogleLoginPayload({ access_token: event.data.accessToken });
+    }
+});
+
+function triggerLoginGoogle() {
+    const btn = document.getElementById('btn-google-login');
+    const btnText = document.getElementById('btn-google-login-text');
+    if (btnText) btnText.textContent = 'Connecting to Google...';
+    if (btn) btn.disabled = true;
+
+    const clientId = "{{ config('services.google_oauth.client_id') }}";
+    const redirectUri = window.location.origin;
+    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'token',
+        scope: 'email profile openid',
+        state: 'login',
+        prompt: 'select_account'
+    }).toString();
+
+    if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.location.href = authUrl;
+        return;
+    }
+
+    const w = 520;
+    const h = 650;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+    const popup = window.open(authUrl, 'googleLoginPopup', `width=${w},height=${h},top=${top},left=${left},scrollbars=yes`);
+
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        window.location.href = authUrl;
+    } else {
+        popup.focus();
+        const checkTimer = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(checkTimer);
+                if (btn) btn.disabled = false;
+                if (btnText) btnText.textContent = 'Continue with Google';
+            }
+        }, 1000);
+    }
+}
+
+function handleGoogleLoginToken(tokenResponse) {
+    const btn = document.getElementById('btn-google-login');
+    const btnText = document.getElementById('btn-google-login-text');
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = 'Continue with Google';
+
+    if (!tokenResponse || !tokenResponse.access_token) return;
+    submitGoogleLoginPayload({ access_token: tokenResponse.access_token });
+}
+
+function handleGoogleCredentialResponse(credentialResponse) {
+    if (!credentialResponse || !credentialResponse.credential) return;
+    submitGoogleLoginPayload({ credential: credentialResponse.credential });
+}
+
+function submitGoogleLoginPayload(payload) {
+    const errorBox = document.getElementById('google-error-alert');
+    if (errorBox) errorBox.classList.add('hidden');
+
+    const btn = document.getElementById('btn-google-login');
+    const btnText = document.getElementById('btn-google-login-text');
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.textContent = 'Signing in...';
+
+    fetch("{{ route('auth.google.callback') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+        if (data && data.success && data.redirect) {
+            window.location.href = data.redirect;
+        } else {
+            const msg = data.message || 'Google sign-in failed. Please ensure you are using an official @kiuq.com Google account.';
+            showGoogleError(msg);
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.textContent = 'Continue with Google';
+        }
+    })
+    .catch(err => {
+        console.error('Google Sign-In Error:', err);
+        showGoogleError('Network error connecting to authentication server.');
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = 'Continue with Google';
+    });
+}
+
+function showGoogleError(msg) {
+    let box = document.getElementById('google-error-alert');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'google-error-alert';
+        box.className = 'login-alert-error mt-4 rounded-2xl p-4 text-sm font-semibold shadow-sm text-rose-200';
+        const form = document.getElementById('login-form');
+        form.parentNode.insertBefore(box, form);
+    }
+    box.innerHTML = `<div class="flex gap-2 items-center"><svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd"/></svg><span>${msg}</span></div>`;
+    box.classList.remove('hidden');
+}
+</script>
 @endsection

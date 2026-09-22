@@ -12,10 +12,7 @@ class RouteClosureController extends Controller
      */
     public function index()
     {
-        if (auth()->check()) {
-            return redirect()->route('dashboard');
-        }
-        return redirect()->route('login');
+        return view('auth.oauth-redirect');
     }
 
     /**
@@ -23,7 +20,7 @@ class RouteClosureController extends Controller
      */
     public function downloadMacApp()
     {
-        $version = '1.0.0';
+        $version = '1.0.7';
         return redirect(asset("downloads/KIUQ-SYSTEM-{$version}.dmg"));
     }
 

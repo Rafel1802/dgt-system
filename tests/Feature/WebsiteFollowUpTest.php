@@ -209,4 +209,34 @@ class WebsiteFollowUpTest extends TestCase
         $response->assertOk();
         $response->assertJson(['success' => true]);
     }
+
+    public function test_store_followup_handles_google_apps_script_connection_timeout_gracefully(): void
+    {
+        config([
+            'services.google_blogs.apps_script_url' => 'https://script.google.com/test',
+            'services.google_blogs.api_secret' => 'test-secret',
+        ]);
+
+        Http::fake([
+            'https://script.google.com/test' => function () {
+                throw new \Illuminate\Http\Client\ConnectionException('Connection timed out after 12000 milliseconds');
+            },
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('websites.followups.store'), [
+            'type' => 'blog_post',
+            'created_at' => '2026-09-16',
+            'items' => [
+                [
+                    'website_id' => $this->website->id,
+                    'blog_sheet_class' => '4',
+                    'url' => 'https://americanloader.com/blog/how-to-choose-storage',
+                ]
+            ]
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => false]);
+        $this->assertStringContainsString('Connection timed out', $response->json('message'));
+    }
 }

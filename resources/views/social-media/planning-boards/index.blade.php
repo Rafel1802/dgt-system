@@ -19,6 +19,18 @@
 .ws-dash-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.1); transform: translateY(-3px); }
 [data-theme="dark"] .ws-dash-card { background: #0f172a; border-color: #1e293b; }
 [data-theme="dark"] .ws-dash-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+[data-theme="neon"] .ws-dash-card {
+    background: rgba(4, 20, 56, 0.92) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 120, 255, 0.15) !important;
+}
+[data-theme="neon"] .ws-dash-card:hover {
+    border-color: rgba(0, 220, 255, 0.8) !important;
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 180, 255, 0.4) !important;
+    transform: translateY(-3px) !important;
+}
 </style>
 
 <div x-data="{ searchQuery: '', filterWorkspace: '', showCreateModal: false }">

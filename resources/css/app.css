@@ -9,7 +9,8 @@
 @import "tailwindcss";
 
 /* Override Tailwind's default media-query dark mode to use our data attribute */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, [data-theme="neon"], [data-theme="neon"] *));
+@custom-variant neon (&:where([data-theme="neon"], [data-theme="neon"] *));
 
 /* ─── CSS Custom Properties (Design Tokens) ─────────────────────────────── */
 @layer base {
@@ -89,6 +90,45 @@
     /* Borders */
     --border-color:         #2e3340;  /* subtle dividers */
     --border-strong:        #404655;  /* input focus rings */
+  }
+
+  [data-theme="neon"] {
+    /* Brand Colors — Electric Neon Blues & Accents */
+    --color-primary:        #00a2ff;
+    --color-primary-dark:   #0055ff;
+    --color-primary-light:  #38bdf8;
+    --color-secondary:      #00d2ff;
+    --color-accent:         #ff2d87;
+    --color-success:        #00f0ff;
+    --color-warning:        #ffb703;
+    --color-danger:         #ff2a5f;
+
+    /* Sidebar (Cyber Electric Navy) */
+    --sidebar-bg:           linear-gradient(180deg, #02081d 0%, #030f2f 50%, #010615 100%);
+    --sidebar-border:       rgba(0, 160, 255, 0.28);
+    --sidebar-text:         #93c5fd;
+    --sidebar-text-active:  #ffffff;
+    --sidebar-hover:        rgba(0, 140, 255, 0.18);
+    --sidebar-active:       linear-gradient(135deg, #0066ff 0%, #00c3ff 100%);
+
+    /* Backgrounds — Deep Electric Space Navy */
+    --bg-page:              #020819;
+    --bg-card:              rgba(4, 20, 56, 0.88);
+    --bg-card-hover:        rgba(7, 30, 80, 0.92);
+    --bg-elevated:          rgba(9, 36, 96, 0.85);
+
+    /* Text */
+    --text-primary:         #f0f9ff;
+    --text-secondary:       #93c5fd;
+    --text-muted:           #64748b;
+
+    /* Borders */
+    --border-color:         rgba(0, 160, 255, 0.32);
+    --border-strong:        rgba(0, 210, 255, 0.7);
+
+    /* Glowing Shadows */
+    --shadow-neon:          0 0 16px rgba(0, 150, 255, 0.4);
+    --shadow-neon-lg:       0 0 32px rgba(0, 170, 255, 0.55);
   }
 
   /* ─── Scrollbar in dark mode ────────────────────────────────────────── */
@@ -363,6 +403,79 @@
     background: var(--bg-card) !important;
     border-color: var(--border-color) !important;
     box-shadow: 0 25px 60px rgba(0,0,0,0.6) !important;
+  }
+
+  /* ─── Notification toast popup dark mode ──────────────────────────────── */
+  [data-theme="dark"] .dgt-notification-toast {
+    background-color: rgba(15, 23, 42, 0.95) !important;
+    border-color: rgba(51, 65, 85, 0.8) !important;
+    color: #f8fafc !important;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7) !important;
+  }
+  [data-theme="dark"] .dgt-notification-toast .toast-actor {
+    color: #f8fafc !important;
+  }
+  [data-theme="dark"] .dgt-notification-toast .toast-time {
+    color: #94a3b8 !important;
+  }
+  [data-theme="dark"] .dgt-notification-toast .toast-body {
+    color: #cbd5e1 !important;
+  }
+  [data-theme="dark"] .dgt-notification-toast .toast-badge {
+    background-color: rgba(49, 46, 129, 0.5) !important;
+    border-color: rgba(99, 102, 241, 0.4) !important;
+    color: #a5b4fc !important;
+  }
+  [data-theme="dark"] .dgt-notification-toast .toast-close-btn {
+    color: #94a3b8 !important;
+  }
+  [data-theme="dark"] .dgt-notification-toast .toast-close-btn:hover {
+    color: #ffffff !important;
+    background-color: rgba(51, 65, 85, 0.5) !important;
+  }
+  [data-theme="dark"] .dgt-notification-toast .toast-avatar {
+    border-color: rgba(51, 65, 85, 0.8) !important;
+  }
+
+  /* ─── Notification toast popup neon mode ──────────────────────────────── */
+  [data-theme="neon"] .dgt-notification-toast {
+    background: linear-gradient(135deg, rgba(4, 24, 68, 0.96) 0%, rgba(2, 14, 44, 0.98) 100%) !important;
+    border: 1px solid rgba(0, 162, 255, 0.45) !important;
+    color: #f0f9ff !important;
+    box-shadow: 0 20px 45px -10px rgba(0, 5, 20, 0.85), 0 0 25px rgba(0, 162, 255, 0.25), inset 0 1px 0 rgba(56, 189, 248, 0.35) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+  }
+  [data-theme="neon"] .dgt-notification-toast:hover {
+    border-color: rgba(0, 210, 255, 0.75) !important;
+    box-shadow: 0 25px 50px -10px rgba(0, 5, 20, 0.95), 0 0 35px rgba(0, 195, 255, 0.35), inset 0 1px 0 rgba(56, 189, 248, 0.5) !important;
+  }
+  [data-theme="neon"] .dgt-notification-toast .toast-actor {
+    color: #ffffff !important;
+    text-shadow: 0 0 12px rgba(0, 162, 255, 0.5);
+  }
+  [data-theme="neon"] .dgt-notification-toast .toast-time {
+    color: #7dd3fc !important;
+  }
+  [data-theme="neon"] .dgt-notification-toast .toast-body {
+    color: #bae6fd !important;
+  }
+  [data-theme="neon"] .dgt-notification-toast .toast-badge {
+    background-color: rgba(0, 140, 255, 0.2) !important;
+    border-color: rgba(0, 195, 255, 0.55) !important;
+    color: #38bdf8 !important;
+    box-shadow: 0 0 12px rgba(0, 160, 255, 0.25) !important;
+  }
+  [data-theme="neon"] .dgt-notification-toast .toast-close-btn {
+    color: #7dd3fc !important;
+  }
+  [data-theme="neon"] .dgt-notification-toast .toast-close-btn:hover {
+    color: #ffffff !important;
+    background-color: rgba(0, 162, 255, 0.25) !important;
+  }
+  [data-theme="neon"] .dgt-notification-toast .toast-avatar {
+    border-color: rgba(0, 162, 255, 0.5) !important;
+    box-shadow: 0 0 12px rgba(0, 162, 255, 0.35) !important;
   }
 
   /* ─── Dropdown menu dark mode ────────────────────────────────────────── */
@@ -786,7 +899,9 @@
     z-index: 0;
   }
 
-  [data-theme="dark"] .theme-pill-knob {
+  [data-theme="dark"] .theme-pill-knob,
+  [data-theme="neon"] .theme-pill-knob,
+  .theme-pill-knob.dark-knob {
     left: calc(50% + 1px);
     background: linear-gradient(135deg, #fbbf24, #f59e0b);
     box-shadow: 0 2px 8px rgba(251,191,36,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
@@ -2245,4 +2360,1775 @@ html.dgt-macos-app * {
 html.dgt-macos-app .dash-glass,
 html.dgt-macos-app .liquid-glass {
     background: var(--bg-card) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEON BLUE UI THEME — Complete System-wide Experience (Matching Screenshots)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Global Background & Ambient Glow ──────────────────────────────────── */
+html[data-theme="neon"],
+html[data-theme="neon"] body,
+body[data-theme="neon"] {
+  background-color: #020819 !important;
+  background-image: 
+    radial-gradient(ellipse at 50% -12%, rgba(0, 150, 255, 0.38) 0%, rgba(0, 60, 190, 0.2) 42%, transparent 75%),
+    radial-gradient(ellipse at 88% 95%, rgba(0, 110, 255, 0.22) 0%, transparent 50%),
+    radial-gradient(ellipse at 12% 95%, rgba(0, 50, 180, 0.18) 0%, transparent 50%) !important;
+  background-attachment: fixed !important;
+  background-size: cover !important;
+  color: #f0f9ff !important;
+}
+
+[data-theme="neon"] #dgt-app-wrapper,
+[data-theme="neon"] .main-wrapper,
+[data-theme="neon"] .page-content {
+  background: transparent !important;
+}
+
+/* ─── Topbar Neon Glass ─────────────────────────────────────────────────── */
+[data-theme="neon"] .topbar {
+  background: rgba(2, 10, 32, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(0, 160, 255, 0.35) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 120, 255, 0.15) !important;
+}
+[data-theme="neon"] .mobile-topbar-title-text {
+  color: #ffffff !important;
+  text-shadow: 0 0 12px rgba(0, 180, 255, 0.6) !important;
+}
+
+/* Live clock in Neon */
+[data-theme="neon"] [x-data*="cambodiaClock"] {
+  color: #38bdf8 !important;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.6) !important;
+}
+[data-theme="neon"] [x-data*="cambodiaClock"] svg {
+  color: #00d2ff !important;
+}
+
+/* Topbar Back button in Neon (Screenshot 1) */
+[data-theme="neon"] a[href*="boards"].btn,
+[data-theme="neon"] button[onclick*="history.back"],
+[data-theme="neon"] .topbar a.btn {
+  background: rgba(0, 110, 255, 0.15) !important;
+  border: 1px solid rgba(0, 170, 255, 0.45) !important;
+  color: #e0f2fe !important;
+  box-shadow: 0 0 12px rgba(0, 140, 255, 0.25) !important;
+}
+[data-theme="neon"] a[href*="boards"].btn:hover,
+[data-theme="neon"] .topbar a.btn:hover {
+  background: rgba(0, 140, 255, 0.3) !important;
+  border-color: rgba(0, 220, 255, 0.8) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 18px rgba(0, 180, 255, 0.5) !important;
+}
+
+/* Topbar theme pill in Neon */
+[data-theme="neon"] .theme-pill-toggle {
+  background: rgba(0, 30, 80, 0.85) !important;
+  border: 1.5px solid rgba(0, 180, 255, 0.6) !important;
+  box-shadow: 0 0 14px rgba(0, 160, 255, 0.4) !important;
+}
+[data-theme="neon"] .theme-pill-knob,
+[data-theme="neon"] .theme-pill-knob.dark-knob {
+  left: calc(50% + 1px) !important;
+  background: linear-gradient(135deg, #0080ff, #00e5ff) !important;
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.85), 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+}
+[data-theme="neon"] .theme-pill-icon {
+  color: #60a5fa !important;
+}
+[data-theme="neon"] .theme-pill-icon.active {
+  color: #02081a !important;
+}
+
+/* ─── Sidebar in Neon ───────────────────────────────────────────────────── */
+[data-theme="neon"] .sidebar {
+  background: linear-gradient(180deg, #02081c 0%, #030e2e 50%, #010614 100%) !important;
+  border-right: 1px solid rgba(0, 150, 255, 0.25) !important;
+  box-shadow: 4px 0 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 110, 255, 0.1) !important;
+}
+[data-theme="neon"] .sidebar-section-label {
+  color: #60a5fa !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
+}
+[data-theme="neon"] .sidebar-item {
+  color: #93c5fd !important;
+}
+[data-theme="neon"] .sidebar-item:hover {
+  background: rgba(0, 120, 255, 0.18) !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(0, 200, 255, 0.6) !important;
+}
+[data-theme="neon"] .sidebar-item.active,
+[data-theme="neon"] .sidebar-nav-link.active,
+[data-theme="neon"] .sidebar-icon-only-btn.active,
+[data-theme="neon"] .mobile-nav-item.active {
+  background: linear-gradient(90deg, #0077ff 0%, #00d2ff 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 0 20px rgba(0, 180, 255, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+[data-theme="neon"] .sidebar-item svg,
+[data-theme="neon"] .sidebar-submenu-item svg {
+  color: #38bdf8 !important;
+  filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5));
+}
+[data-theme="neon"] .sidebar-item:hover svg,
+[data-theme="neon"] .sidebar-submenu-item:hover svg {
+  color: #00f0ff !important;
+  filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.85));
+}
+[data-theme="neon"] .sidebar-item.active svg,
+[data-theme="neon"] .sidebar-submenu-item.active svg {
+  color: #ffffff !important;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.95));
+}
+[data-theme="neon"] .sidebar-item img,
+[data-theme="neon"] .sidebar-submenu-item img {
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.65)) brightness(1.2) contrast(1.1) !important;
+}
+[data-theme="neon"] .sidebar-submenu-item {
+  color: #93c5fd !important;
+}
+[data-theme="neon"] .sidebar-submenu-item:hover {
+  color: #ffffff !important;
+  background: rgba(0, 140, 255, 0.22) !important;
+  box-shadow: 0 0 12px rgba(0, 180, 255, 0.3) !important;
+}
+[data-theme="neon"] .sidebar-submenu-item.active {
+  background: linear-gradient(90deg, #0077ff 0%, #00d2ff 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(0, 180, 255, 0.6) !important;
+}
+[data-theme="neon"] .sidebar-submenu-item::before {
+  border-left: 1.5px solid rgba(56, 189, 248, 0.45) !important;
+  border-bottom: 1.5px solid rgba(56, 189, 248, 0.45) !important;
+}
+
+/* ─── Dropdown Menus in Neon ────────────────────────────────────────────── */
+[data-theme="neon"] .dropdown-menu {
+  background: rgba(3, 14, 44, 0.96) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(0, 170, 255, 0.45) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.75), 0 0 25px rgba(0, 140, 255, 0.35) !important;
+}
+[data-theme="neon"] .dropdown-item {
+  color: #dbeafe !important;
+  border-radius: 10px !important;
+}
+[data-theme="neon"] .dropdown-item:hover {
+  background: rgba(0, 110, 255, 0.35) !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(0, 200, 255, 0.7) !important;
+}
+
+/* ─── Card & Container Overrides in Neon ────────────────────────────────── */
+[data-theme="neon"] .bg-white {
+  background-color: var(--bg-card) !important;
+}
+[data-theme="neon"] .bg-white\/80,
+[data-theme="neon"] .bg-white\/85,
+[data-theme="neon"] .bg-white\/90,
+[data-theme="neon"] .bg-white\/95 {
+  background-color: rgba(4, 20, 56, 0.95) !important;
+}
+[data-theme="neon"] .bg-slate-50 {
+  background-color: var(--bg-card-hover) !important;
+}
+[data-theme="neon"] .bg-slate-50\/40,
+[data-theme="neon"] .bg-slate-50\/50,
+[data-theme="neon"] .bg-slate-50\/80 {
+  background-color: rgba(5, 24, 68, 0.8) !important;
+}
+[data-theme="neon"] .bg-slate-100 {
+  background-color: var(--bg-elevated) !important;
+}
+[data-theme="neon"] .bg-slate-200 {
+  background-color: rgba(0, 50, 130, 0.45) !important;
+}
+[data-theme="neon"] .bg-slate-800,
+[data-theme="neon"] .bg-slate-900,
+[data-theme="neon"] .bg-slate-950 {
+  background-color: rgba(3, 14, 42, 0.94) !important;
+}
+
+/* Borders in Neon */
+[data-theme="neon"] .border-slate-100,
+[data-theme="neon"] .border-slate-200,
+[data-theme="neon"] .border-slate-300,
+[data-theme="neon"] .border-slate-700,
+[data-theme="neon"] .border-slate-800 {
+  border-color: rgba(0, 160, 255, 0.32) !important;
+}
+[data-theme="neon"] .divide-slate-100 > * + *,
+[data-theme="neon"] .divide-slate-200 > * + *,
+[data-theme="neon"] .divide-slate-700 > * + *,
+[data-theme="neon"] .divide-y > * + * {
+  border-color: rgba(0, 160, 255, 0.25) !important;
+}
+
+/* Text in Neon */
+[data-theme="neon"] .text-slate-950,
+[data-theme="neon"] .text-slate-900,
+[data-theme="neon"] .text-slate-800 {
+  color: #f0f9ff !important;
+}
+[data-theme="neon"] .text-slate-700,
+[data-theme="neon"] .text-slate-600 {
+  color: #bae6fd !important;
+}
+[data-theme="neon"] .text-slate-500,
+[data-theme="neon"] .text-slate-400 {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] .text-slate-300,
+[data-theme="neon"] .text-slate-200 {
+  color: #e0f2fe !important;
+}
+[data-theme="neon"] .text-indigo-600,
+[data-theme="neon"] .text-indigo-700 {
+  color: #38bdf8 !important;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.5) !important;
+}
+
+/* ─── Form Inputs in Neon ───────────────────────────────────────────────── */
+[data-theme="neon"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-theme="neon"] select,
+[data-theme="neon"] textarea {
+  background-color: rgba(3, 16, 48, 0.85) !important;
+  color: #f0f9ff !important;
+  border: 1px solid rgba(0, 160, 255, 0.4) !important;
+  border-radius: 12px !important;
+}
+[data-theme="neon"] input::placeholder,
+[data-theme="neon"] textarea::placeholder {
+  color: #64748b !important;
+}
+[data-theme="neon"] input:focus,
+[data-theme="neon"] select:focus,
+[data-theme="neon"] textarea:focus {
+  border-color: #00c3ff !important;
+  box-shadow: 0 0 15px rgba(0, 195, 255, 0.5) !important;
+  background-color: rgba(4, 24, 72, 0.95) !important;
+}
+[data-theme="neon"] select option {
+  background-color: #030e2e !important;
+  color: #f0f9ff !important;
+}
+
+/* ─── Buttons in Neon ───────────────────────────────────────────────────── */
+[data-theme="neon"] .btn-primary {
+  background: linear-gradient(135deg, #0066ff 0%, #00c3ff 100%) !important;
+  border: 1px solid rgba(0, 220, 255, 0.6) !important;
+  box-shadow: 0 0 15px rgba(0, 160, 255, 0.5) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .btn-primary:hover {
+  box-shadow: 0 0 25px rgba(0, 200, 255, 0.75) !important;
+  transform: translateY(-1px);
+}
+[data-theme="neon"] .btn-secondary {
+  background: rgba(0, 60, 150, 0.3) !important;
+  border: 1px solid rgba(0, 160, 255, 0.4) !important;
+  color: #bae6fd !important;
+  box-shadow: 0 0 10px rgba(0, 140, 255, 0.2) !important;
+}
+[data-theme="neon"] .btn-secondary:hover {
+  background: rgba(0, 100, 220, 0.45) !important;
+  border-color: rgba(0, 220, 255, 0.7) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(0, 180, 255, 0.45) !important;
+}
+[data-theme="neon"] button.bg-white,
+[data-theme="neon"] a.bg-white {
+  background-color: rgba(4, 22, 60, 0.8) !important;
+  color: #e0f2fe !important;
+  border: 1px solid rgba(0, 160, 255, 0.35) !important;
+}
+[data-theme="neon"] button.bg-white:hover,
+[data-theme="neon"] a.bg-white:hover {
+  background-color: rgba(0, 90, 210, 0.4) !important;
+  border-color: rgba(0, 210, 255, 0.6) !important;
+  color: #ffffff !important;
+}
+
+/* ─── Tables in Neon ────────────────────────────────────────────────────── */
+[data-theme="neon"] table {
+  color: #f0f9ff !important;
+}
+[data-theme="neon"] thead,
+[data-theme="neon"] th {
+  background-color: rgba(3, 14, 44, 0.9) !important;
+  color: #7dd3fc !important;
+  border-color: rgba(0, 160, 255, 0.3) !important;
+}
+[data-theme="neon"] tbody tr {
+  border-color: rgba(0, 160, 255, 0.2) !important;
+  background-color: rgba(4, 18, 52, 0.5) !important;
+}
+[data-theme="neon"] tbody tr:hover,
+[data-theme="neon"] tbody tr.hover\:bg-slate-50\/70:hover {
+  background-color: rgba(0, 90, 210, 0.25) !important;
+}
+
+/* ─── Scrollbars in Neon ────────────────────────────────────────────────── */
+[data-theme="neon"] ::-webkit-scrollbar-track {
+  background: rgba(2, 8, 26, 0.5);
+}
+[data-theme="neon"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 140, 255, 0.45);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+[data-theme="neon"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 200, 255, 0.75);
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+}
+
+/* ─── Card Detail Modal in Neon (Matching Screenshot 2) ─────────────────── */
+[data-theme="neon"] .trello-card-modal {
+  background: rgba(3, 14, 42, 0.96) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.75) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 0 35px rgba(0, 140, 255, 0.55), 0 0 10px rgba(0, 200, 255, 0.35), 0 25px 50px rgba(0, 0, 0, 0.8) !important;
+  color: #f0f9ff !important;
+}
+
+[data-theme="neon"] .trello-card-modal .card-detail-title {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 190, 255, 0.5) !important;
+}
+
+[data-theme="neon"] .trello-card-modal div[class*="bg-slate-50/50"] {
+  background: rgba(0, 60, 160, 0.22) !important;
+  border-bottom: 1px solid rgba(0, 150, 255, 0.35) !important;
+}
+
+/* Modal right sidebar buttons */
+[data-theme="neon"] .trello-card-modal .btn-secondary {
+  background: linear-gradient(135deg, rgba(0, 90, 220, 0.35) 0%, rgba(0, 50, 160, 0.45) 100%) !important;
+  border: 1px solid rgba(0, 170, 255, 0.5) !important;
+  color: #e0f2fe !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), 0 0 10px rgba(0, 140, 255, 0.2) !important;
+}
+[data-theme="neon"] .trello-card-modal .btn-secondary:hover {
+  background: linear-gradient(135deg, rgba(0, 120, 255, 0.5) 0%, rgba(0, 70, 200, 0.6) 100%) !important;
+  border-color: rgba(0, 230, 255, 0.85) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 18px rgba(0, 180, 255, 0.55) !important;
+  transform: translateY(-1px);
+}
+
+/* Floating Prev & Next Buttons on Screen Edge (Screenshot 2) */
+[data-theme="neon"] .card-modal-prev-btn,
+[data-theme="neon"] .card-modal-next-btn {
+  background: rgba(3, 16, 48, 0.9) !important;
+  border: 1.5px solid rgba(0, 180, 255, 0.65) !important;
+  color: #00d2ff !important;
+  box-shadow: 0 0 22px rgba(0, 150, 255, 0.5), 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(16px) !important;
+}
+[data-theme="neon"] .card-modal-prev-btn:hover,
+[data-theme="neon"] .card-modal-next-btn:hover {
+  background: rgba(0, 50, 140, 0.95) !important;
+  border-color: #00f0ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 30px rgba(0, 200, 255, 0.75) !important;
+}
+
+/* Modal textareas, description boxes, and attachment cards */
+[data-theme="neon"] .kanban-comment-bubble,
+[data-theme="neon"] .trello-card-modal textarea {
+  background-color: rgba(0, 42, 120, 0.28) !important;
+  border-color: rgba(0, 160, 255, 0.45) !important;
+  color: #f0f9ff !important;
+}
+/* Modal Attachment Card container styling in Neon (Clean outer box with spacious padding) */
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"] {
+  background: rgba(0, 48, 130, 0.3) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.45) !important;
+  border-radius: 14px !important;
+  padding: 10px 14px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(0, 200, 255, 0.15) !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"]:hover {
+  background: rgba(0, 75, 185, 0.4) !important;
+  border-color: rgba(0, 220, 255, 0.8) !important;
+  box-shadow: 0 0 20px rgba(0, 180, 255, 0.4) !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"] .text-slate-700 {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"] .text-slate-400 {
+  color: #93c5fd !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"] a[class*="w-12"],
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"] button[class*="w-12"],
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"] button[class*="h-12"] {
+  background: rgba(0, 75, 190, 0.35) !important;
+  border: 1px solid rgba(0, 180, 255, 0.5) !important;
+  color: #38bdf8 !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"] a[class*="w-12"] svg,
+[data-theme="neon"] .trello-card-modal div[x-show*="attachmentModal.editingFileId !== f.id"] button[class*="w-12"] svg {
+  color: #38bdf8 !important;
+}
+
+/* ─── Social Media & Dashboard Overrides in Neon ───────────────────────── */
+[data-theme="neon"] .smm-card,
+[data-theme="neon"] .stat-card,
+[data-theme="neon"] .metric-card,
+[data-theme="neon"] .dash-card,
+[data-theme="neon"] .bento-card,
+[data-theme="neon"] .member-card {
+  background: rgba(4, 20, 56, 0.92) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 15px rgba(0, 120, 255, 0.2) !important;
+  border-radius: 24px !important;
+  color: #f0f9ff !important;
+}
+[data-theme="neon"] .smm-card:hover,
+[data-theme="neon"] .stat-card:hover,
+[data-theme="neon"] .bento-card:hover,
+[data-theme="neon"] .member-card:hover {
+  border-color: rgba(0, 220, 255, 0.85) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 180, 255, 0.45) !important;
+}
+[data-theme="neon"] .member-name {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 180, 255, 0.4) !important;
+}
+[data-theme="neon"] .member-role {
+  color: #bae6fd !important;
+}
+[data-theme="neon"] .member-team-role {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] .member-avatar {
+  border: 3px solid rgba(0, 180, 255, 0.6) !important;
+}
+[data-theme="neon"] .btn-phone {
+  background: rgba(0, 50, 130, 0.4) !important;
+  border: 1px solid rgba(0, 160, 255, 0.4) !important;
+  color: #bae6fd !important;
+}
+[data-theme="neon"] .btn-phone:hover {
+  background: rgba(0, 100, 220, 0.55) !important;
+  border-color: rgba(0, 220, 255, 0.85) !important;
+  color: #ffffff !important;
+}
+
+/* ─── Global Quill Editor & Card Description in Neon (Description text must be white) ─── */
+[data-theme="neon"] .ql-toolbar.ql-snow {
+  background: rgba(4, 20, 56, 0.96) !important;
+  border-color: rgba(0, 160, 255, 0.35) !important;
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+}
+[data-theme="neon"] .ql-toolbar.ql-snow .ql-stroke {
+  stroke: #7dd3fc !important;
+}
+[data-theme="neon"] .ql-toolbar.ql-snow .ql-fill {
+  fill: #7dd3fc !important;
+}
+[data-theme="neon"] .ql-toolbar.ql-snow .ql-picker {
+  color: #bae6fd !important;
+}
+[data-theme="neon"] .ql-toolbar.ql-snow .ql-picker-options {
+  background-color: #030e2e !important;
+  border: 1px solid rgba(0, 160, 255, 0.45) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .ql-container.ql-snow {
+  border-color: rgba(0, 160, 255, 0.35) !important;
+  background-color: rgba(3, 14, 44, 0.85) !important;
+  border-bottom-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+}
+[data-theme="neon"] .ql-container.ql-snow,
+[data-theme="neon"] .ql-editor,
+[data-theme="neon"] .ql-editor *,
+[data-theme="neon"] .ql-editor p,
+[data-theme="neon"] .ql-editor span,
+[data-theme="neon"] .ql-editor div,
+[data-theme="neon"] .ql-editor li {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .ql-editor.ql-blank::before {
+  color: #7dd3fc !important;
+}
+
+/* Inline code and code blocks in Quill editor (Neon Mode) */
+[data-theme="neon"] .ql-snow .ql-editor code,
+[data-theme="neon"] .ql-editor code {
+  background: rgba(0, 55, 150, 0.45) !important;
+  background-color: rgba(0, 55, 150, 0.45) !important;
+  color: #00f0ff !important;
+  border: 1px solid rgba(0, 180, 255, 0.5) !important;
+  border-radius: 6px !important;
+  padding: 2px 6px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 0.9em !important;
+}
+[data-theme="neon"] .ql-snow .ql-editor pre,
+[data-theme="neon"] .ql-editor pre,
+[data-theme="neon"] .ql-editor .ql-syntax {
+  background: rgba(2, 10, 32, 0.92) !important;
+  background-color: rgba(2, 10, 32, 0.92) !important;
+  color: #e0f2fe !important;
+  border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+  border-radius: 10px !important;
+  padding: 12px 16px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+}
+[data-theme="neon"] .ql-editor pre code,
+[data-theme="neon"] .ql-editor .ql-syntax code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* Neutralize white background boxes from paste or Quill highlight in Neon Mode (Image 4) */
+[data-theme="neon"] .ql-editor [style*="background-color: rgb(255, 255, 255)"],
+[data-theme="neon"] .ql-editor [style*="background-color: #ffffff"],
+[data-theme="neon"] .ql-editor [style*="background-color:#ffffff"],
+[data-theme="neon"] .ql-editor [style*="background-color: #fff"],
+[data-theme="neon"] .ql-editor [style*="background-color:#fff"],
+[data-theme="neon"] .ql-editor [style*="background-color: white"],
+[data-theme="neon"] .ql-editor [style*="background: white"],
+[data-theme="neon"] .ql-editor [style*="background: #ffffff"],
+[data-theme="neon"] .ql-editor [style*="background:#ffffff"],
+[data-theme="neon"] .ql-editor [style*="background: rgb(255, 255, 255)"],
+[data-theme="neon"] .ql-editor [style*="background-color: rgb(240, 240, 240)"],
+[data-theme="neon"] .ql-editor [style*="background-color: rgb(248, 249, 250)"],
+[data-theme="neon"] .ql-editor [style*="background-color: rgb(241, 243, 244)"],
+[data-theme="neon"] .ql-editor [style*="background-color: rgb(245, 245, 245)"],
+[data-theme="neon"] .ql-editor [style*="background-color: rgb(238, 238, 238)"],
+[data-theme="neon"] .ql-editor [style*="background-color: rgb(232, 234, 237)"],
+[data-theme="neon"] .ql-editor .ql-bg-white {
+  background: rgba(0, 55, 150, 0.45) !important;
+  background-color: rgba(0, 55, 150, 0.45) !important;
+  color: #00f0ff !important;
+  border: 1px solid rgba(0, 180, 255, 0.45) !important;
+  border-radius: 6px !important;
+  padding: 1px 6px !important;
+}
+
+/* Same for Dark Theme */
+[data-theme="dark"] .ql-snow .ql-editor code,
+[data-theme="dark"] .ql-editor code {
+  background: rgba(51, 65, 85, 0.7) !important;
+  background-color: rgba(51, 65, 85, 0.7) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(100, 116, 139, 0.5) !important;
+  border-radius: 6px !important;
+  padding: 2px 6px !important;
+}
+[data-theme="dark"] .ql-snow .ql-editor pre,
+[data-theme="dark"] .ql-editor pre,
+[data-theme="dark"] .ql-editor .ql-syntax {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+}
+[data-theme="dark"] .ql-editor [style*="background-color: rgb(255, 255, 255)"],
+[data-theme="dark"] .ql-editor [style*="background-color: #ffffff"],
+[data-theme="dark"] .ql-editor [style*="background-color:#ffffff"],
+[data-theme="dark"] .ql-editor [style*="background-color: #fff"],
+[data-theme="dark"] .ql-editor [style*="background-color:#fff"],
+[data-theme="dark"] .ql-editor [style*="background-color: white"],
+[data-theme="dark"] .ql-editor [style*="background: white"],
+[data-theme="dark"] .ql-editor [style*="background: #ffffff"],
+[data-theme="dark"] .ql-editor [style*="background:#ffffff"],
+[data-theme="dark"] .ql-editor [style*="background: rgb(255, 255, 255)"],
+[data-theme="dark"] .ql-editor [style*="background-color: rgb(240, 240, 240)"],
+[data-theme="dark"] .ql-editor [style*="background-color: rgb(248, 249, 250)"],
+[data-theme="dark"] .ql-editor [style*="background-color: rgb(241, 243, 244)"],
+[data-theme="dark"] .ql-editor [style*="background-color: rgb(245, 245, 245)"],
+[data-theme="dark"] .ql-editor [style*="background-color: rgb(238, 238, 238)"],
+[data-theme="dark"] .ql-editor [style*="background-color: rgb(232, 234, 237)"],
+[data-theme="dark"] .ql-editor .ql-bg-white {
+  background: rgba(51, 65, 85, 0.7) !important;
+  background-color: rgba(51, 65, 85, 0.7) !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(100, 116, 139, 0.5) !important;
+  border-radius: 6px !important;
+  padding: 1px 6px !important;
+}
+
+/* Description preview & markdown text in Neon */
+[data-theme="neon"] .prose,
+[data-theme="neon"] .prose *,
+[data-theme="neon"] .card-description,
+[data-theme="neon"] div[x-html*="description"] {
+  color: #ffffff !important;
+}
+
+/* ─── Workspaces & Board Dashed Tiles in Neon & Dark ────────────────────── */
+[data-theme="neon"] .create-board-tile,
+[data-theme="neon"] button.create-board-tile,
+[data-theme="neon"] button.border-dashed {
+  background: rgba(4, 20, 56, 0.45) !important;
+  border: 1.5px dashed rgba(0, 160, 255, 0.4) !important;
+  color: #7dd3fc !important;
+  transition: all 0.2s ease-in-out !important;
+}
+[data-theme="neon"] .create-board-tile:hover,
+[data-theme="neon"] button.create-board-tile:hover,
+[data-theme="neon"] button.border-dashed:hover {
+  background: rgba(0, 110, 240, 0.22) !important;
+  border-color: rgba(0, 220, 255, 0.85) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 0 20px rgba(0, 160, 255, 0.35) !important;
+  transform: translateY(-2px);
+}
+[data-theme="neon"] .create-board-tile svg,
+[data-theme="neon"] button.border-dashed svg {
+  color: #38bdf8 !important;
+  filter: drop-shadow(0 0 6px rgba(0, 190, 255, 0.5));
+}
+[data-theme="dark"] .create-board-tile {
+  background: rgba(30, 41, 59, 0.3) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .create-board-tile:hover {
+  background: rgba(99, 102, 241, 0.15) !important;
+  border-color: rgba(129, 140, 248, 0.6) !important;
+  color: #818cf8 !important;
+}
+
+/* ─── Universal Hover Rule: Never White in Neon Mode ─────────────────────── */
+[data-theme="neon"] [class*="hover:bg-white"]:hover,
+[data-theme="neon"] [class*="hover:bg-slate-"]:hover,
+[data-theme="neon"] [class*="hover:bg-gray-"]:hover,
+[data-theme="neon"] [class*="hover:bg-indigo-50"]:hover,
+[data-theme="neon"] [class*="hover:bg-indigo-100"]:hover,
+[data-theme="neon"] [class*="hover:bg-sky-50"]:hover,
+[data-theme="neon"] [class*="hover:bg-sky-100"]:hover,
+[data-theme="neon"] [class*="hover:bg-blue-50"]:hover,
+[data-theme="neon"] [class*="hover:bg-blue-100"]:hover,
+[data-theme="neon"] [class*="hover:bg-yellow-"]:hover,
+[data-theme="neon"] [class*="hover:bg-amber-"]:hover,
+[data-theme="neon"] [class*="hover:bg-emerald-"]:hover,
+[data-theme="neon"] [class*="group-hover:bg-white"],
+[data-theme="neon"] [class*="group-hover:bg-slate-"],
+[data-theme="neon"] [class*="group-hover:bg-indigo-50"],
+[data-theme="neon"] .hover\:bg-white:hover,
+[data-theme="neon"] .hover\:bg-slate-50:hover,
+[data-theme="neon"] .hover\:bg-slate-100:hover,
+[data-theme="neon"] .hover\:bg-slate-200:hover,
+[data-theme="neon"] .hover\:bg-slate-200\/50:hover,
+[data-theme="neon"] .hover\:bg-slate-200\/70:hover,
+[data-theme="neon"] .hover\:bg-slate-300:hover,
+[data-theme="neon"] .hover\:bg-gray-50:hover,
+[data-theme="neon"] .hover\:bg-gray-100:hover,
+[data-theme="neon"] .hover\:bg-gray-200:hover,
+[data-theme="neon"] .hover\:bg-indigo-50:hover,
+[data-theme="neon"] .hover\:bg-indigo-50\/50:hover,
+[data-theme="neon"] .hover\:bg-indigo-50\/30:hover,
+[data-theme="neon"] .hover\:bg-indigo-50\/40:hover,
+[data-theme="neon"] .hover\:bg-indigo-100:hover,
+[data-theme="neon"] .hover\:bg-sky-50:hover,
+[data-theme="neon"] .hover\:bg-sky-100:hover,
+[data-theme="neon"] .hover\:bg-blue-50:hover,
+[data-theme="neon"] .hover\:bg-blue-100:hover,
+[data-theme="neon"] .hover\:bg-yellow-50:hover,
+[data-theme="neon"] .hover\:bg-yellow-100:hover,
+[data-theme="neon"] .hover\:bg-amber-50:hover,
+[data-theme="neon"] .hover\:bg-amber-100:hover,
+[data-theme="neon"] .hover\:bg-emerald-50:hover,
+[data-theme="neon"] .hover\:bg-emerald-100:hover,
+[data-theme="neon"] .group:hover .group-hover\:bg-slate-50,
+[data-theme="neon"] .group:hover .group-hover\:bg-slate-100,
+[data-theme="neon"] .group:hover .group-hover\:bg-white\/60,
+[data-theme="neon"] .group:hover .group-hover\:bg-white\/20,
+[data-theme="neon"] .group:hover .group-hover\:bg-white\/10 {
+  background-color: rgba(0, 110, 240, 0.28) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="neon"] .hover\:text-slate-900:hover,
+[data-theme="neon"] .hover\:text-slate-800:hover,
+[data-theme="neon"] .hover\:text-slate-700:hover,
+[data-theme="neon"] .hover\:text-indigo-800:hover,
+[data-theme="neon"] .hover\:text-indigo-700:hover,
+[data-theme="neon"] .hover\:text-indigo-600:hover,
+[data-theme="neon"] .hover\:text-sky-700:hover,
+[data-theme="neon"] .hover\:text-sky-600:hover {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(0, 200, 255, 0.6) !important;
+}
+
+/* Danger hover remains reddish */
+[data-theme="neon"] .hover\:bg-red-50:hover,
+[data-theme="neon"] .hover\:bg-red-100:hover,
+[data-theme="neon"] .hover\:bg-rose-50:hover,
+[data-theme="neon"] .hover\:bg-rose-100:hover {
+  background-color: rgba(255, 42, 95, 0.25) !important;
+  color: #ff6b8b !important;
+}
+
+/* ─── Social Media & Websites Class Cards in Neon ───────────────────────── */
+[data-theme="neon"] .ws-dash-card {
+  background: rgba(4, 20, 56, 0.92) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 120, 255, 0.15) !important;
+}
+[data-theme="neon"] .ws-dash-card:hover {
+  border-color: rgba(0, 220, 255, 0.8) !important;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 180, 255, 0.4) !important;
+  transform: translateY(-3px) !important;
+}
+[data-theme="neon"] .ws-dash-card h3,
+[data-theme="neon"] .ws-dash-card h3 * {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(0, 190, 255, 0.4) !important;
+}
+[data-theme="neon"] .ws-dash-card .w-12.h-12.bg-white {
+  background: rgba(2, 10, 32, 0.85) !important;
+  border-color: rgba(0, 160, 255, 0.35) !important;
+}
+[data-theme="neon"] .ws-dash-card > div[class*="border-b"],
+[data-theme="neon"] .ws-dash-card > div[class*="border-t"] {
+  border-color: rgba(0, 160, 255, 0.25) !important;
+  background: transparent !important;
+}
+
+/* ─── Switch Boards Modal in Neon ───────────────────────────────────────── */
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"],
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] section {
+  background: rgba(3, 14, 44, 0.98) !important;
+  border: 1.5px solid rgba(0, 180, 255, 0.5) !important;
+  box-shadow: 0 0 40px rgba(0, 150, 255, 0.4), 0 25px 60px rgba(0, 0, 0, 0.9) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] header,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] header {
+  background: rgba(4, 20, 56, 0.96) !important;
+  border-bottom: 1px solid rgba(0, 160, 255, 0.3) !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] header h2,
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] header #switch-boards-title {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 190, 255, 0.5) !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] aside {
+  background: rgba(2, 10, 32, 0.94) !important;
+  border-right: 1px solid rgba(0, 160, 255, 0.28) !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] main,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] main {
+  background: rgba(3, 14, 44, 0.88) !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] main h3,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] main h3 {
+  color: #ffffff !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button {
+  color: #bae6fd !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button:hover {
+  background: rgba(0, 140, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+/* Active workspace pill (Fixes Screenshot 1 white pill) */
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button.bg-slate-100,
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button.bg-sky-50,
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button[class*="bg-slate-100"],
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button[class*="bg-sky-50"],
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] aside button.bg-slate-100 {
+  background: linear-gradient(135deg, #0066ff 0%, #00c3ff 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 18px rgba(0, 180, 255, 0.55) !important;
+  border: 1px solid rgba(0, 220, 255, 0.7) !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button.bg-slate-100 *,
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button.bg-sky-50 * {
+  color: #ffffff !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button span[class*="bg-slate-200"],
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button span[class*="bg-slate-100"] {
+  background: rgba(0, 50, 130, 0.55) !important;
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button.bg-slate-100 span[class*="bg-slate-200"],
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] aside button.bg-slate-100 span[class*="bg-slate-100"] {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] article,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] article {
+  background: rgba(4, 20, 56, 0.9) !important;
+  border: 1px solid rgba(0, 160, 255, 0.35) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] article:hover,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] article:hover {
+  border-color: rgba(0, 220, 255, 0.8) !important;
+  box-shadow: 0 8px 25px rgba(0, 180, 255, 0.35) !important;
+}
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] article span.text-slate-900,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] article span.text-slate-900 {
+  color: #ffffff !important;
+}
+
+/* Switch Boards Modal Covers in Neon Mode (High Quality & Crisp Contrast) */
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] article a.block.h-28,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] article a.block.h-28 {
+  background-color: #030c22 !important;
+  image-rendering: -webkit-optimize-contrast !important;
+  image-rendering: crisp-edges !important;
+  border-bottom: 1px solid rgba(0, 200, 255, 0.25) !important;
+}
+
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] article a.block.h-28 .switch-board-cover-overlay,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] article a.block.h-28 .switch-board-cover-overlay {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(3, 12, 34, 0.2) 100%) !important;
+}
+
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] article:hover a.block.h-28 .switch-board-cover-overlay,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] article:hover a.block.h-28 .switch-board-cover-overlay {
+  background: transparent !important;
+}
+
+[data-theme="neon"] section[aria-labelledby="switch-boards-title"] article .switch-board-ws-tag,
+[data-theme="neon"] div[x-show="switchBoardsModal.open"] article .switch-board-ws-tag {
+  background: rgba(3, 14, 44, 0.9) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.5) !important;
+  box-shadow: 0 0 10px rgba(0, 190, 255, 0.35) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* ─── Import Cards Modal in Neon ────────────────────────────────────────── */
+[data-theme="neon"] div[x-show="importModal.open"] > div[class*="bg-white"] {
+  background: rgba(3, 14, 44, 0.98) !important;
+  border: 1.5px solid rgba(0, 180, 255, 0.5) !important;
+  box-shadow: 0 0 35px rgba(0, 150, 255, 0.4), 0 25px 60px rgba(0, 0, 0, 0.85) !important;
+  color: #f0f9ff !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] div[class*="from-indigo-600"] {
+  background: linear-gradient(135deg, #0052cc 0%, #00a2ff 100%) !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"] {
+  background: rgba(4, 20, 56, 0.75) !important;
+  border-color: rgba(0, 160, 255, 0.3) !important;
+  color: #bae6fd !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"]:hover {
+  background: rgba(0, 90, 210, 0.3) !important;
+  border-color: rgba(0, 210, 255, 0.6) !important;
+}
+/* Active source selection card (Fixes Screenshot 3 white CSV box) */
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"].bg-indigo-50,
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"].bg-emerald-50,
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"][class*="bg-indigo-50"],
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"][class*="bg-emerald-50"] {
+  background: linear-gradient(135deg, rgba(0, 80, 220, 0.38) 0%, rgba(0, 40, 150, 0.5) 100%) !important;
+  border-color: #00d2ff !important;
+  box-shadow: 0 0 22px rgba(0, 200, 255, 0.45) !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"] p.text-slate-800 {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(0, 190, 255, 0.4) !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"] p.text-slate-500 {
+  color: #93c5fd !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] button[class*="rounded-2xl border-2"] div[class*="rounded-xl flex"] {
+  background: rgba(0, 60, 160, 0.4) !important;
+  border: 1px solid rgba(0, 160, 255, 0.3) !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] div[class*="border-dashed"] {
+  background: rgba(2, 10, 32, 0.8) !important;
+  border-color: rgba(0, 160, 255, 0.4) !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] div[class*="border-dashed"]:hover {
+  background: rgba(0, 60, 160, 0.25) !important;
+  border-color: #00d2ff !important;
+  box-shadow: 0 0 15px rgba(0, 180, 255, 0.25) !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] div[class*="border-dashed"] p.text-slate-700 {
+  color: #ffffff !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] div[class*="border-dashed"] .bg-indigo-100 {
+  background: rgba(0, 80, 200, 0.4) !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] div[class*="bg-slate-50"][class*="border-t"] {
+  background: rgba(2, 10, 32, 0.95) !important;
+  border-top: 1px solid rgba(0, 160, 255, 0.3) !important;
+}
+[data-theme="neon"] div[x-show="importModal.open"] div[class*="rounded-full"][class*="bg-slate-200"] {
+  background: rgba(0, 60, 150, 0.4) !important;
+}
+
+/* ─── Team & Private Notes in Neon ──────────────────────────────────────── */
+[data-theme="neon"] .notes-shell {
+  background: rgba(3, 14, 44, 0.95) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.4) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 140, 255, 0.25) !important;
+}
+[data-theme="neon"] .notes-col-folders,
+[data-theme="neon"] .notes-col-folder,
+[data-theme="neon"] div[x-show="showFolders"] {
+  background: rgba(2, 10, 32, 0.94) !important;
+  border-right-color: rgba(0, 160, 255, 0.3) !important;
+}
+[data-theme="neon"] .notes-col-list {
+  background: rgba(3, 14, 44, 0.94) !important;
+  border-right-color: rgba(0, 160, 255, 0.3) !important;
+}
+[data-theme="neon"] .notes-col-editor,
+[data-theme="neon"] .notes-editor-card {
+  background: rgba(3, 14, 44, 0.96) !important;
+}
+[data-theme="neon"] .notes-col-editor > div,
+[data-theme="neon"] .notes-editor-scroll {
+  background: transparent !important;
+}
+[data-theme="neon"] .notes-editor-card #editor-container,
+[data-theme="neon"] .notes-editor-card .ql-container.ql-snow,
+[data-theme="neon"] .notes-editor-card .ql-editor {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* Note Item in Note List (Fixes Screenshot 5 white active/hover note) */
+[data-theme="neon"] .notes-list-scroll button {
+  background: rgba(3, 18, 52, 0.6) !important;
+  border: 1px solid rgba(0, 150, 255, 0.22) !important;
+  color: #e0f2fe !important;
+  transition: all 0.2s ease !important;
+}
+[data-theme="neon"] .notes-list-scroll button:hover {
+  background: rgba(0, 110, 240, 0.25) !important;
+  border-color: rgba(0, 200, 255, 0.55) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(0, 180, 255, 0.3) !important;
+}
+/* Active Note in Note List */
+[data-theme="neon"] .notes-list-scroll button.bg-yellow-400,
+[data-theme="neon"] .notes-list-scroll button[class*="bg-yellow-400"] {
+  background: linear-gradient(135deg, #0066ff 0%, #00c3ff 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(0, 230, 255, 0.8) !important;
+  box-shadow: 0 0 20px rgba(0, 190, 255, 0.55) !important;
+}
+[data-theme="neon"] .notes-list-scroll button.bg-yellow-400 *,
+[data-theme="neon"] .notes-list-scroll button[class*="bg-yellow-400"] * {
+  color: #ffffff !important;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.4) !important;
+}
+[data-theme="neon"] .notes-list-scroll button .font-bold {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .notes-list-scroll button span.text-slate-500 {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] .notes-list-scroll button span.truncate {
+  color: #93c5fd !important;
+}
+/* Folders and Left Sidebar buttons */
+[data-theme="neon"] .notes-col-folders nav button,
+[data-theme="neon"] .notes-col-folders nav div,
+[data-theme="neon"] .notes-col-folder nav button,
+[data-theme="neon"] .notes-col-folder nav div {
+  color: #bae6fd !important;
+}
+[data-theme="neon"] .notes-col-folders nav button:hover,
+[data-theme="neon"] .notes-col-folders nav div:hover,
+[data-theme="neon"] .notes-col-folder nav button:hover,
+[data-theme="neon"] .notes-col-folder nav div:hover {
+  background: rgba(0, 110, 240, 0.22) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .notes-col-folders nav button.bg-yellow-400,
+[data-theme="neon"] .notes-col-folders nav div.bg-yellow-400,
+[data-theme="neon"] .notes-col-folders nav button[class*="bg-yellow-400"],
+[data-theme="neon"] .notes-col-folders nav div[class*="bg-yellow-400"],
+[data-theme="neon"] .notes-col-folder nav button.bg-yellow-400,
+[data-theme="neon"] .notes-col-folder nav div.bg-yellow-400,
+[data-theme="neon"] .notes-col-folder nav button[class*="bg-yellow-400"],
+[data-theme="neon"] .notes-col-folder nav div[class*="bg-yellow-400"] {
+  background: linear-gradient(135deg, #0066ff 0%, #00c3ff 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(0, 180, 255, 0.45) !important;
+  border: 1px solid rgba(0, 220, 255, 0.6) !important;
+}
+[data-theme="neon"] .notes-col-folders nav button.bg-yellow-400 *,
+[data-theme="neon"] .notes-col-folders nav div.bg-yellow-400 *,
+[data-theme="neon"] .notes-col-folder nav button.bg-yellow-400 *,
+[data-theme="neon"] .notes-col-folder nav div.bg-yellow-400 * {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .notes-editor-card .ql-toolbar.ql-snow {
+  background: rgba(3, 14, 44, 0.98) !important;
+  border-bottom: 1px solid rgba(0, 160, 255, 0.25) !important;
+}
+[data-theme="neon"] .notes-editor-card .ql-toolbar.ql-snow button,
+[data-theme="neon"] .notes-editor-card .ql-toolbar.ql-snow .ql-picker-label {
+  color: #93c5fd !important;
+}
+[data-theme="neon"] .notes-editor-card .ql-toolbar.ql-snow button:hover,
+[data-theme="neon"] .notes-editor-card .ql-toolbar.ql-snow button.ql-active {
+  background: rgba(0, 120, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .notes-editor-card .ql-editor {
+  color: #ffffff !important;
+  caret-color: #00d2ff !important;
+}
+[data-theme="neon"] .notes-editor-card .ql-editor * {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .notes-editor-card .ql-editor.ql-blank::before {
+  color: #64748b !important;
+}
+[data-theme="neon"] .notes-editor-card .notes-title-input {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+[data-theme="neon"] .notes-editor-card .notes-title-input::placeholder {
+  color: #64748b !important;
+}
+[data-theme="neon"] .notes-editor-card div[x-show="!activeNote"] {
+  background: rgba(3, 14, 44, 0.98) !important;
+  color: #94a3b8 !important;
+}
+[data-theme="neon"] .notes-editor-card .border-b {
+  border-bottom-color: rgba(0, 160, 255, 0.22) !important;
+}
+[data-theme="neon"] .notes-col-list input[placeholder*="Search"] {
+  background: rgba(2, 10, 32, 0.85) !important;
+  border: 1px solid rgba(0, 160, 255, 0.4) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .notes-col-list input[placeholder*="Search"]:focus {
+  border-color: #00d2ff !important;
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.4) !important;
+}
+[data-theme="neon"] .notes-list-scroll::-webkit-scrollbar-thumb,
+[data-theme="neon"] .notes-editor-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 160, 255, 0.4) !important;
+  border-radius: 999px !important;
+}
+[data-theme="neon"] .notes-list-scroll::-webkit-scrollbar-track,
+[data-theme="neon"] .notes-editor-scroll::-webkit-scrollbar-track {
+  background: rgba(2, 10, 32, 0.5) !important;
+}
+
+/* ─── Card Detail Modal Bottom Section in Neon (Matches Top Blue Header) ──────── */
+[data-theme="neon"] .trello-card-modal div[class*="bg-slate-50/20"],
+[data-theme="neon"] .trello-card-modal div.bg-slate-50\/20 {
+  background: rgba(0, 60, 160, 0.22) !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show="!isEditingDesc"] {
+  background: rgba(0, 48, 130, 0.28) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.45) !important;
+  color: #f0f9ff !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(0, 200, 255, 0.15) !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show="!isEditingDesc"]:hover {
+  background: rgba(0, 75, 185, 0.38) !important;
+  border-color: rgba(0, 220, 255, 0.8) !important;
+  box-shadow: 0 0 20px rgba(0, 180, 255, 0.4) !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show="!isEditingDesc"] * {
+  color: #f0f9ff !important;
+}
+/* Quill editor when editing description */
+[data-theme="neon"] .trello-card-modal div[x-show="isEditingDesc"] {
+  background: rgba(0, 42, 120, 0.32) !important;
+  border: 1.5px solid rgba(0, 180, 255, 0.5) !important;
+}
+[data-theme="neon"] .trello-card-modal textarea.kanban-comment-bubble,
+[data-theme="neon"] .trello-card-modal textarea[placeholder*="comment"] {
+  background: rgba(0, 42, 120, 0.28) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.45) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 10px rgba(0, 140, 255, 0.1) !important;
+}
+[data-theme="neon"] .trello-card-modal textarea.kanban-comment-bubble:focus,
+[data-theme="neon"] .trello-card-modal textarea[placeholder*="comment"]:focus {
+  border-color: #00d2ff !important;
+  box-shadow: 0 0 18px rgba(0, 210, 255, 0.45), inset 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+  background: rgba(0, 60, 160, 0.38) !important;
+}
+[data-theme="neon"] .trello-card-modal div.kanban-comment-bubble {
+  background: rgba(0, 48, 130, 0.3) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.42) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 12px rgba(0, 140, 255, 0.12) !important;
+}
+[data-theme="neon"] .trello-card-modal div.kanban-comment-bubble .kanban-comment-text,
+[data-theme="neon"] .trello-card-modal div.kanban-comment-bubble * {
+  color: #ffffff !important;
+}
+
+/* Comment Mentions in Neon Mode (Image 2) */
+[data-theme="neon"] .comment-mention,
+[data-theme="neon"] .kanban-comment-bubble span.comment-mention,
+[data-theme="neon"] .kanban-comment-bubble span[class*="bg-indigo-50"],
+[data-theme="neon"] .kanban-comment-bubble span.bg-indigo-50 {
+  background: rgba(0, 55, 150, 0.55) !important;
+  color: #00f0ff !important;
+  border: 1px solid rgba(0, 210, 255, 0.65) !important;
+  box-shadow: 0 0 10px rgba(0, 180, 255, 0.3) !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 6px rgba(0, 210, 255, 0.5) !important;
+}
+[data-theme="dark"] .comment-mention,
+[data-theme="dark"] .kanban-comment-bubble span.comment-mention,
+[data-theme="dark"] .kanban-comment-bubble span[class*="bg-indigo-50"],
+[data-theme="dark"] .kanban-comment-bubble span.bg-indigo-50 {
+  background: rgba(99, 102, 241, 0.25) !important;
+  color: #a5b4fc !important;
+  border: 1px solid rgba(99, 102, 241, 0.5) !important;
+  font-weight: 700 !important;
+}
+
+/* Mention Autocomplete Dropdown in Neon Mode */
+[data-theme="neon"] .mention-autocomplete-dropdown,
+[data-theme="neon"] .trello-card-modal div[x-show*="mentionState.show"] {
+  background: rgba(3, 16, 48, 0.98) !important;
+  border: 1.5px solid rgba(0, 180, 255, 0.65) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), 0 0 16px rgba(0, 150, 255, 0.4) !important;
+  backdrop-filter: blur(20px) !important;
+}
+[data-theme="neon"] .mention-autocomplete-dropdown button,
+[data-theme="neon"] .trello-card-modal div[x-show*="mentionState.show"] button {
+  color: #e0f2fe !important;
+}
+[data-theme="neon"] .mention-autocomplete-dropdown button:hover,
+[data-theme="neon"] .trello-card-modal div[x-show*="mentionState.show"] button:hover,
+[data-theme="neon"] .mention-autocomplete-dropdown button.bg-indigo-50,
+[data-theme="neon"] .trello-card-modal div[x-show*="mentionState.show"] button.bg-indigo-50 {
+  background: rgba(0, 100, 255, 0.35) !important;
+}
+[data-theme="neon"] .mention-autocomplete-dropdown span.font-bold,
+[data-theme="neon"] .trello-card-modal div[x-show*="mentionState.show"] span.font-bold {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .mention-autocomplete-dropdown span.text-slate-400,
+[data-theme="neon"] .trello-card-modal div[x-show*="mentionState.show"] span.text-slate-400 {
+  color: #38bdf8 !important;
+}
+
+/* Card Modal Members Chip in Neon Mode (Image 3) */
+[data-theme="neon"] .trello-card-modal .card-member-pill,
+[data-theme="neon"] .trello-card-modal span[class*="bg-slate-100/50"],
+[data-theme="neon"] .trello-card-modal span.bg-slate-100\/50 {
+  background: rgba(4, 20, 56, 0.88) !important;
+  background-color: rgba(4, 20, 56, 0.88) !important;
+  border: 1.5px solid rgba(0, 160, 255, 0.5) !important;
+  border-color: rgba(0, 160, 255, 0.5) !important;
+  color: #f0f9ff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 10px rgba(0, 140, 255, 0.2) !important;
+}
+[data-theme="neon"] .trello-card-modal .card-member-pill:hover,
+[data-theme="neon"] .trello-card-modal span[class*="bg-slate-100/50"]:hover {
+  background: rgba(0, 95, 230, 0.45) !important;
+  background-color: rgba(0, 95, 230, 0.45) !important;
+  border-color: rgba(0, 220, 255, 0.9) !important;
+  box-shadow: 0 0 16px rgba(0, 180, 255, 0.45) !important;
+  transform: translateY(-1px);
+}
+[data-theme="neon"] .trello-card-modal .card-member-pill span,
+[data-theme="neon"] .trello-card-modal span[class*="bg-slate-100/50"] span {
+  color: #f0f9ff !important;
+  text-shadow: 0 0 8px rgba(0, 190, 255, 0.4) !important;
+}
+[data-theme="dark"] .trello-card-modal .card-member-pill,
+[data-theme="dark"] .trello-card-modal span.bg-slate-100\/50 {
+  background-color: var(--bg-elevated) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+/* Checklist item container & progress */
+[data-theme="neon"] .trello-card-modal div[class*="bg-slate-50"][class*="rounded-lg"] {
+  background: rgba(0, 45, 120, 0.28) !important;
+  border-color: rgba(0, 160, 255, 0.35) !important;
+}
+[data-theme="neon"] .trello-card-modal div[class*="group hover:bg-slate-100"]:hover {
+  background: rgba(0, 90, 220, 0.25) !important;
+}
+/* Empty attachments placeholder */
+[data-theme="neon"] .trello-card-modal div[class*="sm:col-span-2"][class*="border-dashed"] {
+  background: rgba(0, 40, 110, 0.22) !important;
+  border-color: rgba(0, 160, 255, 0.35) !important;
+}
+/* Right sidebar buttons (ADD TO CARD) */
+[data-theme="neon"] .trello-card-modal .space-y-4 .btn-secondary,
+[data-theme="neon"] .trello-card-modal button[data-ctx-panel] {
+  background: linear-gradient(135deg, rgba(0, 80, 210, 0.38) 0%, rgba(0, 45, 140, 0.48) 100%) !important;
+  border: 1px solid rgba(0, 180, 255, 0.5) !important;
+  color: #e0f2fe !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), 0 0 8px rgba(0, 140, 255, 0.15) !important;
+  transition: all 0.2s ease !important;
+}
+[data-theme="neon"] .trello-card-modal .space-y-4 .btn-secondary:hover,
+[data-theme="neon"] .trello-card-modal button[data-ctx-panel]:hover {
+  background: linear-gradient(135deg, rgba(0, 120, 255, 0.55) 0%, rgba(0, 70, 200, 0.65) 100%) !important;
+  border-color: rgba(0, 230, 255, 0.9) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(0, 180, 255, 0.5) !important;
+  transform: translateY(-1px);
+}
+[data-theme="neon"] .trello-card-modal .space-y-4 .btn-secondary span,
+[data-theme="neon"] .trello-card-modal button[data-ctx-panel] span {
+  color: #f0f9ff !important;
+}
+[data-theme="neon"] .trello-card-modal .space-y-4 .btn-secondary:hover span,
+[data-theme="neon"] .trello-card-modal button[data-ctx-panel]:hover span {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .trello-card-modal button[class*="bg-white"][class*="rounded-xl"] {
+  background: linear-gradient(135deg, rgba(0, 80, 210, 0.38) 0%, rgba(0, 45, 140, 0.48) 100%) !important;
+  border: 1px solid rgba(0, 180, 255, 0.5) !important;
+  color: #e0f2fe !important;
+}
+[data-theme="neon"] .trello-card-modal button[class*="bg-white"][class*="rounded-xl"]:hover {
+  background: linear-gradient(135deg, rgba(0, 120, 255, 0.55) 0%, rgba(0, 70, 200, 0.65) 100%) !important;
+  border-color: rgba(0, 230, 255, 0.9) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(0, 180, 255, 0.5) !important;
+}
+/* Popovers from right sidebar */
+[data-theme="neon"] .trello-card-modal div[x-show="open"][class*="shadow-xl"],
+[data-theme="neon"] .trello-card-modal div[x-show="open"][class*="rounded-2xl"],
+[data-theme="neon"] .trello-card-modal div[x-show*="mentionState"][class*="shadow-xl"],
+[data-theme="neon"] .trello-card-modal div[x-show*="commentFocused"][class*="shadow-xl"] {
+  background: rgba(3, 14, 44, 0.98) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1.5px solid rgba(0, 180, 255, 0.5) !important;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 150, 255, 0.3) !important;
+  color: #f0f9ff !important;
+}
+[data-theme="neon"] .trello-card-modal div[x-show="open"] button:hover,
+[data-theme="neon"] .trello-card-modal div[x-show*="mentionState"] button:hover,
+[data-theme="neon"] .trello-card-modal div[x-show*="commentFocused"] button:hover {
+  background: rgba(0, 120, 255, 0.28) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .trello-card-modal hr {
+  border-color: rgba(0, 160, 255, 0.25) !important;
+}
+[data-theme="neon"] .trello-card-modal h3,
+[data-theme="neon"] .trello-card-modal p[class*="uppercase"] {
+  color: #bae6fd !important;
+}
+
+/* ─── Card Context Menu in Neon ─────────────────────────────────────────── */
+[data-theme="neon"] #card-ctx-menu {
+  background: rgba(3, 14, 44, 0.96) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.45) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 140, 255, 0.3) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  padding: 8px !important;
+  min-width: 205px !important;
+}
+[data-theme="neon"] .ctx-item {
+  color: #e0f2fe !important;
+  font-weight: 600 !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+  transition: all 0.15s ease !important;
+}
+[data-theme="neon"] .ctx-item:hover {
+  background: rgba(0, 110, 240, 0.28) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(0, 180, 255, 0.25) !important;
+}
+[data-theme="neon"] .ctx-item svg {
+  color: #38bdf8 !important;
+}
+[data-theme="neon"] .ctx-item:hover svg {
+  color: #00e5ff !important;
+}
+[data-theme="neon"] .ctx-item.ctx-danger {
+  color: #fb7185 !important;
+}
+[data-theme="neon"] .ctx-item.ctx-danger svg {
+  color: #fb7185 !important;
+}
+[data-theme="neon"] .ctx-item.ctx-danger:hover {
+  background: rgba(244, 63, 94, 0.22) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.35) !important;
+}
+[data-theme="neon"] .ctx-item.ctx-danger:hover svg {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .ctx-sep {
+  background: rgba(0, 160, 255, 0.22) !important;
+  margin: 5px 0 !important;
+}
+[data-theme="neon"] .card-quick-btn {
+  background: rgba(3, 14, 44, 0.9) !important;
+  border: 1px solid rgba(0, 170, 255, 0.45) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 0 10px rgba(0, 140, 255, 0.25) !important;
+}
+[data-theme="neon"] .card-quick-btn:hover {
+  background: rgba(0, 120, 255, 0.35) !important;
+  border-color: #00d2ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(0, 190, 255, 0.45) !important;
+}
+
+/* ─── Date Picker Modal in Neon ──────────────────────────────────────────── */
+[data-theme="neon"] .date-picker-modal-panel {
+  background: rgba(3, 14, 44, 0.96) !important;
+  border: 1.5px solid rgba(0, 180, 255, 0.45) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 160, 255, 0.3) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .border-b,
+[data-theme="neon"] .date-picker-modal-panel .border-t {
+  border-color: rgba(0, 160, 255, 0.25) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel div[class*="border-b"][class*="bg-slate-50"] {
+  background: rgba(4, 20, 56, 0.8) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel h3 {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(0, 200, 255, 0.6) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel span[x-text="dpMonthLabel()"] {
+  color: #ffffff !important;
+  text-shadow: 0 0 6px rgba(0, 200, 255, 0.4) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel button:hover:not(:disabled) {
+  background-color: rgba(0, 140, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .grid-cols-7 .text-slate-400 {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .grid-cols-7 button {
+  color: #e2e8f0;
+}
+[data-theme="neon"] .date-picker-modal-panel .dp-day-due,
+[data-theme="neon"] .date-picker-modal-panel .bg-indigo-600,
+[data-theme="neon"] .date-picker-modal-panel [class*="bg-indigo-600"] {
+  background: linear-gradient(135deg, #0066ff 0%, #00c3ff 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(0, 230, 255, 0.8) !important;
+  box-shadow: 0 0 16px rgba(0, 190, 255, 0.6) !important;
+  font-weight: 800 !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .dp-day-start,
+[data-theme="neon"] .date-picker-modal-panel .bg-slate-200 {
+  background: rgba(0, 120, 255, 0.35) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(0, 200, 255, 0.5) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .dp-day-range,
+[data-theme="neon"] .date-picker-modal-panel .bg-indigo-50 {
+  background: rgba(0, 100, 220, 0.25) !important;
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] .date-picker-modal-panel [class*="ring-indigo-400"],
+[data-theme="neon"] .date-picker-modal-panel [class*="ring-cyan-400"] {
+  box-shadow: 0 0 0 2px #00d2ff !important;
+  color: #00d2ff !important;
+}
+[data-theme="neon"] .date-picker-modal-panel label span,
+[data-theme="neon"] .date-picker-modal-panel span.w-24 {
+  color: #e0f2fe !important;
+}
+[data-theme="neon"] .date-picker-modal-panel input[type="date"],
+[data-theme="neon"] .date-picker-modal-panel input[type="time"],
+[data-theme="neon"] .date-picker-modal-panel select {
+  background: rgba(2, 12, 38, 0.9) !important;
+  border: 1.5px solid rgba(0, 160, 255, 0.35) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel input[type="date"]:focus,
+[data-theme="neon"] .date-picker-modal-panel input[type="time"]:focus,
+[data-theme="neon"] .date-picker-modal-panel select:focus {
+  border-color: #00d2ff !important;
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.4) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel input[type="checkbox"] {
+  accent-color: #00d2ff !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .date-picker-btn-remove {
+  background: linear-gradient(135deg, #e11d48, #be123c) !important;
+  border: 1px solid rgba(255, 80, 120, 0.6) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(225, 29, 72, 0.45) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .date-picker-btn-remove:hover {
+  box-shadow: 0 0 22px rgba(225, 29, 72, 0.65) !important;
+  background: linear-gradient(135deg, #f43f5e, #e11d48) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .date-picker-btn-save {
+  background: linear-gradient(135deg, #0066ff 0%, #00c3ff 100%) !important;
+  border: 1px solid rgba(0, 230, 255, 0.8) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(0, 190, 255, 0.55) !important;
+}
+[data-theme="neon"] .date-picker-modal-panel .date-picker-btn-save:hover {
+  box-shadow: 0 0 28px rgba(0, 210, 255, 0.75) !important;
+}
+
+/* ─── Member Picker Modal in Neon (Matches Image 1) ─────────────────────── */
+[data-theme="neon"] .member-picker-modal-panel,
+[data-theme="neon"] div[x-show="memberPicker.open"] .relative.rounded-2xl {
+  background: rgba(3, 16, 48, 0.98) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.65) !important;
+  box-shadow: 0 0 35px rgba(0, 140, 255, 0.5), 0 25px 50px rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+}
+[data-theme="neon"] .member-picker-modal-header,
+[data-theme="neon"] div[x-show="memberPicker.open"] .border-b.bg-slate-50\/60,
+[data-theme="neon"] div[x-show="memberPicker.open"] div[class*="bg-slate-50/60"] {
+  background: rgba(0, 60, 160, 0.28) !important;
+  border-bottom: 1px solid rgba(0, 160, 255, 0.35) !important;
+}
+[data-theme="neon"] .member-picker-modal-header h3,
+[data-theme="neon"] div[x-show="memberPicker.open"] h3 {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 190, 255, 0.6) !important;
+}
+[data-theme="neon"] .member-picker-modal-header button,
+[data-theme="neon"] div[x-show="memberPicker.open"] .member-picker-modal-header button {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] .member-picker-modal-header button:hover,
+[data-theme="neon"] div[x-show="memberPicker.open"] .member-picker-modal-header button:hover {
+  color: #ffffff !important;
+  background: rgba(0, 140, 255, 0.25) !important;
+}
+/* Member Picker Search Input */
+[data-theme="neon"] .member-picker-modal-panel input[type="text"],
+[data-theme="neon"] div[x-show="memberPicker.open"] input[type="text"] {
+  background: rgba(0, 40, 115, 0.32) !important;
+  border: 1.5px solid rgba(0, 160, 255, 0.45) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+}
+[data-theme="neon"] .member-picker-modal-panel input[type="text"]:focus,
+[data-theme="neon"] div[x-show="memberPicker.open"] input[type="text"]:focus {
+  border-color: #00d2ff !important;
+  box-shadow: 0 0 16px rgba(0, 210, 255, 0.45), inset 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  background: rgba(0, 55, 150, 0.42) !important;
+}
+[data-theme="neon"] .member-picker-modal-panel input[type="text"]::placeholder,
+[data-theme="neon"] div[x-show="memberPicker.open"] input[type="text"]::placeholder {
+  color: #7dd3fc !important;
+}
+/* Section Titles (Card Members, Board Members) */
+[data-theme="neon"] .member-picker-modal-panel p.uppercase,
+[data-theme="neon"] div[x-show="memberPicker.open"] p[class*="uppercase"] {
+  color: #38bdf8 !important;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px rgba(0, 180, 255, 0.3) !important;
+}
+/* Member List Items & Neon Hover State */
+[data-theme="neon"] .member-picker-modal-panel button.group,
+[data-theme="neon"] div[x-show="memberPicker.open"] button[class*="hover:bg-indigo-50"] {
+  border-radius: 12px !important;
+  margin: 2px 8px !important;
+  width: calc(100% - 16px) !important;
+  transition: all 0.2s ease !important;
+}
+[data-theme="neon"] .member-picker-modal-panel button.group:hover,
+[data-theme="neon"] div[x-show="memberPicker.open"] button[class*="hover:bg-indigo-50"]:hover {
+  background: linear-gradient(90deg, rgba(0, 100, 245, 0.38) 0%, rgba(0, 180, 255, 0.2) 100%) !important;
+  box-shadow: inset 3px 0 0 #00d2ff, 0 0 16px rgba(0, 180, 255, 0.3) !important;
+  transform: translateX(3px);
+}
+[data-theme="neon"] .member-picker-modal-panel button p.text-slate-700,
+[data-theme="neon"] div[x-show="memberPicker.open"] button p[class*="text-slate-700"] {
+  color: #f0f9ff !important;
+  transition: color 0.15s ease !important;
+}
+[data-theme="neon"] .member-picker-modal-panel button.group:hover p.text-slate-700,
+[data-theme="neon"] div[x-show="memberPicker.open"] button[class*="hover:bg-indigo-50"]:hover p[class*="text-slate-700"] {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 220, 255, 0.7) !important;
+}
+[data-theme="neon"] .member-picker-modal-panel button p.text-slate-400,
+[data-theme="neon"] div[x-show="memberPicker.open"] button p[class*="text-slate-400"] {
+  color: #7dd3fc !important;
+  transition: color 0.15s ease !important;
+}
+[data-theme="neon"] .member-picker-modal-panel button.group:hover p.text-slate-400,
+[data-theme="neon"] div[x-show="memberPicker.open"] button[class*="hover:bg-indigo-50"]:hover p[class*="text-slate-400"] {
+  color: #bae6fd !important;
+}
+[data-theme="neon"] .member-picker-modal-panel button svg.text-indigo-600,
+[data-theme="neon"] div[x-show="memberPicker.open"] button svg[class*="text-indigo-600"] {
+  color: #00d2ff !important;
+  filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.8)) !important;
+}
+[data-theme="neon"] .member-picker-modal-panel button svg.text-slate-300,
+[data-theme="neon"] div[x-show="memberPicker.open"] button svg[class*="text-slate-300"] {
+  color: #64748b !important;
+  transition: all 0.2s ease !important;
+}
+[data-theme="neon"] .member-picker-modal-panel button.group:hover svg.text-slate-300,
+[data-theme="neon"] div[x-show="memberPicker.open"] button[class*="hover:bg-indigo-50"]:hover svg[class*="text-slate-300"] {
+  color: #00d2ff !important;
+  filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.9)) !important;
+  transform: scale(1.15);
+}
+
+/* ─── Attachment Modal in Neon (Matches Image 2) ─────────────────────────── */
+[data-theme="neon"] .attachment-modal-panel,
+[data-theme="neon"] div[x-show="attachmentModal.open"] .relative.rounded-2xl {
+  background: rgba(3, 16, 48, 0.98) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.65) !important;
+  box-shadow: 0 0 35px rgba(0, 140, 255, 0.5), 0 25px 50px rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+}
+[data-theme="neon"] .attachment-modal-header,
+[data-theme="neon"] div[x-show="attachmentModal.open"] .border-b.bg-slate-50\/60,
+[data-theme="neon"] div[x-show="attachmentModal.open"] div[class*="bg-slate-50/60"] {
+  background: rgba(0, 60, 160, 0.28) !important;
+  border-bottom: 1px solid rgba(0, 160, 255, 0.35) !important;
+}
+[data-theme="neon"] .attachment-modal-header h3,
+[data-theme="neon"] div[x-show="attachmentModal.open"] h3 {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 190, 255, 0.6) !important;
+}
+[data-theme="neon"] .attachment-modal-header button,
+[data-theme="neon"] div[x-show="attachmentModal.open"] .attachment-modal-header button {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] .attachment-modal-header button:hover,
+[data-theme="neon"] div[x-show="attachmentModal.open"] .attachment-modal-header button:hover {
+  color: #ffffff !important;
+  background: rgba(0, 140, 255, 0.25) !important;
+}
+/* Tabs in Attachment Modal */
+[data-theme="neon"] .attachment-modal-panel button[class*="border-b-2"] {
+  color: #7dd3fc !important;
+  transition: all 0.2s ease !important;
+}
+[data-theme="neon"] .attachment-modal-panel button[class*="border-b-2"]:hover {
+  color: #ffffff !important;
+  background: rgba(0, 120, 255, 0.15) !important;
+}
+[data-theme="neon"] .attachment-modal-panel button[class*="border-b-2"][class*="border-indigo-600"],
+[data-theme="neon"] .attachment-modal-panel button[class*="border-b-2"].border-indigo-600 {
+  color: #00d2ff !important;
+  border-color: #00d2ff !important;
+  text-shadow: 0 0 8px rgba(0, 210, 255, 0.5) !important;
+}
+/* Dropzone */
+[data-theme="neon"] .attachment-modal-panel .attachment-dropzone {
+  background: rgba(0, 45, 120, 0.25) !important;
+  border-color: rgba(0, 160, 255, 0.45) !important;
+}
+[data-theme="neon"] .attachment-modal-panel .attachment-dropzone:hover {
+  background: rgba(0, 70, 180, 0.35) !important;
+  border-color: #00d2ff !important;
+  box-shadow: 0 0 20px rgba(0, 190, 255, 0.35) !important;
+}
+[data-theme="neon"] .attachment-modal-panel .attachment-dropzone span[class*="font-semibold"],
+[data-theme="neon"] .attachment-modal-panel .attachment-dropzone .text-slate-700 {
+  color: #f0f9ff !important;
+}
+[data-theme="neon"] .attachment-modal-panel .attachment-dropzone p[class*="text-slate-400"],
+[data-theme="neon"] .attachment-modal-panel .attachment-dropzone .text-slate-400 {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] .attachment-modal-panel .attachment-dropzone div[class*="rounded-full"] {
+  background: rgba(0, 60, 160, 0.45) !important;
+  color: #00d2ff !important;
+}
+[data-theme="neon"] .attachment-modal-panel .attachment-dropzone div[class*="rounded-full"] svg {
+  color: #00d2ff !important;
+}
+[data-theme="neon"] .attachment-modal-panel .attachment-types-hint {
+  background: rgba(0, 40, 110, 0.28) !important;
+  border: 1px solid rgba(0, 160, 255, 0.3) !important;
+  color: #93c5fd !important;
+}
+/* Inputs in Attachment Modal */
+[data-theme="neon"] .attachment-modal-panel input[type="url"],
+[data-theme="neon"] .attachment-modal-panel input[type="text"] {
+  background: rgba(0, 40, 115, 0.32) !important;
+  border: 1.5px solid rgba(0, 160, 255, 0.45) !important;
+  color: #ffffff !important;
+}
+[data-theme="neon"] .attachment-modal-panel input[type="url"]:focus,
+[data-theme="neon"] .attachment-modal-panel input[type="text"]:focus {
+  border-color: #00d2ff !important;
+  box-shadow: 0 0 14px rgba(0, 210, 255, 0.45) !important;
+  background: rgba(0, 55, 150, 0.42) !important;
+}
+[data-theme="neon"] .attachment-modal-panel label {
+  color: #38bdf8 !important;
+}
+
+/* ─── Board Menu & Trash View in Neon (Matches Image 3) ─────────────────── */
+[data-theme="neon"] aside.fixed.inset-y-0.right-0,
+[data-theme="neon"] aside[x-show="boardMenu.open"] {
+  background: rgba(3, 16, 48, 0.98) !important;
+  border-left: 1.5px solid rgba(0, 170, 255, 0.4) !important;
+  box-shadow: -15px 0 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 140, 255, 0.25) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+}
+[data-theme="neon"] aside header {
+  background: rgba(0, 60, 160, 0.28) !important;
+  border-bottom: 1px solid rgba(0, 160, 255, 0.35) !important;
+}
+[data-theme="neon"] aside header h2 {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 190, 255, 0.6) !important;
+}
+[data-theme="neon"] aside header button {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] aside header button:hover {
+  color: #ffffff !important;
+  background: rgba(0, 140, 255, 0.25) !important;
+}
+/* 7-Day Trash Retention Notice in Neon (Fixes Image 3 light box) */
+[data-theme="neon"] aside div[class*="bg-sky-50"],
+[data-theme="neon"] aside .bg-sky-50\/70,
+[data-theme="neon"] aside div[class*="border-sky-100"] {
+  background: rgba(0, 50, 145, 0.32) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.45) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(0, 200, 255, 0.15) !important;
+}
+[data-theme="neon"] aside div[class*="bg-sky-50"] p.text-sky-950,
+[data-theme="neon"] aside div[class*="bg-sky-50"] p[class*="text-sky-950"],
+[data-theme="neon"] aside .bg-sky-50\/70 p.font-bold {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(0, 200, 255, 0.5) !important;
+}
+[data-theme="neon"] aside div[class*="bg-sky-50"] p.text-slate-600,
+[data-theme="neon"] aside div[class*="bg-sky-50"] p[class*="text-slate-600"],
+[data-theme="neon"] aside .bg-sky-50\/70 p:not(.font-bold) {
+  color: #bae6fd !important;
+}
+[data-theme="neon"] aside div[class*="bg-sky-50"] strong {
+  color: #38bdf8 !important;
+  font-weight: 800;
+}
+/* Cards vs Lists Tab Switcher in Trash */
+[data-theme="neon"] aside .grid-cols-2.bg-slate-100,
+[data-theme="neon"] aside div[class*="grid-cols-2"][class*="bg-slate-100"] {
+  background: rgba(0, 35, 95, 0.45) !important;
+  border: 1px solid rgba(0, 160, 255, 0.3) !important;
+}
+[data-theme="neon"] aside .grid-cols-2 button.bg-white,
+[data-theme="neon"] aside div[class*="grid-cols-2"] button[class*="bg-white"] {
+  background: linear-gradient(135deg, #0066ff 0%, #00c3ff 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(0, 180, 255, 0.5) !important;
+  border: 1px solid rgba(0, 230, 255, 0.7) !important;
+}
+[data-theme="neon"] aside .grid-cols-2 button:not(.bg-white),
+[data-theme="neon"] aside div[class*="grid-cols-2"] button:not([class*="bg-white"]) {
+  color: #7dd3fc !important;
+}
+[data-theme="neon"] aside .grid-cols-2 button:not(.bg-white):hover,
+[data-theme="neon"] aside div[class*="grid-cols-2"] button:not([class*="bg-white"]):hover {
+  color: #ffffff !important;
+  background: rgba(0, 120, 255, 0.22) !important;
+  box-shadow: 0 0 10px rgba(0, 180, 255, 0.3) !important;
+}
+/* Empty Trash state */
+[data-theme="neon"] aside div[class*="border-dashed"] {
+  background: rgba(0, 45, 120, 0.25) !important;
+  border-color: rgba(0, 160, 255, 0.4) !important;
+  color: #7dd3fc !important;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+/* Trash Cards */
+[data-theme="neon"] aside label[class*="rounded-xl"][class*="border"] {
+  background: rgba(0, 48, 130, 0.3) !important;
+  border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
+  color: #f0f9ff !important;
+  transition: all 0.2s ease !important;
+}
+[data-theme="neon"] aside label[class*="rounded-xl"][class*="border"]:hover {
+  background: rgba(0, 75, 185, 0.4) !important;
+  border-color: rgba(0, 220, 255, 0.8) !important;
+  box-shadow: 0 0 18px rgba(0, 180, 255, 0.4) !important;
+}
+[data-theme="neon"] aside label[class*="rounded-xl"][class*="border"] p[class*="text-slate-800"] {
+  color: #ffffff !important;
+}
+[data-theme="neon"] aside label[class*="rounded-xl"][class*="border"] p[class*="text-slate-500"] {
+  color: #93c5fd !important;
+}
+[data-theme="neon"] aside label[class*="rounded-xl"][class*="border"] button[class*="text-sky-700"] {
+  color: #38bdf8 !important;
+}
+[data-theme="neon"] aside label[class*="rounded-xl"][class*="border"] button[class*="text-sky-700"]:hover {
+  color: #00d2ff !important;
+  text-shadow: 0 0 8px rgba(0, 210, 255, 0.6);
+}
+[data-theme="neon"] aside label[class*="rounded-xl"][class*="border"] button[class*="text-rose-600"] {
+  color: #fb7185 !important;
+}
+[data-theme="neon"] aside label[class*="rounded-xl"][class*="border"] button[class*="text-rose-600"]:hover {
+  color: #f43f5e !important;
+  text-shadow: 0 0 8px rgba(244, 63, 94, 0.6);
+}
+/* Trash Select All & Batch action box */
+[data-theme="neon"] aside div[class*="flex flex-col"][class*="rounded-xl"][class*="border-slate-200"] {
+  background: rgba(0, 48, 130, 0.3) !important;
+  border-color: rgba(0, 160, 255, 0.4) !important;
+}
+[data-theme="neon"] aside div[class*="flex flex-col"][class*="rounded-xl"][class*="border-slate-200"] span {
+  color: #f0f9ff !important;
+}
+/* Trash Loading */
+[data-theme="neon"] aside div[x-show="boardMenu.trashLoading"] {
+  background: rgba(0, 45, 120, 0.25) !important;
+  border-color: rgba(0, 160, 255, 0.35) !important;
+  color: #7dd3fc !important;
+}
+
+/* ─── Mobile Responsiveness Tweaks in Neon ──────────────────────────────── */
+@media (max-width: 768px) {
+  .card-modal-prev-btn,
+  .card-modal-next-btn {
+    display: none !important;
+  }
+}
+@media (max-width: 640px) {
+  .trello-card-modal .flex.flex-wrap.gap-6.mt-5[style*="padding-left"] {
+    padding-left: 0 !important;
+  }
 }

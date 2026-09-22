@@ -51,13 +51,86 @@
 .card-quick-btn{position:absolute;top:6px;right:6px;opacity:0;transition:opacity .15s;background:rgba(255,255,255,.9);border:1px solid #e2e8f0;border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.12)}
 .card-quick-btn:hover{background:#f8fafc;border-color:#c7d2dd}
 /* Context menu */
-#card-ctx-menu{position:fixed;z-index:9999;min-width:188px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.08);padding:6px;user-select:none;transition:opacity .1s,transform .1s}
+#card-ctx-menu{position:fixed;z-index:9999;min-width:196px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.08);padding:6px;user-select:none;transition:opacity .1s,transform .1s}
 #card-ctx-menu.hidden{display:none}
-.ctx-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;font-size:.75rem;font-weight:500;color:#334155;cursor:pointer;transition:background .12s,color .12s;white-space:nowrap}
+.ctx-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;font-size:.8rem;font-weight:600;color:#334155;cursor:pointer;transition:background .12s,color .12s;white-space:nowrap}
 	.ctx-item:hover{background:#f1f5f9;color:#1e293b}
 	.ctx-item.ctx-danger{color:#dc2626}
 	.ctx-item.ctx-danger:hover{background:#fef2f2;color:#b91c1c}
 	.ctx-sep{height:1px;background:#f1f5f9;margin:4px 0}
+
+/* Dark Mode Context Menu */
+[data-theme="dark"] #card-ctx-menu { background: #1e293b !important; border-color: #334155 !important; box-shadow: 0 12px 36px rgba(0,0,0,0.5) !important; }
+[data-theme="dark"] .ctx-item { color: #cbd5e1 !important; }
+[data-theme="dark"] .ctx-item:hover { background: #334155 !important; color: #ffffff !important; }
+[data-theme="dark"] .ctx-item svg { color: #94a3b8 !important; }
+[data-theme="dark"] .ctx-item:hover svg { color: #38bdf8 !important; }
+[data-theme="dark"] .ctx-item.ctx-danger { color: #f87171 !important; }
+[data-theme="dark"] .ctx-item.ctx-danger svg { color: #f87171 !important; }
+[data-theme="dark"] .ctx-item.ctx-danger:hover { background: rgba(239, 68, 68, 0.15) !important; color: #fca5a5 !important; }
+[data-theme="dark"] .ctx-sep { background: #334155 !important; }
+[data-theme="dark"] .card-quick-btn { background: rgba(30, 41, 59, 0.9) !important; border-color: #475569 !important; color: #94a3b8 !important; }
+[data-theme="dark"] .card-quick-btn:hover { background: #334155 !important; color: #ffffff !important; }
+
+/* Neon Mode Context Menu */
+[data-theme="neon"] #card-ctx-menu {
+  background: rgba(3, 14, 44, 0.96) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.45) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 140, 255, 0.3) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  padding: 8px !important;
+  min-width: 205px !important;
+}
+[data-theme="neon"] .ctx-item {
+  color: #e0f2fe !important;
+  font-weight: 600 !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+  transition: all 0.15s ease !important;
+}
+[data-theme="neon"] .ctx-item:hover {
+  background: rgba(0, 110, 240, 0.28) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(0, 180, 255, 0.25) !important;
+}
+[data-theme="neon"] .ctx-item svg {
+  color: #38bdf8 !important;
+}
+[data-theme="neon"] .ctx-item:hover svg {
+  color: #00e5ff !important;
+}
+[data-theme="neon"] .ctx-item.ctx-danger {
+  color: #fb7185 !important;
+}
+[data-theme="neon"] .ctx-item.ctx-danger svg {
+  color: #fb7185 !important;
+}
+[data-theme="neon"] .ctx-item.ctx-danger:hover {
+  background: rgba(244, 63, 94, 0.22) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.35) !important;
+}
+[data-theme="neon"] .ctx-item.ctx-danger:hover svg {
+  color: #ffffff !important;
+}
+[data-theme="neon"] .ctx-sep {
+  background: rgba(0, 160, 255, 0.22) !important;
+  margin: 5px 0 !important;
+}
+[data-theme="neon"] .card-quick-btn {
+  background: rgba(3, 14, 44, 0.9) !important;
+  border: 1px solid rgba(0, 170, 255, 0.45) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 0 10px rgba(0, 140, 255, 0.25) !important;
+}
+[data-theme="neon"] .card-quick-btn:hover {
+  background: rgba(0, 120, 255, 0.35) !important;
+  border-color: #00d2ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(0, 190, 255, 0.45) !important;
+}
 	.board-menu-row{display:flex;width:100%;align-items:center;gap:.75rem;border-radius:.85rem;padding:.7rem .75rem;text-align:left;font-size:.875rem;font-weight:800;color:#334155;transition:background .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease}
 	.board-menu-row:hover{background:linear-gradient(135deg,#eff6ff,#f8fafc);color:#1d4ed8;transform:translateX(2px);box-shadow:0 10px 24px rgba(47,104,237,.08)}
 	.board-menu-row.text-rose-600{color:#dc2626}
@@ -225,6 +298,271 @@
 		background: rgba(15, 23, 42, 0.6);
 		color: #f8fafc;
 	}
+
+	/* ── Neon Blue UI Overrides for Board View (Screenshot 1) ── */
+	[data-theme="neon"] .board-wrap {
+		background: transparent !important;
+	}
+	[data-theme="neon"] .board-canvas-root:not([data-bg-type="image"]) {
+		background: radial-gradient(ellipse at 45% -10%, rgba(0, 150, 255, 0.42) 0%, rgba(0, 70, 210, 0.22) 42%, transparent 70%),
+					radial-gradient(ellipse at 85% 90%, rgba(0, 100, 255, 0.2) 0%, transparent 50%),
+					radial-gradient(ellipse at 10% 90%, rgba(0, 50, 180, 0.15) 0%, transparent 50%),
+					#020819 !important;
+		background-attachment: fixed !important;
+	}
+	[data-theme="neon"] .board-canvas-root[data-bg-type="image"] {
+		background-size: cover !important;
+		background-position: center !important;
+	}
+	[data-theme="neon"] .board-header-mobile {
+		background: rgba(3, 14, 44, 0.82) !important;
+		backdrop-filter: blur(18px) !important;
+		-webkit-backdrop-filter: blur(18px) !important;
+		border: 1px solid rgba(0, 170, 255, 0.4) !important;
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 130, 255, 0.2) !important;
+		max-width: 100vw;
+		overflow: visible !important;
+	}
+	[data-theme="neon"] .board-header-mobile div[x-show="filtersOpen"],
+	[data-theme="neon"] .board-header-mobile div[x-show="openMembers"],
+	[data-theme="neon"] .board-header-mobile div[x-show="searchOpen"] {
+		background: rgba(3, 14, 44, 0.98) !important;
+		backdrop-filter: blur(24px) !important;
+		-webkit-backdrop-filter: blur(24px) !important;
+		border: 1.5px solid rgba(0, 180, 255, 0.6) !important;
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 160, 255, 0.35) !important;
+		z-index: 60 !important;
+	}
+	[data-theme="neon"] .board-header-mobile h1 {
+		color: #ffffff !important;
+		text-shadow: 0 0 12px rgba(0, 190, 255, 0.6) !important;
+	}
+	[data-theme="neon"] .zoom-container {
+		background-color: rgba(2, 10, 32, 0.85) !important;
+		border-color: rgba(0, 170, 255, 0.45) !important;
+		box-shadow: 0 0 10px rgba(0, 140, 255, 0.2) !important;
+	}
+	[data-theme="neon"] .zoom-label {
+		color: #93c5fd !important;
+	}
+	[data-theme="neon"] .zoom-pill {
+		background-color: rgba(0, 40, 100, 0.7) !important;
+		border-color: rgba(0, 170, 255, 0.4) !important;
+		color: #38bdf8 !important;
+		font-weight: 700 !important;
+	}
+	[data-theme="neon"] .zoom-btn {
+		color: #bae6fd !important;
+	}
+	[data-theme="neon"] .zoom-btn:hover {
+		background-color: rgba(0, 120, 255, 0.25) !important;
+		color: #ffffff !important;
+	}
+	[data-theme="neon"] .board-list {
+		background: rgba(4, 18, 50, 0.78) !important;
+		backdrop-filter: blur(18px) !important;
+		-webkit-backdrop-filter: blur(18px) !important;
+		border: 1px solid rgba(0, 150, 255, 0.38) !important;
+		border-radius: 16px !important;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 15px rgba(0, 120, 255, 0.15) !important;
+	}
+	[data-theme="neon"] .list-header {
+		background: rgba(2, 12, 36, 0.65) !important;
+		border-bottom: 1px solid rgba(0, 150, 255, 0.25) !important;
+		color: #f0f9ff !important;
+	}
+	[data-theme="neon"] .list-header span.text-slate-700,
+	[data-theme="neon"] .list-header .font-bold {
+		color: #f0f9ff !important;
+		text-shadow: 0 0 8px rgba(0, 180, 255, 0.4) !important;
+	}
+	[data-theme="neon"] .kanban-card {
+		background: rgba(7, 26, 68, 0.88) !important;
+		border: 1px solid rgba(0, 160, 255, 0.35) !important;
+		border-radius: 14px !important;
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 10px rgba(0, 120, 255, 0.15) !important;
+		color: #f1f5f9 !important;
+	}
+	[data-theme="neon"] .kanban-card:hover {
+		border-color: rgba(0, 220, 255, 0.85) !important;
+		box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 190, 255, 0.5) !important;
+		transform: translateY(-2px) !important;
+	}
+	[data-theme="neon"] .kanban-card-title {
+		color: #ffffff !important;
+		font-weight: 700 !important;
+		text-shadow: 0 0 6px rgba(0, 150, 255, 0.3) !important;
+	}
+	[data-theme="neon"] .kanban-card-meta {
+		color: #93c5fd !important;
+	}
+	[data-theme="neon"] .kanban-card-meta.bg-slate-100,
+	[data-theme="neon"] .kanban-card-meta.bg-red-100 {
+		background: #ff2d87 !important;
+		color: #ffffff !important;
+		box-shadow: 0 0 10px rgba(255, 45, 135, 0.5) !important;
+		border: none !important;
+	}
+	[data-theme="neon"] .kanban-card .bg-slate-50 {
+		background: rgba(0, 50, 130, 0.45) !important;
+		border-color: rgba(0, 160, 255, 0.35) !important;
+	}
+	[data-theme="neon"] .kanban-card .bg-slate-50 span {
+		color: #e0f2fe !important;
+	}
+	[data-theme="neon"] .add-list-btn {
+		background: rgba(0, 70, 180, 0.2) !important;
+		border: 1px dashed rgba(0, 160, 255, 0.45) !important;
+		color: #7dd3fc !important;
+		border-radius: 14px !important;
+	}
+	[data-theme="neon"] .add-list-btn:hover {
+		background: rgba(0, 100, 230, 0.35) !important;
+		border-color: rgba(0, 220, 255, 0.8) !important;
+		color: #ffffff !important;
+		box-shadow: 0 0 15px rgba(0, 170, 255, 0.4) !important;
+	}
+	[data-theme="neon"] .board-menu-row {
+		color: #f0f9ff !important;
+	}
+	[data-theme="neon"] .board-menu-row:hover {
+		background: rgba(0, 110, 255, 0.25) !important;
+		color: #38bdf8 !important;
+	}
+	[data-theme="neon"] .board-menu-icon {
+		background: rgba(0, 50, 130, 0.45) !important;
+		color: #93c5fd !important;
+	}
+
+	/* ── Board List 3-dots Dropdown Menu ── */
+	.board-list-menu {
+		background: #ffffff !important;
+		border: 1px solid #e2e8f0 !important;
+		border-radius: 14px !important;
+		box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.2), 0 10px 20px -5px rgba(0, 0, 0, 0.1) !important;
+		z-index: 1000 !important;
+	}
+	.board-list-menu button {
+		color: #334155 !important;
+		font-weight: 600 !important;
+		transition: all 0.15s ease !important;
+	}
+	.board-list-menu button:hover {
+		background: #f1f5f9 !important;
+		color: #0f172a !important;
+	}
+	.board-list-menu button.text-indigo-600 {
+		color: #4f46e5 !important;
+	}
+	.board-list-menu button.text-indigo-600:hover {
+		background: #eef2ff !important;
+		color: #4338ca !important;
+	}
+	.board-list-menu button.text-amber-600 {
+		color: #d97706 !important;
+	}
+	.board-list-menu button.text-amber-600:hover {
+		background: #fef3c7 !important;
+		color: #b45309 !important;
+	}
+	.board-list-menu button.text-rose-600 {
+		color: #e11d48 !important;
+	}
+	.board-list-menu button.text-rose-600:hover {
+		background: #ffe4e6 !important;
+		color: #be123c !important;
+	}
+	.board-list-menu-divider {
+		border-top: 1px solid #f1f5f9 !important;
+	}
+
+	[data-theme="dark"] .board-list-menu {
+		background: #0f172a !important;
+		border: 1px solid #334155 !important;
+		box-shadow: 0 20px 45px rgba(0, 0, 0, 0.75) !important;
+	}
+	[data-theme="dark"] .board-list-menu button {
+		color: #cbd5e1 !important;
+	}
+	[data-theme="dark"] .board-list-menu button:hover {
+		background: #1e293b !important;
+		color: #f8fafc !important;
+	}
+	[data-theme="dark"] .board-list-menu button.text-indigo-600 {
+		color: #818cf8 !important;
+	}
+	[data-theme="dark"] .board-list-menu button.text-indigo-600:hover {
+		background: rgba(99, 102, 241, 0.2) !important;
+		color: #a5b4fc !important;
+	}
+	[data-theme="dark"] .board-list-menu button.text-amber-600 {
+		color: #fbbf24 !important;
+	}
+	[data-theme="dark"] .board-list-menu button.text-amber-600:hover {
+		background: rgba(245, 158, 11, 0.2) !important;
+		color: #fcd34d !important;
+	}
+	[data-theme="dark"] .board-list-menu button.text-rose-600 {
+		color: #f87171 !important;
+	}
+	[data-theme="dark"] .board-list-menu button.text-rose-600:hover {
+		background: rgba(239, 68, 68, 0.2) !important;
+		color: #fca5a5 !important;
+	}
+	[data-theme="dark"] .board-list-menu-divider {
+		border-top: 1px solid #334155 !important;
+	}
+
+	/* Neon Theme Board List 3-dots Menu */
+	[data-theme="neon"] .board-list-menu {
+		background: rgba(3, 14, 44, 0.98) !important;
+		border: 1.5px solid rgba(0, 180, 255, 0.5) !important;
+		border-radius: 16px !important;
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 25px rgba(0, 140, 255, 0.4) !important;
+		backdrop-filter: blur(20px) !important;
+		-webkit-backdrop-filter: blur(20px) !important;
+	}
+	[data-theme="neon"] .board-list-menu button {
+		color: #e0f2fe !important;
+	}
+	[data-theme="neon"] .board-list-menu button:hover {
+		background: rgba(0, 110, 240, 0.35) !important;
+		color: #ffffff !important;
+		box-shadow: 0 0 10px rgba(0, 180, 255, 0.3) !important;
+	}
+	[data-theme="neon"] .board-list-menu button.text-indigo-600 {
+		color: #38bdf8 !important;
+	}
+	[data-theme="neon"] .board-list-menu button.text-indigo-600:hover {
+		background: rgba(0, 140, 255, 0.35) !important;
+		color: #ffffff !important;
+		box-shadow: 0 0 12px rgba(0, 180, 255, 0.4) !important;
+	}
+	[data-theme="neon"] .board-list-menu button.text-amber-600 {
+		color: #fbbf24 !important;
+	}
+	[data-theme="neon"] .board-list-menu button.text-amber-600:hover {
+		background: rgba(245, 158, 11, 0.25) !important;
+		color: #ffffff !important;
+	}
+	[data-theme="neon"] .board-list-menu button.text-rose-600 {
+		color: #fb7185 !important;
+	}
+	[data-theme="neon"] .board-list-menu button.text-rose-600:hover {
+		background: rgba(244, 63, 94, 0.3) !important;
+		color: #ffffff !important;
+		box-shadow: 0 0 12px rgba(244, 63, 94, 0.4) !important;
+	}
+	[data-theme="neon"] .board-list-menu-divider {
+		border-top: 1px solid rgba(0, 160, 255, 0.25) !important;
+	}
+	[data-theme="neon"] .board-list-menu-trigger {
+		color: #7dd3fc !important;
+	}
+	[data-theme="neon"] .board-list-menu-trigger:hover {
+		color: #ffffff !important;
+		background: rgba(0, 140, 255, 0.25) !important;
+	}
 	</style>
 	@endpush
 
@@ -239,7 +577,7 @@
       $serverStyle = "background: {$bgValue};";
   }
 @endphp
-<div class="flex-1 flex flex-col min-h-full" style="{{ $serverStyle }}" :style="sbmBoardPreviewStyle(board)" data-bg-type="{{ $board->background_type }}" x-data='trelloBoard(@json($boardData))' x-init="init()">
+<div class="flex-1 flex flex-col min-h-full board-canvas-root" style="{{ $serverStyle }}" :style="sbmBoardPreviewStyle(board)" data-bg-type="{{ $board->background_type }}" x-data='trelloBoard(@json($boardData))' x-init="init()">
 
 {{-- ── Board header ────────────── --}}
 <div class="relative sm:sticky sm:top-[64px] lg:top-[76px] z-[45] flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-nowrap lg:flex-nowrap bg-white dark:bg-slate-800 sm:bg-white/65 sm:dark:bg-slate-800/80 sm:backdrop-blur-xl p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-200/60 dark:border-slate-700 sm:dark:border-slate-700/60 shadow-md board-header-mobile">
@@ -311,7 +649,7 @@
         </svg>
       </button>
       <div x-show="searchOpen" @click.outside="searchOpen = false" x-cloak
-           class="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl z-50"
+           class="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl z-[60]"
            x-transition:enter="transition ease-out duration-100"
            x-transition:enter-start="opacity-0 scale-95"
            x-transition:enter-end="opacity-100 scale-100">
@@ -345,7 +683,7 @@
         <span x-show="activeFiltersCount()" x-cloak class="min-w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] leading-4 text-center" x-text="activeFiltersCount()"></span>
       </button>
       <div x-show="filtersOpen" @click.outside="filtersOpen = false" x-cloak
-           class="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl z-50"
+           class="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl z-[60]"
            x-transition:enter="transition ease-out duration-100"
            x-transition:enter-start="opacity-0 scale-95"
            x-transition:enter-end="opacity-100 scale-100">
@@ -426,7 +764,7 @@
           <span class="hidden sm:inline">Members</span>
         </button>
         <div x-show="openMembers" @click.outside="openMembers = false" x-cloak
-             class="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 p-4"
+             class="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[60] p-4"
              x-transition:enter="transition ease-out duration-100"
              x-transition:enter-start="opacity-0 scale-95"
              x-transition:enter-end="opacity-100 scale-100">
@@ -486,10 +824,14 @@
 
   <div id="sortable-lists-container" class="flex items-start gap-4 h-full">
     <template x-for="(list, li) in lists" :key="list.id">
-      <div class="board-list" :id="'list-'+list.id" :style="'zoom: ' + (zoomLevel / 100)">
+      <div class="board-list relative"
+           x-data="{ openMenu: false }"
+           :class="{ 'z-40': openMenu, 'z-10': !openMenu }"
+           :id="'list-'+list.id"
+           :style="'zoom: ' + (zoomLevel / 100)">
 
       {{-- List header --}}
-      <div class="list-header flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl" :style="list.color ? 'border-top:3px solid '+list.color : ''">
+      <div class="list-header relative z-30 flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl" :style="list.color ? 'border-top:3px solid '+list.color : ''">
         <div class="flex-1 min-w-0 pr-2">
           <!-- Normal view -->
           <div x-show="editingListId !== list.id" @click="startEditList(list.id, list.name)" class="cursor-pointer group flex items-center gap-1">
@@ -511,35 +853,38 @@
           <span class="text-[10px] text-slate-400 font-bold" x-text="filteredCards(list).length"></span>
           
           <!-- Dropdown menu -->
-          <div x-data="{ openMenu: false }" class="relative">
-            <button @click="openMenu = !openMenu" class="text-slate-400 hover:text-slate-600 focus:outline-none p-1 rounded hover:bg-slate-200/50 flex items-center">
+          <div class="relative z-50">
+            <button @click="openMenu = !openMenu"
+                    class="board-list-menu-trigger text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 flex items-center transition cursor-pointer"
+                    title="List options"
+                    aria-label="List options">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
               </svg>
             </button>
             <div x-show="openMenu" @click.outside="openMenu = false" x-cloak
-                 class="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 py-1.5"
+                 class="board-list-menu absolute right-0 mt-1.5 w-44 rounded-xl shadow-2xl z-[100] py-1.5"
                  x-transition:enter="transition ease-out duration-100"
                  x-transition:enter-start="opacity-0 scale-95"
                  x-transition:enter-end="opacity-100 scale-100">
-              <button @click="openMenu = false; startEditList(list.id, list.name)" class="w-full text-left px-3.5 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 font-medium">
+              <button @click="openMenu = false; startEditList(list.id, list.name)" class="w-full text-left px-3.5 py-2 text-xs flex items-center gap-1.5 font-medium cursor-pointer">
                 ✏️ Rename
               </button>
-              <button @click="openMenu = false; isSelectMode ? exitSelectMode() : startSelectMode()" class="w-full text-left px-3.5 py-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5 font-medium">
+              <button @click="openMenu = false; isSelectMode ? exitSelectMode() : startSelectMode()" class="w-full text-left px-3.5 py-2 text-xs text-indigo-600 flex items-center gap-1.5 font-medium cursor-pointer">
                 <span x-text="isSelectMode ? '✖️ Deselect' : '☑️ Select'">☑️ Select</span>
               </button>
-              <button @click="openMenu = false; selectAllInList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5 font-medium">
+              <button @click="openMenu = false; selectAllInList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-indigo-600 flex items-center gap-1.5 font-medium cursor-pointer">
                 ☑️ Select All
               </button>
-              <button @click="openMenu = false; archiveList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-amber-600 hover:bg-amber-50 flex items-center gap-1.5 font-medium">
+              <button @click="openMenu = false; archiveList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-amber-600 flex items-center gap-1.5 font-medium cursor-pointer">
                 📦 Archive
               </button>
-              <button @click="openMenu = false; deleteList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 font-medium" title="Delete list and move cards to Trash">
+              <button @click="openMenu = false; deleteList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium cursor-pointer" title="Delete list and move cards to Trash">
                 🗑️ Delete List
               </button>
               @if(auth()->check() && auth()->user()->canClearBoardList())
-              <div class="border-t border-slate-100 my-1"></div>
-              <button @click="openMenu = false; clearList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 font-medium" title="Delete all cards in this list">
+              <div class="board-list-menu-divider my-1"></div>
+              <button @click="openMenu = false; clearList(list.id)" class="w-full text-left px-3.5 py-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium cursor-pointer" title="Delete all cards in this list">
                 🧹 Clear List
               </button>
               @endif
@@ -549,7 +894,7 @@
       </div>
 
       {{-- Cards Container with SortableJS hook --}}
-      <div class="list-cards flex-1 overflow-y-auto min-h-12 pb-8 scrollbar-thin transition-colors" :id="'cards-'+list.id" :data-list-id="list.id">
+      <div class="list-cards relative z-10 flex-1 overflow-y-auto min-h-12 pb-8 scrollbar-thin transition-colors" :id="'cards-'+list.id" :data-list-id="list.id">
         <template x-for="card in filteredCards(list)" :key="card.id">
           <div class="kanban-card select-none relative"
                :class="['priority-' + card.priority, isSelectMode ? 'cursor-pointer' : (canDragCard(card, list) ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'), (selectedCards || []).includes(card.id) ? 'ring-2 ring-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/50' : '']"

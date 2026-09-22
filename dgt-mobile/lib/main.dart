@@ -5,7 +5,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 // ─── App URL Configuration ───────────────────────────────────────────────────
 const configuredAppBaseUrl = String.fromEnvironment(
   'APP_BASE_URL',
-  defaultValue: 'https://rosybrown-baboon-228003.hostingersite.com',
+  defaultValue: 'https://lightcyan-weasel-711536.hostingersite.com',
 );
 
 final String appBaseUrl = _resolveAppBaseUrl();
@@ -13,11 +13,11 @@ final String appBaseUrl = _resolveAppBaseUrl();
 String _resolveAppBaseUrl() {
   final rawUrl = configuredAppBaseUrl;
   if (rawUrl.isEmpty) {
-    return 'https://rosybrown-baboon-228003.hostingersite.com';
+    return 'https://lightcyan-weasel-711536.hostingersite.com';
   }
   final uri = Uri.tryParse(rawUrl);
   if (uri == null || !uri.hasScheme) {
-    return 'https://rosybrown-baboon-228003.hostingersite.com';
+    return 'https://lightcyan-weasel-711536.hostingersite.com';
   }
   final normalizedPath = uri.path.replaceFirst(RegExp(r'/api/?$'), '');
   final appUri = uri.replace(path: normalizedPath, query: '', fragment: '');

@@ -42,6 +42,12 @@ return [
         'service_account_path' => env('GOOGLE_SERVICE_ACCOUNT_PATH'),
     ],
 
+    'google_oauth' => [
+        'client_id' => env('GOOGLE_CLIENT_ID', '118771846081-aojgih7adn55eelin45gd6r0o1gmqree.apps.googleusercontent.com'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'allowed_domains' => ['kiuq.com', 'kiuq'],
+    ],
+
     'google_blogs' => [
         // Google Apps Script Web App URL — acts as the authenticated middleware
         // between Laravel and the Blogs Google Sheet.
