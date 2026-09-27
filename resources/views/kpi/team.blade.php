@@ -4,59 +4,13 @@
 
 @section('content')
 
-<style>
-/* 3D Claymorphic Tokens */
-.clay-card {
-    background: #ffffff;
-    border-radius: 1.5rem;
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    box-shadow: 6px 8px 24px -2px rgba(15, 23, 42, 0.08), -4px -4px 16px 0 rgba(255, 255, 255, 0.9), inset 1px 1px 2px rgba(255, 255, 255, 0.8);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.dark .clay-card {
-    background: #1e293b;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 6px 8px 24px -2px rgba(0, 0, 0, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.05);
-}
-.clay-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 8px 12px 28px -2px rgba(15, 23, 42, 0.12), -4px -4px 18px 0 rgba(255, 255, 255, 0.95);
-}
-.dark .clay-card:hover {
-    box-shadow: 8px 12px 28px -2px rgba(0, 0, 0, 0.45);
-}
-.clay-pill-blue {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    box-shadow: 4px 6px 14px rgba(37, 99, 235, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-mint {
-    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-    box-shadow: 4px 6px 14px rgba(16, 185, 129, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-purple {
-    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-    box-shadow: 4px 6px 14px rgba(139, 92, 246, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-amber {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    box-shadow: 4px 6px 14px rgba(245, 158, 11, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-btn {
-    border-radius: 9999px;
-    font-weight: 600;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-.clay-btn:active {
-    transform: scale(0.97);
-}
-</style>
+@include('kpi.styles')
 
 <div class="space-y-6 pb-12" x-data="{ showAddMemberModal: false }">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">Squad Team Members</h1>
-            <p class="text-xs text-slate-400 mt-1">
+            <h1 class="text-2xl font-extrabold kpi-card-title">Squad Team Members</h1>
+            <p class="text-xs kpi-card-desc mt-1">
                 Add staff to your squad from users in the system (just like board members).
             </p>
         </div>
@@ -81,10 +35,10 @@
 
     {{-- Squad Selector (Supervisor only) --}}
     @if($isSupervisor && $squads->count() > 1)
-    <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 w-fit">
+    <div class="kpi-tab-container flex items-center gap-2 p-1.5 rounded-2xl w-fit">
         @foreach($squads as $sq)
         <a href="{{ route('kpi.team.index', ['squad_id' => $sq->id]) }}"
-           class="px-4 py-2 rounded-xl text-xs font-bold transition-all {{ ($currentSquad?->id === $sq->id) ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-600' }}">
+           class="px-4 py-2 rounded-xl text-xs font-bold transition-all {{ ($currentSquad?->id === $sq->id) ? 'kpi-tab-active shadow-sm' : 'kpi-tab-inactive' }}">
             {{ $sq->name }} ({{ $sq->members->count() }} Members)
         </a>
         @endforeach
@@ -100,7 +54,7 @@
                 </div>
                 <div>
                     <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">{{ $currentSquad?->name }}</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">
+                    <p class="text-xs kpi-card-desc mt-0.5">
                         Team Lead: <strong>{{ $currentSquad?->lead?->name }}</strong> ({{ $currentSquad?->lead?->email }})
                     </p>
                 </div>
@@ -163,7 +117,7 @@
     {{-- ── Modal: Add Member from Users ───────────────────────────────────── --}}
     <div x-show="showAddMemberModal" style="display: none;"
          class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-md p-6 bg-white dark:bg-slate-800" @click.away="showAddMemberModal = false">
+        <div class="clay-card kpi-modal-card w-full max-w-md p-6" @click.away="showAddMemberModal = false">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
                 <h3 class="text-base font-bold text-slate-900 dark:text-white">Add Team Member to {{ $currentSquad?->name }}</h3>
                 <button @click="showAddMemberModal = false" class="text-slate-400 hover:text-slate-600">✕</button>

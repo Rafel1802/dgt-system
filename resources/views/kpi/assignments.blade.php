@@ -4,53 +4,7 @@
 
 @section('content')
 
-<style>
-/* 3D Claymorphic Design Tokens */
-.clay-card {
-    background: #ffffff;
-    border-radius: 1.5rem;
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    box-shadow: 6px 8px 24px -2px rgba(15, 23, 42, 0.08), -4px -4px 16px 0 rgba(255, 255, 255, 0.9), inset 1px 1px 2px rgba(255, 255, 255, 0.8);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.dark .clay-card {
-    background: #1e293b;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 6px 8px 24px -2px rgba(0, 0, 0, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.05);
-}
-.clay-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 8px 12px 28px -2px rgba(15, 23, 42, 0.12), -4px -4px 18px 0 rgba(255, 255, 255, 0.95);
-}
-.dark .clay-card:hover {
-    box-shadow: 8px 12px 28px -2px rgba(0, 0, 0, 0.45);
-}
-.clay-pill-blue {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    box-shadow: 4px 6px 14px rgba(37, 99, 235, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-mint {
-    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-    box-shadow: 4px 6px 14px rgba(16, 185, 129, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-purple {
-    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-    box-shadow: 4px 6px 14px rgba(139, 92, 246, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-amber {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    box-shadow: 4px 6px 14px rgba(245, 158, 11, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-btn {
-    border-radius: 9999px;
-    font-weight: 600;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-.clay-btn:active {
-    transform: scale(0.97);
-}
-</style>
+@include('kpi.styles')
 
 <div class="space-y-6 pb-12" x-data="{ showAssignModal: false }">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -119,7 +73,7 @@
     {{-- Assign Modal --}}
     @if($isSupervisor)
     <div x-show="showAssignModal" style="display: none;" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-md p-6 bg-white dark:bg-slate-800" @click.away="showAssignModal = false">
+        <div class="clay-card w-full max-w-md p-6 kpi-modal-card" @click.away="showAssignModal = false">
             <h3 class="text-base font-bold mb-3 text-slate-900 dark:text-white">Configure Monthly KPI Target</h3>
             <form action="{{ route('kpi.assignments.store') }}" method="POST" class="space-y-4 text-xs">
                 @csrf

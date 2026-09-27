@@ -4139,3 +4139,39 @@ body[data-theme="neon"] {
   }
 }
 
+
+
+/* ─── KPI Dashboard & 3D Claymorphic Theme Support ───────────────────────── */
+.clay-card {
+  background: var(--bg-card, #ffffff);
+  border-radius: 1.5rem;
+  border: 1px solid var(--border-color, rgba(226, 232, 240, 0.9));
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clay-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px -4px rgba(15, 23, 42, 0.09), 0 8px 16px -4px rgba(15, 23, 42, 0.04);
+}
+[data-theme="dark"] .clay-card,
+.dark .clay-card {
+  background: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45) !important;
+}
+[data-theme="dark"] .clay-card:hover,
+.dark .clay-card:hover {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.6) !important;
+}
+[data-theme="neon"] .clay-card {
+  background: rgba(4, 20, 56, 0.90) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1.5px solid rgba(0, 170, 255, 0.45) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 140, 255, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
+}
+[data-theme="neon"] .clay-card:hover {
+  border-color: rgba(0, 230, 255, 0.85) !important;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 200, 255, 0.5) !important;
+}

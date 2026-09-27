@@ -4,53 +4,7 @@
 
 @section('content')
 
-<style>
-/* 3D Claymorphic Tokens */
-.clay-card {
-    background: #ffffff;
-    border-radius: 1.5rem;
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    box-shadow: 6px 8px 24px -2px rgba(15, 23, 42, 0.08), -4px -4px 16px 0 rgba(255, 255, 255, 0.9), inset 1px 1px 2px rgba(255, 255, 255, 0.8);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.dark .clay-card {
-    background: #1e293b;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 6px 8px 24px -2px rgba(0, 0, 0, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.05);
-}
-.clay-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 8px 12px 28px -2px rgba(15, 23, 42, 0.12), -4px -4px 18px 0 rgba(255, 255, 255, 0.95);
-}
-.dark .clay-card:hover {
-    box-shadow: 8px 12px 28px -2px rgba(0, 0, 0, 0.45);
-}
-.clay-pill-blue {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    box-shadow: 4px 6px 14px rgba(37, 99, 235, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-mint {
-    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-    box-shadow: 4px 6px 14px rgba(16, 185, 129, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-purple {
-    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-    box-shadow: 4px 6px 14px rgba(139, 92, 246, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-pill-amber {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    box-shadow: 4px 6px 14px rgba(245, 158, 11, 0.35), inset 1px 1px 2px rgba(255, 255, 255, 0.4);
-}
-.clay-btn {
-    border-radius: 9999px;
-    font-weight: 600;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-.clay-btn:active {
-    transform: scale(0.97);
-}
-</style>
+@include('kpi.styles')
 
 <div class="space-y-6 pb-12" x-data="{
     showRateModal: false,
@@ -80,8 +34,8 @@
 
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">Monthly Staff KPI Evaluations</h1>
-            <p class="text-xs text-slate-400 mt-1">
+            <h1 class="text-2xl font-extrabold kpi-card-title">Monthly Staff KPI Evaluations</h1>
+            <p class="text-xs kpi-card-desc mt-1">
                 Rate monthly performance scores, write review notes, and generate official staff KPI reports.
             </p>
         </div>
@@ -113,10 +67,10 @@
 
     {{-- Squad Selector (Supervisor) --}}
     @if($isSupervisor && $squads->count() > 1)
-    <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 w-fit">
+    <div class="kpi-tab-container flex items-center gap-2 p-1.5 rounded-2xl w-fit">
         @foreach($squads as $sq)
         <a href="{{ route('kpi.evaluations.index', ['squad_id' => $sq->id, 'period_id' => $currentPeriod?->id]) }}"
-           class="px-4 py-2 rounded-xl text-xs font-bold transition-all {{ ($currentSquad?->id === $sq->id) ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-600' }}">
+           class="px-4 py-2 rounded-xl text-xs font-bold transition-all {{ ($currentSquad?->id === $sq->id) ? 'kpi-tab-active shadow-sm' : 'kpi-tab-inactive' }}">
             {{ $sq->name }} ({{ $sq->members->count() }} Staff)
         </a>
         @endforeach
@@ -125,8 +79,8 @@
 
     {{-- Evaluations Table --}}
     <div class="clay-card overflow-hidden">
-        <div class="p-6 border-b border-slate-100 dark:border-slate-700/60">
-            <h2 class="text-base font-bold text-slate-900 dark:text-white">
+        <div class="p-6 kpi-card-header">
+            <h2 class="text-base font-bold kpi-card-title">
                 {{ $currentSquad?->name }} • {{ $currentPeriod?->name }} Evaluation Matrix
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">
@@ -137,7 +91,7 @@
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
                 <thead>
-                    <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-400 font-semibold border-b border-slate-100 dark:border-slate-700/60">
+                    <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-400 font-semibold kpi-card-header">
                         <th class="py-3 px-6">Staff Member</th>
                         <th class="py-3 px-4">Role Title</th>
                         <th class="py-3 px-4 text-center">Productivity</th>
@@ -152,11 +106,11 @@
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60 text-slate-700 dark:text-slate-300">
                     @forelse($staffMembers as $staff)
                     @php $rev = $reviews->get($staff->id); @endphp
-                    <tr class="hover:bg-slate-50/60 transition-colors">
-                        <td class="py-3.5 px-6 font-bold text-slate-900 dark:text-white">
+                    <tr class="kpi-table-row">
+                        <td class="py-3.5 px-6 font-bold kpi-card-title">
                             {{ $staff->name }}
                         </td>
-                        <td class="py-3.5 px-4 text-slate-500 font-medium">
+                        <td class="py-3.5 px-4 font-medium kpi-card-desc">
                             {{ $staff->pivot->role_title ?? 'Team Member' }}
                         </td>
                         <td class="py-3.5 px-4 text-center font-bold">
@@ -173,8 +127,8 @@
                         </td>
                         <td class="py-3.5 px-4 text-center">
                             @if($rev)
-                                <span class="font-black text-sm text-blue-600 dark:text-blue-400 block">{{ number_format($rev->overall_kpi, 1) }}%</span>
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {{ $rev->overall_kpi >= 95 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
+                                <span class="font-black text-sm text-sky-400 block">{{ number_format($rev->overall_kpi, 1) }}%</span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {{ $rev->overall_kpi >= 95 ? 'kpi-badge-amber' : 'kpi-badge-success' }}">
                                     {{ $rev->performance_band }}
                                 </span>
                             @else
@@ -183,11 +137,11 @@
                         </td>
                         <td class="py-3.5 px-4">
                             @if($rev)
-                                <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold {{ $rev->status === 'Finalized' ? 'bg-purple-50 text-purple-700' : ($rev->status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700') }}">
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold {{ $rev->status === 'Finalized' ? 'kpi-badge-purple' : ($rev->status === 'Approved' ? 'kpi-badge-success' : 'kpi-badge-blue') }}">
                                     {{ $rev->status }}
                                 </span>
                             @else
-                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold kpi-badge-pending">
                                     Not Rated
                                 </span>
                             @endif
@@ -206,7 +160,7 @@
                                         reviewStatus = '{{ $rev?->status ?? 'Approved' }}';
                                         showRateModal = true;
                                     "
-                                    class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px]">
+                                    class="kpi-btn-rate px-3 py-1.5 rounded-lg font-bold text-xs shadow-sm">
                                 {{ $rev ? 'Edit Score' : 'Rate Staff' }}
                             </button>
                             @if($rev && $isSupervisor && $rev->status !== 'Finalized')
@@ -223,7 +177,7 @@
                             @endif
                             @if($rev)
                             <a href="{{ route('kpi.evaluations.pdf', $rev->id) }}" target="_blank"
-                               class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px]">
+                               class="kpi-btn-pdf px-2.5 py-1.5 rounded-lg font-semibold text-xs">
                                 Export PDF
                             </a>
                             @endif
@@ -244,10 +198,10 @@
     {{-- ── Modal: Rate Staff KPI ──────────────────────────────────────────── --}}
     <div x-show="showRateModal" style="display: none;"
          class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-lg p-6 bg-white dark:bg-slate-800" @click.away="showRateModal = false">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
+        <div class="clay-card kpi-modal-card w-full max-w-lg p-6" @click.away="showRateModal = false">
+            <div class="flex items-center justify-between pb-3 kpi-card-header">
                 <div>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Give Monthly Staff KPI</h3>
+                    <h3 class="text-base font-bold kpi-card-title">Give Monthly Staff KPI</h3>
                     <p class="text-xs text-slate-400">Staff: <strong class="text-blue-600" x-text="selectedUserName"></strong> • {{ $currentPeriod?->name }}</p>
                 </div>
                 <button @click="showRateModal = false" class="text-slate-400 hover:text-slate-600 text-base">✕</button>
@@ -260,7 +214,7 @@
                 <input type="hidden" name="kpi_period_id" value="{{ $currentPeriod?->id ?? 1 }}">
 
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-600">
+                    <div class="kpi-modal-box p-3 rounded-2xl">
                         <div class="flex justify-between items-center mb-1">
                             <label class="font-bold text-slate-800 dark:text-white">Productivity (35%)</label>
                             <span class="font-black text-blue-600 text-sm" x-text="scoreProd + '%'"></span>
@@ -268,7 +222,7 @@
                         <input type="range" min="0" max="100" step="1" x-model.number="scoreProd" name="productivity_score" class="w-full accent-blue-600">
                     </div>
 
-                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-600">
+                    <div class="kpi-modal-box p-3 rounded-2xl">
                         <div class="flex justify-between items-center mb-1">
                             <label class="font-bold text-slate-800 dark:text-white">Quality (35%)</label>
                             <span class="font-black text-purple-600 text-sm" x-text="scoreQual + '%'"></span>
@@ -276,7 +230,7 @@
                         <input type="range" min="0" max="100" step="1" x-model.number="scoreQual" name="quality_score" class="w-full accent-purple-600">
                     </div>
 
-                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-600">
+                    <div class="kpi-modal-box p-3 rounded-2xl">
                         <div class="flex justify-between items-center mb-1">
                             <label class="font-bold text-slate-800 dark:text-white">TAT Speed (20%)</label>
                             <span class="font-black text-emerald-600 text-sm" x-text="scoreTat + '%'"></span>
@@ -284,7 +238,7 @@
                         <input type="range" min="0" max="100" step="1" x-model.number="scoreTat" name="deadline_score" class="w-full accent-emerald-600">
                     </div>
 
-                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-600">
+                    <div class="kpi-modal-box p-3 rounded-2xl">
                         <div class="flex justify-between items-center mb-1">
                             <label class="font-bold text-slate-800 dark:text-white">Teamwork (10%)</label>
                             <span class="font-black text-amber-600 text-sm" x-text="scoreTeam + '%'"></span>
@@ -293,7 +247,7 @@
                     </div>
                 </div>
 
-                <div class="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-700 border border-blue-200/60 dark:border-slate-600 flex items-center justify-between">
+                <div class="kpi-modal-calc p-4 rounded-2xl flex items-center justify-between">
                     <div>
                         <span class="text-xs uppercase font-bold text-slate-500 dark:text-slate-300">Overall Weighted Score</span>
                         <div class="flex items-center gap-2 mt-0.5">
@@ -303,7 +257,7 @@
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Review Status</label>
-                        <select name="status" x-model="reviewStatus" class="px-3 py-1.5 border rounded-xl dark:bg-slate-800 text-xs font-semibold">
+                        <select name="status" x-model="reviewStatus" class="kpi-modal-select px-3 py-1.5 border rounded-xl text-xs font-semibold">
                             <option value="Approved">Approved</option>
                             <option value="Submitted">Submitted</option>
                             <option value="Draft">Draft</option>
@@ -315,7 +269,7 @@
                     <label class="block font-bold mb-1 text-slate-700 dark:text-slate-300">Review Notes & Commendations</label>
                     <textarea name="manager_notes" rows="3" required x-model="reviewNotes"
                               placeholder="Write review notes on monthly deliverables, strengths, and areas to improve..."
-                              class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600"></textarea>
+                              class="kpi-modal-textarea w-full px-3 py-2 border rounded-xl"></textarea>
                 </div>
 
                 <div class="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/60">
@@ -330,7 +284,7 @@
     @if($isSupervisor)
     <div x-show="showSupervisorModal" style="display: none;"
          class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-md p-6 bg-white dark:bg-slate-800" @click.away="showSupervisorModal = false">
+        <div class="clay-card kpi-modal-card w-full max-w-md p-6" @click.away="showSupervisorModal = false">
             <h3 class="text-base font-bold mb-3 text-slate-900 dark:text-white">Supervisor Review Sign-off</h3>
             <p class="text-xs text-slate-500 mb-3">Reviewing KPI for: <strong class="text-blue-600" x-text="selectedUserName"></strong></p>
             <form :action="'{{ url('/kpi/evaluations') }}/' + selectedReviewId + '/approve'" method="POST" class="space-y-4 text-xs">
