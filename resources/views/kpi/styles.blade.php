@@ -402,3 +402,18 @@
     box-shadow: 0 0 14px rgba(0, 160, 255, 0.35) !important;
 }
 </style>
+
+
+.kpi-modal-card {
+    background-color: #0f172a !important;
+    background: #0f172a !important;
+    border: 1.5px solid rgba(56, 189, 248, 0.35) !important;
+    border-radius: 1.5rem !important;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(14, 165, 233, 0.2) !important;
+    color: #f8fafc !important;
+}
+.kpi-modal-box {
+    background-color: #162036 !important;
+    border: 1px solid rgba(51, 65, 85, 0.8) !important;
+    color: #f8fafc !important;
+}
