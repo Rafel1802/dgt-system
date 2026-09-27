@@ -2,228 +2,324 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>Staff Monthly KPI Report - {{ $review->user?->name }} - {{ $review->period?->name }}</title>
+    <title>Employee Performance Evaluation - {{ $review->user?->name }}</title>
     <style>
+        @page {
+            margin: 28px 36px 32px 36px;
+        }
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 11px;
-            color: #1e293b;
-            line-height: 1.5;
-            margin: 0;
-            padding: 24px;
-        }
-        .header {
-            border-bottom: 2.5px solid #2563eb;
-            padding-bottom: 12px;
-            margin-bottom: 20px;
-        }
-        .header h1 {
-            color: #1e3a8a;
-            font-size: 20px;
-            margin: 0 0 4px 0;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .header p {
-            color: #64748b;
-            margin: 0;
+            font-family: 'Helvetica', 'Arial', sans-serif;
             font-size: 10px;
+            color: #1e293b;
+            line-height: 1.45;
+            margin: 0;
+            padding: 0;
         }
-        .meta-card {
-            background: #f8fafc;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 20px;
-        }
-        .meta-card table {
-            width: 100%;
-        }
-        .meta-card td {
-            font-size: 11px;
-            padding: 3px 0;
-        }
-        h2 {
-            font-size: 13px;
-            color: #1e3a8a;
-            border-bottom: 1px solid #cbd5e1;
-            padding-bottom: 4px;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-        table.score-table {
+        .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
         }
-        table.score-table th {
-            background: #f1f5f9;
-            color: #334155;
-            font-weight: 700;
-            text-align: left;
-            padding: 8px 10px;
-            border: 1px solid #cbd5e1;
-            font-size: 10px;
+        .header-table td {
+            vertical-align: middle;
+        }
+        .title-main {
+            font-size: 15px;
+            font-weight: 800;
+            color: #1e3a8a;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
+            margin-bottom: 3px;
         }
-        table.score-table td {
-            padding: 8px 10px;
-            border: 1px solid #e2e8f0;
-            font-size: 11px;
+        .title-sub {
+            font-size: 9px;
+            color: #64748b;
         }
-        .total-row {
-            background: #eff6ff;
-            font-weight: bold;
-        }
-        .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 10px;
-        }
-        .badge-success { background: #dcfce7; color: #166534; }
-        .badge-amber { background: #fef3c7; color: #92400e; }
-        .notes-box {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 10px 14px;
-            margin-bottom: 14px;
-            font-size: 11px;
-        }
-        .signatures {
-            margin-top: 50px;
-            page-break-inside: avoid;
-        }
-        .signatures table {
+        .info-table {
             width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 14px;
+            border: 1px solid #cbd5e1;
         }
-        .sig-line {
-            border-top: 1px solid #94a3b8;
-            margin-top: 45px;
-            padding-top: 5px;
+        .info-table td {
+            padding: 5px 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 9.5px;
+        }
+        .info-label {
+            background-color: #ffffff;
+            font-weight: bold;
+            color: #0f172a;
+            width: 16%;
+        }
+        .info-val {
+            width: 34%;
+            color: #1e293b;
+        }
+        .section-header {
+            font-size: 10.5px;
+            font-weight: 800;
+            color: #1e3a8a;
+            text-transform: uppercase;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            letter-spacing: 0.3px;
+        }
+        .score-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+            border-top: 1.5px solid #1e3a8a;
+            border-bottom: 1.5px solid #1e3a8a;
+        }
+        .score-table th {
+            padding: 5px 8px;
+            font-size: 9.5px;
+            font-weight: 800;
+            color: #1e3a8a;
+            border-bottom: 1px solid #cbd5e1;
+            text-align: left;
+        }
+        .score-table th.center {
             text-align: center;
+        }
+        .score-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #e2e8f0;
+            border-top: 1px solid #e2e8f0;
+            font-size: 9.5px;
+            color: #334155;
+        }
+        .score-table td.center {
+            text-align: center;
+            font-weight: bold;
+        }
+        .total-row td {
+            border-top: 1.5px solid #cbd5e1;
+            border-bottom: none;
+            padding: 6px 8px;
+            font-weight: 800;
+        }
+        .outcome-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+            border: 1px solid #cbd5e1;
+            border-top: 1.5px solid #1e3a8a;
+        }
+        .outcome-table td {
+            padding: 6px 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 9.5px;
+            vertical-align: top;
+        }
+        .outcome-label {
+            font-weight: bold;
+            color: #0f172a;
+            width: 22%;
+        }
+        .note-text {
+            font-size: 9px;
+            color: #1e293b;
+            margin-top: 8px;
+            margin-bottom: 35px;
+            line-height: 1.4;
+        }
+        .signatures-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px;
+        }
+        .sig-block {
+            text-align: left;
+            vertical-align: bottom;
+        }
+        .sig-title {
+            font-size: 8.5px;
+            color: #475569;
+            margin-bottom: 35px;
+        }
+        .sig-name {
             font-size: 10px;
+            font-weight: bold;
+            color: #000000;
+        }
+        .sig-role {
+            font-size: 8.5px;
+            color: #475569;
+            margin-top: 1px;
+        }
+        .footer-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 55px;
+            font-size: 8.5px;
+            color: #64748b;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Official Staff Monthly KPI Report</h1>
-        <p>Digital System KiuQ.com • Digital Media Department</p>
-    </div>
+    @php
+        $logoBase64 = null;
+        if (file_exists(public_path('images/kiuqlogo.png'))) {
+            $logoBase64 = base64_encode(file_get_contents(public_path('images/kiuqlogo.png')));
+        }
+        $roleTitle = $review->user?->kpiSquads->firstWhere('id', $review->squad_id)?->pivot->role_title ?? 'Content Creator / Editor';
+        $evalDate = $review->evaluation_date ? \Carbon\Carbon::parse($review->evaluation_date)->format('Y-m-d') : date('Y-m-d');
+        $joinedDate = $review->user?->kpiSquads->firstWhere('id', $review->squad_id)?->pivot->joined_date ? \Carbon\Carbon::parse($review->user->kpiSquads->firstWhere('id', $review->squad_id)->pivot->joined_date)->format('Y-m-d') : '2026-01-01';
+        $leadName = ($review->squad?->lead?->username === 'kim' || $review->squad_id == 2) ? 'Mr. KimOun (Lead)' : 'Mr. Dara (Lead)';
+        $leadSigName = ($review->squad?->lead?->username === 'kim' || $review->squad_id == 2) ? 'Mr. KimOun' : 'Mr. Dara Vuthy';
+        $leadSigRole = ($review->squad?->lead?->username === 'kim' || $review->squad_id == 2) ? 'Human Resource / Squad 2 Lead' : 'Human Resource Department';
+    @endphp
 
-    <div class="meta-card">
-        <table>
-            <tr>
-                <td style="width: 50%;"><strong>Staff Member:</strong> {{ $review->user?->name }} (@ {{ $review->user?->username }})</td>
-                <td style="width: 50%;"><strong>Evaluation Month:</strong> {{ $review->period?->name }}</td>
-            </tr>
-            <tr>
-                <td><strong>Squad:</strong> {{ $review->squad?->name ?? 'Digital Media Squad' }}</td>
-                <td><strong>Evaluated By:</strong> {{ $review->reviewer?->name }} (Squad Lead)</td>
-            </tr>
-            <tr>
-                <td><strong>Role Title:</strong> {{ $review->user?->kpiSquads->firstWhere('id', $review->squad_id)?->pivot->role_title ?? 'Team Member' }}</td>
-                <td><strong>Certified Date:</strong> {{ date('d M Y') }}</td>
-            </tr>
-        </table>
-    </div>
+    {{-- Top Header --}}
+    <table class="header-table">
+        <tr>
+            <td style="width: 35%;">
+                @if($logoBase64)
+                    <img src="data:image/png;base64,{{ $logoBase64 }}" style="height: 38px;" alt="kiuQ">
+                @else
+                    <span style="font-size: 24px; font-weight: 900; color: #00a8cc;">kiu<span style="color: #1e3a8a;">Q</span></span>
+                @endif
+            </td>
+            <td style="width: 65%; text-align: right;">
+                <div class="title-main">EMPLOYEE PERFORMANCE EVALUATION</div>
+                <div class="title-sub">
+                    Review Cycle: {{ $review->period?->name ?? 'Monthly KPI Cycle' }} | Ref: PRF-{{ str_pad($review->id ?? 1, 4, '0', STR_PAD_LEFT) }}
+                </div>
+            </td>
+        </tr>
+    </table>
 
-    <h2>1. Four-Pillar Numerical Performance Evaluation</h2>
+    {{-- Employee Details --}}
+    <table class="info-table">
+        <tr>
+            <td class="info-label">Employee Name:</td>
+            <td class="info-val"><strong>{{ $review->user?->name }}</strong></td>
+            <td class="info-label">Employee ID:</td>
+            <td class="info-val">EMP{{ str_pad($review->user?->id, 3, '0', STR_PAD_LEFT) }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Department / Role:</td>
+            <td class="info-val">Digital Media — {{ $roleTitle }}</td>
+            <td class="info-label">Evaluation Date:</td>
+            <td class="info-val">{{ $evalDate }}</td>
+        </tr>
+        <tr>
+            <td class="info-label">Reviewer / Lead:</td>
+            <td class="info-val">{{ $leadName }}</td>
+            <td class="info-label">Date Joined:</td>
+            <td class="info-val">{{ $joinedDate }}</td>
+        </tr>
+    </table>
+
+    {{-- 1. Core Performance Criteria --}}
+    <div class="section-header">1. CORE PERFORMANCE CRITERIA (1–5 STARS)</div>
     <table class="score-table">
         <thead>
             <tr>
-                <th>Evaluation Pillar</th>
-                <th>Description</th>
-                <th style="text-align: center;">Weight</th>
-                <th style="text-align: center;">Numeric Score</th>
-                <th style="text-align: center;">Weighted Score</th>
+                <th style="width: 44%;">Evaluation Category</th>
+                <th class="center" style="width: 18%;">Score (1–5)</th>
+                <th style="width: 38%;">Standard Benchmark</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td><strong>Productivity & Output</strong></td>
-                <td>Deliverables volume, rendering completion, and quota fulfillment</td>
-                <td style="text-align: center;">35%</td>
-                <td style="text-align: center;">{{ $review->productivity_score }}%</td>
-                <td style="text-align: center;">{{ number_format($review->productivity_score * 0.35, 2) }}%</td>
+                <td>1. Work Quality &amp; Accuracy</td>
+                <td class="center">{{ number_format($review->quality_score / 20, 1) }}</td>
+                <td>Output standard &amp; detail accuracy</td>
             </tr>
             <tr>
-                <td><strong>Quality & Accuracy</strong></td>
-                <td>Brand consistency, first-time QC pass rate, and zero defect standard</td>
-                <td style="text-align: center;">35%</td>
-                <td style="text-align: center;">{{ $review->quality_score }}%</td>
-                <td style="text-align: center;">{{ number_format($review->quality_score * 0.35, 2) }}%</td>
+                <td>2. Productivity &amp; Timeliness</td>
+                <td class="center">{{ number_format($review->productivity_score / 20, 1) }}</td>
+                <td>Task speed &amp; meeting deadlines</td>
             </tr>
             <tr>
-                <td><strong>Delivery Speed & Turnaround</strong></td>
-                <td>Turnaround time (TAT hours), deadline adherence, and responsiveness</td>
-                <td style="text-align: center;">20%</td>
-                <td style="text-align: center;">{{ $review->deadline_score }}%</td>
-                <td style="text-align: center;">{{ number_format($review->deadline_score * 0.20, 2) }}%</td>
+                <td>3. Communication &amp; Teamwork</td>
+                <td class="center">{{ number_format($review->teamwork_score / 20, 1) }}</td>
+                <td>Collaboration, responsiveness &amp; attitude</td>
             </tr>
             <tr>
-                <td><strong>Teamwork & Initiative</strong></td>
-                <td>Collaboration, positive attitude, communication, and squad support</td>
-                <td style="text-align: center;">10%</td>
-                <td style="text-align: center;">{{ $review->teamwork_score }}%</td>
-                <td style="text-align: center;">{{ number_format($review->teamwork_score * 0.10, 2) }}%</td>
+                <td>4. Initiative &amp; Problem Solving</td>
+                <td class="center">{{ number_format((($review->productivity_score + $review->quality_score) / 2) / 20, 1) }}</td>
+                <td>Proactivity &amp; handling challenges</td>
+            </tr>
+            <tr>
+                <td>5. Discipline &amp; Responsibility</td>
+                <td class="center">{{ number_format($review->deadline_score / 20, 1) }}</td>
+                <td>Attendance, consistency &amp; ownership</td>
             </tr>
             <tr class="total-row">
-                <td colspan="2"><strong>TOTAL MONTHLY KPI SCORE</strong></td>
-                <td style="text-align: center;"><strong>100%</strong></td>
-                <td style="text-align: center; color: #1e40af; font-size: 13px;"><strong>{{ number_format($review->overall_kpi, 1) }}%</strong></td>
-                <td style="text-align: center;">
-                    <span class="badge {{ $review->overall_kpi >= 95 ? 'badge-amber' : 'badge-success' }}">
-                        {{ $review->performance_band }}
-                    </span>
+                <td>FINAL TOTAL SCORE:</td>
+                <td class="center" style="color: #1e3a8a; font-size: 11px;">
+                    {{ number_format(($review->overall_kpi / 100) * 25, 1) }} / 25
+                </td>
+                <td style="color: #15803d; font-weight: 800;">
+                    OVERALL: {{ $review->performance_band ?? 'Exceeds Expectations' }}
                 </td>
             </tr>
         </tbody>
     </table>
 
-    <h2>2. Team Lead Evaluation Notes</h2>
-    <div class="notes-box">
-        <strong>Review Notes by {{ $review->reviewer?->name }}:</strong><br/>
-        <p style="margin: 4px 0 0 0;">{{ $review->manager_notes }}</p>
+    {{-- 2. Performance Outcome & Decision --}}
+    <div class="section-header">2. PROBATION OUTCOME &amp; DECISION</div>
+    <table class="outcome-table">
+        <tr>
+            <td class="outcome-label">Probation Decision:</td>
+            <td style="color: #15803d; font-weight: 800;">
+                {{ $review->status === 'Finalized' || $review->status === 'Approved' ? 'Passed' : 'In Review' }}
+            </td>
+        </tr>
+        <tr>
+            <td class="outcome-label">Supervisor Remarks:</td>
+            <td>
+                {{ $review->manager_notes ?: 'Has performed well during the monthly evaluation cycle, handling assignments, video deliverables, and graphic tasks with strong consistency and attention to brand standards. Recommendation: Confirm full performance status.' }}
+                @if($review->supervisor_notes)
+                    <br/><br/>
+                    <strong>Supervisor Comments:</strong> {{ $review->supervisor_notes }}
+                @endif
+            </td>
+        </tr>
+    </table>
+
+    {{-- Note --}}
+    <div class="note-text">
+        <strong>Note:</strong><br/>
+        This structured scoring ensures transparency, consistency, and clear justification for probation confirmation decisions.
     </div>
 
-    @if($review->supervisor_notes)
-    <h2>3. Supervisor Review & Commendations</h2>
-    <div class="notes-box" style="background: #eff6ff; border-color: #bfdbfe;">
-        <strong style="color: #1e3a8a;">Ms. Somalika (Department Supervisor):</strong><br/>
-        <p style="margin: 4px 0 0 0;">{{ $review->supervisor_notes }}</p>
-    </div>
-    @endif
+    {{-- Signatures (Mr. Dennis Tan, Mr. Dara Vuthy / Kim, Ms. Somalika In) --}}
+    <table class="signatures-table">
+        <tr>
+            <td class="sig-block" style="width: 32%;">
+                <div class="sig-title">Approved by:</div>
+                <div class="sig-name">Mr. Dennis Tan</div>
+                <div class="sig-role">Chief Executive Officer</div>
+            </td>
+            <td class="sig-block" style="width: 36%; text-align: center;">
+                <div class="sig-title">Seen by:</div>
+                <div class="sig-name">{{ $leadSigName }}</div>
+                <div class="sig-role">{{ $leadSigRole }}</div>
+            </td>
+            <td class="sig-block" style="width: 32%; text-align: right;">
+                <div class="sig-title">Prepared by:</div>
+                <div class="sig-name">Ms. Somalika In</div>
+                <div class="sig-role">Head of Digital Media</div>
+            </td>
+        </tr>
+    </table>
 
-    <div class="signatures">
-        <table>
-            <tr>
-                <td style="width: 30%;">
-                    <div class="sig-line">
-                        <strong>{{ $review->user?->name }}</strong><br/>
-                        Staff Member Signature
-                    </div>
-                </td>
-                <td style="width: 5%;"></td>
-                <td style="width: 30%;">
-                    <div class="sig-line">
-                        <strong>{{ $review->reviewer?->name }}</strong><br/>
-                        Squad Lead (Dara / Kim)
-                    </div>
-                </td>
-                <td style="width: 5%;"></td>
-                <td style="width: 30%;">
-                    <div class="sig-line">
-                        <strong>Ms. Somalika</strong><br/>
-                        Department Supervisor
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </div>
+    {{-- Footer --}}
+    <table class="footer-table">
+        <tr>
+            <td style="text-align: left;">
+                {{ $review->evaluation_date ? \Carbon\Carbon::parse($review->evaluation_date)->format('d/F/Y') : date('d/F/Y') }}
+            </td>
+            <td style="text-align: right;">
+                Copyright &copy;KiuQ.Com {{ date('Y') }} All Rights Reserved<br/>
+                Digital Media Department
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

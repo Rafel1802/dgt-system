@@ -19,14 +19,32 @@ class KpiDashboardController extends Controller
         $isSupervisor = $user->isKpiSupervisor();
         $userSquadId = $user->getKpiSquadId();
 
-        // Active period
+        // 1. Periods & Filters
         $periods = KpiPeriod::orderBy('start_date', 'desc')->get();
+        $selectedMonth = $request->get('month');
+        $selectedYear = $request->get('year');
         $periodId = $request->get('period_id');
-        $currentPeriod = $periodId
-            ? KpiPeriod::find($periodId)
-            : ($periods->firstWhere('status', 'Open') ?? $periods->first());
 
-        // Squads query
+        if ($selectedMonth && $selectedYear) {
+            $periodName = date('F Y', mktime(0, 0, 0, (int)$selectedMonth, 1, (int)$selectedYear));
+            $startDate = date('Y-m-01', mktime(0, 0, 0, (int)$selectedMonth, 1, (int)$selectedYear));
+            $endDate = date('Y-m-t', mktime(0, 0, 0, (int)$selectedMonth, 1, (int)$selectedYear));
+            $currentPeriod = KpiPeriod::firstOrCreate(
+                ['name' => $periodName],
+                [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'status' => 'Open',
+                    'description' => "Monthly KPI Evaluation Cycle for {$periodName}."
+                ]
+            );
+        } elseif ($periodId) {
+            $currentPeriod = KpiPeriod::find($periodId);
+        } else {
+            $currentPeriod = $periods->firstWhere('status', 'Open') ?? $periods->first();
+        }
+
+        // 2. Squads query
         $squadsQuery = KpiSquad::with(['lead', 'members']);
         if (!$isSupervisor && $userSquadId) {
             $squadsQuery->where('id', $userSquadId);
@@ -35,22 +53,44 @@ class KpiDashboardController extends Controller
 
         $selectedSquadId = $request->get('squad_id');
         if (!$isSupervisor) {
-            $selectedSquadId = $userSquadId;
+            $selectedSquadId = $userSquadId ?: 1;
         }
 
         $currentSquad = $selectedSquadId
             ? $squads->firstWhere('id', $selectedSquadId)
             : $squads->first();
 
-        // Staff Reviews for selected period
+        // 3. Staff members (with Search & Member filter)
+        $rawMembers = $currentSquad ? $currentSquad->members : collect();
+
+        $search = trim($request->get('search', ''));
+        $memberId = $request->get('member_id');
+
+        $staffMembers = $rawMembers;
+        if (!empty($search)) {
+            $staffMembers = $staffMembers->filter(function($m) use ($search) {
+                return str_contains(strtolower($m->name), strtolower($search))
+                    || str_contains(strtolower($m->username ?? ''), strtolower($search))
+                    || str_contains(strtolower($m->pivot->role_title ?? ''), strtolower($search));
+            });
+        }
+        if (!empty($memberId)) {
+            $staffMembers = $staffMembers->where('id', (int)$memberId);
+        }
+
+        // 4. Staff Reviews for selected period
         $reviewsQuery = KpiReview::with(['user', 'reviewer', 'squad'])
             ->when($currentPeriod, fn($q) => $q->where('kpi_period_id', $currentPeriod->id))
             ->when($selectedSquadId, fn($q) => $q->where('squad_id', $selectedSquadId))
             ->when(!$isSupervisor && $userSquadId, fn($q) => $q->where('squad_id', $userSquadId));
-        $reviews = $reviewsQuery->get();
+        $reviews = $reviewsQuery->get()->keyBy('user_id');
 
-        // Staff members under current lead
-        $staffMembers = $currentSquad ? $currentSquad->members : collect();
+        // 5. Complete KPI History for all squad members
+        $allUserReviews = KpiReview::with(['period', 'reviewer', 'squad'])
+            ->whereIn('user_id', $rawMembers->pluck('id'))
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->groupBy('user_id');
 
         // Metrics
         $totalStaffCount = $squads->sum(fn($s) => $s->members->count());
@@ -70,15 +110,21 @@ class KpiDashboardController extends Controller
             'squads',
             'currentSquad',
             'selectedSquadId',
+            'rawMembers',
             'staffMembers',
             'reviews',
+            'allUserReviews',
             'reports',
             'isSupervisor',
             'userSquadId',
             'totalStaffCount',
             'evaluatedCount',
             'avgKpiScore',
-            'outstandingCount'
+            'outstandingCount',
+            'search',
+            'memberId',
+            'selectedMonth',
+            'selectedYear'
         ));
     }
 }

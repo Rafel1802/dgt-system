@@ -26,6 +26,8 @@ class KpiReview extends Model
         'status',
         'manager_notes',
         'supervisor_notes',
+        'uploaded_pdf_path',
+        'evaluation_date',
         'reviewed_at',
     ];
 
@@ -36,6 +38,7 @@ class KpiReview extends Model
         'teamwork_score' => 'float',
         'overall_kpi' => 'float',
         'reviewed_at' => 'datetime',
+        'evaluation_date' => 'date',
     ];
 
     public function assignment(): BelongsTo
