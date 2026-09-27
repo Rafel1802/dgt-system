@@ -242,6 +242,7 @@ if __name__ == "__main__":
             + PHP + " artisan cache:clear && "
             + PHP + " artisan optimize && "
             + PHP + " artisan migrate --force && "
+            + PHP + " artisan db:seed --class=DigitalKpiSeeder --force && "
             + PHP + " artisan alarm:apply-defaults --force && "
             + tinker_sync
             + tinker_clean
