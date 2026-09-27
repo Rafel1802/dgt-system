@@ -119,43 +119,22 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   bool hasLoadedFirstPage = false;
   bool splashScreenDone = false;
   String? loadError;
+  String _currentUrl = '';
   final Set<String> shownNativeNotificationIds = <String>{};
   final Map<String, DateTime> recentNativeNotificationFingerprints =
       <String, DateTime>{};
 
-  Uri get appUri => Uri.parse(appBaseUrl);
-
-  bool _isDownloadUrl(Uri uri) {
-    final path = uri.path.toLowerCase();
-    final segments = uri.pathSegments.map((segment) => segment.toLowerCase());
-
-    if (segments.contains('download') ||
-        path.endsWith('/template') ||
-        path.endsWith('/template-xlsx')) {
-      return true;
-    }
-
-    return const <String>{
-      '.csv',
-      '.doc',
-      '.docx',
-      '.dmg',
-      '.heic',
-      '.ipa',
-      '.jpg',
-      '.jpeg',
-      '.numbers',
-      '.pdf',
-      '.png',
-      '.ppt',
-      '.pptx',
-      '.rar',
-      '.webp',
-      '.xls',
-      '.xlsx',
-      '.zip',
-    }.any(path.endsWith);
+  bool get _isViewingExternalGoogle {
+    if (_currentUrl.isEmpty) return false;
+    final lower = _currentUrl.toLowerCase();
+    return lower.contains('docs.google.com') ||
+           lower.contains('drive.google.com') ||
+           lower.contains('sheets.google.com') ||
+           lower.contains('slides.google.com') ||
+           lower.contains('accounts.google.com');
   }
+
+  Uri get appUri => Uri.parse(appBaseUrl);
 
   Future<void> _openExternalUrl(Uri uri) async {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -193,7 +172,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
               border: Border.all(color: const Color(0xFF1E293B), width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.75),
+                  color: Colors.black.withValues(alpha: 0.75),
                   blurRadius: 36,
                   spreadRadius: 8,
                 ),
@@ -229,9 +208,9 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF065F46).withOpacity(0.5),
+                            color: const Color(0xFF065F46).withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.6)),
+                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6)),
                           ),
                           child: const Text(
                             'Google Drive',
@@ -280,12 +259,34 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                         mediaPlaybackRequiresUserGesture: false,
                         allowsAirPlayForMediaPlayback: true,
                         allowsPictureInPictureMediaPlayback: true,
+                        // Share cookies with the main webview so Google auth works
                         sharedCookiesEnabled: true,
                         thirdPartyCookiesEnabled: true,
                         limitsNavigationsToAppBoundDomains: false,
                         supportZoom: true,
                         hardwareAcceleration: true,
+                        preferredContentMode: UserPreferredContentMode.DESKTOP,
                       ),
+                      shouldOverrideUrlLoading: (ctrl, navigationAction) async {
+                        final uri = navigationAction.request.url;
+                        if (uri == null) return NavigationActionPolicy.ALLOW;
+                        final uriStr = uri.toString().toLowerCase();
+                        // Allow Google Drive and Google Auth URLs to load within the dialog
+                        if (uriStr.contains('drive.google.com') ||
+                            uriStr.contains('accounts.google.com') ||
+                            uriStr.contains('google.com/signin') ||
+                            uriStr.contains('google.com/servicelogin') ||
+                            uriStr.contains('gstatic.com') ||
+                            uriStr.contains('googleusercontent.com')) {
+                          return NavigationActionPolicy.ALLOW;
+                        }
+                        // Non-Google external links should be launched in default browser
+                        if (!_isInternalUrl(uri)) {
+                          await _openExternalUrl(uri);
+                          return NavigationActionPolicy.CANCEL;
+                        }
+                        return NavigationActionPolicy.ALLOW;
+                      },
                     ),
                   ),
                 ),
@@ -733,6 +734,20 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                         }
                       },
                     );
+                    controller?.addJavaScriptHandler(
+                      handlerName: 'DgtOpenGoogleDoc',
+                      callback: (args) async {
+                        if (args.isNotEmpty) {
+                          final docUrl = args[0].toString();
+                          if (docUrl.isNotEmpty) {
+                            final uri = Uri.tryParse(docUrl);
+                            if (uri != null) {
+                              await _openExternalUrl(uri);
+                            }
+                          }
+                        }
+                      },
+                    );
                   },
                   onProgressChanged: (controller, progress) {
                     if (!hasLoadedFirstPage) {
@@ -756,6 +771,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     setState(() {
                       loadingProgress = 100;
                       hasLoadedFirstPage = true;
+                      _currentUrl = url?.toString() ?? '';
                     });
                     await _prepareOfficialAppSurface();
                     notificationPoller.start();
@@ -780,7 +796,16 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                   },
                   onCreateWindow: (controller, createWindowAction) async {
                     final uri = createWindowAction.request.url;
-                    if (uri != null && !_isInternalUrl(uri)) {
+                    if (uri == null) return false;
+                    final uriStr = uri.toString().toLowerCase();
+                    // Allow Google OAuth login/consent flow to complete within the app if opened as popup
+                    if (uriStr.contains('accounts.google.com/o/oauth2') ||
+                        uriStr.contains('accounts.google.com/signin/oauth')) {
+                      await controller.loadUrl(urlRequest: createWindowAction.request);
+                      return true;
+                    }
+                    // All external URLs (Google Docs, Sheets, Drive, external links) open in the system default browser
+                    if (!_isInternalUrl(uri)) {
                       await _openExternalUrl(uri);
                       return true;
                     }
@@ -791,6 +816,53 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                   },
                 ),
               ),
+              // ── "Back to KiuQ" floating button (visible when viewing Google Docs/Drive) ──
+              if (_isViewingExternalGoogle && hasLoadedFirstPage)
+                Positioned(
+                  top: 8,
+                  left: 12,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () {
+                        controller?.loadUrl(
+                          urlRequest: URLRequest(url: WebUri(appBaseUrl)),
+                        );
+                        setState(() => _currentUrl = appBaseUrl);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2F68ED),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.arrow_back_rounded, color: Colors.white, size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              'Back to KiuQ',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               // ── Splash Screen Overlay ────────────────────────────────────────
               if (!hasLoadedFirstPage || !splashScreenDone)
                 Container(

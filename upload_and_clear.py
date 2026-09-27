@@ -1,7 +1,7 @@
 import os
 import sys
 import subprocess
-
+import time
 import getpass
 
 SSH_PASSWORD = os.environ.get("SSH_PASSWORD", "1Rollercompactor.orgmail")
@@ -10,6 +10,7 @@ SSHPASS = "/opt/homebrew/bin/sshpass" if os.path.exists("/opt/homebrew/bin/sshpa
 def run_cmd(cmd_args, allow_fail=False):
     global SSH_PASSWORD
     print(f"Running: {' '.join(cmd_args)}")
+    time.sleep(1.5)  # Avoid SSH connection burst throttling on Hostinger
 
     # If --interactive is passed in CLI or SSH_PASSWORD is empty, run command natively
     if "--interactive" in sys.argv or not SSH_PASSWORD:
@@ -22,6 +23,18 @@ def run_cmd(cmd_args, allow_fail=False):
         if allow_fail:
             print(f"Command failed with exit code {proc.returncode} (non-fatal, proceeding...)")
             return
+
+        # Attempt up to 2 retries with sleep to handle Hostinger rate limiting
+        for attempt in range(1, 3):
+            print(f"\n[!] Command returned exit code {proc.returncode}. Retrying in 3s (attempt {attempt}/2)...")
+            time.sleep(3)
+            if "--interactive" in sys.argv or not SSH_PASSWORD:
+                proc = subprocess.run(cmd_args)
+            else:
+                proc = subprocess.run(full_cmd)
+            if proc.returncode == 0:
+                print("\n--- Command Finished ---\n")
+                return
 
         # Handle Permission Denied (sshpass exit code 5 or 255)
         if proc.returncode in (5, 255) and sys.stdin.isatty():
@@ -162,7 +175,7 @@ if __name__ == "__main__":
         "->each(fn(\\$g) => App\\Models\\Card::where('sync_group_id', \\$g)->update(['status' => 'approved', 'approved_at' => App\\Models\\Card::where('sync_group_id', \\$g)->max('approved_at')]));"
         '" && '
     )
-    tinker_clean = PHP + ' artisan tinker --execute="App\\Models\\SocialMediaClass::whereIn(\'name\', [\'Long Landscape\', \'Share Blog\', \'Short Reel\', \'Poster Design\', \'Reel\'])->delete();" && '
+    tinker_clean = PHP + ' artisan tinker --execute="App\\Models\\SocialMediaClass::whereIn(\'name\', [\'Long Landscape\', \'Share Blog\', \'Short Reel\', \'Poster Design\', \'Reel\', \'Machinery.Bargains\', \'SkidSteer\'])->delete();" && '
     
     tinker_fix_colors = PHP + ' artisan tinker --execute="App\\Models\\BoardList::whereIn(\'name\', [\'Week 3\', \'Week 4\'])->update([\'color\' => null]);" && '
 
@@ -209,13 +222,24 @@ if __name__ == "__main__":
 
     tinker_clean_reorder = PHP + ' artisan tinker --execute="\\Illuminate\\Support\\Facades\\DB::table(\'notifications\')->where(\'data\', \'like\', \'%card_reordered%\')->orWhere(\'data\', \'like\', \'%reordered card%\')->delete(); App\\\\Models\\\\ActivityLog::where(\'description\', \'like\', \'%reordered%\')->orWhere(\'action\', \'like\', \'%reorder%\')->delete(); echo \'Cleaned up reorder notifications and activities\\n\';" && '
 
+    tinker_fix_smm_labels = (
+        PHP + ' artisan tinker --execute="'
+        "\\\\App\\\\Models\\\\Card::whereIn('smm_class_label', ['Machinery.Bargains', 'Machinery Bargains'])->update(['smm_class_label' => 'MachineryBargains']); "
+        "\\\\App\\\\Models\\\\Card::whereIn('smm_class_label', ['SkidSteer', 'Skid Steer'])->update(['smm_class_label' => 'SkidSteers']); "
+        "\\\\App\\\\Models\\\\Card::whereIn('smm_cluster_label', ['Machinery.Bargains', 'Machinery Bargains'])->update(['smm_cluster_label' => 'MachineryBargains']); "
+        "\\\\App\\\\Models\\\\Card::whereIn('smm_cluster_label', ['SkidSteer', 'Skid Steer'])->update(['smm_cluster_label' => 'SkidSteers']); "
+        "\\\\App\\\\Models\\\\SocialMediaClass::whereIn('name', ['Machinery.Bargains', 'SkidSteer'])->delete();"
+        '" && '
+    )
+
     ssh_cmd = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-o", "PubkeyAuthentication=no", "-o", "ConnectTimeout=30", "-p", "65002", "u355625773@157.173.215.124",
         (
             "cd domains/lightcyan-weasel-711536.hostingersite.com/public_html && "
             + "mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions && "
             + "chmod -R 775 storage bootstrap/cache && "
-            + "rm -f public/hot && rm -f bootstrap/cache/*.php && rm -f database/migrations/2026_08_07_075801_modify_unique_constraint_on_comment_reactions.php && "
+            + "rm -f public/hot && rm -f bootstrap/cache/*.php && rm -rf storage/framework/cache/data/* && rm -f app/Console/Commands/SmmImportController.php && rm -f database/migrations/2026_08_07_075801_modify_unique_constraint_on_comment_reactions.php && "
+            + PHP + " artisan cache:clear && "
             + PHP + " artisan optimize && "
             + PHP + " artisan migrate --force && "
             + PHP + " artisan alarm:apply-defaults --force && "
@@ -223,6 +247,7 @@ if __name__ == "__main__":
             + tinker_clean
             + tinker_fix_colors
             + PHP + " artisan smm:fix-labels && "
+            + tinker_fix_smm_labels
             + PHP + " artisan cards:restore-block-smm && "
             + PHP + " artisan cards:sync-planning-weeks && "
             + tinker_fix_returns

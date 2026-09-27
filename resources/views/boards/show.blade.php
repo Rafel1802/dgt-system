@@ -18,16 +18,55 @@
 @media (min-width: 640px) { .board-header-mobile { margin: 1.5rem 1.5rem 0; } }
 @media (min-width: 1024px) { .board-header-mobile { margin: 1.5rem 2.5rem 0; } }
 
-.board-wrap{display:flex;gap:1rem;overflow-x:auto;padding:1rem 1rem 1rem 1.5rem;align-items:flex-start;min-height:calc(100vh - 64px);border-radius:0;box-shadow:none;transition:box-shadow .25s ease; flex: 1;}
+.board-wrap{display:flex;gap:1rem;overflow-x:auto;padding:1rem 1rem 1rem 1.5rem;align-items:flex-start;min-height:calc(100vh - 64px);border-radius:0;box-shadow:none;flex:1;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;}
 @media (min-width: 1024px) { .board-wrap { padding: 1rem 1rem 1rem 2.5rem; } }
-.board-list{flex-shrink:0;width:272px;background:#f1f5f9;border:1px solid rgba(255,255,255,.54);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 180px)}
+.board-list{flex-shrink:0;width:272px;background:#f1f5f9;border:1px solid rgba(255,255,255,.54);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 180px);contain:layout style;}
 .list-header{padding:.75rem 1rem;font-weight:600;font-size:.875rem;color:#334155;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
-.list-cards{padding:.5rem;flex:1;overflow-y:auto;min-height:40px}
-.list-cards.drag-over{background:rgba(99,102,241,.08);border-radius:8px}
-.kanban-card{background:#fff;border:1px solid rgba(226,232,240,.92);border-radius:8px;padding:.75rem;margin-bottom:.5rem;box-shadow:0 1px 2px rgba(15,23,42,.06);cursor:grab;transition:box-shadow .3s cubic-bezier(0.4, 0, 0.2, 1),transform .3s cubic-bezier(0.4, 0, 0.2, 1),border-color .3s cubic-bezier(0.4, 0, 0.2, 1);position:relative}
-.kanban-card:hover{box-shadow:0 10px 25px rgba(16,185,129,.2), 0 0 0 1px #10b981;border-color:#10b981;transform:translateY(-2px)}
+.list-cards{padding:.5rem;flex:1;overflow-y:auto;min-height:40px;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;scrollbar-width:thin;}
+/* Trello-Grade Smooth Drag and Drop */
+body.is-dragging-card { user-select: none !important; -webkit-user-select: none !important; cursor: grabbing !important; }
+body.is-dragging-card * { cursor: grabbing !important; }
+.list-cards.drag-over{background:rgba(99,102,241,.09);border-radius:10px;outline:2px dashed rgba(99,102,241,.45);outline-offset:-2px}
+.kanban-card{background:#fff;border:1px solid rgba(226,232,240,.92);border-radius:8px;padding:.75rem;margin-bottom:.5rem;box-shadow:0 1px 3px rgba(15,23,42,.06);cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;transition:box-shadow .15s cubic-bezier(0.2, 0, 0, 1),transform .15s cubic-bezier(0.2, 0, 0, 1),border-color .15s cubic-bezier(0.2, 0, 0, 1);position:relative;contain:layout style paint;content-visibility:auto;contain-intrinsic-size:0 100px;transform:translateZ(0);will-change:transform,box-shadow;}
+.kanban-card:hover{box-shadow:0 10px 25px rgba(16,185,129,.2), 0 0 0 1px #10b981;border-color:#10b981;transform:translateY(-2px) translateZ(0)}
+.kanban-card:active{cursor:grabbing}
 .kanban-card:hover .card-quick-btn{opacity:1}
-.kanban-card.dragging{opacity:.5;transform:rotate(2deg)}
+/* Trello Recessed Ghost Drop Slot */
+.sortable-ghost{opacity:.75!important;background:rgba(148,163,184,.18)!important;border:2px dashed #94a3b8!important;border-radius:10px!important;transform:none!important;box-shadow:inset 0 2px 6px rgba(0,0,0,.08)!important;pointer-events:none!important;visibility:visible!important}
+.sortable-ghost > *{opacity:0!important;visibility:hidden!important}
+.sortable-chosen{cursor:grabbing!important}
+/* Trello Floating 3D Lifted Card Under Cursor */
+.sortable-drag{opacity:1!important;transform:rotate(2.5deg) scale(1.025)!important;box-shadow:0 22px 40px -6px rgba(15,23,42,.32), 0 12px 18px -4px rgba(15,23,42,.2)!important;cursor:grabbing!important;z-index:99999!important;pointer-events:none!important;transition:none!important}
+.sortable-list-ghost{opacity:.55!important;background:rgba(148,163,184,.2)!important;border:2px dashed #94a3b8!important;border-radius:12px!important}
+.sortable-list-drag{transform:rotate(1.5deg) scale(1.01)!important;box-shadow:0 25px 50px -12px rgba(0,0,0,.35)!important;opacity:.95!important;z-index:9999!important}
+body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-chosen{content-visibility:visible!important;contain-intrinsic-size:none!important}
+/* Block / Waiting List Circle Icon & Custom Popup Tooltip */
+.block-fix-btn{width:24px;height:24px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s cubic-bezier(0.2,0,0,1);cursor:pointer}
+.block-fix-btn:hover{transform:scale(1.12)}
+.block-fix-btn:active{transform:scale(0.92)}
+.block-fix-tooltip{position:absolute;right:calc(100% + 9px);top:50%;transform:translateY(-50%) translateX(6px);opacity:0;visibility:hidden;pointer-events:none;z-index:1000;white-space:nowrap;display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:9px;font-size:11px;font-weight:700;letter-spacing:.02em;background:#0f172a;color:#f8fafc;box-shadow:0 10px 25px -3px rgba(0,0,0,.35),0 4px 6px -4px rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.14);transition:opacity .16s cubic-bezier(0.16,1,0.3,1),transform .16s cubic-bezier(0.16,1,0.3,1),visibility .16s;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.block-fix-tooltip::after{content:'';position:absolute;right:-5px;top:50%;transform:translateY(-50%) rotate(45deg);width:9px;height:9px;background:inherit;border-right:1px solid rgba(255,255,255,.14);border-top:1px solid rgba(255,255,255,.14)}
+.group\/blockfix:hover .block-fix-tooltip{opacity:1;visibility:visible;transform:translateY(-50%) translateX(0)}
+/* Dark & Neon Theme Overrides for Block Fix & Drag */
+[data-theme="dark"] .sortable-ghost{background:rgba(255,255,255,.06)!important;border:2px dashed rgba(148,163,184,.4)!important;box-shadow:inset 0 2px 10px rgba(0,0,0,.3)!important}
+[data-theme="dark"] .sortable-drag{box-shadow:0 24px 45px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.12)!important}
+[data-theme="dark"] .list-cards.drag-over{background:rgba(255,255,255,.04)!important;outline:2px dashed rgba(148,163,184,.4)}
+[data-theme="dark"] .block-fix-tooltip{background:#1e293b!important;border:1px solid #334155!important;color:#f1f5f9!important;box-shadow:0 12px 30px rgba(0,0,0,.6)!important}
+[data-theme="dark"] .block-fix-tooltip::after{background:#1e293b!important;border-right:1px solid #334155!important;border-top:1px solid #334155!important}
+[data-theme="dark"] .block-fix-btn.is-unfixed{border-color:#475569!important;background:#1e293b!important;color:#94a3b8!important}
+[data-theme="dark"] .block-fix-btn.is-unfixed:hover{border-color:#34d399!important;color:#34d399!important;background:rgba(16,185,129,.15)!important}
+[data-theme="dark"] .block-fix-btn.is-fixed{border-color:#10b981!important;background:rgba(16,185,129,.2)!important;color:#34d399!important}
+
+[data-theme="neon"] .sortable-ghost{background:rgba(0,160,255,.12)!important;border:2px dashed rgba(0,220,255,.7)!important;box-shadow:inset 0 0 16px rgba(0,180,255,.3)!important}
+[data-theme="neon"] .sortable-drag{border-color:#00f0ff!important;box-shadow:0 24px 50px rgba(0,0,0,.85), 0 0 30px rgba(0,200,255,.7)!important}
+[data-theme="neon"] .list-cards.drag-over{background:rgba(0,160,255,.1)!important;outline:2px dashed rgba(0,220,255,.6);box-shadow:inset 0 0 24px rgba(0,140,255,.2)!important}
+[data-theme="neon"] .block-fix-tooltip{background:rgba(3,14,44,.96)!important;border:1px solid rgba(0,190,255,.5)!important;color:#e0f2fe!important;box-shadow:0 12px 35px rgba(0,0,0,.8), 0 0 20px rgba(0,180,255,.35)!important}
+[data-theme="neon"] .block-fix-tooltip::after{background:rgba(3,14,44,.96)!important;border-right:1px solid rgba(0,190,255,.5)!important;border-top:1px solid rgba(0,190,255,.5)!important}
+[data-theme="neon"] .block-fix-btn.is-unfixed{border:1.5px solid rgba(0,180,255,.55)!important;background:rgba(0,30,80,.45)!important;color:#38bdf8!important;box-shadow:0 0 10px rgba(0,160,255,.25)!important}
+[data-theme="neon"] .block-fix-btn.is-unfixed:hover{border-color:#00f0ff!important;color:#ffffff!important;background:rgba(0,160,255,.3)!important;box-shadow:0 0 16px rgba(0,220,255,.6)!important}
+[data-theme="neon"] .block-fix-btn.is-fixed{border:1.5px solid rgba(16,185,129,.8)!important;background:rgba(16,185,129,.25)!important;color:#34d399!important;box-shadow:0 0 12px rgba(16,185,129,.45)!important}
+[data-theme="neon"] .block-fix-btn.is-fixed:hover{border-color:#34d399!important;background:rgba(16,185,129,.45)!important;color:#ffffff!important;box-shadow:0 0 20px rgba(16,185,129,.75)!important}
+
 .kanban-card-title{font-size:.95rem;line-height:1.3;font-weight:700;color:#1e293b;letter-spacing:0;margin-bottom:.5rem;padding-right:1.5rem}
 .kanban-card-meta{font-size:.875rem;line-height:1.25}
 .kanban-card-label{height:.6rem;width:3.25rem;border-radius:999px}
@@ -168,32 +207,33 @@
 		.page-content { padding: 0 !important; }
 		.board-wrap {
 			min-height: calc(100dvh - 40px - 50px - env(safe-area-inset-bottom,0px) - 2rem);
-			padding: .25rem 7.5vw;
-			gap: 1rem;
-			scroll-snap-type: x mandatory;
+			padding: .25rem 1rem calc(80px + env(safe-area-inset-bottom, 0px)) 1rem !important;
+			gap: 0.875rem;
 			scroll-behavior: smooth;
+			-webkit-overflow-scrolling: touch;
 		}
 		.board-list {
-			width: 85vw;
+			width: calc(100vw - 2.5rem) !important;
+			max-width: 320px !important;
+			flex-shrink: 0 !important;
 			max-height: calc(100dvh - 40px - 50px - env(safe-area-inset-bottom,0px) - 3rem);
-			scroll-snap-align: center;
 		}
-		/* Board header: drastically compact on mobile */
-		.board-header-mobile { flex-wrap: wrap; gap: .25rem; padding: .35rem; margin-bottom: .25rem; border-radius: .5rem; }
-		.board-header-mobile h1 { font-size: 1rem; line-height: 1.1; margin: 0; }
-		.board-header-mobile .btn { padding: .2rem .35rem; font-size: .75rem; height: auto; }
+		/* Board header: compact and responsive on mobile */
+		.board-header-mobile { flex-wrap: wrap !important; gap: .35rem; padding: .4rem .6rem; margin-bottom: .35rem; border-radius: .75rem; }
+		.board-header-mobile h1 { font-size: 1rem; line-height: 1.2; margin: 0; }
+		.board-header-mobile .btn { padding: .25rem .45rem; font-size: .75rem; height: auto; }
 		.board-header-mobile .zoom-container { display: none !important; }
 		/* Member avatars: fewer overlap */
 		.board-member-stack img { width: 1.5rem; height: 1.5rem; }
 		/* kanban cards: Trello compact font */
-		.kanban-card-title { font-size: 1rem; }
+		.kanban-card-title { font-size: 0.95rem; }
 		/* Make quick action button easy to click on mobile */
-		.card-quick-btn { opacity: 1; width: 38px; height: 38px; top: 6px; right: 6px; border-radius: 8px; }
+		.card-quick-btn { opacity: 1; width: 36px; height: 36px; top: 6px; right: 6px; border-radius: 8px; }
 		.card-quick-btn svg { width: 18px; height: 18px; }
 	}
 	@media (max-width: 480px) {
-		.board-list { width: 85vw; }
-		.board-wrap { padding: .5rem 7.5vw; gap: 1rem; }
+		.board-list { width: calc(100vw - 2rem) !important; max-width: 310px !important; }
+		.board-wrap { padding: .25rem 0.75rem calc(85px + env(safe-area-inset-bottom, 0px)) 0.75rem !important; gap: 0.75rem; }
 	}
 
 	/* Zoom Control Styling */
@@ -580,7 +620,7 @@
 <div class="flex-1 flex flex-col min-h-full board-canvas-root" style="{{ $serverStyle }}" :style="sbmBoardPreviewStyle(board)" data-bg-type="{{ $board->background_type }}" x-data='trelloBoard(@json($boardData))' x-init="init()">
 
 {{-- ── Board header ────────────── --}}
-<div class="relative sm:sticky sm:top-[64px] lg:top-[76px] z-[45] flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-nowrap lg:flex-nowrap bg-white dark:bg-slate-800 sm:bg-white/65 sm:dark:bg-slate-800/80 sm:backdrop-blur-xl p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-200/60 dark:border-slate-700 sm:dark:border-slate-700/60 shadow-md board-header-mobile">
+<div class="relative sm:sticky sm:top-[64px] lg:top-[76px] z-[45] flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-wrap sm:flex-nowrap bg-white dark:bg-slate-800 sm:bg-white/65 sm:dark:bg-slate-800/80 sm:backdrop-blur-xl p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-200/60 dark:border-slate-700 sm:dark:border-slate-700/60 shadow-md board-header-mobile">
   <div class="relative flex items-center gap-2">
     <div>
       <nav class="hidden sm:block text-xs text-slate-400 mb-0.5">
@@ -662,7 +702,7 @@
                  x-model.debounce.150ms="searchQuery"
                  type="search"
                  class="form-input w-full rounded-xl pl-9 text-sm"
-                 placeholder="Type card name...">
+                 placeholder="Search card or public date (e.g. 25/09/2026)...">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6.04 6.04a7.5 7.5 0 0 0 10.61 10.61Z" />
           </svg>
@@ -733,20 +773,40 @@
                   <option value="unapproved">Unapproved</option>
                 </select>
               </label>
+
+              {{-- Public Date Filter --}}
+              <label class="block">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="block text-[11px] font-bold text-slate-500">Public Date</span>
+                  <button type="button" x-show="filterPublicDate" @click="filterPublicDate = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+                </div>
+                <input type="date" x-model="filterPublicDate" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200 text-slate-700">
+              </label>
             </div>
           </template>
 
           {{-- Standard Filters --}}
           <template x-if="!(board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow')">
-            <label class="block">
-              <span class="block text-[11px] font-bold text-slate-500 mb-1">Member</span>
-              <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs">
-                <option value="">All members</option>
-                <template x-for="member in allBoardMembers" :key="member.id">
-                  <option :value="member.id" x-text="member.name"></option>
-                </template>
-              </select>
-            </label>
+            <div class="space-y-3">
+              <label class="block">
+                <span class="block text-[11px] font-bold text-slate-500 mb-1">Member</span>
+                <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs">
+                  <option value="">All members</option>
+                  <template x-for="member in allBoardMembers" :key="member.id">
+                    <option :value="member.id" x-text="member.name"></option>
+                  </template>
+                </select>
+              </label>
+
+              {{-- Public / Due Date Filter --}}
+              <label class="block">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="block text-[11px] font-bold text-slate-500">Public / Due Date</span>
+                  <button type="button" x-show="filterPublicDate" @click="filterPublicDate = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+                </div>
+                <input type="date" x-model="filterPublicDate" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200 text-slate-700">
+              </label>
+            </div>
           </template>
 
 
@@ -975,33 +1035,61 @@
                       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                     </svg>
                   </template>
-                  <button type="button"
-                          x-show="isBlockList(list) && currentUser.can_manage_blocked_cards"
-                          x-cloak
-                          @click.stop="completeBlockedCard(card, list)"
-                          :class="card.block_completed_at
-                            ? 'border-emerald-300 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white'
-                            : 'border-slate-300 bg-white text-slate-300 hover:border-emerald-400 hover:text-emerald-500'"
-                          class="w-5 h-5 rounded-full border flex flex-shrink-0 items-center justify-center mt-0.5 transition"
-                          :title="card.block_completed_at ? 'Mark blocked card not fixed' : 'Mark blocked card fixed'">
-                    <svg x-show="!card.block_completed_at" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.4" stroke="currentColor"><circle cx="12" cy="12" r="8.5" /></svg>
-                    <svg x-show="card.block_completed_at" x-cloak class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                  </button>
-                  <svg x-show="isBlockList(list) && card.block_completed_at && !currentUser.can_manage_blocked_cards"
-                       x-cloak
-                       class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5 drop-shadow-sm"
-                       fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
+                  {{-- Block / Waiting List Fix Indicator & Action with High-Quality UI Tooltip --}}
+                  <div x-show="isBlockList(list)" x-cloak class="relative flex items-center group/blockfix flex-shrink-0 mt-0.5" data-no-drag>
+                    {{-- Action button for supervisors / managers --}}
+                    <button type="button"
+                            x-show="currentUser.can_manage_blocked_cards"
+                            @click.stop="completeBlockedCard(card, list)"
+                            :class="card.block_completed_at
+                              ? 'is-fixed border-emerald-400 bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/30 hover:bg-emerald-500 hover:text-white dark:border-emerald-400 dark:bg-emerald-500/25 dark:text-emerald-300'
+                              : 'is-unfixed border-slate-300 bg-white text-slate-400 ring-1 ring-slate-200/80 hover:border-emerald-400 hover:text-emerald-500 hover:bg-emerald-50/50 dark:border-cyan-500/40 dark:bg-slate-900/60 dark:text-cyan-400 dark:ring-cyan-500/20 dark:hover:border-cyan-300 dark:hover:bg-cyan-500/20'"
+                            class="block-fix-btn shadow-sm active:scale-95"
+                            aria-label="Toggle Block Status">
+                      <svg x-show="!card.block_completed_at" class="w-3.5 h-3.5 pointer-events-none stroke-[2.4]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <circle cx="12" cy="12" r="8.5" />
+                      </svg>
+                      <svg x-show="card.block_completed_at" x-cloak class="w-3.5 h-3.5 pointer-events-none stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                      </svg>
+                    </button>
+
+                    {{-- Read-only icon for non-managers --}}
+                    <div x-show="!currentUser.can_manage_blocked_cards"
+                         :class="card.block_completed_at
+                           ? 'is-fixed border-emerald-400 bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/30 dark:border-emerald-400 dark:bg-emerald-500/25 dark:text-emerald-300'
+                           : 'is-unfixed border-slate-300 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500'"
+                         class="block-fix-btn cursor-default shadow-sm">
+                      <svg x-show="!card.block_completed_at" class="w-3.5 h-3.5 pointer-events-none stroke-[2.4]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <circle cx="12" cy="12" r="8.5" />
+                      </svg>
+                      <svg x-show="card.block_completed_at" x-cloak class="w-3.5 h-3.5 pointer-events-none stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                      </svg>
+                    </div>
+
+                    {{-- Custom UI Tooltip Pop-up --}}
+                    <div class="block-fix-tooltip" role="tooltip">
+                      <span class="w-2 h-2 rounded-full flex-shrink-0"
+                            :class="card.block_completed_at
+                              ? (currentUser.can_manage_blocked_cards ? 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' : 'bg-emerald-400 shadow-[0_0_8px_#34d399]')
+                              : 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse'"></span>
+                      <span class="block-fix-tooltip-text font-semibold text-xs tracking-wide"
+                            x-text="currentUser.can_manage_blocked_cards
+                              ? (card.block_completed_at ? 'Unmark' : 'Mark to fix')
+                              : (card.block_completed_at ? 'Fixed by Supervisor' : 'Pending Fix')"></span>
+                    </div>
+                  </div>
                 </div>
 
                 {{-- Meta row --}}
                 <div class="flex items-center gap-2 flex-wrap">
-                  {{-- Due date --}}
-                  <span x-show="card.due_at"
-                        :class="isOverdue(card) ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'"
+                  {{-- Due date / Public date --}}
+                  <span x-show="card.content_public_date || card.due_at"
+                        :class="isOverdue(card) ? 'bg-red-100 text-red-600' : (card.content_public_date ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' : 'bg-slate-100 text-slate-500')"
                         class="kanban-card-meta font-bold px-2 py-1 rounded-lg"
-                        x-text="formatDate(card.due_at)"></span>
+                        x-text="formatDate(card.content_public_date || card.due_at)"
+                        :title="(card.content_public_date ? 'Public Date: ' : 'Due Date: ') + formatDateShort(card.content_public_date || card.due_at)"></span>
 
                   {{-- Checklist --}}
                   <span x-show="card.checklist_total > 0"

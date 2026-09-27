@@ -57,6 +57,56 @@ class SocialMediaClass extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Map common aliases/variations of class names to their canonical SocialMediaClass name.
+     */
+    public static function canonicalName(?string $name): string
+    {
+        $raw = trim((string)$name);
+        if ($raw === '') {
+            return '';
+        }
+
+        $clean = preg_replace('/[^a-z0-9]/', '', strtolower($raw));
+
+        // 1. MachineryBargains (aliases: Machinery.Bargains, Machinery Bargains, machinerybargains, etc.)
+        if ($clean === 'machinerybargains' || str_contains($clean, 'machinerybargain')) {
+            return 'MachineryBargains';
+        }
+
+        // 2. SkidSteers (aliases: SkidSteer, Skid Steer, SkidSteers, skidsteer, american skidsteer, etc.)
+        if (str_starts_with($clean, 'skidsteer') || str_contains($clean, 'skidsteer')) {
+            return 'SkidSteers';
+        }
+
+        // 3. MiniExca (aliases: Mini Exca, MiniExcavator, miniexca, etc.)
+        if (str_starts_with($clean, 'miniexca')) {
+            return 'MiniExca';
+        }
+
+        // 4. MachineryAsia.Online (aliases: MachineryAsia Online, Machinery Asia Online, etc.)
+        if (str_contains($clean, 'machineryasia') && str_contains($clean, 'online')) {
+            return 'MachineryAsia.Online';
+        }
+
+        // 5. MachineryAsia (FB)
+        if (str_contains($clean, 'machineryasia') && (str_contains($clean, 'fb') || str_contains($clean, 'facebook'))) {
+            return 'MachineryAsia (FB)';
+        }
+
+        // 6. ImpossibleMachinery
+        if ($clean === 'impossiblemachinery' || str_contains($clean, 'impossiblemachin')) {
+            return 'ImpossibleMachinery';
+        }
+
+        // 7. Machinery.Org
+        if ($clean === 'machineryorg') {
+            return 'Machinery.Org';
+        }
+
+        return $raw;
+    }
+
     // ─── Scopes ───────────────────────────────────────────────────────────────
 
     public function scopeActive($query)

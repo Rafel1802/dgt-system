@@ -1979,10 +1979,10 @@ class BoardController extends Controller
     /** Helper to get all workspaces and boards a user can access. */
     private function getAuthorizedWorkspaces(\App\Models\User $user)
     {
+        $userId = $user->id;
         $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
         $isHead = str_contains(strtolower($user->team_role ?? ''), 'head');
         $canSeeSMM = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'supervisor', 'boss', 'digital-team']) || $isQc || $isHead;
-        $userId = $user->id;
 
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
             $workspaces = Workspace::with([

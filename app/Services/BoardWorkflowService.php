@@ -20,13 +20,12 @@ class BoardWorkflowService
         $board = $card->board;
         if (!$board) return;
 
-        $template = $board->is_template ? null : ($board->name ?? '');
-        $isPlanning = stripos($template, 'Planning board') !== false || $board->is_template; // Adjust condition if we use a specific DB column later
-        
-        // Better check: use standard checking if template name is preserved in the board's name, or if we can track it.
-        // Actually, let's just check the board name prefixes.
-        $isPlanning = stripos($board->name ?? '', 'Planning board') !== false;
-        $isWorkflow = stripos($board->name ?? '', 'Workflow board') !== false;
+        $isPlanning = stripos($board->name ?? '', 'planning') !== false 
+            || $board->type === 'smm' 
+            || !empty($board->is_active_smm) 
+            || $board->is_template;
+
+        $isWorkflow = stripos($board->name ?? '', 'workflow') !== false;
 
         if ($isPlanning) {
             $this->handlePlanningBoardComment($card, $comment);
@@ -38,86 +37,127 @@ class BoardWorkflowService
     private function handlePlanningBoardComment(Card $card, CardComment $newComment)
     {
         $text = trim(strtolower($newComment->content ?? $newComment->body));
-        
-        if (!str_contains($text, 'ready')) {
+        $user = $newComment->user ?? \App\Models\User::find($newComment->user_id);
+        $isAdmin = $user && ($user->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || $user->isSupervisorRole());
+        $isQcUser = $user && ($user->isQc() || $user->hasRole('qc') || stripos($user->team_role ?? '', 'qc') !== false || stripos($user->name ?? '', 'dara') !== false);
+        $isSupervisorUser = $user && ($user->isSupervisorRole() || $user->hasRole('supervisor') || stripos($user->team_role ?? '', 'supervisor') !== false);
+
+        // 1. Ready comments (e.g. "Ready", "caption ready")
+        if (str_contains($text, 'ready')) {
+            $assignees = $card->assignees;
+            if ($isAdmin || $assignees->count() === 0 || $assignees->contains('id', $newComment->user_id)) {
+                $this->triggerPlanningToWorkflowCopy($card);
+            }
+
+            // Auto-move to Final Captions on SMM Planning Board if they comment "caption ready"
+            if (str_contains($text, 'caption ready')) {
+                $board = $card->board;
+                if ($board) {
+                    $finalList = $board->lists()->where('name', 'like', '%Final Captions%')->first();
+                    if ($finalList && $card->board_list_id !== $finalList->id) {
+                        $card->update(['board_list_id' => $finalList->id]);
+                        app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
+                            $card,
+                            "Card automatically moved to **{$finalList->name}**."
+                        );
+                    }
+                }
+            }
             return;
         }
 
-        // Verify the author is an assignee or admin
-        $user = $newComment->user ?? \App\Models\User::find($newComment->user_id);
-        $isAdmin = $user && ($user->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || $user->isSupervisorRole());
-        $assignees = $card->assignees;
-        if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', $newComment->user_id)) {
-            return; // Commenter is not assigned
+        // 2. SMM QC Approval (e.g. "QC approved SMM", "QC approved") or Supervisor Approval ("Approved")
+        $isQcApproved = str_contains($text, 'qc approved') || str_contains($text, 'approved smm');
+        $isSupervisorApproved = str_contains($text, 'approved') && !str_contains($text, 'qc') && !str_contains($text, 'head') && !str_contains($text, 'team');
+
+        if (($isQcApproved && ($isAdmin || $isQcUser)) || ($isSupervisorApproved && ($isAdmin || $isSupervisorUser))) {
+            $card->update([
+                'status' => 'approved',
+                'approved_at' => $card->approved_at ?? now(),
+            ]);
+            $actorName = $user?->name ?? 'System';
+            $approverType = $isQcApproved ? 'QC' : 'Supervisor';
+            app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
+                $card,
+                "Card approved by {$approverType} ({$actorName})."
+            );
+            $this->syncListStateAcrossBoards($card, 'Approved');
+            return;
         }
 
-        // Trigger the workflow immediately if ANY assignee comments "Ready"
-        $this->triggerPlanningToWorkflowCopy($card);
-        
-        // Auto-move to Final Captions on SMM Planning Board if they comment "caption ready"
-        if (str_contains($text, 'caption ready')) {
+        // 3. Supervisor / Admin Block or Reject on Planning Board (moves to Block/Waiting if list exists or created)
+        if ((str_contains($text, 'blocked') || str_contains($text, 'reject') || $text === 'block') && ($isAdmin || $isSupervisorUser)) {
             $board = $card->board;
             if ($board) {
-                $finalList = $board->lists()->where('name', 'like', '%Final Captions%')->first();
-                if ($finalList && $card->board_list_id !== $finalList->id) {
-                    $card->update(['board_list_id' => $finalList->id]);
+                $blockList = $board->lists()->where(function($q) {
+                    $q->where('name', 'like', '%block%')
+                      ->orWhere('name', 'like', '%waiting%');
+                })->first();
+                if (!$blockList) {
+                    $blockList = $board->lists()->create([
+                        'name' => 'Block/Waiting',
+                        'position' => ($board->lists()->max('position') ?? 0) + 1,
+                    ]);
+                }
+                if ($blockList && $card->board_list_id !== $blockList->id) {
+                    $card->update(['board_list_id' => $blockList->id]);
+                    $actorName = $user?->name ?? 'System';
                     app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
                         $card,
-                        "Card automatically moved to **{$finalList->name}**."
+                        "Card moved to **{$blockList->name}** by Supervisor ({$actorName})."
                     );
+                    $this->syncListStateAcrossBoards($card, 'Block/Waiting');
                 }
             }
+            return;
         }
     }
 
-    private function triggerPlanningToWorkflowCopy(Card $card)
+    public function triggerPlanningToWorkflowCopy(Card $card)
     {
-        // Find matching Workflow board in the same workspace with the same month/year
         $planningBoard = $card->board;
-        
-        // 1. Try to match by Month Year (e.g. "September 2026")
-        $workflowBoard = null;
-        if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i', $planningBoard->name, $matches)) {
-            $monthYear = $matches[0];
-            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
-                ->where('name', 'like', '%Workflow%')
-                ->where('name', 'like', '%' . $monthYear . '%')
-                ->first();
+        if (!$planningBoard) {
+            return;
         }
 
-        if (!$workflowBoard) {
-            // 2. Fallback to basic string replacement match
-            $suffix = trim(str_ireplace('Planning board', '', $planningBoard->name));
-            $workflowBoardName = trim("Workflow board " . $suffix);
+        $isSmmBoard = $planningBoard->type === 'smm'
+            || !empty($planningBoard->is_active_smm)
+            || stripos($planningBoard->name ?? '', 'smm') !== false
+            || stripos($planningBoard->workspace?->name ?? '', 'social media') !== false
+            || ($card->relationLoaded('labels') && $card->labels->contains(fn($l) => strcasecmp($l->name, 'smm') === 0));
 
-            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
-                ->where('name', $workflowBoardName)
-                ->first();
+        // If SMM board, ensure card is distributed to the team planning board first if not already distributed
+        if ($isSmmBoard) {
+            try {
+                $this->distributeSmmCardToTeam($card);
+            } catch (\Throwable $e) {
+                \Log::warning("Error distributing SMM card to team planning board: " . $e->getMessage());
+            }
         }
 
-        if (!$workflowBoard) {
-            // 3. Fallback to ANY workflow board in the workspace
-            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
-                ->where('name', 'like', '%Workflow%')
-                ->latest()
-                ->first();
+        // Ensure sync_group_id exists on the card
+        if (!$card->sync_group_id) {
+            Card::withoutEvents(function () use ($card) {
+                $card->sync_group_id = (string)Str::uuid();
+                $card->save();
+            });
         }
 
+        $workflowBoard = $this->findWorkflowBoardForCard($card);
         if (!$workflowBoard) {
             return; // Nowhere to copy
         }
 
-        // Find "Draft" list
+        // Find or create "Draft" list
         $draftList = $workflowBoard->lists()->where('name', 'like', '%Draft%')->first();
         if (!$draftList) {
-            // Create it if missing
             $draftList = $workflowBoard->lists()->create([
                 'name' => 'Draft',
                 'position' => 1
             ]);
         }
 
-        // Check if card is already synced to avoid duplicate copies
+        // Check if card is already synced to avoid duplicate copies on this workflow board
         if ($card->sync_group_id) {
             $existingTwin = Card::where('sync_group_id', $card->sync_group_id)
                 ->where('board_id', $workflowBoard->id)
@@ -127,14 +167,190 @@ class BoardWorkflowService
             }
         }
 
-        // Replicate and sync
-        $card->replicateRelationally($workflowBoard->id, $draftList->id, $card->title, null, true);
+        // Replicate and sync (copies assignees, labels, checklists, sync_group_id)
+        $copy = $card->replicateRelationally($workflowBoard->id, $draftList->id, $card->title, null, true);
         
-        // Add a system comment
+        // Add a system comment on the source card
         app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
             $card, 
             "All assignees are ready. Card automatically copied to **{$workflowBoard->name}** (List: Draft)."
         );
+
+        // Add a system comment on the new copy
+        $actor = auth()->user();
+        $actorName = $actor?->name ?? 'System';
+        try {
+            $copy->comments()->create([
+                'user_id' => $actor?->id ?? $card->created_by ?? 1,
+                'content' => "Card automatically copied from **{$planningBoard->name}** (List: {$card->boardList?->name}) by {$actorName}.",
+                'is_system' => true,
+            ]);
+        } catch (\Throwable $e) {
+            // Ignore comment error
+        }
+    }
+
+    /**
+     * Find the matching workflow board for a card from either a team planning board or SMM planning board.
+     */
+    public function findWorkflowBoardForCard(Card $card): ?Board
+    {
+        $planningBoard = $card->board;
+        if (!$planningBoard) {
+            return null;
+        }
+
+        $isSmmBoard = $planningBoard->type === 'smm'
+            || !empty($planningBoard->is_active_smm)
+            || stripos($planningBoard->name ?? '', 'smm') !== false
+            || stripos($planningBoard->workspace?->name ?? '', 'social media') !== false
+            || ($card->relationLoaded('labels') && $card->labels->contains(fn($l) => strcasecmp($l->name, 'smm') === 0));
+
+        // Extract Month Year e.g. "September 2026", "August 2026", "July 2026"
+        $monthYear = null;
+        $monthName = null;
+        if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i', $planningBoard->name ?? '', $matches)) {
+            $monthYear = $matches[0];
+            $monthName = $matches[1];
+        } elseif (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)/i', $planningBoard->name ?? '', $matches)) {
+            $monthName = $matches[1];
+        }
+
+        if ($isSmmBoard) {
+            // 1. If card already has a twin on a team planning board, look at that team board's workspace
+            $targetWorkspace = null;
+            if ($card->sync_group_id) {
+                $teamTwin = Card::where('sync_group_id', $card->sync_group_id)
+                    ->where('id', '!=', $card->id)
+                    ->whereHas('board', function ($bq) {
+                        $bq->where('type', '!=', 'smm')
+                           ->where('name', 'not like', '%smm%')
+                           ->where('name', 'not like', '%Workflow%');
+                    })
+                    ->first();
+                if ($teamTwin && $teamTwin->board && $teamTwin->board->workspace) {
+                    $targetWorkspace = $teamTwin->board->workspace;
+                }
+            }
+
+            // 2. If not found via twin, resolve team label and match workspace
+            if (!$targetWorkspace) {
+                $resolvedLabel = $this->resolveSmmTeamLabel($card);
+                $clean = fn(string $s) => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $s));
+                $normLabel = $resolvedLabel ? $clean($resolvedLabel) : '';
+
+                $workspaces = Workspace::with(['boards.lists'])->get();
+
+                foreach ($workspaces as $workspace) {
+                    if ($workspace->id === $planningBoard->workspace_id) {
+                        continue;
+                    }
+                    if (stripos($workspace->name, 'social media') !== false || stripos($workspace->name, 'smm') !== false) {
+                        continue;
+                    }
+
+                    $normWs = $clean($workspace->name);
+                    if (!empty($normLabel) && (str_contains($normWs, $normLabel) || str_contains($normLabel, $normWs))) {
+                        $targetWorkspace = $workspace;
+                        break;
+                    }
+
+                    $keywords = ['graphic', 'video', 'listing', 'content', 'qc', 'technical', 'writer', 'design'];
+                    foreach ($keywords as $kw) {
+                        if (str_contains($normLabel, $kw) && str_contains($normWs, $kw)) {
+                            $targetWorkspace = $workspace;
+                            break 2;
+                        }
+                    }
+                }
+            }
+
+            // 3. Find Workflow board in the target workspace
+            if ($targetWorkspace && $targetWorkspace->boards->isNotEmpty()) {
+                if ($monthYear) {
+                    $matched = $targetWorkspace->boards->first(function ($board) use ($monthYear) {
+                        return !$board->is_archived
+                            && (stripos($board->name, 'Workflow') !== false || $board->type === 'workflow')
+                            && stripos($board->name, $monthYear) !== false;
+                    });
+                    if ($matched) return $matched;
+                }
+
+                if ($monthName) {
+                    $matched = $targetWorkspace->boards->first(function ($board) use ($monthName) {
+                        return !$board->is_archived
+                            && (stripos($board->name, 'Workflow') !== false || $board->type === 'workflow')
+                            && stripos($board->name, $monthName) !== false;
+                    });
+                    if ($matched) return $matched;
+                }
+
+                $workflowBoard = $targetWorkspace->boards->first(function ($board) {
+                    return !$board->is_archived && (stripos($board->name, 'Workflow') !== false || $board->type === 'workflow');
+                });
+                if ($workflowBoard) return $workflowBoard;
+            }
+
+            // 4. Fallback across all workspaces (exclude SMM)
+            $workflowQuery = Board::whereHas('workspace', function ($wq) {
+                $wq->where('name', 'not like', '%social media%')
+                   ->where('name', 'not like', '%smm%');
+            })->where(function ($bq) {
+                $bq->where('name', 'like', '%Workflow%')
+                   ->orWhere('type', 'workflow');
+            });
+
+            if ($monthYear) {
+                $monthMatch = (clone $workflowQuery)->where('name', 'like', "%{$monthYear}%")->first();
+                if ($monthMatch) return $monthMatch;
+            }
+
+            return $workflowQuery->first();
+        }
+
+        // Standard Team Planning Board (Workflow board is in the same workspace)
+        $workflowBoard = null;
+        if ($monthYear) {
+            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
+                ->where(function ($q) {
+                    $q->where('name', 'like', '%Workflow%')
+                      ->orWhere('type', 'workflow');
+                })
+                ->where('name', 'like', '%' . $monthYear . '%')
+                ->first();
+        }
+
+        if (!$workflowBoard && $monthName) {
+            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
+                ->where(function ($q) {
+                    $q->where('name', 'like', '%Workflow%')
+                      ->orWhere('type', 'workflow');
+                })
+                ->where('name', 'like', '%' . $monthName . '%')
+                ->first();
+        }
+
+        if (!$workflowBoard) {
+            $suffix = trim(str_ireplace(['Planning board', 'Planning'], '', $planningBoard->name ?? ''));
+            if ($suffix) {
+                $workflowBoardName = trim("Workflow board " . $suffix);
+                $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
+                    ->where('name', $workflowBoardName)
+                    ->first();
+            }
+        }
+
+        if (!$workflowBoard) {
+            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
+                ->where(function ($q) {
+                    $q->where('name', 'like', '%Workflow%')
+                      ->orWhere('type', 'workflow');
+                })
+                ->latest()
+                ->first();
+        }
+
+        return $workflowBoard;
     }
 
     private function handleWorkflowBoardComment(Card $card, CardComment $newComment)
@@ -144,6 +360,14 @@ class BoardWorkflowService
         if (!$user) return;
         $role = strtolower(trim($user->team_role ?? ''));
         $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || $user->isSupervisorRole();
+        $isQcUser = $isAdmin || $user->isQc() || $user->hasRole('qc') || str_contains($role, 'qc') || stripos($user->name ?? '', 'dara') !== false;
+        $isSupervisorUser = $isAdmin || $user->isSupervisorRole() || $user->hasRole('supervisor') || str_contains($role, 'supervisor');
+
+        // 0. Supervisor Blocked / Rejected rule (applies across ALL lists on workflow boards)
+        if ((str_contains($text, 'blocked') || str_contains($text, 'reject') || $text === 'block') && $isSupervisorUser) {
+            $this->moveCardToList($card, 'Block/Waiting', "Blocked by Supervisor ({$user->name})", 'Block/Waiting');
+            return;
+        }
 
         $currentList = strtolower(trim($card->boardList->name ?? ''));
 
@@ -163,8 +387,8 @@ class BoardWorkflowService
 
         // 3. QC Review rules
         elseif (str_contains($currentList, 'qc')) {
-            if ($isAdmin || str_contains($role, 'qc')) {
-                if (str_contains($text, 'qc approved')) {
+            if ($isQcUser) {
+                if (str_contains($text, 'qc approved') || str_contains($text, 'approved smm')) {
                     $this->moveCardToList($card, 'Supervisor', "QC Approved by {$user->name}", 'Supervisor Review (Ms. Somalika)');
                 } elseif (str_contains($text, 'error')) {
                     $this->moveCardToList($card, 'Draft', "Error reported by QC ({$user->name})", 'Draft');
@@ -174,10 +398,10 @@ class BoardWorkflowService
 
         // 4. Supervisor rules
         elseif (str_contains($currentList, 'supervisor')) {
-            if ($isAdmin || str_contains($role, 'supervisor')) {
+            if ($isSupervisorUser) {
                 if (str_contains($text, 'approved') && !str_contains($text, 'qc') && !str_contains($text, 'head') && !str_contains($text, 'team')) {
                     $this->moveCardToList($card, 'Approved', "Approved by Supervisor ({$user->name})", 'Approved');
-                } elseif (str_contains($text, 'rejected')) {
+                } elseif (str_contains($text, 'rejected') || str_contains($text, 'blocked') || str_contains($text, 'block')) {
                     $this->moveCardToList($card, 'Block/Waiting', "Rejected by Supervisor ({$user->name})", 'Block/Waiting');
                 }
             }
@@ -188,12 +412,22 @@ class BoardWorkflowService
     {
         $createName = $createName ?? $searchStr;
         $board = $card->board;
-        $targetList = $board->lists()->where('name', 'like', "%{$searchStr}%")->first();
+        if (!$board) return;
+
+        $targetList = null;
+        if (str_contains(strtolower($searchStr), 'block')) {
+            $targetList = $board->lists()->where(function($q) {
+                $q->where('name', 'like', '%block%')
+                  ->orWhere('name', 'like', '%waiting%');
+            })->first();
+        } else {
+            $targetList = $board->lists()->where('name', 'like', "%{$searchStr}%")->first();
+        }
         
         if (!$targetList) {
             $targetList = $board->lists()->create([
                 'name' => $createName,
-                'position' => $board->lists()->max('position') + 1
+                'position' => ($board->lists()->max('position') ?? 0) + 1
             ]);
         }
 
@@ -205,7 +439,7 @@ class BoardWorkflowService
         );
         
         // Also trigger the cross-board list sync if it's Block/Waiting or Approved
-        if (str_contains(strtolower($createName), 'block/waiting')) {
+        if (str_contains(strtolower($createName), 'block')) {
             $this->syncListStateAcrossBoards($card, 'Block/Waiting');
         } elseif (str_contains(strtolower($createName), 'approved')) {
             $card->update([
@@ -253,32 +487,38 @@ class BoardWorkflowService
             if (str_contains(strtolower($targetListName), 'block') && 
                 (stripos($twinBoard->name, 'Planning board') !== false || stripos($twinBoard->name, 'planning') !== false || $twinBoard->is_template)) {
                 
+                $sourceName = $card->board?->name ?? 'connected board';
                 $twin->comments()->create([
-                    'user_id' => auth()->id() ?? 1,
-                    'content' => "Card on the connected Workflow board was moved to **Block/Waiting**.",
+                    'user_id' => auth()->id() ?? $twin->created_by ?? 1,
+                    'content' => "Card on {$sourceName} was moved to **Block/Waiting**.",
                     'is_system' => true,
                 ]);
                 continue; // Skip the list moving logic!
             }
 
-            $twinList = $twinBoard->lists()->where('name', 'like', "%{$targetListName}%")->first();
+            $twinList = null;
+            if (str_contains(strtolower($targetListName), 'block')) {
+                $twinList = $twinBoard->lists()->where(function($q) {
+                    $q->where('name', 'like', '%block%')
+                      ->orWhere('name', 'like', '%waiting%');
+                })->first();
+            } else {
+                $twinList = $twinBoard->lists()->where('name', 'like', "%{$targetListName}%")->first();
+            }
             
             // Auto-create the list if it doesn't exist on the synced board
             if (!$twinList) {
                 $twinList = $twinBoard->lists()->create([
                     'name' => $targetListName,
-                    'position' => $twinBoard->lists()->max('position') + 1
+                    'position' => ($twinBoard->lists()->max('position') ?? 0) + 1
                 ]);
             }
 
             if ($twinList && $twin->board_list_id !== $twinList->id) {
-                // We use Card::withoutEvents to prevent infinite recursion if we add observer hooks later
-                // But for now just updating is fine since we aren't hooking `updated` for list syncs yet, 
-                // wait, Card::updated *does* sync fields, but not board_list_id! So it's safe.
                 $twin->update(['board_list_id' => $twinList->id]);
                 
                 $twin->comments()->create([
-                    'user_id' => auth()->id(),
+                    'user_id' => auth()->id() ?? $twin->created_by ?? 1,
                     'content' => "Card automatically moved to **{$twinList->name}** (Synced from connected board).",
                     'is_system' => true,
                 ]);

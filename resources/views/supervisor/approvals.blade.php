@@ -58,26 +58,26 @@
   @endphp
 
   {{-- ── Hero Banner ──────────────────────────────────────────────────────── --}}
-  <div class="relative overflow-hidden rounded-2xl mb-6 sticky top-[80px] z-30 shadow-lg shadow-indigo-200/50" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 40%, #818cf8 100%)">
+  <div class="relative overflow-hidden rounded-2xl mb-6 sm:sticky sm:top-[80px] z-30 shadow-lg shadow-indigo-200/50" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 40%, #818cf8 100%)">
     {{-- Pattern overlay --}}
     <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size: 28px 28px;"></div>
-    <div class="relative flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 px-7 py-6">
+    <div class="relative flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 p-4 sm:p-6 lg:px-7 lg:py-6">
       
-      <div class="flex items-center gap-5">
-        <div class="flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center" style="background:rgba(255,255,255,0.15); backdrop-filter:blur(8px)">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="white" class="w-8 h-8">
+      <div class="flex items-center gap-4 sm:gap-5">
+        <div class="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center" style="background:rgba(255,255,255,0.15); backdrop-filter:blur(8px)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="white" class="w-6 h-6 sm:w-8 sm:h-8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
           </svg>
         </div>
         <div>
-          <p class="text-[11px] font-bold uppercase tracking-widest text-indigo-200 mb-0.5">Pipeline Overview</p>
-          <h2 class="text-3xl font-black text-white leading-tight">All Card Status</h2>
-          <p class="text-sm text-indigo-100 mt-1 max-w-lg">Live snapshot of every task across all workflow boards — from drafting through to supervisor approval.</p>
+          <p class="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-indigo-200 mb-0.5">Pipeline Overview</p>
+          <h2 class="text-2xl sm:text-3xl font-black text-white leading-tight">All Card Status</h2>
+          <p class="text-xs sm:text-sm text-indigo-100 mt-1 max-w-lg">Live snapshot of every task across all workflow boards — from drafting through to supervisor approval.</p>
         </div>
       </div>
 
       {{-- Total Badges --}}
-      <div class="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+      <div class="grid grid-cols-2 sm:grid-cols-3 xl:flex xl:flex-wrap items-center gap-2.5 sm:gap-3 w-full xl:w-auto">
         <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-4 min-w-[7.5rem] shadow-sm">
           <div class="flex flex-col">
             <svg class="w-4 h-4 text-sky-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>

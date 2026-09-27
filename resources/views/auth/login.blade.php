@@ -618,9 +618,16 @@
                 </div>
             </div>
 
-            <p class="mt-6 text-center text-xs font-semibold leading-6 text-sky-100/68">
-                &copy; {{ date('Y') }} DIGITAL SYSTEM. Secure sign-in with rate limiting and IP monitoring.
-            </p>
+            <div class="mt-6 text-center text-xs font-semibold leading-6 text-sky-100/70">
+                <div class="flex items-center justify-center gap-3 text-sky-200/80 mb-2">
+                    <a href="{{ route('home') }}" class="hover:text-cyan-300 transition-colors">Home</a>
+                    <span>&bull;</span>
+                    <a href="{{ route('privacy-policy') }}" class="hover:text-cyan-300 transition-colors">Privacy Policy</a>
+                    <span>&bull;</span>
+                    <a href="{{ route('terms-of-service') }}" class="hover:text-cyan-300 transition-colors">Terms of Service</a>
+                </div>
+                <p>&copy; {{ date('Y') }} <a href="https://kiuq.com" class="font-bold text-white hover:text-cyan-300 transition-colors">KIUQ.COM</a>. All rights reserved.</p>
+            </div>
         </div>
     </section>
 </main>
@@ -666,9 +673,43 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     initLoginGoogleAuth();
 }
 
+// Multi-channel OAuth listeners for popup-to-parent communication
+function handleIncomingGoogleAuthToken(token, state) {
+    if (!token) return;
+    submitGoogleLoginPayload({ access_token: token });
+}
+
+// 1. BroadcastChannel listener
+if (typeof BroadcastChannel !== 'undefined') {
+    try {
+        const authChannel = new BroadcastChannel('kiuq_google_auth');
+        authChannel.onmessage = function(event) {
+            if (event.data && event.data.type === 'GOOGLE_AUTH_TOKEN' && event.data.accessToken) {
+                handleIncomingGoogleAuthToken(event.data.accessToken, event.data.state);
+            }
+        };
+    } catch (e) {
+        console.warn('BroadcastChannel init error:', e);
+    }
+}
+
+// 2. Storage event listener (fires across tabs/popups on same origin)
+window.addEventListener('storage', function(event) {
+    if (event.key === 'kiuq_google_auth_token' && event.newValue) {
+        try {
+            const data = JSON.parse(event.newValue);
+            if (data && data.accessToken && (Date.now() - (data.ts || 0) < 60000)) {
+                localStorage.removeItem('kiuq_google_auth_token');
+                handleIncomingGoogleAuthToken(data.accessToken, data.state);
+            }
+        } catch (e) {}
+    }
+});
+
+// 3. PostMessage listener (standard opener fallback)
 window.addEventListener('message', function(event) {
     if (event.data && event.data.type === 'GOOGLE_AUTH_TOKEN' && event.data.accessToken) {
-        submitGoogleLoginPayload({ access_token: event.data.accessToken });
+        handleIncomingGoogleAuthToken(event.data.accessToken, event.data.state);
     }
 });
 
@@ -689,7 +730,12 @@ function triggerLoginGoogle() {
         prompt: 'select_account'
     }).toString();
 
-    if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+    // Check if running inside macOS native shell or mobile webview
+    const isMacApp = window.__dgtMacApp === true ||
+                     (typeof navigator !== 'undefined' && (navigator.userAgent.includes('DGTSystem') || navigator.userAgent.includes('dgt-macos'))) ||
+                     (window.flutter_inappwebview && window.flutter_inappwebview.callHandler);
+
+    if (isMacApp) {
         window.location.href = authUrl;
         return;
     }
@@ -707,8 +753,11 @@ function triggerLoginGoogle() {
         const checkTimer = setInterval(() => {
             if (popup.closed) {
                 clearInterval(checkTimer);
-                if (btn) btn.disabled = false;
-                if (btnText) btnText.textContent = 'Continue with Google';
+                // If button is still disabled and didn't start logging in, reset
+                if (btn && btn.disabled && btnText && btnText.textContent === 'Connecting to Google...') {
+                    btn.disabled = false;
+                    btnText.textContent = 'Continue with Google';
+                }
             }
         }, 1000);
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SocialMedia;
 
 use App\Http\Controllers\Controller;
 use App\Models\Board;
+use App\Models\BoardList;
 use App\Models\Card;
 use App\Models\User;
 use App\Models\Workspace;
@@ -80,8 +81,10 @@ class SmmImportController extends Controller
         }
 
         $dataRows = array_slice($rows, 1);
-        $boardLists = $board->activeLists()->pluck('id', 'name')->all();
-        $firstListId = $board->activeLists()->orderBy('position')->value('id');
+        $allBoardLists = $board->activeLists()->orderBy('position')->get();
+        $firstBoardList = $allBoardLists->first();
+        $explicitTargetListId = $request->input('target_list_id');
+        $explicitList = $explicitTargetListId ? $allBoardLists->firstWhere('id', (int)$explicitTargetListId) : null;
 
         $userLookup = $this->buildUserLookup();
 
@@ -132,7 +135,7 @@ class SmmImportController extends Controller
             if (strtolower($teamLabel) === 'none') $teamLabel = '';
             
             // Title
-            $cluster = trim($row['Class'] ?? '');
+            $cluster = SocialMediaClass::canonicalName(trim($row['Class'] ?? ''));
             $contentType = trim($row['Work Task / Content Type'] ?? '');
             $rawTitle = trim($row['Title'] ?? '');
             
@@ -150,39 +153,12 @@ class SmmImportController extends Controller
             $desc = trim($row['Description'] ?? '');
             $attachment = trim($row['Attachement'] ?? '');
 
-            // Determine Week List
-            $weekNumber = '1';
-            $weeksCol = trim($row['Weeks'] ?? '');
-            
-            if (strcasecmp($weeksCol, 'Urgent / Priority') === 0 || strcasecmp($weeksCol, 'Urgent/Priority') === 0 || strcasecmp($weeksCol, 'Urgent') === 0) {
-                $targetWeek = 'Urgent / Priority';
-            } elseif (stripos($worksheetName, 'Urgent') !== false || stripos($worksheetName, 'Priority') !== false) {
-                $targetWeek = 'Urgent / Priority';
+            // Determine Target List
+            if ($explicitList) {
+                $listId = $explicitList->id;
+                $listName = $explicitList->name;
             } else {
-                if (!empty($weeksCol) && preg_match('/Week\s*(\d)/i', $weeksCol, $matches)) {
-                    $weekNumber = $matches[1];
-                } elseif (preg_match('/Week\s*(\d)/i', $worksheetName, $matches)) {
-                    $weekNumber = $matches[1];
-                }
-                $targetWeek = "Week " . $weekNumber;
-            }
-            
-            $listId = $firstListId;
-            $listName = 'First list';
-            foreach ($boardLists as $name => $id) {
-                if (strcasecmp(trim($name), $targetWeek) === 0) {
-                    $listId = $id;
-                    $listName = $name;
-                    break;
-                }
-                // Fuzzy fallback (strip spaces)
-                $cleanListName = str_replace(' ', '', strtolower($name));
-                $cleanTargetWeek = str_replace(' ', '', strtolower($targetWeek));
-                if ($cleanListName === $cleanTargetWeek) {
-                    $listId = $id;
-                    $listName = $name;
-                    break;
-                }
+                [$listId, $listName] = $this->resolveTargetList($row['Weeks'] ?? '', $worksheetName, $allBoardLists, $firstBoardList);
             }
 
             $isValid = empty($errors);
@@ -219,6 +195,7 @@ class SmmImportController extends Controller
                 'assigned_by_name' => $assignBy['resolved_name'] ?: trim($row['Assigned By'] ?? ''),
                 'list_id' => $listId,
                 'list_name' => $listName,
+                'is_duplicate' => false,
                 'valid' => $isValid,
                 'errors' => $errors,
                 'warnings' => $warnings,
@@ -257,7 +234,8 @@ class SmmImportController extends Controller
 
             // 2. Pre-load existing cards for this board to update duplicates efficiently
             $existingCards = Card::where('board_id', $board->id)
-                ->select('id', 'title', 'start_date', 'content_public_date', 'due_at', 'description', 'smm_class_label', 'smm_team_label', 'sync_group_id')
+                ->whereNull('deleted_at')
+                ->select('id', 'title', 'start_date', 'content_public_date', 'due_at', 'description', 'smm_class_label', 'smm_team_label', 'sync_group_id', 'board_list_id')
                 ->get();
                 
             $existingCardsMap = [];
@@ -269,8 +247,29 @@ class SmmImportController extends Controller
                 } elseif (!empty($rawDate)) {
                     $dateKey = substr(trim((string)$rawDate), 0, 10);
                 }
-                $key = strtolower(trim($ec->title)) . '|' . $dateKey;
-                $existingCardsMap[$key] = $ec;
+                
+                $classKey = strtolower(trim($ec->smm_class_label ?? ''));
+                $titleKey = strtolower(trim($ec->title ?? ''));
+
+                // CRITICAL: Scope duplicate lookup to the specific board_list_id AND smm_class_label!
+                // Multiple brands (classes) have identical titles (e.g. TYPH-SPIDER, MZVT) in the same week list!
+                // They must NEVER overwrite each other!
+                if (!empty($classKey)) {
+                    if (!empty($dateKey)) {
+                        $existingCardsMap[$ec->board_list_id . '|' . $classKey . '|' . $titleKey . '|' . $dateKey] = $ec;
+                    }
+                    if (!isset($existingCardsMap[$ec->board_list_id . '|' . $classKey . '|' . $titleKey . '|'])) {
+                        $existingCardsMap[$ec->board_list_id . '|' . $classKey . '|' . $titleKey . '|'] = $ec;
+                    }
+                } else {
+                    // Fallback for existing unclassified cards
+                    if (!empty($dateKey)) {
+                        $existingCardsMap[$ec->board_list_id . '||' . $titleKey . '|' . $dateKey] = $ec;
+                    }
+                    if (!isset($existingCardsMap[$ec->board_list_id . '||' . $titleKey . '|'])) {
+                        $existingCardsMap[$ec->board_list_id . '||' . $titleKey . '|'] = $ec;
+                    }
+                }
             }
 
         // 3. Pre-load workspaces and their active boards for team distribution
@@ -288,9 +287,11 @@ class SmmImportController extends Controller
                 continue;
             }
 
-            // Fix for duplicate testing within same payload
+            // Fix for duplicate testing within same payload (must include class/cluster)
+            $clusterName = SocialMediaClass::canonicalName(trim($row['smm_class_label'] ?? ''));
+            $className = $row['smm_cluster_label'] ?? '';
             $dateKey = $row['start_date'] ?: $row['content_public_date'];
-            $compositeKey = md5(strtolower($row['worksheet'] . '|' . $row['title'] . '|' . $row['assign_to_raw'] . '|' . $dateKey));
+            $compositeKey = md5(strtolower(($row['worksheet'] ?? '') . '|' . $clusterName . '|' . ($row['title'] ?? '') . '|' . ($row['assign_to_raw'] ?? '') . '|' . $dateKey));
             
             if (in_array($compositeKey, $importedKeys)) {
                 $skippedDuplicates++;
@@ -299,8 +300,6 @@ class SmmImportController extends Controller
             $importedKeys[] = $compositeKey;
 
             // Auto-create class if it doesn't exist (Class = Cluster/Brand)
-            $clusterName = $row['smm_class_label'] ?? '';
-            $className = $row['smm_cluster_label'] ?? '';
             if (!empty($clusterName) && !in_array(strtolower($clusterName), $existingClasses)) {
                 SocialMediaClass::create([
                     'name' => $clusterName,
@@ -317,18 +316,53 @@ class SmmImportController extends Controller
             $assignByUserId = $assignByResult['id'];
             $createdById = $assignByUserId ?: auth()->id();
 
-            // Check if card exists for updating from pre-loaded map
+            // Check if card exists for updating from pre-loaded map (strictly scoped to target list_id and class)
+            $targetListId = $row['list_id'] ?? null;
             $rawRowDate = $row['start_date'] ?: $row['content_public_date'];
             $dateKey = !empty($rawRowDate) ? substr(trim((string)$rawRowDate), 0, 10) : '';
-            $lookupKey = strtolower(trim($row['title'])) . '|' . $dateKey;
-            $existingCard = $existingCardsMap[$lookupKey] ?? ($existingCardsMap[strtolower(trim($row['title'])) . '|'] ?? null);
+            $rowClassKey = strtolower(trim($clusterName));
+            $rowTitleKey = strtolower(trim($row['title']));
+            
+            $existingCard = null;
+            if ($targetListId) {
+                // 1. Exact class + title + date
+                if (!empty($dateKey)) {
+                    $lookupKey = $targetListId . '|' . $rowClassKey . '|' . $rowTitleKey . '|' . $dateKey;
+                    if (isset($existingCardsMap[$lookupKey])) {
+                        $existingCard = $existingCardsMap[$lookupKey];
+                    }
+                }
+                // 2. Exact class + title (no date)
+                if (!$existingCard) {
+                    $lookupKeyNoDate = $targetListId . '|' . $rowClassKey . '|' . $rowTitleKey . '|';
+                    if (isset($existingCardsMap[$lookupKeyNoDate])) {
+                        $existingCard = $existingCardsMap[$lookupKeyNoDate];
+                    }
+                }
+                // 3. Fallback: match unclassified card only if it had no class assigned yet
+                if (!$existingCard && !empty($dateKey)) {
+                    $lookupUnclassKey = $targetListId . '||' . $rowTitleKey . '|' . $dateKey;
+                    if (isset($existingCardsMap[$lookupUnclassKey])) {
+                        $existingCard = $existingCardsMap[$lookupUnclassKey];
+                    }
+                }
+                if (!$existingCard) {
+                    $lookupUnclassNoDate = $targetListId . '||' . $rowTitleKey . '|';
+                    if (isset($existingCardsMap[$lookupUnclassNoDate])) {
+                        $existingCard = $existingCardsMap[$lookupUnclassNoDate];
+                    }
+                }
+            }
 
             if ($existingCard) {
                 $existingCard->update([
+                    'board_list_id' => $targetListId,
                     'description' => $row['description'],
                     'smm_class_label' => $clusterName ?: null,
                     'smm_team_label' => $row['smm_team_label'] ?: null,
                     'smm_cluster_label' => $row['smm_cluster_label'] ?: null,
+                    'start_date' => $row['start_date'] ?: null,
+                    'content_public_date' => $row['content_public_date'] ?: null,
                     'due_at' => $row['deadline'] ?: null,
                     'due_time' => $row['due_time'] ?? null,
                     'created_by' => $createdById,
@@ -374,13 +408,14 @@ class SmmImportController extends Controller
                     }
                 }
                 
+                $existingCard->load(['labels', 'assignees', 'files']);
                 $updated[] = $existingCard;
                 continue;
             } else {
-                $position = Card::where('board_list_id', $row['list_id'])->max('position') + 1;
+                $position = Card::where('board_list_id', $targetListId)->max('position') + 1;
                 $card = Card::create([
                     'board_id' => $board->id,
-                    'board_list_id' => $row['list_id'],
+                    'board_list_id' => $targetListId,
                     'title' => $row['title'],
                     'description' => $row['description'],
                     'smm_class_label' => $clusterName ?: null,
@@ -411,8 +446,6 @@ class SmmImportController extends Controller
                     $card->assignees()->sync([$assignToUserId => ['assigned_at' => now()]]);
                 }
                 
-                $created[] = $card;
-                
                 // Distribute/Sync created card
                 $teamBoard = $this->distributeToTeamWorkspace($card, $row['smm_team_label'] ?? null, $workspaces);
                 if ($teamBoard) {
@@ -421,6 +454,9 @@ class SmmImportController extends Controller
                     }
                     $distributedCounts[$teamBoard->id]['count']++;
                 }
+
+                $card->load(['labels', 'assignees', 'files']);
+                $created[] = $card;
             }
 
             // Handle Attachment Link
@@ -497,6 +533,7 @@ class SmmImportController extends Controller
             'skipped_duplicates' => $skippedDuplicates,
             'failed' => $failed,
             'success' => true,
+            'cards' => array_merge($created, $updated),
         ]);
     }
     
@@ -577,7 +614,13 @@ class SmmImportController extends Controller
             
             // Map common aliases
             if ($cleanName === 'work task / content type') $map['Work Task / Content Type'] = $idx;
-            elseif ($cleanName === 'class' || $cleanName === 'cluster') $map['Class'] = $idx;
+            elseif (
+                $cleanName === 'class' ||
+                $cleanName === 'cluster' ||
+                str_contains($cleanName, 'class') ||
+                str_contains($cleanName, 'cluster') ||
+                str_contains($cleanName, 'brand')
+            ) $map['Class'] = $idx;
             elseif ($cleanName === 'team') $map['Team'] = $idx;
             elseif ($cleanName === 'title') $map['Title'] = $idx;
             elseif ($cleanName === 'description') $map['Description'] = $idx;
@@ -589,11 +632,93 @@ class SmmImportController extends Controller
             elseif (str_contains($cleanName, 'deadline time')) $map['Deadline Time'] = $idx;
             elseif (str_contains($cleanName, 'start date')) $map['Start Date'] = $idx;
             elseif ($cleanName === 'status') $map['Status'] = $idx;
-            elseif ($cleanName === 'weeks') $map['Weeks'] = $idx;
+            elseif (in_array($cleanName, ['weeks', 'week', 'list', 'target list', 'week list', 'target week', 'board list']) || str_contains($cleanName, 'week') || str_contains($cleanName, 'target list')) $map['Weeks'] = $idx;
             elseif ($cleanName === 'note') $map['Note'] = $idx;
             else $map[$colName] = $idx;
         }
         return $map;
+    }
+
+    /**
+     * Robust list resolution matching week number, list name, or fallback.
+     */
+    private function resolveTargetList(?string $weeksVal, ?string $worksheetName, $allLists, ?BoardList $firstList): array
+    {
+        $weeksVal = trim((string)$weeksVal);
+        $worksheetName = trim((string)$worksheetName);
+
+        // 1. Try matching from row's week column
+        if (!empty($weeksVal)) {
+            // Exact name match
+            foreach ($allLists as $list) {
+                if (strcasecmp($list->name, $weeksVal) === 0) {
+                    return [$list->id, $list->name];
+                }
+            }
+
+            // Cleaned name match (e.g. "week4" == "week4", "urgentpriority" == "urgent/priority")
+            $normVal = preg_replace('/[^a-z0-9]/', '', strtolower($weeksVal));
+            foreach ($allLists as $list) {
+                $normListName = preg_replace('/[^a-z0-9]/', '', strtolower($list->name));
+                if (!empty($normVal) && $normVal === $normListName) {
+                    return [$list->id, $list->name];
+                }
+            }
+
+            // Urgent / Priority
+            if (stripos($weeksVal, 'urgent') !== false || stripos($weeksVal, 'priority') !== false) {
+                $urgent = $allLists->first(fn($l) => stripos($l->name, 'urgent') !== false || stripos($l->name, 'priority') !== false);
+                if ($urgent) return [$urgent->id, $urgent->name];
+            }
+
+            // Week number extraction (supports "Week 4", "W4", "Week-4", "4", "Week 04")
+            if (preg_match('/(?:week|w)?\s*[\-_]?\s*(\d+)/i', $weeksVal, $m)) {
+                $weekNum = (int)$m[1];
+                $matched = $allLists->first(fn($l) => preg_match('/(?:week|w)\s*[\-_]?\s*' . $weekNum . '\b/i', $l->name));
+                if ($matched) return [$matched->id, $matched->name];
+            }
+        }
+
+        // 2. Try matching from worksheetName
+        if (!empty($worksheetName)) {
+            foreach ($allLists as $list) {
+                if (strcasecmp($list->name, $worksheetName) === 0) {
+                    return [$list->id, $list->name];
+                }
+            }
+
+            $normWs = preg_replace('/[^a-z0-9]/', '', strtolower($worksheetName));
+            foreach ($allLists as $list) {
+                $normListName = preg_replace('/[^a-z0-9]/', '', strtolower($list->name));
+                if (!empty($normWs) && $normWs === $normListName) {
+                    return [$list->id, $list->name];
+                }
+            }
+
+            if (stripos($worksheetName, 'urgent') !== false || stripos($worksheetName, 'priority') !== false) {
+                $urgent = $allLists->first(fn($l) => stripos($l->name, 'urgent') !== false || stripos($l->name, 'priority') !== false);
+                if ($urgent) return [$urgent->id, $urgent->name];
+            }
+
+            // Week number extraction from worksheetName
+            if (preg_match('/(?:week|w)\s*[\-_]?\s*(\d+)/i', $worksheetName, $m) || preg_match('/\b(?:week|w)?\s*(\d+)\b/i', $worksheetName, $m)) {
+                $weekNum = (int)$m[1];
+                $matched = $allLists->first(fn($l) => preg_match('/(?:week|w)\s*[\-_]?\s*' . $weekNum . '\b/i', $l->name));
+                if ($matched) return [$matched->id, $matched->name];
+            }
+        }
+
+        // 3. Fallback: try finding a list with "Week 1", or use the first list
+        $weekOneList = $allLists->first(fn($l) => preg_match('/week\s*1\b/i', $l->name));
+        if ($weekOneList) {
+            return [$weekOneList->id, $weekOneList->name];
+        }
+
+        if ($firstList) {
+            return [$firstList->id, $firstList->name];
+        }
+
+        return [null, 'Unknown'];
     }
 
     /**

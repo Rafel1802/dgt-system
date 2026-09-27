@@ -16,12 +16,41 @@ class RouteClosureController extends Controller
     }
 
     /**
+     * Application Privacy Policy page.
+     */
+    public function privacyPolicy()
+    {
+        return view('legal.privacy-policy');
+    }
+
+    /**
+     * Application Terms of Service page.
+     */
+    public function termsOfService()
+    {
+        return view('legal.terms-of-service');
+    }
+
+    /**
      * Download the Mac App.
      */
     public function downloadMacApp()
     {
-        $version = '1.0.7';
-        return redirect(asset("downloads/KIUQ-SYSTEM-{$version}.dmg"));
+        $version = '1.0.8';
+        $filename = "KIUQ-SYSTEM-{$version}.dmg";
+        $candidates = [
+            public_path("downloads/{$filename}"),
+            base_path("public/downloads/{$filename}"),
+            base_path("downloads/{$filename}"),
+        ];
+        foreach ($candidates as $filePath) {
+            if (file_exists($filePath)) {
+                return response()->download($filePath, $filename, [
+                    'Content-Type' => 'application/x-apple-diskimage',
+                ]);
+            }
+        }
+        return redirect(asset("downloads/{$filename}"));
     }
 
     /**

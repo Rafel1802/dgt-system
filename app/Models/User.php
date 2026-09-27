@@ -898,5 +898,74 @@ SVG;
 
         return false;
     }
+
+    /**
+     * Determine if user has permission to access the Digital Media KPI section.
+     * Strictly restricted to:
+     * - superadmin (ID: 1 or super-admin role)
+     * - supervisor (somalika / supervisor team role)
+     * - dara (QC Lead / Squad 1 Lead)
+     * - kim (Graphic Head / Squad 2 Lead)
+     */
+    public function canAccessKpi(): bool
+    {
+        if ($this->hasRole('super-admin')) {
+            return true;
+        }
+
+        $username = strtolower($this->username ?? '');
+        $teamRole = strtolower($this->team_role ?? '');
+
+        return in_array($username, ['superadmin', 'somalika', 'dara', 'kim'])
+            || str_contains($teamRole, 'supervisor');
+    }
+
+    /**
+     * Check if user is KPI Supervisor or SuperAdmin (can view and evaluate all squads).
+     */
+    public function isKpiSupervisor(): bool
+    {
+        if ($this->hasRole('super-admin')) {
+            return true;
+        }
+
+        $username = strtolower($this->username ?? '');
+        $teamRole = strtolower($this->team_role ?? '');
+
+        return in_array($username, ['superadmin', 'somalika'])
+            || str_contains($teamRole, 'supervisor');
+    }
+
+    /**
+     * Get the Squad ID that this user leads, if any.
+     */
+    public function getKpiSquadId(): ?int
+    {
+        $username = strtolower($this->username ?? '');
+        if ($username === 'dara') {
+            return \App\Models\Kpi\KpiSquad::where('code', 'SQUAD-1')->value('id') ?? 1;
+        }
+        if ($username === 'kim') {
+            return \App\Models\Kpi\KpiSquad::where('code', 'SQUAD-2')->value('id') ?? 2;
+        }
+
+        return \App\Models\Kpi\KpiSquad::where('lead_id', $this->id)->value('id');
+    }
+
+    public function kpiAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Kpi\KpiAssignment::class, 'user_id');
+    }
+
+    public function kpiTasks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Kpi\KpiTask::class, 'assignee_id');
+    }
+
+    public function kpiReviews(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Kpi\KpiReview::class, 'user_id');
+    }
 }
+
 

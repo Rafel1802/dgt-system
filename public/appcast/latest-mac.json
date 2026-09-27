@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
-  "download_url": "https://lightcyan-weasel-711536.hostingersite.com/downloads/KIUQ-SYSTEM-1.0.7.dmg",
-  "release_notes": "Version 1.0.7 update."
+  "version": "1.0.8",
+  "download_url": "https://lightcyan-weasel-711536.hostingersite.com/downloads/KIUQ-SYSTEM-1.0.8.dmg",
+  "release_notes": "Version 1.0.8: Fixed Google Docs viewer, video playback, and login persistence in macOS app."
 }

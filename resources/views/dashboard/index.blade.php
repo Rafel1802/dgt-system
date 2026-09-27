@@ -188,31 +188,31 @@
     <!-- Hero Bento Section -->
     <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <!-- Main Welcome Card -->
-        <article class="bento-card-primary xl:col-span-2 p-8 sm:p-12 relative flex flex-col justify-center min-h-[300px]">
+        <article class="bento-card-primary xl:col-span-2 p-5 sm:p-8 lg:p-12 relative flex flex-col justify-center min-h-[260px] sm:min-h-[300px]">
             <div class="absolute -right-20 -bottom-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
             
             <div class="relative z-10">
-                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 border border-white/20 shadow-sm mb-6 backdrop-blur-md">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/20 border border-white/20 shadow-sm mb-4 sm:mb-6 backdrop-blur-md">
                     {!! $greetingIcon !!}
-                    <span class="text-sm font-bold text-white">{{ $greeting }},</span>
+                    <span class="text-xs sm:text-sm font-bold text-white">{{ $greeting }},</span>
                 </div>
                 
-                <h1 class="text-5xl sm:text-6xl font-black tracking-tight mb-4 animate-text-gradient">
+                <h1 class="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-3 sm:mb-4 animate-text-gradient break-words">
                     <span>Welcome back,</span><br/>
                     <span>{{ $user->name }}</span>
                 </h1>
                 
-                <p class="text-base sm:text-lg text-indigo-100 font-medium max-w-xl">
+                <p class="text-sm sm:text-lg text-indigo-100 font-medium max-w-xl">
                     Here is what is happening in your workspace today. You have <strong class="text-white">{{ $dashboardUnreadCount }}</strong> unread alerts requiring your attention.
                 </p>
                 
-                <div class="mt-8 flex flex-wrap gap-3">
-                    <a href="{{ route('profile.show') }}" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-indigo-600 font-bold hover:bg-indigo-50 transition-colors shadow-lg shadow-black/10">
+                <div class="mt-6 sm:mt-8 flex flex-wrap gap-2.5 sm:gap-3">
+                    <a href="{{ route('profile.show') }}" class="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white text-indigo-600 font-bold hover:bg-indigo-50 transition-colors shadow-lg shadow-black/10 text-xs sm:text-sm">
                         View Profile
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd" /></svg>
                     </a>
                     @if(($totalTasksCount ?? 0) > 0)
-                    <a href="{{ route('tasks.count') }}" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-white font-bold transition-colors backdrop-blur-md">
+                    <a href="{{ route('tasks.count') }}" class="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-white font-bold transition-colors backdrop-blur-md text-xs sm:text-sm">
                         <span>Tasks Count ({{ $totalTasksCount }})</span>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
                     </a>
@@ -222,7 +222,7 @@
         </article>
 
         <!-- Time & Status Card -->
-        <article class="bento-card-primary p-8 relative flex flex-col justify-between overflow-hidden">
+        <article class="bento-card-primary p-5 sm:p-8 relative flex flex-col justify-between overflow-hidden">
             <!-- Decorative circle -->
             <div class="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
             

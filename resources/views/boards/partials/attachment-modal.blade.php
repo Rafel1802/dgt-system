@@ -289,7 +289,7 @@
                     </button>
                   </template>
                   <template x-if="!file.is_image && !isVideoFile(file)">
-                    <span class="flex items-center justify-center">
+                    <span class="flex items-center justify-center w-full h-full">
                       <template x-if="isCanvaFile(file)">
                         <button type="button" @click="openCanvaPreview(file)" class="w-full h-full flex items-center justify-center cursor-pointer" title="View Canva Design">
                           <img src="{{ asset('images/canva-icon.png') }}"
@@ -298,10 +298,18 @@
                                x-on:error="$event.target.src='https://brandlogovector.com/wp-content/uploads/2022/02/Canva-Icon-Logo.png'">
                         </button>
                       </template>
-                      <template x-if="!isCanvaFile(file) && (file.disk === 'url' || file.is_link)">
+                      <template x-if="!isCanvaFile(file) && isGoogleDocsFile(file)">
+                        <button type="button" @click="openGoogleDocsPreview(file)" class="w-full h-full flex items-center justify-center cursor-pointer" title="View Google Doc">
+                          <img src="{{ asset('images/google-docs-icon.png') }}"
+                               alt="Google Docs"
+                               class="w-5 h-5 object-contain"
+                               x-on:error="$event.target.src='https://cdn-icons-png.flaticon.com/512/5968/5968517.png'">
+                        </button>
+                      </template>
+                      <template x-if="!isCanvaFile(file) && !isGoogleDocsFile(file) && (file.disk === 'url' || file.is_link)">
                         <svg class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/></svg>
                       </template>
-                      <template x-if="!isCanvaFile(file) && file.disk !== 'url' && !file.is_link">
+                      <template x-if="!isCanvaFile(file) && !isGoogleDocsFile(file) && file.disk !== 'url' && !file.is_link">
                         <span class="text-base select-none" x-text="amFileIcon(file)"></span>
                       </template>
                     </span>
@@ -938,12 +946,12 @@ function imageZoomHandler() {
       {{-- Open in browser --}}
       <button type="button"
               @click.stop="openGoogleDocsDirect(googleDocsPreview.url)"
-              title="Open in browser"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#1a73e8] bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg transition-all active:scale-95">
+              title="Open in Google Docs in your browser"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#1a73e8] hover:bg-[#1557b0] border border-blue-400/40 rounded-lg shadow-sm transition-all active:scale-95">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
         </svg>
-        <span>Open in browser</span>
+        <span x-text="googleDocsPreview.type === 'sheet' ? 'Open in Google Sheets ↗' : (googleDocsPreview.type === 'slide' ? 'Open in Google Slides ↗' : 'Open in Google Docs ↗')"></span>
       </button>
 
       {{-- Close --}}
@@ -960,12 +968,18 @@ function imageZoomHandler() {
 
   {{-- Iframe viewer --}}
   <div class="flex-1 relative overflow-hidden bg-white">
+    <div x-show="googleDocsPreview.loading"
+         class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-10">
+      <div class="w-8 h-8 border-3 border-[#1a73e8] border-t-transparent rounded-full animate-spin"></div>
+      <p class="mt-2 text-xs font-semibold text-slate-300">Loading document...</p>
+    </div>
     <iframe
       :src="googleDocsPreview.embedUrl"
+      @load="googleDocsPreview.loading = false"
       class="absolute inset-0 w-full h-full border-0"
       allow="autoplay; clipboard-read; clipboard-write; fullscreen"
       allowfullscreen
-      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads">
+      referrerpolicy="no-referrer-when-downgrade">
     </iframe>
   </div>
 

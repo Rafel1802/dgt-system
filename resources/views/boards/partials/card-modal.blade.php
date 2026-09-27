@@ -18,7 +18,7 @@
           :class="hasPrevCard() 
             ? 'bg-white/95 hover:bg-white text-slate-700 hover:text-indigo-600 shadow-2xl border-slate-200/80 hover:border-indigo-300 active:scale-95 cursor-pointer opacity-95 hover:opacity-100 dark:bg-slate-800/95 dark:hover:bg-slate-800 dark:text-slate-200 dark:hover:text-indigo-400 dark:border-slate-700' 
             : 'bg-white/30 text-slate-400/50 border-white/20 opacity-20 cursor-not-allowed pointer-events-none dark:bg-slate-800/30 dark:text-slate-600 dark:border-slate-800'"
-          class="fixed left-3 sm:left-6 lg:left-8 xl:left-14 top-1/2 -translate-y-1/2 z-[85] transition-colors duration-150 flex flex-col items-center justify-center w-12 h-12 lg:w-14 lg:h-14 rounded-2xl border backdrop-blur-md shadow-2xl group focus:outline-none select-none card-modal-prev-btn"
+          class="fixed left-3 sm:left-6 lg:left-8 xl:left-14 top-1/2 -translate-y-1/2 z-[85] transition-colors duration-150 hidden lg:flex flex-col items-center justify-center w-12 h-12 lg:w-14 lg:h-14 rounded-2xl border backdrop-blur-md shadow-2xl group focus:outline-none select-none card-modal-prev-btn"
           :aria-label="getPrevCard() ? (getActiveCardIndex() === 0 ? 'Previous (Wrap to last card): ' + getPrevCard().title : 'Previous: ' + getPrevCard().title) : 'Previous card'">
     <svg class="w-6 h-6 lg:w-7 lg:h-7 transition-transform duration-150 group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -47,7 +47,7 @@
           :class="hasNextCard() 
             ? 'bg-white/95 hover:bg-white text-slate-700 hover:text-indigo-600 shadow-2xl border-slate-200/80 hover:border-indigo-300 active:scale-95 cursor-pointer opacity-95 hover:opacity-100 dark:bg-slate-800/95 dark:hover:bg-slate-800 dark:text-slate-200 dark:hover:text-indigo-400 dark:border-slate-700' 
             : 'bg-white/30 text-slate-400/50 border-white/20 opacity-20 cursor-not-allowed pointer-events-none dark:bg-slate-800/30 dark:text-slate-600 dark:border-slate-800'"
-          class="fixed right-3 sm:right-6 lg:right-8 xl:right-14 top-1/2 -translate-y-1/2 z-[85] transition-colors duration-150 flex flex-col items-center justify-center w-12 h-12 lg:w-14 lg:h-14 rounded-2xl border backdrop-blur-md shadow-2xl group focus:outline-none select-none card-modal-next-btn"
+          class="fixed right-3 sm:right-6 lg:right-8 xl:right-14 top-1/2 -translate-y-1/2 z-[85] transition-colors duration-150 hidden lg:flex flex-col items-center justify-center w-12 h-12 lg:w-14 lg:h-14 rounded-2xl border backdrop-blur-md shadow-2xl group focus:outline-none select-none card-modal-next-btn"
           :aria-label="getNextCard() ? (getActiveCardIndex() === totalCardsInActiveList() - 1 ? 'Next (Wrap to first card): ' + getNextCard().title : 'Next: ' + getNextCard().title) : 'Next card'">
     <svg class="w-6 h-6 lg:w-7 lg:h-7 transition-transform duration-150 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -70,7 +70,7 @@
 
   {{-- Scrollable Container for Card Modal Box --}}
   <div id="card-modal-scroll-container"
-       class="fixed inset-0 flex items-start justify-center p-4 pt-16 pb-32 lg:pb-16 overflow-y-auto z-[75]"
+       class="fixed inset-0 flex items-start justify-center p-2 pt-12 pb-24 sm:p-4 sm:pt-16 sm:pb-32 lg:pb-16 overflow-y-auto z-[75]"
        @click.self="closeCard()">
 
   <div class="trello-card-modal bg-white rounded-2xl shadow-2xl w-full max-w-4xl mb-8 overflow-hidden border border-slate-100 flex flex-col"
@@ -87,7 +87,7 @@
     <div x-show="!cardLoading && activeCard" class="flex flex-col h-full">
 
       {{-- Header section --}}
-      <div class="p-6 pb-4 border-b border-slate-100 bg-slate-50/50">
+      <div class="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-slate-100 bg-slate-50/50">
         <div class="flex items-start gap-4">
           <span class="text-2xl mt-1 select-none">💳</span>
           <div class="flex-1 min-w-0">
@@ -172,7 +172,7 @@
         </div>
 
         {{-- Meta Badges Row --}}
-        <div class="flex flex-wrap gap-6 mt-5 text-xs" style="padding-left: 40px;">
+        <div class="flex flex-wrap gap-4 sm:gap-6 mt-4 sm:mt-5 text-xs pl-0 sm:pl-10">
           {{-- SMM Specific: Class & Content Type & Public Date --}}
           <template x-if="isSmmCard(activeCard)">
             <div class="flex flex-col gap-6 text-xs w-full">
@@ -361,7 +361,7 @@
       </div>
 
       {{-- Grid Body --}}
-      <div class="p-6 grid grid-cols-1 md:grid-cols-4 gap-6 bg-slate-50/20">
+      <div class="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 bg-slate-50/20">
 
         {{-- Left Column: Main features --}}
         <div class="md:col-span-3 space-y-6">
@@ -633,7 +633,18 @@
                                  x-on:error="$event.target.src='https://brandlogovector.com/wp-content/uploads/2022/02/Canva-Icon-Logo.png'">
                           </button>
                         </template>
-                        <template x-if="!isCanvaFile(f)">
+                        <template x-if="!isCanvaFile(f) && isGoogleDocsFile(f)">
+                          <button type="button"
+                                  @click.stop="openGoogleDocsPreview(f)"
+                                  class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-blue-200/60 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-950/40 hover:bg-blue-100/70 dark:hover:bg-blue-900/40 flex items-center justify-center flex-shrink-0 select-none transition group/doc-thumb cursor-pointer shadow-xs active:scale-95"
+                                  title="View Google Doc">
+                            <img src="{{ asset('images/google-docs-icon.png') }}"
+                                 alt="Google Docs"
+                                 class="w-7 h-7 sm:w-8 sm:h-8 object-contain shadow-xs transition-transform group-hover/doc-thumb:scale-110"
+                                 x-on:error="$event.target.src='https://cdn-icons-png.flaticon.com/512/5968/5968517.png'">
+                          </button>
+                        </template>
+                        <template x-if="!isCanvaFile(f) && !isGoogleDocsFile(f)">
                           <a :href="f.disk === 'url' ? f.url : (f.preview_url || f.url)"
                              target="_blank"
                              rel="noopener"
@@ -734,10 +745,10 @@
                                   @click.stop="openGoogleDocsPreview(f)"
                                   title="View inside system"
                                   class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-white bg-gradient-to-r from-[#1a73e8] to-[#4285f4] hover:from-[#1557b0] hover:to-[#3367d6] rounded-lg shadow-xs hover:shadow active:scale-95 transition-all flex-shrink-0 whitespace-nowrap cursor-pointer">
-                            {{-- Google Docs icon --}}
-                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 4h5v7h8v9H6V4zm2 9h8v1H8v-1zm0 2h8v1H8v-1zm0 2h5v1H8v-1z"/>
-                            </svg>
+                            <img src="{{ asset('images/google-docs-icon.png') }}"
+                                 alt="Doc"
+                                 class="w-3.5 h-3.5 object-contain flex-shrink-0"
+                                 x-on:error="$event.target.src='https://cdn-icons-png.flaticon.com/512/5968/5968517.png'">
                             <span x-text="getGoogleDocsType(f) === 'sheet' ? 'View Sheet' : (getGoogleDocsType(f) === 'slide' ? 'View Slides' : 'View Doc')"></span>
                           </button>
 

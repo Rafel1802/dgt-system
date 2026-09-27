@@ -28,6 +28,11 @@ class CardCommentController extends Controller
             'is_system' => false,
         ]);
 
+        $autoResult = app(\App\Http\Controllers\Board\CardController::class)->checkAutomations($card, null, $validated['content']);
+        if (!$autoResult || stripos($validated['content'], 'ready') !== false || stripos($validated['content'], 'block') !== false) {
+            app(\App\Services\BoardWorkflowService::class)->handleCommentTrigger($card, $comment);
+        }
+
         $comment->load('user:id,name,avatar');
 
         return response()->json([

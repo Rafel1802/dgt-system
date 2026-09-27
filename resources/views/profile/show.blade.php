@@ -889,10 +889,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Listen for popup message
+// Multi-channel OAuth listeners for profile linking
+function handleIncomingProfileGoogleToken(token, state) {
+    if (!token) return;
+    submitProfileGoogleData({ access_token: token });
+}
+
+// 1. BroadcastChannel listener
+if (typeof BroadcastChannel !== 'undefined') {
+    try {
+        const authChannel = new BroadcastChannel('kiuq_google_auth');
+        authChannel.onmessage = function(event) {
+            if (event.data && event.data.type === 'GOOGLE_AUTH_TOKEN' && event.data.accessToken) {
+                handleIncomingProfileGoogleToken(event.data.accessToken, event.data.state);
+            }
+        };
+    } catch (e) {
+        console.warn('BroadcastChannel init error:', e);
+    }
+}
+
+// 2. Storage event listener (reliable cross-window communication)
+window.addEventListener('storage', function(event) {
+    if (event.key === 'kiuq_google_auth_token' && event.newValue) {
+        try {
+            const data = JSON.parse(event.newValue);
+            if (data && data.accessToken && (Date.now() - (data.ts || 0) < 60000)) {
+                localStorage.removeItem('kiuq_google_auth_token');
+                handleIncomingProfileGoogleToken(data.accessToken, data.state);
+            }
+        } catch (e) {}
+    }
+});
+
+// 3. PostMessage listener (standard opener fallback)
 window.addEventListener('message', function(event) {
     if (event.data && event.data.type === 'GOOGLE_AUTH_TOKEN' && event.data.accessToken) {
-        submitProfileGoogleData({ access_token: event.data.accessToken });
+        handleIncomingProfileGoogleToken(event.data.accessToken, event.data.state);
     }
 });
 
@@ -903,7 +936,7 @@ function triggerGoogleProfileLink() {
     if (btn) btn.disabled = true;
 
     const clientId = "{{ config('services.google_oauth.client_id') }}";
-    const redirectUri = window.location.origin; // e.g. https://lightcyan-weasel-711536.hostingersite.com
+    const redirectUri = window.location.origin;
     const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
@@ -914,7 +947,11 @@ function triggerGoogleProfileLink() {
     }).toString();
 
     // In macOS desktop app (flutter_inappwebview), navigate directly to OAuth
-    if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+    const isMacApp = window.__dgtMacApp === true ||
+                     (typeof navigator !== 'undefined' && (navigator.userAgent.includes('DGTSystem') || navigator.userAgent.includes('dgt-macos'))) ||
+                     (window.flutter_inappwebview && window.flutter_inappwebview.callHandler);
+
+    if (isMacApp) {
         window.location.href = authUrl;
         return;
     }
@@ -934,8 +971,10 @@ function triggerGoogleProfileLink() {
         const checkClosed = setInterval(() => {
             if (popup.closed) {
                 clearInterval(checkClosed);
-                if (btn) btn.disabled = false;
-                if (btnText) btnText.textContent = 'Link Google Account';
+                if (btn && btn.disabled && btnText && btnText.textContent === 'Connecting...') {
+                    btn.disabled = false;
+                    btnText.textContent = 'Link Google Account';
+                }
             }
         }, 1000);
     }

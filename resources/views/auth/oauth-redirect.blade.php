@@ -67,11 +67,53 @@
       const accessToken = params.get('access_token');
       const state = params.get('state');
 
+      // Check for error returned by Google
+      const error = params.get('error') || params.get('error_description');
+      if (error) {
+        document.getElementById('status-heading').textContent = 'Google Authentication Error';
+        document.getElementById('status-desc').textContent = decodeURIComponent(error.replace(/\+/g, ' '));
+        setTimeout(() => {
+          if (window.opener || window.name === 'googleLoginPopup' || window.name === 'googleLinkPopup') {
+            window.close();
+          } else {
+            window.location.replace("{{ route('login') }}");
+          }
+        }, 2500);
+        return;
+      }
+
       if (accessToken) {
         document.getElementById('status-heading').textContent = 'Authenticating with Google...';
-        document.getElementById('status-desc').textContent = 'Please wait while we verify your account credentials.';
+        document.getElementById('status-desc').textContent = 'Verifying credentials with KIUQ SYSTEM.';
 
-        // Check if opened as popup window
+        // 1. BroadcastChannel (works cross-window/tab without needing window.opener)
+        if (typeof BroadcastChannel !== 'undefined') {
+          try {
+            const authChannel = new BroadcastChannel('kiuq_google_auth');
+            authChannel.postMessage({
+              type: 'GOOGLE_AUTH_TOKEN',
+              accessToken: accessToken,
+              state: state
+            });
+            setTimeout(() => { authChannel.close(); }, 500);
+          } catch (e) {
+            console.warn('BroadcastChannel error:', e);
+          }
+        }
+
+        // 2. localStorage storage event (reliable cross-window communication on same origin)
+        try {
+          localStorage.setItem('kiuq_google_auth_token', JSON.stringify({
+            type: 'GOOGLE_AUTH_TOKEN',
+            accessToken: accessToken,
+            state: state,
+            ts: Date.now()
+          }));
+        } catch (e) {
+          console.warn('localStorage error:', e);
+        }
+
+        // 3. window.opener postMessage (fallback if opener was preserved)
         if (window.opener && !window.opener.closed) {
           try {
             window.opener.postMessage({
@@ -79,16 +121,37 @@
               accessToken: accessToken,
               state: state
             }, '*');
-            setTimeout(() => {
-              window.close();
-            }, 100);
-            return;
           } catch (e) {
-            console.warn('Could not postMessage to opener:', e);
+            console.warn('window.opener postMessage error:', e);
           }
         }
 
-        // Direct navigation flow (in same window or macOS desktop app)
+        // Check if current window is a popup window
+        const isPopup = !!(window.opener && !window.opener.closed) ||
+                        window.name === 'googleLoginPopup' ||
+                        window.name === 'googleLinkPopup' ||
+                        (window.innerWidth > 0 && window.innerWidth < 820 && window.innerHeight < 820);
+
+        if (isPopup) {
+          document.getElementById('status-heading').textContent = '✓ Google Authentication Successful';
+          document.getElementById('status-desc').innerHTML = 'Returning to KIUQ SYSTEM...';
+
+          setTimeout(() => {
+            window.close();
+            // In case window.close() is prevented by browser policy:
+            setTimeout(() => {
+              const desc = document.getElementById('status-desc');
+              if (desc) {
+                desc.innerHTML = 'Authentication complete! You may now close this window.<br><br><button onclick="window.close()" style="background:#2563eb;color:#ffffff;border:none;border-radius:10px;padding:8px 20px;cursor:pointer;font-weight:700;font-size:12px;box-shadow:0 4px 12px rgba(37,99,235,0.4);">Close Window</button>';
+              }
+            }, 600);
+          }, 200);
+
+          // DO NOT navigate popup window to dashboard! Stop execution here.
+          return;
+        }
+
+        // Direct navigation flow (only when running in the primary browser window or macOS desktop app)
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
         if (state === 'link_profile') {

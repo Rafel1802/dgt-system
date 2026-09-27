@@ -55,17 +55,17 @@ class SmmCardDistributionJob implements ShouldQueue
             foreach ($cardsToDistribute as $card) {
                 // Check if this card is already on the main board
                 $alreadySynced = false;
-                if ($card->sync_id) {
+                if ($card->sync_group_id) {
                     $alreadySynced = Card::where('board_id', $mainWorkflowBoard->id)
-                                         ->where('sync_id', $card->sync_id)
+                                         ->where('sync_group_id', $card->sync_group_id)
                                          ->exists();
                 }
 
                 if (!$alreadySynced) {
-                    // Force a sync_id if not present
-                    if (!$card->sync_id) {
+                    // Force a sync_group_id if not present
+                    if (!$card->sync_group_id) {
                         Card::withoutEvents(function () use ($card) {
-                            $card->sync_id = \Illuminate\Support\Str::uuid();
+                            $card->sync_group_id = (string)\Illuminate\Support\Str::uuid();
                             $card->save();
                         });
                     }

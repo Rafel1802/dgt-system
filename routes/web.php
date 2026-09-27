@@ -43,6 +43,14 @@ Route::middleware(['auth', 'ensure.active', 'role:super-admin'])->get('/debug-lo
 
 Route::post('/export/download-pdf-base64', [RouteClosureController::class, 'downloadPdfBase64'])->name('export.download-pdf-base64')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
 Route::post('/export/save-pdf-temp', [RouteClosureController::class, 'savePdfTemp'])->name('export.save-pdf-temp')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
+
+// Ultra-lightweight latency ping endpoint (0-db, un-cached)
+Route::get('/ping', function () {
+    return response('pong', 200)
+        ->header('Content-Type', 'text/plain')
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate');
+})->name('ping');
+
 Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
     // Google OAuth Callback (available for guests to login and existing sessions to authenticate/re-link)
@@ -557,8 +565,53 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/blog-reports/csv', [\App\Http\Controllers\BlogReportController::class, 'csv'])->name('blog-reports.csv');
 });
 
-// Root redirect
+
+// ==============================================================================
+// Digital Media KPI System Routes (Strictly for Supervisor, Dara, Kim & Superadmin)
+// ==============================================================================
+Route::middleware(['auth', 'ensure.active', \App\Http\Middleware\EnsureKpiAccess::class])
+    ->prefix('kpi')
+    ->name('kpi.')
+    ->group(function () {
+        // Main Dashboard
+        Route::get('/', [\App\Http\Controllers\Kpi\KpiDashboardController::class, 'index'])->name('index');
+
+        // Deliverables / Tasks
+        Route::get('/tasks', [\App\Http\Controllers\Kpi\KpiTaskController::class, 'index'])->name('tasks.index');
+        Route::post('/tasks', [\App\Http\Controllers\Kpi\KpiTaskController::class, 'store'])->name('tasks.store');
+        Route::post('/tasks/{task}/submit', [\App\Http\Controllers\Kpi\KpiTaskController::class, 'submitEvidence'])->name('tasks.submit');
+        Route::post('/tasks/{task}/approve', [\App\Http\Controllers\Kpi\KpiTaskController::class, 'approve'])->name('tasks.approve');
+
+        // Monthly KPI Targets / Assignments
+        Route::get('/assignments', [\App\Http\Controllers\Kpi\KpiAssignmentController::class, 'index'])->name('assignments.index');
+        Route::post('/assignments', [\App\Http\Controllers\Kpi\KpiAssignmentController::class, 'store'])->name('assignments.store');
+
+        // KPI Reviews & Performance Evaluation
+        Route::get('/reviews', [\App\Http\Controllers\Kpi\KpiReviewController::class, 'index'])->name('reviews.index');
+        Route::post('/assignments/{assignment}/evaluate', [\App\Http\Controllers\Kpi\KpiReviewController::class, 'evaluate'])->name('reviews.evaluate');
+        Route::post('/reviews/{review}/finalize', [\App\Http\Controllers\Kpi\KpiReviewController::class, 'finalize'])->name('reviews.finalize');
+
+        // Supervisor Squad Monthly Reports
+        Route::get('/reports/supervisor', [\App\Http\Controllers\Kpi\KpiSupervisorReportController::class, 'index'])->name('supervisor-reports.index');
+        Route::post('/reports/supervisor', [\App\Http\Controllers\Kpi\KpiSupervisorReportController::class, 'store'])->name('supervisor-reports.store');
+        Route::post('/reports/supervisor/{report}/approve', [\App\Http\Controllers\Kpi\KpiSupervisorReportController::class, 'approve'])->name('supervisor-reports.approve');
+        Route::post('/reports/supervisor/{report}/finalize', [\App\Http\Controllers\Kpi\KpiSupervisorReportController::class, 'finalize'])->name('supervisor-reports.finalize');
+
+        // Export (PDF & CSV)
+        Route::get('/export/pdf', [\App\Http\Controllers\Kpi\KpiExportController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('/export/csv', [\App\Http\Controllers\Kpi\KpiExportController::class, 'exportCsv'])->name('export.csv');
+
+        // Audit Logs
+        Route::get('/audit-logs', [\App\Http\Controllers\Kpi\KpiAuditController::class, 'index'])->name('audit-logs.index');
+    });
+
+// ── Public Pages & Legal Compliance (Google OAuth Requirements) ───────────
 Route::get('/', [RouteClosureController::class, 'index'])->name('home');
+Route::get('/home', [RouteClosureController::class, 'index'])->name('landing');
+Route::get('/privacy-policy', [RouteClosureController::class, 'privacyPolicy'])->name('privacy-policy');
+Route::get('/privacy', [RouteClosureController::class, 'privacyPolicy'])->name('privacy');
+Route::get('/terms-of-service', [RouteClosureController::class, 'termsOfService'])->name('terms-of-service');
+Route::get('/terms', [RouteClosureController::class, 'termsOfService'])->name('terms');
 
 // ── Public Webhook: Google Apps Script Email Push ─────────────────────────
 // No auth needed — secured by secret key validated inside the controller

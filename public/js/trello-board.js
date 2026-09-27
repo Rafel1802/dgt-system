@@ -53,6 +53,7 @@ window.trelloBoard = function(config) {
     filterCluster: '',
     filterContentPublicDateFrom: '',
     filterContentPublicDateTo: '',
+    filterPublicDate: '',
     filtersOpen: false,
     searchOpen: false,
     boardMembers: [], // unique list for filter dropdown (populated by loadBoardMembers)
@@ -351,6 +352,7 @@ window.trelloBoard = function(config) {
       embedUrl: '',
       title: '',
       type: 'doc', // 'doc' | 'sheet' | 'slide' | 'form'
+      loading: false,
     },
     khTimeZone: 'Asia/Phnom_Penh',
     realtimeBound: false,
@@ -1348,6 +1350,7 @@ window.trelloBoard = function(config) {
     initSortable() {
       this.$nextTick(() => {
         setTimeout(() => {
+          const boardWrap = document.querySelector('.board-wrap');
           const containers = document.querySelectorAll('.list-cards');
           containers.forEach(el => {
             if (el.sortableInstance) {
@@ -1357,14 +1360,31 @@ window.trelloBoard = function(config) {
             el.sortableInstance = new Sortable(el, {
               group: 'cards',
               draggable: '.kanban-card[data-can-drag="1"]',
-              animation: 180,
-              ghostClass: 'bg-indigo-50/70',
-              dragClass: 'opacity-50',
-              delay: 150,
+              filter: 'button, input, select, textarea, a, .card-quick-btn, .block-fix-btn, [data-no-drag]',
+              preventOnFilter: false,
+              animation: 200,
+              easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+              ghostClass: 'sortable-ghost',
+              chosenClass: 'sortable-chosen',
+              dragClass: 'sortable-drag',
+              delay: 60,
               delayOnTouchOnly: true,
-              touchStartThreshold: 5,
+              touchStartThreshold: 4,
+              fallbackTolerance: 4,
+              swapThreshold: 0.65,
+              invertSwap: true,
+              direction: 'vertical',
+              emptyInsertThreshold: 35,
+              scroll: true,
+              scrollSensitivity: 100,
+              scrollSpeed: 20,
+              bubbleScroll: true,
               onStart: () => {
                 this.realtimeDragging = true;
+                if (typeof this.ctxTouchEnd === 'function') {
+                  this.ctxTouchEnd();
+                }
+                document.body.classList.add('is-dragging-card');
               },
               onMove: (evt) => {
                 const card = this.findCard(parseInt(evt.dragged.dataset.id));
@@ -1373,10 +1393,21 @@ window.trelloBoard = function(config) {
                 if (!this.canDragCard(card, fromList) || !this.canDragCard(card, toList)) {
                   return false;
                 }
+                // Highlight target list
+                containers.forEach(c => {
+                  if (c === evt.to) {
+                    c.classList.add('drag-over');
+                  } else {
+                    c.classList.remove('drag-over');
+                  }
+                });
                 return true;
               },
               onEnd: async (evt) => {
                 this.realtimeDragging = false;
+                document.body.classList.remove('is-dragging-card');
+                containers.forEach(c => c.classList.remove('drag-over'));
+
                 const cardId = evt.item.dataset.id;
                 const fromListId = evt.from.dataset.listId;
                 const toListId = evt.to.dataset.listId;
@@ -1398,13 +1429,21 @@ window.trelloBoard = function(config) {
             sortableContainer.sortableListInstance = new Sortable(sortableContainer, {
               group: 'board-lists',
               draggable: '.board-list',
-              filter: '.add-list-wrapper',
+              handle: '.list-header',
+              filter: '.add-list-wrapper, .list-cards, .add-card-btn, button, input',
               preventOnFilter: false,
-              animation: 180,
-              ghostClass: 'opacity-50',
-              delay: 150,
+              animation: 200,
+              easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+              ghostClass: 'sortable-list-ghost',
+              chosenClass: 'sortable-list-chosen',
+              dragClass: 'sortable-list-drag',
+              delay: 80,
               delayOnTouchOnly: true,
               touchStartThreshold: 5,
+              scroll: true,
+              scrollSensitivity: 100,
+              scrollSpeed: 20,
+              bubbleScroll: true,
               onMove: (evt) => {
                 // Ensure we don't drag over the "Add list" container which might not have an id
                 if (evt.related && !evt.related.classList.contains('board-list')) {
@@ -1415,7 +1454,8 @@ window.trelloBoard = function(config) {
               onEnd: async (evt) => {
                 if (evt.oldIndex === evt.newIndex) return;
 
-                const listElements = Array.from(boardWrap.querySelectorAll('.board-list'));
+                const wrap = boardWrap || document.getElementById('sortable-lists-container') || document;
+                const listElements = Array.from(wrap.querySelectorAll('.board-list'));
                 const order = listElements
                     .filter(el => el.id && el.id.startsWith('list-'))
                     .map(el => parseInt(el.id.replace('list-', '')));
@@ -1634,6 +1674,7 @@ window.trelloBoard = function(config) {
       if (this.filterCluster) count++;
       if (this.filterContentPublicDateFrom) count++;
       if (this.filterContentPublicDateTo) count++;
+      if (this.filterPublicDate) count++;
       return count;
     },
 
@@ -1651,55 +1692,164 @@ window.trelloBoard = function(config) {
       this.filterCluster = '';
       this.filterContentPublicDateFrom = '';
       this.filterContentPublicDateTo = '';
+      this.filterPublicDate = '';
       this.searchOpen = false;
       this.filtersOpen = false;
     },
 
+    cardMatchesDate(dateVal, query) {
+      if (!dateVal || !query) return false;
+      const raw = String(dateVal).trim().substring(0, 10);
+      const q = query.trim().toLowerCase();
+
+      const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!m) return false;
+      const year = m[1];
+      const month = m[2];
+      const day = m[3];
+      const monthNamesShort = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const monthNamesFull = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+      const mIdx = parseInt(month, 10) - 1;
+      const shortMonth = monthNamesShort[mIdx] || '';
+      const fullMonth = monthNamesFull[mIdx] || '';
+
+      // If query is just 1 or 2 digits, match exact day of month only
+      if (/^\d{1,2}$/.test(q)) {
+        const num = parseInt(q, 10);
+        return num === parseInt(day, 10);
+      }
+
+      // Direct raw check if q contains delimiters or has length >= 4
+      if ((q.includes('-') || q.includes('/')) && raw.toLowerCase().includes(q)) return true;
+
+      const variations = [
+        `${day}/${month}/${year}`,
+        `${parseInt(day, 10)}/${parseInt(month, 10)}/${year}`,
+        `${day}/${month}`,
+        `${parseInt(day, 10)}/${parseInt(month, 10)}`,
+        `${day}-${month}-${year}`,
+        `${day}-${month}`,
+        `${year}-${month}-${day}`,
+        `${year}/${month}/${day}`,
+        `${day} ${shortMonth} ${year}`,
+        `${day} ${shortMonth}`,
+        `${day} ${fullMonth} ${year}`,
+        `${day} ${fullMonth}`,
+        `${shortMonth} ${day}`,
+        `${fullMonth} ${day}`,
+      ];
+
+      if (variations.some(v => v === q || v.includes(q) || (q.length >= 5 && q.includes(v)))) return true;
+
+      // Clean digits comparison (e.g. 25092026 or 2509)
+      const cleanQ = q.replace(/[^0-9]/g, '');
+      if (cleanQ.length >= 4) {
+        const cleanDateDMY = `${day}${month}${year}`;
+        const cleanDateYMD = `${year}${month}${day}`;
+        const cleanDateDM = `${day}${month}`;
+        if (cleanDateDMY.includes(cleanQ) || cleanDateYMD.includes(cleanQ) || cleanDateDM === cleanQ) {
+          return true;
+        }
+      }
+
+      return false;
+    },
+
+    hasActiveFilters() {
+      return !!(
+        (this.searchQuery && this.searchQuery.trim()) ||
+        this.filterPublicDate ||
+        this.filterPriority ||
+        this.filterLabel ||
+        this.filterAssignee ||
+        this.filterAssignBy ||
+        this.filterTeamLabel ||
+        this.filterSmmClass ||
+        this.filterCluster ||
+        this.filterContentPublicDateFrom ||
+        this.filterContentPublicDateTo ||
+        (this.filterStatus && this.filterStatus !== 'all') ||
+        this.filterDateFrom ||
+        this.filterDateTo
+      );
+    },
+
     filteredCards(list) {
+      if (!list || !Array.isArray(list.cards)) return [];
+
+      const isBlock = this.isBlockList(list);
+
+      // Fast path: No active filters
+      if (!this.hasActiveFilters()) {
+        if (!isBlock) return list.cards;
+        return [...list.cards].sort((a, b) => {
+          const aDone = a.block_completed_at ? 1 : 0;
+          const bDone = b.block_completed_at ? 1 : 0;
+          if (aDone !== bDone) return aDone - bDone;
+          return (a.position ?? 0) - (b.position ?? 0);
+        });
+      }
+
+      // Pre-compute filter values once per list evaluation
+      const q = this.searchQuery ? this.searchQuery.toLowerCase().trim() : '';
+      const filterAssigneeId = this.filterAssignee ? parseInt(this.filterAssignee, 10) : null;
+      const filterAssignById = this.filterAssignBy ? parseInt(this.filterAssignBy, 10) : null;
+      const filterLabelId = this.filterLabel ? this.filterLabel : null;
+      const teamLower = this.filterTeamLabel ? this.filterTeamLabel.toLowerCase() : null;
+      const classLower = this.filterSmmClass ? this.filterSmmClass.toLowerCase() : null;
+      const clusterLower = this.filterCluster ? this.filterCluster.toLowerCase() : null;
+      const statusLower = (this.filterStatus && this.filterStatus !== 'all') ? this.filterStatus.toLowerCase() : null;
+
       const cards = list.cards.filter(c => {
-        // Search text
-        if (this.searchQuery.trim()) {
-          const q = this.searchQuery.toLowerCase();
+        // Search text (matches title, description, public date, due date, start date, assignees, labels)
+        if (q) {
           const matchTitle = c.title && c.title.toLowerCase().includes(q);
           const matchDesc = c.description && c.description.toLowerCase().includes(q);
-          if (!matchTitle && !matchDesc) return false;
+          const matchPubDate = this.cardMatchesDate(c.content_public_date, q);
+          const matchDueDate = this.cardMatchesDate(c.due_at, q);
+          const matchStartDate = this.cardMatchesDate(c.start_date, q);
+          const matchAssignee = c.assignees && c.assignees.some(u => u.name && u.name.toLowerCase().includes(q));
+          const matchLabels = c.labels && c.labels.some(l => l.name && l.name.toLowerCase().includes(q));
+          const matchSmmTeam = c.smm_team_label && c.smm_team_label.toLowerCase().includes(q);
+          const matchSmmClass = c.smm_class_label && c.smm_class_label.toLowerCase().includes(q);
+
+          if (!matchTitle && !matchDesc && !matchPubDate && !matchDueDate && !matchStartDate && !matchAssignee && !matchLabels && !matchSmmTeam && !matchSmmClass) return false;
+        }
+
+        // Direct Public Date picker filter
+        if (this.filterPublicDate) {
+          const pubDate = (c.content_public_date || '').substring(0, 10);
+          const dueDate = (c.due_at || '').substring(0, 10);
+          const startDate = (c.start_date || '').substring(0, 10);
+          if (pubDate) {
+            if (pubDate !== this.filterPublicDate) return false;
+          } else if (dueDate || startDate) {
+            if (dueDate !== this.filterPublicDate && startDate !== this.filterPublicDate) return false;
+          } else {
+            return false;
+          }
         }
 
         // Priority
-        if (this.filterPriority) {
-          if (c.priority !== this.filterPriority) return false;
-        }
+        if (this.filterPriority && c.priority !== this.filterPriority) return false;
 
         // Label
-        if (this.filterLabel) {
-          if (!c.labels || !c.labels.some(lbl => lbl.id == this.filterLabel)) return false;
-        }
+        if (filterLabelId && (!c.labels || !c.labels.some(lbl => lbl.id == filterLabelId))) return false;
 
         // Assignee
-        if (this.filterAssignee) {
-          const hasAssignee = c.assignees && c.assignees.some(u => u.id === parseInt(this.filterAssignee));
-          if (!hasAssignee) return false;
-        }
+        if (filterAssigneeId && (!c.assignees || !c.assignees.some(u => u.id === filterAssigneeId))) return false;
 
         // Assign By
-        if (this.filterAssignBy) {
-          if (!c.creator || c.creator.id !== parseInt(this.filterAssignBy)) return false;
-        }
+        if (filterAssignById && (!c.creator || c.creator.id !== filterAssignById)) return false;
 
         // Team Label
-        if (this.filterTeamLabel) {
-          if (!c.smm_team_label || !c.smm_team_label.toLowerCase().includes(this.filterTeamLabel.toLowerCase())) return false;
-        }
+        if (teamLower && (!c.smm_team_label || !c.smm_team_label.toLowerCase().includes(teamLower))) return false;
 
         // SMM Class
-        if (this.filterSmmClass) {
-          if (!c.smm_class_label || !c.smm_class_label.toLowerCase().includes(this.filterSmmClass.toLowerCase())) return false;
-        }
+        if (classLower && (!c.smm_class_label || !c.smm_class_label.toLowerCase().includes(classLower))) return false;
 
         // Cluster
-        if (this.filterCluster) {
-          if (!c.smm_cluster_label || !c.smm_cluster_label.toLowerCase().includes(this.filterCluster.toLowerCase())) return false;
-        }
+        if (clusterLower && (!c.smm_cluster_label || !c.smm_cluster_label.toLowerCase().includes(clusterLower))) return false;
 
         // Content Public Date
         if (this.filterContentPublicDateFrom || this.filterContentPublicDateTo) {
@@ -1710,14 +1860,14 @@ window.trelloBoard = function(config) {
         }
 
         // Status
-        if (this.filterStatus && this.filterStatus !== 'all') {
+        if (statusLower) {
           const s = (c.status || '').toLowerCase();
-          if (this.filterStatus === 'approved') {
+          if (statusLower === 'approved') {
             if (s !== 'approved') return false;
-          } else if (this.filterStatus === 'unapproved') {
+          } else if (statusLower === 'unapproved') {
             if (s === 'approved') return false;
           } else {
-            if (s !== this.filterStatus) return false;
+            if (s !== statusLower) return false;
           }
         }
 
@@ -1731,7 +1881,7 @@ window.trelloBoard = function(config) {
         return true;
       });
 
-      if (this.isBlockList(list)) {
+      if (isBlock) {
         return [...cards].sort((a, b) => {
           const aDone = a.block_completed_at ? 1 : 0;
           const bDone = b.block_completed_at ? 1 : 0;
@@ -2466,6 +2616,11 @@ window.trelloBoard = function(config) {
       });
     },
 
+    formatDateHuman(dateStr) {
+      if (!dateStr) return '';
+      return this.formatDate(dateStr);
+    },
+
     getSmmClassColor(name) {
       if (!this.smmClasses) return '#e2e8f0';
       const cls = this.smmClasses.find(c => c.name === name);
@@ -2734,11 +2889,13 @@ window.trelloBoard = function(config) {
       im.source = 'csv';
       im.sheetsUrl = '';
       im.worksheetName = '';
+      im.targetListId = '';
       im.file = null;
       im.preview = null;
       im.error = null;
       im.result = null;
       im.busy = false;
+      im.confirmCooldown = false;
       im.previewFilter = 'all';
     },
 
@@ -2749,6 +2906,7 @@ window.trelloBoard = function(config) {
       }
       this.importModal.open = false;
       this.importModal.busy = false;
+      this.importModal.confirmCooldown = false;
     },
 
     importHandleDrop(event) {
@@ -2797,6 +2955,9 @@ window.trelloBoard = function(config) {
       if (im.worksheetName.trim()) {
         formData.append('worksheet_name', im.worksheetName.trim());
       }
+      if (im.targetListId) {
+        formData.append('target_list_id', im.targetListId);
+      }
 
       try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || this.csrfToken;
@@ -2816,6 +2977,10 @@ window.trelloBoard = function(config) {
 
         im.preview = data;
         im.step = 2;
+        im.confirmCooldown = true;
+        setTimeout(() => {
+          im.confirmCooldown = false;
+        }, 600);
       } catch (err) {
         im.error = err.message;
       } finally {
@@ -2846,12 +3011,17 @@ window.trelloBoard = function(config) {
         const res = await this.api(`/${this.baseRoute || 'boards'}/${this.boardSlug}/import/confirm`, 'POST', payload);
         
         if (res.cards && Array.isArray(res.cards)) {
-          // Push new cards directly into their respective lists
+          // Push new/updated cards directly into their respective lists without duplicating
           res.cards.forEach(newCard => {
+            this.lists.forEach(l => {
+              const idx = l.cards.findIndex(c => c.id === newCard.id);
+              if (idx !== -1) {
+                l.cards.splice(idx, 1);
+              }
+            });
             const list = this.lists.find(l => l.id === newCard.board_list_id);
             if (list) {
               list.cards.push(newCard);
-              // Re-sort list cards by position just in case
               list.cards.sort((a, b) => a.position - b.position);
             }
           });
@@ -4633,10 +4803,16 @@ window.trelloBoard = function(config) {
     isGoogleDocsFile(file) {
       if (!file) return false;
       const url = (file.url || file.preview_url || file.path || file.stored_name || '').toLowerCase();
-      return url.includes('docs.google.com/document') ||
-             url.includes('docs.google.com/spreadsheets') ||
-             url.includes('docs.google.com/presentation') ||
-             url.includes('docs.google.com/forms');
+      const name = (file.original_name || '').toLowerCase();
+      return url.includes('docs.google.com') ||
+             name.includes('docs.google.com') ||
+             url.includes('/document/d/') ||
+             url.includes('/spreadsheets/d/') ||
+             url.includes('/presentation/d/') ||
+             url.includes('/forms/d/') ||
+             url.includes('drive.google.com/document') ||
+             url.includes('drive.google.com/spreadsheets') ||
+             url.includes('drive.google.com/presentation');
     },
 
     getGoogleDocsType(file) {
@@ -4654,19 +4830,21 @@ window.trelloBoard = function(config) {
       if (!rawUrl) return '';
       const lower = rawUrl.toLowerCase();
 
-      // Helper to extract doc ID and return embed URL
+      // Helper to extract doc ID
       const extractId = (pattern) => {
         const m = rawUrl.match(pattern);
         return m ? m[1] : null;
       };
 
+      // Use /preview URLs — designed for embedding, no auth consent popup
       if (lower.includes('/document/d/')) {
         const id = extractId(/\/document\/d\/([a-zA-Z0-9_-]+)/i);
-        if (id) return `https://docs.google.com/document/d/${id}/edit?usp=sharing&embedded=true&rm=minimal`;
+        if (id) return `https://docs.google.com/document/d/${id}/preview`;
       }
       if (lower.includes('/spreadsheets/d/')) {
         const id = extractId(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/i);
-        if (id) return `https://docs.google.com/spreadsheets/d/${id}/edit?usp=sharing&embedded=true&rm=minimal`;
+        // Sheets: use pub?output=html for best compatibility, or htmlview
+        if (id) return `https://docs.google.com/spreadsheets/d/${id}/htmlview?usp=sharing`;
       }
       if (lower.includes('/presentation/d/')) {
         const id = extractId(/\/presentation\/d\/([a-zA-Z0-9_-]+)/i);
@@ -4676,14 +4854,23 @@ window.trelloBoard = function(config) {
         const id = extractId(/\/forms\/d\/([a-zA-Z0-9_-]+)/i);
         if (id) return `https://docs.google.com/forms/d/${id}/viewform?embedded=true`;
       }
-      // fallback – strip trailing /view, /edit etc and embed
-      return rawUrl.replace(/\/(view|edit|pub)(\?.*)?$/i, '') + '/edit?usp=sharing&embedded=true&rm=minimal';
+      // fallback
+      return rawUrl.replace(/\/(view|edit|pub)(\?.*)?$/i, '') + '/preview';
     },
 
     openGoogleDocsPreview(file) {
       if (!file) return;
       const rawUrl = file.url || file.preview_url || file.path || file.stored_name || '';
       if (!rawUrl) return;
+
+      // ── macOS InAppWebView: Open in default external browser ───────────────
+      // Google Docs requires active browser session cookies and cannot be edited in iframes
+      if (this.isMacApp() && window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.flutter_inappwebview.callHandler('DgtOpenExternal', rawUrl);
+        return;
+      }
+
+      // ── Web browser: show in-system iframe modal ───────────────────────────
       const embedUrl = this.getGoogleDocsEmbedUrl(file);
       const title = file.original_name || 'Document';
       const type = this.getGoogleDocsType(file);
@@ -4691,11 +4878,13 @@ window.trelloBoard = function(config) {
       this.googleDocsPreview.embedUrl = embedUrl;
       this.googleDocsPreview.title = title;
       this.googleDocsPreview.type = type;
+      this.googleDocsPreview.loading = true;
       this.googleDocsPreview.open = true;
     },
 
     closeGoogleDocsPreview() {
       this.googleDocsPreview.open = false;
+      this.googleDocsPreview.loading = false;
       this.googleDocsPreview.embedUrl = '';
       this.googleDocsPreview.url = '';
       this.googleDocsPreview.title = '';
@@ -4704,6 +4893,7 @@ window.trelloBoard = function(config) {
     openGoogleDocsDirect(url) {
       const target = url || this.googleDocsPreview.url;
       if (!target) return;
+      // In macOS app: open in external default browser (e.g. Chrome where user is logged in)
       if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
         window.flutter_inappwebview.callHandler('DgtOpenExternal', target);
       } else {
@@ -4737,14 +4927,14 @@ window.trelloBoard = function(config) {
       if (url.includes('drive.google.com')) {
         const matchFile = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i);
         if (matchFile && matchFile[1]) {
-          return `https://drive.google.com/file/d/${matchFile[1]}/preview?autoplay=1`;
+          return `https://drive.google.com/file/d/${matchFile[1]}/preview`;
         }
         const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
         if (matchId && matchId[1]) {
-          return `https://drive.google.com/file/d/${matchId[1]}/preview?autoplay=1`;
+          return `https://drive.google.com/file/d/${matchId[1]}/preview`;
         }
         const cleanUrl = url.split('?')[0];
-        return cleanUrl.replace('/view', '/preview') + '?autoplay=1';
+        return cleanUrl.replace('/view', '/preview');
       }
 
       // YouTube
@@ -4779,8 +4969,16 @@ window.trelloBoard = function(config) {
       const rawUrl = file.url || file.preview_url || file.download_url || file.path || file.stored_name || '';
       if (!rawUrl && !file.embed_url) return;
 
-      const embedUrl = this.getVideoEmbedUrl(file);
       const title = file.original_name || 'Video Preview';
+
+      // ── macOS App InAppWebView: For Google Drive videos, open in native dialog ──
+      // Top-level dialog shares Google session cookies and bypasses iframe partitioning
+      if (this.isMacApp() && window.flutter_inappwebview && window.flutter_inappwebview.callHandler && rawUrl.includes('drive.google.com')) {
+        window.flutter_inappwebview.callHandler('DgtPlayInAppVideo', { url: rawUrl, title: title });
+        return;
+      }
+
+      const embedUrl = this.getVideoEmbedUrl(file);
 
       this.videoPreview.embedUrl = embedUrl;
       this.videoPreview.url = rawUrl || embedUrl;

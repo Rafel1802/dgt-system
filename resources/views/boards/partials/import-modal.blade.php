@@ -136,17 +136,30 @@
           </div>
         </div>
 
+        {{-- Target List Override / Selection --}}
+        <div>
+          <label class="text-xs font-black text-slate-600 uppercase tracking-wider block mb-1.5">Target List (Optional)</label>
+          <select x-model="importModal.targetListId"
+                  class="form-select text-sm w-full rounded-xl border-slate-200 focus:border-indigo-400 focus:ring-indigo-300">
+            <option value="">Auto-detect from file / worksheet (Default)</option>
+            <template x-for="l in lists" :key="l.id">
+              <option :value="l.id" x-text="l.name"></option>
+            </template>
+          </select>
+          <p class="text-[10px] text-slate-400 font-semibold mt-1.5 leading-relaxed">
+            Choose a specific list (e.g. <strong>Week 4</strong>) to place all cards into that list, or keep <strong>Auto-detect</strong> to let the system match each card.
+          </p>
+        </div>
+
         {{-- Optional: Worksheet Name --}}
-        <div class="space-y-3">
-          <div>
-            <label class="text-xs font-black text-slate-600 uppercase tracking-wider block mb-1.5">Worksheet Name (Optional)</label>
-            <input type="text" x-model="importModal.worksheetName"
-                   placeholder="e.g. Week1-August"
-                   class="form-input text-sm w-full rounded-xl border-slate-200 focus:border-emerald-400 focus:ring-emerald-300">
-            <p class="text-[10px] text-slate-400 font-semibold mt-1.5 leading-relaxed">
-              Used to automatically place tasks into the correct week list (e.g. Week 1, Week 2).
-            </p>
-          </div>
+        <div>
+          <label class="text-xs font-black text-slate-600 uppercase tracking-wider block mb-1.5">Worksheet Name (Optional)</label>
+          <input type="text" x-model="importModal.worksheetName"
+                 placeholder="e.g. Week 4 or September"
+                 class="form-input text-sm w-full rounded-xl border-slate-200 focus:border-emerald-400 focus:ring-emerald-300">
+          <p class="text-[10px] text-slate-400 font-semibold mt-1.5 leading-relaxed">
+            Used to automatically place tasks into the correct week list (e.g. Week 1, Week 4).
+          </p>
         </div>
 
 
@@ -248,8 +261,16 @@
                         <span class="text-[9px] font-bold text-slate-400">Row <span x-text="row.row"></span></span>
                         <span x-show="row.is_duplicate" class="text-[9px] font-black text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">DUPLICATE</span>
                       </div>
-                      <div class="flex flex-col gap-1 mt-2 text-[10px] text-slate-500 font-medium">
-                        <div x-show="row.list_name"><span class="font-bold text-slate-700">List:</span> <span x-text="row.list_name"></span></div>
+                        <div class="flex items-center gap-1.5 py-0.5">
+                          <span class="font-bold text-slate-700">Target List:</span>
+                          <select x-model="row.list_id"
+                                  @change="row.list_name = lists.find(l => l.id == row.list_id)?.name || row.list_name"
+                                  class="text-[11px] font-bold py-0.5 px-2 rounded-lg border border-slate-200 bg-white text-indigo-700 focus:ring-1 focus:ring-indigo-400">
+                            <template x-for="l in lists" :key="l.id">
+                              <option :value="l.id" x-text="l.name" :selected="l.id == row.list_id"></option>
+                            </template>
+                          </select>
+                        </div>
                         <div x-show="row.smm_cluster_label"><span class="font-bold text-slate-700">Cluster:</span> <span x-text="row.smm_cluster_label"></span></div>
                         <div x-show="row.smm_team_label"><span class="font-bold text-slate-700">Team:</span> <span x-text="row.smm_team_label"></span></div>
                         <div x-show="row.smm_class_label"><span class="font-bold text-slate-700">SMM Class:</span> <span x-text="row.smm_class_label"></span></div>
@@ -372,7 +393,7 @@
         {{-- Step 2: Confirm import --}}
         <button x-show="importModal.step === 2"
                 @click="importConfirm()"
-                :disabled="importModal.busy || !importModal.preview?.valid"
+                :disabled="importModal.busy || importModal.confirmCooldown || !importModal.preview?.valid"
                 class="btn btn-primary text-xs py-2 px-5 rounded-xl font-bold flex items-center gap-1.5 shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
           <span x-show="importModal.busy" class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
           <span x-text="importModal.busy ? 'Importing…' : 'Confirm Import (' + (importModal.preview?.valid ?? 0) + ' cards)'"></span>

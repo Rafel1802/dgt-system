@@ -141,11 +141,15 @@ class Card extends Model
         $replica->board_list_id = $targetListId;
         $replica->title = $newTitle;
         $replica->position = 0;
-        $replica->created_by = $createdBy ?? $this->created_by;
         if ($enableSync) {
             $replica->sync_group_id = $this->sync_group_id;
+            // CRITICAL: Synced twin cards represent the same task across boards.
+            // They MUST retain the original assigner (created_by), rather than adopting the
+            // user who triggered an automation, move, or replication.
+            $replica->created_by = $this->created_by ?: ($createdBy ?? auth()->id());
         } else {
             $replica->sync_group_id = null;
+            $replica->created_by = $createdBy ?? $this->created_by;
         }
 
         // Inherit approved status if source or any twin is approved
@@ -392,6 +396,13 @@ class Card extends Model
         }
         
         return $clusterLinks[$this->smm_cluster_label] ?? null;
+    }
+
+    public function setSmmClassLabelAttribute($value): void
+    {
+        $this->attributes['smm_class_label'] = !empty($value)
+            ? \App\Models\SocialMediaClass::canonicalName($value)
+            : null;
     }
 
     public function getSmmClassLinkAttribute()

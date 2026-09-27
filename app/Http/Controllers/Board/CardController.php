@@ -52,6 +52,7 @@ class CardController extends Controller
             ->whereNotIn('action', ['card_reordered', 'reordered', 'card.reordered'])
             ->where('description', 'not like', '%reordered%')
             ->orderByDesc('created_at')
+            ->limit(50)
             ->get()
             ->map(fn($log) => [
                 'id'          => $log->id,
@@ -298,7 +299,7 @@ class CardController extends Controller
         ]);
     }
 
-    private function checkAutomations(Card $card, ?int $movedToListId = null, ?string $commentText = null, bool $titleChanged = false): ?array
+    public function checkAutomations(Card $card, ?int $movedToListId = null, ?string $commentText = null, bool $titleChanged = false): ?array
     {
         $automations = \App\Models\BoardAutomation::where('trigger_board_id', $card->board_id)
             ->orWhere(function($q) use ($card) {
@@ -333,11 +334,21 @@ class CardController extends Controller
 
                 $wordMatch = false;
                 if ($commentText) {
-                    $wordMatch = stripos($commentText, $automation->trigger_word) !== false;
-                    // If trigger word is "approved", do not match if it's "qc approved", "head approved", or "team approved"
-                    if ($wordMatch && strcasecmp(trim($automation->trigger_word), 'approved') === 0) {
+                    $ruleTrigger = trim($automation->trigger_word);
+                    $wordMatch = stripos($commentText, $ruleTrigger) !== false;
+
+                    // Support synonym matching: if rule is "Rejected", also match "Blocked" / "Block"
+                    if (!$wordMatch && (strcasecmp($ruleTrigger, 'rejected') === 0 || strcasecmp($ruleTrigger, 'blocked') === 0)) {
                         $lowerComment = strtolower($commentText);
-                        if (str_contains($lowerComment, 'qc approved') || str_contains($lowerComment, 'head approved') || str_contains($lowerComment, 'team approved')) {
+                        if (str_contains($lowerComment, 'reject') || str_contains($lowerComment, 'block')) {
+                            $wordMatch = true;
+                        }
+                    }
+
+                    // If trigger word is "approved", do not match if it's "qc approved", "head approved", "team approved", or "approved smm"
+                    if ($wordMatch && strcasecmp($ruleTrigger, 'approved') === 0) {
+                        $lowerComment = strtolower($commentText);
+                        if (str_contains($lowerComment, 'qc approved') || str_contains($lowerComment, 'head approved') || str_contains($lowerComment, 'team approved') || str_contains($lowerComment, 'approved smm')) {
                             $wordMatch = false;
                         }
                     }
@@ -348,7 +359,6 @@ class CardController extends Controller
                 
                 if ($wordMatch) {
                     $isMatch = true;
-                    $triggeredKeyword = $automation->trigger_word;
                 }
             } else {
                 // If NO trigger word is specified, and it matched the list condition above, it's a match!
@@ -362,30 +372,39 @@ class CardController extends Controller
                 // CUSTOM DGT WORKFLOW CONSTRAINTS
                 if ($commentText) {
                     $trigger = strtolower($automation->trigger_word ?? '');
-                    $isAdmin = auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || auth()->user()->isSupervisorRole();
-                    
+                    $currentUser = auth()->user();
+                    $isAdmin = $currentUser && ($currentUser->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || $currentUser->isSupervisorRole());
+                    $isQcUser = $currentUser && ($currentUser->isQc() || $currentUser->hasRole('qc') || stripos($currentUser->team_role ?? '', 'qc') !== false || stripos($currentUser->name ?? '', 'dara') !== false);
+                    $isSupervisorUser = $currentUser && ($currentUser->isSupervisorRole() || $currentUser->hasRole('supervisor') || stripos($currentUser->team_role ?? '', 'supervisor') !== false);
+
                     if (str_contains($trigger, 'ready')) {
                         $assignees = $card->assignees;
-                        if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', auth()->id())) continue; // Commenter not assigned
+                        if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', $currentUser?->id)) continue; // Commenter not assigned
                     }
 
                     if (str_contains($trigger, 'head approved')) {
-                        if (!$isAdmin && stripos(auth()->user()->team_role ?? '', 'head') === false) continue;
+                        if (!$isAdmin && stripos($currentUser?->team_role ?? '', 'head') === false) continue;
                     }
                     if (str_contains($trigger, 'qc approved') || str_contains($trigger, 'error')) {
-                        if (!$isAdmin && stripos(auth()->user()->team_role ?? '', 'qc') === false) continue;
+                        if (!$isAdmin && !$isQcUser) continue;
                     }
-                    if (str_contains($trigger, 'approved') && !str_contains($trigger, 'head') && !str_contains($trigger, 'qc') && !str_contains($trigger, 'team') || str_contains($trigger, 'rejected')) {
-                        if (!$isAdmin && stripos(auth()->user()->team_role ?? '', 'supervisor') === false) continue;
+                    if (str_contains($trigger, 'approved smm')) {
+                        if (!$isAdmin && !$isQcUser) continue;
+                    }
+                    if (((str_contains($trigger, 'approved') && !str_contains($trigger, 'head') && !str_contains($trigger, 'qc') && !str_contains($trigger, 'team') && !str_contains($trigger, 'smm')) || str_contains($trigger, 'rejected') || str_contains($trigger, 'blocked'))) {
+                        if (!$isAdmin && !$isSupervisorUser) continue;
                     }
                     if (str_contains($trigger, 'team approved')) {
                         // "Team approved" can be triggered by any assigned member (or any digital team member if unassigned)
                         $assignees = $card->assignees;
-                        if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', auth()->id())) {
+                        if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', $currentUser?->id)) {
                             continue; // Must be assigned to trigger this
                         }
                     }
                 }
+
+                // Passed role constraints: record matched keyword
+                $triggeredKeyword = $automation->trigger_word;
 
                 $sourceBoardName = $card->board?->name ?? 'Unknown board';
                 $sourceListName = $card->boardList?->name ?? 'Unknown list';
@@ -435,16 +454,35 @@ class CardController extends Controller
                 }
 
                 if ($automation->action_type === 'copy') {
+                    // Prevent duplicate copies if card has already been replicated to the target board
+                    if ($card->sync_group_id) {
+                        $alreadyCopied = \App\Models\Card::where('sync_group_id', $card->sync_group_id)
+                            ->where('board_id', $automation->target_board_id)
+                            ->exists();
+                        if ($alreadyCopied) {
+                            return [
+                                'triggered' => true,
+                                'rule_id' => $automation->id,
+                                'trigger_type' => $automation->trigger_type,
+                                'action_type' => $automation->action_type,
+                                'reason' => 'already copied',
+                            ];
+                        }
+                    }
+
                     $isSameBoard = (int)$automation->target_board_id === (int)$card->board_id;
                     $newTitle = $isSameBoard ? $card->title . ' (copy)' : $card->title;
                     
-                    $copy = $card->replicateRelationally($automation->target_board_id, $automation->target_list_id, $newTitle, auth()->id() ?? $card->created_by, true);
+                    $copy = $card->replicateRelationally($automation->target_board_id, $automation->target_list_id, $newTitle, $card->created_by, true);
 
                     $this->logCardActivity($copy, 'copied_by_automation', "copied this card from **{$sourceListName}**");
                     // Retain original members. Removed logic that automatically adds more members based on target_assignee_role.
                 } else {
                     $targetBoard = \App\Models\Board::find($automation->target_board_id);
                     $targetList = \App\Models\BoardList::find($automation->target_list_id);
+                    if (!$targetList) {
+                        continue;
+                    }
                     
                     // Shift all existing cards in the target list down to make room at position 0 (top)
                     \App\Models\Card::where('board_list_id', $automation->target_list_id)
@@ -472,7 +510,7 @@ class CardController extends Controller
                     $this->logCardActivity(
                         $card,
                         'moved_by_automation',
-                        "moved this card from **{$sourceListName}** to **" . ($targetList?->name ?? 'Unknown list') . "**"
+                        "moved this card from **{$sourceListName}** to **" . ($targetList->name ?? 'Unknown list') . "**"
                     );
 
                     // Retain original members. Removed logic that automatically adds more members based on target_assignee_role.
@@ -729,7 +767,7 @@ class CardController extends Controller
 
         $targetListId = $targetList->id;
 
-        $copy = $card->replicateRelationally($targetBoard->id, $targetListId, $request->title, auth()->id(), true);
+        $copy = $card->replicateRelationally($targetBoard->id, $targetListId, $request->title, $card->created_by, true);
 
         // We no longer sync Block/Waiting across boards
         if (str_contains(strtolower($targetList->name), 'approved')) {
@@ -939,8 +977,8 @@ class CardController extends Controller
 
         $autoResult = $this->checkAutomations($card, null, $validated['body']);
 
-        // Fallback to workflow service only if no database automation rule triggered
-        if (!$autoResult) {
+        // Check workflow service (always handle ready, block, or if no database automation rule triggered)
+        if (!$autoResult || stripos($validated['body'], 'ready') !== false || stripos($validated['body'], 'block') !== false) {
             app(\App\Services\BoardWorkflowService::class)->handleCommentTrigger($card, $comment);
         }
 
@@ -1479,7 +1517,7 @@ class CardController extends Controller
     public function addSystemComment(Card $card, string $content): void
     {
         $card->comments()->create([
-            'user_id' => auth()->id(),
+            'user_id' => auth()->id() ?? $card->created_by ?? 1,
             'content' => $content,
             'is_system' => true,
         ]);
@@ -1645,8 +1683,8 @@ class CardController extends Controller
                     // Check and trigger automations
                     $autoResult = $this->checkAutomations($card, null, $commentText);
 
-                    // Fallback to workflow service only if no database automation rule triggered
-                    if (!$autoResult) {
+                    // Check workflow service (always handle ready, block, or if no database automation rule triggered)
+                    if (!$autoResult || stripos($commentText, 'ready') !== false || stripos($commentText, 'block') !== false) {
                         app(\App\Services\BoardWorkflowService::class)->handleCommentTrigger($card, $comment);
                     }
 
@@ -1692,7 +1730,7 @@ class CardController extends Controller
                     app(\App\Services\BoardWorkflowService::class)->syncPlanningWeekList($card, $targetList);
                 } elseif ($action === 'copy') {
                     $newTitle = ((int)$targetBoardId === (int)$card->board_id) ? $card->title . ' (copy)' : $card->title;
-                    $copy = $card->replicateRelationally($targetBoardId, $targetListId, $newTitle, auth()->id() ?? $card->created_by, true);
+                    $copy = $card->replicateRelationally($targetBoardId, $targetListId, $newTitle, $card->created_by, true);
                     $sourceListName = $card->boardList?->name ?? 'Unknown list';
                     $this->logCardActivity($copy, 'copied', "copied this card from **{$sourceListName}**");
                 }

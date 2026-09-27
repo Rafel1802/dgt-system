@@ -22,6 +22,10 @@ class SocialMediaClassController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->filled('name')) {
+            $request->merge(['name' => SocialMediaClass::canonicalName($request->input('name'))]);
+        }
+
         $data = $request->validate([
             'name'         => 'required|string|max:255|unique:social_media_classes,name',
             'description'  => 'nullable|string|max:1000',
@@ -86,6 +90,10 @@ class SocialMediaClassController extends Controller
 
     public function quickStore(Request $request)
     {
+        if ($request->filled('name')) {
+            $request->merge(['name' => SocialMediaClass::canonicalName($request->input('name'))]);
+        }
+
         $data = $request->validate([
             'name' => 'required|string|max:255|unique:social_media_classes,name',
         ]);
@@ -101,6 +109,10 @@ class SocialMediaClassController extends Controller
 
     public function update(Request $request, SocialMediaClass $class)
     {
+        if ($request->filled('name')) {
+            $request->merge(['name' => SocialMediaClass::canonicalName($request->input('name'))]);
+        }
+
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255', Rule::unique('social_media_classes', 'name')->ignore($class->id)],
             'description' => 'nullable|string|max:1000',

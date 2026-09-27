@@ -372,7 +372,7 @@ class KanbanService
 
         $cacheKey = 'approval_stats_' . md5(json_encode($selectedBoardIds)) . '_' . $period;
 
-        $stats = Cache::remember($cacheKey, 10, function() use ($selectedBoardIds, $rangeStart, $rangeEnd) {
+        $stats = Cache::remember($cacheKey, 60, function() use ($selectedBoardIds, $rangeStart, $rangeEnd) {
             $activeCards = Card::with(['boardList', 'labels', 'board.workspace'])
                 ->whereIn('board_id', $selectedBoardIds)
                 ->whereNotNull('board_id')

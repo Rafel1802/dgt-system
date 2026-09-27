@@ -528,6 +528,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         })();
     </script>
     <!-- Custom Flatpickr UI -->
+    <!-- Custom Flatpickr UI -->
     <style>
         .flatpickr-calendar {
             font-family: inherit !important;
@@ -544,11 +545,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             fill: #1e293b !important;
         }
         .flatpickr-current-month .flatpickr-monthDropdown-months {
-            background: #ffffff !important;
-            font-weight: 600 !important;
+            background: #f8fafc !important;
+            color: #0f172a !important;
+            font-weight: 700 !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 6px !important;
+            padding: 2px 6px !important;
         }
         .flatpickr-current-month input.cur-year {
-            font-weight: 600 !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
         }
         .flatpickr-day {
             color: #1e293b !important;
@@ -569,24 +575,43 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             border-color: #e0e7ff !important;
             color: #4f46e5 !important;
         }
+        .flatpickr-weekday {
+            color: #64748b !important;
+            font-weight: 600 !important;
+        }
+
+        /* ── Dark Theme Flatpickr ── */
         html[data-theme="dark"] .flatpickr-calendar, .dark .flatpickr-calendar {
             background: #1e293b !important;
             border-color: #334155 !important;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
         }
         html[data-theme="dark"] .flatpickr-months .flatpickr-month,
-        html[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months,
         html[data-theme="dark"] .flatpickr-day,
         .dark .flatpickr-months .flatpickr-month,
-        .dark .flatpickr-current-month .flatpickr-monthDropdown-months,
         .dark .flatpickr-day {
             color: #f8fafc !important;
             fill: #f8fafc !important;
             background: transparent !important;
         }
+        html[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months,
+        .dark .flatpickr-current-month .flatpickr-monthDropdown-months {
+            background: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid #334155 !important;
+            border-radius: 6px !important;
+            padding: 2px 6px !important;
+            font-weight: 700 !important;
+        }
+        html[data-theme="dark"] .flatpickr-current-month input.cur-year,
+        .dark .flatpickr-current-month input.cur-year {
+            color: #f8fafc !important;
+            font-weight: 700 !important;
+        }
         html[data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months option,
         .dark .flatpickr-current-month .flatpickr-monthDropdown-months option {
             background: #1e293b !important;
+            color: #f8fafc !important;
         }
         html[data-theme="dark"] .flatpickr-day:hover,
         .dark .flatpickr-day:hover {
@@ -600,13 +625,129 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             border-color: #6366f1 !important;
             color: #ffffff !important;
         }
-        .flatpickr-weekday {
-            color: #64748b !important;
-            font-weight: 600 !important;
-        }
         html[data-theme="dark"] .flatpickr-weekday,
         .dark .flatpickr-weekday {
             color: #94a3b8 !important;
+        }
+
+        /* ── Neon Theme Flatpickr (Never White in Neon Mode!) ── */
+        html[data-theme="neon"] .flatpickr-calendar,
+        [data-theme="neon"] .flatpickr-calendar {
+            background: #070d1e !important;
+            border: 1px solid rgba(0, 240, 255, 0.4) !important;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.9), 0 0 25px rgba(0, 180, 255, 0.25) !important;
+            color: #f0fdf4 !important;
+        }
+        html[data-theme="neon"] .flatpickr-calendar.arrowTop:before,
+        [data-theme="neon"] .flatpickr-calendar.arrowTop:before {
+            border-bottom-color: rgba(0, 240, 255, 0.4) !important;
+        }
+        html[data-theme="neon"] .flatpickr-calendar.arrowTop:after,
+        [data-theme="neon"] .flatpickr-calendar.arrowTop:after {
+            border-bottom-color: #070d1e !important;
+        }
+        html[data-theme="neon"] .flatpickr-calendar.arrowBottom:before,
+        [data-theme="neon"] .flatpickr-calendar.arrowBottom:before {
+            border-top-color: rgba(0, 240, 255, 0.4) !important;
+        }
+        html[data-theme="neon"] .flatpickr-calendar.arrowBottom:after,
+        [data-theme="neon"] .flatpickr-calendar.arrowBottom:after {
+            border-top-color: #070d1e !important;
+        }
+        html[data-theme="neon"] .flatpickr-months,
+        [data-theme="neon"] .flatpickr-months {
+            background: transparent !important;
+        }
+        html[data-theme="neon"] .flatpickr-months .flatpickr-month,
+        [data-theme="neon"] .flatpickr-months .flatpickr-month {
+            background: transparent !important;
+            color: #f0fdf4 !important;
+            fill: #00f0ff !important;
+        }
+        html[data-theme="neon"] .flatpickr-months .flatpickr-prev-month,
+        html[data-theme="neon"] .flatpickr-months .flatpickr-next-month,
+        [data-theme="neon"] .flatpickr-months .flatpickr-prev-month,
+        [data-theme="neon"] .flatpickr-months .flatpickr-next-month {
+            color: #38bdf8 !important;
+            fill: #38bdf8 !important;
+        }
+        html[data-theme="neon"] .flatpickr-months .flatpickr-prev-month:hover,
+        html[data-theme="neon"] .flatpickr-months .flatpickr-next-month:hover,
+        [data-theme="neon"] .flatpickr-months .flatpickr-prev-month:hover,
+        [data-theme="neon"] .flatpickr-months .flatpickr-next-month:hover {
+            color: #00f0ff !important;
+            fill: #00f0ff !important;
+        }
+        html[data-theme="neon"] .flatpickr-current-month,
+        [data-theme="neon"] .flatpickr-current-month {
+            color: #f0fdf4 !important;
+        }
+        html[data-theme="neon"] .flatpickr-current-month .flatpickr-monthDropdown-months,
+        [data-theme="neon"] .flatpickr-current-month .flatpickr-monthDropdown-months {
+            background: #0b1530 !important;
+            color: #00f0ff !important;
+            border: 1px solid rgba(0, 240, 255, 0.4) !important;
+            border-radius: 8px !important;
+            padding: 3px 8px !important;
+            font-weight: 800 !important;
+            font-size: 13px !important;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.4) !important;
+        }
+        html[data-theme="neon"] .flatpickr-current-month .flatpickr-monthDropdown-months:focus,
+        [data-theme="neon"] .flatpickr-current-month .flatpickr-monthDropdown-months:focus {
+            outline: none !important;
+            border-color: #00f0ff !important;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.5) !important;
+        }
+        html[data-theme="neon"] .flatpickr-current-month .flatpickr-monthDropdown-months option,
+        [data-theme="neon"] .flatpickr-current-month .flatpickr-monthDropdown-months option {
+            background: #070d1e !important;
+            color: #e0f2fe !important;
+        }
+        html[data-theme="neon"] .flatpickr-current-month input.cur-year,
+        [data-theme="neon"] .flatpickr-current-month input.cur-year {
+            color: #ffffff !important;
+            font-weight: 800 !important;
+            background: #0b1530 !important;
+            border: 1px solid rgba(0, 240, 255, 0.4) !important;
+            border-radius: 8px !important;
+            padding: 2px 6px !important;
+        }
+        html[data-theme="neon"] .flatpickr-weekday,
+        [data-theme="neon"] .flatpickr-weekday {
+            color: #38bdf8 !important;
+            font-weight: 700 !important;
+        }
+        html[data-theme="neon"] .flatpickr-day,
+        [data-theme="neon"] .flatpickr-day {
+            color: #e2e8f0 !important;
+            background: transparent !important;
+            border-color: transparent !important;
+        }
+        html[data-theme="neon"] .flatpickr-day.prevMonthDay,
+        html[data-theme="neon"] .flatpickr-day.nextMonthDay,
+        [data-theme="neon"] .flatpickr-day.prevMonthDay,
+        [data-theme="neon"] .flatpickr-day.nextMonthDay {
+            color: #475569 !important;
+        }
+        html[data-theme="neon"] .flatpickr-day:hover,
+        [data-theme="neon"] .flatpickr-day:hover {
+            background: rgba(0, 240, 255, 0.15) !important;
+            border-color: rgba(0, 240, 255, 0.5) !important;
+            color: #00f0ff !important;
+        }
+        html[data-theme="neon"] .flatpickr-day.today,
+        [data-theme="neon"] .flatpickr-day.today {
+            border: 1px solid #00f0ff !important;
+            color: #00f0ff !important;
+        }
+        html[data-theme="neon"] .flatpickr-day.selected,
+        [data-theme="neon"] .flatpickr-day.selected {
+            background: linear-gradient(135deg, #0284c7, #00f0ff) !important;
+            border-color: #00f0ff !important;
+            color: #020617 !important;
+            font-weight: 900 !important;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.6) !important;
         }
     </style>
 </head>
@@ -929,6 +1070,23 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
                 @endif
 
+
+                
+                @if(auth()->user()?->canAccessKpi())
+                <span class="sidebar-section-label">Performance</span>
+
+                <a href="{{ route('kpi.index') }}"
+                   class="sidebar-item {{ request()->routeIs('kpi.*') ? 'active' : '' }}"
+                   id="nav-kpi-system" data-tooltip="Digital Media KPI">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                    </svg>
+                    <span>Staff KPI</span>
+                    <span class="ml-auto bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-emerald-400/30">
+                        KPI
+                    </span>
+                </a>
+                @endif
 
                 @can('view-blog-reports')
                 <a href="{{ route('blog-reports.index') }}"
@@ -1410,14 +1568,49 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 <div class="topbar-actions ml-auto">
 
-                    <!-- Cambodia Clock -->
-                    <div x-data="cambodiaClock()" x-init="start()" class="hidden md:flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 mr-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <!-- Cambodia Clock & Live Latency Indicator -->
+                    <div x-data="cambodiaClock()" x-init="start()" class="hidden md:flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 mr-4 select-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
-                        <span x-text="dateStr" class="text-sm font-bold uppercase tracking-wide"></span>
+                        <span x-text="dateStr" class="text-sm font-bold uppercase tracking-wide whitespace-nowrap"></span>
                         <div class="w-[1px] h-5 bg-indigo-300 dark:bg-indigo-700/80 mx-1.5"></div>
-                        <span x-text="timeStr" class="text-xl font-black tracking-tight" style="font-variant-numeric: tabular-nums;"></span>
+                        <span x-text="timeStr" class="text-xl font-black tracking-tight whitespace-nowrap" style="font-variant-numeric: tabular-nums;"></span>
+
+                        <div class="w-[1px] h-4 bg-indigo-300/60 dark:bg-indigo-700/60 mx-1.5"></div>
+
+                        <!-- Live System Ping (ms) Badge -->
+                        <button type="button"
+                                @click="measurePing()"
+                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold border transition-all duration-200 cursor-pointer active:scale-95 select-none focus:outline-hidden"
+                                :class="{
+                                    'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20': status === 'excellent',
+                                    'bg-lime-500/10 text-lime-600 dark:text-lime-400 border-lime-500/30 hover:bg-lime-500/20': status === 'good',
+                                    'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20': status === 'fair',
+                                    'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20': status === 'slow' || status === 'offline',
+                                    'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/30': status === 'measuring',
+                                }"
+                                :title="tooltipText">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                                      :class="{
+                                          'bg-emerald-400': status === 'excellent',
+                                          'bg-lime-400': status === 'good',
+                                          'bg-amber-400': status === 'fair',
+                                          'bg-rose-400': status === 'slow' || status === 'offline',
+                                          'bg-slate-400': status === 'measuring',
+                                      }"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2"
+                                      :class="{
+                                          'bg-emerald-500': status === 'excellent',
+                                          'bg-lime-500': status === 'good',
+                                          'bg-amber-500': status === 'fair',
+                                          'bg-rose-500': status === 'slow' || status === 'offline',
+                                          'bg-slate-400': status === 'measuring',
+                                      }"></span>
+                            </span>
+                            <span x-text="pingDisplay" class="font-mono text-[11px] font-extrabold tracking-tight"></span>
+                        </button>
                     </div>
 
                     <!-- Dark Mode Pill Toggle (desktop) -->
@@ -2011,19 +2204,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <!-- ── Mobile Bottom Navigation Bar ──────────────────────────────────── -->
     <nav class="mobile-bottom-nav lg:hidden" id="mobile-bottom-nav" aria-label="Mobile navigation">
         <div class="mobile-bottom-nav-inner">
-            <div id="nav-active-bubble"></div>
 
             <!-- Home (Everyone) -->
             @can('dashboard.view')
             <a href="{{ route('dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
-               aria-label="Dashboard">
+               aria-label="Home">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/>
+                    <svg fill="currentColor" viewBox="0 0 24 24" class="w-6 h-6">
+                        <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
+                        <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Home</span>
+                <span class="mobile-nav-indicator"></span>
             </a>
             @endcan
 
@@ -2033,11 +2227,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                class="mobile-nav-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                aria-label="Boards">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z"/>
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Boards</span>
+                <span class="mobile-nav-indicator"></span>
             </a>
             @endcan
 
@@ -2047,11 +2242,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                    class="mobile-nav-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
                    aria-label="Approval">
                     <span class="mobile-nav-icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375"/>
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
                     </span>
                     <span class="mobile-nav-label">Approval</span>
+                    <span class="mobile-nav-indicator"></span>
                 </a>
             @elseif(isset($userPlanningBoards) && $userPlanningBoards->isNotEmpty())
                 @php
@@ -2063,26 +2259,32 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                    class="mobile-nav-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
                    aria-label="Tasks Count">
                     <span class="mobile-nav-icon relative">
-                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
                         </svg>
                         @if($mobileTasksCount > 0)
                             <span class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full {{ $mobileHasDueTomorrow ? 'bg-amber-500' : 'bg-indigo-600' }} text-white text-[9px] font-bold flex items-center justify-center">{{ $mobileTasksCount }}</span>
                         @endif
                     </span>
-                    <span class="mobile-nav-label">Tasks Count</span>
+                    <span class="mobile-nav-label">Tasks</span>
+                    <span class="mobile-nav-indicator"></span>
                 </a>
             @endif
 
-            <!-- Social Media (Boss, super-admin, Digital Team) -->
+            <!-- Reels / Social Media (Boss, super-admin, Digital Team) -->
             @if(auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
             <a href="{{ route('social-media.dashboard') }}"
                class="mobile-nav-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
-               aria-label="Social">
+               aria-label="Reels">
                 <span class="mobile-nav-icon">
-                    <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social" class="w-5 h-5 flex-shrink-0 object-contain">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                        <rect x="3" y="4" width="18" height="16" rx="4" stroke-width="1.8" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m3 9 4.5-5M8 9l4.5-5M13 9l4.5-5M18 9l3-3.3" />
+                        <path fill="currentColor" stroke="none" d="m10.5 12 5 3-5 3v-6Z" />
+                    </svg>
                 </span>
-                <span class="mobile-nav-label">Social</span>
+                <span class="mobile-nav-label">Reels</span>
+                <span class="mobile-nav-indicator"></span>
             </a>
             @endif
 
@@ -2092,37 +2294,42 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                class="mobile-nav-item {{ request()->routeIs('websites.*') ? 'active' : '' }}"
                aria-label="Websites">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Websites</span>
+                <span class="mobile-nav-indicator"></span>
             </a>
             @endif
+
             <!-- Notes -->
             <a href="{{ route('notes.private') }}"
                class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
                aria-label="Note">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Note</span>
+                <span class="mobile-nav-indicator"></span>
             </a>
 
-            <!-- More / Menu trigger -->
+            <!-- Profile / More trigger -->
             <button type="button"
                     class="mobile-nav-item {{ request()->routeIs('admin.*') || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
                     x-data
                     @click="$dispatch('open-mobile-sidebar')"
-                    aria-label="More">
+                    aria-label="Profile">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                        <circle cx="12" cy="8" r="4" stroke-width="1.8" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.5 20a6.5 6.5 0 0 1 13 0" />
                     </svg>
                 </span>
-                <span class="mobile-nav-label">More</span>
+                <span class="mobile-nav-label">Profile</span>
+                <span class="mobile-nav-indicator"></span>
             </button>
 
         </div>
@@ -3258,212 +3465,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     {{-- Lunch Time Alarm Pop-up & Audio --}}
     @include('partials.lunch-alarm-modal')
 
-    {{-- iOS Style Drag & Slide Navigation Logic --}}
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const navContainer = document.getElementById('mobile-bottom-nav');
-        if (!navContainer) return;
-        
-        const innerContainer = navContainer.querySelector('.mobile-bottom-nav-inner');
-        const items = Array.from(innerContainer.querySelectorAll('.mobile-nav-item'));
-        const bubble = document.getElementById('nav-active-bubble');
-        if (!bubble || items.length === 0) return;
-        
-        let activeIndex = items.findIndex(item => item.classList.contains('active'));
-        if (activeIndex === -1) activeIndex = 0;
-        
-        let currentX = 0;
-        let itemWidth = 0;
-        const PADDING = 12; // 6px padding on each side of the bubble
-        
-        const updateLayout = () => {
-            if (!items[activeIndex]) return;
-            itemWidth = items[activeIndex].offsetWidth;
-            bubble.style.width = `${itemWidth - PADDING}px`;
-            // relative to inner container
-            currentX = items[activeIndex].offsetLeft + (PADDING / 2);
-            bubble.style.transform = `translateX(${currentX}px)`;
-        };
-        
-        // Apply instantly on load to avoid sliding-in animation glitch
-        bubble.style.transition = 'none';
-        updateLayout();
-        
-        // Restore transition for dragging and resizing
-        setTimeout(() => {
-            bubble.style.transition = '';
-        }, 100);
-        window.addEventListener('resize', updateLayout);
-        
-        let isDragging = false;
-        let startX = 0;
-        let initialBubbleX = 0;
-        let touchTargetItem = null;
-        
-        innerContainer.addEventListener('touchstart', (e) => {
-            const touch = e.touches[0];
-            touchTargetItem = e.target.closest('.mobile-nav-item');
-            
-            if (touchTargetItem) {
-                const index = items.indexOf(touchTargetItem);
-                if (index === activeIndex) {
-                    isDragging = true;
-                    startX = touch.clientX;
-                    initialBubbleX = currentX;
-                    bubble.style.transition = 'none';
-                    bubble.classList.add('is-dragging');
-                    innerContainer.classList.add('is-dragging-active');
-                    // Allow normal touch but prep for drag
-                }
-            }
-        }, { passive: true });
-        
-        innerContainer.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            const touch = e.touches[0];
-            const deltaX = touch.clientX - startX;
-            
-            // If dragging started, prevent default scroll
-            if (Math.abs(deltaX) > 5) {
-                e.preventDefault();
-            }
-            
-            let newX = initialBubbleX + deltaX;
-            
-            const minX = items[0].offsetLeft + (PADDING / 2);
-            const maxX = items[items.length - 1].offsetLeft + (PADDING / 2);
-            newX = Math.max(minX, Math.min(newX, maxX));
-            
-            bubble.style.transform = `translateX(${newX}px)`;
-            
-            let closestIndex = 0;
-            let minDiff = Infinity;
-            items.forEach((item, index) => {
-                const itemCenter = item.offsetLeft + (item.offsetWidth / 2);
-                const bubbleCenter = newX + ((itemWidth - PADDING) / 2);
-                const diff = Math.abs(bubbleCenter - itemCenter);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    closestIndex = index;
-                }
-            });
-            
-            items.forEach((item, index) => {
-                if (index === closestIndex) item.classList.add('active');
-                else item.classList.remove('active');
-            });
-            
-        }, { passive: false });
-        
-        innerContainer.addEventListener('touchend', (e) => {
-            bubble.classList.remove('is-dragging');
-            innerContainer.classList.remove('is-dragging-active');
-            
-            if (!isDragging) return;
-            isDragging = false;
-            bubble.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
-            
-            const currentBubbleRect = bubble.getBoundingClientRect();
-            const bubbleCenterX = currentBubbleRect.left + currentBubbleRect.width / 2;
-            
-            let closestIndex = 0;
-            let minDiff = Infinity;
-            
-            items.forEach((item, index) => {
-                const itemRect = item.getBoundingClientRect();
-                const itemCenterX = itemRect.left + itemRect.width / 2;
-                const diff = Math.abs(bubbleCenterX - itemCenterX);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    closestIndex = index;
-                }
-            });
-            
-            const selectedItem = items[closestIndex];
-            currentX = selectedItem.offsetLeft + (PADDING / 2);
-            bubble.style.transform = `translateX(${currentX}px)`;
-            
-            items.forEach((item, index) => {
-                if (index === closestIndex) item.classList.add('active');
-                else item.classList.remove('active');
-            });
-            
-            if (closestIndex !== activeIndex) {
-                activeIndex = closestIndex;
-                handleNavAction(selectedItem);
-            }
-        });
-        
-        const handleNavAction = (item) => {
-            const href = item.getAttribute('href');
-            if (href && href !== '#' && !item.hasAttribute('x-data')) {
-                if (window.Turbo) {
-                    window.Turbo.visit(href);
-                } else {
-                    window.location.href = href;
-                }
-            } else if (item.hasAttribute('x-data')) {
-                // Use a proper MouseEvent so AlpineJS catches it natively
-                const clickEvent = new MouseEvent('click', {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true
-                });
-                item.dispatchEvent(clickEvent);
-            }
-        };
-        
-        items.forEach((item, index) => {
-            item.addEventListener('click', (e) => {
-                bubble.classList.remove('is-dragging');
-                innerContainer.classList.remove('is-dragging-active');
-                
-                // Ignore if we were just dragging
-                if (isDragging) {
-                    e.preventDefault();
-                    return;
-                }
-                
-                if (e.ctrlKey || e.metaKey || e.shiftKey || (e.button !== undefined && e.button !== 0)) return;
-                
-                // If it's not a trusted event (i.e. we dispatched it programmatically), let it pass to Alpine
-                if (!e.isTrusted) return;
-                
-                if (index === activeIndex) {
-                    if (item.hasAttribute('x-data')) {
-                        return; // Let standard click work for things like More button if already active
-                    }
-                    return; 
-                }
-                
-                e.preventDefault();
-                
-                activeIndex = index;
-                currentX = item.offsetLeft + (PADDING / 2);
-                
-                items.forEach((it, i) => {
-                    if (i === activeIndex) it.classList.add('active');
-                    else it.classList.remove('active');
-                });
-                
-                bubble.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
-                bubble.style.transform = `translateX(${currentX}px)`;
-                
-                handleNavAction(item);
-            });
-        });
-        
-        let scrollTimeout;
-        window.addEventListener('scroll', () => {
-            if (!isDragging) {
-                bubble.classList.add('is-scrolling');
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(() => {
-                    bubble.classList.remove('is-scrolling');
-                }, 150);
-            }
-        }, { passive: true, capture: true });
-    });
         // Fix for "not real time fast" menu feeling:
         // Provide immediate visual feedback when clicking sidebar links.
         document.addEventListener('click', function(e) {
@@ -3780,16 +3782,141 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 timeStr: '',
                 dateStr: '',
                 timer: null,
+                pingTimer: null,
+                pingMs: null,
+                status: 'measuring', // 'measuring' | 'excellent' | 'good' | 'fair' | 'slow' | 'offline'
+                isPinging: false,
+                activeTarget: 'https://connectivitycheck.gstatic.com/generate_204',
+                probeTargets: [
+                    'https://connectivitycheck.gstatic.com/generate_204',
+                    'https://speed.cloudflare.com/__down?bytes=0',
+                ],
+
+                get pingDisplay() {
+                    if (this.isPinging && this.pingMs === null) return '... ms';
+                    if (this.status === 'offline') return 'Offline';
+                    if (this.pingMs === null) return '-- ms';
+                    return `${this.pingMs} ms`;
+                },
+
+                get tooltipText() {
+                    if (this.status === 'offline') return 'Connection offline. Click to test again.';
+                    if (this.pingMs === null) return 'Measuring Wi-Fi latency...';
+                    let label = 'Fast';
+                    if (this.status === 'excellent') label = 'Optimal (<40ms)';
+                    else if (this.status === 'good') label = 'Good (<80ms)';
+                    else if (this.status === 'fair') label = 'Moderate (<140ms)';
+                    else if (this.status === 'slow') label = 'High Latency (>140ms)';
+                    return `Wi-Fi Latency: ${this.pingMs} ms • ${label} (Real Internet Ping) • Click to test`;
+                },
+
                 start() {
                     this.updateClock();
                     this.timer = setInterval(() => this.updateClock(), 1000);
+                    this.measurePing();
+                    // Auto re-measure ping every 12 seconds
+                    this.pingTimer = setInterval(() => this.measurePing(), 12000);
                 },
+
+                async probeTarget(url, timeoutMs = 1500) {
+                    const sep = url.includes('?') ? '&' : '?';
+                    const targetUrl = `${url}${sep}_t=${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+                    const t0 = performance.now();
+                    try {
+                        await fetch(targetUrl, {
+                            method: 'GET',
+                            mode: 'no-cors',
+                            cache: 'no-store',
+                            signal: controller.signal
+                        });
+                        return Math.max(1, Math.round(performance.now() - t0));
+                    } catch (e) {
+                        return null;
+                    } finally {
+                        clearTimeout(timeoutId);
+                    }
+                },
+
+                async measurePing() {
+                    if (this.isPinging) return;
+                    this.isPinging = true;
+                    try {
+                        let target = this.activeTarget;
+                        // 1. Warm-up request to establish socket/TLS (up to 1500ms)
+                        let warm = await this.probeTarget(target, 1500);
+
+                        // If primary target failed or timed out, find first working probe target
+                        if (warm === null) {
+                            for (const alt of this.probeTargets) {
+                                if (alt === target) continue;
+                                const altWarm = await this.probeTarget(alt, 1500);
+                                if (altWarm !== null) {
+                                    target = alt;
+                                    this.activeTarget = alt;
+                                    warm = altWarm;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // If all external targets failed, fallback to local origin
+                        if (warm === null) {
+                            const localWarm = await this.probeTarget('/ping.txt', 1500);
+                            if (localWarm !== null) {
+                                target = '/ping.txt';
+                                this.activeTarget = target;
+                                warm = localWarm;
+                            }
+                        }
+
+                        if (warm === null) {
+                            this.status = 'offline';
+                            return;
+                        }
+
+                        // 2. Measure 3 warm samples (reusing keep-alive connection)
+                        const s1 = await this.probeTarget(target, 1500);
+                        const s2 = await this.probeTarget(target, 1500);
+                        const s3 = await this.probeTarget(target, 1500);
+                        const samples = [s1, s2, s3].filter(s => s !== null && s > 0);
+
+                        let finalPing;
+                        if (samples.length >= 2) {
+                            samples.sort((a, b) => a - b);
+                            finalPing = samples[Math.floor(samples.length / 2)];
+                        } else if (samples.length === 1) {
+                            finalPing = samples[0];
+                        } else {
+                            finalPing = warm;
+                        }
+
+                        this.pingMs = finalPing;
+
+                        if (finalPing < 40) {
+                            this.status = 'excellent';
+                        } else if (finalPing < 80) {
+                            this.status = 'good';
+                        } else if (finalPing < 140) {
+                            this.status = 'fair';
+                        } else {
+                            this.status = 'slow';
+                        }
+                    } catch (err) {
+                        if (this.pingMs === null) {
+                            this.status = 'offline';
+                        }
+                    } finally {
+                        this.isPinging = false;
+                    }
+                },
+
                 updateClock() {
                     const now = new Date();
                     const optionsTime = { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
                     const optionsDate = { timeZone: 'Asia/Phnom_Penh', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
                     
-                    // Intl.DateTimeFormat output isn't exactly what we might want, so let's format it nicely
                     const formatter = new Intl.DateTimeFormat('en-US', {
                         timeZone: 'Asia/Phnom_Penh',
                         weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
@@ -3803,8 +3930,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     this.dateStr = `${p.weekday}, ${p.month} ${p.day}, ${p.year}`;
                     this.timeStr = `${p.hour}:${p.minute}:${p.second} ${p.dayPeriod}`;
                 },
+
                 destroy() {
                     if (this.timer) clearInterval(this.timer);
+                    if (this.pingTimer) clearInterval(this.pingTimer);
                 }
             }));
         });
