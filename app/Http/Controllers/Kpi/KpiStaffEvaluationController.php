@@ -19,9 +19,9 @@ class KpiStaffEvaluationController extends Controller
 {
     public function index(Request $request): View
     {
-        $user = $request->user();
-        $isSupervisor = $user->isKpiSupervisor();
-        $userSquadId = $user->getKpiSquadId();
+        $user = $request->user() ?: auth()->user();
+        $isSupervisor = $user ? $user->isKpiSupervisor() : false;
+        $userSquadId = $user ? $user->getKpiSquadId() : null;
 
         // 1. Periods & Date Filtering (Month & Year)
         $periods = KpiPeriod::orderBy('start_date', 'desc')->get();
@@ -96,6 +96,10 @@ class KpiStaffEvaluationController extends Controller
             ->get()
             ->groupBy('user_id');
 
+        $evaluatedCount = $reviews->count();
+        $avgKpiScore = ($evaluatedCount > 0 && $reviews->avg('score') !== null) ? round((float)$reviews->avg('score'), 1) : 0;
+        $outstandingCount = $reviews->where('score', '>=', 90)->count();
+
         return view('kpi.evaluations', compact(
             'periods',
             'currentPeriod',
@@ -108,6 +112,9 @@ class KpiStaffEvaluationController extends Controller
             'allUserReviews',
             'isSupervisor',
             'userSquadId',
+            'evaluatedCount',
+            'avgKpiScore',
+            'outstandingCount',
             'search',
             'memberId',
             'selectedMonth',
@@ -117,7 +124,7 @@ class KpiStaffEvaluationController extends Controller
 
     public function rate(Request $request): RedirectResponse
     {
-        $user = $request->user();
+        $user = $request->user() ?: auth()->user();
         $isSupervisor = $user->isKpiSupervisor();
         $userSquadId = $user->getKpiSquadId();
 
@@ -332,7 +339,7 @@ class KpiStaffEvaluationController extends Controller
 
     public function approve(Request $request, KpiReview $review): RedirectResponse
     {
-        $user = $request->user();
+        $user = $request->user() ?: auth()->user();
         if (!$user->isKpiSupervisor()) {
             abort(403, 'Only Supervisors or SuperAdmin can approve staff KPI evaluations.');
         }
@@ -361,7 +368,7 @@ class KpiStaffEvaluationController extends Controller
 
     public function finalize(Request $request, KpiReview $review): RedirectResponse
     {
-        $user = $request->user();
+        $user = $request->user() ?: auth()->user();
         if (!$user->isKpiSupervisor()) {
             abort(403, 'Only Supervisors or SuperAdmin can finalize staff KPI evaluations.');
         }
@@ -383,15 +390,20 @@ class KpiStaffEvaluationController extends Controller
 
     public function exportStaffPdf(Request $request, KpiReview $review)
     {
-        $user = $request->user();
+        $user = $request->user() ?: auth()->user();
         $isSupervisor = $user->isKpiSupervisor();
         $userSquadId = $user->getKpiSquadId();
 
-        if (!$isSupervisor && $userSquadId != $review->squad_id) {
+        $reviewSquadId = $review->squad_id ?? $review->user?->getKpiSquadId();
+        if (!$isSupervisor && $userSquadId && $reviewSquadId && $userSquadId != $reviewSquadId) {
             abort(403, 'Unauthorized to view this staff report.');
         }
 
         $review->load(['user.kpiSquads', 'reviewer', 'squad.lead', 'period']);
+        if (!$review->squad_id && $reviewSquadId) {
+            $review->squad_id = $reviewSquadId;
+            $review->load('squad.lead');
+        }
 
         $pdf = Pdf::loadView('kpi.staff-pdf', compact('review'));
 
@@ -403,7 +415,7 @@ class KpiStaffEvaluationController extends Controller
 
     public function exportAllStaffPdf(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user() ?: auth()->user();
         $isSupervisor = $user->isKpiSupervisor();
         $userSquadId = $user->getKpiSquadId();
 
@@ -456,7 +468,7 @@ class KpiStaffEvaluationController extends Controller
 
     public function exportSquadPdf(Request $request, KpiSquad $squad)
     {
-        $user = $request->user();
+        $user = $request->user() ?: auth()->user();
         $isSupervisor = $user->isKpiSupervisor();
         $userSquadId = $user->getKpiSquadId();
 

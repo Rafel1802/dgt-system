@@ -15,9 +15,9 @@ class KpiDashboardController extends Controller
 {
     public function index(Request $request): View
     {
-        $user = $request->user();
-        $isSupervisor = $user->isKpiSupervisor();
-        $userSquadId = $user->getKpiSquadId();
+        $user = $request->user() ?: auth()->user();
+        $isSupervisor = $user ? $user->isKpiSupervisor() : false;
+        $userSquadId = $user ? $user->getKpiSquadId() : null;
 
         // 1. Periods & Filters
         $periods = KpiPeriod::orderBy('start_date', 'desc')->get();
