@@ -159,6 +159,13 @@ if __name__ == "__main__":
     ]
     run_cmd(rsync_images_cmd, allow_fail=True)
 
+    rsync_build_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/build/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/build/"
+    ]
+    run_cmd(rsync_build_cmd, allow_fail=True)
+
     # 2. Remove hot file + optimize caching on server.
     # Do not run migrations from this performance deploy: the optimization pass
     # must not modify schema or data.
