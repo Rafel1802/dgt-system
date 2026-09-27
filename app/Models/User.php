@@ -966,6 +966,11 @@ SVG;
     {
         return $this->hasMany(\App\Models\Kpi\KpiReview::class, 'user_id');
     }
+
+    public function kpiSquads(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Kpi\KpiSquad::class, 'kpi_squad_members', 'user_id', 'squad_id')
+            ->withPivot('role_title', 'joined_date')
+            ->withTimestamps();
+    }
 }
-
-

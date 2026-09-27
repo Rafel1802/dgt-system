@@ -576,6 +576,19 @@ Route::middleware(['auth', 'ensure.active', \App\Http\Middleware\EnsureKpiAccess
         // Main Dashboard
         Route::get('/', [\App\Http\Controllers\Kpi\KpiDashboardController::class, 'index'])->name('index');
 
+        // Squad Team Members Management (Dara & Kim add staff below them)
+        Route::get('/team', [\App\Http\Controllers\Kpi\KpiTeamController::class, 'index'])->name('team.index');
+        Route::post('/team/add-member', [\App\Http\Controllers\Kpi\KpiTeamController::class, 'addMember'])->name('team.add-member');
+        Route::delete('/team/{squad}/members/{member}', [\App\Http\Controllers\Kpi\KpiTeamController::class, 'removeMember'])->name('team.remove-member');
+
+        // Staff Monthly KPI Evaluations (Scores, Notes, Approvals, PDF)
+        Route::get('/evaluations', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'index'])->name('evaluations.index');
+        Route::post('/evaluations/rate', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'rate'])->name('evaluations.rate');
+        Route::post('/evaluations/{review}/approve', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'approve'])->name('evaluations.approve');
+        Route::post('/evaluations/{review}/finalize', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'finalize'])->name('evaluations.finalize');
+        Route::get('/evaluations/{review}/pdf', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'exportStaffPdf'])->name('evaluations.pdf');
+        Route::get('/squad/{squad}/pdf', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'exportSquadPdf'])->name('squad.pdf');
+
         // Deliverables / Tasks
         Route::get('/tasks', [\App\Http\Controllers\Kpi\KpiTaskController::class, 'index'])->name('tasks.index');
         Route::post('/tasks', [\App\Http\Controllers\Kpi\KpiTaskController::class, 'store'])->name('tasks.store');

@@ -1,11 +1,11 @@
 @extends('layouts.app')
-@section('title', 'Digital Media KPI Management')
-@section('page_title', 'Digital Media KPI Dashboard')
+@section('title', 'Staff KPI Management')
+@section('page_title', 'Staff KPI Dashboard')
 
 @section('content')
 
 <style>
-/* 3D Claymorphic Design Tokens */
+/* 3D Claymorphic Tokens */
 .clay-card {
     background: #ffffff;
     border-radius: 1.5rem;
@@ -53,17 +53,31 @@
 </style>
 
 <div class="space-y-6 pb-12" x-data="{
-    showNewTaskModal: false,
-    showSubmitModal: false,
-    showApproveModal: false,
-    selectedTaskId: null,
-    selectedTaskTitle: ''
+    showRateModal: false,
+    selectedUserId: null,
+    selectedUserName: '',
+    selectedSquadId: {{ $currentSquad?->id ?? 1 }},
+    scoreProd: 95,
+    scoreQual: 95,
+    scoreTat: 92,
+    scoreTeam: 95,
+    reviewNotes: '',
+    reviewStatus: 'Approved',
+    get overallScore() {
+        return ((this.scoreProd * 0.35) + (this.scoreQual * 0.35) + (this.scoreTat * 0.20) + (this.scoreTeam * 0.10)).toFixed(1);
+    },
+    get rankBand() {
+        let s = parseFloat(this.overallScore);
+        if (s >= 95.0) return 'Outstanding';
+        if (s >= 85.0) return 'Exceeds Expectations';
+        if (s >= 70.0) return 'Meets Expectations';
+        return 'Needs Improvement';
+    }
 }">
 
     {{-- ── Banner ───────────────────────────────────────────────────────────── --}}
     <div class="relative overflow-hidden rounded-3xl p-6 sm:p-8 text-white shadow-xl"
          style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #0284c7 100%);">
-        <!-- Soft clay 3D background shapes -->
         <div class="absolute -right-12 -top-12 w-64 h-64 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
         <div class="absolute right-1/3 -bottom-16 w-56 h-56 rounded-full bg-sky-400/20 blur-xl pointer-events-none"></div>
 
@@ -71,141 +85,151 @@
             <div class="space-y-2">
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold tracking-wide">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Digital Media Department • KPI Suite</span>
+                    <span>Staff KPI Management System</span>
                 </div>
                 <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
                     Welcome, {{ auth()->user()->name }}! 👋
                 </h1>
                 <p class="text-blue-100 text-sm max-w-2xl">
-                    Real-time performance tracking, deliverables quality control, and monthly squad evaluations for Digital Media Squad 1 & Squad 2.
+                    @if(auth()->user()->username === 'dara')
+                        You are viewing <strong>Digital Media Squad 1</strong>. Evaluate and give monthly KPI scores to the staff under your leadership.
+                    @elseif(auth()->user()->username === 'kim')
+                        You are viewing <strong>Digital Media Squad 2</strong>. Evaluate and give monthly KPI scores to the creative staff under your leadership.
+                    @else
+                        Supervisor Overview: Monitor and review monthly staff evaluations across Squad 1 (Dara) and Squad 2 (Kim).
+                    @endif
                 </p>
                 <div class="flex flex-wrap items-center gap-3 pt-2">
                     <span class="text-xs bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
-                        Period: <strong>{{ $currentPeriod?->name ?? 'September 2026' }}</strong>
+                        Current Month: <strong>{{ $currentPeriod?->name ?? 'September 2026' }}</strong>
                     </span>
                     <span class="text-xs bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
-                        Role: <strong>{{ $isSupervisor ? 'Supervisor / Admin' : (auth()->user()->username === 'dara' ? 'Squad 1 Lead (QC & Video)' : 'Squad 2 Lead (Graphic Head)') }}</strong>
+                        Active Squad: <strong>{{ $currentSquad?->name ?? 'Squad' }}</strong> (Lead: {{ $currentSquad?->lead?->name ?? 'Lead' }})
                     </span>
-                    @if($isSupervisor)
-                    <span class="text-xs bg-emerald-400/20 text-emerald-200 px-3 py-1 rounded-full border border-emerald-400/30 font-medium">
-                        Full Department Access
-                    </span>
-                    @else
-                    <span class="text-xs bg-amber-400/20 text-amber-200 px-3 py-1 rounded-full border border-amber-400/30 font-medium">
-                        Squad-Scoped View
-                    </span>
-                    @endif
                 </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-                <button type="button" @click="showNewTaskModal = true"
-                        class="clay-btn bg-white text-blue-700 hover:bg-blue-50 px-4 py-2.5 text-sm flex items-center gap-2 shadow-md">
+                <a href="{{ route('kpi.evaluations.index') }}"
+                   class="clay-btn bg-white text-blue-700 hover:bg-blue-50 px-4 py-2.5 text-sm flex items-center gap-2 shadow-md">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
                     </svg>
-                    <span>New Deliverable</span>
-                </button>
-                <a href="{{ route('kpi.export.pdf') }}" target="_blank"
+                    <span>Give Staff KPI</span>
+                </a>
+                <a href="{{ route('kpi.team.index') }}"
+                   class="clay-btn bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border border-white/30 px-4 py-2.5 text-sm flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                    </svg>
+                    <span>Manage Team Members</span>
+                </a>
+                @if($currentSquad)
+                <a href="{{ route('kpi.squad.pdf', $currentSquad->id) }}" target="_blank"
                    class="clay-btn bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border border-white/30 px-4 py-2.5 text-sm flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                     </svg>
-                    <span>Export PDF</span>
+                    <span>Export Squad PDF</span>
                 </a>
-                <a href="{{ route('kpi.export.csv') }}"
-                   class="clay-btn bg-white/20 hover:bg-white/30 text-white backdrop-blur-md border border-white/30 px-4 py-2.5 text-sm flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M12 10.875v7.5" />
-                    </svg>
-                    <span>CSV</span>
-                </a>
+                @endif
             </div>
         </div>
     </div>
 
-    {{-- ── 4 3D Clay Stat Cards ─────────────────────────────────────────────── --}}
+    {{-- ── Squad Selector (if Supervisor or Superadmin) ────────────────────── --}}
+    @if($isSupervisor && $squads->count() > 1)
+    <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 w-fit">
+        @foreach($squads as $sq)
+        <a href="{{ route('kpi.index', ['squad_id' => $sq->id]) }}"
+           class="px-4 py-2 rounded-xl text-xs font-bold transition-all {{ ($currentSquad?->id === $sq->id) ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900' }}">
+            {{ $sq->name }} ({{ $sq->members->count() }} Staff)
+        </a>
+        @endforeach
+    </div>
+    @endif
+
+    {{-- ── 4 Stat Cards ─────────────────────────────────────────────────────── --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <!-- 1. Deliverables Progress -->
+        <!-- 1. Staff Members in Squad -->
         <div class="clay-card p-5">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400">Total Deliverables</span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Team Size</span>
                     <div class="flex items-baseline gap-2 mt-2">
-                        <span class="text-2xl font-black text-slate-800 dark:text-white">{{ $totalDeliverablesDone }}</span>
-                        <span class="text-xs text-slate-400 font-medium">/ {{ $totalDeliverablesTarget }} target</span>
+                        <span class="text-2xl font-black text-slate-800 dark:text-white">{{ $staffMembers->count() }}</span>
+                        <span class="text-xs text-slate-400 font-medium">staff members</span>
                     </div>
                 </div>
                 <div class="w-12 h-12 rounded-2xl clay-pill-blue flex items-center justify-center text-white">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                     </svg>
                 </div>
             </div>
-            <div class="mt-4">
-                <div class="w-full bg-slate-100 dark:bg-slate-700/60 rounded-full h-2.5 overflow-hidden">
-                    <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style="width: {{ $completionRate }}%"></div>
-                </div>
-                <div class="flex items-center justify-between text-xs mt-2 text-slate-500 dark:text-slate-400">
-                    <span>Fulfillment Rate</span>
-                    <span class="font-bold text-blue-600 dark:text-blue-400">{{ $completionRate }}%</span>
-                </div>
+            <div class="mt-4 flex items-center justify-between text-xs text-slate-500">
+                <span>Lead: <strong>{{ $currentSquad?->lead?->name ?? 'N/A' }}</strong></span>
+                <a href="{{ route('kpi.team.index') }}" class="text-blue-600 hover:underline font-semibold">+ Add Staff</a>
             </div>
         </div>
 
-        <!-- 2. Quality Score -->
+        <!-- 2. Staff Evaluated this Month -->
         <div class="clay-card p-5">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400">Quality Pass Rate</span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Monthly Evaluations</span>
                     <div class="flex items-baseline gap-2 mt-2">
-                        <span class="text-2xl font-black text-slate-800 dark:text-white">{{ number_format($avgQualityScore, 1) }}%</span>
+                        <span class="text-2xl font-black text-slate-800 dark:text-white">{{ $evaluatedCount }}</span>
+                        <span class="text-xs text-slate-400 font-medium">/ {{ $staffMembers->count() }} rated</span>
                     </div>
                 </div>
                 <div class="w-12 h-12 rounded-2xl clay-pill-purple flex items-center justify-center text-white">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                     </svg>
                 </div>
             </div>
-            <div class="mt-4 flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 font-medium">
-                <span class="px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-900/30">Benchmark 90%</span>
-                <span class="text-slate-400">• QC Approved</span>
+            <div class="mt-4">
+                @php $evalPct = $staffMembers->count() > 0 ? round(($evaluatedCount / $staffMembers->count()) * 100) : 0; @endphp
+                <div class="w-full bg-slate-100 dark:bg-slate-700/60 rounded-full h-2 overflow-hidden">
+                    <div class="bg-purple-600 h-2 rounded-full" style="width: {{ $evalPct }}%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] text-slate-400 mt-1">
+                    <span>Evaluation Progress</span>
+                    <span class="font-bold text-purple-600">{{ $evalPct }}%</span>
+                </div>
             </div>
         </div>
 
-        <!-- 3. Turnaround Time -->
+        <!-- 3. Average Staff KPI Score -->
         <div class="clay-card p-5">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400">Avg Turnaround (TAT)</span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Average Squad KPI</span>
                     <div class="flex items-baseline gap-2 mt-2">
-                        <span class="text-2xl font-black text-slate-800 dark:text-white">{{ $avgTatHours }}h</span>
-                        <span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">Fast</span>
+                        <span class="text-2xl font-black text-slate-800 dark:text-white">{{ $avgKpiScore }}%</span>
+                        <span class="text-xs text-emerald-600 font-bold">Good</span>
                     </div>
                 </div>
                 <div class="w-12 h-12 rounded-2xl clay-pill-mint flex items-center justify-center text-white">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
                     </svg>
                 </div>
             </div>
-            <div class="mt-4 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                <span class="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30">Target < 4.0h</span>
-                <span class="text-slate-400">• On-Time 98%</span>
+            <div class="mt-4 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                <span class="px-2 py-0.5 rounded-full bg-emerald-50">Department Target ≥ 85%</span>
             </div>
         </div>
 
-        <!-- 4. Overall KPI Score -->
+        <!-- 4. Outstanding Performers -->
         <div class="clay-card p-5">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400">Overall KPI Rank</span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Rank A+ Performers</span>
                     <div class="flex items-baseline gap-2 mt-2">
-                        <span class="text-2xl font-black text-slate-800 dark:text-white">{{ number_format($overallKpiScore, 1) }}%</span>
-                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold">
-                            Outstanding
-                        </span>
+                        <span class="text-2xl font-black text-slate-800 dark:text-white">{{ $outstandingCount }}</span>
+                        <span class="text-xs text-amber-600 font-bold">≥ 95% Score</span>
                     </div>
                 </div>
                 <div class="w-12 h-12 rounded-2xl clay-pill-amber flex items-center justify-center text-white">
@@ -214,75 +238,29 @@
                     </svg>
                 </div>
             </div>
-            <div class="mt-4 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                <span class="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30">Rank A+</span>
-                <span class="text-slate-400">• Supervisor Commended</span>
+            <div class="mt-4 flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+                <span class="px-2 py-0.5 rounded-full bg-amber-50">Award Eligible</span>
             </div>
         </div>
     </div>
 
-    {{-- ── Squad Breakdown Cards ─────────────────────────────────────────────── --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        @foreach($squadStats as $st)
-        <div class="clay-card p-6">
-            <div class="flex items-start justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center font-extrabold text-white text-base {{ $loop->first ? 'clay-pill-blue' : 'clay-pill-purple' }}">
-                        {{ $st['squad']->code === 'SQUAD-1' ? 'SQ1' : 'SQ2' }}
-                    </div>
-                    <div>
-                        <h2 class="text-base font-bold text-slate-800 dark:text-white">{{ $st['squad']->name }}</h2>
-                        <p class="text-xs text-slate-400">
-                            Squad Lead: <strong>{{ $st['lead']?->name ?? 'N/A' }}</strong> ({{ $st['lead']?->team_role ?? 'Lead' }})
-                        </p>
-                    </div>
-                </div>
-                <span class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                    {{ $st['rank'] }}
-                </span>
-            </div>
-
-            <div class="mt-5 space-y-3">
-                <div class="flex items-center justify-between text-xs">
-                    <span class="text-slate-500 dark:text-slate-400">Monthly Deliverables Progress:</span>
-                    <span class="font-bold text-slate-800 dark:text-white">{{ $st['completed'] }} / {{ $st['target'] }} ({{ $st['progress'] }}%)</span>
-                </div>
-                <div class="w-full bg-slate-100 dark:bg-slate-700/60 rounded-full h-3 overflow-hidden">
-                    <div class="h-3 rounded-full {{ $loop->first ? 'bg-blue-600' : 'bg-purple-600' }}" style="width: {{ $st['progress'] }}%"></div>
-                </div>
-
-                <div class="pt-3 border-t border-slate-100 dark:border-slate-700/60 grid grid-cols-3 gap-2 text-center text-xs">
-                    <div>
-                        <span class="text-slate-400 block text-[10px] uppercase">Overall Score</span>
-                        <span class="font-bold text-sm text-slate-800 dark:text-white">{{ number_format($st['kpi_score'], 1) }}%</span>
-                    </div>
-                    <div>
-                        <span class="text-slate-400 block text-[10px] uppercase">Pillar Focus</span>
-                        <span class="font-medium text-slate-700 dark:text-slate-300">{{ $loop->first ? 'Video & QC' : 'Design & Tokens' }}</span>
-                    </div>
-                    <div>
-                        <span class="text-slate-400 block text-[10px] uppercase">Report Status</span>
-                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">Approved</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        @endforeach
-    </div>
-
-    {{-- ── Deliverables Activity Table ─────────────────────────────────────── --}}
+    {{-- ── Staff Members & Monthly KPI Table ────────────────────────────────── --}}
     <div class="clay-card overflow-hidden">
         <div class="p-6 border-b border-slate-100 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-                <h2 class="text-lg font-bold text-slate-800 dark:text-white">Active Deliverables & Task Progress</h2>
-                <p class="text-xs text-slate-400 mt-0.5">Track deliverables, submit Google Drive evidence links, and verify QC scores.</p>
+                <h2 class="text-lg font-bold text-slate-800 dark:text-white">
+                    {{ $currentSquad?->name ?? 'Squad' }} • Staff Monthly KPI Evaluations
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Rate each staff member numerically (Productivity, Quality, Speed, Teamwork), write review notes, and export PDF.
+                </p>
             </div>
             <div class="flex items-center gap-2">
-                <a href="{{ route('kpi.tasks.index') }}" class="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
-                    <span>View All Tasks</span>
+                <a href="{{ route('kpi.team.index') }}" class="clay-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-1.5 text-xs font-semibold flex items-center gap-1.5">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
+                    <span>Add Member to Squad</span>
                 </a>
             </div>
         </div>
@@ -291,86 +269,99 @@
             <table class="w-full text-left border-collapse text-xs">
                 <thead>
                     <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-400 font-semibold border-b border-slate-100 dark:border-slate-700/60">
-                        <th class="py-3 px-6">Task Title</th>
-                        <th class="py-3 px-4">Squad</th>
-                        <th class="py-3 px-4">Assignee</th>
-                        <th class="py-3 px-4">Priority</th>
+                        <th class="py-3 px-6">Staff Member</th>
+                        <th class="py-3 px-4">Role Title</th>
+                        <th class="py-3 px-4 text-center">Productivity (35%)</th>
+                        <th class="py-3 px-4 text-center">Quality (35%)</th>
+                        <th class="py-3 px-4 text-center">TAT Speed (20%)</th>
+                        <th class="py-3 px-4 text-center">Teamwork (10%)</th>
+                        <th class="py-3 px-4 text-center">Total KPI</th>
                         <th class="py-3 px-4">Status</th>
-                        <th class="py-3 px-4 text-center">Quality Score</th>
                         <th class="py-3 px-6 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60 text-slate-700 dark:text-slate-300">
-                    @forelse($tasks->take(8) as $t)
+                    @forelse($staffMembers as $staff)
+                    @php
+                        $rev = $reviews->get($staff->id);
+                    @endphp
                     <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
-                        <td class="py-3.5 px-6 font-medium text-slate-900 dark:text-white">
-                            {{ $t->title }}
-                            @if($t->submissions->isNotEmpty())
-                            <span class="block text-[11px] text-blue-500 hover:underline">
-                                <a href="{{ $t->submissions->first()->evidence_url }}" target="_blank" rel="noopener noreferrer">
-                                    🔗 Evidence Link
-                                </a>
-                            </span>
-                            @endif
-                        </td>
-                        <td class="py-3.5 px-4">
-                            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold {{ $t->squad?->code === 'SQUAD-1' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' }}">
-                                {{ $t->squad?->name ?? 'N/A' }}
-                            </span>
-                        </td>
-                        <td class="py-3.5 px-4">
-                            <div class="flex items-center gap-2">
-                                <div class="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-[10px]">
-                                    {{ substr($t->assignee?->name ?? 'U', 0, 1) }}
+                        <td class="py-3.5 px-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 dark:bg-slate-700 dark:text-blue-300 font-bold flex items-center justify-center text-xs">
+                                    {{ substr($staff->name, 0, 1) }}
                                 </div>
-                                <span class="font-medium">{{ $t->assignee?->name ?? 'N/A' }}</span>
+                                <div>
+                                    <span class="font-bold text-slate-900 dark:text-white block">{{ $staff->name }}</span>
+                                    <span class="text-[11px] text-slate-400 font-mono">@ {{ $staff->username }}</span>
+                                </div>
                             </div>
                         </td>
-                        <td class="py-3.5 px-4">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold {{ $t->priority === 'Urgent' ? 'bg-rose-100 text-rose-700' : ($t->priority === 'High' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700') }}">
-                                {{ $t->priority }}
-                            </span>
-                        </td>
-                        <td class="py-3.5 px-4">
-                            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold {{ $t->status === 'Approved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : ($t->status === 'Submitted' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700') }}">
-                                {{ $t->status }}
-                            </span>
+                        <td class="py-3.5 px-4 font-medium text-slate-600 dark:text-slate-300">
+                            {{ $staff->pivot->role_title ?? 'Team Member' }}
                         </td>
                         <td class="py-3.5 px-4 text-center font-bold">
-                            @if($t->quality_score)
-                                <span class="text-emerald-600 dark:text-emerald-400">{{ $t->quality_score }}%</span>
+                            {{ $rev ? $rev->productivity_score . '%' : '—' }}
+                        </td>
+                        <td class="py-3.5 px-4 text-center font-bold">
+                            {{ $rev ? $rev->quality_score . '%' : '—' }}
+                        </td>
+                        <td class="py-3.5 px-4 text-center font-bold">
+                            {{ $rev ? $rev->deadline_score . '%' : '—' }}
+                        </td>
+                        <td class="py-3.5 px-4 text-center font-bold">
+                            {{ $rev ? $rev->teamwork_score . '%' : '—' }}
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            @if($rev)
+                                <span class="font-black text-sm text-blue-600 dark:text-blue-400 block">{{ number_format($rev->overall_kpi, 1) }}%</span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {{ $rev->overall_kpi >= 95 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
+                                    {{ $rev->performance_band }}
+                                </span>
                             @else
-                                <span class="text-slate-300 dark:text-slate-600">—</span>
+                                <span class="text-slate-400 text-xs italic">Not rated</span>
                             @endif
                         </td>
-                        <td class="py-3.5 px-6 text-right space-x-2">
-                            @if($t->status !== 'Approved')
-                                <button type="button"
-                                        @click="selectedTaskId = {{ $t->id }}; selectedTaskTitle = '{{ addslashes($t->title) }}'; showSubmitModal = true;"
-                                        class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px]">
-                                    Submit Work
-                                </button>
-                                @if($isSupervisor)
-                                <button type="button"
-                                        @click="selectedTaskId = {{ $t->id }}; selectedTaskTitle = '{{ addslashes($t->title) }}'; showApproveModal = true;"
-                                        class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-[11px]">
-                                    Score / Approve
-                                </button>
-                                @endif
-                            @else
-                                <span class="text-emerald-600 font-bold text-[11px] flex items-center justify-end gap-1">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                    </svg>
-                                    Done
+                        <td class="py-3.5 px-4">
+                            @if($rev)
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold {{ $rev->status === 'Finalized' ? 'bg-purple-50 text-purple-700' : ($rev->status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700') }}">
+                                    {{ $rev->status }}
                                 </span>
+                            @else
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500">
+                                    Pending
+                                </span>
+                            @endif
+                        </td>
+                        <td class="py-3.5 px-6 text-right space-x-1.5 whitespace-nowrap">
+                            <button type="button"
+                                    @click="
+                                        selectedUserId = {{ $staff->id }};
+                                        selectedUserName = '{{ addslashes($staff->name) }}';
+                                        selectedSquadId = {{ $currentSquad?->id ?? 1 }};
+                                        scoreProd = {{ $rev?->productivity_score ?? 95 }};
+                                        scoreQual = {{ $rev?->quality_score ?? 95 }};
+                                        scoreTat = {{ $rev?->deadline_score ?? 92 }};
+                                        scoreTeam = {{ $rev?->teamwork_score ?? 95 }};
+                                        reviewNotes = '{{ addslashes($rev?->manager_notes ?? '') }}';
+                                        reviewStatus = '{{ $rev?->status ?? 'Approved' }}';
+                                        showRateModal = true;
+                                    "
+                                    class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px] shadow-sm">
+                                {{ $rev ? 'Edit KPI' : 'Rate KPI' }}
+                            </button>
+                            @if($rev)
+                            <a href="{{ route('kpi.evaluations.pdf', $rev->id) }}" target="_blank"
+                               class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px]">
+                                PDF
+                            </a>
                             @endif
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="py-8 text-center text-slate-400">
-                            No deliverables logged for this cycle yet.
+                        <td colspan="9" class="py-8 text-center text-slate-400">
+                            No staff members currently in this squad. Click <strong>"Add Member to Squad"</strong> to add staff from existing users.
                         </td>
                     </tr>
                     @endforelse
@@ -379,159 +370,97 @@
         </div>
     </div>
 
-    {{-- ── Quick Navigation Cards ─────────────────────────────────────────── --}}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <a href="{{ route('kpi.assignments.index') }}" class="clay-card p-5 hover:border-blue-300 transition-all flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl clay-pill-blue flex items-center justify-center text-white shrink-0">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
-                </svg>
-            </div>
-            <div>
-                <h3 class="font-bold text-slate-800 dark:text-white text-sm">Monthly Assignments</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Configure deliverable targets and skill weightings.</p>
-            </div>
-        </a>
-
-        <a href="{{ route('kpi.reviews.index') }}" class="clay-card p-5 hover:border-purple-300 transition-all flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl clay-pill-purple flex items-center justify-center text-white shrink-0">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-                </svg>
-            </div>
-            <div>
-                <h3 class="font-bold text-slate-800 dark:text-white text-sm">Performance Reviews</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Interactive scorecard evaluations and final sign-offs.</p>
-            </div>
-        </a>
-
-        <a href="{{ route('kpi.supervisor-reports.index') }}" class="clay-card p-5 hover:border-mint-300 transition-all flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl clay-pill-mint flex items-center justify-center text-white shrink-0">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                </svg>
-            </div>
-            <div>
-                <h3 class="font-bold text-slate-800 dark:text-white text-sm">Squad Monthly Reports</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Submit squad summary reports for supervisor review.</p>
-            </div>
-        </a>
-    </div>
-
-    {{-- ── Modal: Create New Deliverable Task ─────────────────────────────── --}}
-    <div x-show="showNewTaskModal" style="display: none;"
+    {{-- ── Modal: Rate Staff KPI (Scores, Notes, Live Calculation) ──────────── --}}
+    <div x-show="showRateModal" style="display: none;"
          class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-lg p-6 bg-white dark:bg-slate-800" @click.away="showNewTaskModal = false">
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700/60">
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">Create New Deliverable Task</h3>
-                <button @click="showNewTaskModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-            <form action="{{ route('kpi.tasks.store') }}" method="POST" class="mt-4 space-y-4 text-xs">
-                @csrf
+        <div class="clay-card w-full max-w-lg p-6 bg-white dark:bg-slate-800" @click.away="showRateModal = false">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
                 <div>
-                    <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Deliverable Title</label>
-                    <input type="text" name="title" required placeholder="e.g. Master Promo 4K Highlight Reel"
-                           class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600">
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Give Monthly Staff KPI</h3>
+                    <p class="text-xs text-slate-400">Staff: <strong class="text-blue-600" x-text="selectedUserName"></strong> • {{ $currentPeriod?->name }}</p>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <button @click="showRateModal = false" class="text-slate-400 hover:text-slate-600 text-base">✕</button>
+            </div>
+
+            <form action="{{ route('kpi.evaluations.rate') }}" method="POST" class="mt-4 space-y-4 text-xs">
+                @csrf
+                <input type="hidden" name="user_id" :value="selectedUserId">
+                <input type="hidden" name="squad_id" :value="selectedSquadId">
+                <input type="hidden" name="kpi_period_id" value="{{ $currentPeriod?->id ?? 1 }}">
+
+                <!-- Numerical KPI Ratings -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-600">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-slate-800 dark:text-white">Productivity (35%)</label>
+                            <span class="font-black text-blue-600 text-sm" x-text="scoreProd + '%'"></span>
+                        </div>
+                        <input type="range" min="0" max="100" step="1" x-model.number="scoreProd" name="productivity_score" class="w-full accent-blue-600">
+                        <span class="text-[10px] text-slate-400">Volume & output of deliverables</span>
+                    </div>
+
+                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-600">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-slate-800 dark:text-white">Quality (35%)</label>
+                            <span class="font-black text-purple-600 text-sm" x-text="scoreQual + '%'"></span>
+                        </div>
+                        <input type="range" min="0" max="100" step="1" x-model.number="scoreQual" name="quality_score" class="w-full accent-purple-600">
+                        <span class="text-[10px] text-slate-400">Accuracy & brand compliance</span>
+                    </div>
+
+                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-600">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-slate-800 dark:text-white">TAT Speed (20%)</label>
+                            <span class="font-black text-emerald-600 text-sm" x-text="scoreTat + '%'"></span>
+                        </div>
+                        <input type="range" min="0" max="100" step="1" x-model.number="scoreTat" name="deadline_score" class="w-full accent-emerald-600">
+                        <span class="text-[10px] text-slate-400">Turnaround hours & deadlines</span>
+                    </div>
+
+                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-100 dark:border-slate-600">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-slate-800 dark:text-white">Teamwork (10%)</label>
+                            <span class="font-black text-amber-600 text-sm" x-text="scoreTeam + '%'"></span>
+                        </div>
+                        <input type="range" min="0" max="100" step="1" x-model.number="scoreTeam" name="teamwork_score" class="w-full accent-amber-600">
+                        <span class="text-[10px] text-slate-400">Initiative, collaboration & attitude</span>
+                    </div>
+                </div>
+
+                <!-- Live Overall Calculation Box -->
+                <div class="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-700 border border-blue-200/60 dark:border-slate-600 flex items-center justify-between">
                     <div>
-                        <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Squad</label>
-                        <select name="squad_id" required class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600">
-                            @foreach($squads as $sq)
-                            <option value="{{ $sq->id }}">{{ $sq->name }}</option>
-                            @endforeach
+                        <span class="text-xs uppercase font-bold text-slate-500 dark:text-slate-300">Computed Overall KPI Score</span>
+                        <div class="flex items-center gap-2 mt-0.5">
+                            <span class="text-2xl font-black text-blue-700 dark:text-blue-300" x-text="overallScore + '%'"></span>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm" x-text="rankBand"></span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Review Status</label>
+                        <select name="status" x-model="reviewStatus" class="px-3 py-1.5 border rounded-xl dark:bg-slate-800 text-xs font-semibold">
+                            <option value="Approved">Approved & Completed</option>
+                            <option value="Submitted">Submit for Supervisor Review</option>
+                            <option value="Draft">Draft Only</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Assignee</label>
-                        <select name="assignee_id" required class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600">
-                            <option value="12">Mr. Dara (QC & Video)</option>
-                            <option value="13">Mr. KimOun (Graphic Head)</option>
-                        </select>
-                    </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Priority</label>
-                        <select name="priority" class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600">
-                            <option value="Medium">Medium</option>
-                            <option value="High">High</option>
-                            <option value="Urgent">Urgent</option>
-                            <option value="Low">Low</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Due Date</label>
-                        <input type="date" name="due_date" value="{{ date('Y-m-d') }}"
-                               class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600">
-                    </div>
-                </div>
-                <div>
-                    <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Task Notes / Instructions</label>
-                    <textarea name="description" rows="2" placeholder="Specifications, dimensions, or target platform details..."
-                              class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600"></textarea>
-                </div>
-                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/60">
-                    <button type="button" @click="showNewTaskModal = false" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200">Cancel</button>
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">Create Task</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    {{-- ── Modal: Submit Evidence Link ───────────────────────────────────── --}}
-    <div x-show="showSubmitModal" style="display: none;"
-         class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-md p-6 bg-white dark:bg-slate-800" @click.away="showSubmitModal = false">
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700/60">
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">Submit Work Evidence</h3>
-                <button @click="showSubmitModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-            <form :action="'{{ url('/kpi/tasks') }}/' + selectedTaskId + '/submit'" method="POST" class="mt-4 space-y-4 text-xs">
-                @csrf
-                <p class="text-slate-600 dark:text-slate-300 font-medium" x-text="selectedTaskTitle"></p>
+                <!-- Notes / Comments -->
                 <div>
-                    <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Google Drive / File URL</label>
-                    <input type="url" name="evidence_url" required placeholder="https://drive.google.com/..."
-                           class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600">
-                </div>
-                <div>
-                    <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Submission Notes</label>
-                    <textarea name="notes" rows="2" placeholder="Export details, QC check notes..."
+                    <label class="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                        Review Notes & Comments <span class="text-red-500">*</span>
+                    </label>
+                    <textarea name="manager_notes" rows="3" required x-model="reviewNotes"
+                              placeholder="Write detailed notes on deliverables, strengths, speed, and areas to improve..."
                               class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600"></textarea>
                 </div>
-                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/60">
-                    <button type="button" @click="showSubmitModal = false" class="px-4 py-2 rounded-xl bg-slate-100">Cancel</button>
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold">Submit for QC</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    {{-- ── Modal: Score / Approve ────────────────────────────────────────── --}}
-    <div x-show="showApproveModal" style="display: none;"
-         class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-md p-6 bg-white dark:bg-slate-800" @click.away="showApproveModal = false">
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700/60">
-                <h3 class="text-base font-bold text-slate-900 dark:text-white">QC Score & Approval</h3>
-                <button @click="showApproveModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-            <form :action="'{{ url('/kpi/tasks') }}/' + selectedTaskId + '/approve'" method="POST" class="mt-4 space-y-4 text-xs">
-                @csrf
-                <p class="text-slate-600 dark:text-slate-300 font-medium" x-text="selectedTaskTitle"></p>
-                <div>
-                    <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Quality Score (0 - 100%)</label>
-                    <input type="number" step="0.5" min="0" max="100" name="quality_score" value="95.0" required
-                           class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600">
-                </div>
-                <div>
-                    <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Feedback / Review Notes</label>
-                    <textarea name="feedback" rows="2" placeholder="Approved with commendation for color grade and typography..."
-                              class="w-full px-3 py-2 border rounded-xl dark:bg-slate-700 dark:border-slate-600"></textarea>
-                </div>
                 <div class="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/60">
-                    <button type="button" @click="showApproveModal = false" class="px-4 py-2 rounded-xl bg-slate-100">Cancel</button>
-                    <button type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold">Approve & Score</button>
+                    <button type="button" @click="showRateModal = false" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md">
+                        Save & Record KPI
+                    </button>
                 </div>
             </form>
         </div>

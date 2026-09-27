@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Kpi;
 
 use App\Http\Controllers\Controller;
-use App\Models\Kpi\KpiAssignment;
 use App\Models\Kpi\KpiPeriod;
 use App\Models\Kpi\KpiReview;
 use App\Models\Kpi\KpiSquad;
@@ -21,104 +20,65 @@ class KpiDashboardController extends Controller
         $userSquadId = $user->getKpiSquadId();
 
         // Active period
+        $periods = KpiPeriod::orderBy('start_date', 'desc')->get();
         $periodId = $request->get('period_id');
         $currentPeriod = $periodId
             ? KpiPeriod::find($periodId)
-            : (KpiPeriod::where('status', 'Open')->latest('id')->first() ?? KpiPeriod::latest('id')->first());
-
-        $periods = KpiPeriod::orderBy('start_date', 'desc')->get();
-
-        // Selected squad filter (Supervisor can view all or specific squad, leads restricted to own squad)
-        $selectedSquadId = $request->get('squad_id');
-        if (!$isSupervisor) {
-            $selectedSquadId = $userSquadId;
-        }
+            : ($periods->firstWhere('status', 'Open') ?? $periods->first());
 
         // Squads query
-        $squadsQuery = KpiSquad::with(['lead']);
+        $squadsQuery = KpiSquad::with(['lead', 'members']);
         if (!$isSupervisor && $userSquadId) {
             $squadsQuery->where('id', $userSquadId);
         }
         $squads = $squadsQuery->get();
 
-        // Assignments query
-        $assignmentsQuery = KpiAssignment::with(['user', 'squad', 'period', 'items', 'review'])
-            ->when($currentPeriod, fn($q) => $q->where('kpi_period_id', $currentPeriod->id))
-            ->when($selectedSquadId, fn($q) => $q->where('squad_id', $selectedSquadId))
-            ->when(!$isSupervisor && !$selectedSquadId, fn($q) => $q->where('user_id', $user->id));
-        $assignments = $assignmentsQuery->get();
-
-        // Deliverables / Tasks query
-        $tasksQuery = KpiTask::with(['assignee', 'squad', 'submissions'])
-            ->when($currentPeriod, fn($q) => $q->where('kpi_period_id', $currentPeriod->id))
-            ->when($selectedSquadId, fn($q) => $q->where('squad_id', $selectedSquadId))
-            ->when(!$isSupervisor && !$selectedSquadId, fn($q) => $q->where('assignee_id', $user->id))
-            ->latest('id');
-        $tasks = $tasksQuery->get();
-
-        // Reviews query
-        $reviewsQuery = KpiReview::with(['user', 'reviewer', 'assignment.squad', 'items'])
-            ->when($currentPeriod, fn($q) => $q->where('kpi_period_id', $currentPeriod->id))
-            ->when($selectedSquadId, function ($q) use ($selectedSquadId) {
-                $q->whereHas('assignment', fn($sq) => $sq->where('squad_id', $selectedSquadId));
-            })
-            ->when(!$isSupervisor && !$selectedSquadId, fn($q) => $q->where('user_id', $user->id));
-        $reviews = $reviewsQuery->get();
-
-        // Supervisor Reports query
-        $reportsQuery = KpiSupervisorReport::with(['squad', 'submittedBy', 'reviewedBy'])
-            ->when($currentPeriod, fn($q) => $q->where('kpi_period_id', $currentPeriod->id))
-            ->when($selectedSquadId, fn($q) => $q->where('squad_id', $selectedSquadId));
-        $reports = $reportsQuery->get();
-
-        // Calculated clay dashboard metrics
-        $totalDeliverablesTarget = $assignments->sum('target_deliverables') ?: 1;
-        $totalDeliverablesDone = $tasks->whereIn('status', ['Approved', 'Submitted'])->count();
-        $completionRate = min(100, round(($totalDeliverablesDone / $totalDeliverablesTarget) * 100, 1));
-
-        $avgQualityScore = $tasks->whereNotNull('quality_score')->avg('quality_score') ?: ($reviews->avg('quality_score') ?: 95.0);
-        $avgTatHours = 3.2; // Team benchmark
-
-        $overallKpiScore = $reviews->count() > 0 ? round($reviews->avg('overall_kpi'), 2) : 95.0;
-
-        // Squad statistics cards
-        $squadStats = [];
-        foreach ($squads as $sq) {
-            $sqTasks = $tasks->where('squad_id', $sq->id);
-            $sqAssign = $assignments->where('squad_id', $sq->id)->first();
-            $sqRev = $reviews->first(fn($r) => $r->assignment?->squad_id === $sq->id);
-            $target = $sqAssign?->target_deliverables ?? 20;
-            $completed = $sqTasks->whereIn('status', ['Approved', 'Submitted'])->count();
-
-            $squadStats[] = [
-                'squad' => $sq,
-                'lead' => $sq->lead,
-                'target' => $target,
-                'completed' => $completed,
-                'progress' => min(100, round(($completed / ($target ?: 1)) * 100, 1)),
-                'kpi_score' => $sqRev?->overall_kpi ?? ($completed >= $target ? 95.0 : 90.0),
-                'rank' => $sqRev?->performance_band ?? 'Outstanding',
-            ];
+        $selectedSquadId = $request->get('squad_id');
+        if (!$isSupervisor) {
+            $selectedSquadId = $userSquadId;
         }
 
+        $currentSquad = $selectedSquadId
+            ? $squads->firstWhere('id', $selectedSquadId)
+            : $squads->first();
+
+        // Staff Reviews for selected period
+        $reviewsQuery = KpiReview::with(['user', 'reviewer', 'squad'])
+            ->when($currentPeriod, fn($q) => $q->where('kpi_period_id', $currentPeriod->id))
+            ->when($selectedSquadId, fn($q) => $q->where('squad_id', $selectedSquadId))
+            ->when(!$isSupervisor && $userSquadId, fn($q) => $q->where('squad_id', $userSquadId));
+        $reviews = $reviewsQuery->get();
+
+        // Staff members under current lead
+        $staffMembers = $currentSquad ? $currentSquad->members : collect();
+
+        // Metrics
+        $totalStaffCount = $squads->sum(fn($s) => $s->members->count());
+        $evaluatedCount = $reviews->whereIn('status', ['Submitted', 'Approved', 'Finalized'])->count();
+        $avgKpiScore = $reviews->count() > 0 ? round($reviews->avg('overall_kpi'), 1) : 94.5;
+        $outstandingCount = $reviews->where('performance_band', 'Outstanding')->count();
+
+        // Supervisor Reports
+        $reports = KpiSupervisorReport::with(['squad', 'submittedBy'])
+            ->when($currentPeriod, fn($q) => $q->where('kpi_period_id', $currentPeriod->id))
+            ->when($selectedSquadId, fn($q) => $q->where('squad_id', $selectedSquadId))
+            ->get();
+
         return view('kpi.index', compact(
-            'currentPeriod',
             'periods',
+            'currentPeriod',
             'squads',
+            'currentSquad',
             'selectedSquadId',
-            'isSupervisor',
-            'userSquadId',
-            'assignments',
-            'tasks',
+            'staffMembers',
             'reviews',
             'reports',
-            'totalDeliverablesTarget',
-            'totalDeliverablesDone',
-            'completionRate',
-            'avgQualityScore',
-            'avgTatHours',
-            'overallKpiScore',
-            'squadStats'
+            'isSupervisor',
+            'userSquadId',
+            'totalStaffCount',
+            'evaluatedCount',
+            'avgKpiScore',
+            'outstandingCount'
         ));
     }
 }

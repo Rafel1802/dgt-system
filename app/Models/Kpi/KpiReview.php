@@ -16,6 +16,7 @@ class KpiReview extends Model
         'user_id',
         'reviewer_id',
         'kpi_period_id',
+        'squad_id',
         'productivity_score',
         'quality_score',
         'deadline_score',
@@ -24,6 +25,7 @@ class KpiReview extends Model
         'performance_band',
         'status',
         'manager_notes',
+        'supervisor_notes',
         'reviewed_at',
     ];
 
@@ -39,6 +41,11 @@ class KpiReview extends Model
     public function assignment(): BelongsTo
     {
         return $this->belongsTo(KpiAssignment::class, 'kpi_assignment_id');
+    }
+
+    public function squad(): BelongsTo
+    {
+        return $this->belongsTo(KpiSquad::class, 'squad_id');
     }
 
     public function user(): BelongsTo
