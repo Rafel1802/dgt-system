@@ -10,6 +10,12 @@
     showRateModal: false,
     showHistoryModal: false,
     showUploadModal: false,
+    showExportModal: false,
+    exportTarget: 'all',
+    exportUserId: '',
+    exportMonth: {{ $selectedMonth ?? date('n') }},
+    exportYear: {{ $selectedYear ?? date('Y') }},
+    exportDate: '{{ date('Y-m-d') }}',
     selectedUserId: null,
     selectedUserName: '',
     selectedSquadId: {{ $currentSquad?->id ?? 1 }},
@@ -50,6 +56,11 @@
         this.selectedUserName = userName;
         this.selectedReviewId = reviewId;
         this.showUploadModal = true;
+    },
+    openExportModal(target, userId) {
+        this.exportTarget = target || 'all';
+        this.exportUserId = userId || '';
+        this.showExportModal = true;
     }
 }">
 
@@ -68,9 +79,10 @@
         </div>
     </div>
 
-    {{-- ── 2. Action Toolbar (Buttons relocated here from the header) ───────────── --}}
+    {{-- ── 2. Action Toolbar (Dedicated action bar) ─────────────────────────────── --}}
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2.5">
+            {{-- Give Staff KPI --}}
             <button type="button" @click="showRateModal = true"
                     class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 flex items-center gap-2 transition-all active:scale-95 cursor-pointer">
                 <svg class="w-4 h-4 text-sky-200" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
@@ -79,14 +91,16 @@
                 <span>Give Staff KPI</span>
             </button>
 
-            <a href="{{ route('kpi.evaluations.export-all-pdf', ['squad_id' => $currentSquad?->id, 'period_id' => $currentPeriod?->id, 'month' => $selectedMonth, 'year' => $selectedYear]) }}" target="_blank"
-               class="px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-sky-300 hover:text-white border border-slate-700/80 hover:border-sky-500/50 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+            {{-- Export KPI PDF Report (Opens modal popup to pick target/month/date) --}}
+            <button type="button" @click="openExportModal('all', '')"
+                    class="px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-sky-300 hover:text-white border border-slate-700/80 hover:border-sky-500/50 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer">
                 <svg class="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                 </svg>
-                <span>Export All Staff PDFs</span>
-            </a>
+                <span>Export PDF Report</span>
+            </button>
 
+            {{-- Upload Signed PDF --}}
             <button type="button" @click="openUpload(null, 'Select Staff Member', null)"
                     class="px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-emerald-300 hover:text-white border border-slate-700/80 hover:border-emerald-500/50 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer">
                 <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -301,13 +315,13 @@
                 </p>
             </div>
             <div class="flex items-center gap-2">
-                <a href="{{ route('kpi.evaluations.export-all-pdf', ['squad_id' => $currentSquad?->id, 'period_id' => $currentPeriod?->id]) }}" target="_blank"
-                   class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                <button type="button" @click="openExportModal('all', '')"
+                        class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
                     <svg class="w-3.5 h-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                     </svg>
                     <span>Export Squad PDF</span>
-                </a>
+                </button>
             </div>
         </div>
 
@@ -331,12 +345,12 @@
                         $history = $allUserReviews->get($staff->id, collect());
                     @endphp
                     <tr class="hover:bg-slate-800/40 transition-colors">
-                        {{-- Staff Name & Avatar --}}
+                        {{-- Staff Name & REAL AVATAR PROFILE PHOTO --}}
                         <td class="py-3.5 px-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-extrabold text-xs shadow-sm flex-shrink-0">
-                                    {{ strtoupper(substr($staff->name, 0, 2)) }}
-                                </div>
+                                <img src="{{ $staff->avatar_url }}" alt="{{ $staff->name }}"
+                                     class="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow-md flex-shrink-0"
+                                     onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ urlencode($staff->name) }}&background=0284c7&color=fff';">
                                 <div>
                                     <div class="font-bold text-white text-sm hover:text-sky-300 transition-colors">
                                         {{ $staff->name }}
@@ -420,7 +434,7 @@
                             @endif
                         </td>
 
-                        {{-- Action Buttons (Rate, History, PDF, Upload) --}}
+                        {{-- Action Buttons (Rate, History, PDF Modal, Upload) --}}
                         <td class="py-3.5 px-4 text-right">
                             <div class="flex items-center justify-end gap-1.5">
                                 {{-- Rate Button --}}
@@ -435,25 +449,23 @@
                                     History ({{ $history->count() }})
                                 </button>
 
-                                {{-- Single PDF Export --}}
-                                @if($rev)
-                                <a href="{{ route('kpi.evaluations.pdf', $rev->id) }}" target="_blank"
-                                   class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-400 hover:text-white transition-all"
-                                   title="Export Official PDF (examplekpi template)">
+                                {{-- Single Staff Export Modal Trigger --}}
+                                <button type="button" @click="openExportModal('single', '{{ $staff->id }}')"
+                                        class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-400 hover:text-white transition-all cursor-pointer"
+                                        title="Export Official KPI PDF for {{ $staff->name }}">
                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                                     </svg>
-                                </a>
+                                </button>
 
                                 {{-- Upload Signed PDF --}}
-                                <button type="button" @click="openUpload({{ $staff->id }}, '{{ addslashes($staff->name) }}', {{ $rev->id }})"
+                                <button type="button" @click="openUpload({{ $staff->id }}, '{{ addslashes($staff->name) }}', {{ $rev?->id ?? 'null' }})"
                                         class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-400 hover:text-white transition-all cursor-pointer"
                                         title="Upload Signed Scanned PDF">
                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                                     </svg>
                                 </button>
-                                @endif
                             </div>
                         </td>
                     </tr>
@@ -469,13 +481,110 @@
         </div>
     </div>
 
-    {{-- ── 6. Modal: Evaluation History (REDESIGNED: Dark, sleek, glassmorphic) ── --}}
+    {{-- ── 6. Modal: Export KPI PDF Report (Select Month, Date, All/Each Staff) ── --}}
+    <div x-show="showExportModal" style="display: none;"
+         class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-[#0f172a] text-slate-100 rounded-3xl border border-sky-500/30 shadow-[0_25px_60px_rgba(0,0,0,0.9),0_0_35px_rgba(14,165,233,0.2)] overflow-hidden"
+             @click.away="showExportModal = false">
+            
+            <div class="p-5 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-sky-500/20 to-blue-600/30 border border-sky-400/40 flex items-center justify-center text-sky-400 shadow-sm flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-white">Export KPI PDF Report</h3>
+                        <p class="text-xs text-slate-400">Generate certificates matching examplekpi.pdf</p>
+                    </div>
+                </div>
+                <button type="button" @click="showExportModal = false" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/80 flex items-center justify-center transition-all cursor-pointer">✕</button>
+            </div>
+
+            <form action="{{ route('kpi.evaluations.export-all-pdf') }}" method="GET" target="_blank" class="p-5 space-y-4 text-xs" @submit="setTimeout(() => showExportModal = false, 1000)">
+                <input type="hidden" name="squad_id" value="{{ $selectedSquadId }}">
+
+                {{-- Target: All Users vs Each Specific User --}}
+                <div>
+                    <label class="block font-bold mb-2 text-slate-300">Export Scope</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="exportTarget === 'all' ? 'bg-sky-500/20 border-sky-500/50 text-white font-bold' : 'bg-slate-900 border-slate-700 text-slate-400'">
+                            <input type="radio" name="export_scope" value="all" x-model="exportTarget" @change="exportUserId = ''" class="accent-sky-500">
+                            <span>All Staff (All-in-One)</span>
+                        </label>
+                        <label class="flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all"
+                               :class="exportTarget === 'single' ? 'bg-sky-500/20 border-sky-500/50 text-white font-bold' : 'bg-slate-900 border-slate-700 text-slate-400'">
+                            <input type="radio" name="export_scope" value="single" x-model="exportTarget" class="accent-sky-500">
+                            <span>Specific Staff</span>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- If single user is chosen --}}
+                <div x-show="exportTarget === 'single'">
+                    <label class="block font-bold mb-1 text-slate-300">Select Staff Member</label>
+                    <select name="user_id" x-model="exportUserId" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-semibold focus:outline-none focus:border-sky-500">
+                        <option value="">-- Choose Member --</option>
+                        @foreach($rawMembers as $m)
+                        <option value="{{ $m->id }}">{{ $m->name }} ({{ $m->pivot->role_title ?? 'Staff' }})</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Month & Year Selection --}}
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold mb-1 text-slate-300">Select Month</label>
+                        <select name="month" x-model="exportMonth" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-semibold focus:outline-none focus:border-sky-500">
+                            @for($m = 1; $m <= 12; $m++)
+                            <option value="{{ $m }}">{{ date('F', mktime(0, 0, 0, $m, 1)) }}</option>
+                            @endfor
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1 text-slate-300">Select Year</label>
+                        <select name="year" x-model="exportYear" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-semibold focus:outline-none focus:border-sky-500">
+                            @for($y = 2025; $y <= 2028; $y++)
+                            <option value="{{ $y }}">{{ $y }}</option>
+                            @endfor
+                        </select>
+                    </div>
+                </div>
+
+                {{-- Report / Evaluation Date --}}
+                <div>
+                    <label class="block font-bold mb-1 text-slate-300">Official Report Date (Printed on Certificate)</label>
+                    <input type="date" name="evaluation_date" x-model="exportDate"
+                           class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div class="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[11px] text-slate-300 flex items-start gap-2">
+                    <svg class="w-4 h-4 text-sky-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                    </svg>
+                    <span>Generates PDF formatted exactly according to the company 5-star criteria template with official signatures (CEO, HR/Admin, Supervisor, and Team Lead).</span>
+                </div>
+
+                <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+                    <button type="button" @click="showExportModal = false" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold shadow-lg shadow-sky-500/30 cursor-pointer">
+                        Generate & Download PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ── 7. Modal: Evaluation History (Dark, sleek, glassmorphic) ───────────── --}}
     <div x-show="showHistoryModal" style="display: none;"
          class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div class="w-full max-w-2xl bg-[#0f172a] text-slate-100 rounded-3xl border border-sky-500/30 shadow-[0_25px_60px_rgba(0,0,0,0.9),0_0_35px_rgba(14,165,233,0.2)] overflow-hidden"
              @click.away="showHistoryModal = false">
             
-            {{-- Header --}}
             <div class="p-5 border-b border-slate-800 bg-slate-900/80 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-sky-500/20 to-blue-600/30 border border-sky-400/40 flex items-center justify-center text-sky-400 shadow-sm flex-shrink-0">
@@ -494,7 +603,6 @@
                 </button>
             </div>
 
-            {{-- Body / History Cards --}}
             <div class="p-5 max-h-[28rem] overflow-y-auto space-y-3.5">
                 <template x-if="historyRecords.length === 0">
                     <div class="py-12 text-center text-slate-400">
@@ -511,7 +619,6 @@
                     <div class="space-y-3">
                         <template x-for="rec in historyRecords" :key="rec.id">
                             <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-700/80 hover:border-sky-500/50 transition-all shadow-md">
-                                {{-- Card Header: Month, Band, Status, Date --}}
                                 <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
                                     <div class="flex items-center gap-2">
                                         <span class="px-3 py-1 rounded-xl text-xs font-extrabold bg-gradient-to-r from-blue-600/40 to-sky-600/40 border border-sky-400/40 text-sky-200"
@@ -526,7 +633,6 @@
                                     </div>
                                 </div>
 
-                                {{-- Scores & Breakdown --}}
                                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 py-3">
                                     <div class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-center">
                                         <span class="text-[10px] uppercase font-bold text-slate-400 block">Overall KPI</span>
@@ -546,7 +652,6 @@
                                     </div>
                                 </div>
 
-                                {{-- Notes Quote Box --}}
                                 <template x-if="rec.manager_notes || rec.review_notes">
                                     <div class="bg-slate-950/80 border-l-2 border-sky-400 rounded-r-xl p-3 text-xs text-slate-300 italic mb-3">
                                         <p x-text="'"' + (rec.manager_notes || rec.review_notes) + '"'"></p>
@@ -554,7 +659,6 @@
                                     </div>
                                 </template>
 
-                                {{-- Card Footer Actions --}}
                                 <div class="flex items-center justify-between pt-2 border-t border-slate-800/80">
                                     <span class="text-[11px] text-slate-500">Official KPI Documentation</span>
                                     <div class="flex items-center gap-2">
@@ -583,7 +687,6 @@
                 </template>
             </div>
 
-            {{-- Footer --}}
             <div class="px-5 py-3.5 bg-slate-900/80 border-t border-slate-800 flex items-center justify-between text-xs">
                 <span class="text-slate-400"><strong class="text-sky-400 font-bold" x-text="historyRecords.length"></strong> record(s) on file</span>
                 <button type="button" @click="showHistoryModal = false"
@@ -594,7 +697,7 @@
         </div>
     </div>
 
-    {{-- ── 7. Modal: Rate Staff KPI (Dark Glassmorphic) ───────────────────────── --}}
+    {{-- ── 8. Modal: Rate Staff KPI (Dark Glassmorphic) ───────────────────────── --}}
     <div x-show="showRateModal" style="display: none;"
          class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div class="w-full max-w-lg bg-[#0f172a] text-slate-100 rounded-3xl border border-sky-500/30 shadow-[0_25px_60px_rgba(0,0,0,0.9),0_0_35px_rgba(14,165,233,0.2)] overflow-hidden"
@@ -721,7 +824,7 @@
         </div>
     </div>
 
-    {{-- ── 8. Modal: Upload Signed PDF (Dark Glassmorphic) ─────────────────────── --}}
+    {{-- ── 9. Modal: Upload Signed PDF (Dark Glassmorphic) ─────────────────────── --}}
     <div x-show="showUploadModal" style="display: none;"
          class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div class="w-full max-w-md bg-[#0f172a] text-slate-100 rounded-3xl border border-emerald-500/30 shadow-[0_25px_60px_rgba(0,0,0,0.9),0_0_35px_rgba(16,185,129,0.2)] overflow-hidden"

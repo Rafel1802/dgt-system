@@ -450,7 +450,14 @@ class KpiStaffEvaluationController extends Controller
             $period = KpiPeriod::latest('id')->first();
         }
 
-        $staffMembers = $squad->members;
+        $targetUserId = $request->get('user_id');
+        $customDate = $request->get('evaluation_date');
+
+        if (!empty($targetUserId) && $targetUserId !== 'all') {
+            $staffMembers = $squad->members->where('id', (int)$targetUserId);
+        } else {
+            $staffMembers = $squad->members;
+        }
 
         $reviews = KpiReview::with(['user', 'reviewer'])
             ->where('squad_id', $squad->id)
@@ -458,10 +465,16 @@ class KpiStaffEvaluationController extends Controller
             ->get()
             ->keyBy('user_id');
 
-        $pdf = Pdf::loadView('kpi.all-staff-pdf', compact('squad', 'period', 'staffMembers', 'reviews'));
+        $pdf = Pdf::loadView('kpi.all-staff-pdf', compact('squad', 'period', 'staffMembers', 'reviews', 'customDate'));
 
         $squadCode = $squad->code ?: 'SQUAD';
         $periodName = str_replace(' ', '_', $period?->name ?? 'Month');
+
+        if ($staffMembers->count() === 1) {
+            $singleStaff = $staffMembers->first();
+            $safeName = str_replace(' ', '_', $singleStaff->name);
+            return $pdf->download("KPI_Evaluation_{$safeName}_{$periodName}.pdf");
+        }
 
         return $pdf->download("All_Staff_KPI_{$squadCode}_{$periodName}.pdf");
     }

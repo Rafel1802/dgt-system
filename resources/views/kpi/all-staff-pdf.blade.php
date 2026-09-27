@@ -304,23 +304,28 @@
             This structured scoring ensures transparency, consistency, and clear justification for probation confirmation decisions.
         </div>
 
-        {{-- Signatures --}}
+        {{-- Signatures: 4 Columns: Approved by CEO, Seen by Admin/HR, Seen by Supervisor, Prepared by Squad Lead --}}
         <table class="signatures-table">
             <tr>
-                <td class="sig-block" style="width: 32%;">
+                <td class="sig-block" style="width: 25%; text-align: left;">
                     <div class="sig-title">Approved by:</div>
                     <div class="sig-name">Mr. Dennis Tan</div>
                     <div class="sig-role">Chief Executive Officer</div>
                 </td>
-                <td class="sig-block" style="width: 36%; text-align: center;">
+                <td class="sig-block" style="width: 25%; text-align: center;">
                     <div class="sig-title">Seen by:</div>
-                    <div class="sig-name">{{ $leadSigName }}</div>
-                    <div class="sig-role">{{ $leadSigRole }}</div>
+                    <div class="sig-name">Mr. Dara Vuthy</div>
+                    <div class="sig-role">Human Resource Department</div>
                 </td>
-                <td class="sig-block" style="width: 32%; text-align: right;">
-                    <div class="sig-title">Prepared by:</div>
+                <td class="sig-block" style="width: 25%; text-align: center;">
+                    <div class="sig-title">Seen by:</div>
                     <div class="sig-name">Ms. Somalika In</div>
                     <div class="sig-role">Head of Digital Media</div>
+                </td>
+                <td class="sig-block" style="width: 25%; text-align: right;">
+                    <div class="sig-title">Prepared by:</div>
+                    <div class="sig-name">{{ $leadSigName }}</div>
+                    <div class="sig-role">{{ $leadSigRole }}</div>
                 </td>
             </tr>
         </table>
