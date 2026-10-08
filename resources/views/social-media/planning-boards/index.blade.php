@@ -20,29 +20,27 @@
 [data-theme="dark"] .ws-dash-card { background: #0f172a; border-color: #1e293b; }
 [data-theme="dark"] .ws-dash-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
 [data-theme="neon"] .ws-dash-card {
-    background: rgba(4, 20, 56, 0.92) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
+    background: rgba(4, 20, 56, 0.95) !important;
     border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 120, 255, 0.15) !important;
 }
 [data-theme="neon"] .ws-dash-card:hover {
     border-color: rgba(0, 220, 255, 0.8) !important;
     box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 180, 255, 0.4) !important;
-    transform: translateY(-3px) !important;
+    transform: translateY(-3px) translateZ(0) !important;
 }
 </style>
 
-<div x-data="{ searchQuery: '', filterWorkspace: '', showCreateModal: false }">
-<div class="page-header flex flex-wrap gap-4 items-end justify-between mb-8">
+<div class="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-2 sm:py-4" x-data="{ searchQuery: '', filterWorkspace: '', showCreateModal: false }">
+<div class="page-header flex flex-wrap gap-4 items-end justify-between mb-6 sm:mb-8">
     <div>
-        <h1 class="page-title text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-            <div class="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/30 w-12 h-12 flex items-center justify-center flex-shrink-0">
-                <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="SMM Planning" class="w-8 h-8 object-contain">
+        <h1 class="page-title text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+            <div class="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/30 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0">
+                <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="SMM Planning" class="w-7 h-7 sm:w-8 sm:h-8 object-contain">
             </div>
-            SMM Planning Boards
+            <span>SMM Planning Boards</span>
         </h1>
-        <p class="page-subtitle text-slate-500 dark:text-slate-400 mt-2 font-medium">Manage monthly Social Media Planning boards.</p>
+        <p class="page-subtitle text-slate-500 dark:text-slate-400 mt-1.5 sm:mt-2 text-xs sm:text-sm font-medium">Manage monthly Social Media Planning boards.</p>
     </div>
     
     <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
@@ -208,8 +206,8 @@
                 </div>
             </div>
             <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700/50 flex justify-end gap-3">
-                <button type="button" @click="showCreateModal = false" class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">Cancel</button>
-                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">Create Board</button>
+                <button type="button" @click="showCreateModal = false" class="px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors active:scale-95 touch-manipulation cursor-pointer">Cancel</button>
+                <button type="submit" class="px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors active:scale-95 touch-manipulation cursor-pointer font-bold">Create Board</button>
             </div>
         </form>
     </div>

@@ -98,12 +98,12 @@ class SupervisorDashboardApprovalQueueTest extends TestCase
         $response->assertOk();
 
         // Check 2-Column Summary exists
-        $response->assertSee('Supervisor List');
-        $response->assertSee('QC Review');
+        $response->assertSee('Digital Department List');
+        $response->assertSee('Production Team');
         $response->assertSee('Your Queue');
 
         // Check task list below
-        $response->assertSee('Tasks on Supervisor List');
+        $response->assertSee('Tasks on Digital Department List');
         $response->assertSee('Final Banner Graphic 2026');
         $response->assertSee('Urgent Revision');
 
@@ -152,7 +152,7 @@ class SupervisorDashboardApprovalQueueTest extends TestCase
         $response = $this->actingAs($qc)->get(route('dashboard'));
         $response->assertOk();
 
-        $response->assertSee('Tasks Awaiting QC Action');
+        $response->assertSee('Tasks on Production Team List');
         $response->assertSee('Final Description TYPH-KUVUO 2.5');
 
         // Check direct card auto-open link

@@ -265,23 +265,36 @@ class KanbanService
     /**
      * Upload a file attachment to a card.
      */
-    public function uploadFile(Card $card, UploadedFile $file, User $uploader, bool $isCommentImage = false): CardFile
+    public function uploadFile(Card $card, UploadedFile $file, User $uploader, bool $isCommentImage = false, ?string $folderName = null): CardFile
     {
         $disk = config('filesystems.default', 'local');
         $storedName = $file->hashName();
         $path = $file->storeAs("kanban/{$card->id}", $storedName, $disk);
 
-        $cardFile = CardFile::create([
+        $clientOriginalName = $file->getClientOriginalName();
+        $originalName = $folderName ? "{$folderName}/{$clientOriginalName}" : $clientOriginalName;
+
+        $data = [
             'card_id'       => $card->id,
             'uploaded_by'   => $uploader->id,
-            'original_name' => $file->getClientOriginalName(),
+            'original_name' => $originalName,
             'stored_name'   => $storedName,
             'disk'          => $disk,
             'path'          => $path,
             'mime_type'     => $file->getMimeType(),
             'size'          => $file->getSize(),
             'is_comment_image' => $isCommentImage,
-        ]);
+        ];
+
+        try {
+            if ($folderName && \Illuminate\Support\Facades\Schema::hasColumn('card_files', 'folder_name')) {
+                $data['folder_name'] = $folderName;
+            }
+            $cardFile = CardFile::create($data);
+        } catch (\Throwable $e) {
+            unset($data['folder_name']);
+            $cardFile = CardFile::create($data);
+        }
 
         return $cardFile;
     }
@@ -350,7 +363,10 @@ class KanbanService
             ->get()
             ->groupBy(function($board) {
                 if (stripos($board->name, 'Workflow') !== false) {
-                    return $board->workspace_id . '_workflow';
+                    $teamSuffix = '';
+                    if (stripos($board->name, 'Team A') !== false) $teamSuffix = '_team_a';
+                    elseif (stripos($board->name, 'Team B') !== false) $teamSuffix = '_team_b';
+                    return $board->workspace_id . '_workflow' . $teamSuffix;
                 }
                 return $board->id;
             })
@@ -441,18 +457,26 @@ class KanbanService
             $monthCards = $queryApproved(Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth());
             $allTimeCards = $queryApproved();
 
+            $draftCards = $getBreakdown(['Draft', 'Drafting', 'To do', 'Todo']);
+            $prodCards  = $getBreakdown(['Production Team', 'Production Team A', 'Production Team B', 'Production', 'Head Review', 'In Progress', 'QC', 'Text Review']);
+            $digitCards = $getBreakdown(['Digital Department', 'Supervisor Review', 'Supervisor']);
+            $apprCards  = $getBreakdownForCards($approvedCards);
+
             return [
-                'drafting'          => $getBreakdown(['Drafting', 'Draft', 'To do', 'Todo']),
-                'head_review'       => $getBreakdown(['Head Review']),
-                'qc_review'         => $getBreakdown(['QC', 'Text Review']),
-                'supervisor_review' => $getBreakdown(['Supervisor Review', 'Supervisor']),
-                'urgent'            => $urgent,
-                'overdue'           => $overdue,
-                'approved'          => $getBreakdownForCards($approvedCards),
-                'approved_today'    => $getBreakdownForCards($todayCards),
-                'approved_week'     => $getBreakdownForCards($weekCards),
-                'approved_month'    => $getBreakdownForCards($monthCards),
-                'approved_all'      => $getBreakdownForCards($allTimeCards),
+                'drafting'           => $draftCards,
+                'draft_list'         => $draftCards,
+                'production_team'    => $prodCards,
+                'head_review'        => $prodCards,
+                'qc_review'          => $prodCards,
+                'digital_department' => $digitCards,
+                'supervisor_review'  => $digitCards,
+                'urgent'             => $urgent,
+                'overdue'            => $overdue,
+                'approved'           => $apprCards,
+                'approved_today'     => $getBreakdownForCards($todayCards),
+                'approved_week'      => $getBreakdownForCards($weekCards),
+                'approved_month'     => $getBreakdownForCards($monthCards),
+                'approved_all'       => $getBreakdownForCards($allTimeCards),
             ];
         });
 
@@ -518,12 +542,15 @@ class KanbanService
 
         if ($isQc) {
             $pendingCardsQuery->whereHas('boardList', function($q) {
-                $q->where('name', 'like', '%QC%')
+                $q->where('name', 'like', '%Production%')
+                  ->orWhere('name', 'like', '%QC%')
+                  ->orWhere('name', 'like', '%Head Review%')
                   ->orWhere('name', 'like', '%Text Review%');
             });
         } else {
             $pendingCardsQuery->whereHas('boardList', function($q) {
-                $q->where('name', 'like', '%Supervisor Review%')
+                $q->where('name', 'like', '%Digital Department%')
+                  ->orWhere('name', 'like', '%Supervisor Review%')
                   ->orWhere('name', 'like', '%Supervisor%');
             });
         }
@@ -535,11 +562,11 @@ class KanbanService
             ->limit($isSupervisor ? 500 : 30)
             ->get();
 
-        $totalGraphic = ($stats['drafting']['graphic'] ?? 0) + ($stats['head_review']['graphic'] ?? 0) + ($stats['qc_review']['graphic'] ?? 0) + ($stats['supervisor_review']['graphic'] ?? 0);
-        $totalVideo   = ($stats['drafting']['video'] ?? 0) + ($stats['head_review']['video'] ?? 0) + ($stats['qc_review']['video'] ?? 0) + ($stats['supervisor_review']['video'] ?? 0);
-        $totalListing = ($stats['drafting']['listing'] ?? 0) + ($stats['head_review']['listing'] ?? 0) + ($stats['qc_review']['listing'] ?? 0) + ($stats['supervisor_review']['listing'] ?? 0);
-        $totalContent = ($stats['drafting']['content'] ?? 0) + ($stats['head_review']['content'] ?? 0) + ($stats['qc_review']['content'] ?? 0) + ($stats['supervisor_review']['content'] ?? 0);
-        $totalQc      = ($stats['drafting']['qc'] ?? 0) + ($stats['head_review']['qc'] ?? 0) + ($stats['qc_review']['qc'] ?? 0) + ($stats['supervisor_review']['qc'] ?? 0);
+        $totalGraphic = ($stats['drafting']['graphic'] ?? 0) + ($stats['production_team']['graphic'] ?? 0) + ($stats['digital_department']['graphic'] ?? 0);
+        $totalVideo   = ($stats['drafting']['video'] ?? 0) + ($stats['production_team']['video'] ?? 0) + ($stats['digital_department']['video'] ?? 0);
+        $totalListing = ($stats['drafting']['listing'] ?? 0) + ($stats['production_team']['listing'] ?? 0) + ($stats['digital_department']['listing'] ?? 0);
+        $totalContent = ($stats['drafting']['content'] ?? 0) + ($stats['production_team']['content'] ?? 0) + ($stats['digital_department']['content'] ?? 0);
+        $totalQc      = ($stats['drafting']['qc'] ?? 0) + ($stats['production_team']['qc'] ?? 0) + ($stats['digital_department']['qc'] ?? 0);
 
         return [
             'stats'            => $stats,

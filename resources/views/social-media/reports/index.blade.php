@@ -4,18 +4,18 @@
 @section('back_url', route('social-media.dashboard'))
 
 @section('content')
-<div class="flex flex-col items-center justify-center min-h-[80vh] py-10">
-    <div class="page-header mb-10 text-center flex flex-col items-center">
-        <span class="p-4 bg-indigo-500 text-white rounded-3xl shadow-xl shadow-indigo-500/30 mb-6">
-            <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+<div class="max-w-5xl mx-auto px-0 sm:px-4 lg:px-8 flex flex-col items-center justify-center min-h-[80vh] py-4 sm:py-10 pb-28 md:pb-12">
+    <div class="page-header mb-6 sm:mb-10 text-center flex flex-col items-center">
+        <span class="p-3 sm:p-4 bg-indigo-500 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-indigo-500/30 mb-4 sm:mb-6">
+            <svg class="w-8 h-8 sm:w-10 sm:h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
         </span>
-        <h1 class="page-title text-4xl font-black text-slate-800 dark:text-white tracking-tight">
+        <h1 class="page-title text-2xl sm:text-4xl font-black text-slate-800 dark:text-white tracking-tight">
             Export Analytics Reports
         </h1>
-        <p class="page-subtitle mt-3 text-lg text-slate-500 dark:text-slate-400 max-w-lg mx-auto">Export uploaded analytics PDFs across multiple classes by date or month.</p>
+        <p class="page-subtitle mt-2 sm:mt-3 text-sm sm:text-lg text-slate-500 dark:text-slate-400 max-w-lg mx-auto">Export uploaded analytics PDFs across multiple classes by date or month.</p>
     </div>
 
-    <div class="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-700 p-8 md:p-12"
+    <div class="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-2xl sm:rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-700 p-4 sm:p-8 md:p-12"
          x-data="{ 
             selected: [],
             allIds: [{{ $classes->pluck('id')->implode(',') }}],

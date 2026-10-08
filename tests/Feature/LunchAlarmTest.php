@@ -269,7 +269,7 @@ class LunchAlarmTest extends TestCase
         $this->assertEquals('lunch.wav', $sup->fresh()->lunch_alarm_sound);
         $this->assertEquals('funny.wav', $sup->fresh()->offwork_alarm_sound);
         $this->assertEquals('funny.wav', $sup->fresh()->sat_alarm_sound);
-        $this->assertFalse($sup->fresh()->lunch_alarm_enabled);
+        $this->assertTrue($sup->fresh()->lunch_alarm_enabled);
 
         $this->assertEquals('lunch.wav', $superAdmin->fresh()->lunch_alarm_sound);
         $this->assertEquals('funny.wav', $superAdmin->fresh()->offwork_alarm_sound);

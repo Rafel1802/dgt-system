@@ -4,9 +4,9 @@
 @section('page_title', 'Edit Popup Ad')
 @section('content')
 @section('back_url', route('admin.popup-ads.index'))
-<div class="max-w-4xl mx-auto pb-12">
-    <div class="flex items-center gap-4 mb-8">
-        <h1 class="text-3xl font-black text-slate-900 dark:text-white">Edit Popup Ad</h1>
+<div class="max-w-4xl mx-auto px-0 sm:px-4 lg:px-8 py-2 sm:py-4 pb-28 md:pb-12">
+    <div class="flex items-center gap-4 mb-6 sm:mb-8">
+        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">Edit Popup Ad</h1>
     </div>
 
     <form action="{{ route('admin.popup-ads.update', $popupAd) }}" method="POST" enctype="multipart/form-data" class="bento-card p-6 sm:p-8 space-y-6">

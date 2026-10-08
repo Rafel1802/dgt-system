@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 class SettingController extends Controller
 {
     /**
-     * Display the system settings page (External Tool Menus).
+     * Display the system settings page (External Tool Menus & Company Branding).
      */
     public function index()
     {
@@ -34,7 +34,9 @@ class SettingController extends Controller
             auth()->user()->hasAnyRole(['super-admin', 'admin-digital']),
             403,
             'Access restricted to admins.'
-        );        $rules = collect(Setting::externalToolKeys())
+        );
+
+        $rules = collect(Setting::externalToolKeys())
             ->flatMap(fn (string $key) => [
                 $key => ['nullable', 'url', 'max:2048'],
                 $key . '_icon' => ['nullable', 'url', 'max:2048'],
@@ -50,15 +52,24 @@ class SettingController extends Controller
                 'generator_tools_order'      => ['nullable', 'string'],
                 'workspace_tools_order'      => ['nullable', 'string'],
                 'ai_tools_order'             => ['nullable', 'string'],
+
+                // Company Branding (Customizable by Mr. Dara QC & Superadmin)
+                'company_name'               => ['nullable', 'string', 'max:255'],
+                'company_tagline'            => ['nullable', 'string', 'max:255'],
+                'company_logo_url'           => ['nullable', 'string', 'max:2048'],
+                'company_logo_file'          => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
+                'reset_company_logo'         => ['nullable'],
             ])
             ->all();
 
         $validated = $request->validate($rules);
 
         $customKeys = ['custom_ai_tools', 'custom_board_tools', 'custom_generator_tools', 'custom_workspace_tools'];
+        $brandingKeys = ['company_name', 'company_tagline', 'company_logo_url', 'company_logo_file', 'reset_company_logo'];
 
+        // Save generic external tool settings
         foreach ($validated as $key => $value) {
-            if (in_array($key, $customKeys) || str_contains($key, '.')) {
+            if (in_array($key, $customKeys) || in_array($key, $brandingKeys) || str_contains($key, '.')) {
                 continue;
             }
 
@@ -68,6 +79,56 @@ class SettingController extends Controller
             );
         }
 
+        // Handle Company Branding (Name, Tagline, Logo)
+        if ($request->has('company_name')) {
+            Setting::updateOrCreate(
+                ['key' => 'company_name'],
+                ['value' => $request->filled('company_name') ? trim($request->input('company_name')) : 'KiuQ Digital Media']
+            );
+        }
+
+        if ($request->has('company_tagline')) {
+            Setting::updateOrCreate(
+                ['key' => 'company_tagline'],
+                ['value' => $request->filled('company_tagline') ? trim($request->input('company_tagline')) : 'Digital Media System']
+            );
+        }
+
+        if ($request->boolean('reset_company_logo')) {
+            Setting::updateOrCreate(
+                ['key' => 'company_logo_url'],
+                ['value' => asset('images/kiuqlogo.webp')]
+            );
+        } elseif ($request->hasFile('company_logo_file') && $request->file('company_logo_file')->isValid()) {
+            $file = $request->file('company_logo_file');
+            $ext = $file->getClientOriginalExtension() ?: 'png';
+            $filename = 'company_logo_' . time() . '.' . $ext;
+
+            $publicBrandingDir = public_path('branding');
+            if (!file_exists($publicBrandingDir)) {
+                @mkdir($publicBrandingDir, 0755, true);
+            }
+            $file->move($publicBrandingDir, $filename);
+
+            // Mirror to storage/app/public/branding if available
+            $storageBrandingDir = storage_path('app/public/branding');
+            if (!file_exists($storageBrandingDir)) {
+                @mkdir($storageBrandingDir, 0755, true);
+            }
+            @copy($publicBrandingDir . '/' . $filename, $storageBrandingDir . '/' . $filename);
+
+            Setting::updateOrCreate(
+                ['key' => 'company_logo_url'],
+                ['value' => asset('branding/' . $filename)]
+            );
+        } elseif ($request->filled('company_logo_url')) {
+            Setting::updateOrCreate(
+                ['key' => 'company_logo_url'],
+                ['value' => trim($request->input('company_logo_url'))]
+            );
+        }
+
+        // Save custom tools
         foreach ($customKeys as $customKey) {
             $rawCustom = $request->input($customKey);
             if (is_string($rawCustom)) {
@@ -106,6 +167,6 @@ class SettingController extends Controller
             ? 'dashboard'
             : 'admin.settings.index';
 
-        return redirect()->route($route)->with('success', 'External system links saved successfully.');
+        return redirect()->route($route)->with('success', 'System settings and company branding saved successfully.');
     }
 }

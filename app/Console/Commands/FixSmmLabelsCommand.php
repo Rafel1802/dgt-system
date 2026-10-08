@@ -206,6 +206,19 @@ class FixSmmLabelsCommand extends Command
                         // High confidence disambiguation via date/assignee/week
                         $matchedClass = $best['row']['cluster'];
                     }
+
+                    if ($best['score'] >= 30) {
+                        $matchedRow = $best['row'];
+                        if (!$isDryRun && (!empty($matchedRow['attachment']) || !empty($matchedRow['checklist']))) {
+                            $smmController = app(\App\Http\Controllers\SocialMedia\SmmImportController::class);
+                            if (!empty($matchedRow['attachment'])) {
+                                $smmController->attachLinksToCard($card, $matchedRow['attachment'], $card->created_by ?: 1);
+                            }
+                            if (!empty($matchedRow['checklist'])) {
+                                $smmController->syncCardChecklist($card, $matchedRow['checklist']);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -322,6 +335,8 @@ class FixSmmLabelsCommand extends Command
             if (str_contains($colName, 'assigned to') || $colName === 'assign to') $colMap['assigned_to'] = $idx;
             if (str_contains($colName, 'public date') || str_contains($colName, 'publish date')) $colMap['public_date'] = $idx;
             if (str_contains($colName, 'week')) $colMap['weeks'] = $idx;
+            if (str_contains($colName, 'attach')) $colMap['attachment'] = $idx;
+            if (str_contains($colName, 'check')) $colMap['checklist'] = $idx;
         }
 
         if (!isset($colMap['cluster']) || !isset($colMap['title'])) {
@@ -340,6 +355,8 @@ class FixSmmLabelsCommand extends Command
             $pubDateRaw = isset($colMap['public_date']) ? trim($r[$colMap['public_date']] ?? '') : '';
             $weeksRaw = isset($colMap['weeks']) ? trim($r[$colMap['weeks']] ?? '') : '';
             $desc = isset($colMap['description']) ? trim($r[$colMap['description']] ?? '') : '';
+            $attachment = isset($colMap['attachment']) ? trim($r[$colMap['attachment']] ?? '') : '';
+            $checklist = isset($colMap['checklist']) ? trim($r[$colMap['checklist']] ?? '') : '';
 
             if (empty($cluster) || (empty($title) && empty($contentType))) {
                 continue;
@@ -377,6 +394,8 @@ class FixSmmLabelsCommand extends Command
                 'week_str' => $weeksRaw,
                 'week_num' => $weekNum,
                 'description' => $desc,
+                'attachment' => $attachment,
+                'checklist' => $checklist,
             ];
         }
 

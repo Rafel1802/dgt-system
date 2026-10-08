@@ -64,16 +64,33 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <style>
         [x-cloak] { display: none !important; }
 
-        /* We previously hid the progress bars, but re-enabling them provides crucial visual feedback on slow networks */
         .turbo-progress-bar {
             background-color: #4f46e5;
             height: 3px;
+        }
+
+        @media (max-width: 1023px) {
+            .turbo-progress-bar {
+                background: linear-gradient(90deg, #6366f1, #38bdf8, #818cf8) !important;
+                height: 2.5px !important;
+                box-shadow: 0 0 10px rgba(56, 189, 248, 0.7) !important;
+                z-index: 999999 !important;
+            }
         }
         
         /* Disable manual fade-in to prevent SPA blinking/flashing during transitions */
         .animate-fade-in {
             animation: none !important;
             opacity: 1 !important;
+        }
+
+        /* Guarantee instant desktop page loads with zero transition animations */
+        @media (min-width: 1024px) {
+            ::view-transition-group(*),
+            ::view-transition-old(*),
+            ::view-transition-new(*) {
+                animation: none !important;
+            }
         }
 
         /* Global Dark & Neon Mode Contrast Overrides */
@@ -138,8 +155,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             border: 1px solid rgba(0, 162, 255, 0.45) !important;
             color: #f0f9ff !important;
             box-shadow: 0 20px 45px -10px rgba(0, 5, 20, 0.85), 0 0 25px rgba(0, 162, 255, 0.25), inset 0 1px 0 rgba(56, 189, 248, 0.35) !important;
-            backdrop-filter: blur(20px) !important;
-            -webkit-backdrop-filter: blur(20px) !important;
         }
         [data-theme="neon"] .dgt-notification-toast:hover {
             border-color: rgba(0, 210, 255, 0.75) !important;
@@ -188,12 +203,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         // Self-hosted Turbo — avoid unpkg RTT on every cold load (Hostinger users often far from CDN).
         import * as Turbo from "{{ asset('js/turbo.es2017-esm.js') }}?v={{ file_exists(public_path('js/turbo.es2017-esm.js')) ? filemtime(public_path('js/turbo.es2017-esm.js')) : '8.0.4' }}";
         window.Turbo = Turbo;
-        Turbo.setProgressBarDelay(400);
-        
-        // Trigger Turbo prefetch on touch devices (Turbo 8 relies on hover/focus which doesn't trigger fast enough on mobile taps)
+        Turbo.setProgressBarDelay(window.innerWidth < 1024 ? 100 : 400);
+
+        // Trigger Turbo prefetch on touch devices (exclude /boards/ so boards mount cleanly without double-render)
         document.addEventListener('touchstart', (e) => {
             const link = e.target.closest('a[href]');
-            if (link && link.href && link.origin === window.location.origin && link.getAttribute('data-turbo') !== 'false') {
+            if (link && link.href && link.origin === window.location.origin && link.getAttribute('data-turbo') !== 'false' && !link.href.includes('/boards/')) {
                 const event = new MouseEvent('mouseenter', {
                     view: window,
                     bubbles: true,
@@ -404,8 +419,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             }
 
             .turbo-progress-bar {
-                display: none !important;
-                visibility: hidden !important;
+                background: linear-gradient(90deg, #6366f1, #38bdf8, #818cf8) !important;
+                height: 2.5px !important;
+                box-shadow: 0 0 10px rgba(56, 189, 248, 0.7) !important;
+                z-index: 999999 !important;
             }
 
 
@@ -913,6 +930,34 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <span>Boards</span>
                 </a>
 
+                @if(isset($userPlanningBoards) && $userPlanningBoards->isNotEmpty())
+                    @php
+                        $totalUserTasks = $userPlanningBoards->sum('user_tasks_count');
+                        $hasDueTomorrow = $userPlanningBoards->sum('due_tomorrow_count') > 0;
+                    @endphp
+                    <a href="{{ route('tasks.count') }}"
+                       class="sidebar-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
+                       id="nav-tasks-count" data-tooltip="Tasks Count">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                        </svg>
+                        <span>Tasks Count</span>
+                        @if($totalUserTasks > 0)
+                        <span class="ml-auto flex items-center gap-1.5 shrink-0">
+                            @if($hasDueTomorrow)
+                                <span class="relative flex h-2 w-2" title="Tasks due in 1 day (tomorrow)">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
+                            @endif
+                            <span class="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                {{ $totalUserTasks }}
+                            </span>
+                        </span>
+                        @endif
+                    </a>
+                @endif
+
                 {{-- Social Media --}}
                 @if(auth()->user()?->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss', 'digital-team']))
                 <div x-data="{ smOpen: localStorage.getItem('dgt-sm-menu-open') === 'true' || {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
@@ -951,6 +996,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endif
 
                 @if(auth()->user()->hasWebsiteAccess())
+                @php
+                    $sidebarWebsiteErrorsCount = \App\Models\Website::where('is_archived', false)
+                        ->whereIn('status', [
+                            \App\Models\Website::STATUS_QC_ERROR,
+                            \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR,
+                            \App\Models\Website::STATUS_SUPERVISOR_ERROR,
+                            \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR,
+                        ])->count();
+                @endphp
                 {{-- All Websites accordion sub-menu --}}
                 <div x-data="{ wsOpen: localStorage.getItem('dgt-websites-menu-open') === 'true' || {{ request()->routeIs('websites.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
                     <div
@@ -958,11 +1012,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         id="nav-websites-toggle"
                         data-tooltip="All Websites"
                     >
-                        <a href="{{ route('websites.index', ['tab' => 'build']) }}" class="flex items-center gap-[0.625rem] flex-1">
+                        <a href="{{ route('websites.index', ['tab' => $sidebarWebsiteErrorsCount > 0 ? 'qc-error' : 'build']) }}" class="flex items-center gap-[0.625rem] flex-1">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px]">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
                             </svg>
                             <span>All Websites</span>
+                            @if($sidebarWebsiteErrorsCount > 0)
+                                <span x-show="!wsOpen" class="w-2 h-2 rounded-full bg-red-500 animate-pulse ml-1.5 shrink-0" title="{{ $sidebarWebsiteErrorsCount }} website error(s) flagged"></span>
+                            @endif
                         </a>
                         <button type="button" @click.stop="wsOpen = !wsOpen; localStorage.setItem('dgt-websites-menu-open', wsOpen)" class="p-1 -mr-1 rounded hover:bg-slate-700/50 transition-colors" aria-label="Toggle Websites menu">
                             <svg
@@ -996,16 +1053,23 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             $wsStatusTabs = ['build','build-progress','live','maintenance','qc-error','supervisor-error'];
                             $isOnStatusTab = request()->routeIs('websites.index') && in_array(request()->get('tab','build'), $wsStatusTabs);
                         @endphp
-                        <a href="{{ route('websites.index', ['tab' => 'build']) }}"
-                           class="sidebar-submenu-item {{ $isOnStatusTab ? 'active' : '' }}"
+                        <a href="{{ route('websites.index', ['tab' => $sidebarWebsiteErrorsCount > 0 ? 'qc-error' : 'build']) }}"
+                           class="sidebar-submenu-item flex items-center justify-between {{ $isOnStatusTab ? 'active' : '' }}"
                            id="nav-websites-status" data-tooltip="Website Status">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m9 10 2 2 4-4" />
-                                <rect width="20" height="14" x="2" y="3" rx="2" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 17v4" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8" />
-                            </svg>
-                            <span>Website Status</span>
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m9 10 2 2 4-4" />
+                                    <rect width="20" height="14" x="2" y="3" rx="2" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 17v4" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8" />
+                                </svg>
+                                <span>Website Status</span>
+                            </div>
+                            @if($sidebarWebsiteErrorsCount > 0)
+                                <span class="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black text-white bg-red-600 rounded-full shadow-sm ring-2 ring-red-400/50 dark:ring-red-900 animate-pulse" title="{{ $sidebarWebsiteErrorsCount }} website error(s) flagged">
+                                    {{ $sidebarWebsiteErrorsCount }}
+                                </span>
+                            @endif
                         </a>
                         {{-- 2. Follow Up --}}
                         <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
@@ -1018,42 +1082,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </div>
                 @endif
 
-                @if($canSeeApprovalQueue)
-                <a href="{{ route('approvals.index') }}"
-                   class="sidebar-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
-                   id="nav-approvals" data-tooltip="Approval Queue">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375"/>
-                    </svg>
-                    <span>Approval Queue</span>
-                </a>
-                @elseif(isset($userPlanningBoards) && $userPlanningBoards->isNotEmpty())
-                    @php
-                        $totalUserTasks = $userPlanningBoards->sum('user_tasks_count');
-                        $hasDueTomorrow = $userPlanningBoards->sum('due_tomorrow_count') > 0;
-                    @endphp
-                    <a href="{{ route('tasks.count') }}"
-                       class="sidebar-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
-                       id="nav-tasks-count" data-tooltip="Tasks Count">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
-                        </svg>
-                        <span>Tasks Count</span>
-                        @if($totalUserTasks > 0)
-                        <span class="ml-auto flex items-center gap-1.5 shrink-0">
-                            @if($hasDueTomorrow)
-                                <span class="relative flex h-2 w-2" title="Tasks due in 1 day (tomorrow)">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                                </span>
-                            @endif
-                            <span class="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                {{ $totalUserTasks }}
-                            </span>
-                        </span>
-                        @endif
-                    </a>
-                @endif
+
+
+
 
                 @if(auth()->user()->isQcOrSupervisor())
                 <a href="{{ route('boards.reports.personal') }}"
@@ -1088,17 +1119,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
                 @endif
 
-                @can('view-blog-reports')
-                <a href="{{ route('blog-reports.index') }}"
-                   class="sidebar-item {{ request()->routeIs('blog-reports.*') ? 'active' : '' }}"
-                   id="nav-blog-report" data-tooltip="Blog Report">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                    </svg>
-                    <span>Blog Report</span>
-                </a>
-                @endcan
-
                 <?php
                     $weeklyReport = collect(\App\Models\Setting::externalToolsForGroup('board', true))->firstWhere('key', 'weekly_report_url');
                 ?>
@@ -1119,6 +1139,33 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 @endunless
 
                 @unless(auth()->user()?->hasRole('boss'))
+                <?php
+                    $sidebarWebTools = collect(\App\Models\Setting::externalToolsForGroup('board', true))
+                        ->reject(function($t) {
+                            return ($t['key'] ?? null) === 'weekly_report_url';
+                        })
+                        ->all();
+                ?>
+
+                @if(count($sidebarWebTools))
+                    <div class="sidebar-tool-group">
+                        <span class="sidebar-tool-heading">Support System and Content</span>
+                        @foreach($sidebarWebTools as $tool)
+                            <a href="{{ $tool['url'] }}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="sidebar-item sidebar-tool-item sidebar-tool-item-web" data-tooltip="{{ $tool['label'] }}">
+                                @if(isset($tool['icon_url']) && $tool['icon_url'])
+                                    <img src="{{ $tool['icon_url'] }}" class="h-4 w-4 object-contain" alt="">
+                                @else
+                                    <x-external-tool-icon :name="$tool['icon']" />
+                                @endif
+                                <span>{{ $tool['short_label'] ?? $tool['label'] }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
+
                 @if(count($sidebarWorkspaceTools))
                     @php
                         $userEmail = auth()->user()->email ?? '';
@@ -1146,33 +1193,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                rel="noopener noreferrer"
                                class="sidebar-item sidebar-tool-item"
                                data-tooltip="{{ $tool['label'] ?? $tool['name'] }}">
-                                @if(isset($tool['icon_url']) && $tool['icon_url'])
-                                    <img src="{{ $tool['icon_url'] }}" class="h-4 w-4 object-contain" alt="">
-                                @else
-                                    <x-external-tool-icon :name="$tool['icon']" />
-                                @endif
-                                <span>{{ $tool['short_label'] ?? $tool['label'] }}</span>
-                            </a>
-                        @endforeach
-                    </div>
-                @endif
-
-                <?php
-                    $sidebarWebTools = collect(\App\Models\Setting::externalToolsForGroup('board', true))
-                        ->reject(function($t) {
-                            return ($t['key'] ?? null) === 'weekly_report_url';
-                        })
-                        ->all();
-                ?>
-
-                @if(count($sidebarWebTools))
-                    <div class="sidebar-tool-group">
-                        <span class="sidebar-tool-heading">eBay &amp; Web Supporter</span>
-                        @foreach($sidebarWebTools as $tool)
-                            <a href="{{ $tool['url'] }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="sidebar-item sidebar-tool-item sidebar-tool-item-web" data-tooltip="{{ $tool['label'] }}">
                                 @if(isset($tool['icon_url']) && $tool['icon_url'])
                                     <img src="{{ $tool['icon_url'] }}" class="h-4 w-4 object-contain" alt="">
                                 @else
@@ -1321,11 +1341,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </button>
                     <div x-show="open" x-collapse class="sidebar-submenu-list mt-1 space-y-1 relative">
                         <a href="{{ route('admin.labels.index') }}"
-                           class="sidebar-submenu-item {{ request()->routeIs('admin.labels.*') ? 'active' : '' }}">
+                           class="sidebar-submenu-item {{ request()->routeIs('admin.labels.*') ? 'active' : '' }}"
+                           id="nav-labels-team" data-tooltip="Team Labels">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                            </svg>
                             <span>Team Labels</span>
                         </a>
                         <a href="{{ route('admin.smm-classes.index') }}"
-                           class="sidebar-submenu-item {{ request()->routeIs('admin.smm-classes.*') ? 'active' : '' }}">
+                           class="sidebar-submenu-item {{ request()->routeIs('admin.smm-classes.*') ? 'active' : '' }}"
+                           id="nav-labels-class" data-tooltip="Class Labels">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25 7.5 16.5V3.75m9 0H7.5m9 0a2.25 2.25 0 0 1 2.25 2.25v13.5a2.25 2.25 0 0 1-2.25 2.25H7.5a2.25 2.25 0 0 1-2.25-2.25V6a2.25 2.25 0 0 1 2.25-2.25h9Z" />
+                            </svg>
                             <span>Class Labels</span>
                         </a>
                     </div>
@@ -1384,16 +1412,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </a>
                 @endhasanyrole
 
-                @if(auth()->user()->canAccessMaintenance())
-                <a href="{{ route('system.health.index') }}"
-                   class="sidebar-item {{ request()->routeIs('system.health.*') ? 'active' : '' }}"
-                   id="nav-system-health" data-tooltip="System Health">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                    </svg>
-                    <span>System Health</span>
-                </a>
-                @endif
+                
                 @endif
 
             </nav>
@@ -2208,6 +2227,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Home (Everyone) -->
             @can('dashboard.view')
             <a href="{{ route('dashboard') }}"
+               data-turbo-preload
                class="mobile-nav-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
                aria-label="Home">
                 <span class="mobile-nav-icon">
@@ -2236,26 +2256,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </a>
             @endcan
 
-            @if($canSeeApprovalQueue)
-                <!-- Approval Queue -->
-                <a href="{{ route('approvals.index') }}"
-                   class="mobile-nav-item {{ request()->routeIs('approvals.*') ? 'active' : '' }}"
-                   aria-label="Approval">
-                    <span class="mobile-nav-icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
-                    </span>
-                    <span class="mobile-nav-label">Approval</span>
-                    <span class="mobile-nav-indicator"></span>
-                </a>
-            @elseif(isset($userPlanningBoards) && $userPlanningBoards->isNotEmpty())
+
+
+            @if(isset($userPlanningBoards) && $userPlanningBoards->isNotEmpty())
                 @php
                     $mobileTasksCount = $userPlanningBoards->sum('user_tasks_count');
                     $mobileHasDueTomorrow = $userPlanningBoards->sum('due_tomorrow_count') > 0;
                 @endphp
                 <!-- Tasks Count -->
                 <a href="{{ route('tasks.count') }}"
+                   data-turbo-preload
                    class="mobile-nav-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
                    aria-label="Tasks Count">
                     <span class="mobile-nav-icon relative">
@@ -2274,6 +2284,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Reels / Social Media (Boss, super-admin, Digital Team) -->
             @if(auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
             <a href="{{ route('social-media.dashboard') }}"
+               data-turbo-preload
                class="mobile-nav-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
                aria-label="Reels">
                 <span class="mobile-nav-icon">
@@ -2291,6 +2302,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Websites (Boss + super-admin) -->
             @if(auth()->user()?->hasAnyRole(['boss', 'super-admin']))
             <a href="{{ route('websites.dashboard') }}"
+               data-turbo-preload
                class="mobile-nav-item {{ request()->routeIs('websites.*') ? 'active' : '' }}"
                aria-label="Websites">
                 <span class="mobile-nav-icon">
@@ -2305,6 +2317,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Notes -->
             <a href="{{ route('notes.private') }}"
+               data-turbo-preload
                class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
                aria-label="Note">
                 <span class="mobile-nav-icon">
@@ -2531,6 +2544,128 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             cancel.addEventListener('click', () => close(null));
             confirm.addEventListener('click', submit);
         });
+    };
+
+    // Custom Alert Modal — singleton
+    let _alertModalOpen = false;
+    window.alertModal = function(input) {
+        if (_alertModalOpen) return Promise.resolve(false);
+        _alertModalOpen = true;
+
+        return new Promise((resolve) => {
+            const options = typeof input === 'object' && input !== null ? input : { message: input };
+            const title = options.title || 'Attention';
+            const message = options.message || '';
+            const confirmText = options.confirmText || 'Understood';
+            const tone = options.tone || 'warning';
+            const toneMap = {
+                warning: {
+                    icon: 'bg-amber-100 text-amber-600 ring-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:ring-amber-800',
+                    button: 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20 text-white',
+                    glow: 'from-amber-400/15',
+                },
+                danger: {
+                    icon: 'bg-rose-100 text-rose-600 ring-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:ring-rose-800',
+                    button: 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/20 text-white',
+                    glow: 'from-rose-500/15',
+                },
+                info: {
+                    icon: 'bg-indigo-100 text-indigo-600 ring-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-400 dark:ring-indigo-800',
+                    button: 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20 text-white',
+                    glow: 'from-indigo-500/15',
+                },
+            };
+            const theme = toneMap[tone] || toneMap.warning;
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[99999] flex items-center justify-center p-4 opacity-0 transition-opacity duration-150';
+            
+            const modal = document.createElement('div');
+            modal.className = 'relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-white/70 dark:border-slate-800 rounded-3xl shadow-2xl max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-150 ring-1 ring-slate-900/5';
+            
+            modal.innerHTML = `
+                <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b ${theme.glow} to-transparent"></div>
+                <div class="relative flex items-start gap-3.5 mb-4">
+                    <div class="w-11 h-11 rounded-2xl ${theme.icon} ring-1 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight"></h3>
+                        <p class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Action cannot be completed</p>
+                    </div>
+                </div>
+                <div class="relative text-sm text-slate-600 dark:text-slate-300 font-medium mb-6 leading-relaxed" id="alert-modal-msg"></div>
+                <div class="relative flex">
+                    <button type="button" id="btn-alert-ok" class="w-full py-2.5 px-4 rounded-xl text-xs font-black ${theme.button} shadow-lg transition-all active:scale-[0.98]">${confirmText}</button>
+                </div>
+            `;
+            
+            modal.querySelector('h3').textContent = title;
+            modal.querySelector('#alert-modal-msg').innerHTML = message;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            const okBtn = modal.querySelector('#btn-alert-ok');
+            okBtn.focus();
+            
+            requestAnimationFrame(() => {
+                overlay.classList.remove('opacity-0');
+                modal.classList.remove('scale-95', 'opacity-0');
+            });
+            
+            let closed = false;
+            const close = () => {
+                if (closed) return;
+                closed = true;
+                _alertModalOpen = false;
+                document.removeEventListener('keydown', keyHandler);
+                overlay.classList.add('opacity-0');
+                modal.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    resolve(true);
+                }, 150);
+            };
+            
+            const keyHandler = (e) => {
+                if (e.key === 'Escape' || e.key === 'Enter') {
+                    e.preventDefault();
+                    close();
+                }
+            };
+            
+            document.addEventListener('keydown', keyHandler);
+            okBtn.addEventListener('click', close);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) close();
+            });
+        });
+    };
+
+    // Global fetchJson helper for JSON API requests with CSRF token
+    window.fetchJson = async function(url, options = {}) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            ...(options.headers || {})
+        };
+        const config = {
+            ...options,
+            headers
+        };
+        try {
+            const res = await fetch(url, config);
+            const data = await res.json().catch(() => ({}));
+            data._ok = res.ok;
+            data._status = res.status;
+            return data;
+        } catch (err) {
+            console.error('fetchJson error:', err);
+            return { _ok: false, error: err.message };
+        }
     };
 
     // Singleton guard so the confirm modal never opens twice for one form
@@ -3812,10 +3947,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 start() {
                     this.updateClock();
-                    this.timer = setInterval(() => this.updateClock(), 1000);
+                    if (window.__cambodiaClockTimer) clearInterval(window.__cambodiaClockTimer);
+                    if (window.__cambodiaPingTimer) clearInterval(window.__cambodiaPingTimer);
+                    window.__cambodiaClockTimer = setInterval(() => this.updateClock(), 1000);
+                    this.timer = window.__cambodiaClockTimer;
                     this.measurePing();
-                    // Auto re-measure ping every 12 seconds
-                    this.pingTimer = setInterval(() => this.measurePing(), 12000);
+                    window.__cambodiaPingTimer = setInterval(() => this.measurePing(), 25000);
+                    this.pingTimer = window.__cambodiaPingTimer;
                 },
 
                 async probeTarget(url, timeoutMs = 1500) {

@@ -53,24 +53,24 @@
 
 /* Stat cards */
 .stat-card {
-    background: rgba(255,255,255,0.82);
+    background: #ffffff;
     border: 1px solid rgba(226,232,240,0.8);
     border-radius: 1.25rem;
     padding: 1.25rem;
-    backdrop-filter: blur(18px);
     box-shadow: 0 8px 32px rgba(15,23,42,0.06);
     transition: transform 160ms ease, box-shadow 160ms ease;
+    transform: translateZ(0);
 }
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(15,23,42,0.1); }
 
 /* Search bar */
 .search-bar {
-    background: rgba(255,255,255,0.85);
+    background: #ffffff;
     border: 1px solid rgba(226,232,240,0.9);
     border-radius: 1.25rem;
     padding: 1.25rem 1.5rem;
-    backdrop-filter: blur(18px);
     box-shadow: 0 4px 24px rgba(15,23,42,0.05);
+    transform: translateZ(0);
 }
 
 /* Member card */
@@ -159,7 +159,7 @@
     50%       { box-shadow: 0 0 0 5px rgba(16,185,129,0); }
 }
 
-.member-name { font-weight: 900; font-size: 0.875rem; color: #0f172a; line-height: 1.3; margin-bottom: 0.15rem; }
+.member-name { font-weight: 800; font-size: 0.98rem; color: #0f172a; line-height: 1.35; margin-bottom: 0.35rem; }
 .member-role { font-size: 0.7rem; font-weight: 700; color: #64748b; line-height: 1.4; margin-bottom: 0.1rem; }
 .member-team-role { font-size: 0.66rem; font-weight: 600; color: #94a3b8; font-style: italic; margin-bottom: 0.5rem; }
 .role-badge {
@@ -364,7 +364,7 @@
     justify-content: center;
     transition: background 140ms, transform 140ms;
     z-index: 10000;
-    backdrop-filter: blur(8px);
+    transform: translateZ(0);
 }
 .photo-viewer-close:hover { background: rgba(255,255,255,0.24); transform: scale(1.08); }
 
@@ -434,11 +434,11 @@
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 140, 255, 0.3) !important;
 }
 [data-theme="neon"] .stat-card {
-    background: rgba(4, 20, 56, 0.9) !important;
-    backdrop-filter: blur(20px) !important;
+    background: rgba(4, 20, 56, 0.94) !important;
     border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 15px rgba(0, 120, 255, 0.2) !important;
     border-radius: 20px !important;
+    transform: translateZ(0);
 }
 [data-theme="neon"] .stat-card:hover {
     border-color: rgba(0, 220, 255, 0.75) !important;
@@ -448,8 +448,7 @@
 [data-theme="neon"] .stat-card p.text-slate-500 { color: #7dd3fc !important; }
 
 [data-theme="neon"] .search-bar {
-    background: rgba(4, 20, 56, 0.9) !important;
-    backdrop-filter: blur(20px) !important;
+    background: rgba(4, 20, 56, 0.94) !important;
     border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 15px rgba(0, 120, 255, 0.2) !important;
     border-radius: 20px !important;
@@ -481,16 +480,15 @@
 
 /* ── Member card in Neon (Sapphire Glass) ── */
 [data-theme="neon"] .member-card {
-    background: rgba(4, 20, 56, 0.92) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
+    background: rgba(4, 20, 56, 0.94) !important;
     border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
     border-radius: 24px !important;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.65), 0 0 15px rgba(0, 120, 255, 0.15) !important;
     color: #f0f9ff !important;
+    transform: translateZ(0);
 }
 [data-theme="neon"] .member-card:hover {
-    transform: translateY(-6px) scale(1.01);
+    transform: translateY(-6px) scale(1.01) translateZ(0);
     border-color: rgba(0, 220, 255, 0.85) !important;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 180, 255, 0.45) !important;
 }
@@ -616,7 +614,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
                 </svg>
                 <input type="text" id="member-search" x-model="search" @input="filterMembers()"
-                       placeholder="Search by name, role, or position…"
+                       placeholder="Search members by name…"
                        class="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-10 pr-10 text-sm font-semibold text-slate-700 placeholder-slate-400 outline-none focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition">
                 <button type="button" x-show="search" @click="search=''; filterMembers()"
                         class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" x-cloak>
@@ -686,9 +684,6 @@
                         </div>
 
                         <p class="member-name" x-text="member.name"></p>
-                        <p class="member-role" x-text="member.role_display"></p>
-                        <p class="member-team-role" x-show="member.team_role" x-text="member.team_role" x-cloak></p>
-                        <span class="role-badge" :class="roleBadgeClass(member.role_slug)" x-text="member.role_display"></span>
                     </div>
 
                     {{-- ── Contact info block ── --}}

@@ -186,6 +186,8 @@
                 <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Deadline Time & Date</td><td>YYYY-MM-DD or custom format</td></tr>
                 <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Assigned To</td><td>Member username or name</td></tr>
                 <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Assigned By</td><td>Manager username or name</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Checklist</td><td>e.g. Graphic, Video, Description (creates "Status" checklist)</td></tr>
+                <tr class="border-b border-slate-100"><td class="py-1.5 pr-3 font-bold">Attachement</td><td>Links or named links: Spec Resource: URL, Content Breakdown: URL</td></tr>
                 <tr><td class="py-1.5 pr-3 font-bold">Worksheet Name</td><td>Used for auto Week assignment</td></tr>
               </tbody>
             </table>
@@ -281,6 +283,8 @@
                           <span x-show="row.deadline" x-text="formatDateHuman(row.deadline)"></span>
                           <span x-show="row.due_time" x-text="' ' + row.due_time"></span>
                         </div>
+                        <div x-show="row.checklist"><span class="font-bold text-slate-700">Checklist (Status):</span> <span class="text-emerald-700 font-semibold" x-text="row.checklist"></span></div>
+                        <div x-show="row.attachment" class="truncate max-w-md"><span class="font-bold text-slate-700">Attachment:</span> <span class="text-indigo-600 truncate" x-text="row.attachment"></span></div>
                       </div>
                       {{-- Errors --}}
                       <div x-show="row.errors && row.errors.length" class="mt-1.5 space-y-0.5">

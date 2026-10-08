@@ -559,4 +559,101 @@ class BoardExportTest extends TestCase
         $this->assertStringContainsString('Tested on staging:', $content);
         $this->assertStringContainsString('https://example.com/stage.png', $content);
     }
+
+    public function test_export_with_multi_select_labels(): void
+    {
+        $labelGraphic = Label::create([
+            'name' => 'Graphic',
+            'color' => '#f43f5e',
+            'workspace_id' => $this->workspace->id,
+            'board_id' => $this->board->id,
+        ]);
+
+        $labelVideo = Label::create([
+            'name' => 'Video',
+            'color' => '#ef4444',
+            'workspace_id' => $this->workspace->id,
+            'board_id' => $this->board->id,
+        ]);
+
+        $labelContent = Label::create([
+            'name' => 'Content',
+            'color' => '#0ea5e9',
+            'workspace_id' => $this->workspace->id,
+            'board_id' => $this->board->id,
+        ]);
+
+        $cardGraphic = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Graphic Task Design',
+            'status' => CardStatus::Todo,
+            'created_by' => $this->user->id,
+        ]);
+        $cardGraphic->labels()->attach($labelGraphic->id);
+
+        $cardVideo = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Video Editing Reel',
+            'status' => CardStatus::Todo,
+            'created_by' => $this->user->id,
+        ]);
+        $cardVideo->labels()->attach($labelVideo->id);
+
+        $cardContent = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Blog Content Writing',
+            'status' => CardStatus::Todo,
+            'created_by' => $this->user->id,
+        ]);
+        $cardContent->labels()->attach($labelContent->id);
+
+        // Export with multiple label IDs (Graphic + Video)
+        $response = $this->actingAs($this->user)
+            ->get(route('boards.export.csv', [
+                'board' => $this->board->slug,
+                'label_ids' => [$labelGraphic->id, $labelVideo->id],
+                'statuses' => ['draft', 'in_progress', 'review', 'completed'],
+            ]));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('Graphic Task Design', $content);
+        $this->assertStringContainsString('Video Editing Reel', $content);
+        $this->assertStringNotContainsString('Blog Content Writing', $content);
+    }
+
+    public function test_export_pdf_renders_user_profile_avatar(): void
+    {
+        $member = User::factory()->create([
+            'name' => 'Ms. Somalika',
+            'avatar' => 'https://example.com/somalika-avatar.jpg',
+            'is_active' => true,
+        ]);
+
+        $card = Card::create([
+            'board_id' => $this->board->id,
+            'board_list_id' => $this->list->id,
+            'title' => 'Task for Somalika',
+            'status' => CardStatus::Todo,
+            'created_by' => $this->user->id,
+        ]);
+        $card->assignees()->attach($member->id);
+
+        $response = $this->actingAs($this->user)
+            ->get(route('boards.export.pdf', [
+                'board' => $this->board->slug,
+                'statuses' => ['draft', 'in_progress', 'review', 'completed'],
+            ]));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('Task for Somalika', $content);
+        $this->assertStringContainsString('Ms. Somalika', $content);
+        $this->assertStringContainsString('https://example.com/somalika-avatar.jpg', $content);
+    }
 }

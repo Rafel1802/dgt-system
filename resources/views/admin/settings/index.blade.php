@@ -28,7 +28,7 @@
     $aiTools        = $prepareTools(\App\Models\Setting::externalToolsForGroup('ai'));
 @endphp
 
-<div class="animate-fade-in w-full space-y-8">
+<div class="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-2 sm:py-4 pb-28 md:pb-12 animate-fade-in w-full space-y-8">
 
   @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
@@ -53,11 +53,175 @@
   </div>
 
   {{-- ── Form ─────────────────────────────────────────────────────────────── --}}
-  <form action="{{ route('admin.settings.store') }}" method="POST" class="space-y-8" id="external-systems-form">
-    @csrf
+  <form action="{{ route('admin.settings.store') }}" method="POST" enctype="multipart/form-data" class="space-y-8" id="external-systems-form">
+        @csrf
+
+    {{-- ── Company Branding & Login Header Section ──────────────────────── --}}
+    <div class="card p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-sky-950/80 to-slate-900 border border-sky-500/30 shadow-2xl rounded-2xl relative overflow-hidden"
+         x-data="{
+             companyName: '{{ addslashes($settings['company_name'] ?? 'KiuQ Digital Media') }}',
+             companyTagline: '{{ addslashes($settings['company_tagline'] ?? 'Digital Media System') }}',
+             companyLogoUrl: '{{ addslashes($settings['company_logo_url'] ?? asset('images/kiuqlogo.webp')) }}',
+             previewLogo(event) {
+                 const file = event.target.files[0];
+                 if (file) {
+                     const reader = new FileReader();
+                     reader.onload = (e) => { this.companyLogoUrl = e.target.result; };
+                     reader.readAsDataURL(file);
+                 }
+             },
+             resetToDefault() {
+                 this.companyLogoUrl = '{{ asset('images/kiuqlogo.webp') }}';
+                 this.$refs.logoFileInput.value = '';
+                 this.$refs.logoUrlInput.value = '{{ asset('images/kiuqlogo.webp') }}';
+                 this.$refs.resetInput.value = '1';
+             }
+         }">
+      <input type="hidden" name="reset_company_logo" x-ref="resetInput" value="0">
+
+      {{-- Header with badge --}}
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sky-400/20 pb-5 mb-6">
+        <div class="flex items-center gap-4">
+          <div class="h-12 w-12 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.3)]">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.75a1.5 1.5 0 0 1 1.5-1.5h1.5a1.5 1.5 0 0 1 1.5 1.5V21m-6-13.5h.75m-.75 3h.75m-.75 3h.75m6-6h.75m-.75 3h.75m-.75 3h.75" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-xl font-black text-white font-display">Company Branding & Login Header</h2>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                Mr. Dara QC & Superadmin
+              </span>
+            </div>
+            <p class="text-sm text-sky-200/80 mt-0.5">Customize the company name, logo image, and tagline displayed on the login page top-left and header.</p>
+          </div>
+        </div>
+
+        <button type="button" @click="resetToDefault()" class="self-start sm:self-auto text-xs px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-sky-200 border border-sky-400/20 hover:border-sky-400/40 transition flex items-center gap-1.5 cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Reset to Default
+        </button>
+      </div>
+
+      {{-- Grid layout --}}
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {{-- Inputs column --}}
+        <div class="lg:col-span-7 space-y-5">
+          {{-- Company Name Input --}}
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-sky-200 mb-2">
+              Company Name <span class="text-cyan-400">*</span>
+            </label>
+            <div class="relative">
+              <input type="text"
+                     name="company_name"
+                     x-model="companyName"
+                     value="{{ old('company_name', $settings['company_name'] ?? 'KiuQ Digital Media') }}"
+                     class="w-full rounded-xl bg-slate-950/60 border border-sky-400/30 px-4 py-3 text-sm font-semibold text-white placeholder-sky-400/40 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition outline-none"
+                     placeholder="e.g. KiuQ Digital Media"
+                     required>
+            </div>
+            <p class="text-xs text-sky-300/60 mt-1.5">Displayed prominently as the main company title in the top-left of the login page.</p>
+          </div>
+
+          {{-- Company Tagline / Subtitle Input --}}
+          <div>
+            <label class="block text-xs font-black uppercase tracking-wider text-sky-200 mb-2">
+              Company Tagline / Subtitle
+            </label>
+            <div class="relative">
+              <input type="text"
+                     name="company_tagline"
+                     x-model="companyTagline"
+                     value="{{ old('company_tagline', $settings['company_tagline'] ?? 'Digital Media System') }}"
+                     class="w-full rounded-xl bg-slate-950/60 border border-sky-400/30 px-4 py-3 text-sm font-semibold text-white placeholder-sky-400/40 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition outline-none"
+                     placeholder="e.g. Digital Media System">
+            </div>
+            <p class="text-xs text-sky-300/60 mt-1.5">Small subtitle tag shown under company name (e.g., Digital Media System).</p>
+          </div>
+
+          {{-- Logo Upload & URL --}}
+          <div class="space-y-3 pt-2">
+            <label class="block text-xs font-black uppercase tracking-wider text-sky-200">
+              Company Logo
+            </label>
+            
+            <div class="flex flex-col sm:flex-row gap-3">
+              {{-- File upload --}}
+              <div class="flex-1">
+                <label class="flex flex-col items-center justify-center border-2 border-dashed border-sky-400/30 hover:border-cyan-400/60 rounded-xl p-3 bg-slate-950/40 hover:bg-slate-900/50 cursor-pointer transition text-center group">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-sky-400 group-hover:text-cyan-300 mb-1 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span class="text-xs font-bold text-sky-200 group-hover:text-white transition">Upload New Logo</span>
+                  <span class="text-[10px] text-sky-300/60 mt-0.5">PNG, WebP, SVG, JPG (Max 5MB)</span>
+                  <input type="file"
+                         name="company_logo_file"
+                         x-ref="logoFileInput"
+                         @change="previewLogo($event)"
+                         accept="image/png,image/webp,image/svg+xml,image/jpeg"
+                         class="hidden">
+                </label>
+              </div>
+
+              {{-- Or direct URL --}}
+              <div class="flex-1 flex flex-col justify-end">
+                <span class="text-[11px] font-semibold text-sky-300/80 mb-1">Or Logo Image URL:</span>
+                <input type="text"
+                       name="company_logo_url"
+                       x-ref="logoUrlInput"
+                       x-model="companyLogoUrl"
+                       value="{{ old('company_logo_url', $settings['company_logo_url'] ?? asset('images/kiuqlogo.webp')) }}"
+                       class="w-full rounded-xl bg-slate-950/60 border border-sky-400/30 px-3 py-2 text-xs font-mono text-white placeholder-sky-400/40 focus:border-cyan-400 transition outline-none"
+                       placeholder="https://... or /images/kiuqlogo.webp">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {{-- Live Preview Column --}}
+        <div class="lg:col-span-5">
+          <label class="block text-xs font-black uppercase tracking-wider text-sky-200 mb-2">
+            Live Preview (Login Page Top-Left)
+          </label>
+          <div class="relative rounded-2xl overflow-hidden border border-sky-400/30 p-6 bg-gradient-to-br from-[#07142e] via-[#091b48] to-[#02040a] shadow-inner min-h-[170px] flex flex-col justify-center">
+            {{-- Background decorative grid & glow --}}
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(56,189,248,0.2),transparent_60%)] pointer-events-none"></div>
+
+            <div class="relative z-10 flex items-center gap-3">
+              <template x-if="companyLogoUrl">
+                <img :src="companyLogoUrl" :alt="companyName" class="h-10 w-auto max-w-[140px] object-contain drop-shadow-md">
+              </template>
+              <template x-if="!companyLogoUrl">
+                <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500/20 border border-sky-400/40 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.3)]">
+                  <span class="font-black text-sm" x-text="companyName.charAt(0) || 'K'"></span>
+                </div>
+              </template>
+              <div class="flex flex-col">
+                <span class="font-display text-base font-extrabold tracking-wide text-white drop-shadow-sm" x-text="companyName || 'Company Name'"></span>
+                <span class="text-[10px] font-bold tracking-wider uppercase text-cyan-200/80" x-text="companyTagline"></span>
+              </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-sky-500/15 flex items-center justify-between text-[11px] text-sky-300/60">
+              <span>Preview Badge Mode</span>
+              <span class="text-emerald-400 font-semibold flex items-center gap-1">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Active on /login
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="border-slate-100 dark:border-slate-700/60">
 
     @include('admin.settings._dynamic_section', [
-      'title' => 'eBay & Web Supporter',
+      'title' => 'Support System and Content',
       'description' => 'Image hosting, backup server, and eBay template systems.',
       'tools' => $boardTools,
       'color' => 'blue',

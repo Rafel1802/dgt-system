@@ -54,6 +54,7 @@ class User extends Authenticatable
         'theme',
         'google_id',
         'google_email',
+        'team',
     ];
 
     /**
@@ -223,7 +224,7 @@ class User extends Authenticatable
         $svg = <<<SVG
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <rect width="128" height="128" rx="64" fill="{$safeColor}"/>
-  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="44" font-weight="800">{$initials}</text>
+  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-size="48" font-weight="800" letter-spacing="0.5">{$initials}</text>
 </svg>
 SVG;
 
@@ -235,20 +236,24 @@ SVG;
      */
     public static function initialsFor(string $name): string
     {
-        $cleanName = trim(preg_replace('/\s+/', ' ', $name));
+        // Strip text in parentheses like (QC), (Supervisor), (Head), (admin)
+        $clean = preg_replace('/\s*\([^)]*\)/u', '', $name);
+        // Strip non-letter/number characters except spaces
+        $clean = trim(preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $clean));
+        $clean = trim(preg_replace('/\s+/', ' ', $clean));
 
-        if ($cleanName === '') {
+        if ($clean === '') {
             return 'U';
         }
 
-        if (str_contains($cleanName, '@')) {
-            $cleanName = Str::before($cleanName, '@');
+        if (str_contains($clean, '@')) {
+            $clean = Str::before($clean, '@');
         }
 
-        $parts = array_values(array_filter(explode(' ', $cleanName)));
+        $parts = array_values(array_filter(explode(' ', $clean)));
 
         if (count($parts) >= 2) {
-            return Str::upper(Str::substr($parts[0], 0, 1) . Str::substr(end($parts), 0, 1));
+            return Str::upper(Str::substr($parts[0], 0, 1) . Str::substr($parts[1], 0, 1));
         }
 
         return Str::upper(Str::substr($parts[0], 0, 2));
@@ -293,6 +298,12 @@ SVG;
 
     public function canManageBoards(): bool
     {
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+        if (in_array($username, ['dara', 'kim'], true) || in_array($name, ['dara', 'kim'], true) || str_starts_with($name, 'dara ') || str_starts_with($name, 'kim ')) {
+            return true;
+        }
+
         if ($this->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor'])) {
             return true;
         }
@@ -367,12 +378,219 @@ SVG;
     }
 
     /**
-     * TRUE only for QC team members (team_role contains 'QC').
-     * Used to gate the Personal Report menu and QC-specific data filtering.
+     * TRUE for Supervisor, Dara, Kim, Somalika, and Superadmin/Admin/Admin-Digital.
+     * These users have special management permissions, can see all cards across teams,
+     * filter by Team A / B, and manage board members.
+     */
+    public function isSpecialManagerOrAdmin(): bool
+    {
+        if ($this->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss']) || $this->isSupervisorRole()) {
+            return true;
+        }
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+        return in_array($username, ['dara', 'kim', 'somalika'], true)
+            || in_array($name, ['dara', 'kim', 'somalika'], true)
+            || str_starts_with($name, 'dara ')
+            || str_starts_with($name, 'kim ')
+            || str_starts_with($name, 'somalika ')
+            || str_contains($username, 'dara')
+            || str_contains($username, 'kim')
+            || str_contains($username, 'somalika')
+            || str_contains($name, 'somalika');
+    }
+
+    /**
+     * Determine if user can see all teams (Team A, Team B, Both) on planning boards
+     * and switch filter freely between Team A, Team B, and ALL Teams.
+     * Allowed for:
+     * - Usernames: dara, kim, somalika
+     * - Role: admin-digital, super-admin, supervisor, boss, admin
+     */
+    public function canFilterAllPlanningTeams(): bool
+    {
+        if ($this->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $this->isSupervisorRole()) {
+            return true;
+        }
+
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+
+        if (in_array($username, ['dara', 'kim', 'somalika'], true)
+            || in_array($name, ['dara', 'kim', 'somalika'], true)
+            || str_starts_with($name, 'dara ')
+            || str_starts_with($name, 'kim ')
+            || str_starts_with($name, 'somalika ')
+            || str_contains($username, 'dara')
+            || str_contains($username, 'kim')
+            || str_contains($username, 'somalika')
+            || str_contains($name, 'somalika')) {
+            return true;
+        }
+
+        return $this->isSpecialManagerOrAdmin();
+    }
+
+    /**
+     * Determine if user can view/export all members' website reports.
+     * Allowed for: Dara, Kim, Supervisor, Super-Admin, Admin-Digital, Boss.
+     * Regular members can only view/export their own personal reports.
+     */
+    public function canViewAllWebsiteReports(): bool
+    {
+        if ($this->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss']) || $this->isSupervisorRole() || $this->isSpecialManagerOrAdmin()) {
+            return true;
+        }
+
+        $role = $this->websiteRole();
+        if ($role && strtolower($role) === 'supervisor') {
+            return true;
+        }
+
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+
+        return in_array($username, ['dara', 'kim', 'somalika'], true)
+            || in_array($name, ['dara', 'kim'], true)
+            || str_starts_with($name, 'dara ')
+            || str_starts_with($name, 'kim ')
+            || str_starts_with($name, 'somalika ')
+            || str_contains($username, 'dara')
+            || str_contains($username, 'kim')
+            || str_contains($username, 'somalika')
+            || str_contains($name, 'dara')
+            || str_contains($name, 'kim')
+            || str_contains($name, 'somalika');
+    }
+
+    /**
+     * TRUE for QC or Production team members (Dara = Team A, Kim = Team B, or team_role contains QC/Production).
+     * Used to gate the Personal Report menu and QC/Production-specific data filtering.
      */
     public function isQc(): bool
     {
-        return str_contains(strtolower($this->team_role ?? ''), 'qc');
+        if (strtolower($this->websiteRole() ?? '') === 'qc') {
+            return true;
+        }
+
+        $role = strtolower($this->team_role ?? '');
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+
+        return str_contains($role, 'qc')
+            || str_contains($role, 'production')
+            || in_array($username, ['dara', 'kim'], true)
+            || in_array($name, ['dara', 'kim'], true)
+            || str_starts_with($name, 'dara ')
+            || str_starts_with($name, 'kim ')
+            || str_contains($username, 'dara')
+            || str_contains($username, 'kim')
+            || str_contains($name, 'dara')
+            || str_contains($name, 'kim')
+            || in_array($this->id, [12, 13, 24], true)
+            || $this->hasRole('qc');
+    }
+
+    public function isDara(): bool
+    {
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+
+        return str_contains($username, 'dara')
+            || str_contains($name, 'dara')
+            || in_array($this->id, [12, 24], true);
+    }
+
+    public function isKim(): bool
+    {
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+
+        return str_contains($username, 'kim')
+            || str_contains($name, 'kim')
+            || $this->id === 13;
+    }
+
+    public function isDaraOrKim(): bool
+    {
+        return $this->isDara() || $this->isKim();
+    }
+
+    /**
+     * Detect digital team ('A' or 'B') based on workflow board membership or lead identity.
+     */
+    public function getDigitalTeam(?int $workspaceId = null): ?string
+    {
+        if (!empty($this->team) && in_array(strtoupper($this->team), ['A', 'B'])) {
+            return strtoupper($this->team);
+        }
+
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+        if (str_contains($username, 'dara') || str_contains($name, 'dara')) {
+            return 'A';
+        }
+        if (str_contains($username, 'kim') || str_contains($name, 'kim')) {
+            return 'B';
+        }
+
+        try {
+            $query = \App\Models\Board::whereHas('members', fn($q) => $q->where('users.id', $this->id))
+                ->where(function($q) {
+                    $q->where('name', 'like', '%workflow%')->orWhere('type', 'workflow');
+                });
+
+            if ($workspaceId) {
+                $query->where('workspace_id', $workspaceId);
+            }
+
+            $boards = $query->get(['id', 'name']);
+            foreach ($boards as $b) {
+                $bName = strtolower($b->name);
+                if (str_contains($bName, 'team a') || str_contains($bName, 'teama') || str_contains($bName, 'team-a')) {
+                    return 'A';
+                }
+                if (str_contains($bName, 'team b') || str_contains($bName, 'teamb') || str_contains($bName, 'team-b')) {
+                    return 'B';
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback
+        }
+
+        return null;
+    }
+
+    /**
+     * Return human-friendly production team title.
+     */
+    public function getProductionTeamTitle(): ?string
+    {
+        $team = $this->getDigitalTeam();
+        if ($team === 'A') {
+            return 'Production Team A';
+        }
+        if ($team === 'B') {
+            return 'Production Team B';
+        }
+        if (str_contains(strtolower($this->team_role ?? ''), 'qc')) {
+            return 'QC Team';
+        }
+        return 'Production Team';
+    }
+
+    /**
+     * TRUE if user can manage board members (Superadmin, Supervisor, Dara, Kim, or Board Creator).
+     */
+    public function canManageBoardMembers(?Board $board = null): bool
+    {
+        if ($this->isSpecialManagerOrAdmin()) {
+            return true;
+        }
+        if ($board && $board->created_by === $this->id) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -388,12 +606,12 @@ SVG;
     }
 
     /**
-     * TRUE if the user is a QC member OR a Supervisor.
+     * TRUE if the user is a QC/Production member OR a Supervisor.
      * Deliberately excludes super-admin so the Personal Report menu stays focused.
      */
     public function isQcOrSupervisor(): bool
     {
-        return $this->isQc() || $this->isSupervisorRole();
+        return $this->isQc() || $this->isSupervisorRole() || $this->isSpecialManagerOrAdmin();
     }
 
     /**
@@ -430,12 +648,19 @@ SVG;
 
     /**
      * Get planning boards with active task counts for this member.
-     * Excludes Workflow boards and excludes Boss/Supervisor/QC.
+     * Excludes Workflow boards and excludes Boss/Supervisor/QC if they have no assigned cards.
      */
     public function getPlanningBoardsWithTaskCounts()
     {
-        if ($this->isBossSupervisorOrQc()) {
-            return collect();
+        $isDara = str_contains(strtolower($this->name ?? ''), 'dara');
+        if ($this->isBossSupervisorOrQc() && !$isDara) {
+            // Check if this supervisor/QC/boss actually has assigned cards on planning boards
+            $hasAssigned = \App\Models\Card::where('is_archived', false)
+                ->whereHas('assignees', fn($aq) => $aq->where('users.id', $this->id))
+                ->exists();
+            if (!$hasAssigned) {
+                return collect();
+            }
         }
 
         $tomorrowDate = \Carbon\Carbon::tomorrow()->toDateString();
@@ -453,11 +678,15 @@ SVG;
                 $wq->where('name', 'like', '%Social Media%')
                    ->orWhere('name', 'like', '%SMM%');
             })
-            ->where(function ($q) {
-                $q->whereHas('members', fn($m) => $m->where('users.id', $this->id))
-                  ->orWhere('created_by', $this->id)
-                  ->orWhereHas('cards.assignees', fn($aq) => $aq->where('users.id', $this->id))
-                  ->orWhereHas('workspace.members', fn($wm) => $wm->where('users.id', $this->id));
+            ->where(function ($q) use ($isDara) {
+                if ($this->hasAnyRole(['super-admin', 'admin-digital', 'boss', 'supervisor']) || $isDara) {
+                    $q->whereRaw('1=1');
+                } else {
+                    $q->whereHas('members', fn($m) => $m->where('users.id', $this->id))
+                      ->orWhere('created_by', $this->id)
+                      ->orWhereHas('cards.assignees', fn($aq) => $aq->where('users.id', $this->id))
+                      ->orWhereHas('workspace.members', fn($wm) => $wm->where('users.id', $this->id));
+                }
             })
             ->withCount([
                 'cards as user_tasks_count' => function ($q) {
@@ -466,7 +695,10 @@ SVG;
                 },
                 'cards as due_tomorrow_count' => function ($q) use ($tomorrowDate) {
                     $q->where('is_archived', false)
-                      ->where('deadline', $tomorrowDate)
+                      ->where(function ($dq) use ($tomorrowDate) {
+                          $dq->where('deadline', $tomorrowDate)
+                             ->orWhereDate('deadline', $tomorrowDate);
+                      })
                       ->whereNull('approved_at')
                       ->whereNull('block_completed_at')
                       ->whereNotIn('status', ['approved', 'done', 'completed'])
@@ -510,8 +742,15 @@ SVG;
             'boards'             => collect(),
         ];
 
-        if ($this->isBossSupervisorOrQc()) {
-            return $default;
+        $isDara = str_contains(strtolower($this->name ?? ''), 'dara');
+        if ($this->isBossSupervisorOrQc() && !$isDara) {
+            // Only skip if the boss/supervisor/QC has NO assigned cards on planning boards
+            $hasAssigned = \App\Models\Card::where('is_archived', false)
+                ->whereHas('assignees', fn($aq) => $aq->where('users.id', $this->id))
+                ->exists();
+            if (!$hasAssigned) {
+                return $default;
+            }
         }
 
         $boards = $this->getPlanningBoardsWithTaskCounts();
@@ -530,7 +769,17 @@ SVG;
         $userCards = \App\Models\Card::with(['board.workspace', 'boardList', 'labels', 'checklists.items', 'assignees'])
             ->whereIn('board_id', $allBoardIds)
             ->where('is_archived', false)
-            ->whereHas('assignees', fn($aq) => $aq->where('users.id', $this->id))
+            ->where(function ($q) use ($boards) {
+                $q->whereHas('assignees', fn($aq) => $aq->where('users.id', $this->id));
+                // If a planning board has 0 individually assigned cards, include unassigned cards for members
+                $unassignedBoardIds = $boards->filter(fn($b) => ($b->total_assigned_cards_count ?? 0) == 0)->pluck('id')->toArray();
+                if (!empty($unassignedBoardIds)) {
+                    $q->orWhere(function ($sub) use ($unassignedBoardIds) {
+                        $sub->whereIn('board_id', $unassignedBoardIds)
+                            ->doesntHave('assignees');
+                    });
+                }
+            })
             ->orderByRaw("CASE WHEN deadline IS NOT NULL AND deadline < '{$nowStr}' THEN 0 ELSE 1 END")
             ->orderBy('deadline')
             ->orderBy('created_at', 'desc')
@@ -970,7 +1219,19 @@ SVG;
     public function kpiSquads(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(\App\Models\Kpi\KpiSquad::class, 'kpi_squad_members', 'user_id', 'squad_id')
-            ->withPivot('role_title', 'joined_date')
+            ->withPivot('role_title', 'work_types', 'joined_date')
             ->withTimestamps();
+    }
+
+    public function getPivotWorkTypesAttribute(): array
+    {
+        if (!isset($this->pivot) || empty($this->pivot->work_types)) {
+            return [];
+        }
+        $val = $this->pivot->work_types;
+        if (is_array($val)) return $val;
+        $decoded = json_decode($val, true);
+        if (is_array($decoded)) return $decoded;
+        return array_filter(array_map('trim', explode(',', (string)$val)));
     }
 }

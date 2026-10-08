@@ -3,8 +3,7 @@
 @section('page_title', 'All Websites')
 
 @push('head')
-    <meta name="turbo-refresh-method" content="morph">
-    <meta name="turbo-refresh-scroll" content="preserve">
+    <meta name="turbo-visit-control" content="reload">
 @endpush
 
 
@@ -15,8 +14,8 @@
     .image-modal {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, .85);
-        backdrop-filter: blur(8px);
+        background: rgba(0, 0, 0, .92);
+        transform: translateZ(0);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -259,7 +258,7 @@
             @endif
 
             @if(!auth()->user()->isWebsiteViewer() && !auth()->user()->hasRole('boss'))
-            <button type="button" @click="showCreateModal = true"
+            <button type="button" @click="showCreateModal = true; createFormHandledBy = ''"
                     class="btn btn-primary flex items-center gap-2 text-sm">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                 Add Website
@@ -404,18 +403,17 @@
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
-                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital','boss']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Are you sure you want to delete '{{ addslashes($website->name ?? '') }}'?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group" aria-label="Delete Website">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Delete
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                Delete Website
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </button>
                     </form>
                     @endif
                 </div>
@@ -441,6 +439,14 @@
             <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Build Progress</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">Track website build progress from 0% to 100%, then QC before going Live.</p>
         </div>
+        @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
+        <div class="flex items-center gap-2">
+            <button type="button" @click="showManageMembersModal = true" class="btn btn-secondary flex items-center gap-2 text-sm shadow-xs">
+                <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg>
+                Manage Members
+            </button>
+        </div>
+        @endif
     </div>
 
     @if($buildProgressWebsites->isEmpty())
@@ -670,18 +676,17 @@
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
-                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital','boss']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Are you sure you want to delete '{{ addslashes($website->name ?? '') }}'?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group" aria-label="Delete Website">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Delete
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                Delete Website
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </button>
                     </form>
                     @endif
                 </div>
@@ -864,18 +869,17 @@
                         </span>
                     </button>
                     @endif
-                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital','boss']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Are you sure you want to delete '{{ addslashes($website->name ?? '') }}'?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group" aria-label="Delete Website">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Delete
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                Delete Website
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </button>
                     </form>
                     @endif
                 </div>
@@ -1128,18 +1132,17 @@
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
-                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital','boss']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Are you sure you want to delete '{{ addslashes($website->name ?? '') }}'?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group" aria-label="Delete Website">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Delete
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                Delete Website
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </button>
                     </form>
                     @endif
                     </div>
@@ -1380,7 +1383,7 @@
             $errPct = $website->error_progress_percent ?? 0;
             $isMaintenanceError = $website->status === \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR;
         @endphp
-        <div class="card flex flex-col w-full border-2 border-red-300 dark:border-red-600 bg-red-50/30 dark:bg-red-900/10 overflow-hidden shadow-md hover:shadow-lg transition-all">
+        <div id="website-card-{{ $website->id }}" class="card flex flex-col w-full border-2 border-red-300 dark:border-red-600 bg-red-50/30 dark:bg-red-900/10 overflow-hidden shadow-md hover:shadow-lg transition-all">
             <div class="h-1.5 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
             <div class="p-5 flex flex-col flex-1 w-full">
                 {{-- Header --}}
@@ -1492,18 +1495,17 @@
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
-                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital','boss']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Are you sure you want to delete '{{ addslashes($website->name ?? '') }}'?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group" aria-label="Delete Website">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Delete
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                Delete Website
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </button>
                     </form>
                     @endif
                 </div>
@@ -1541,7 +1543,7 @@
             $errPct = $website->error_progress_percent ?? 0;
             $isMaintenanceError = $website->status === \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR;
         @endphp
-        <div class="card flex flex-col w-full border-2 border-red-300 dark:border-red-600 bg-red-50/30 dark:bg-red-900/10 overflow-hidden shadow-md hover:shadow-lg transition-all">
+        <div id="website-card-{{ $website->id }}" class="card flex flex-col w-full border-2 border-red-300 dark:border-red-600 bg-red-50/30 dark:bg-red-900/10 overflow-hidden shadow-md hover:shadow-lg transition-all">
             <div class="h-1.5 w-full bg-gradient-to-r from-red-500 to-red-600"></div>
             <div class="p-5 flex flex-col flex-1 w-full">
                 {{-- Header --}}
@@ -1653,18 +1655,17 @@
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                     </button>
                     @endif
-                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital']))
-                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Delete {{ addslashes($website->name ?? "") }}?" data-confirm-title="Delete Website">
+                    @if(auth()->user()->hasAnyRole(['super-admin','admin-digital','boss']))
+                    <form action="{{ route('websites.destroy', $website) }}" method="POST" data-confirm="Are you sure you want to delete '{{ addslashes($website->name ?? '') }}'?" data-confirm-title="Delete Website">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group"  aria-label="Delete">
+                        <button type="submit" class="btn btn-cancel btn-secondary text-xs py-1.5 px-2.5 text-rose-500 hover:text-white hover:bg-rose-500 hover:border-rose-500 relative group" aria-label="Delete Website">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                        
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Delete
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                Delete Website
+                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                        </button>
                     </form>
                     @endif
                 </div>
@@ -1749,7 +1750,7 @@
                 <select name="fu_member" class="form-select text-sm rounded-lg py-1.5 min-w-[140px]" @change="$el.form.requestSubmit()">
                     <option value="">All Members</option>
                     @foreach($websiteTeamMembers as $u)
-                    <option value="{{ $u->id }}" {{ ($followUpFilter['fu_member'] ?? '') == $u->id ? 'selected' : '' }}>{{ $u->name }}</option>
+                    <option value="{{ $u->id }}" {{ ($followUpFilter['fu_member'] ?? '') == $u->id ? 'selected' : '' }}>{{ $u->name }}{{ $u->id == auth()->id() ? ' (You)' : '' }}</option>
                     @endforeach
                 </select>
             </div>
@@ -1800,9 +1801,9 @@
                     @foreach($followUps as $fu)
                     <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ addslashes($fu->website?->category ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}', '{{ $fu->website?->status ?? '' }}', true)" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                         <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                            <div>{{ $fu->website?->name ?? '–' }}</div>
-                            @if($fu->website)
-                                <div class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-normal">Status: {{ ucfirst(str_replace('_', ' ', $fu->website->status)) }}</div>
+                            <div class="font-semibold text-slate-800 dark:text-slate-100">{{ $fu->website?->name ?? '–' }}</div>
+                            @if($fu->website?->category)
+                                <div class="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">{{ $fu->website->category }}</div>
                             @endif
                         </td>
                         <td class="px-4 py-3">
@@ -1835,7 +1836,33 @@
                                 @endif
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{{ $fu->assignee?->name ?? '–' }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            @if($fu->assignee)
+                                <div class="flex items-center gap-3">
+                                    <div class="relative group cursor-pointer shrink-0" 
+                                         @click="openGenericAttachmentPreview('{{ addslashes($fu->assignee->name) }} Profile', '{{ $fu->assignee->avatar_url }}', '{{ $fu->assignee->avatar_url }}')"
+                                         title="Click to view large profile">
+                                        <img src="{{ $fu->assignee->avatar_url }}" 
+                                             alt="{{ $fu->assignee->name }}" 
+                                             class="w-12 h-12 rounded-full object-cover object-top border-2 border-white dark:border-slate-700 shadow-md ring-2 ring-indigo-500/20 dark:ring-indigo-400/30 group-hover:ring-indigo-500 group-hover:scale-105 transition-all" 
+                                             loading="lazy">
+                                        <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center">
+                                            <svg class="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <span class="text-sm font-bold text-slate-800 dark:text-slate-100 block leading-tight">{{ $fu->assignee->name }}</span>
+                                        @if($fu->assignee->email)
+                                            <span class="text-[11px] text-slate-400 dark:text-slate-500 block truncate max-w-[130px]">{{ $fu->assignee->email }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @else
+                                <span class="text-xs text-slate-400 font-medium">–</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{{ $fu->created_at->format('d M Y') }}</td>
                         <td class="px-4 py-3 whitespace-nowrap text-right">
                             <div class="flex items-center justify-end gap-1">
@@ -1962,6 +1989,8 @@
 @endif
 
 
+
+
 {{-- ════════════════════════════════════════════════════════════════
      MODALS
 ════════════════════════════════════════════════════════════════ --}}
@@ -2081,156 +2110,299 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
 </div>
 
 {{-- Manage Website Members Modal --}}
-<div id="show-manage-members-modal" x-show="showManageMembersModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
-    <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-6xl max-h-[90vh] overflow-y-auto" @click.stop>
-        <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <svg class="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
-                </svg>
-                <h3 class="font-bold text-slate-800 dark:text-slate-100">Manage Website Members</h3>
+<div id="show-manage-members-modal" x-show="showManageMembersModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);">
+    <div class="card border border-slate-200 dark:border-slate-700/80 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl rounded-2xl bg-white dark:bg-slate-900" @click.stop>
+        
+        {{-- Header --}}
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        Manage Website Members
+                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            {{ $websiteMembers->filter(fn($m) => $m->user)->count() }} active
+                        </span>
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Assign members and specify roles for website progress, QC checking, and supervision.</p>
+                </div>
             </div>
-            <button @click="showManageMembersModal = false; selectedUserIds = []; memberUserSearch = ''; isEditing = false;" class="text-slate-400 hover:text-slate-600">
+            <button type="button" @click="showManageMembersModal = false; selectedUserIds = []; memberUserSearch = ''; isEditing = false;" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
         
-        <div class="p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/20">
-            {{-- Add Member Form --}}
-            <form action="{{ route('websites.members.store') }}" method="POST" class="space-y-4 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+        {{-- Body Content --}}
+        <div id="manage-members-modal-body" class="p-6 space-y-6 overflow-y-auto flex-1 bg-slate-50/50 dark:bg-slate-900/30">
+            
+            {{-- Add / Edit Member Form Card --}}
+            <form action="{{ route('websites.members.store') }}" method="POST" class="bg-white dark:bg-slate-850 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-700 shadow-sm transition-all" data-turbo="false" @submit.prevent="submitMemberForm($event)">
                 @csrf
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Add or Edit Member</h4>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Select User(s)</label>
-                        <div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3 bg-white dark:bg-slate-850">
-                            <input type="text" x-model="memberUserSearch" placeholder="Search users..." class="form-input text-xs py-1 px-2.5 mb-2 w-full rounded-lg border-slate-200 dark:border-slate-650 bg-white dark:bg-slate-800 focus:ring-indigo-500">
-                            
-                            <div class="max-h-36 overflow-y-auto space-y-1.5 scrollbar-thin">
-                                @foreach($users as $u)
-                                <label class="flex items-center gap-2 cursor-pointer py-1 px-1.5 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-xs w-full"
-                                       x-show="!memberUserSearch || '{{ addslashes(strtolower($u->name)) }}'.includes(memberUserSearch.toLowerCase())">
-                                    <input type="checkbox" name="user_ids[]" value="{{ $u->id }}" 
-                                           :checked="selectedUserIds.includes({{ $u->id }}) || ({{ isset($memberRolesMap[$u->id]) ? 'true' : 'false' }} && !isEditing)"
-                                           :disabled="{{ isset($memberRolesMap[$u->id]) ? 'true' : 'false' }} && !isEditing"
-                                           @change="if($event.target.checked && !selectedUserIds.includes({{ $u->id }})) selectedUserIds.push({{ $u->id }}); else selectedUserIds = selectedUserIds.filter(id => id != {{ $u->id }})"
-                                           class="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 w-4 h-4 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-700 disabled:cursor-not-allowed">
-                                    <span class="text-slate-700 dark:text-slate-300 font-medium">{{ $u->name }}</span>
-                                    @if(isset($memberRolesMap[$u->id]))
-                                        <span class="ml-auto text-emerald-600 dark:text-emerald-400 font-semibold text-[10px] bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                            ✓ {{ $memberRolesMap[$u->id] }}
-                                        </span>
-                                    @endif
-                                </label>
-                                @endforeach
-                            </div>
-                        </div>
+                <div class="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-slate-700/60">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/50"></span>
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200" x-text="isEditing ? 'Update Selected Member Role' : 'Assign Role to Members'"></h4>
                     </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Set Role</label>
-                        <select name="role" x-model="memberForm.role" required class="form-select w-full rounded-xl text-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800">
-                            <option value="Developer">Developer</option>
-                            <option value="QC">QC</option>
-                            <option value="Supervisor">Supervisor</option>
-                            <option value="Viewer">Viewer</option>
-                        </select>
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-xs font-medium text-slate-500" x-show="selectedUserIds.length > 0">
+                            <span class="font-bold text-indigo-600 dark:text-indigo-400" x-text="selectedUserIds.length"></span> member(s) selected
+                        </span>
+                        <button type="button" x-show="selectedUserIds.length > 0" @click="selectedUserIds = []; isEditing = false;" class="text-xs font-semibold text-rose-500 hover:text-rose-600 dark:text-rose-400 transition-colors">Clear</button>
                     </div>
                 </div>
-                <div class="flex justify-end pt-2">
-                    <button type="submit" :disabled="selectedUserIds.length === 0" class="btn btn-primary text-xs flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                        Add / Update Member(s)
-                    </button>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+                    {{-- Left Column: User Selection with Avatars --}}
+                    <div class="md:col-span-7 flex flex-col">
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1.5 flex items-center justify-between">
+                            <span>Select Member(s) *</span>
+                            <span class="text-[10px] font-normal text-slate-400">Click to select / deselect</span>
+                        </label>
+                        
+                        {{-- Search Filter --}}
+                        <div class="relative mb-2">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            </div>
+                            <input type="text" x-model="memberUserSearch" placeholder="Search members by name or email..." 
+                                   class="form-input text-xs pl-8 pr-7 py-2 w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
+                            <button type="button" x-show="memberUserSearch" @click="memberUserSearch = ''" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        
+                        {{-- Scrollable List with Avatars --}}
+                        <div class="border border-slate-200/80 dark:border-slate-700/80 rounded-xl p-2 bg-slate-50/40 dark:bg-slate-900/40 max-h-56 overflow-y-auto space-y-1.5 scrollbar-thin">
+                            @foreach($users as $u)
+                            <label class="flex items-center gap-3 p-2 rounded-xl transition-all border cursor-pointer select-none"
+                                   :class="selectedUserIds.includes({{ $u->id }}) 
+                                       ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 shadow-xs' 
+                                       : 'bg-white dark:bg-slate-800/80 border-slate-200/60 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'"
+                                   x-show="!memberUserSearch || '{{ addslashes(strtolower($u->name)) }}'.includes(memberUserSearch.toLowerCase()) || '{{ addslashes(strtolower($u->email)) }}'.includes(memberUserSearch.toLowerCase())">
+                                <input type="checkbox" name="user_ids[]" value="{{ $u->id }}" 
+                                       :checked="selectedUserIds.includes({{ $u->id }})"
+                                       @change="if($event.target.checked) { if(!selectedUserIds.includes({{ $u->id }})) selectedUserIds.push({{ $u->id }}); } else { selectedUserIds = selectedUserIds.filter(id => id != {{ $u->id }}); }"
+                                       class="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 w-4 h-4 shrink-0">
+                                
+                                <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" 
+                                     class="w-8 h-8 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate leading-snug">{{ $u->name }}</div>
+                                    <div class="text-[11px] text-slate-400 dark:text-slate-500 truncate leading-snug">{{ $u->email }}</div>
+                                </div>
+
+                                @if(isset($memberRolesMap[$u->id]))
+                                    @php
+                                        $badgeStyle = match($memberRolesMap[$u->id]) {
+                                            'QC' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+                                            'Supervisor' => 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800',
+                                            'Developer' => 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+                                            default => 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+                                        };
+                                    @endphp
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border {{ $badgeStyle }} shrink-0">
+                                        ✓ {{ $memberRolesMap[$u->id] }}
+                                    </span>
+                                @endif
+                            </label>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    {{-- Right Column: Interactive Role Selector Tiles & Submit Button --}}
+                    <div class="md:col-span-5 flex flex-col justify-between h-full space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1.5">Select Role *</label>
+                            <input type="hidden" name="role" x-model="memberForm.role">
+                            <div class="grid grid-cols-2 gap-2">
+                                {{-- Developer --}}
+                                <button type="button" @click="memberForm.role = 'Developer'"
+                                        class="flex flex-col items-start p-2.5 rounded-xl border text-left transition-all relative overflow-hidden"
+                                        :class="memberForm.role === 'Developer'
+                                            ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/50 ring-2 ring-indigo-500/20'
+                                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900/50'">
+                                    <div class="flex items-center justify-between w-full mb-1">
+                                        <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"/></svg>
+                                            Developer
+                                        </span>
+                                        <span x-show="memberForm.role === 'Developer'" class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                    </div>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">Builds & edits websites</span>
+                                </button>
+
+                                {{-- QC --}}
+                                <button type="button" @click="memberForm.role = 'QC'"
+                                        class="flex flex-col items-start p-2.5 rounded-xl border text-left transition-all relative overflow-hidden"
+                                        :class="memberForm.role === 'QC'
+                                            ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/50 ring-2 ring-amber-500/20'
+                                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900/50'">
+                                    <div class="flex items-center justify-between w-full mb-1">
+                                        <span class="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z"/></svg>
+                                            QC
+                                        </span>
+                                        <span x-show="memberForm.role === 'QC'" class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    </div>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">Reviews & logs errors</span>
+                                </button>
+
+                                {{-- Supervisor --}}
+                                <button type="button" @click="memberForm.role = 'Supervisor'"
+                                        class="flex flex-col items-start p-2.5 rounded-xl border text-left transition-all relative overflow-hidden"
+                                        :class="memberForm.role === 'Supervisor'
+                                            ? 'border-cyan-500 bg-cyan-50/70 dark:bg-cyan-950/50 ring-2 ring-cyan-500/20'
+                                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900/50'">
+                                    <div class="flex items-center justify-between w-full mb-1">
+                                        <span class="text-xs font-bold text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                                            Supervisor
+                                        </span>
+                                        <span x-show="memberForm.role === 'Supervisor'" class="w-2 h-2 rounded-full bg-cyan-500"></span>
+                                    </div>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">Oversees & approves</span>
+                                </button>
+
+                                {{-- Viewer --}}
+                                <button type="button" @click="memberForm.role = 'Viewer'"
+                                        class="flex flex-col items-start p-2.5 rounded-xl border text-left transition-all relative overflow-hidden"
+                                        :class="memberForm.role === 'Viewer'
+                                            ? 'border-slate-500 bg-slate-100 dark:bg-slate-800 ring-2 ring-slate-500/20'
+                                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900/50'">
+                                    <div class="flex items-center justify-between w-full mb-1">
+                                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+                                            Viewer
+                                        </span>
+                                        <span x-show="memberForm.role === 'Viewer'" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                                    </div>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">Read-only status</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- Action Submit Button --}}
+                        <div class="pt-1">
+                            <button type="submit" :disabled="selectedUserIds.length === 0" 
+                                    class="btn btn-primary w-full py-2.5 rounded-xl font-bold text-xs shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.765Z"/></svg>
+                                <span x-text="selectedUserIds.length > 1 ? ('Assign ' + selectedUserIds.length + ' Members as ' + memberForm.role) : (selectedUserIds.length === 1 ? ('Assign 1 Member as ' + memberForm.role) : 'Select Member to Assign')"></span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </form>
 
-            {{-- Members List --}}
-            <div>
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Current Members</h4>
-                <div class="border border-slate-100 dark:border-slate-700 rounded-xl overflow-x-auto overflow-y-hidden shadow-sm bg-white dark:bg-slate-800">
-                    <table class="w-full border-collapse text-left min-w-[600px]">
+            {{-- Members List Section --}}
+            <div class="space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Current Members</h4>
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-full shadow-xs">
+                            {{ $websiteMembers->filter(fn($m) => $m->user)->count() }}
+                        </span>
+                    </div>
+
+                    {{-- Live filter for members --}}
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </div>
+                        <input type="text" x-model="currentMemberSearch" placeholder="Filter current members..." 
+                               class="form-input text-xs pl-8 pr-3 py-1.5 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 w-full sm:w-56 focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div class="border border-slate-200/80 dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-xs bg-white dark:bg-slate-850">
+                    <table class="w-full border-collapse text-left">
                         <thead>
-                            <tr class="bg-slate-50 dark:bg-slate-900/40 border-b border-slate-100 dark:border-slate-700">
-                                <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>
-                                <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Role</th>
-                                <th class="p-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
+                            <tr class="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-700/60">
+                                <th class="py-3 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Member</th>
+                                <th class="py-3 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Role</th>
+                                <th class="py-3 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700 text-sm" x-data="{ editingMemberId: null, editingMemberRole: '' }">
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60 text-sm" x-data="{ editingMemberId: null, editingMemberRole: '' }">
                             @forelse($websiteMembers as $m)
-                            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors">
-                                <td class="p-3 flex items-center gap-2">
-                                    <span class="font-semibold text-slate-800 dark:text-slate-200">{{ $m->user?->name ?? 'Unknown User' }}</span>
-                                    <span class="text-xs text-slate-400">({{ $m->user?->email }})</span>
+                            @if($m->user)
+                            <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                                x-show="!currentMemberSearch || '{{ addslashes(strtolower($m->user->name)) }}'.includes(currentMemberSearch.toLowerCase()) || '{{ addslashes(strtolower($m->user->email ?? '')) }}'.includes(currentMemberSearch.toLowerCase()) || '{{ addslashes(strtolower($m->role)) }}'.includes(currentMemberSearch.toLowerCase())">
+                                <td class="py-3 px-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="{{ $m->user->avatar_url }}" alt="{{ $m->user->name }}"
+                                             @click="openGenericAttachmentPreview('{{ addslashes($m->user->name) }} Profile', '{{ $m->user->avatar_url }}', '{{ $m->user->avatar_url }}')"
+                                             class="w-10 h-10 rounded-full object-cover object-top shrink-0 border-2 border-white dark:border-slate-700 shadow-sm ring-2 ring-slate-100 dark:ring-slate-700 hover:ring-indigo-500 hover:scale-105 transition-all cursor-pointer">
+                                        <div class="min-w-0">
+                                            <div class="font-semibold text-slate-800 dark:text-slate-100 text-sm truncate leading-snug">
+                                                {{ $m->user->name }}
+                                            </div>
+                                            <div class="text-xs text-slate-400 dark:text-slate-500 truncate leading-snug">{{ $m->user->email }}</div>
+                                        </div>
+                                    </div>
                                 </td>
-                                <td class="p-3">
+                                <td class="py-3 px-4">
                                     {{-- Display Mode --}}
                                     @php
-                                        $roleClasses = match($m->role) {
-                                            'QC' => 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300',
-                                            'Supervisor' => 'bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-300',
-                                            'Developer' => 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300',
-                                            'Boss' => 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300',
-                                            'Viewer' => 'bg-slate-200 text-slate-800 dark:bg-slate-600/30 dark:text-slate-300',
-                                            default => 'bg-slate-100 text-slate-800 dark:bg-slate-700/30 dark:text-slate-400'
+                                        $roleBadge = match($m->role) {
+                                            'QC' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200/80 dark:border-amber-800',
+                                            'Supervisor' => 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300 border-cyan-200/80 dark:border-cyan-800',
+                                            'Developer' => 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800',
+                                            default => 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+                                        };
+                                        $roleDot = match($m->role) {
+                                            'QC' => 'bg-amber-500',
+                                            'Supervisor' => 'bg-cyan-500',
+                                            'Developer' => 'bg-indigo-500',
+                                            default => 'bg-slate-400',
                                         };
                                     @endphp
-                                    <span x-show="editingMemberId !== {{ $m->id }}" class="px-2 py-0.5 rounded-full text-xs font-bold {{ $roleClasses }}">
+                                    <span x-show="editingMemberId !== {{ $m->id }}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border {{ $roleBadge }}">
+                                        <span class="w-1.5 h-1.5 rounded-full {{ $roleDot }}"></span>
                                         {{ $m->role }}
                                     </span>
-                                    
-                                    {{-- Edit Mode --}}
-                                    <form x-show="editingMemberId === {{ $m->id }}" action="{{ route('websites.members.store') }}" method="POST" class="flex items-center gap-2" style="display: none;">
+
+                                    {{-- Inline Edit Mode --}}
+                                    <form x-show="editingMemberId === {{ $m->id }}" action="{{ route('websites.members.store') }}" method="POST" class="flex items-center gap-2" style="display: none;" data-turbo="false" @submit.prevent="submitMemberForm($event)">
                                         @csrf
                                         <input type="hidden" name="user_ids[]" value="{{ $m->user_id }}">
-                                        <select name="role" x-model="editingMemberRole" required class="form-select text-xs py-1 px-2 rounded border-slate-200 dark:border-slate-600 focus:ring-indigo-500 h-7 w-32">
+                                        <select name="role" x-model="editingMemberRole" required class="form-select text-xs py-1 px-2.5 rounded-lg border-indigo-300 dark:border-indigo-600 focus:ring-indigo-500 h-8 w-32 font-semibold">
                                             <option value="Developer">Developer</option>
                                             <option value="QC">QC</option>
                                             <option value="Supervisor">Supervisor</option>
                                             <option value="Viewer">Viewer</option>
                                         </select>
-                                        <button type="submit" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors relative group"  aria-label="Save">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                                        
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Save
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
-                                        <button type="button" @click="editingMemberId = null" class="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors relative group"  aria-label="Cancel">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-                                        
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Cancel
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
+                                        <button type="submit" class="p-1.5 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors" title="Save">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                        </button>
+                                        <button type="button" @click="editingMemberId = null" class="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Cancel">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                        </button>
                                     </form>
                                 </td>
-                                <td class="p-3 text-right">
+                                <td class="py-3 px-4 text-right">
                                     <div class="inline-flex items-center gap-2 justify-end">
-                                        <button x-show="editingMemberId !== {{ $m->id }}" type="button" @click="editingMemberId = {{ $m->id }}; editingMemberRole = '{{ addslashes($m->role ?? "") }}'" class="btn text-xs py-1 px-2.5 border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-600 hover:text-indigo-600 rounded transition-colors bg-white dark:bg-slate-800 relative group" aria-label="Edit Role">
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Edit Role
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
+                                        <button x-show="editingMemberId !== {{ $m->id }}" type="button" @click="editingMemberId = {{ $m->id }}; editingMemberRole = '{{ addslashes($m->role ?? "") }}'"
+                                                class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200/60 dark:border-indigo-800/60 transition-all">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg>
                                             Edit
                                         </button>
-                                        <form action="{{ route('websites.members.destroy', $m->id) }}" method="POST" data-confirm="Are you sure you want to remove member {{ addslashes($m->user?->name ?? '') }}?" data-confirm-title="Remove Member">
+                                        <form action="{{ route('websites.members.destroy', $m->id) }}" method="POST" data-turbo="false" @submit.prevent="deleteMember({{ $m->id }}, '{{ addslashes($m->user->name ?? '') }}', $event)">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn text-xs py-1 px-2 border border-rose-200 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-500 rounded transition-colors bg-white dark:bg-slate-800 relative group"  aria-label="Remove">
+                                            <button type="submit" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200/60 dark:border-rose-800/60 transition-all">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                                                 Remove
-                                            
-    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-        Remove
-        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-    </div>
-</button>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>
                             </tr>
+                            @endif
                             @empty
                             <tr>
                                 <td colspan="3" class="p-8 text-center text-slate-400 text-xs font-semibold">No website members added yet.</td>
@@ -2241,8 +2413,11 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                 </div>
             </div>
         </div>
-        <div class="p-4 border-t border-slate-100 dark:border-slate-700 text-right bg-slate-50/50 dark:bg-slate-900/20">
-            <button type="button" @click="showManageMembersModal = false; selectedUserIds = []; memberUserSearch = ''; isEditing = false;" class="btn btn-cancel btn-secondary text-sm">Close</button>
+
+        {{-- Footer --}}
+        <div class="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/40 shrink-0">
+            <span class="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline">Tip: Developers & QC members appear in website assignment & follow-up filters.</span>
+            <button type="button" @click="showManageMembersModal = false; selectedUserIds = []; memberUserSearch = ''; isEditing = false;" class="btn btn-cancel btn-secondary text-sm ml-auto">Close</button>
         </div>
     </div>
 </div>
@@ -2274,16 +2449,53 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                         @foreach($orderArray as $cat)<option value="{{ $cat }}">{{ $cat }}</option>@endforeach
                     </select>
                 </div>
-                <div>
+                @php
+                    $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
+                    $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
+                @endphp
+                <div x-data="{ openCreateAssignedTo: false }">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Assigned To</label>
-                    <select name="handled_by" class="form-select w-full rounded-xl text-sm">
-                        <option value="">Select member</option>
-                        @php
-                            $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
-                            $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
-                        @endphp
-                        @foreach($activeUsers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
-                    </select>
+                    <input type="hidden" name="handled_by" x-model="createFormHandledBy">
+                    <div class="relative">
+                        <button type="button" @click="openCreateAssignedTo = !openCreateAssignedTo" @click.outside="openCreateAssignedTo = false"
+                                class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 py-2">
+                            <div class="flex items-center gap-2 truncate">
+                                <template x-if="!createFormHandledBy">
+                                    <div class="flex items-center gap-2 text-slate-400">
+                                        <div class="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-[10px] shrink-0">
+                                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        </div>
+                                        <span>Select member</span>
+                                    </div>
+                                </template>
+                                @foreach($activeUsers as $u)
+                                    <div x-show="createFormHandledBy == '{{ $u->id }}'" class="flex items-center gap-2.5 truncate" x-cloak>
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                        <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </button>
+                        <div x-show="openCreateAssignedTo" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                            <ul class="py-1">
+                                <li class="px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-2.5"
+                                    @click="createFormHandledBy = ''; openCreateAssignedTo = false">
+                                    <div class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-xs shrink-0">
+                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </div>
+                                    <span class="font-medium text-slate-500">Select member</span>
+                                </li>
+                                @foreach($activeUsers as $u)
+                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center gap-2.5"
+                                    :class="{ 'bg-indigo-50 dark:bg-slate-700/80 font-bold': createFormHandledBy == '{{ $u->id }}' }"
+                                    @click="createFormHandledBy = '{{ $u->id }}'; openCreateAssignedTo = false">
+                                    <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                    <span class="font-medium text-slate-800 dark:text-slate-100">{{ $u->name }}</span>
+                                </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Start Date</label>
@@ -2339,16 +2551,53 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                         @foreach($orderArray as $cat)<option value="{{ $cat }}">{{ $cat }}</option>@endforeach
                     </select>
                 </div>
-                <div>
+                @php
+                    $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
+                    $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
+                @endphp
+                <div x-data="{ openEditAssignedTo: false }">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Assigned To</label>
-                    <select name="handled_by" x-model="editForm.handled_by" class="form-select w-full rounded-xl text-sm">
-                        <option value="">Select member</option>
-                        @php
-                            $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
-                            $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
-                        @endphp
-                        @foreach($activeUsers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
-                    </select>
+                    <input type="hidden" name="handled_by" x-model="editForm.handled_by">
+                    <div class="relative">
+                        <button type="button" @click="openEditAssignedTo = !openEditAssignedTo" @click.outside="openEditAssignedTo = false"
+                                class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 py-2">
+                            <div class="flex items-center gap-2 truncate">
+                                <template x-if="!editForm.handled_by">
+                                    <div class="flex items-center gap-2 text-slate-400">
+                                        <div class="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-[10px] shrink-0">
+                                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        </div>
+                                        <span>Select member</span>
+                                    </div>
+                                </template>
+                                @foreach($activeUsers as $u)
+                                    <div x-show="editForm.handled_by == '{{ $u->id }}'" class="flex items-center gap-2.5 truncate" x-cloak>
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                        <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </button>
+                        <div x-show="openEditAssignedTo" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                            <ul class="py-1">
+                                <li class="px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-2.5"
+                                    @click="editForm.handled_by = ''; openEditAssignedTo = false">
+                                    <div class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-xs shrink-0">
+                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </div>
+                                    <span class="font-medium text-slate-500">Select member</span>
+                                </li>
+                                @foreach($activeUsers as $u)
+                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center gap-2.5"
+                                    :class="{ 'bg-indigo-50 dark:bg-slate-700/80 font-bold': editForm.handled_by == '{{ $u->id }}' }"
+                                    @click="editForm.handled_by = '{{ $u->id }}'; openEditAssignedTo = false">
+                                    <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                    <span class="font-medium text-slate-800 dark:text-slate-100">{{ $u->name }}</span>
+                                </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Start Date</label>
@@ -2443,14 +2692,6 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                 </ul>
             </div>
             <div>
-                <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Week</label>
-                <select name="qc_week" class="form-select w-full rounded-xl text-sm p-2.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 focus:border-amber-500 focus:ring focus:ring-amber-500/20 mb-4">
-                    <option value="">-- Select Week --</option>
-                    <option value="Week 1">Week 1</option>
-                    <option value="Week 2">Week 2</option>
-                    <option value="Week 3">Week 3</option>
-                    <option value="Week 4">Week 4</option>
-                </select>
                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">QC Note <span class="font-normal text-slate-400 dark:text-slate-500 normal-case ml-1">(optional)</span></label>
                 <textarea name="qc_note" rows="3" 
                           @paste="handlePasteRef($event, 'qcApproveFiles')"
@@ -2806,12 +3047,13 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
             selectedType: 'blog_post', 
             customType: '',
             dateVal: '{{ now()->format('Y-m-d') }}',
-            assignedTo: '',
+            assignedTo: '{{ auth()->id() ?? '' }}',
             forceOverwriteCheck: false,
             items: [{
                 id: Date.now(),
                 selectedId: '',
                 selectedName: 'Select website...',
+                selectedCategory: '',
                 search: '',
                 openDropdown: false,
                 blogClass: '',
@@ -2823,14 +3065,41 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                 let d = new Date(this.dateVal);
                 if (isNaN(d)) return 'Unknown';
                 let m = d.getMonth() + 1;
-                let map = { 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec' };
-                return map[m] ? map[m] + ' Blogs' : 'Unsupported (Sep-Dec only)';
+                let map = { 1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun', 7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec' };
+                return (map[m] || 'Unknown') + ' Blogs';
+            },
+            getBlogClassForCategory(category) {
+                if (!category) return '';
+                const cat = String(category).toLowerCase().trim();
+                const wordMap = {
+                    'first': '1', '1st': '1',
+                    'second': '2', '2nd': '2',
+                    'third': '3', '3rd': '3',
+                    'fourth': '4', '4th': '4',
+                    'fifth': '5', '5th': '5',
+                    'sixth': '6', '6th': '6',
+                    'seventh': '7', '7th': '7',
+                    'eighth': '8', '8th': '8'
+                };
+                for (const [key, val] of Object.entries(wordMap)) {
+                    if (cat.includes(key)) return val;
+                }
+                const match = cat.match(/([1-8])/);
+                return match ? match[1] : '';
+            },
+            selectWebsite(item, id, name, category, blogClass) {
+                item.selectedId = id;
+                item.selectedName = name;
+                item.selectedCategory = category;
+                item.blogClass = blogClass || this.getBlogClassForCategory(category) || '';
+                item.openDropdown = false;
             },
             addItem() {
                 this.items.push({
                     id: Date.now(),
                     selectedId: '',
                     selectedName: 'Select website...',
+                    selectedCategory: '',
                     search: '',
                     openDropdown: false,
                     blogClass: '',
@@ -2848,9 +3117,9 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
             if(selectedType === 'blog_post' && items.some(i => !i.url)) { alert('Please enter the blog URL for all follow ups.'); return; }
             if(isSubmitting) { return; }
             isSubmitting = true;
-            submitProgressText = 'Starting...';
+            submitProgressText = items.length > 1 ? ('Saving ' + items.length + ' follow-ups...') : 'Saving...';
 
-            const postSingleItem = (item, forceOverwrite = false, skipSheetSync = false) => {
+            const submitFollowUps = async (forceOverwrite = forceOverwriteCheck, skipSheetSync = false) => {
                 const formData = new FormData();
                 const tokenEl = $el.querySelector('input[name=_token]');
                 if (tokenEl && tokenEl.value) {
@@ -2872,38 +3141,33 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                 if (skipSheetSync) {
                     formData.set('skip_sheet_sync', '1');
                 }
-                formData.set('items[0][website_id]', item.selectedId);
-                if (item.blogClass) {
-                    formData.set('items[0][blog_sheet_class]', item.blogClass);
-                }
-                if (item.url) {
-                    formData.set('items[0][url]', item.url);
-                }
+                formData.set('async_sheet', '1');
 
-                return fetch($el.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-                })
-                .then(async res => {
+                items.forEach((item, idx) => {
+                    formData.set('items[' + idx + '][website_id]', item.selectedId);
+                    if (item.blogClass) {
+                        formData.set('items[' + idx + '][blog_sheet_class]', item.blogClass);
+                    }
+                    if (item.url) {
+                        formData.set('items[' + idx + '][url]', item.url);
+                    }
+                });
+
+                try {
+                    const res = await fetch($el.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                    });
+
                     let data;
                     try {
                         data = await res.json();
                     } catch (e) {
                         if (res.status === 504) {
-                            return {
-                                success: false,
-                                isTimeout504: true,
-                                message: 'Google Sheets sync timed out (HTTP 504 Gateway Timeout). The server took too long to connect to Google Sheets.'
-                            };
+                            throw new Error('Server timed out (504). Please try again.');
                         }
-                        if (res.status === 502 || res.status === 503) {
-                            return {
-                                success: false,
-                                message: 'Server temporarily unavailable (HTTP ' + res.status + ').'
-                            };
-                        }
-                        throw new Error('Server returned an invalid response (Code ' + res.status + ').');
+                        throw new Error('Server returned invalid response (Code ' + res.status + ').');
                     }
 
                     if (!res.ok) {
@@ -2914,124 +3178,69 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                         throw new Error(data.message || 'Server error occurred');
                     }
 
-                    return data;
-                });
-            };
+                    if (data.success) {
+                        isSubmitting = false;
+                        submitProgressText = '';
+                        showFollowUpModal = false;
 
-            const runSequentialSubmission = async () => {
-                let savedCount = 0;
-                let warnings = [];
-                const total = items.length;
+                        // Reset items to single clean item for next use
+                        items = [{
+                            id: Date.now(),
+                            selectedId: '',
+                            selectedName: 'Select website...',
+                            selectedCategory: '',
+                            search: '',
+                            openDropdown: false,
+                            blogClass: '',
+                            url: '',
+                            openBlock: true
+                        }];
+                        assignedTo = '{{ auth()->id() ?? '' }}';
 
-                for (let idx = 0; idx < total; idx++) {
-                    const item = items[idx];
-                    const siteLabel = (item.selectedName && item.selectedName !== 'Select website...') ? item.selectedName : ('Item #' + (idx + 1));
-                    
-                    let forceOverwrite = forceOverwriteCheck;
-                    let skipSheetSync = false;
-                    let itemDone = false;
+                        if (data.warning) {
+                            alert(data.warning);
+                        }
 
-                    while (!itemDone) {
-                        submitProgressText = total > 1 ? `Saving ${idx + 1} of ${total} (${siteLabel})...` : 'Saving...';
+                        // Smoothly refresh just the table container without reloading the page
+                        fetch(window.location.href)
+                            .then(r => r.text())
+                            .then(html => {
+                                let doc = new DOMParser().parseFromString(html, 'text/html');
+                                let newTable = doc.querySelector('#followUpTableContainer');
+                                if (newTable) {
+                                    document.querySelector('#followUpTableContainer').innerHTML = newTable.innerHTML;
+                                } else {
+                                    window.location.reload();
+                                }
+                            });
+                        return;
+                    }
 
-                        let data;
-                        try {
-                            data = await postSingleItem(item, forceOverwrite, skipSheetSync);
-                        } catch (err) {
-                            alert('Error saving ' + siteLabel + ': ' + (err.message || 'An error occurred.'));
-                            const retryWithoutSheet = confirm('Do you want to retry saving ' + siteLabel + ' to the system without Google Sheets?');
-                            if (retryWithoutSheet) {
-                                skipSheetSync = true;
-                                continue;
-                            } else {
-                                isSubmitting = false;
-                                submitProgressText = '';
+                    if (data.needs_confirmation) {
+                        const replaceConfirm = confirm((data.confirm_message || data.message || 'Google Sheet row already has a Public Link.') + '\n\nClick OK to replace/overwrite the existing link in Google Sheets.\nClick Cancel to save without Google Sheets.');
+                        if (replaceConfirm) {
+                            forceOverwriteCheck = true;
+                            await submitFollowUps(true, false);
+                            return;
+                        } else {
+                            const saveAnyway = confirm('Do you want to save the follow-up(s) to the system anyway without updating Google Sheets?');
+                            if (saveAnyway) {
+                                await submitFollowUps(false, true);
                                 return;
                             }
                         }
-
-                        if (data.success) {
-                            itemDone = true;
-                            savedCount++;
-                            if (data.warning) {
-                                warnings.push(siteLabel + ': ' + data.warning);
-                            }
-                        } else if (data.isTimeout504) {
-                            const saveAnyway = confirm(siteLabel + ': Google Sheet sync timed out (504).\n\nDo you want to save this follow-up to the system anyway without Google Sheets?');
-                            if (saveAnyway) {
-                                skipSheetSync = true;
-                            } else {
-                                const skipThis = confirm('Do you want to skip ' + siteLabel + ' and continue with remaining items?');
-                                if (skipThis) {
-                                    break;
-                                } else {
-                                    isSubmitting = false;
-                                    submitProgressText = '';
-                                    return;
-                                }
-                            }
-                        } else if (data.needs_confirmation) {
-                            const replaceConfirm = confirm((data.confirm_message || data.message || 'Google Sheet row already has a Public Link.') + '\n\nClick OK to replace/overwrite the existing link in Google Sheets.\nClick Cancel for more options.');
-                            if (replaceConfirm) {
-                                forceOverwrite = true;
-                                skipSheetSync = false;
-                            } else {
-                                const saveAnyway = confirm('Do you want to save this Follow Up for ' + siteLabel + ' to the system anyway without updating Google Sheets?');
-                                if (saveAnyway) {
-                                    skipSheetSync = true;
-                                } else {
-                                    const skipThis = confirm('Skip ' + siteLabel + ' and continue saving remaining follow ups?');
-                                    if (skipThis) {
-                                        break;
-                                    } else {
-                                        isSubmitting = false;
-                                        submitProgressText = '';
-                                        return;
-                                    }
-                                }
-                            }
-                        } else {
-                            const saveAnyway = confirm((data.message || 'An error occurred.') + '\n\nDo you want to save ' + siteLabel + ' to the system anyway without Google Sheets?');
-                            if (saveAnyway) {
-                                skipSheetSync = true;
-                            } else {
-                                const skipThis = confirm('Skip ' + siteLabel + ' and continue saving remaining follow ups?');
-                                if (skipThis) {
-                                    break;
-                                } else {
-                                    isSubmitting = false;
-                                    submitProgressText = '';
-                                    return;
-                                }
-                            }
-                        }
+                    } else {
+                        alert(data.message || 'An error occurred while saving.');
                     }
-                }
-
-                isSubmitting = false;
-                submitProgressText = '';
-
-                if (savedCount > 0) {
-                    showFollowUpModal = false;
-                    if (warnings.length > 0) {
-                        alert('Saved ' + savedCount + ' follow up(s) with notices:\n\n' + warnings.join('\n'));
-                    }
-                    // Smoothly refresh just the table container without reloading the page
-                    fetch(window.location.href)
-                        .then(r => r.text())
-                        .then(html => {
-                            let doc = new DOMParser().parseFromString(html, 'text/html');
-                            let newTable = doc.querySelector('#followUpTableContainer');
-                            if (newTable) {
-                                document.querySelector('#followUpTableContainer').innerHTML = newTable.innerHTML;
-                            } else {
-                                window.location.reload();
-                            }
-                        });
+                } catch (err) {
+                    alert('Error saving follow-up(s): ' + (err.message || 'An unexpected error occurred.'));
+                } finally {
+                    isSubmitting = false;
+                    submitProgressText = '';
                 }
             };
 
-            runSequentialSubmission();
+            submitFollowUps();
         ">
             @csrf
             
@@ -3046,12 +3255,49 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     </select>
                     <input type="text" name="custom_type" x-model="customType" x-show="selectedType === 'other'" x-transition placeholder="Type custom type..." class="form-input w-full rounded-xl text-sm mt-2 border-dashed" :required="selectedType === 'other'">
                 </div>
-                <div>
+                <div x-data="{ openUploadBy: false }">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Upload by</label>
-                    <select name="assigned_to" x-model="assignedTo" class="form-select w-full rounded-xl text-sm">
-                        <option value="">None</option>
-                        @foreach($websiteTeamMembers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
-                    </select>
+                    <input type="hidden" name="assigned_to" x-model="assignedTo">
+                    <div class="relative">
+                        <button type="button" @click="openUploadBy = !openUploadBy" @click.outside="openUploadBy = false"
+                                class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 py-2">
+                            <div class="flex items-center gap-2 truncate">
+                                <template x-if="!assignedTo">
+                                    <div class="flex items-center gap-2 text-slate-400">
+                                        <div class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-[10px] shrink-0">
+                                            <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        </div>
+                                        <span>None</span>
+                                    </div>
+                                </template>
+                                @foreach($websiteTeamMembers as $u)
+                                    <div x-show="assignedTo == '{{ $u->id }}'" class="flex items-center gap-2.5 truncate" x-cloak>
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                        <span class="font-bold text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}{{ $u->id == auth()->id() ? ' (You)' : '' }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </button>
+                        <div x-show="openUploadBy" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                            <ul class="py-1">
+                                <li class="px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-2.5"
+                                    @click="assignedTo = ''; openUploadBy = false">
+                                    <div class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-xs shrink-0">
+                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </div>
+                                    <span class="font-medium text-slate-500">None</span>
+                                </li>
+                                @foreach($websiteTeamMembers as $u)
+                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center gap-2.5"
+                                    :class="{ 'bg-indigo-50 dark:bg-slate-700/80 font-bold': assignedTo == '{{ $u->id }}' }"
+                                    @click="assignedTo = '{{ $u->id }}'; openUploadBy = false">
+                                    <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                    <span class="font-medium text-slate-800 dark:text-slate-100">{{ $u->name }}{{ $u->id == auth()->id() ? ' (You)' : '' }}</span>
+                                </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Date *</label>
@@ -3084,17 +3330,30 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                 <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Website *</label>
                                 <div class="relative">
                                     <input type="hidden" :name="'items[' + index + '][website_id]'" x-model="item.selectedId">
-                                    <button type="button" @click="item.openDropdown = !item.openDropdown" @click.outside="item.openDropdown = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600">
-                                        <span x-text="item.selectedName" :class="{ 'text-slate-400': !item.selectedId }"></span>
+                                    <button type="button" @click="item.openDropdown = !item.openDropdown" @click.outside="item.openDropdown = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 py-2">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <span x-text="item.selectedName" :class="{ 'text-slate-400': !item.selectedId }"></span>
+                                            <span x-show="item.selectedCategory" x-text="item.selectedCategory" class="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800" x-cloak></span>
+                                        </div>
                                     </button>
-                                    <div x-show="item.openDropdown" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg overflow-y-auto overflow-x-hidden">
+                                    <div x-show="item.openDropdown" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
                                         <div class="p-2 sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 z-10">
                                             <input type="text" x-model="item.search" placeholder="Search websites..." class="form-input w-full text-xs rounded-lg py-1.5 border-slate-200 dark:border-slate-600 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-slate-900">
                                         </div>
                                         <ul class="py-1">
-                                            <li class="px-3 py-2 text-sm text-slate-500 hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-500 dark:hover:text-white cursor-pointer" @click="item.selectedId = ''; item.selectedName = 'Select website...'; item.openDropdown = false">Select website...</li>
+                                            <li class="px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer" @click="selectWebsite(item, '', 'Select website...', '', '')">Select website...</li>
                                             @foreach($allWebsites as $ws)
-                                            <li x-show="item.search === '' || '{{ strtolower(addslashes($ws->name ?? "")) }}'.includes(item.search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-500 dark:hover:text-white cursor-pointer" @click="item.selectedId = '{{ $ws->id }}'; item.selectedName = '{{ addslashes($ws->name ?? "") }}'; item.openDropdown = false">{{ $ws->name }}</li>
+                                            @php
+                                                $wsClassNum = \App\Services\GoogleBlogsSheetService::extractClassFromCategory($ws->category ?? '') ?? '';
+                                            @endphp
+                                            <li x-show="item.search === '' || '{{ strtolower(addslashes($ws->name ?? "")) }}'.includes(item.search.toLowerCase()) || '{{ strtolower(addslashes($ws->category ?? "")) }}'.includes(item.search.toLowerCase())"
+                                                class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 cursor-pointer flex flex-col items-start gap-0.5 border-b border-slate-100/60 dark:border-slate-700/40 last:border-b-0"
+                                                @click="selectWebsite(item, '{{ $ws->id }}', '{{ addslashes($ws->name ?? "") }}', '{{ addslashes($ws->category ?? "") }}', '{{ $wsClassNum }}')">
+                                                <span class="font-medium text-slate-800 dark:text-slate-100 leading-snug">{{ $ws->name }}</span>
+                                                @if($ws->category)
+                                                    <span class="text-[11px] font-bold text-blue-600 dark:text-blue-400 leading-tight">{{ $ws->category }}</span>
+                                                @endif
+                                            </li>
                                             @endforeach
                                         </ul>
                                     </div>
@@ -3106,7 +3365,7 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                 <label class="block text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-1 flex items-center gap-1.5">
                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0c0 .621.504 1.125 1.125 1.125"/></svg>
                                     Blog Sheet Class
-                                    <span class="text-[10px] font-normal text-slate-400 ml-auto">Syncs to Google Sheets</span>
+                                    <span class="text-[10px] font-normal text-slate-400 ml-auto" x-text="item.blogClass ? ('Auto-selected Class ' + item.blogClass) : 'Syncs to Google Sheets'"></span>
                                 </label>
                                 <select :name="'items[' + index + '][blog_sheet_class]'" x-model="item.blogClass" class="form-select w-full rounded-xl text-sm border-indigo-200 dark:border-indigo-800 focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="">— No sheet sync —</option>
@@ -3158,12 +3417,21 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     <div x-data="{ open: false, search: '', 
                         get selectedName() {
                             let option = this.$el.closest('.relative').querySelector(`li[data-id='${editFollowUpForm.website_id}']`);
-                            return option ? option.innerText : 'Select website...';
+                            if (!option) return 'Select website...';
+                            let span = option.querySelector('span');
+                            return span ? span.innerText : option.innerText;
+                        },
+                        get selectedCategory() {
+                            let option = this.$el.closest('.relative').querySelector(`li[data-id='${editFollowUpForm.website_id}']`);
+                            return option ? (option.getAttribute('data-category') || '') : '';
                         }
                     }" class="relative">
                         <input type="hidden" name="website_id" x-model="editFollowUpForm.website_id" required>
-                        <button type="button" @click="open = !open" @click.outside="open = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
-                            <span x-text="selectedName" :class="{ 'text-slate-400': !editFollowUpForm.website_id }"></span>
+                        <button type="button" @click="open = !open" @click.outside="open = false" class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 py-2">
+                            <div class="flex items-center gap-2 truncate">
+                                <span x-text="selectedName" :class="{ 'text-slate-400': !editFollowUpForm.website_id }"></span>
+                                <span x-show="selectedCategory" x-text="selectedCategory" class="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800" x-cloak></span>
+                            </div>
                         </button>
                         <div x-show="open" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto overflow-x-hidden">
                             <div class="p-2 sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 z-10">
@@ -3172,7 +3440,14 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                             <ul class="py-1">
                                 <li class="px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer" @click="editFollowUpForm.website_id = ''; open = false">Select website...</li>
                                 @foreach($allWebsites as $ws)
-                                <li data-id="{{ $ws->id }}" x-show="search === '' || '{{ strtolower(addslashes($ws->name ?? "")) }}'.includes(search.toLowerCase())" class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 cursor-pointer" @click="editFollowUpForm.website_id = '{{ $ws->id }}'; open = false">{{ $ws->name }}</li>
+                                <li data-id="{{ $ws->id }}" data-category="{{ $ws->category }}" x-show="search === '' || '{{ strtolower(addslashes($ws->name ?? "")) }}'.includes(search.toLowerCase()) || '{{ strtolower(addslashes($ws->category ?? "")) }}'.includes(search.toLowerCase())"
+                                    class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700/60 cursor-pointer flex flex-col items-start gap-0.5 border-b border-slate-100/60 dark:border-slate-700/40 last:border-b-0"
+                                    @click="editFollowUpForm.website_id = '{{ $ws->id }}'; open = false">
+                                    <span class="font-medium text-slate-800 dark:text-slate-100 leading-snug">{{ $ws->name }}</span>
+                                    @if($ws->category)
+                                        <span class="text-[11px] font-bold text-blue-600 dark:text-blue-400 leading-tight">{{ $ws->category }}</span>
+                                    @endif
+                                </li>
                                 @endforeach
                             </ul>
                         </div>
@@ -3191,12 +3466,49 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Blog URL</label>
                     <input type="url" name="url" x-model="editFollowUpForm.url" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
                 </div>
-                <div>
+                <div x-data="{ openUploadBy: false }">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Upload by</label>
-                    <select name="assigned_to" x-model="editFollowUpForm.assigned_to" class="form-select w-full rounded-xl text-sm">
-                        <option value="">None</option>
-                        @foreach($websiteTeamMembers as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
-                    </select>
+                    <input type="hidden" name="assigned_to" x-model="editFollowUpForm.assigned_to">
+                    <div class="relative">
+                        <button type="button" @click="openUploadBy = !openUploadBy" @click.outside="openUploadBy = false"
+                                class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 py-2">
+                            <div class="flex items-center gap-2 truncate">
+                                <template x-if="!editFollowUpForm.assigned_to">
+                                    <div class="flex items-center gap-2 text-slate-400">
+                                        <div class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-[10px] shrink-0">
+                                            <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        </div>
+                                        <span>None</span>
+                                    </div>
+                                </template>
+                                @foreach($websiteTeamMembers as $u)
+                                    <div x-show="editFollowUpForm.assigned_to == '{{ $u->id }}'" class="flex items-center gap-2.5 truncate" x-cloak>
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                        <span class="font-bold text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}{{ $u->id == auth()->id() ? ' (You)' : '' }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </button>
+                        <div x-show="openUploadBy" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                            <ul class="py-1">
+                                <li class="px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-2.5"
+                                    @click="editFollowUpForm.assigned_to = ''; openUploadBy = false">
+                                    <div class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-xs shrink-0">
+                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </div>
+                                    <span class="font-medium text-slate-500">None</span>
+                                </li>
+                                @foreach($websiteTeamMembers as $u)
+                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center gap-2.5"
+                                    :class="{ 'bg-indigo-50 dark:bg-slate-700/80 font-bold': editFollowUpForm.assigned_to == '{{ $u->id }}' }"
+                                    @click="editFollowUpForm.assigned_to = '{{ $u->id }}'; openUploadBy = false">
+                                    <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                    <span class="font-medium text-slate-800 dark:text-slate-100">{{ $u->name }}{{ $u->id == auth()->id() ? ' (You)' : '' }}</span>
+                                </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Date *</label>
@@ -3216,68 +3528,233 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
 </div>
 
 {{-- Export Modal --}}
-<div id="show-export-modal" x-show="showExportModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
-    <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg" @click.stop x-data="{ exportLoading: false }">
-        <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-            <h3 class="font-bold text-slate-800 dark:text-slate-100">Export Websites Report</h3>
-            <button @click="showExportModal = false; exportLoading = false" class="text-slate-400 hover:text-slate-600">
+<div id="show-export-modal" x-show="showExportModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);">
+    <div class="card border border-slate-200 dark:border-slate-700/80 w-full max-w-lg overflow-hidden shadow-2xl rounded-2xl bg-white dark:bg-slate-900" 
+         @click.stop 
+         x-data="{ 
+             exportLoading: false, 
+             exportMemberId: '{{ auth()->id() }}', 
+             openMemberDropdown: false, 
+             memberSearch: '',
+             init() {
+                 this.$watch('$parent.showExportModal', value => {
+                     if (value) {
+                         this.exportMemberId = '{{ auth()->id() }}';
+                         this.openMemberDropdown = false;
+                         this.memberSearch = '';
+                     }
+                 });
+             }
+         }">
+        
+        {{-- Header --}}
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        Export Websites Report
+                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 capitalize">
+                            {{ str_replace('-', ' ', $tab) }}
+                        </span>
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Download a filtered PDF summary for assigned websites and progress.</p>
+                </div>
+            </div>
+            <button @click="showExportModal = false; exportLoading = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.export') }}" method="GET" target="_blank" class="p-6 space-y-6"
-              @submit.prevent="
+
+        <form action="{{ route('websites.export') }}" method="GET" target="_blank" class="p-6 space-y-5"
+              @submit="
                 exportLoading = true;
-                $el.submit();
-                setTimeout(() => { exportLoading = false; showExportModal = false; }, 4000);
+                setTimeout(() => { exportLoading = false; showExportModal = false; }, 3500);
               ">
             <input type="hidden" name="tab" value="{{ $tab }}">
             <input type="hidden" name="format" value="pdf">
+            <input type="hidden" name="member_id" :value="exportMemberId">
 
+            {{-- Member Filter Section --}}
+            <div class="bg-slate-50/80 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                        Filter by Member
+                    </label>
+                    @if($canViewAllWebsiteReports)
+                    <button type="button" @click="exportMemberId = '{{ auth()->id() }}'" 
+                            x-show="exportMemberId !== '{{ auth()->id() }}'"
+                            class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                        Reset to Me
+                    </button>
+                    @endif
+                </div>
 
-            {{-- Member Filter --}}
-            <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5 uppercase tracking-wide">Filter by Member</label>
-                <select name="member_id" class="form-select w-full rounded-xl text-base py-3 px-4 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500">
-                    <option value="">All Members</option>
-                    @foreach($reportUsers as $u)
-                        <option value="{{ $u->id }}">{{ $u->name }}</option>
-                    @endforeach
-                </select>
-                <p class="text-[10px] text-slate-500 mt-1.5">Export websites assigned to a specific member.</p>
+                @if($canViewAllWebsiteReports)
+                    {{-- Privileged Users: Rich Custom Avatar Dropdown (Defaults to Logged-in User) --}}
+                    <div class="relative" @click.away="openMemberDropdown = false">
+                        <button type="button" @click="openMemberDropdown = !openMemberDropdown"
+                                class="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-xs transition-all text-left">
+                            <div class="flex items-center gap-3 min-w-0">
+                                {{-- All Members Selected --}}
+                                <template x-if="!exportMemberId">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-xs text-slate-800 dark:text-slate-100">All Members</div>
+                                            <div class="text-[11px] text-slate-400 dark:text-slate-500">Summary across entire digital team</div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {{-- Specific User Selected --}}
+                                @foreach($reportUsers as $u)
+                                    <div x-show="exportMemberId == '{{ $u->id }}'" class="flex items-center gap-2.5 min-w-0" x-cloak>
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-8 h-8 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-xs text-slate-800 dark:text-slate-100 flex items-center gap-1.5 truncate">
+                                                <span class="truncate">{{ $u->name }}</span>
+                                                @if($u->id == auth()->id())
+                                                    <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded border border-indigo-200 dark:border-indigo-800">You</span>
+                                                @endif
+                                            </div>
+                                            <div class="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                                                {{ $memberRolesMap[$u->id] ?? ($u->hasRole('digital-team') ? 'Developer' : ($u->role_display ?? 'Member')) }} • {{ $u->email }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                            <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0" :class="{ 'rotate-180': openMemberDropdown }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+
+                        {{-- Dropdown Menu --}}
+                        <div x-show="openMemberDropdown" x-cloak 
+                             class="absolute left-0 right-0 z-50 mt-1.5 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden max-h-72 flex flex-col">
+                            
+                            {{-- Search Filter inside dropdown --}}
+                            <div class="p-2 border-b border-slate-100 dark:border-slate-750 bg-slate-50/50 dark:bg-slate-900/40">
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                    </div>
+                                    <input type="text" x-model="memberSearch" placeholder="Search members..." 
+                                           class="form-input text-xs pl-7 pr-7 py-1.5 w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
+                                    <button type="button" x-show="memberSearch" @click="memberSearch = ''" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <ul class="py-1 overflow-y-auto flex-1 divide-y divide-slate-100/60 dark:divide-slate-750/60">
+                                {{-- Option: All Members --}}
+                                <li class="px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between transition-colors"
+                                    :class="{ 'bg-indigo-50/60 dark:bg-indigo-950/40': !exportMemberId }"
+                                    @click="exportMemberId = ''; openMemberDropdown = false"
+                                    x-show="!memberSearch || 'all members'.includes(memberSearch.toLowerCase())">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <div class="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 text-xs shrink-0">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-slate-800 dark:text-slate-100">All Members</div>
+                                            <div class="text-[10px] text-slate-400">All assigned and progress records</div>
+                                        </div>
+                                    </div>
+                                    <span x-show="!exportMemberId" class="text-indigo-600 dark:text-indigo-400 font-bold text-xs">✓</span>
+                                </li>
+
+                                {{-- Individual Member Options --}}
+                                @foreach($reportUsers as $u)
+                                <li class="px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between transition-colors"
+                                    :class="{ 'bg-indigo-50/60 dark:bg-indigo-950/40': exportMemberId == '{{ $u->id }}' }"
+                                    @click="exportMemberId = '{{ $u->id }}'; openMemberDropdown = false"
+                                    x-show="!memberSearch || '{{ addslashes(strtolower($u->name)) }}'.includes(memberSearch.toLowerCase()) || '{{ addslashes(strtolower($u->email)) }}'.includes(memberSearch.toLowerCase())">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-slate-800 dark:text-slate-100 truncate flex items-center gap-1.5">
+                                                <span>{{ $u->name }}</span>
+                                                @if($u->id == auth()->id())
+                                                    <span class="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1 rounded border border-indigo-200 dark:border-indigo-800">You</span>
+                                                @endif
+                                            </div>
+                                            <div class="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                                                {{ $memberRolesMap[$u->id] ?? ($u->hasRole('digital-team') ? 'Developer' : ($u->role_display ?? 'Member')) }} • {{ $u->email }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span x-show="exportMemberId == '{{ $u->id }}'" class="text-indigo-600 dark:text-indigo-400 font-bold text-xs">✓</span>
+                                </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                        Defaulted to your account (<strong class="text-slate-700 dark:text-slate-300">{{ auth()->user()->name }}</strong>). You have permission to select any member or All Members.
+                    </p>
+                @else
+                    {{-- Regular Members: Locked to their own account with rich profile display --}}
+                    <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 shadow-xs">
+                        <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->name }}" class="w-10 h-10 rounded-full object-cover object-top shrink-0 border-2 border-indigo-500/30 shadow-xs">
+                        <div class="min-w-0 flex-1">
+                            <div class="font-bold text-sm text-slate-800 dark:text-slate-100 truncate flex items-center gap-2">
+                                <span>{{ auth()->user()->name }}</span>
+                                <span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                                    Personal Report
+                                </span>
+                            </div>
+                            <div class="text-xs text-slate-400 dark:text-slate-500 truncate">
+                                {{ $memberRolesMap[auth()->id()] ?? (auth()->user()->hasRole('digital-team') ? 'Developer' : (auth()->user()->role_display ?? 'Member')) }} • {{ auth()->user()->email }}
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                        Your account is automatically selected. Reports are restricted to your personal assigned websites and tasks.
+                    </p>
+                @endif
             </div>
 
             {{-- Date Range Selection --}}
-            <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                <p class="text-xs text-slate-500 mb-3 font-semibold uppercase tracking-wide">Date Filter (Optional)</p>
-                <div class="grid grid-cols-2 gap-4">
+            <div class="bg-slate-50/80 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                <p class="text-xs text-slate-700 dark:text-slate-200 mb-2.5 font-bold uppercase tracking-wide">Date Filter (Optional)</p>
+                <div class="grid grid-cols-2 gap-3.5">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5">Start Date</label>
-                        <div class="relative">
-                            <input type="date" name="start_date" class="form-input w-full rounded-xl text-base py-3 px-4 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer" aria-label="Start Date">
-                        </div>
+                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Start Date</label>
+                        <input type="date" name="start_date" class="form-input w-full rounded-xl text-xs py-2 px-3 border border-slate-200 dark:border-slate-700 dark:bg-slate-850 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500" aria-label="Start Date">
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1.5">End Date</label>
-                        <div class="relative">
-                            <input type="date" name="end_date" class="form-input w-full rounded-xl text-base py-3 px-4 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer" aria-label="End Date">
-                        </div>
+                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">End Date</label>
+                        <input type="date" name="end_date" class="form-input w-full rounded-xl text-xs py-2 px-3 border border-slate-200 dark:border-slate-700 dark:bg-slate-850 focus:ring focus:ring-indigo-500/20 focus:border-indigo-500" aria-label="End Date">
                     </div>
                 </div>
             </div>
 
             {{-- Loading hint --}}
-            <div x-show="exportLoading" class="flex items-center gap-2 text-sm text-indigo-600 font-semibold bg-indigo-50 rounded-xl px-4 py-3 border border-indigo-100" style="display:none;">
-                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                Generating report in a new tab… please wait
+            <div x-show="exportLoading" class="flex items-center gap-2.5 text-xs text-indigo-700 dark:text-indigo-300 font-semibold bg-indigo-50 dark:bg-indigo-950/60 rounded-xl px-4 py-3 border border-indigo-200 dark:border-indigo-800 shadow-xs" style="display:none;">
+                <svg class="w-4 h-4 animate-spin shrink-0 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                <span>Generating and downloading your report PDF... please wait.</span>
             </div>
 
-            <div class="flex items-center justify-end gap-3 pt-4">
-                <button type="button" @click="showExportModal = false; exportLoading = false" class="btn btn-cancel btn-secondary text-sm px-5">Cancel</button>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" @click="showExportModal = false; exportLoading = false" class="btn btn-cancel btn-secondary text-xs px-4 py-2">Cancel</button>
                 <button type="submit" :disabled="exportLoading"
-                    class="btn btn-primary text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-6 shadow-md shadow-indigo-200 disabled:opacity-60 disabled:cursor-wait">
-                    <svg x-show="!exportLoading" class="w-4 h-4 mr-1.5 inline" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                    <svg x-show="exportLoading" class="w-4 h-4 mr-1.5 inline animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                    <span x-text="exportLoading ? 'Opening…' : 'Preview & Download'"></span>
+                    class="btn btn-primary text-xs py-2 px-5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-md shadow-indigo-500/20 font-bold flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait transition-all">
+                    <svg x-show="!exportLoading" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    <svg x-show="exportLoading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    <span x-text="exportLoading ? 'Generating…' : 'Preview & Download'"></span>
                 </button>
             </div>
         </form>
@@ -3455,25 +3932,61 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
         </div>
     </div>
 
-    {{-- PDF / Document Preview Modal --}}
-    <div id="show-attachment-preview-modal" x-show="showAttachmentPreview && !previewIsImage" x-cloak style="display:none; z-index:10040" class="fixed inset-0 flex items-center justify-center p-4 sm:p-6" aria-modal="true" role="dialog" @keydown.escape.window="closeAttachmentPreview()">
-        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" @click="closeAttachmentPreview()"></div>
-        <div x-ref="previewPanel" class="relative flex h-[76vh] max-h-[760px] min-h-[420px] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-900 dark:ring-white/10">
-            <div class="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
-                <h3 class="truncate pr-4 text-sm font-black text-slate-800 dark:text-slate-100" x-text="previewFile?.name || 'Attachment Preview'"></h3>
+    {{-- PDF / Document / Image Preview Modal --}}
+    <div id="show-attachment-preview-modal" x-show="showAttachmentPreview && !previewIsImage" x-cloak style="display:none; z-index:10040" class="fixed inset-0 flex items-center justify-center p-3 sm:p-6" aria-modal="true" role="dialog" @keydown.escape.window="closeAttachmentPreview()">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" @click="closeAttachmentPreview()"></div>
+        <div x-ref="previewPanel" class="relative flex h-[82vh] max-h-[820px] min-h-[440px] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-900 dark:ring-white/10" @click.stop>
+            <div class="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h3 class="truncate text-sm font-black text-slate-800 dark:text-slate-100" x-text="previewFile?.name || 'Attachment Preview'"></h3>
+                    <template x-if="isImageFile(previewUrl, previewFile?.name)">
+                        <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/50 dark:border-indigo-800/50 px-2 py-0.5 rounded-full shrink-0" x-text="Math.round(previewZoom) + '%'"></span>
+                    </template>
+                </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <a :href="previewDownloadUrl" class="rounded-lg bg-slate-200/70 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">Download</a>
-                    <button type="button" @click="closeAttachmentPreview()" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200/70 text-slate-500 transition hover:bg-slate-300 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700" aria-label="Close preview">
+                    <template x-if="isImageFile(previewUrl, previewFile?.name)">
+                        <div class="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-300/40 dark:border-slate-700/60">
+                            <button type="button" @click="setPreviewZoom(Math.max(40, previewZoom - 20))" class="w-6 h-6 flex items-center justify-center rounded text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 font-bold text-xs cursor-pointer transition-colors" title="Zoom Out">−</button>
+                            <button type="button" @click="resetPreviewZoom()" class="px-2 py-0.5 text-[10.5px] font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 rounded cursor-pointer transition-colors" title="Fit to window">Fit</button>
+                            <button type="button" @click="setPreviewZoom(Math.min(300, previewZoom + 20))" class="w-6 h-6 flex items-center justify-center rounded text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 font-bold text-xs cursor-pointer transition-colors" title="Zoom In">+</button>
+                        </div>
+                    </template>
+                    <a :href="previewDownloadUrl || previewUrl" :download="previewFile?.name || 'download'" target="_blank" class="rounded-lg bg-slate-200/70 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                        <span>Download</span>
+                    </a>
+                    <button type="button" @click="closeAttachmentPreview()" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200/70 text-slate-500 transition hover:bg-slate-300 hover:text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 cursor-pointer" aria-label="Close preview">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
             </div>
-            <div class="relative flex-1 overflow-hidden bg-slate-100 dark:bg-slate-800">
+            <div class="relative flex-1 overflow-hidden bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center select-none"
+                 @wheel.prevent="if(isImageFile(previewUrl, previewFile?.name)) handlePreviewWheel($event)"
+                 @mousedown="if(isImageFile(previewUrl, previewFile?.name)) startPreviewPan($event)"
+                 @mousemove.window="if(isImageFile(previewUrl, previewFile?.name)) movePreviewPan($event)"
+                 @mouseup.window="if(isImageFile(previewUrl, previewFile?.name)) endPreviewPan()"
+                 @touchstart="if(isImageFile(previewUrl, previewFile?.name)) handlePreviewTouchStart($event)"
+                 @touchmove="if(isImageFile(previewUrl, previewFile?.name)) handlePreviewTouchMove($event)"
+                 @touchend="if(isImageFile(previewUrl, previewFile?.name)) endPreviewPan()"
+                 @dblclick="if(isImageFile(previewUrl, previewFile?.name)) resetPreviewZoom()">
                 <div x-show="previewLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm dark:bg-slate-900/80">
                     <div class="h-8 w-8 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600"></div>
                     <p class="mt-3 text-xs font-bold text-slate-500">Loading preview...</p>
                 </div>
-                <iframe :src="previewUrl" class="h-full w-full border-0 bg-white" @load="previewLoading = false"></iframe>
+                <template x-if="isImageFile(previewUrl, previewFile?.name)">
+                    <div class="w-full h-full flex items-center justify-center p-3 sm:p-6 overflow-hidden">
+                        <img :src="previewUrl"
+                             :alt="previewFile?.name || 'Preview'"
+                             class="max-w-full max-h-full w-auto h-auto object-contain rounded-xl shadow-md transition-transform duration-100"
+                             :class="previewZoom > 100 ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in'"
+                             :style="previewZoom > 100 ? previewImageStyle() : 'max-height: calc(82vh - 80px); max-width: calc(100vw - 48px); object-fit: contain;'"
+                             draggable="false"
+                             @load="previewLoading = false; handlePreviewImageLoad($event)">
+                    </div>
+                </template>
+                <template x-if="!isImageFile(previewUrl, previewFile?.name)">
+                    <iframe :src="previewUrl" class="h-full w-full border-0 bg-white" @load="previewLoading = false"></iframe>
+                </template>
             </div>
         </div>
     </div>
@@ -3707,6 +4220,7 @@ function websitesApp() {
         },
         selectedUserIds: [],
         memberUserSearch: '',
+        currentMemberSearch: '',
         isEditing: false,
         editMember(userId, role) {
             this.isEditing = true;
@@ -3714,10 +4228,101 @@ function websitesApp() {
             this.memberForm.role = role;
         },
 
+        async submitMemberForm(e) {
+            let form = e.target;
+            let btn = form.querySelector('button[type=submit]');
+            let originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="inline-flex items-center gap-1.5"><svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...</span>`;
+            }
+
+            try {
+                let formData = new FormData(form);
+                if (this.selectedUserIds && this.selectedUserIds.length > 0) {
+                    let existingUserIds = formData.getAll('user_ids[]');
+                    if (existingUserIds.length === 0) {
+                        this.selectedUserIds.forEach(id => formData.append('user_ids[]', id));
+                    }
+                }
+
+                let res = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                let data = await res.json();
+                if (res.ok && data.success) {
+                    sessionStorage.setItem('openManageMembersOnLoad', 'true');
+                    sessionStorage.setItem('memberSuccessToast', data.message || 'Member saved successfully.');
+                    window.location.reload();
+                } else {
+                    let errMsg = data.message || (data.errors ? Object.values(data.errors).flat().join('\n') : 'Error saving member.');
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(errMsg);
+                    } else {
+                        alert(errMsg);
+                    }
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    }
+                }
+            } catch (err) {
+                console.error('Member form submission error:', err);
+                form.submit();
+            }
+        },
+
+        async deleteMember(memberId, memberName, e) {
+            if (e) e.preventDefault();
+            if (!confirm(`Are you sure you want to remove member ${memberName}?`)) {
+                return;
+            }
+
+            let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') 
+                || document.querySelector('input[name="_token"]')?.value;
+
+            try {
+                let res = await fetch(`/websites/members/${memberId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ _method: 'DELETE' })
+                });
+
+                let data = await res.json();
+                if (res.ok && data.success) {
+                    sessionStorage.setItem('openManageMembersOnLoad', 'true');
+                    sessionStorage.setItem('memberSuccessToast', data.message || 'Member removed successfully.');
+                    window.location.reload();
+                } else {
+                    let errMsg = data.message || 'Error removing member.';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(errMsg);
+                    } else {
+                        alert(errMsg);
+                    }
+                }
+            } catch (err) {
+                console.error('Delete member error:', err);
+                alert('Failed to remove member. Please try again.');
+            }
+        },
+
         // Modal state
         showCreateModal:      false,
+        createFormHandledBy:  '',
         showManageClassesModal: false,
-        showManageMembersModal: localStorage.getItem('showManageMembersModal') === 'true',
+        showManageMembersModal: false,
         showProgressModal:    false,
         showQcModal:          false,
         showSupervisorModal:  false,
@@ -3985,10 +4590,18 @@ function websitesApp() {
                 this.collapsedGroups = {};
             }
 
-            // Watch visibility states to save to localStorage
-            
+            // Clean up any stale localStorage flag
+            localStorage.removeItem('showManageMembersModal');
+            if (sessionStorage.getItem('openManageMembersOnLoad') === 'true') {
+                sessionStorage.removeItem('openManageMembersOnLoad');
+                this.showManageMembersModal = true;
+                if (sessionStorage.getItem('memberSuccessToast') && typeof toastr !== 'undefined') {
+                    toastr.success(sessionStorage.getItem('memberSuccessToast'));
+                    sessionStorage.removeItem('memberSuccessToast');
+                }
+            }
+
             this.$watch('showManageMembersModal', value => {
-                localStorage.setItem('showManageMembersModal', value);
                 if (!value) {
                     this.selectedUserIds = [];
                     this.memberUserSearch = '';
@@ -4052,6 +4665,32 @@ function websitesApp() {
             document.addEventListener('submit', () => {
                 sessionStorage.setItem('websitesScrollPos', window.scrollY);
             });
+
+            // Handle direct links from Dashboard (open error/comment history modal or scroll to card)
+            const urlParams = new URLSearchParams(window.location.search);
+            const openHistoryId = urlParams.get('open_history');
+            const openHistoryName = urlParams.get('website_name') || '';
+            const openHistoryType = urlParams.get('history_type') || 'build';
+            const highlightId = urlParams.get('highlight') || openHistoryId;
+
+            if (openHistoryId) {
+                setTimeout(() => {
+                    this.openHistoryModal(parseInt(openHistoryId), openHistoryName, openHistoryType);
+                }, 300);
+            }
+
+            if (highlightId) {
+                setTimeout(() => {
+                    const cardEl = document.getElementById(`website-card-${highlightId}`);
+                    if (cardEl) {
+                        cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        cardEl.classList.add('ring-4', 'ring-red-500', 'ring-offset-2', 'transition-all');
+                        setTimeout(() => {
+                            cardEl.classList.remove('ring-4', 'ring-red-500', 'ring-offset-2');
+                        }, 4000);
+                    }
+                }, 400);
+            }
         },
 
         openProgressModal(websiteId, websiteName, currentPct, type) {
@@ -4187,9 +4826,7 @@ function websitesApp() {
                     }
                     setTimeout(() => {
                         this.showQcModal = false;
-                        if (window.Turbo) {
-                            Turbo.visit(window.location.pathname + '?tab=' + (new URLSearchParams(window.location.search).get('tab') || 'build-progress'));
-                        }
+                        window.location.href = window.location.pathname + '?tab=' + (new URLSearchParams(window.location.search).get('tab') || 'build-progress');
                     }, 500);
                 } else {
                     alert(data.message || 'Error occurred');
@@ -4224,11 +4861,7 @@ function websitesApp() {
                     btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
                     setTimeout(() => {
                         this.showSupervisorModal = false;
-                        if (window.Turbo) {
-                            Turbo.visit(window.location.pathname + '?tab=live');
-                        } else {
-                            window.location.href = window.location.pathname + '?tab=live';
-                        }
+                        window.location.href = window.location.pathname + '?tab=live';
                     }, 500);
                 } else {
                     alert(data.message || 'Error occurred');
@@ -4402,7 +5035,17 @@ function websitesApp() {
         },
 
         isImageAttachment(file) {
-            return !!((file?.name || file?.path || '').match(/\.(jpeg|jpg|gif|png|webp)$/i));
+            return this.isImageFile(file?.path || file?.url, file?.name);
+        },
+
+        isImageFile(url, name) {
+            const u = String(url || '').toLowerCase();
+            const n = String(name || '').toLowerCase();
+            if (u.startsWith('data:image/')) return true;
+            if (n.includes('profile') || n.includes('avatar') || u.includes('/avatars/') || u.includes('avatar') || u.includes('storage/users-avatar') || u.includes('ui-avatars')) return true;
+            const cleanUrl = u.split('?')[0].split('#')[0];
+            const imageExtensions = /\.(jpeg|jpg|gif|png|webp|svg|bmp|avif)$/i;
+            return imageExtensions.test(cleanUrl) || imageExtensions.test(n);
         },
 
         isPdfAttachment(file) {
@@ -4439,7 +5082,7 @@ function websitesApp() {
             this.previewFile = { name };
             this.previewUrl = viewUrl;
             this.previewDownloadUrl = downloadUrl;
-            this.previewIsImage = !!((name || '').match(/\.(jpeg|jpg|gif|png|webp)$/i));
+            this.previewIsImage = false; // Opens formatted card modal with header and download, rendering image with object-contain
             this.previewZoom = 100;
             this.previewImageNaturalWidth = 0;
             this.previewImageNaturalHeight = 0;
@@ -4923,13 +5566,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pusher) {
             const channel = pusher.subscribe('private-websites');
             channel.bind('WebsiteUpdated', function(data) {
-                // Ignore if we triggered it (optional, but Turbo morph is fast enough)
+                const alpineEl = document.querySelector('[x-data="websitesApp()"]');
+                if (alpineEl && typeof Alpine !== 'undefined') {
+                    const appData = Alpine.$data(alpineEl);
+                    const isAnyModalOpen = appData.showCreateModal || appData.showEditModal || appData.showProgressModal || appData.showQcModal || appData.showSupervisorModal || appData.showMaintenanceModal || appData.showQcErrorModal || appData.showSupervisorErrorModal || appData.showErrorProgressModal || appData.showFollowUpModal || appData.showEditFollowUpModal || appData.showExportModal || appData.showHistoryModal || appData.showManageClassesModal || appData.showDeleteClassModal || appData.showManageMembersModal || appData.showAttachmentPreview || appData.showHistoryEditModal;
+                    
+                    if (isAnyModalOpen) {
+                        return; // Abort refresh to protect active user modal interaction
+                    }
+                }
                 if (window.Turbo) {
                     if (typeof window.Turbo.refresh === 'function') {
                         window.Turbo.refresh();
                     } else {
                         window.Turbo.visit(window.location.href, { action: 'replace' });
                     }
+                } else {
+                    window.location.reload();
                 }
             });
         }

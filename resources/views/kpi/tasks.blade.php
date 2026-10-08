@@ -108,7 +108,7 @@
 
     {{-- Modals --}}
     <div x-show="showSubmitModal" style="display: none;" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-md p-6 kpi-modal-card" @click.away="showSubmitModal = false">
+        <div class="clay-card w-full max-w-2xl p-7 kpi-modal-card rounded-3xl" @click.away="showSubmitModal = false">
             <h3 class="text-base font-bold mb-3 text-slate-900 dark:text-white">Submit Deliverable Evidence</h3>
             <form :action="'{{ url('/kpi/tasks') }}/' + selectedTaskId + '/submit'" method="POST" class="space-y-4 text-xs">
                 @csrf
@@ -130,7 +130,7 @@
     </div>
 
     <div x-show="showApproveModal" style="display: none;" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-md p-6 kpi-modal-card" @click.away="showApproveModal = false">
+        <div class="clay-card w-full max-w-2xl p-7 kpi-modal-card rounded-3xl" @click.away="showApproveModal = false">
             <h3 class="text-base font-bold mb-3 text-slate-900 dark:text-white">QC Score & Approval</h3>
             <form :action="'{{ url('/kpi/tasks') }}/' + selectedTaskId + '/approve'" method="POST" class="space-y-4 text-xs">
                 @csrf

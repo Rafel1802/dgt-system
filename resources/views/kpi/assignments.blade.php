@@ -73,7 +73,7 @@
     {{-- Assign Modal --}}
     @if($isSupervisor)
     <div x-show="showAssignModal" style="display: none;" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="clay-card w-full max-w-md p-6 kpi-modal-card" @click.away="showAssignModal = false">
+        <div class="clay-card w-full max-w-2xl p-7 kpi-modal-card rounded-3xl" @click.away="showAssignModal = false">
             <h3 class="text-base font-bold mb-3 text-slate-900 dark:text-white">Configure Monthly KPI Target</h3>
             <form action="{{ route('kpi.assignments.store') }}" method="POST" class="space-y-4 text-xs">
                 @csrf

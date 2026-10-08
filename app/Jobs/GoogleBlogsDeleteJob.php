@@ -20,7 +20,8 @@ class GoogleBlogsDeleteJob implements ShouldQueue
     public function __construct(
         public readonly string $classNumber,
         public readonly int $sheetRow,
-        public readonly ?string $publicLink = null
+        public readonly ?string $publicLink = null,
+        public readonly ?string $sheetTab = null,
     ) {}
 
     public function handle(GoogleBlogsSheetService $service): void
@@ -33,9 +34,10 @@ class GoogleBlogsDeleteJob implements ShouldQueue
             'class' => $this->classNumber,
             'row'   => $this->sheetRow,
             'link'  => $this->publicLink,
+            'sheet' => $this->sheetTab,
         ]);
 
-        $result = $service->deleteBlog($this->classNumber, $this->sheetRow, $this->publicLink);
+        $result = $service->deleteBlog($this->classNumber, $this->sheetRow, $this->publicLink, $this->sheetTab);
 
         if (!$result['success']) {
             Log::warning("GoogleBlogsDeleteJob: Delete failed.", $result);

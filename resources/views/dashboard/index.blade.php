@@ -42,10 +42,13 @@
     /* Ambient Glowing Blobs */
     .blob {
         position: absolute;
-        filter: blur(80px);
+        filter: blur(50px);
         z-index: -1;
-        opacity: 0.6;
-        animation: float 20s infinite ease-in-out alternate;
+        opacity: 0.5;
+        pointer-events: none;
+        transform: translate3d(0, 0, 0);
+        will-change: transform;
+        animation: float 25s infinite ease-in-out alternate;
     }
     .blob-1 { top: -10%; left: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(255,255,255,0) 70%); }
     .blob-2 { bottom: -10%; right: -10%; width: 60%; height: 60%; background: radial-gradient(circle, rgba(14,165,233,0.15) 0%, rgba(255,255,255,0) 70%); animation-delay: -10s; }
@@ -54,35 +57,34 @@
     [data-theme="dark"] .blob-2 { background: radial-gradient(circle, rgba(14,165,233,0.1) 0%, rgba(15,23,42,0) 70%); }
 
     @keyframes float {
-        0% { transform: translate(0, 0) scale(1); }
-        50% { transform: translate(5%, 10%) scale(1.1); }
-        100% { transform: translate(-5%, -5%) scale(0.9); }
+        0% { transform: translate3d(0, 0, 0) scale(1); }
+        50% { transform: translate3d(5%, 10%, 0) scale(1.05); }
+        100% { transform: translate3d(-5%, -5%, 0) scale(0.95); }
     }
 
     /* Modern Bento Cards */
     .bento-card {
-        background: rgba(238, 242, 255, 0.7); /* Light blue tint */
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.90);
+        border: 1px solid rgba(226, 232, 240, 0.9);
         border-radius: 2rem;
-        box-shadow: 0 10px 40px -10px rgba(79, 70, 229, 0.1), inset 0 1px 0 rgba(255,255,255,0.7);
-        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+        box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.08), inset 0 1px 0 rgba(255,255,255,0.7);
+        transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease;
         overflow: hidden;
+        transform: translateZ(0);
     }
     
     .bento-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 20px 40px -10px rgba(79, 70, 229, 0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+        transform: translateY(-3px) translateZ(0);
+        box-shadow: 0 16px 35px -10px rgba(79, 70, 229, 0.12), inset 0 1px 0 rgba(255,255,255,0.8);
     }
 
     [data-theme="dark"] .bento-card {
-        background: rgba(30, 41, 59, 0.7); /* Slightly darker slate with blue hint */
-        border-color: rgba(255, 255, 255, 0.05);
-        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+        background: rgba(30, 41, 59, 0.92);
+        border-color: rgba(255, 255, 255, 0.07);
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
     }
     [data-theme="dark"] .bento-card:hover {
-        box-shadow: 0 20px 40px -10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+        box-shadow: 0 16px 35px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
     }
 
     /* ─── Neon Blue Theme for Bento Dashboard ─── */
@@ -96,25 +98,23 @@
         background: radial-gradient(circle, rgba(0, 210, 255, 0.22) 0%, rgba(2, 8, 28, 0) 70%) !important;
     }
     [data-theme="neon"] .bento-card {
-        background: rgba(4, 20, 56, 0.9) !important;
-        backdrop-filter: blur(24px) !important;
-        -webkit-backdrop-filter: blur(24px) !important;
+        background: rgba(4, 20, 56, 0.94) !important;
         border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
-        box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.65), 0 0 20px rgba(0, 140, 255, 0.2), inset 0 1px 0 rgba(0, 210, 255, 0.25) !important;
+        box-shadow: 0 12px 35px -10px rgba(0, 0, 0, 0.65), 0 0 16px rgba(0, 140, 255, 0.2), inset 0 1px 0 rgba(0, 210, 255, 0.25) !important;
         color: #f0f9ff !important;
     }
     [data-theme="neon"] .bento-card:hover {
-        transform: translateY(-4px);
+        transform: translateY(-3px) translateZ(0) !important;
         border-color: rgba(0, 220, 255, 0.75) !important;
-        box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.75), 0 0 30px rgba(0, 180, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+        box-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.75), 0 0 25px rgba(0, 180, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
     }
     [data-theme="neon"] .bento-card-primary {
         background: linear-gradient(135deg, #0055ff 0%, #002b80 50%, #001440 100%) !important;
         border: 1.5px solid rgba(0, 180, 255, 0.55) !important;
-        box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 140, 255, 0.35), inset 0 1px 0 rgba(0, 220, 255, 0.3) !important;
+        box-shadow: 0 12px 35px -10px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 140, 255, 0.35), inset 0 1px 0 rgba(0, 220, 255, 0.3) !important;
     }
     [data-theme="neon"] .bento-card-primary:hover {
-        box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.8), 0 0 35px rgba(0, 180, 255, 0.55) !important;
+        box-shadow: 0 18px 40px -10px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 180, 255, 0.55) !important;
     }
     [data-theme="neon"] .text-gradient {
         background-image: linear-gradient(135deg, #00f0ff, #38bdf8, #818cf8) !important;
@@ -257,6 +257,9 @@
             </div>
         </article>
     </section>
+
+    {{-- ── Flagged Website Errors Alert Section (QC Error / Supervisor Error) ── --}}
+    @include('dashboard.partials.website-errors-alert')
 
     {{-- ── Assigned Tasks & Deadline Warning Section (for planning board members) ── --}}
     @if(($totalTasksCount ?? 0) > 0 || ($totalWarningCount ?? 0) > 0)

@@ -86,6 +86,41 @@ class CardFileVideoEmbedTest extends TestCase
         $this->assertFalse($file->is_video);
     }
 
+    public function test_google_drive_folder_link_is_not_video_and_has_google_drive_flags(): void
+    {
+        [$user, $board, $list, $card] = $this->cardFixture();
+
+        $folderUrl = 'https://drive.google.com/drive/folders/1YwC20eUw62Xl7wk4_xyZ02jqdmyabS65';
+        $file = CardFile::create([
+            'card_id'       => $card->id,
+            'uploaded_by'   => $user->id,
+            'original_name' => 'Project Shared Drive Folder',
+            'stored_name'   => $folderUrl,
+            'disk'          => 'url',
+            'path'          => $folderUrl,
+            'mime_type'     => 'link',
+            'size'          => 0,
+        ]);
+
+        $this->assertFalse($file->is_video);
+        $this->assertTrue($file->is_google_drive);
+        $this->assertTrue($file->is_google_drive_folder);
+        $this->assertNull($file->embed_url);
+        $this->assertNull($file->thumbnail_url);
+
+        $response = $this->actingAs($user)->postJson(route('boards.cards.files.store', $card), [
+            'link_name' => 'Done Drive Folder',
+            'link_url'  => $folderUrl,
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('file.is_video', false);
+        $response->assertJsonPath('file.is_google_drive', true);
+        $response->assertJsonPath('file.is_google_drive_folder', true);
+        $response->assertJsonPath('file.embed_url', null);
+    }
+
     public function test_youtube_and_loom_links_embed_url(): void
     {
         [$user, $board, $list, $card] = $this->cardFixture();

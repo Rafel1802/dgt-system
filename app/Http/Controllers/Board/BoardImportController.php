@@ -8,6 +8,8 @@ use App\Models\Board;
 use App\Models\BoardList;
 use App\Models\Card;
 use App\Models\CardChecklist;
+use App\Models\CardChecklistItem;
+use App\Models\CardFile;
 use App\Models\Label;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -69,15 +71,24 @@ class BoardImportController extends Controller
             return response()->json(['error' => 'Please provide a CSV file or a Google Sheets URL.'], 422);
         }
 
+        $worksheetName = trim((string)$request->input('worksheet_name'));
+        $explicitTargetListId = $request->input('target_list_id') ? (int)$request->input('target_list_id') : null;
+
         // ── 1. Get raw CSV content ────────────────────────────────────────
         if ($request->hasFile('file')) {
             $csvContent = file_get_contents($request->file('file')->getRealPath());
+            if (empty($worksheetName)) {
+                $worksheetName = pathinfo($request->file('file')->getClientOriginalName(), PATHINFO_FILENAME);
+            }
         } else {
-            $csvContent = $this->fetchGoogleSheetsCsv($request->sheets_url);
+            $csvContent = $this->fetchGoogleSheetsCsv($request->sheets_url, $worksheetName);
             if ($csvContent === null) {
                 return response()->json([
                     'error' => 'Could not fetch the Google Sheet. Please ensure the sheet is shared as "Anyone with the link can view".',
                 ], 422);
+            }
+            if (empty($worksheetName)) {
+                $worksheetName = 'Imported Sheet';
             }
         }
 
@@ -168,47 +179,40 @@ class BoardImportController extends Controller
                 }
             }
 
-            // Label — auto-create if doesn't exist during confirm, so no error here
+            // Label — auto-create if doesn't exist during confirm, support multi-select
             $labelId = null;
+            $labelIds = [];
             if (!empty($row['Label'])) {
-                $labelName = strtolower(trim($row['Label']));
-                if (isset($boardLabels[$labelName])) {
-                    $labelId = $boardLabels[$labelName];
-                }
-            }
-
-            // Assigned To — robust match
-            $assignedUserId   = null;
-            $assignedUserName = null;
-            if (!empty($row['Assigned To'])) {
-                $matchedUser = $this->resolveMember($row['Assigned To'], $userLookup);
-                if (!$matchedUser['id']) {
-                    $errors[] = "User \"{$row['Assigned To']}\" not found. Please check the name or username.";
-                } else {
-                    $assignedUserId   = $matchedUser['id'];
-                    $assignedUserName = $matchedUser['name'];
-                }
-            }
-
-            // Week — resolve to list ID
-            $listId   = $firstListId;
-            $listName = array_search($firstListId, $boardLists) ?: 'First list';
-            if (!empty($row['Week'])) {
-                $matchedListId = null;
-                foreach ($boardLists as $name => $id) {
-                    if (strcasecmp(trim($name), trim($row['Week'])) === 0) {
-                        $matchedListId = $id;
-                        $listName = $name;
-                        break;
+                $labelParts = preg_split('/[,&+\/\n]+/', $row['Label'], -1, PREG_SPLIT_NO_EMPTY);
+                foreach ($labelParts as $lp) {
+                    $labelName = strtolower(trim($lp));
+                    if (isset($boardLabels[$labelName])) {
+                        $labelIds[] = $boardLabels[$labelName];
                     }
                 }
-                if ($matchedListId) {
-                    $listId = $matchedListId;
+                $labelId = $labelIds[0] ?? null;
+            }
+
+            // Assigned To — robust match (multi-select support)
+            $assignedUserId   = null;
+            $assignedUserName = null;
+            $assignedUserIds  = [];
+            if (!empty($row['Assigned To'])) {
+                $matchedUser = $this->resolveMembers($row['Assigned To'], $userLookup);
+                if (empty($matchedUser['ids'])) {
+                    $errors[] = "User \"{$row['Assigned To']}\" not found. Please check the name or username.";
                 } else {
-                    $warnings[] = "Week \"{$row['Week']}\" does not match any list. Card will be placed in the first list.";
-                    $listName = array_search($firstListId, $boardLists) ?: 'First list';
+                    $assignedUserId   = $matchedUser['primary_id'];
+                    $assignedUserIds  = $matchedUser['ids'];
+                    $assignedUserName = $matchedUser['resolved_name'];
+                    foreach ($matchedUser['warnings'] as $mw) {
+                        $warnings[] = $mw;
+                    }
                 }
             }
+
+            // Week — resolve to list ID (supports "Week2", "Week 2", "W2", explicit list, etc.)
+            [$listId, $listName] = $this->resolveTargetList($row['Week'] ?? '', $worksheetName, $boardLists, $firstListId, $explicitTargetListId);
 
             // Duplicate detection — same title AND same due date means a true duplicate
             $dueDateNorm  = !empty($row['Due Date']) ? (strtotime($row['Due Date']) ? date('Y-m-d', strtotime($row['Due Date'])) : '') : '';
@@ -223,24 +227,26 @@ class BoardImportController extends Controller
             else $totalInvalid++;
 
             $preview[] = [
-                'row'              => $idx + 2, // 1-indexed, +1 for header
-                'title'            => $row['Title'] ?? '',
-                'label'            => $row['Label'] ?? '',
-                'label_id'         => $labelId,
-                'description'      => $row['Description'] ?? '',
-                'due_date'         => $row['Due Date'] ?? '',
-                'start_date'       => $row['Start Date'] ?? '',
-                'assigned_to_raw'  => $row['Assigned To'] ?? '',
-                'assigned_user_id' => $assignedUserId,
-                'assigned_name'    => $assignedUserName,
-                'attachment_link'  => $row['Attachment Link'] ?? '',
-                'checklist'        => $row['Checklist'] ?? '',
-                'list_id'          => $listId,
-                'list_name'        => $listName,
-                'is_duplicate'     => $isDuplicate,
-                'valid'            => $isValid,
-                'errors'           => $errors,
-                'warnings'         => $warnings,
+                'row'               => $idx + 2, // 1-indexed, +1 for header
+                'title'             => $row['Title'] ?? '',
+                'label'             => $row['Label'] ?? '',
+                'label_id'          => $labelId,
+                'label_ids'         => $labelIds,
+                'description'       => $row['Description'] ?? '',
+                'due_date'          => $row['Due Date'] ?? '',
+                'start_date'        => $row['Start Date'] ?? '',
+                'assigned_to_raw'   => $row['Assigned To'] ?? '',
+                'assigned_user_id'  => $assignedUserId,
+                'assigned_user_ids' => $assignedUserIds,
+                'assigned_name'     => $assignedUserName,
+                'attachment_link'   => $row['Attachment Link'] ?? '',
+                'checklist'         => $row['Checklist'] ?? '',
+                'list_id'           => $listId,
+                'list_name'         => $listName,
+                'is_duplicate'      => $isDuplicate,
+                'valid'             => $isValid,
+                'errors'            => $errors,
+                'warnings'          => $warnings,
             ];
         }
 
@@ -322,62 +328,56 @@ class BoardImportController extends Controller
                 'created_by'    => auth()->id(),
             ]);
 
-            // ── 5. Label ──────────────────────────────────────────────────
-            if (!empty($row['label_id'])) {
-                $card->labels()->attach($row['label_id']);
-            } elseif (!empty($row['label'])) {
-                // Auto-create missing label
-                $newLabel = Label::firstOrCreate(
-                    ['name' => trim($row['label']), 'workspace_id' => null, 'board_id' => null],
-                    ['color' => '#10b981'] // default green
-                );
-                $card->labels()->attach($newLabel->id);
+            // ── 5. Labels (Supports multi-select) ──────────────────────────
+            $labelsToAttach = [];
+            if (!empty($row['label_ids']) && is_array($row['label_ids'])) {
+                $labelsToAttach = array_merge($labelsToAttach, $row['label_ids']);
+            } elseif (!empty($row['label_id'])) {
+                $labelsToAttach[] = $row['label_id'];
             }
-
-            // ── 6. Assignee ───────────────────────────────────────────────
-            if (!empty($row['assigned_user_id'])) {
-                $card->assignees()->attach($row['assigned_user_id'], ['assigned_at' => now()]);
-            }
-
-            // ── 7. Attachment link ────────────────────────────────────────
-            if (!empty($row['attachment_link']) && filter_var($row['attachment_link'], FILTER_VALIDATE_URL)) {
-                $linkName = $row['attachment_link'];
-                // Use a readable label like "Drive Link" for Google Drive URLs
-                if (str_contains($linkName, 'drive.google.com')) {
-                    $linkName = 'Google Drive Link';
-                } elseif (str_contains($linkName, 'docs.google.com')) {
-                    $linkName = 'Google Docs Link';
-                } else {
-                    $parsed = parse_url($row['attachment_link']);
-                    $linkName = ($parsed['host'] ?? '') ?: 'Attachment Link';
-                }
-                \App\Models\CardFile::create([
-                    'card_id'       => $card->id,
-                    'original_name' => $linkName,
-                    'stored_name'   => $linkName,
-                    'path'          => $row['attachment_link'],
-                    'mime_type'     => 'text/uri-list',
-                    'size'          => 0,
-                    'disk'          => 'url',
-                    'uploaded_by'   => auth()->id(),
-                ]);
-            }
-
-            // ── 8. Checklist ──────────────────────────────────────────────
-            if (!empty($row['checklist'])) {
-                $items = array_filter(array_map('trim', explode(';', $row['checklist'])));
-                if (!empty($items)) {
-                    $checklist = $card->checklists()->create([
-                        'title'    => 'Checklist',
-                        'position' => 1,
-                    ]);
-                    foreach ($items as $pos => $itemText) {
-                        $checklist->items()->create([
-                            'content'  => $itemText,
-                            'position' => $pos + 1,
-                        ]);
+            if (!empty($row['label'])) {
+                $labelParts = preg_split('/[,&+\/\n]+/', (string)$row['label'], -1, PREG_SPLIT_NO_EMPTY);
+                foreach ($labelParts as $lp) {
+                    $lName = trim($lp);
+                    if ($lName !== '') {
+                        $newLabel = Label::firstOrCreate(
+                            ['name' => $lName, 'workspace_id' => null, 'board_id' => null],
+                            ['color' => '#10b981']
+                        );
+                        $labelsToAttach[] = $newLabel->id;
                     }
                 }
+            }
+            if (!empty($labelsToAttach)) {
+                $card->labels()->sync(array_unique($labelsToAttach));
+            }
+
+            // ── 6. Assignees (Supports multi-select) ───────────────────────
+            $assigneesToAttach = [];
+            if (!empty($row['assigned_user_ids']) && is_array($row['assigned_user_ids'])) {
+                $assigneesToAttach = array_merge($assigneesToAttach, $row['assigned_user_ids']);
+            } elseif (!empty($row['assigned_user_id'])) {
+                $assigneesToAttach[] = $row['assigned_user_id'];
+            } elseif (!empty($row['assigned_to_raw'])) {
+                $matchedUser = $this->resolveMembers($row['assigned_to_raw'], $userLookup ?? []);
+                $assigneesToAttach = array_merge($assigneesToAttach, $matchedUser['ids']);
+            }
+            if (!empty($assigneesToAttach)) {
+                $assigneesData = [];
+                foreach (array_unique($assigneesToAttach) as $uid) {
+                    $assigneesData[$uid] = ['assigned_at' => now()];
+                }
+                $card->assignees()->sync($assigneesData);
+            }
+
+            // ── 7. Attachment links (supports named multi-links) ──────────
+            if (!empty($row['attachment_link'])) {
+                $this->attachLinksToCard($card, $row['attachment_link'], auth()->id() ?? 1);
+            }
+
+            // ── 8. Checklist (auto-creates "Status" checklist) ─────────────
+            if (!empty($row['checklist'])) {
+                $this->syncCardChecklist($card, $row['checklist']);
             }
 
             // ── 9. Activity log ───────────────────────────────────────────
@@ -421,9 +421,9 @@ class BoardImportController extends Controller
 
     /**
      * Fetch CSV data from a Google Sheets URL.
-     * Converts the share/view URL to an export URL.
+     * Supports gid, sheet tab name, and gviz CSV fallback.
      */
-    private function fetchGoogleSheetsCsv(string $url): ?string
+    private function fetchGoogleSheetsCsv(string $url, ?string $worksheetName = null): ?string
     {
         // Extract spreadsheet ID from various Google Sheets URL formats
         if (!preg_match('/\/spreadsheets\/d\/([a-zA-Z0-9\-_]+)/', $url, $matches)) {
@@ -431,25 +431,36 @@ class BoardImportController extends Controller
         }
         $sheetId = $matches[1];
 
-        // Extract optional gid (tab/sheet id)
-        $gid = null;
-        if (preg_match('/[?&]gid=(\d+)/', $url, $gidMatches)) {
-            $gid = $gidMatches[1];
+        // Extract optional gid (tab/sheet id) - supports query ?gid=, &gid=, and hash #gid=
+        $gidStr = '';
+        $gidParam = '';
+        if (preg_match('/[#&?]gid=([0-9]+)/', $url, $gidMatches)) {
+            $gidStr = '&gid=' . $gidMatches[1];
+            $gidParam = '&gid=' . $gidMatches[1];
         }
 
-        $exportUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/export?format=csv";
-        if ($gid !== null) {
-            $exportUrl .= "&gid={$gid}";
+        $sheetParam = '';
+        if (empty($gidStr) && !empty($worksheetName)) {
+            $sheetParam = '&sheet=' . urlencode($worksheetName);
         }
 
+        // Try gviz endpoint first (fastest and supports &sheet=)
         try {
-            $response = Http::timeout(15)->get($exportUrl);
-            if ($response->successful()) {
+            $csvUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/gviz/tq?tqx=out:csv{$gidStr}{$sheetParam}";
+            $response = Http::timeout(15)->get($csvUrl);
+            if ($response->successful() && !empty(trim($response->body()))) {
                 return $response->body();
             }
-        } catch (\Exception $e) {
-            // Fall through to return null
-        }
+        } catch (\Throwable $e) {}
+
+        // Fallback to standard export endpoint
+        try {
+            $exportUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/export?format=csv{$gidParam}";
+            $response = Http::timeout(15)->get($exportUrl);
+            if ($response->successful() && !empty(trim($response->body()))) {
+                return $response->body();
+            }
+        } catch (\Throwable $e) {}
 
         return null;
     }
@@ -464,7 +475,7 @@ class BoardImportController extends Controller
         fwrite($stream, $content);
         rewind($stream);
 
-        while (($data = fgetcsv($stream)) !== false) {
+        while (($data = fgetcsv($stream, null, ',', '"', '\\')) !== false) {
             if (count($data) === 1 && $data[0] === null) continue;
 
             $isEmpty = true;
@@ -490,31 +501,227 @@ class BoardImportController extends Controller
     {
         $map = [];
         foreach ($headerRow as $idx => $col) {
-            $clean = trim($col);
-            foreach (self::HEADERS as $expected) {
-                if (strcasecmp($clean, $expected) === 0) {
-                    $map[$expected] = $idx;
-                    break;
+            $clean = strtolower(trim($col));
+            if ($clean === 'attachement') $clean = 'attachment';
+            if (str_contains($clean, 'work task')) $clean = 'work task / content type';
+            if (str_contains($clean, 'content type')) $clean = 'work task / content type';
+
+            if ($clean === 'title') $map['Title'] = $idx;
+            elseif ($clean === 'label' || $clean === 'labels' || $clean === 'cluster' || $clean === 'class' || $clean === 'brand' || $clean === 'team') $map['Label'] = $idx;
+            elseif ($clean === 'description') $map['Description'] = $idx;
+            elseif ($clean === 'start date' || str_contains($clean, 'start date') || str_contains($clean, 'public date') || str_contains($clean, 'publish date')) $map['Start Date'] = $idx;
+            elseif ($clean === 'due date' || $clean === 'deadline' || $clean === 'due' || str_contains($clean, 'deadline date')) $map['Due Date'] = $idx;
+            elseif (str_contains($clean, 'assigned to') || $clean === 'assign to' || $clean === 'member' || $clean === 'assigned') $map['Assigned To'] = $idx;
+            elseif (str_contains($clean, 'assigned by') || $clean === 'assign by') $map['Assigned By'] = $idx;
+            elseif (str_contains($clean, 'attach')) $map['Attachment Link'] = $idx;
+            elseif (str_contains($clean, 'check') || $clean === 'checklist') $map['Checklist'] = $idx;
+            elseif (in_array($clean, ['weeks', 'week', 'list', 'target list', 'week list', 'target week', 'board list']) || str_contains($clean, 'week') || str_contains($clean, 'target list')) $map['Week'] = $idx;
+            else {
+                foreach (self::HEADERS as $expected) {
+                    if (strcasecmp(trim($col), $expected) === 0) {
+                        $map[$expected] = $idx;
+                        break;
+                    }
                 }
             }
         }
         return $map;
     }
 
+    /**
+     * Robust list resolution matching week number, list name, or fallback.
+     * Supports dropdowns like "Week2", "Week 2", "W2", "Week-2", etc.
+     */
+    private function resolveTargetList(?string $weeksVal, ?string $worksheetName, array $boardLists, ?int $firstListId, ?int $explicitTargetListId = null): array
+    {
+        if ($explicitTargetListId && in_array($explicitTargetListId, $boardLists)) {
+            $name = array_search($explicitTargetListId, $boardLists) ?: 'Selected list';
+            return [$explicitTargetListId, $name];
+        }
+
+        $weeksVal = trim((string)$weeksVal);
+        $worksheetName = trim((string)$worksheetName);
+
+        // 1. Try matching from row's week value (e.g. "Week2", "Week 2", "W2", "2")
+        if (!empty($weeksVal)) {
+            // Exact case-insensitive match
+            foreach ($boardLists as $name => $id) {
+                if (strcasecmp(trim($name), $weeksVal) === 0) {
+                    return [$id, $name];
+                }
+            }
+
+            // Normalized alphanumeric match (e.g. "week2" == "week2", "week-2" == "week2")
+            $normVal = preg_replace('/[^a-z0-9]/', '', strtolower($weeksVal));
+            if (!empty($normVal)) {
+                foreach ($boardLists as $name => $id) {
+                    $normListName = preg_replace('/[^a-z0-9]/', '', strtolower($name));
+                    if ($normVal === $normListName) {
+                        return [$id, $name];
+                    }
+                }
+            }
+
+            // Week number extraction (supports "Week 2", "Week2", "W2", "Week-2", "2", "Week 02")
+            if (preg_match('/(?:week|w)?\s*[\-_]?\s*(\d+)/i', $weeksVal, $m)) {
+                $weekNum = (int)$m[1];
+                foreach ($boardLists as $name => $id) {
+                    if (preg_match('/(?:week|w)\s*[\-_]?\s*' . $weekNum . '\b/i', $name)) {
+                        return [$id, $name];
+                    }
+                }
+            }
+
+            // Urgent / Priority
+            if (stripos($weeksVal, 'urgent') !== false || stripos($weeksVal, 'priority') !== false) {
+                foreach ($boardLists as $name => $id) {
+                    if (stripos($name, 'urgent') !== false || stripos($name, 'priority') !== false) {
+                        return [$id, $name];
+                    }
+                }
+            }
+        }
+
+        // 2. Try matching from worksheet name (e.g. "Week 4", "Week4-Sep", "September")
+        if (!empty($worksheetName)) {
+            foreach ($boardLists as $name => $id) {
+                if (strcasecmp(trim($name), $worksheetName) === 0) {
+                    return [$id, $name];
+                }
+            }
+
+            $normWs = preg_replace('/[^a-z0-9]/', '', strtolower($worksheetName));
+            if (!empty($normWs)) {
+                foreach ($boardLists as $name => $id) {
+                    $normListName = preg_replace('/[^a-z0-9]/', '', strtolower($name));
+                    if ($normWs === $normListName) {
+                        return [$id, $name];
+                    }
+                }
+            }
+
+            if (preg_match('/(?:week|w)\s*[\-_]?\s*(\d+)/i', $worksheetName, $m) || preg_match('/\b(?:week|w)?\s*(\d+)\b/i', $worksheetName, $m)) {
+                $weekNum = (int)$m[1];
+                foreach ($boardLists as $name => $id) {
+                    if (preg_match('/(?:week|w)\s*[\-_]?\s*' . $weekNum . '\b/i', $name)) {
+                        return [$id, $name];
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback to first list on board
+        if ($firstListId) {
+            $firstName = array_search($firstListId, $boardLists) ?: 'First list';
+            return [$firstListId, $firstName];
+        }
+
+        return [0, 'First list'];
+    }
+
     // ── Helper: Map row values to column names ────────────────────────────────
+
+    public function resolveSingleMember(string $rawName, array $userLookup): array
+    {
+        $rawName = trim($rawName);
+        if (empty($rawName) || in_array(strtolower($rawName), ['none', 'n/a', '-', 'blank', 'no member', 'unassigned'])) {
+            return ['id' => null, 'name' => null, 'warning' => null];
+        }
+
+        $cleanAlpha = fn(string $s) => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $s));
+
+        $search = strtolower($rawName);
+        if (isset($userLookup[$search])) {
+            return ['id' => $userLookup[$search]['id'], 'name' => $userLookup[$search]['name'], 'warning' => null];
+        }
+
+        // Strip honorifics & bracketed tags
+        $core = preg_replace('/^(Mr\.|Ms\.|Mrs\.|Miss|Dr\.)\s*/i', '', $rawName);
+        $core = preg_replace('/\s*\(.*?\)/', '', $core);
+        $core = preg_replace('/\s*\[.*?\]/', '', $core);
+        $core = trim(strtolower($core));
+
+        if (isset($userLookup[$core])) {
+            return ['id' => $userLookup[$core]['id'], 'name' => $userLookup[$core]['name'], 'warning' => null];
+        }
+
+        $normCore = $cleanAlpha($core);
+        if (!empty($normCore)) {
+            foreach ($userLookup as $key => $data) {
+                if ($cleanAlpha($key) === $normCore) {
+                    return ['id' => $data['id'], 'name' => $data['name'], 'warning' => null];
+                }
+            }
+        }
+
+        // Fallback whole-word / token match
+        if (strlen($core) >= 3) {
+            foreach ($userLookup as $key => $data) {
+                if (preg_match('/\b' . preg_quote($core, '/') . '\b/i', $key)) {
+                    return ['id' => $data['id'], 'name' => $data['name'], 'warning' => null];
+                }
+            }
+        }
+
+        return ['id' => null, 'name' => $rawName, 'warning' => "Member \"$rawName\" could not be matched."];
+    }
+
+    public function resolveMembers(?string $rawString, array $userLookup): array
+    {
+        $rawString = trim((string)$rawString);
+        if (empty($rawString) || in_array(strtolower($rawString), ['none', 'n/a', '-', 'blank', 'no member', 'unassigned'])) {
+            return [
+                'ids' => [],
+                'primary_id' => null,
+                'resolved_names' => [],
+                'resolved_name' => '',
+                'warnings' => [],
+            ];
+        }
+
+        $parts = preg_split('/[,&+\/\n]|(?:\band\b)/i', $rawString, -1, PREG_SPLIT_NO_EMPTY);
+        $ids = [];
+        $resolvedNames = [];
+        $warnings = [];
+
+        foreach ($parts as $p) {
+            $p = trim($p);
+            if ($p === '') continue;
+            $res = $this->resolveSingleMember($p, $userLookup);
+            if (!empty($res['id'])) {
+                if (!in_array($res['id'], $ids)) {
+                    $ids[] = $res['id'];
+                    $resolvedNames[] = $res['name'];
+                }
+            } else {
+                if (!empty($res['name']) && !in_array($res['name'], $resolvedNames)) {
+                    $resolvedNames[] = $res['name'];
+                }
+                if (!empty($res['warning'])) {
+                    $warnings[] = $res['warning'];
+                }
+            }
+        }
+
+        return [
+            'ids' => $ids,
+            'primary_id' => $ids[0] ?? null,
+            'resolved_names' => $resolvedNames,
+            'resolved_name' => implode(', ', $resolvedNames),
+            'warnings' => $warnings,
+        ];
+    }
 
     private function resolveMember($rawValue, $userLookup)
     {
-        if (empty($rawValue)) return ['id' => null, 'name' => null];
-        $search = strtolower(trim($rawValue));
-        if (isset($userLookup[$search])) return $userLookup[$search];
-        // fallback partial match
-        foreach ($userLookup as $key => $data) {
-            if (str_contains($key, $search) || str_contains($search, $key)) {
-                return $data;
-            }
-        }
-        return ['id' => null, 'name' => null];
+        $res = $this->resolveMembers($rawValue, $userLookup);
+        return [
+            'id' => $res['primary_id'],
+            'name' => $res['resolved_name'],
+            'ids' => $res['ids'],
+            'resolved_names' => $res['resolved_names'],
+            'warnings' => $res['warnings'],
+        ];
     }
 
     private function mapRow(array $rawRow, array $colMap): array
@@ -591,5 +798,187 @@ class BoardImportController extends Controller
             'cover_image'      => $card->cover_image,
             'sync_group_id'    => $card->sync_group_id,
         ];
+    }
+
+    /**
+     * Parse multi-link attachments with names.
+     */
+    public function parseAttachmentLinks(?string $raw): array
+    {
+        if (empty($raw)) return [];
+        $raw = trim($raw);
+        if ($raw === '') return [];
+
+        $lines = preg_split('/[\r\n]+/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+        $segments = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+
+            $parts = preg_split('/,\s*(?=[^,:]+:\s*|(?:https?:\/\/))/i', $line, -1, PREG_SPLIT_NO_EMPTY);
+            foreach ($parts as $p) {
+                $p = trim($p);
+                if ($p !== '') $segments[] = $p;
+            }
+        }
+
+        $results = [];
+        foreach ($segments as $seg) {
+            $name = null;
+            $url = null;
+
+            if (preg_match('/^([^:]+):\s*(.+)$/s', $seg, $m)) {
+                $nameCandidate = trim($m[1]);
+                $urlCandidate = trim($m[2]);
+
+                if (in_array(strtolower($nameCandidate), ['http', 'https'])) {
+                    $url = $seg;
+                } else {
+                    $name = $nameCandidate;
+                    $url = $urlCandidate;
+                }
+            } else {
+                $url = $seg;
+            }
+
+            $url = trim($url, " \t\n\r\0\x0B,;");
+            if (empty($url)) continue;
+
+            $cleanUrl = $url;
+            if (!preg_match('~^https?://~i', $cleanUrl)) {
+                $cleanUrl = 'https://' . ltrim($cleanUrl, '/');
+            }
+
+            if (empty($name)) {
+                if (str_contains($cleanUrl, 'drive.google.com')) {
+                    $name = 'Google Drive Link';
+                } elseif (str_contains($cleanUrl, 'docs.google.com')) {
+                    $name = 'Google Docs Link';
+                } elseif (str_contains($cleanUrl, 'canva.com')) {
+                    $name = 'Canva Design';
+                } else {
+                    $parsed = parse_url($cleanUrl);
+                    $host = $parsed['host'] ?? '';
+                    $name = !empty($host) ? $host : 'Attachment Link';
+                }
+            }
+
+            $results[] = [
+                'name' => $name,
+                'url' => $cleanUrl,
+                'raw_url' => $url,
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
+     * Attach parsed links to the card and any synced twin cards in sync_group_id.
+     */
+    public function attachLinksToCard(Card $card, ?string $rawAttachment, int $uploaderId): void
+    {
+        if (empty($rawAttachment)) return;
+
+        $links = $this->parseAttachmentLinks($rawAttachment);
+        if (empty($links)) return;
+
+        $cardsToAttach = [$card];
+        if ($card->sync_group_id) {
+            $siblings = Card::where('sync_group_id', $card->sync_group_id)
+                ->where('id', '!=', $card->id)
+                ->get();
+            foreach ($siblings as $s) {
+                $cardsToAttach[] = $s;
+            }
+        }
+
+        foreach ($cardsToAttach as $targetCard) {
+            foreach ($links as $link) {
+                $url = $link['url'];
+                $name = $link['name'];
+
+                $exists = CardFile::where('card_id', $targetCard->id)
+                    ->where(function($q) use ($url, $link, $name) {
+                        $q->where('path', $url)
+                          ->orWhere('path', $link['raw_url'])
+                          ->orWhere(function($sub) use ($name, $url) {
+                              $sub->where('original_name', $name)->where('path', $url);
+                          });
+                    })
+                    ->exists();
+
+                if (!$exists) {
+                    CardFile::create([
+                        'card_id'       => $targetCard->id,
+                        'disk'          => 'url',
+                        'path'          => $url,
+                        'original_name' => $name,
+                        'stored_name'   => $name,
+                        'mime_type'     => 'link',
+                        'size'          => 0,
+                        'uploaded_by'   => $uploaderId,
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Auto-create or synchronize "Status" checklist with given items on card and twin cards.
+     */
+    public function syncCardChecklist(Card $card, ?string $rawChecklist): void
+    {
+        if (empty($rawChecklist)) return;
+
+        $items = preg_split('/[,;\r\n]+/', (string)$rawChecklist, -1, PREG_SPLIT_NO_EMPTY);
+        $items = array_values(array_unique(array_filter(array_map('trim', $items), fn($i) => $i !== '')));
+        if (empty($items)) return;
+
+        $cardsToSync = [$card];
+        if ($card->sync_group_id) {
+            $siblings = Card::where('sync_group_id', $card->sync_group_id)
+                ->where('id', '!=', $card->id)
+                ->get();
+            foreach ($siblings as $s) {
+                $cardsToSync[] = $s;
+            }
+        }
+
+        foreach ($cardsToSync as $c) {
+            $checklist = CardChecklist::where('card_id', $c->id)
+                ->where(function($q) {
+                    $q->where('title', 'Status')->orWhere('title', 'Checklist');
+                })
+                ->first();
+
+            if (!$checklist) {
+                $maxPos = CardChecklist::where('card_id', $c->id)->max('position') ?? 0;
+                $checklist = CardChecklist::create([
+                    'card_id'  => $c->id,
+                    'title'    => 'Status',
+                    'position' => $maxPos + 1,
+                ]);
+            } elseif ($checklist->title !== 'Status') {
+                $checklist->update(['title' => 'Status']);
+            }
+
+            $existingItemContents = $checklist->items()->pluck('content')->map(fn($txt) => strtolower(trim($txt)))->toArray();
+            $itemPos = $checklist->items()->max('position') ?? 0;
+
+            foreach ($items as $itemText) {
+                if (!in_array(strtolower($itemText), $existingItemContents)) {
+                    $itemPos++;
+                    $checklist->items()->create([
+                        'content'          => $itemText,
+                        'position'         => $itemPos,
+                        'is_completed'     => false,
+                        'assigned_user_id' => \App\Models\CardChecklistItem::detectUserIdForCard($itemText, $c),
+                    ]);
+                    $existingItemContents[] = strtolower($itemText);
+                }
+            }
+        }
     }
 }

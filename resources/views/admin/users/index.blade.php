@@ -81,12 +81,21 @@
       <div class="flex-1 min-w-[200px]">
         <label class="form-label text-xs">Search</label>
         <div class="relative">
-          <input type="search" id="users-search" name="users_search_fake" x-model="search" placeholder="Name or email…"
+          <input type="text" id="users-search" x-model="search" placeholder="Search by name or username..."
               class="form-input pl-9 py-2 text-sm"
-              autocomplete="off" data-lpignore="true" data-1p-ignore
+              autocomplete="new-password"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              data-lpignore="true"
+              data-1p-ignore
+              data-form-type="other"
+              readonly
+              onfocus="this.removeAttribute('readonly');"
+              @keydown="userTypedSearch = true"
               @input="applyFilters()">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
-          <button type="button" x-show="search" @click="search=''; applyFilters()" x-cloak
+          <button type="button" x-show="search" @click="search=''; userTypedSearch = false; applyFilters()" x-cloak
               class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
           </button>
@@ -245,41 +254,43 @@
     </div>
   </div>
 
-  {{-- Reset Password Modal --}}
-  <div x-show="showResetModal" x-cloak class="modal-overlay" @keydown.escape.window="showResetModal=false">
-    <div class="modal-box max-w-sm" @click.stop>
-      <div class="modal-header">
-        <h3 class="font-display font-bold text-slate-800">Reset Password</h3>
-        <button @click="showResetModal=false" class="btn btn-secondary btn-icon ml-auto">✕</button>
-      </div>
-      <div class="p-6 space-y-3">
-        <div>
-          <label class="form-label">New Password</label>
-          <div class="relative">
-            <input :type="showResetNew ? 'text' : 'password'" x-model="resetPassword" class="form-input pr-10" placeholder="Min 8 chars, mixed case + number">
-            <button type="button" @click="showResetNew = !showResetNew" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
-              <svg x-show="!showResetNew" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-              <svg x-show="showResetNew" x-cloak class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-            </button>
+  {{-- Reset Password Modal (Rendered only on-demand to prevent browser password autofill) --}}
+  <template x-if="showResetModal">
+    <div class="modal-overlay" @keydown.escape.window="showResetModal=false">
+      <div class="modal-box max-w-sm" @click.stop>
+        <div class="modal-header">
+          <h3 class="font-display font-bold text-slate-800">Reset Password</h3>
+          <button type="button" @click="showResetModal=false" class="btn btn-secondary btn-icon ml-auto">✕</button>
+        </div>
+        <form @submit.prevent="submitResetPassword()" autocomplete="off" class="p-6 space-y-3">
+          <div>
+            <label class="form-label">New Password</label>
+            <div class="relative">
+              <input :type="showResetNew ? 'text' : 'password'" x-model="resetPassword" class="form-input pr-10" placeholder="Min 8 chars, mixed case + number" autocomplete="new-password">
+              <button type="button" @click="showResetNew = !showResetNew" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
+                <svg x-show="!showResetNew" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <svg x-show="showResetNew" x-cloak class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+              </button>
+            </div>
           </div>
-        </div>
-        <div>
-          <label class="form-label">Confirm Password</label>
-          <div class="relative">
-            <input :type="showResetConfirm ? 'text' : 'password'" x-model="resetPasswordConfirm" class="form-input pr-10" placeholder="Repeat password">
-            <button type="button" @click="showResetConfirm = !showResetConfirm" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
-              <svg x-show="!showResetConfirm" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-              <svg x-show="showResetConfirm" x-cloak class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-            </button>
+          <div>
+            <label class="form-label">Confirm Password</label>
+            <div class="relative">
+              <input :type="showResetConfirm ? 'text' : 'password'" x-model="resetPasswordConfirm" class="form-input pr-10" placeholder="Repeat password" autocomplete="new-password">
+              <button type="button" @click="showResetConfirm = !showResetConfirm" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
+                <svg x-show="!showResetConfirm" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <svg x-show="showResetConfirm" x-cloak class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+              </button>
+            </div>
           </div>
-        </div>
-        <div class="flex gap-3 pt-2">
-          <button @click="showResetModal=false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
-          <button @click="submitResetPassword()" class="btn btn-primary flex-1">Reset</button>
-        </div>
+          <div class="flex gap-3 pt-2">
+            <button type="button" @click="showResetModal=false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
+            <button type="submit" class="btn btn-primary flex-1">Reset</button>
+          </div>
+        </form>
       </div>
     </div>
-  </div>
+  </template>
 
   {{-- Avatar Fullscreen Preview --}}
   <div x-show="avatarPreview.open"
@@ -326,9 +337,30 @@ function userManager() {
     },
     // Filter states
     search: '',
+    userTypedSearch: false,
     filterRole: '',
     filterStatus: '',
     visibleCount: {{ count($users) }},
+
+    init() {
+      // Force clear any browser autofill on load
+      this.search = '';
+      const input = document.getElementById('users-search');
+      if (input) input.value = '';
+      this.applyFilters();
+
+      // Clear any asynchronous password manager or browser autofill
+      [50, 150, 350, 700, 1200].forEach(delay => {
+        setTimeout(() => {
+          const currentVal = input ? input.value : this.search;
+          if (currentVal && !this.userTypedSearch) {
+            this.search = '';
+            if (input) input.value = '';
+            this.applyFilters();
+          }
+        }, delay);
+      });
+    },
 
     applyFilters() {
       // Allow Alpine to update the DOM first (x-show applies style="display:none")

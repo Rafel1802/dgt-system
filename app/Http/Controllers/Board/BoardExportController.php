@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Workspace;
 use App\Models\Board;
 use App\Models\Card;
+use App\Models\User;
 use App\Enums\CardStatus;
 use App\Enums\CardPriority;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -277,7 +278,7 @@ class BoardExportController extends Controller
 
         foreach ($workspaces as $workspace) {
             $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($user) {
-                $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
+                $isQc = $user->isQc();
                 $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
 
                 if ($isBypassed) {
@@ -291,7 +292,7 @@ class BoardExportController extends Controller
             }));
         }
 
-        $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
+        $isQc = $user->isQc();
         $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
         if (!$isBypassed && $user->hasRole('digital-team')) {
             $workspaces = $workspaces->filter(function ($ws) {
@@ -305,16 +306,25 @@ class BoardExportController extends Controller
     /**
      * Apply request filters and return a card query.
      */
-    private function getFilteredCardsQuery(Request $request, ?Board $board = null)
+    private function getFilteredCardsQuery(Request $request, ?Board $board = null, ?User $targetUser = null)
     {
         $boardIds = [];
         if ($board) {
             $boardIds = [$board->id];
         }
         
+        $targetUser = $targetUser ?? auth()->user();
+        if ($targetUser && ($targetUser->isSupervisorRole() || $targetUser->hasAnyRole(['super-admin', 'admin-digital', 'admin'])) && $request->filled('reviewer_id')) {
+            $reviewer = \App\Models\User::find($request->input('reviewer_id'));
+            if ($reviewer) $targetUser = $reviewer;
+        } elseif ($targetUser && ($targetUser->isSupervisorRole() || $targetUser->hasAnyRole(['super-admin', 'admin-digital', 'admin'])) && $request->filled('user_id')) {
+            $reviewer = \App\Models\User::find($request->input('user_id'));
+            if ($reviewer) $targetUser = $reviewer;
+        }
+
         if ($request->has('board_ids') && is_array($request->board_ids)) {
             $requestedIds = array_map('intval', $request->board_ids);
-            $user = auth()->user();
+            $user = $targetUser ?? auth()->user();
             
             $boardsToCheck = Board::whereIn('id', $requestedIds)->with(['workspace', 'members'])->get();
             
@@ -352,7 +362,7 @@ class BoardExportController extends Controller
         $isQcPersonalExport = ($request->boolean('is_personal_report', false)
             || str_contains(request()->path(), 'personal-report')
             || request()->routeIs('*.personal.export', 'reports.personal.export', 'boards.reports.personal.export'))
-            && auth()->user()?->isQc();
+            && $targetUser?->isQc();
 
         if (empty($boardIds)) {
             if ($isQcPersonalExport) {
@@ -375,7 +385,7 @@ class BoardExportController extends Controller
             || request()->routeIs('*.personal.export')
             || request()->routeIs('reports.personal.export')
             || request()->routeIs('boards.reports.personal.export');
-        $currentUser = auth()->user();
+        $currentUser = $targetUser ?? auth()->user();
         if ($request->boolean('include_comments', false)) {
             $query->with(['comments' => function($q) {
                 $q->where('is_system', false)->orderBy('created_at', 'asc');
@@ -387,7 +397,14 @@ class BoardExportController extends Controller
                 // that assignActivityDates needs for QC timestamp calculation.
                 $q->where('user_id', $qcUserId)
                   ->where('is_system', false)
-                  ->whereRaw("LOWER(content) LIKE '%qc%approve%'")
+                  ->where(function($sub) {
+                      $sub->whereRaw("LOWER(content) LIKE '%qc%approve%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%production%approve%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%production approved%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%production approved smm%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%head%approve%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%approved%smm%'");
+                  })
                   ->orderBy('created_at', 'asc');
             }]);
         }
@@ -464,11 +481,47 @@ class BoardExportController extends Controller
             $query->where('user_id', $assignById);
         }
 
-        // 2c. Label Filtering
-        if ($request->filled('label_id') && $request->label_id !== 'all') {
-            $labelId = (int)$request->label_id;
-            $query->whereHas('labels', function($q) use ($labelId) {
-                $q->where('labels.id', $labelId);
+        // 2c. Label Filtering (Single or Multi-select)
+        $labelIds = [];
+        if ($request->has('label_ids')) {
+            $raw = $request->input('label_ids');
+            $labelIds = is_array($raw) ? $raw : explode(',', $raw);
+        } elseif ($request->has('labels')) {
+            $raw = $request->input('labels');
+            $labelIds = is_array($raw) ? $raw : explode(',', $raw);
+        } elseif ($request->filled('label_id') && $request->label_id !== 'all') {
+            $labelIds = [$request->label_id];
+        }
+
+        $labelIds = array_values(array_filter($labelIds, fn($val) => !empty($val) && $val !== 'all'));
+
+        if (!empty($labelIds)) {
+            $numericIds = array_map('intval', array_filter($labelIds, fn($v) => is_numeric($v)));
+            $nameIds = array_values(array_filter($labelIds, fn($v) => !is_numeric($v)));
+
+            // If names were passed (e.g. 'Graphic', 'Video'), resolve any matching label IDs as well
+            if (!empty($nameIds)) {
+                $foundIds = \App\Models\Label::whereIn('name', $nameIds)->pluck('id')->all();
+                $numericIds = array_unique(array_merge($numericIds, $foundIds));
+            }
+            if (!empty($numericIds)) {
+                $resolvedNames = \App\Models\Label::whereIn('id', $numericIds)->pluck('name')->all();
+                $nameIds = array_unique(array_merge($nameIds, $resolvedNames));
+            }
+
+            $query->where(function($masterQ) use ($numericIds, $nameIds) {
+                if (!empty($numericIds)) {
+                    $masterQ->whereHas('labels', function($q) use ($numericIds) {
+                        $q->whereIn('labels.id', $numericIds);
+                    });
+                }
+                if (!empty($nameIds)) {
+                    $masterQ->orWhere(function($orQ) use ($nameIds) {
+                        foreach ($nameIds as $name) {
+                            $orQ->orWhere('cards.label', 'like', "%{$name}%");
+                        }
+                    });
+                }
             });
         }
 
@@ -514,35 +567,90 @@ class BoardExportController extends Controller
             });
         }
 
-        // 4. Role-based QC / Supervisor Personal Report Filtering
         // 4. Role-based QC / Supervisor Personal Report filtering
         if ($isPersonalExport) {
-            $user = auth()->user();
+            $user = $targetUser ?? auth()->user();
 
-            if ($user->isQc()) {
-                // QC Personal Report scope:
-                //  • ONLY cards where THIS QC user has commented "QC approved" within the selected date range
+            if ($user && $user->isQc()) {
+                // QC / Production Lead Personal Report scope:
+                //  • ONLY cards where THIS QC user has commented approval within the selected date range
                 //  • System-generated comments are excluded to avoid false positives
                 $userId = $user->id;
+                $uName = strtolower($user->name ?? '');
+                $uUsername = strtolower($user->username ?? '');
+                $isDara = str_contains($uUsername, 'dara') || str_contains($uName, 'dara') || in_array($user->id, [12, 24]);
+                $isKim = str_contains($uUsername, 'kim') || str_contains($uName, 'kim') || $user->id === 13;
+
+                // STRICT TEAM SEPARATION: Ensure no confused counts between Mr. Kim and Mr. Dara
+                if ($isDara) {
+                    // Mr. Dara leads Team A: exclude boards that are specifically Team B (and NOT also Team A)
+                    $query->whereDoesntHave('board', function($b) {
+                        $b->where(function($sub) {
+                            $sub->whereRaw("(LOWER(name) LIKE '%team b%' OR LOWER(name) LIKE '%teamb%' OR LOWER(name) LIKE '%team-b%')")
+                                ->whereRaw("(LOWER(name) NOT LIKE '%team a%' AND LOWER(name) NOT LIKE '%teama%' AND LOWER(name) NOT LIKE '%team-a%' AND LOWER(name) NOT LIKE '%& b%' AND LOWER(name) NOT LIKE '%&b%')");
+                        });
+                    });
+                    $query->whereDoesntHave('boardList', function($bl) {
+                        $bl->whereRaw("(LOWER(name) LIKE '%team b%' OR LOWER(name) LIKE '%teamb%') AND LOWER(name) NOT LIKE '%team a%'");
+                    });
+                    // Exclude cards designated specifically for Team B
+                    $query->where(function($q) {
+                        $q->whereNull('team')
+                          ->orWhere('team', '!=', 'B')
+                          ->orWhere('team', 'Both');
+                    });
+                } elseif ($isKim) {
+                    // Mr. Kim leads Team B: exclude boards that are specifically Team A (and NOT also Team B)
+                    $query->whereDoesntHave('board', function($b) {
+                        $b->where(function($sub) {
+                            $sub->whereRaw("(LOWER(name) LIKE '%team a%' OR LOWER(name) LIKE '%teama%' OR LOWER(name) LIKE '%team-a%')")
+                                ->whereRaw("(LOWER(name) NOT LIKE '%team b%' AND LOWER(name) NOT LIKE '%teamb%' AND LOWER(name) NOT LIKE '%team-b%' AND LOWER(name) NOT LIKE '%& b%' AND LOWER(name) NOT LIKE '%&b%')");
+                        });
+                    });
+                    $query->whereDoesntHave('boardList', function($bl) {
+                        $bl->whereRaw("(LOWER(name) LIKE '%team a%' OR LOWER(name) LIKE '%teama%') AND LOWER(name) NOT LIKE '%team b%'");
+                    });
+                    // Exclude cards designated specifically for Team A
+                    $query->where(function($q) {
+                        $q->whereNull('team')
+                          ->orWhere('team', '!=', 'A')
+                          ->orWhere('team', 'Both');
+                    });
+                }
+
                 $query->where(function($q) use ($userId, $startDate, $endDate) {
                     $q->whereHas('comments', function($qc) use ($userId, $startDate, $endDate) {
                         $qc->where('user_id', $userId)
-                           ->where('is_system', false)  // Exclude auto-generated comments that may contain "qc approved"
-                           ->whereRaw("LOWER(content) LIKE '%qc%approve%'");
+                           ->where('is_system', false)  // Exclude auto-generated comments
+                           ->where(function($sub) {
+                               $sub->whereRaw("LOWER(content) LIKE '%qc%approve%'")
+                                   ->orWhereRaw("LOWER(content) LIKE '%production%approve%'")
+                                   ->orWhereRaw("LOWER(content) LIKE '%production approved%'")
+                                   ->orWhereRaw("LOWER(content) LIKE '%production approved smm%'")
+                                   ->orWhereRaw("LOWER(content) LIKE '%head%approve%'")
+                                   ->orWhereRaw("LOWER(content) LIKE '%approved%smm%'");
+                           });
                         if (isset($startDate)) $qc->where('created_at', '>=', $startDate);
                         if (isset($endDate)) $qc->where('created_at', '<=', $endDate);
                     });
                 });
 
-                // Eager-load QC approved comments by this user to support revision counting
+                // Eager-load QC / Production approved comments strictly by THIS user to support revision counting
                 $query->with(['qcApprovalComments' => function($q) use ($userId) {
                     $q->where('user_id', $userId)
                       ->where('is_system', false)
-                      ->whereRaw("LOWER(content) LIKE '%qc%approve%'")
+                      ->where(function($sub) {
+                          $sub->whereRaw("LOWER(content) LIKE '%qc%approve%'")
+                              ->orWhereRaw("LOWER(content) LIKE '%production%approve%'")
+                              ->orWhereRaw("LOWER(content) LIKE '%production approved%'")
+                              ->orWhereRaw("LOWER(content) LIKE '%production approved smm%'")
+                              ->orWhereRaw("LOWER(content) LIKE '%head%approve%'")
+                              ->orWhereRaw("LOWER(content) LIKE '%approved%smm%'");
+                      })
                       ->orderBy('created_at');
                 }]);
 
-            } elseif ($user->isSupervisorRole()) {
+            } elseif ($user && $user->isSupervisorRole()) {
                 // Supervisor Personal Report scope:
                 //  • Cards moved from Supervisor to Approved list
                 //  • Cards moved from Supervisor to Blocked list
@@ -566,8 +674,9 @@ class BoardExportController extends Controller
         return $query;
     }
 
-    private function assignActivityDates($cards, $startDate, $endDate, $isPersonalExport, $isQc)
+    private function assignActivityDates($cards, $startDate, $endDate, $isPersonalExport, $isQc, ?User $targetUser = null)
     {
+        $targetUser = $targetUser ?? auth()->user();
         foreach ($cards as $card) {
             $activityDate = null;
             
@@ -575,11 +684,19 @@ class BoardExportController extends Controller
             $timestamps = collect();
 
             if ($isPersonalExport && $isQc) {
-                // For QC Personal Report, ONLY look at "QC approved" comments by this user
-                $userId = auth()->id();
+                // For QC / Production Personal Report, ONLY look at approved comments by this user
+                $userId = $targetUser?->id ?? auth()->id();
                 foreach ($card->comments as $comment) {
                     $cText = strtolower($comment->content ?? $comment->body ?? '');
-                    if ($comment->user_id === $userId && (str_contains($cText, 'qc approved') || str_contains($cText, 'qc  approved') || (str_contains($cText, 'qc') && str_contains($cText, 'approve')))) {
+                    $isApprovedComment = str_contains($cText, 'qc approved')
+                        || str_contains($cText, 'production approved')
+                        || str_contains($cText, 'production approved smm')
+                        || str_contains($cText, 'head approved')
+                        || str_contains($cText, 'approved smm')
+                        || (str_contains($cText, 'production') && str_contains($cText, 'approve'))
+                        || (str_contains($cText, 'qc') && str_contains($cText, 'approve'));
+
+                    if ($comment->user_id === $userId && $isApprovedComment) {
                         $timestamps->push($comment->created_at);
                     }
                 }
@@ -695,7 +812,8 @@ class BoardExportController extends Controller
             
             // Completed date from pre-fetched ActivityLog collection
             $completedDate = null;
-            $isApproved = $c->status === \App\Enums\CardStatus::Approved || $c->status === \App\Enums\CardStatus::Done || stripos($listName, 'Approved') !== false;
+            $statusVal = $c->status instanceof \BackedEnum ? $c->status->value : (string)($c->status ?? '');
+            $isApproved = $c->status === \App\Enums\CardStatus::Approved || $c->status === \App\Enums\CardStatus::Done || in_array(strtolower($statusVal), ['approved', 'done']) || stripos($listName, 'Approved') !== false;
             if ($isApproved) {
                 $cardLogs = $logsByCard->get($c->id, collect());
                 $log = $cardLogs->first(function($l) {
@@ -796,7 +914,7 @@ class BoardExportController extends Controller
             } else {
                 foreach ($assignees as $u) {
                     if (!isset($memberStats[$u->name])) {
-                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0];
+                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'user' => $u];
                     }
                     if (($c->status === CardStatus::Done || $c->status === CardStatus::Approved) && !$c->is_archived) {
                         $memberStats[$u->name]['completed']++;
@@ -929,7 +1047,7 @@ class BoardExportController extends Controller
             } else {
                 foreach ($assignees as $u) {
                     if (!isset($memberStats[$u->name])) {
-                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'team_role' => $u->team_role ?? 'ZZ_Other'];
+                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'team_role' => $u->team_role ?? 'ZZ_Other', 'user' => $u];
                     }
                     if (($c->status === CardStatus::Done || $c->status === CardStatus::Approved) && !$c->is_archived) {
                         $memberStats[$u->name]['completed']++;
@@ -1086,7 +1204,11 @@ class BoardExportController extends Controller
         foreach ($workspaces as $workspace) {
             $filteredBoards = $workspace->boards->filter(function ($board) {
                 $name = strtolower($board->name ?? '');
-                return str_contains($name, 'workflow') && !str_contains($name, 'planning');
+                $isWorkflow = str_contains($name, 'workflow')
+                    || ($board->type ?? '') === 'workflow'
+                    || str_contains($name, 'team a')
+                    || str_contains($name, 'team b');
+                return $isWorkflow && !str_contains($name, 'planning') && ($board->type ?? '') !== 'planning' && ($board->type ?? '') !== 'smm';
             })->values();
 
             $workspace->setRelation('boards', $filteredBoards);
@@ -1115,12 +1237,53 @@ class BoardExportController extends Controller
 
         abort_unless(auth()->user()->isQcOrSupervisor(), 403, 'Unauthorized access to personal reports.');
 
-        $cards = $this->getFilteredCardsQuery($request, null)->get();
+        $targetUser = auth()->user();
+        if ($request->filled('reviewer_id')) {
+            $reviewer = \App\Models\User::find($request->input('reviewer_id'));
+            if ($reviewer) $targetUser = $reviewer;
+        } elseif ($request->filled('user_id')) {
+            $reviewer = \App\Models\User::find($request->input('user_id'));
+            if ($reviewer) $targetUser = $reviewer;
+        }
 
-        if (auth()->user()?->isQc()) {
+        $cards = $this->getFilteredCardsQuery($request, null, $targetUser)->get();
+
+        if ($targetUser?->isQc()) {
+            $uName = strtolower($targetUser->name ?? '');
+            $uUsername = strtolower($targetUser->username ?? '');
+            $isDara = str_contains($uUsername, 'dara') || str_contains($uName, 'dara') || in_array($targetUser->id, [12, 24]);
+            $isKim = str_contains($uUsername, 'kim') || str_contains($uName, 'kim') || $targetUser->id === 13;
+
             // Deduplicate twin cards across synced boards (e.g. Workflow, Planning, and SMM boards)
-            // Always prefer the Workflow board card so it has the correct list ('Approved') and assignee
-            $cards = $cards->groupBy(fn($c) => $c->sync_group_id ?: ('card_' . $c->id))->map(function($group) {
+            // Ensure no confusion: Mr. Dara prioritizes Team A boards/lists, Mr. Kim prioritizes Team B boards/lists!
+            $cards = $cards->groupBy(fn($c) => $c->sync_group_id ?: ('card_' . $c->id))->map(function($group) use ($isDara, $isKim) {
+                if ($isDara) {
+                    $preferred = $group->first(fn($c) => 
+                        stripos($c->board?->name ?? '', 'team a') !== false 
+                        || stripos($c->boardList?->name ?? '', 'team a') !== false
+                        || strtoupper($c->team ?? '') === 'A'
+                    );
+                    if ($preferred) return $preferred;
+                    $nonTeamB = $group->first(fn($c) => 
+                        stripos($c->board?->name ?? '', 'team b') === false 
+                        && stripos($c->boardList?->name ?? '', 'team b') === false
+                        && strtoupper($c->team ?? '') !== 'B'
+                    );
+                    if ($nonTeamB) return $nonTeamB;
+                } elseif ($isKim) {
+                    $preferred = $group->first(fn($c) => 
+                        stripos($c->board?->name ?? '', 'team b') !== false 
+                        || stripos($c->boardList?->name ?? '', 'team b') !== false
+                        || strtoupper($c->team ?? '') === 'B'
+                    );
+                    if ($preferred) return $preferred;
+                    $nonTeamA = $group->first(fn($c) => 
+                        stripos($c->board?->name ?? '', 'team a') === false 
+                        && stripos($c->boardList?->name ?? '', 'team a') === false
+                        && strtoupper($c->team ?? '') !== 'A'
+                    );
+                    if ($nonTeamA) return $nonTeamA;
+                }
                 return $group->first(fn($c) => stripos($c->board?->name ?? '', 'workflow') !== false) ?? $group->first();
             })->values();
         }
@@ -1167,23 +1330,29 @@ class BoardExportController extends Controller
             }
         }
 
-        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, true, auth()->user()->isQc());
+        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, true, $targetUser->isQc(), $targetUser);
 
         if ($format === 'csv') {
             // A card is "completed" when physically in a list named "Approved" (Supervisor approved it).
             // The `status` field is NOT reliable — all cards keep status='todo' even after being moved.
-            $isCompleted = fn($c) => !$c->is_archived
-                && stripos($c->boardList?->name ?? '', 'Approved') !== false;
+            $isCompleted = function($c) {
+                if ($c->is_archived) return false;
+                $statusVal = $c->status instanceof \BackedEnum ? $c->status->value : (string)($c->status ?? '');
+                return stripos($c->boardList?->name ?? '', 'Approved') !== false 
+                    || $c->status === \App\Enums\CardStatus::Approved 
+                    || in_array(strtolower($statusVal), ['approved', 'done']);
+            };
 
             $totalTasks    = $cards->count();
             $completedTasks = $cards->filter($isCompleted)->count();
             $archivedTasks  = $cards->filter(fn($c) => $c->is_archived)->count();
             $pendingTasks   = $totalTasks - $completedTasks - $archivedTasks;
 
-            // For QC report: errors = cards that required revisions (had to be QC approved more than once)
+            // For QC report: errors = cards that required revisions (had to be QC approved more than once by this reviewer)
             // For Supervisor report: errors = cards with rejection_reason or Rejected status
-            if (auth()->user()->isQc()) {
-                $errorTasks = $cards->filter(fn($c) => ($c->qcApprovalComments?->count() ?? 0) > 1)->count();
+            if ($targetUser->isQc()) {
+                $reviewerId = $targetUser->id;
+                $errorTasks = $cards->filter(fn($c) => ($c->qcApprovalComments?->where('user_id', $reviewerId)->count() ?? 0) > 1)->count();
             } else {
                 $errorTasks = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
             }
@@ -1211,7 +1380,7 @@ class BoardExportController extends Controller
                 } else {
                     foreach ($assignees as $u) {
                         if (!isset($memberStats[$u->name])) {
-                            $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0];
+                            $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'user' => $u];
                         }
                         $done ? $memberStats[$u->name]['completed']++ : $memberStats[$u->name]['pending']++;
                         $memberStats[$u->name]['total']++;
@@ -1260,18 +1429,24 @@ class BoardExportController extends Controller
         // PDF Consolidated Report
         // A card is "completed" when physically in a list named "Approved" (Supervisor approved it).
         // The `status` field is NOT reliable — all cards keep status='todo' even after being moved.
-        $isCompleted = fn($c) => !$c->is_archived
-            && stripos($c->boardList?->name ?? '', 'Approved') !== false;
+        $isCompleted = function($c) {
+            if ($c->is_archived) return false;
+            $statusVal = $c->status instanceof \BackedEnum ? $c->status->value : (string)($c->status ?? '');
+            return stripos($c->boardList?->name ?? '', 'Approved') !== false 
+                || $c->status === \App\Enums\CardStatus::Approved 
+                || in_array(strtolower($statusVal), ['approved', 'done']);
+        };
 
         $totalTasks    = $cards->count();
         $completedTasks = $cards->filter($isCompleted)->count();
         $archivedTasks  = $cards->filter(fn($c) => $c->is_archived)->count();
         $pendingTasks   = $totalTasks - $completedTasks - $archivedTasks;
 
-        // For QC report: errors = cards that required revisions (had to be QC approved more than once)
+        // For QC report: errors = cards that required revisions (had to be QC approved more than once by this reviewer)
         // For Supervisor report: errors = cards with rejection_reason or Rejected status
-        if (auth()->user()->isQc()) {
-            $errorTasks = $cards->filter(fn($c) => ($c->qcApprovalComments?->count() ?? 0) > 1)->count();
+        if ($targetUser->isQc()) {
+            $reviewerId = $targetUser->id;
+            $errorTasks = $cards->filter(fn($c) => ($c->qcApprovalComments?->where('user_id', $reviewerId)->count() ?? 0) > 1)->count();
         } else {
             $errorTasks = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
         }
@@ -1300,7 +1475,7 @@ class BoardExportController extends Controller
             } else {
                 foreach ($assignees as $u) {
                     if (!isset($memberStats[$u->name])) {
-                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'team_role' => $u->team_role ?? 'ZZ_Other'];
+                        $memberStats[$u->name] = ['completed' => 0, 'pending' => 0, 'total' => 0, 'team_role' => $u->team_role ?? 'ZZ_Other', 'user' => $u];
                     }
                     $done ? $memberStats[$u->name]['completed']++ : $memberStats[$u->name]['pending']++;
                     $memberStats[$u->name]['total']++;
@@ -1334,7 +1509,7 @@ class BoardExportController extends Controller
         }
 
         $copyText = '';
-        if (auth()->user()->isQc()) {
+        if ($targetUser->isQc()) {
             $groupedByLabel = [];
             foreach ($cards as $c) {
                 if ($c->is_archived) continue;
@@ -1366,10 +1541,27 @@ class BoardExportController extends Controller
             $copyText .= "Total: " . $count . "\n";
         }
 
+        $reportTitle = 'Personal Consolidated Report';
+        $currUser = $targetUser;
+        if ($currUser) {
+            $uName = strtolower($currUser->name ?? '');
+            $uUsername = strtolower($currUser->username ?? '');
+            if (str_contains($uUsername, 'dara') || str_contains($uName, 'dara')) {
+                $reportTitle = 'Production Team A Checking Report';
+            } elseif (str_contains($uUsername, 'kim') || str_contains($uName, 'kim')) {
+                $reportTitle = 'Production Team B Checking Report';
+            } elseif ($currUser->isQc()) {
+                $reportTitle = 'Production Checking Report';
+            } elseif ($currUser->isSupervisorRole()) {
+                $reportTitle = 'Supervisor Personal Report';
+            }
+        }
+
         $smmData = $this->prepareSmmExportData($cards, null);
 
         return view('boards.export-pdf', [
             'board'         => null, // Consolidated report has no single board context
+            'reportTitle'   => $reportTitle,
             'cards'         => $cards,
             'groupedCards'  => $smmData['groupedCards'],
             'period'        => $period,
@@ -1385,8 +1577,8 @@ class BoardExportController extends Controller
             'includeDesc'   => $includeDesc,
             'includeComments'=> $includeComments,
             'exportDate'    => now()->format('M d, Y g:i A'),
-            // QC-specific: show revision count column
-            'isQcReport'    => auth()->user()->isQc(),
+            // QC/Production-specific: show revision count column
+            'isQcReport'    => $targetUser->isQc(),
             'reportUrl'     => request()->fullUrl(),
             'startDate'     => $filterStartDate ?? null,
             'endDate'       => $filterEndDate ?? null,

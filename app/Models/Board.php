@@ -115,7 +115,14 @@ class Board extends Model
     public function backgroundStyle(): string
     {
         if ($this->background_type === 'image' && $this->background_value) {
-            return "background-image: url('{$this->background_value}'); background-color: #6366f1; background-size: cover; background-position: center;";
+            $url = $this->background_value;
+            if (str_starts_with($url, '/public/')) {
+                $url = substr($url, 7);
+            }
+            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                $url = asset(ltrim($url, '/'));
+            }
+            return "background-image: url('{$url}'); background-color: #6366f1; background-size: cover; background-position: center;";
         }
         if ($this->background_type === 'color' && $this->background_value) {
             return "background-color: {$this->background_value};";
@@ -123,13 +130,78 @@ class Board extends Model
         return 'background-color: #6366f1;'; // Default indigo
     }
 
+    public function getDefaultCoverImage(): ?string
+    {
+        $name = strtolower($this->name ?? '');
+
+        // 1. SMM Planning Board
+        $isSmm = ($this->type ?? '') === 'smm'
+            || !empty($this->is_active_smm)
+            || str_contains($name, 'smm');
+
+        if (!$isSmm && $this->relationLoaded('workspace') && $this->workspace) {
+            $wsName = strtolower($this->workspace->name ?? '');
+            if (str_contains($wsName, 'social media') || str_contains($wsName, 'smm')) {
+                $isSmm = true;
+            }
+        }
+
+        if ($isSmm) {
+            return 'https://img.miniexcavator.org/ebay/Dashboard-Icon/SMM.webp';
+        }
+
+        // 2. Normal Planning Board
+        $isPlanning = str_contains($name, 'planning')
+            || ($this->type ?? '') === 'planning'
+            || !empty($this->is_template);
+
+        if ($isPlanning) {
+            return 'https://img.miniexcavator.org/ebay/Dashboard-Icon/ChatGPT%20Image%20Oct%203%202026%2007_59_23%20AM.webp';
+        }
+
+        // 3. Team A
+        if (str_contains($name, 'team a') || str_contains($name, 'teama') || str_contains($name, 'team-a')) {
+            return 'https://img.miniexcavator.org/ebay/Dashboard-Icon/TeamA.webp';
+        }
+
+        // 4. Team B
+        if (str_contains($name, 'team b') || str_contains($name, 'teamb') || str_contains($name, 'team-b')) {
+            return 'https://img.miniexcavator.org/ebay/Dashboard-Icon/B.webp';
+        }
+
+        return null;
+    }
+
     public function coverStyle(): string
     {
-        $type = $this->cover_type ?? $this->background_type;
-        $val = $this->cover_value ?? $this->background_value;
+        $defaultImg = $this->getDefaultCoverImage();
+        $type = $this->cover_type;
+        $val = $this->cover_value;
+
+        // If the board matches Planning, Team A, or Team B, ensure it uses the official cover image
+        if ($defaultImg) {
+            $type = 'image';
+            $val = $defaultImg;
+        }
+
+        if (!$val && $defaultImg) {
+            $type = 'image';
+            $val = $defaultImg;
+        }
+
+        if (!$type && !$val) {
+            $type = $this->background_type;
+            $val = $this->background_value;
+        }
 
         if ($type === 'image' && $val) {
             $url = $val;
+            if (str_starts_with($url, '/public/')) {
+                $url = substr($url, 7);
+            }
+            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                $url = asset(ltrim($url, '/'));
+            }
             if (str_contains($url, 'images.unsplash.com')) {
                 $url = preg_replace('/w=\d+/', 'w=1600', $url);
                 $url = preg_replace('/q=\d+/', 'q=90', $url);
@@ -162,9 +234,6 @@ class Board extends Model
             if (isset($prefs[$this->id]['background_type'])) {
                 return $prefs[$this->id]['background_type'];
             }
-            if (isset($prefs['workspace_' . $this->workspace_id]['background_type'])) {
-                return $prefs['workspace_' . $this->workspace_id]['background_type'];
-            }
         }
         return $value;
     }
@@ -174,39 +243,52 @@ class Board extends Model
         if (auth()->check()) {
             $prefs = auth()->user()->board_backgrounds ?? [];
             if (isset($prefs[$this->id]['background_value'])) {
-                return $prefs[$this->id]['background_value'];
+                $val = $prefs[$this->id]['background_value'];
+                if (is_string($val) && str_starts_with($val, '/public/')) {
+                    $val = substr($val, 7);
+                }
+                return $val;
             }
-            if (isset($prefs['workspace_' . $this->workspace_id]['background_value'])) {
-                return $prefs['workspace_' . $this->workspace_id]['background_value'];
-            }
+        }
+        if (is_string($value) && str_starts_with($value, '/public/')) {
+            $value = substr($value, 7);
         }
         return $value;
     }
 
     public function getCoverTypeAttribute($value)
     {
+        $defaultImg = $this->getDefaultCoverImage();
+        if ($defaultImg) {
+            return 'image';
+        }
         if (auth()->check()) {
             $prefs = auth()->user()->board_backgrounds ?? [];
             if (isset($prefs[$this->id]['cover_type'])) {
                 return $prefs[$this->id]['cover_type'];
             }
-            if (isset($prefs['workspace_' . $this->workspace_id]['cover_type'])) {
-                return $prefs['workspace_' . $this->workspace_id]['cover_type'];
-            }
         }
-        return $value;
+        return $value ?: 'color';
     }
 
     public function getCoverValueAttribute($value)
     {
+        $defaultImg = $this->getDefaultCoverImage();
+        if ($defaultImg) {
+            return $defaultImg;
+        }
         if (auth()->check()) {
             $prefs = auth()->user()->board_backgrounds ?? [];
             if (isset($prefs[$this->id]['cover_value'])) {
-                return $prefs[$this->id]['cover_value'];
+                $val = $prefs[$this->id]['cover_value'];
+                if (is_string($val) && str_starts_with($val, '/public/')) {
+                    $val = substr($val, 7);
+                }
+                return $val;
             }
-            if (isset($prefs['workspace_' . $this->workspace_id]['cover_value'])) {
-                return $prefs['workspace_' . $this->workspace_id]['cover_value'];
-            }
+        }
+        if (is_string($value) && str_starts_with($value, '/public/')) {
+            $value = substr($value, 7);
         }
         return $value;
     }

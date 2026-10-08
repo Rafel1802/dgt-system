@@ -180,11 +180,17 @@
         $band = $review ? $review->performance_band : 'Exceeds Expectations';
         $status = $review ? $review->status : 'Approved';
         $roleTitle = $staff->pivot->role_title ?? 'Content Creator / Editor';
+        $wTypes = $staff->pivot->work_types ?? null;
+        $wTypesArr = is_array($wTypes) ? $wTypes : json_decode($wTypes ?? '[]', true);
+        if (!empty($wTypesArr)) {
+            $roleTitle .= ' (' . implode(', ', $wTypesArr) . ')';
+        }
         $evalDate = ($review && $review->evaluation_date) ? \Carbon\Carbon::parse($review->evaluation_date)->format('Y-m-d') : date('Y-m-d');
         $joinedDate = $staff->pivot->joined_date ? \Carbon\Carbon::parse($staff->pivot->joined_date)->format('Y-m-d') : '2026-01-01';
-        $leadName = ($squad?->lead?->username === 'kim' || $squad?->id == 2) ? 'Mr. KimOun (Lead)' : 'Mr. Dara (Lead)';
-        $leadSigName = ($squad?->lead?->username === 'kim' || $squad?->id == 2) ? 'Mr. KimOun' : 'Mr. Dara Vuthy';
-        $leadSigRole = ($squad?->lead?->username === 'kim' || $squad?->id == 2) ? 'Human Resource / Squad 2 Lead' : 'Human Resource Department';
+        $isKim = ($squad?->lead?->username === 'kim' || $squad?->id == 2 || ($review && $review->reviewer && $review->reviewer->username === 'kim'));
+        $leadName = $isKim ? 'Mr. Kim (Lead)' : 'Mr. Dara (Lead)';
+        $leadSigName = $isKim ? 'Mr. Kim' : 'Mr. Dara';
+        $leadSigRole = 'Head of Digital Production';
     @endphp
 
     <div class="{{ !$loop->last ? 'page-break' : '' }}">

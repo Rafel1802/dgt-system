@@ -154,6 +154,11 @@ class ActivityLog extends Model
             }
         }
 
+        // Never attempt route parsing on already formatted markdown or natural activity sentences
+        if (str_contains($text, '**') || preg_match('/^(copied|moved|created|deleted|assigned|removed|added|marked|updated|attached|downloaded|renamed)\b/i', $text)) {
+            return $text;
+        }
+
         // 2. If it contains route-style dots (e.g. "Created or submitted some.module.action")
         if (preg_match('/[a-zA-Z0-9]\.[a-zA-Z0-9]/', $text)) {
             $prefixes = [

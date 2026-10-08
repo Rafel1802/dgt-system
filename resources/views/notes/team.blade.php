@@ -13,11 +13,14 @@
         box-shadow: 0 20px 60px rgba(15, 23, 42, .08);
     }
     .notes-list-scroll,
-    .notes-editor-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .notes-editor-scroll,
+    .notes-folder-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
     .notes-list-scroll::-webkit-scrollbar,
-    .notes-editor-scroll::-webkit-scrollbar { width: 8px; }
+    .notes-editor-scroll::-webkit-scrollbar,
+    .notes-folder-scroll::-webkit-scrollbar { width: 6px; }
     .notes-list-scroll::-webkit-scrollbar-thumb,
-    .notes-editor-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+    .notes-editor-scroll::-webkit-scrollbar-thumb,
+    .notes-folder-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
     .notes-editor-card .ql-toolbar.ql-snow {
         position: sticky;
         top: 0;
@@ -25,11 +28,35 @@
         z-index: 20;
         border: none;
         border-bottom: 1px solid #e2e8f0;
-        background: rgba(255, 255, 255, 0.96);
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
+        background: #ffffff;
+        transform: translateZ(0);
         padding: 10px 24px;
         min-height: 48px;
+    }
+    .notes-editor-topbar {
+        position: relative;
+        z-index: 30;
+        background-color: #ffffff;
+    }
+    html[data-theme="dark"] .notes-editor-topbar {
+        background-color: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    html[data-theme="neon"] .notes-editor-topbar {
+        background-color: rgba(3, 14, 44, 0.98) !important;
+        border-color: rgba(0, 160, 255, 0.25) !important;
+    }
+    .notes-empty-overlay {
+        z-index: 25;
+        background-color: #ffffff;
+    }
+    html[data-theme="dark"] .notes-empty-overlay {
+        background-color: #1e293b !important;
+        color: #94a3b8 !important;
+    }
+    html[data-theme="neon"] .notes-empty-overlay {
+        background-color: rgba(3, 14, 44, 0.98) !important;
+        color: #94a3b8 !important;
     }
     .notes-editor-card .ql-toolbar.ql-snow .ql-formats { margin-right: 10px; }
     .notes-editor-card .ql-toolbar.ql-snow button,
@@ -253,7 +280,7 @@
      :data-mobile-panel="mobilePanel">
 
     <!-- ── Column 1: Folders Panel ── -->
-    <div class="notes-col-folder w-64 bg-slate-100 border-r border-slate-200 flex flex-col flex-shrink-0"
+    <div class="notes-col-folder w-64 bg-slate-100 border-r border-slate-200 flex flex-col flex-shrink-0 min-h-0 h-full overflow-hidden"
          x-show="showFolders"
          x-transition:leave="transition-none">
 
@@ -266,7 +293,7 @@
             </button>
         </div>
 
-        <div class="p-4 pt-6">
+        <div class="p-4 pt-6 flex-1 min-h-0 overflow-y-auto notes-folder-scroll pb-20">
             <h2 class="hidden lg:flex text-xs font-black uppercase tracking-wider text-slate-400 mb-3 px-2 justify-between items-center">
                 Team
                 <button @click="showFolders = false" class="hover:text-slate-600" title="Collapse Folders">
@@ -350,16 +377,16 @@
 
         <div class="hidden lg:flex p-4 border-b border-slate-100 items-center justify-between">
             <div class="flex items-center gap-2">
-                <button x-show="!showFolders" @click="showFolders = true" class="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Expand Folders" x-cloak>
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                <button x-show="!showFolders" @click="showFolders = true" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Show Folders Sidebar" x-cloak>
+                    <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
                 </button>
                 <h1 class="text-xl font-bold text-slate-800" x-text="viewMode === 'bin' ? 'Note Bin' : 'Notes'"></h1>
             </div>
             <div class="flex items-center gap-1">
-                <button @click="showNotes = false" class="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Collapse Notes List">
+                <button @click="showNotes = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Collapse Notes List">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
                 </button>
-                <button @click="createNewNote()" x-show="viewMode !== 'bin'" class="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Compose New Note">
+                <button @click="createNewNote()" x-show="viewMode !== 'bin'" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Compose New Note">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 </button>
             </div>
@@ -439,26 +466,43 @@
 
         <!-- Editor Content (Always rendered so Quill initializes correctly) -->
         <div class="flex-1 flex flex-col relative h-full">
-            <div class="h-14 flex items-center justify-between px-4 lg:px-6 border-b border-slate-100 shrink-0">
-                <div class="flex items-center gap-3 text-xs font-semibold text-slate-400">
+            <div class="notes-editor-topbar h-14 flex items-center justify-between px-4 lg:px-6 border-b border-slate-100 shrink-0 relative z-30">
+                <div class="flex items-center gap-2 text-xs font-semibold text-slate-400">
                     <!-- Mobile back to note list -->
                     <button class="lg:hidden flex items-center gap-1 text-slate-600 hover:text-slate-900 font-bold text-xs"
                             @click="mobileGotoList()">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
                         Notes
                     </button>
-                    <!-- Expand Notes List button -->
-                    <button x-show="!showNotes" @click="showNotes = true" x-cloak
-                            class="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors" title="Show Notes List">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+
+                    <!-- Show Folders button (when folders sidebar is hidden) -->
+                    <button x-show="!showFolders" @click="showFolders = true" x-cloak
+                            class="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-slate-300 transition-colors font-bold text-xs" title="Show Folders Sidebar">
+                        <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
+                        <span>Folders</span>
                     </button>
-                    <span x-show="showFolders || showNotes" class="hidden lg:inline" x-text="formatFullDate(activeNote?.updated_at)"></span>
+
+                    <!-- Show Notes List button (when notes sidebar is hidden) -->
+                    <button x-show="!showNotes" @click="showNotes = true" x-cloak
+                            class="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-slate-300 transition-colors font-bold text-xs" title="Show Notes List">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                        <span>Notes</span>
+                    </button>
+
+                    <span x-show="showFolders || showNotes" class="hidden lg:inline ml-2" x-text="formatFullDate(activeNote?.updated_at)"></span>
                     <span id="save-status" class="text-slate-400 select-none"></span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <!-- View Full Note button (desktop only) -->
+                    <!-- Exit Full Note / Restore Sidebars button (when both sidebars are hidden) -->
+                    <button x-show="!showFolders && !showNotes" @click="exitFullNote()" x-cloak
+                            class="hidden lg:flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors" title="Exit Full View (Show Sidebars)">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25"/></svg>
+                        Exit Full
+                    </button>
+
+                    <!-- View Full Note button (desktop only, when at least one sidebar is open) -->
                     <button x-show="activeNote && (showFolders || showNotes) && viewMode !== 'bin'" @click="enterFullNote()" x-cloak
-                            class="hidden lg:flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors" title="View Full Note">
+                            class="hidden lg:flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors" title="View Full Note">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
                         Full Note
                     </button>
@@ -503,8 +547,8 @@
             </div>
         </div>
 
-        <!-- Overlay when no note is selected (covers the editor) -->
-        <div x-show="!activeNote" class="absolute inset-0 bg-white z-10 flex flex-col items-center justify-center text-slate-400 gap-3" x-transition.opacity>
+        <!-- Overlay when no note is selected (covers the editor area, below the topbar) -->
+        <div x-show="!activeNote" class="notes-empty-overlay absolute inset-x-0 top-14 bottom-0 bg-white flex flex-col items-center justify-center text-slate-400 gap-4" x-transition.opacity>
             <!-- Mobile: show go to notes button -->
             <div class="lg:hidden flex flex-col items-center gap-4">
                 <svg class="w-14 h-14 opacity-15" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
@@ -513,10 +557,24 @@
                     Go to Notes
                 </button>
             </div>
-            <!-- Desktop: original placeholder -->
-            <div class="hidden lg:flex flex-col items-center gap-3">
+            <!-- Desktop: placeholder + action buttons when panels are hidden -->
+            <div class="hidden lg:flex flex-col items-center gap-3 text-center px-6">
                 <svg class="w-16 h-16 opacity-20" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-                <p>Select a team note or create a new one</p>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Select a team note or create a new one</p>
+                
+                <div class="flex items-center gap-2.5 mt-2" x-show="!showFolders || !showNotes" x-cloak>
+                    <button x-show="!showNotes" @click="showNotes = true" class="px-3.5 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                        Show Notes
+                    </button>
+                    <button x-show="!showFolders" @click="showFolders = true" class="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
+                        Show Folders
+                    </button>
+                    <button x-show="!showFolders && !showNotes" @click="exitFullNote()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-600 dark:hover:bg-slate-500 text-white text-xs font-bold rounded-lg transition-colors">
+                        Restore All
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -722,6 +780,7 @@
                 this.activeFolder = folderId;
                 this.activeNote = null;
                 this.activeNoteTitle = '';
+                this.showNotes = true;
                 this.clearSelection();
                 if (quillInstance) {
                     quillInstance.setContents([], 'silent');
@@ -735,6 +794,7 @@
                 this.activeFolder = null;
                 this.activeNote = null;
                 this.activeNoteTitle = '';
+                this.showNotes = true;
                 this.clearSelection();
                 if (quillInstance) {
                     quillInstance.setContents([], 'silent');

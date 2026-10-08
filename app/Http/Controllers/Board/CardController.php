@@ -60,7 +60,11 @@ class CardController extends Controller
                 'user_avatar' => $log->user?->avatar_url ?? $this->defaultAvatar(),
                 'user_initials' => $log->user?->avatar_initials ?? 'SY',
                 'user_avatar_color' => $log->user?->avatar_color ?? '#64748b',
-                'description' => preg_replace(['/\bbulk\s+copied\b/i', '/\bbulk\s+moved\b/i'], ['copied', 'moved'], $log->description),
+                'description' => preg_replace(
+                    ['/\bbulk\s+copied\b/i', '/\bbulk\s+moved\b/i', '/^copied\s+from\s+card\b/i', '/^Copied\s+From\s+Card\b/'],
+                    ['copied', 'moved', 'copied this card from', 'copied this card from'],
+                    $log->description
+                ),
                 'action'      => $log->action,
                 'created_at'  => $log->created_at?->toISOString(),
                 'time_ago'    => $log->created_at ? $log->created_at->format('M j, Y, g:i A') : 'N/A',
@@ -68,6 +72,7 @@ class CardController extends Controller
 
         // Build a clean card payload with correct avatar URLs
         $cardData = $card->toArray();
+        $cardData['team'] = $card->team;
         $cardData['content_public_date'] = $card->content_public_date?->format('Y-m-d');
         $cardData['board_list_name'] = $card->boardList?->name;
         $cardData['files'] = $card->files->map(fn($file) => $this->filePayload($file))->values()->all();
@@ -136,9 +141,43 @@ class CardController extends Controller
             'smm_cluster_label' => ['nullable', 'string', 'max:100'],
             'smm_class_label'   => ['nullable', 'string', 'max:100'],
             'content_public_date' => ['nullable', 'date'],
+            'team'           => ['nullable', 'string'],
             'label_ids'      => ['nullable', 'array'],
             'label_ids.*'    => ['integer', 'exists:labels,id'],
         ]);
+
+        $user = auth()->user();
+        $uname = strtolower($user?->username ?? '');
+        $name = strtolower($user?->name ?? '');
+
+        $bn = strtolower($board->name ?? '');
+        $boardTeam = null;
+        if (str_contains($bn, 'team a') || str_contains($bn, 'teama') || str_contains($bn, 'team-a')) {
+            $boardTeam = 'A';
+        } elseif (str_contains($bn, 'team b') || str_contains($bn, 'teamb') || str_contains($bn, 'team-b')) {
+            $boardTeam = 'B';
+        }
+
+        if (!empty($validated['team'])) {
+            $t = strtoupper(trim($validated['team']));
+            if (in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B']) || (str_contains($t, 'A') && str_contains($t, 'B'))) {
+                $validated['team'] = 'Both';
+            } elseif ($t === 'A' || $t === 'B') {
+                $validated['team'] = $t;
+            } else {
+                $validated['team'] = $validated['team'];
+            }
+        } elseif ($boardTeam) {
+            $validated['team'] = $boardTeam;
+        } elseif (str_contains($uname, 'kim') || str_contains($name, 'kim') || $user?->id === 13) {
+            $validated['team'] = 'B';
+        } elseif (str_contains($uname, 'dara') || str_contains($name, 'dara') || $user?->id === 12) {
+            $validated['team'] = 'A';
+        } elseif (!empty($user?->team)) {
+            $validated['team'] = strtoupper(trim($user->team));
+        } elseif ($userTeam = $user?->getDigitalTeam($board->workspace_id)) {
+            $validated['team'] = $userTeam;
+        }
 
         $position = Card::where('board_list_id', $validated['board_list_id'])->max('position') + 1;
 
@@ -203,12 +242,47 @@ class CardController extends Controller
             'smm_class_label' => ['sometimes', 'nullable', 'string'],
             'smm_cluster_label' => ['sometimes', 'nullable', 'string', 'max:100'],
             'smm_team_label'  => ['sometimes', 'nullable', 'string', 'max:100'],
+            'team'            => ['sometimes', 'nullable', 'string'],
         ]);
+
+        if (array_key_exists('team', $validated)) {
+            if (!empty($validated['team'])) {
+                $t = strtoupper(trim($validated['team']));
+                if (in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B']) || (str_contains($t, 'A') && str_contains($t, 'B'))) {
+                    $validated['team'] = 'Both';
+                } elseif ($t === 'A' || $t === 'B') {
+                    $validated['team'] = $t;
+                } else {
+                    $validated['team'] = $validated['team'];
+                }
+            } else {
+                $validated['team'] = null;
+            }
+        } elseif (array_key_exists('created_by', $validated) && !empty($validated['created_by']) && empty($card->team)) {
+            $cUser = User::find($validated['created_by']);
+            if ($cUser) {
+                $cuUname = strtolower($cUser->username ?? '');
+                $cuName = strtolower($cUser->name ?? '');
+                if (str_contains($cuUname, 'kim') || str_contains($cuName, 'kim') || $cUser->id === 13) {
+                    $validated['team'] = 'B';
+                } elseif (str_contains($cuUname, 'dara') || str_contains($cuName, 'dara') || $cUser->id === 12) {
+                    $validated['team'] = 'A';
+                }
+            }
+        }
 
         $originalBoardId = $card->board_id;
         $originalListId = $card->board_list_id;
         $oldValues = $card->only(array_keys($validated));
         $card->update($validated);
+
+        // Sync team assignment to all twins in the same sync group
+        if (array_key_exists('team', $validated) && $card->sync_group_id) {
+            Card::where('sync_group_id', $card->sync_group_id)
+                ->where('id', '!=', $card->id)
+                ->update(['team' => $validated['team']]);
+        }
+
         $card->load('assignees:id,name,avatar', 'labels', 'boardList.board');
 
         // Log what actually changed
@@ -242,6 +316,8 @@ class CardController extends Controller
                     $val ? "changed Content Type to **{$val}**" : 'cleared Content Type'),
                 'content_public_date' => $this->logCardActivity($card, 'content_public_date_changed',
                     "changed Public Date to **{$val}**"),
+                'team'        => $this->logCardActivity($card, 'team_changed',
+                    $val ? ($val === 'Both' ? "assigned card to **Team A & B (Both Teams)**" : "assigned card to **Team {$val}**") : 'removed team assignment'),
                 default       => null,
             };
         }
@@ -345,10 +421,18 @@ class CardController extends Controller
                         }
                     }
 
-                    // If trigger word is "approved", do not match if it's "qc approved", "head approved", "team approved", or "approved smm"
+                    // If trigger word is "approved", do not match if it's "qc approved", "head approved", "team approved", "production approved", or "approved smm"
                     if ($wordMatch && strcasecmp($ruleTrigger, 'approved') === 0) {
                         $lowerComment = strtolower($commentText);
-                        if (str_contains($lowerComment, 'qc approved') || str_contains($lowerComment, 'head approved') || str_contains($lowerComment, 'team approved') || str_contains($lowerComment, 'approved smm')) {
+                        if (str_contains($lowerComment, 'qc approved') || str_contains($lowerComment, 'head approved') || str_contains($lowerComment, 'team approved') || str_contains($lowerComment, 'production approved') || str_contains($lowerComment, 'approved smm')) {
+                            $wordMatch = false;
+                        }
+                    }
+
+                    // If trigger word is "production approved", do not match if it's "production approved smm"
+                    if ($wordMatch && strcasecmp($ruleTrigger, 'production approved') === 0) {
+                        $lowerComment = strtolower($commentText);
+                        if (str_contains($lowerComment, 'production approved smm')) {
                             $wordMatch = false;
                         }
                     }
@@ -376,30 +460,38 @@ class CardController extends Controller
                     $isAdmin = $currentUser && ($currentUser->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || $currentUser->isSupervisorRole());
                     $isQcUser = $currentUser && ($currentUser->isQc() || $currentUser->hasRole('qc') || stripos($currentUser->team_role ?? '', 'qc') !== false || stripos($currentUser->name ?? '', 'dara') !== false);
                     $isSupervisorUser = $currentUser && ($currentUser->isSupervisorRole() || $currentUser->hasRole('supervisor') || stripos($currentUser->team_role ?? '', 'supervisor') !== false);
+                    $isDara = $currentUser && (str_contains(strtolower($currentUser->username ?? ''), 'dara') || str_contains(strtolower($currentUser->name ?? ''), 'dara') || in_array($currentUser->id, [12, 24]));
+                    $isKim = $currentUser && (str_contains(strtolower($currentUser->username ?? ''), 'kim') || str_contains(strtolower($currentUser->name ?? ''), 'kim') || $currentUser->id === 13);
+                    $isDigitalDeptUser = $currentUser && ($currentUser->hasRole('digital-team') || $isSupervisorUser || $isAdmin || in_array($currentUser->id, [1, 2, 5, 12, 13, 24]));
+
+                    if ($card->hasIncompleteChecklist()) {
+                        continue;
+                    }
 
                     if (str_contains($trigger, 'ready')) {
                         $assignees = $card->assignees;
                         if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', $currentUser?->id)) continue; // Commenter not assigned
                     }
 
+                    if (str_contains($trigger, 'production approved smm')) {
+                        if (!$isAdmin && !$isSupervisorUser && !$isDara && !$isKim && !$isQcUser) continue;
+                    } elseif (str_contains($trigger, 'production approved')) {
+                        if (!$isAdmin && !$isSupervisorUser && !$isDara && !$isKim) continue;
+                    }
                     if (str_contains($trigger, 'head approved')) {
-                        if (!$isAdmin && stripos($currentUser?->team_role ?? '', 'head') === false) continue;
+                        if (!$isAdmin && stripos($currentUser?->team_role ?? '', 'head') === false && !$isDara && !$isKim) continue;
                     }
                     if (str_contains($trigger, 'qc approved') || str_contains($trigger, 'error')) {
-                        if (!$isAdmin && !$isQcUser) continue;
+                        if (!$isAdmin && !$isQcUser && !$isDara) continue;
                     }
                     if (str_contains($trigger, 'approved smm')) {
-                        if (!$isAdmin && !$isQcUser) continue;
+                        if (!$isAdmin && !$isQcUser && !$isDara && !$isKim) continue;
                     }
-                    if (((str_contains($trigger, 'approved') && !str_contains($trigger, 'head') && !str_contains($trigger, 'qc') && !str_contains($trigger, 'team') && !str_contains($trigger, 'smm')) || str_contains($trigger, 'rejected') || str_contains($trigger, 'blocked'))) {
-                        if (!$isAdmin && !$isSupervisorUser) continue;
+                    if (((str_contains($trigger, 'approved') && !str_contains($trigger, 'head') && !str_contains($trigger, 'qc') && !str_contains($trigger, 'team') && !str_contains($trigger, 'production') && !str_contains($trigger, 'smm')) || str_contains($trigger, 'rejected') || str_contains($trigger, 'blocked'))) {
+                        if (!$isAdmin && !$isSupervisorUser && !$isDigitalDeptUser) continue;
                     }
                     if (str_contains($trigger, 'team approved')) {
-                        // "Team approved" can be triggered by any assigned member (or any digital team member if unassigned)
-                        $assignees = $card->assignees;
-                        if (!$isAdmin && $assignees->count() > 0 && !$assignees->contains('id', $currentUser?->id)) {
-                            continue; // Must be assigned to trigger this
-                        }
+                        // "Team approved" can be triggered by any team member or assignee
                     }
                 }
 
@@ -413,9 +505,39 @@ class CardController extends Controller
                 elseif ($automation->trigger_type === 'list') $reason = "moving to list";
                 elseif ($automation->trigger_type === 'both') $reason = "moving to list and keyword '{$automation->trigger_word}'";
 
+                $isSmmBoard = $card->board?->type === 'smm'
+                    || !empty($card->board?->is_active_smm)
+                    || stripos($card->board?->name ?? '', 'smm') !== false
+                    || stripos($card->board?->workspace?->name ?? '', 'social media') !== false;
+
                 // DYNAMIC MONTH DETECTOR: Ensure it copies to the matching month's workflow board
                 $targetBoard = \App\Models\Board::find($automation->target_board_id);
+
+                // WORKSPACE & WORKFLOW ROUTING INTEGRITY:
+                // If copying or transitioning from a team planning board (not SMM),
+                // the workflow board MUST be strictly within the exact same workspace and match the card's Team (A or B)!
+                if (!$isSmmBoard && stripos($card->board?->name ?? '', 'planning') !== false) {
+                    $cardTeam = $card->team ?: $card->detectTeam();
+                    $targetTeamA = $targetBoard && (str_contains(strtolower($targetBoard->name), 'team a') || str_contains(strtolower($targetBoard->name), 'teama'));
+                    $targetTeamB = $targetBoard && (str_contains(strtolower($targetBoard->name), 'team b') || str_contains(strtolower($targetBoard->name), 'teamb'));
+                    $teamMismatch = ($cardTeam === 'A' && $targetTeamB) || ($cardTeam === 'B' && $targetTeamA);
+
+                    if (!$targetBoard || (int)$targetBoard->workspace_id !== (int)$card->board->workspace_id || $teamMismatch) {
+                        $workflowBoard = app(\App\Services\BoardWorkflowService::class)->findWorkflowBoardForCard($card);
+                        if ($workflowBoard) {
+                            $targetBoard = $workflowBoard;
+                            $automation->target_board_id = $workflowBoard->id;
+                            $draftList = $workflowBoard->lists()->where('name', 'like', '%Draft%')->first()
+                                ?? $workflowBoard->lists()->orderBy('position')->first();
+                            if ($draftList) {
+                                $automation->target_list_id = $draftList->id;
+                            }
+                        }
+                    }
+                }
+
                 if ($targetBoard && $card->board) {
+                    $scopeWorkspaceId = !$isSmmBoard ? $card->board->workspace_id : $targetBoard->workspace_id;
                     if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i', $card->board->name, $currMatch)) {
                         if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i', $targetBoard->name, $tgtMatch)) {
                             $currentMonth = $currMatch[0];
@@ -425,7 +547,7 @@ class CardController extends Controller
                                 $baseTargetNameClean = preg_replace('/\s+/', ' ', $baseTargetNameClean);
 
                                 $dynamicTargetBoard = null;
-                                $workspaceBoards = \App\Models\Board::where('workspace_id', $targetBoard->workspace_id)->get();
+                                $workspaceBoards = \App\Models\Board::where('workspace_id', $scopeWorkspaceId)->where('is_archived', false)->get();
                                 foreach ($workspaceBoards as $wb) {
                                     if (stripos($wb->name, $currentMonth) !== false) {
                                         $wbBaseNameClean = trim(preg_replace('/[^a-zA-Z0-9\s]/', '', str_ireplace($currentMonth, '', $wb->name)));
@@ -437,7 +559,12 @@ class CardController extends Controller
                                     }
                                 }
 
+                                if (!$dynamicTargetBoard && !$isSmmBoard) {
+                                    $dynamicTargetBoard = app(\App\Services\BoardWorkflowService::class)->findWorkflowBoardForCard($card);
+                                }
+
                                 if ($dynamicTargetBoard) {
+                                    $targetBoard = $dynamicTargetBoard;
                                     $automation->target_board_id = $dynamicTargetBoard->id;
                                     $targetList = \App\Models\BoardList::find($automation->target_list_id);
                                     if ($targetList) {
@@ -453,7 +580,33 @@ class CardController extends Controller
                     }
                 }
 
+                // Do not allow copy or move automations if card has an incomplete checklist
+                if (in_array($automation->action_type, ['copy', 'move']) && $card->hasIncompleteChecklist()) {
+                    \Log::info("Automation #{$automation->id} ({$automation->action_type}) blocked on Card #{$card->id} due to incomplete checklist.");
+                    continue;
+                }
+
                 if ($automation->action_type === 'copy') {
+                    if ($card->hasIncompleteChecklist()) {
+                        continue;
+                    }
+
+                    // Absolute security constraint: Never allow copying across workspaces from team boards
+                    if (!$isSmmBoard && $targetBoard && (int)$targetBoard->workspace_id !== (int)$card->board->workspace_id) {
+                        \Log::warning("Blocked cross-workspace card copy attempt: Card #{$card->id} on Board #{$card->board_id} (WS #{$card->board->workspace_id}) to Board #{$targetBoard->id} (WS #{$targetBoard->workspace_id})");
+                        continue;
+                    }
+
+                    // Ensure target list belongs to target board
+                    $targetList = \App\Models\BoardList::find($automation->target_list_id);
+                    if (!$targetList || (int)$targetList->board_id !== (int)$automation->target_board_id) {
+                        $targetList = $targetBoard?->lists()->where('name', 'like', '%Draft%')->first()
+                            ?? $targetBoard?->lists()->orderBy('position')->first();
+                        if ($targetList) {
+                            $automation->target_list_id = $targetList->id;
+                        }
+                    }
+
                     // Prevent duplicate copies if card has already been replicated to the target board
                     if ($card->sync_group_id) {
                         $alreadyCopied = \App\Models\Card::where('sync_group_id', $card->sync_group_id)
@@ -465,6 +618,8 @@ class CardController extends Controller
                                 'rule_id' => $automation->id,
                                 'trigger_type' => $automation->trigger_type,
                                 'action_type' => $automation->action_type,
+                                'target_board_id' => $automation->target_board_id,
+                                'target_list_id' => $automation->target_list_id,
                                 'reason' => 'already copied',
                             ];
                         }
@@ -521,6 +676,8 @@ class CardController extends Controller
                     'rule_id' => $automation->id,
                     'trigger_type' => $automation->trigger_type,
                     'action_type' => $automation->action_type,
+                    'target_board_id' => $automation->target_board_id,
+                    'target_list_id' => $automation->target_list_id,
                     'reason' => $reason,
                 ]; // Only apply the first matching rule to avoid loops or conflicts
             }
@@ -542,6 +699,21 @@ class CardController extends Controller
 
         $this->logCardActivity($card, 'deleted', "moved card '{$card->title}' to Trash");
         $card->delete();
+
+        // Also cascade soft-delete to any twin cards in the same sync group
+        if ($card->sync_group_id) {
+            $syncedCards = Card::where('sync_group_id', $card->sync_group_id)
+                ->where('id', '!=', $card->id)
+                ->get();
+            foreach ($syncedCards as $twin) {
+                if (!$twin->board_id && $twin->board_list_id) {
+                    $twin->board_id = $twin->boardList?->board_id;
+                    $twin->save();
+                }
+                $twin->delete();
+            }
+        }
+
         return response()->json(['message' => 'Card moved to Trash.']);
     }
 
@@ -676,6 +848,15 @@ class CardController extends Controller
             ], 403);
         }
 
+        // Checklist completion enforcement: All items must be 100% completed before moving to another list
+        $isMovingList = (int) ($sourceList?->id ?? $card->board_list_id) !== (int) $targetList->id;
+        if ($isMovingList && $card->hasIncompleteChecklist()) {
+            return response()->json([
+                'error' => 'All checklist items must be 100% completed before moving this card to another list.',
+                'checklist_incomplete' => true,
+            ], 422);
+        }
+
         // SMM Planning Board: Final Captions enforcement
         if (str_contains(strtolower($targetList->name), 'final captions')) {
             $hasCaption = $card->comments()->where(function($q) {
@@ -696,6 +877,10 @@ class CardController extends Controller
                 ->increment('position');
         }
 
+        $sourceBoard = $card->board ?? \App\Models\Board::find($card->board_id);
+        $targetBoard = $targetList->board ?? \App\Models\Board::find($targetList->board_id);
+        $isCrossBoard = $sourceBoard && $targetBoard && (int) $targetList->board_id !== (int) $sourceBoard->id;
+
         $card->update([
             'board_id'      => $targetList->board_id,
             'board_list_id' => $targetList->id,
@@ -703,7 +888,11 @@ class CardController extends Controller
         ]);
         $newList = $targetList->name;
 
-        $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$newList}**");
+        if ($isCrossBoard) {
+            $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** on **{$sourceBoard->name}** to **{$newList}**");
+        } else {
+            $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$newList}**");
+        }
 
         if (str_contains(strtolower($newList), 'approved')) {
             $card->update([
@@ -735,6 +924,14 @@ class CardController extends Controller
     /** Duplicate a card into the same list (or an optionally supplied list). */
     public function copy(Request $request, Card $card): JsonResponse
     {
+        // Checklist completion enforcement: All items must be 100% completed before copying
+        if ($card->hasIncompleteChecklist()) {
+            return response()->json([
+                'message' => 'All checklist items must be 100% completed before copying this card.',
+                'checklist_incomplete' => true,
+            ], 422);
+        }
+
         $request->validate([
             'target_board_id' => ['nullable', 'exists:boards,id'],
             'board_list_id' => ['nullable', 'exists:board_lists,id'],
@@ -767,6 +964,13 @@ class CardController extends Controller
 
         $targetListId = $targetList->id;
 
+        $sourceBoard = $card->board ?? \App\Models\Board::find($card->board_id);
+        $sourceList = $card->boardList ?? \App\Models\BoardList::find($card->board_list_id);
+        $sourceBoardName = $sourceBoard?->name ?? 'board';
+        $sourceListName = $sourceList?->name ?? 'list';
+        $targetListName = $targetList->name;
+        $isCrossBoard = $sourceBoard && (int) $targetBoard->id !== (int) $sourceBoard->id;
+
         $copy = $card->replicateRelationally($targetBoard->id, $targetListId, $request->title, $card->created_by, true);
 
         // We no longer sync Block/Waiting across boards
@@ -774,7 +978,25 @@ class CardController extends Controller
             app(\App\Services\BoardWorkflowService::class)->syncListStateAcrossBoards($copy, 'Approved');
         }
 
-        $this->logCardActivity($copy, 'copied', "copied from card **{$card->title}**");
+        if ($isCrossBoard) {
+            $this->logCardActivity(
+                $copy,
+                'copied',
+                "copied this card from **{$sourceListName}** on **{$sourceBoardName}** to **{$targetListName}**"
+            );
+        } elseif ($sourceList && (int) $sourceList->id === (int) $targetList->id) {
+            $this->logCardActivity(
+                $copy,
+                'copied',
+                "copied this card from **{$sourceListName}**"
+            );
+        } else {
+            $this->logCardActivity(
+                $copy,
+                'copied',
+                "copied this card from **{$sourceListName}** to **{$targetListName}**"
+            );
+        }
 
         return response()->json([
             'card'    => $this->formatCardForBoard($copy),
@@ -862,17 +1084,65 @@ class CardController extends Controller
     public function updateChecklist(Request $request, Card $card, CardChecklist $checklist): JsonResponse
     {
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
+            'title'               => ['required', 'string', 'max:255'],
+            'assigned_user_id'    => ['nullable'],
+            'assigned_user_ids'   => ['nullable', 'array'],
+            'assigned_user_ids.*' => ['integer', 'exists:users,id'],
         ]);
+
+        if (!empty($validated['assigned_user_id']) && is_numeric($validated['assigned_user_id'])) {
+            $request->validate([
+                'assigned_user_id' => ['exists:users,id'],
+            ]);
+        }
+
+        $user = auth()->user();
+        $isHead = $user && ($user->isDaraOrKim() || \App\Models\CardChecklistItem::canReviewMark($user));
+
+        $hasAssignment = $request->has('assigned_user_id') || $request->has('assigned_user_ids');
+        if ($hasAssignment && !$isHead) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only Mr. Dara and Mr. Kim (Heads) can bulk assign checklist items.',
+            ], 403);
+        }
 
         $oldTitle = $checklist->title;
         $checklist->update(['title' => $validated['title']]);
 
-        $this->logCardActivity($card, 'checklist_updated', "renamed checklist from **{$oldTitle}** to **{$checklist->title}**");
+        if ($oldTitle !== $checklist->title) {
+            $this->logCardActivity($card, 'checklist_updated', "renamed checklist from **{$oldTitle}** to **{$checklist->title}**");
+        }
+
+        if ($hasAssignment && $isHead) {
+            $assigneeIds = $this->resolveAssigneeIds($request);
+            $primaryId = !empty($assigneeIds) ? $assigneeIds[0] : null;
+            $idsArray = !empty($assigneeIds) ? $assigneeIds : null;
+
+            foreach ($checklist->items as $item) {
+                $item->update([
+                    'assigned_user_id'  => $primaryId,
+                    'assigned_user_ids' => $idsArray,
+                ]);
+            }
+
+            if ($primaryId) {
+                $assignedUser = \App\Models\User::find($primaryId);
+                $userName = $assignedUser ? $assignedUser->name : "User #{$primaryId}";
+                $this->logCardActivity($card, 'checklist_bulk_assigned', "assigned all items in **{$checklist->title}** to **{$userName}**");
+            } else {
+                $this->logCardActivity($card, 'checklist_bulk_unassigned', "cleared assignees for all items in **{$checklist->title}**");
+            }
+        }
 
         return response()->json([
             'success'   => true,
-            'checklist' => $checklist->load('items'),
+            'checklist' => $checklist->fresh([
+                'items.assignedUser',
+                'items.completedBy',
+                'items.markedBy',
+                'items.issueBy',
+            ]),
         ]);
     }
 
@@ -880,31 +1150,83 @@ class CardController extends Controller
     public function storeChecklistItem(Request $request, Card $card, CardChecklist $checklist): JsonResponse
     {
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:500'],
+            'title'              => ['required', 'string', 'max:500'],
+            'assigned_user_id'   => ['nullable', 'exists:users,id'],
+            'assigned_user_ids'  => ['nullable', 'array'],
+            'assigned_user_ids.*' => ['integer', 'exists:users,id'],
         ]);
 
+        $assigneeIds = $this->resolveAssigneeIds($request);
+        if ($assigneeIds === null || empty($assigneeIds)) {
+            $detected = CardChecklistItem::detectUserIdForCard($validated['title'], $card);
+            if ($detected) {
+                $assigneeIds = [$detected];
+            }
+        }
+
         $item = $checklist->items()->create([
-            'content'      => $validated['title'],
-            'position'     => $checklist->items()->count() + 1,
-            'is_completed' => false,
+            'content'           => $validated['title'],
+            'position'          => $checklist->items()->count() + 1,
+            'is_completed'      => false,
+            'assigned_user_id'  => $assigneeIds[0] ?? null,
+            'assigned_user_ids' => $assigneeIds ?: null,
         ]);
 
         $this->logCardActivity($card, 'checklist_item_created', "added item **{$item->content}** to checklist **{$checklist->title}**");
 
         return response()->json([
             'success' => true,
-            'item'    => $item,
+            'item'    => $item->load('assignedUser'),
         ], 201);
+    }
+
+    /**
+     * Read the assignee list from the request.
+     * Returns null when the request does not mention assignees at all.
+     *
+     * @return array<int>|null
+     */
+    private function resolveAssigneeIds(Request $request): ?array
+    {
+        if ($request->has('assigned_user_ids')) {
+            return array_values(array_unique(array_filter(array_map('intval', (array) $request->input('assigned_user_ids')))));
+        }
+        if ($request->has('assigned_user_id')) {
+            $id = $request->input('assigned_user_id');
+            return $id ? [(int) $id] : [];
+        }
+        return null;
     }
 
     /** Toggle or update checklist item */
     public function toggleChecklistItem(Request $request, Card $card, CardChecklist $checklist, CardChecklistItem $item): JsonResponse
     {
-        if ($request->has('title')) {
-            $oldContent = $item->content;
-            $item->update(['content' => $request->title]);
-            $this->logCardActivity($card, 'checklist_item_updated', "renamed item from **{$oldContent}** to **{$item->content}**");
+        if ($request->has('title') || $request->has('assigned_user_id') || $request->has('assigned_user_ids')) {
+            $request->validate([
+                'assigned_user_ids'   => ['nullable', 'array'],
+                'assigned_user_ids.*' => ['integer', 'exists:users,id'],
+            ]);
+            $updateData = [];
+            if ($request->has('title')) {
+                $oldContent = $item->content;
+                $updateData['content'] = $request->title;
+                $this->logCardActivity($card, 'checklist_item_updated', "renamed item from **{$oldContent}** to **{$request->title}**");
+            }
+            $assigneeIds = $this->resolveAssigneeIds($request);
+            if ($assigneeIds !== null) {
+                $updateData['assigned_user_id']  = $assigneeIds[0] ?? null;
+                $updateData['assigned_user_ids'] = $assigneeIds ?: null;
+            }
+            $item->update($updateData);
         } else {
+            // Items assigned to someone can only be ticked by them (or dara / kim / somalika)
+            if (! $item->canBeTickedBy(auth()->user())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This task is assigned to another member. Only the assignee, dara, kim or somalika can tick it.',
+                ], 403);
+            }
+
             $item->update([
                 'is_completed' => ! $item->is_completed,
                 'completed_by' => ! $item->is_completed ? auth()->id() : null,
@@ -917,8 +1239,82 @@ class CardController extends Controller
 
         return response()->json([
             'success' => true,
-            'item'    => $item,
+            'item'    => $item->fresh(['assignedUser']),
             'percent' => $checklist->load('items')->progressPercent(),
+        ]);
+    }
+
+    /**
+     * Review marks on a checklist item.
+     *  - mark    : green tick, only dara / kim (Production Team A & B)
+     *  - issue   : red cross (error / needs update), only dara / kim
+     *  - approve : admins only, confirms a marked / issue-flagged item
+     */
+    public function reviewChecklistItem(Request $request, Card $card, CardChecklist $checklist, CardChecklistItem $item): JsonResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:mark,issue,approve'],
+        ]);
+
+        $user = auth()->user();
+        $action = $validated['action'];
+
+        if ($action === 'approve') {
+            if (! CardChecklistItem::canApprove($user)) {
+                return response()->json(['success' => false, 'message' => 'Only admins can approve checklist items.'], 403);
+            }
+        } elseif (! CardChecklistItem::canReviewMark($user)) {
+            return response()->json(['success' => false, 'message' => 'Only Production Team A & B (dara, kim) can mark checklist items.'], 403);
+        }
+
+        $reset = [
+            'is_marked' => false, 'marked_by' => null, 'marked_at' => null,
+            'has_issue' => false, 'issue_by' => null, 'issue_at' => null,
+            'is_approved' => false, 'approved_by' => null, 'approved_at' => null,
+        ];
+
+        if ($action === 'mark') {
+            if ($item->is_marked) {
+                $item->update($reset);
+                $label = 'removed the mark from';
+            } else {
+                $item->update(array_merge($reset, ['is_marked' => true, 'marked_by' => $user->id, 'marked_at' => now()]));
+                $label = 'marked';
+            }
+        } elseif ($action === 'issue') {
+            if ($item->has_issue) {
+                $item->update($reset);
+                $label = 'cleared the issue on';
+            } else {
+                $item->update(array_merge($reset, ['has_issue' => true, 'issue_by' => $user->id, 'issue_at' => now()]));
+                $label = 'flagged an issue on';
+            }
+        } else {
+            if ($item->is_approved) {
+                // Un-approve: fall back to the plain "marked" state
+                $item->update([
+                    'is_approved' => false, 'approved_by' => null, 'approved_at' => null,
+                ]);
+                $label = 'removed approval from';
+            } elseif (! $item->is_marked && ! $item->has_issue) {
+                return response()->json(['success' => false, 'message' => 'Only marked or issue-flagged items can be approved.'], 422);
+            } else {
+                $item->update([
+                    'is_marked' => true,
+                    'marked_by' => $item->marked_by ?: $user->id,
+                    'marked_at' => $item->marked_at ?: now(),
+                    'has_issue' => false, 'issue_by' => null, 'issue_at' => null,
+                    'is_approved' => true, 'approved_by' => $user->id, 'approved_at' => now(),
+                ]);
+                $label = 'approved';
+            }
+        }
+
+        $this->logCardActivity($card, 'checklist_item_reviewed', "{$label} item **{$item->content}**", false);
+
+        return response()->json([
+            'success' => true,
+            'item'    => $item->fresh(['assignedUser', 'markedBy', 'issueBy']),
         ]);
     }
 
@@ -938,6 +1334,18 @@ class CardController extends Controller
         $validated = $request->validate([
             'body' => ['required', 'string'],
         ]);
+
+        // Checklist completion enforcement: If card has a checklist, all items must be 100% completed before using comment automations (move/copy)
+        if ($card->hasIncompleteChecklist() && app(\App\Services\BoardWorkflowService::class)->isAutomationComment($card, $validated['body'])) {
+            $msg = preg_match('/\bready\b/i', $validated['body'])
+                ? 'All checklist items must be 100% completed before marking this card as ready.'
+                : 'All checklist items must be 100% completed before using comment automations to move or copy this card.';
+            return response()->json([
+                'error' => $msg,
+                'message' => $msg,
+                'checklist_incomplete' => true,
+            ], 422);
+        }
 
         $comment = $card->comments()->create([
             'user_id'   => auth()->id(),
@@ -1173,40 +1581,95 @@ class CardController extends Controller
     /** Upload file or link external URL */
     public function uploadFile(Request $request, Card $card): JsonResponse
     {
-        if ($request->hasFile('file')) {
-            // ── Security validation ───────────────────────────────────────
-            $file = $request->file('file');
+        $hasFiles = $request->hasFile('files') || $request->hasFile('file');
 
-            // Block filenames with double extensions (e.g. evil.php.jpg)
-            $originalName = $file->getClientOriginalName();
-            if (substr_count($originalName, '.') > 1) {
-                $dangerousExt = ['php', 'phtml', 'php3', 'php4', 'php5', 'phar',
-                                 'exe', 'bat', 'sh', 'py', 'rb', 'pl', 'cgi',
-                                 'js', 'jsx', 'ts', 'html', 'htm'];
-                $parts = explode('.', strtolower($originalName));
-                foreach ($parts as $part) {
-                    if (in_array($part, $dangerousExt, true)) {
-                        return response()->json(['error' => 'File type not allowed.'], 422);
-                    }
-                }
+        if ($hasFiles) {
+            $files = [];
+            if ($request->hasFile('files')) {
+                $rawFiles = $request->file('files');
+                $files = is_array($rawFiles) ? $rawFiles : [$rawFiles];
+            } elseif ($request->hasFile('file')) {
+                $files = [$request->file('file')];
             }
 
-            $request->validate([
-                'file' => [
-                    'required', 'file',
-                    'max:20480',          // 20 MB
-                ],
-            ]);
+            if (empty($files)) {
+                return response()->json(['error' => 'No files were provided.'], 422);
+            }
+
+            $dangerousExt = ['php', 'phtml', 'php3', 'php4', 'php5', 'phar',
+                             'exe', 'bat', 'sh', 'py', 'rb', 'pl', 'cgi',
+                             'js', 'jsx', 'ts', 'html', 'htm'];
 
             $isCommentOnly = $request->boolean('comment_only') || $request->comment_only == '1';
             $kanbanService = app(\App\Services\KanbanService::class);
-            $cardFile = $kanbanService->uploadFile($card, $file, auth()->user(), $isCommentOnly);
+            $globalFolderName = trim((string) $request->input('folder_name', ''));
+            $relativePaths = (array) $request->input('relative_paths', []);
+
+            // Auto-create folder_name column if missing in database
+            if (!\Illuminate\Support\Facades\Schema::hasColumn('card_files', 'folder_name')) {
+                try {
+                    \Illuminate\Support\Facades\Schema::table('card_files', function ($table) {
+                        $table->string('folder_name')->nullable()->after('original_name')->index();
+                    });
+                } catch (\Throwable $e) {}
+            }
+
+            $uploadedCardFiles = [];
+
+            foreach ($files as $idx => $file) {
+                if (!$file->isValid()) {
+                    continue;
+                }
+
+                // File size check: max 20 MB
+                if ($file->getSize() > 20 * 1024 * 1024) {
+                    return response()->json([
+                        'error' => "File '{$file->getClientOriginalName()}' exceeds the 20 MB limit."
+                    ], 422);
+                }
+
+                // Block filenames with double extensions
+                $originalName = $file->getClientOriginalName();
+                if (substr_count($originalName, '.') > 1) {
+                    $parts = explode('.', strtolower($originalName));
+                    foreach ($parts as $part) {
+                        if (in_array($part, $dangerousExt, true)) {
+                            return response()->json(['error' => "File '{$originalName}' has an extension that is not allowed."], 422);
+                        }
+                    }
+                }
+
+                // Determine folder name
+                $itemFolder = $globalFolderName;
+                if (empty($itemFolder) && isset($relativePaths[$idx])) {
+                    $rel = str_replace('\\', '/', trim((string) $relativePaths[$idx]));
+                    if (str_contains($rel, '/')) {
+                        $segs = explode('/', $rel);
+                        $itemFolder = $segs[0];
+                    }
+                }
+
+                $cardFile = $kanbanService->uploadFile($card, $file, auth()->user(), $isCommentOnly, $itemFolder ?: null);
+                $uploadedCardFiles[] = $cardFile;
+            }
+
+            if (empty($uploadedCardFiles)) {
+                return response()->json(['error' => 'No valid files could be uploaded.'], 422);
+            }
 
             if (!$isCommentOnly) {
-                $this->logCardActivity($card, 'file_attached', "attached file **{$cardFile->original_name}**");
+                if ($globalFolderName) {
+                    $this->logCardActivity($card, 'folder_attached', "attached folder **{$globalFolderName}** (" . count($uploadedCardFiles) . " files)");
+                } elseif (count($uploadedCardFiles) === 1) {
+                    $this->logCardActivity($card, 'file_attached', "attached file **{$uploadedCardFiles[0]->display_name}**");
+                } else {
+                    $this->logCardActivity($card, 'files_attached', "attached **" . count($uploadedCardFiles) . " files**");
+                }
 
                 // Notify assignees
-                dispatch(function () use ($card) {
+                dispatch(function () use ($card, $uploadedCardFiles, $globalFolderName) {
+                    $count = count($uploadedCardFiles);
+                    $msgDetail = $globalFolderName ? "folder '{$globalFolderName}' ({$count} files)" : ($count === 1 ? "a file" : "{$count} files");
                     foreach ($card->assignees as $assignee) {
                         if ($assignee->id !== auth()->id()) {
                             $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
@@ -1214,13 +1677,19 @@ class CardController extends Controller
                                 'actor_name'   => auth()->user()->name,
                                 'actor_avatar' => auth()->user()->avatar_url,
                                 'module'       => 'digital',
-                                'message'      => auth()->user()->name . " attached a file to card '{$card->title}'",
+                                'message'      => auth()->user()->name . " attached {$msgDetail} to card '{$card->title}'",
                                 'link'         => route('boards.show', $card->board->slug),
                             ]));
                         }
                     }
                 })->afterResponse();
             }
+
+            return response()->json([
+                'success' => true,
+                'files'   => collect($uploadedCardFiles)->map(fn($cf) => $this->filePayload($cf))->values()->all(),
+                'file'    => $this->filePayload($uploadedCardFiles[0]),
+            ], 201);
 
         } else {
             $request->validate([
@@ -1256,12 +1725,146 @@ class CardController extends Controller
                     }
                 }
             })->afterResponse();
+
+            return response()->json([
+                'success' => true,
+                'file'    => $this->filePayload($cardFile),
+                'files'   => [$this->filePayload($cardFile)],
+            ], 201);
         }
+    }
+
+    /** Download all files in a folder as a ZIP archive */
+    public function downloadFolder(Request $request, Card $card, string $folder)
+    {
+        $folderName = trim(urldecode($folder));
+        $files = $card->files->filter(function ($f) use ($folderName) {
+            return $f->folder_name === $folderName || str_starts_with($f->original_name, "{$folderName}/");
+        });
+
+        if ($files->isEmpty()) {
+            abort(404, 'Folder not found or has no files.');
+        }
+
+        if (!class_exists(\ZipArchive::class)) {
+            abort(500, 'ZipArchive is not enabled on the server.');
+        }
+
+        $zip = new \ZipArchive();
+        $safeName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $folderName);
+        $tmpFile = tempnam(sys_get_temp_dir(), 'card_fld_') . '.zip';
+
+        if ($zip->open($tmpFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            abort(500, 'Could not create ZIP archive.');
+        }
+
+        foreach ($files as $f) {
+            if ($f->disk !== 'url') {
+                $disk = $this->attachmentDisk($f);
+                if (\Illuminate\Support\Facades\Storage::disk($disk)->exists($f->path)) {
+                    $content = \Illuminate\Support\Facades\Storage::disk($disk)->get($f->path);
+                    $zip->addFromString($f->display_name ?: $f->original_name, $content);
+                }
+            }
+        }
+
+        $zip->close();
+
+        return response()->download($tmpFile, "{$safeName}.zip")->deleteFileAfterSend(true);
+    }
+
+    /** Delete an entire folder and all its files from the card */
+    public function deleteFolder(Request $request, Card $card, string $folder): JsonResponse
+    {
+        $folderName = trim(urldecode($folder));
+        $files = $card->files->filter(function ($f) use ($folderName) {
+            return $f->folder_name === $folderName || str_starts_with($f->original_name, "{$folderName}/");
+        });
+
+        if ($files->isEmpty()) {
+            return response()->json(['error' => 'Folder not found.'], 404);
+        }
+
+        $kanbanService = app(\App\Services\KanbanService::class);
+        $count = $files->count();
+
+        foreach ($files as $f) {
+            $kanbanService->deleteFile($f, auth()->user());
+        }
+
+        $this->logCardActivity($card, 'folder_deleted', "deleted folder **{$folderName}** ({$count} files)");
 
         return response()->json([
             'success' => true,
-            'file'    => $this->filePayload($cardFile),
-        ], 201);
+            'folder'  => $folderName,
+            'deleted_count' => $count,
+        ]);
+    }
+
+    /** Assign existing files on a card to a folder */
+    public function assignFolder(Request $request, Card $card): JsonResponse
+    {
+        $validated = $request->validate([
+            'folder_name' => ['required', 'string', 'max:255'],
+            'file_ids'    => ['nullable', 'array'],
+            'file_ids.*'  => ['integer'],
+        ]);
+
+        $folderName = trim($validated['folder_name']);
+
+        // Auto-create folder_name column if missing in database
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('card_files', 'folder_name')) {
+            try {
+                \Illuminate\Support\Facades\Schema::table('card_files', function ($table) {
+                    $table->string('folder_name')->nullable()->after('original_name')->index();
+                });
+            } catch (\Throwable $e) {}
+        }
+
+        $query = $card->files();
+        if (!empty($validated['file_ids'])) {
+            $query->whereIn('id', $validated['file_ids']);
+        } else {
+            // Group all standalone files on card
+            $query->where(function ($q) {
+                $q->whereNull('folder_name')->orWhere('folder_name', '');
+            });
+        }
+
+        $files = $query->get();
+        if ($files->isEmpty()) {
+            return response()->json(['error' => 'No files found to group into folder.'], 422);
+        }
+
+        $hasColumn = \Illuminate\Support\Facades\Schema::hasColumn('card_files', 'folder_name');
+
+        foreach ($files as $file) {
+            $currentName = $file->original_name;
+            if (str_contains($currentName, '/')) {
+                $parts = explode('/', $currentName, 2);
+                $cleanName = $parts[1] ?: $currentName;
+            } else {
+                $cleanName = $currentName;
+            }
+
+            $file->original_name = "{$folderName}/{$cleanName}";
+            if ($hasColumn) {
+                $file->folder_name = $folderName;
+            }
+            $file->save();
+        }
+
+        $count = $files->count();
+        $this->logCardActivity($card, 'folder_assigned', "grouped {$count} files into folder **{$folderName}**");
+
+        $card->load('files');
+
+        return response()->json([
+            'success'     => true,
+            'folder_name' => $folderName,
+            'count'       => $count,
+            'files'       => $card->files->map(fn($f) => $this->filePayload($f))->values()->all(),
+        ]);
     }
 
     /** Edit the name/URL of an existing file/link attachment, or replace file. */
@@ -1407,21 +2010,26 @@ class CardController extends Controller
     private function filePayload(CardFile $file): array
     {
         return [
-            'id'             => $file->id,
-            'original_name'  => $file->original_name,
-            'formatted_size' => $file->formatted_size,
-            'is_image'       => $file->isImage(),
-            'is_video'       => (bool) $file->is_video,
-            'is_canva'       => (bool) $file->is_canva,
-            'embed_url'      => $file->embed_url,
-            'thumbnail_url'  => $file->thumbnail_url,
-            'mime_type'      => $file->mime_type,
-            'icon'           => $file->icon,
-            'url'            => $file->url,
-            'preview_url'    => $file->preview_url,
-            'download_url'   => $file->download_url,
-            'disk'           => $file->disk,
-            'path'           => $file->path,
+            'id'                     => $file->id,
+            'original_name'          => $file->original_name,
+            'folder_name'            => $file->folder_name,
+            'display_name'           => $file->display_name,
+            'size'                   => (int) ($file->size ?? 0),
+            'formatted_size'         => $file->formatted_size,
+            'is_image'               => $file->isImage(),
+            'is_video'               => (bool) $file->is_video,
+            'is_canva'               => (bool) $file->is_canva,
+            'is_google_drive'        => (bool) $file->is_google_drive,
+            'is_google_drive_folder' => (bool) $file->is_google_drive_folder,
+            'embed_url'              => $file->embed_url,
+            'thumbnail_url'          => $file->thumbnail_url,
+            'mime_type'              => $file->mime_type,
+            'icon'                   => $file->icon,
+            'url'                    => $file->url,
+            'preview_url'            => $file->preview_url,
+            'download_url'           => $file->download_url,
+            'disk'                   => $file->disk,
+            'path'                   => $file->path,
         ];
     }
 
@@ -1472,7 +2080,7 @@ class CardController extends Controller
         return $imgs ? "{$text} [IMG:{$imgs}]" : $text;
     }
 
-    private function logCardActivity(Card $card, string $action, string $description): void
+    private function logCardActivity(Card $card, string $action, string $description, bool $notify = true): void
     {
         $logData = [
             'user_id'      => auth()->id(),
@@ -1502,15 +2110,17 @@ class CardController extends Controller
             }
         }
 
-        try {
-            \App\Notifications\BoardActivityNotification::send(
-                $card->board,
-                $action,
-                $description,
-                $card
-            );
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("Failed sending card notification: " . $e->getMessage());
+        if ($notify) {
+            try {
+                \App\Notifications\BoardActivityNotification::send(
+                    $card->board,
+                    $action,
+                    $description,
+                    $card
+                );
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Failed sending card notification: " . $e->getMessage());
+            }
         }
     }
 
@@ -1553,6 +2163,7 @@ class CardController extends Controller
             'smm_team_label'     => $card->smm_team_label,
             'smm_cluster_label'  => $card->smm_cluster_label,
             'content_public_date'=> $card->content_public_date?->format('Y-m-d'),
+            'team'            => $card->team,
             'position'        => $card->position,
             'sync_group_id'   => $card->sync_group_id,
             'creator'         => $card->creator ? [
@@ -1579,16 +2190,37 @@ class CardController extends Controller
         ];
     }
 
+    private function isAllowedMoveUser(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        $username = strtolower(trim($user->username ?? ''));
+        $name = strtolower(trim($user->name ?? ''));
+        $email = strtolower(trim($user->email ?? ''));
+
+        foreach (['dara', 'kim'] as $target) {
+            if (str_contains($username, $target) || str_contains($name, $target) || str_contains($email, $target)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function canMoveAnyCard(User $user): bool
     {
-        return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
+        return $this->isAllowedMoveUser($user)
+            || $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
             || $user->isQcOrSupervisor()
             || str_contains(strtolower($user->team_role ?? ''), 'head');
     }
 
     private function canManageBlockedCards(User $user): bool
     {
-        return $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
+        return $this->isAllowedMoveUser($user)
+            || $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])
             || $user->isSupervisorRole()
             || str_contains(strtolower($user->team_role ?? ''), 'head');
     }
@@ -1603,7 +2235,7 @@ class CardController extends Controller
             return true;
         }
 
-        return $card->assignees->contains('id', $user->id);
+        return $card->assignees->contains('id', $user->id) || (int) $card->created_by === (int) $user->id;
     }
 
     private function isBlockList(?string $name): bool
@@ -1673,6 +2305,11 @@ class CardController extends Controller
                     continue;
                 }
 
+                if ($card->hasIncompleteChecklist() && app(\App\Services\BoardWorkflowService::class)->isAutomationComment($card, $commentText)) {
+                    $failed++;
+                    continue;
+                }
+
                 try {
                     $comment = $card->comments()->create([
                         'user_id'   => auth()->id(),
@@ -1721,18 +2358,38 @@ class CardController extends Controller
 
             try {
                 if ($action === 'move') {
+                    if ($card->hasIncompleteChecklist()) {
+                        $failed++;
+                        continue;
+                    }
                     $oldList = $card->boardList?->name ?? 'Unknown list';
+                    $sourceBoard = $card->board ?? \App\Models\Board::find($card->board_id);
+                    $isCrossBoard = $sourceBoard && (int) $targetBoardId !== (int) $sourceBoard->id;
                     $card->board_id = $targetBoardId;
                     $card->board_list_id = $targetListId;
                     $card->position = 65535; // Put at bottom
                     $card->saveQuietly();
-                    $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$targetList->name}**");
+                    if ($isCrossBoard && $sourceBoard) {
+                        $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** on **{$sourceBoard->name}** to **{$targetList->name}**");
+                    } else {
+                        $this->logCardActivity($card, 'moved', "moved this card from **{$oldList}** to **{$targetList->name}**");
+                    }
                     app(\App\Services\BoardWorkflowService::class)->syncPlanningWeekList($card, $targetList);
                 } elseif ($action === 'copy') {
+                    if ($card->hasIncompleteChecklist()) {
+                        $failed++;
+                        continue;
+                    }
                     $newTitle = ((int)$targetBoardId === (int)$card->board_id) ? $card->title . ' (copy)' : $card->title;
                     $copy = $card->replicateRelationally($targetBoardId, $targetListId, $newTitle, $card->created_by, true);
                     $sourceListName = $card->boardList?->name ?? 'Unknown list';
-                    $this->logCardActivity($copy, 'copied', "copied this card from **{$sourceListName}**");
+                    $sourceBoard = $card->board ?? \App\Models\Board::find($card->board_id);
+                    $isCrossBoard = $sourceBoard && (int) $targetBoardId !== (int) $sourceBoard->id;
+                    if ($isCrossBoard && $sourceBoard) {
+                        $this->logCardActivity($copy, 'copied', "copied this card from **{$sourceListName}** on **{$sourceBoard->name}** to **{$targetList->name}**");
+                    } else {
+                        $this->logCardActivity($copy, 'copied', "copied this card from **{$sourceListName}** to **{$targetList->name}**");
+                    }
                 }
                 $successful++;
             } catch (\Exception $e) {

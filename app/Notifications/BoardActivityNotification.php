@@ -61,6 +61,8 @@ class BoardActivityNotification extends Notification
         $actor = auth()->user();
         if (!$actor) return;
 
+        $cardTeam = $card ? ($card->isBothTeams() ? 'Both' : ($card->detectTeam() ?? $card->team)) : null;
+
         $payload = [
             'module'       => 'digital',
             'actor_id'     => $actor->id,
@@ -76,6 +78,7 @@ class BoardActivityNotification extends Notification
             'browser_notifications_enabled' => (bool) ($board->browser_notifications_enabled ?? false),
             'card_id'      => $card?->id,
             'card_title'   => $card?->title,
+            'card_team'    => $cardTeam,
             'link'         => route('boards.show', $board->slug) . ($card ? "?card={$card->id}" : ""),
             'created_at'   => now()->toIso8601String(),
         ];
@@ -87,13 +90,51 @@ class BoardActivityNotification extends Notification
             return;
         }
 
-        dispatch(function () use ($board, $actor, $action, $payload) {
+        dispatch(function () use ($board, $actor, $action, $payload, $card, $cardTeam) {
             $board->loadMissing(['members', 'unwatchers']);
             $unwatcherIds = $board->unwatchers->pluck('id')->toArray();
             
             foreach ($board->members as $member) {
                 if (in_array($member->id, $unwatcherIds)) {
                     continue;
+                }
+
+                // Team Isolation: Team A members must not receive Team B notifications, and vice-versa
+                $memberTeam = $member->getDigitalTeam($board->workspace_id);
+                $isGeneralSupervisor = $member->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $member->canFilterAllPlanningTeams();
+
+                if (!$isGeneralSupervisor && $memberTeam && in_array($memberTeam, ['A', 'B'])) {
+                    if ($card) {
+                        $isBoth = in_array(strtoupper(trim($cardTeam ?? '')), ['BOTH', 'A,B', 'A&B', 'ALL', 'A+B', 'TEAM A & B']) || $card->isBothTeams();
+                        if (!$isBoth) {
+                            $isAssigned = false;
+                            try {
+                                $isAssigned = $card->relationLoaded('assignees')
+                                    ? $card->assignees->contains('id', $member->id)
+                                    : $card->assignees()->where('users.id', $member->id)->exists();
+                            } catch (\Throwable $e) {}
+
+                            if (!$isAssigned) {
+                                // Member is Team A, card is Team B -> skip notification!
+                                if ($cardTeam === 'B' && $memberTeam === 'A') {
+                                    continue;
+                                }
+                                // Member is Team B, card is Team A -> skip notification!
+                                if ($cardTeam === 'A' && $memberTeam === 'B') {
+                                    continue;
+                                }
+                            }
+                        }
+                    } else {
+                        // Workflow board list/board notification
+                        $bName = strtolower($board->name ?? '');
+                        if ((str_contains($bName, 'team a') || str_contains($bName, 'teama') || str_contains($bName, 'team-a')) && $memberTeam === 'B') {
+                            continue;
+                        }
+                        if ((str_contains($bName, 'team b') || str_contains($bName, 'teamb') || str_contains($bName, 'team-b')) && $memberTeam === 'A') {
+                            continue;
+                        }
+                    }
                 }
 
                 $isSuperAdminTesting = $actor->hasRole('super-admin') && in_array($action, ['file_edited', 'file_replaced']);

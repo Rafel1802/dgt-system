@@ -612,5 +612,241 @@ class CommentAutomationTest extends TestCase
         $this->assertEquals($approved->id, $card->board_list_id, 'Supervisor Review should move to Approved on Approved comment');
         $this->assertEquals('approved', $card->status?->value ?? (string)$card->status);
     }
+
+    public function test_production_approved_smm_moves_card_to_approved_list(): void
+    {
+        Notification::fake();
+        $admin = User::factory()->create(['is_active' => true, 'team_role' => 'Admin']);
+        $admin->assignRole('super-admin');
+
+        $workspace = Workspace::create(['name' => 'Marketing Workspace', 'owner_id' => $admin->id, 'is_active' => true]);
+        $board = Board::create(['workspace_id' => $workspace->id, 'name' => 'Workflow board - Oct 2026', 'created_by' => $admin->id]);
+
+        $draft = BoardList::create(['board_id' => $board->id, 'name' => 'Draft', 'position' => 1]);
+        $prodList = BoardList::create(['board_id' => $board->id, 'name' => 'QC Review (Mr. Dara)', 'position' => 2]);
+        $digitalDept = BoardList::create(['board_id' => $board->id, 'name' => 'Digital Department', 'position' => 3]);
+        $approved = BoardList::create(['board_id' => $board->id, 'name' => 'Approved', 'position' => 4]);
+
+        $card1 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $draft->id,
+            'title' => 'SMM Campaign Post',
+            'created_by' => $admin->id,
+            'status' => 'todo',
+            'position' => 0
+        ]);
+
+        $qcUser = User::factory()->create(['name' => 'Mr. Dara', 'username' => 'dara', 'is_active' => true, 'team_role' => 'QC']);
+
+        // Posting "Production approved SMM" moves card directly to "Approved" list (not Digital Department)
+        $response = $this->actingAs($qcUser)->postJson(route('boards.cards.comments.store', $card1), [
+            'body' => 'Production approved SMM'
+        ]);
+
+        $response->assertCreated();
+        $card1->refresh();
+        $this->assertEquals($approved->id, $card1->board_list_id, 'Production approved SMM must move card directly to Approved list');
+        $this->assertEquals('approved', $card1->status?->value ?? (string)$card1->status);
+
+        // Verify regular "Production approved" goes to Digital Department, not confused with "Production approved SMM"
+        $card2 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $prodList->id,
+            'title' => 'Standard Production Post',
+            'created_by' => $admin->id,
+            'status' => 'todo',
+            'position' => 1
+        ]);
+
+        $response2 = $this->actingAs($qcUser)->postJson(route('boards.cards.comments.store', $card2), [
+            'body' => 'Production approved'
+        ]);
+
+        $response2->assertCreated();
+        $card2->refresh();
+        $this->assertEquals($digitalDept->id, $card2->board_list_id, 'Standard Production approved should move to Digital Department');
+    }
+
+    public function test_dara_and_kim_personal_report_detects_production_approved_smm_without_count_confusion(): void
+    {
+        Notification::fake();
+        $admin = User::factory()->create(['is_active' => true, 'team_role' => 'Admin']);
+        $admin->assignRole('super-admin');
+
+        $workspace = Workspace::create(['name' => 'Digital Workspace', 'owner_id' => $admin->id, 'is_active' => true]);
+
+        // Team A board (Dara) and Team B board (Kim)
+        $boardA = Board::create(['workspace_id' => $workspace->id, 'name' => 'Team A Workflow board - Oct 2026', 'created_by' => $admin->id]);
+        $boardB = Board::create(['workspace_id' => $workspace->id, 'name' => 'Team B Workflow board - Oct 2026', 'created_by' => $admin->id]);
+
+        $listA_draft = BoardList::create(['board_id' => $boardA->id, 'name' => 'Draft', 'position' => 1]);
+        $listA_approved = BoardList::create(['board_id' => $boardA->id, 'name' => 'Approved', 'position' => 2]);
+
+        $listB_draft = BoardList::create(['board_id' => $boardB->id, 'name' => 'Draft', 'position' => 1]);
+        $listB_approved = BoardList::create(['board_id' => $boardB->id, 'name' => 'Approved', 'position' => 2]);
+
+        $dara = User::factory()->create(['name' => 'Mr. Dara', 'username' => 'dara', 'is_active' => true, 'team_role' => 'QC']);
+        $kim = User::factory()->create(['name' => 'Mr. Kim', 'username' => 'kim', 'is_active' => true, 'team_role' => 'QC']);
+
+        // Card on Team A
+        $cardA = Card::create([
+            'board_id' => $boardA->id,
+            'board_list_id' => $listA_draft->id,
+            'title' => 'Post by Team A Lead Dara',
+            'created_by' => $admin->id,
+            'status' => 'todo',
+            'position' => 0
+        ]);
+
+        // Card on Team B
+        $cardB = Card::create([
+            'board_id' => $boardB->id,
+            'board_list_id' => $listB_draft->id,
+            'title' => 'Post by Team B Lead Kim',
+            'created_by' => $admin->id,
+            'status' => 'todo',
+            'position' => 0
+        ]);
+
+        // Dara comments Production approved SMM on Card A
+        $this->actingAs($dara)->postJson(route('boards.cards.comments.store', $cardA), [
+            'body' => 'Production approved SMM'
+        ])->assertCreated();
+
+        // Kim comments Production approved SMM on Card B
+        $this->actingAs($kim)->postJson(route('boards.cards.comments.store', $cardB), [
+            'body' => 'Production approved SMM'
+        ])->assertCreated();
+
+        // 1. Dara exports personal report
+        $responseDara = $this->actingAs($dara)->get(route('boards.reports.personal.export', [
+            'format' => 'csv',
+            'board_ids' => [$boardA->id, $boardB->id],
+        ]));
+        $responseDara->assertOk();
+        $contentDara = $responseDara->getContent();
+
+        // Dara's report must detect Card A and MUST NOT include Card B (no confusion with Kim)
+        $this->assertStringContainsString('Post by Team A Lead Dara', $contentDara);
+        $this->assertStringNotContainsString('Post by Team B Lead Kim', $contentDara);
+
+        // 2. Kim exports personal report
+        $responseKim = $this->actingAs($kim)->get(route('boards.reports.personal.export', [
+            'format' => 'csv',
+            'board_ids' => [$boardA->id, $boardB->id],
+        ]));
+        $responseKim->assertOk();
+        $contentKim = $responseKim->getContent();
+
+        // Kim's report must detect Card B and MUST NOT include Card A (no confusion with Dara)
+        $this->assertStringContainsString('Post by Team B Lead Kim', $contentKim);
+        $this->assertStringNotContainsString('Post by Team A Lead Dara', $contentKim);
+    }
+
+    public function test_production_approved_smm_moves_from_production_team_a_to_approved_and_counts_for_dara_and_kim(): void
+    {
+        Notification::fake();
+        $admin = User::factory()->create(['is_active' => true, 'team_role' => 'Admin']);
+        $admin->assignRole('super-admin');
+
+        $workspace = Workspace::create(['name' => 'Marketing Workspace', 'owner_id' => $admin->id, 'is_active' => true]);
+
+        // Workflow board with explicit "Production Team A", "Production Team B", "Digital Department", and "Approved" lists
+        $board = Board::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Production Workflow - Team A & B',
+            'type' => 'workflow',
+            'created_by' => $admin->id
+        ]);
+
+        $prodTeamAList = BoardList::create(['board_id' => $board->id, 'name' => 'Production Team A', 'position' => 1]);
+        $prodTeamBList = BoardList::create(['board_id' => $board->id, 'name' => 'Production Team B', 'position' => 2]);
+        $digitalDeptList = BoardList::create(['board_id' => $board->id, 'name' => 'Digital Department', 'position' => 3]);
+        $approvedList = BoardList::create(['board_id' => $board->id, 'name' => 'Approved', 'position' => 4]);
+
+        $dara = User::factory()->create(['name' => 'Mr. Dara', 'username' => 'dara', 'is_active' => true, 'team_role' => 'QC']);
+        $kim = User::factory()->create(['name' => 'Mr. Kim', 'username' => 'kim', 'is_active' => true, 'team_role' => 'QC']);
+
+        // Card 1 in Production Team A
+        $cardA = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $prodTeamAList->id,
+            'title' => 'Social Media Task A1',
+            'created_by' => $admin->id,
+            'status' => 'todo',
+            'position' => 0
+        ]);
+
+        // Card 2 in Production Team B
+        $cardB = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $prodTeamBList->id,
+            'title' => 'Social Media Task B1',
+            'created_by' => $admin->id,
+            'status' => 'todo',
+            'position' => 0
+        ]);
+
+        // 1. Mr. Dara comments "Production approved SMM" on Card A
+        $responseA = $this->actingAs($dara)->postJson(route('boards.cards.comments.store', $cardA), [
+            'body' => 'Production approved SMM'
+        ]);
+        $responseA->assertCreated();
+        $this->assertTrue($responseA->json('card_moved'), 'Card A must be moved by automation');
+
+        $cardA->refresh();
+        $this->assertEquals($approvedList->id, $cardA->board_list_id, 'Card A must move from Production Team A to Approved list');
+        $this->assertEquals('approved', (string)($cardA->status?->value ?? $cardA->status));
+        $this->assertEquals(0, $cardA->position, 'Card A must be placed at position 0 in Approved list');
+
+        // 2. Mr. Kim comments "Production approved SMM" on Card B
+        $responseB = $this->actingAs($kim)->postJson(route('boards.cards.comments.store', $cardB), [
+            'body' => 'Production approved SMM'
+        ]);
+        $responseB->assertCreated();
+        $this->assertTrue($responseB->json('card_moved'), 'Card B must be moved by automation');
+
+        $cardB->refresh();
+        $this->assertEquals($approvedList->id, $cardB->board_list_id, 'Card B must move from Production Team B to Approved list');
+        $this->assertEquals('approved', (string)($cardB->status?->value ?? $cardB->status));
+
+        // 3. Verify personal report for Mr. Dara: Task A1 is present, Task B1 is not present
+        $exportDara = $this->actingAs($dara)->get(route('boards.reports.personal.export', [
+            'format' => 'csv',
+            'board_ids' => [$board->id],
+        ]));
+        $exportDara->assertOk();
+        $csvDara = $exportDara->getContent();
+        $this->assertStringContainsString('Social Media Task A1', $csvDara);
+        $this->assertStringNotContainsString('Social Media Task B1', $csvDara);
+
+        // 4. Verify personal report for Mr. Kim: Task B1 is present, Task A1 is not present
+        $exportKim = $this->actingAs($kim)->get(route('boards.reports.personal.export', [
+            'format' => 'csv',
+            'board_ids' => [$board->id],
+        ]));
+        $exportKim->assertOk();
+        $csvKim = $exportKim->getContent();
+        $this->assertStringContainsString('Social Media Task B1', $csvKim);
+        $this->assertStringNotContainsString('Social Media Task A1', $csvKim);
+
+        // 5. Verify standard "Production approved" goes to Digital Department
+        $cardC = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $prodTeamAList->id,
+            'title' => 'Standard Task C',
+            'created_by' => $admin->id,
+            'status' => 'todo',
+            'position' => 0
+        ]);
+
+        $responseC = $this->actingAs($dara)->postJson(route('boards.cards.comments.store', $cardC), [
+            'body' => 'Production approved'
+        ]);
+        $responseC->assertCreated();
+        $cardC->refresh();
+        $this->assertEquals($digitalDeptList->id, $cardC->board_list_id, 'Standard Production approved should move to Digital Department');
+    }
 }
+
 

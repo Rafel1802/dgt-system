@@ -3,9 +3,19 @@
 
 @push('head')
 @if ($board->background_type === 'image' && $board->background_value)
-    <link rel="preload" href="{{ str_replace('"', '\"', $board->background_value) }}" as="image">
+    @php
+        $preloadUrl = $board->background_value;
+        if (str_starts_with($preloadUrl, '/public/')) {
+            $preloadUrl = substr($preloadUrl, 7);
+        }
+        if (!filter_var($preloadUrl, FILTER_VALIDATE_URL)) {
+            $preloadUrl = asset(ltrim($preloadUrl, '/'));
+        }
+    @endphp
+    <link rel="preload" href="{{ str_replace('"', '\"', $preloadUrl) }}" as="image">
 @endif
 <meta name="turbo-visit-control" content="reload">
+<meta name="turbo-cache-control" content="no-cache">
 <!-- Quill Theme -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
@@ -20,31 +30,33 @@
 
 .board-wrap{display:flex;gap:1rem;overflow-x:auto;padding:1rem 1rem 1rem 1.5rem;align-items:flex-start;min-height:calc(100vh - 64px);border-radius:0;box-shadow:none;flex:1;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;}
 @media (min-width: 1024px) { .board-wrap { padding: 1rem 1rem 1rem 2.5rem; } }
-.board-list{flex-shrink:0;width:272px;background:#f1f5f9;border:1px solid rgba(255,255,255,.54);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 180px);contain:layout style;}
+.board-list{flex-shrink:0;width:300px;background:#f1f5f9;border:1px solid rgba(255,255,255,.54);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 180px);}
+.list-lead-avatar{width:30px;height:30px;border-radius:9999px;object-fit:cover;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.15);border:2px solid #ffffff;transition:transform .15s ease, box-shadow .15s ease;}
+.list-lead-avatar:hover{transform:scale(1.08);box-shadow:0 3px 8px rgba(0,0,0,.22);}
+[data-theme="dark"] .list-lead-avatar{border-color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,.45);}
+[data-theme="neon"] .list-lead-avatar{border-color:#041232!important;box-shadow:0 0 8px rgba(0,180,255,.6)!important;}
+[data-theme="neon"] .list-lead-avatar:hover{box-shadow:0 0 14px rgba(0,220,255,.9)!important;}
 .list-header{padding:.75rem 1rem;font-weight:600;font-size:.875rem;color:#334155;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
-.list-cards{padding:.5rem;flex:1;overflow-y:auto;min-height:40px;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;scrollbar-width:thin;}
+.list-cards{padding:.5rem;flex:1;overflow-y:auto;min-height:48px;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;scrollbar-width:thin;}
 /* Trello-Grade Smooth Drag and Drop */
 body.is-dragging-card { user-select: none !important; -webkit-user-select: none !important; cursor: grabbing !important; }
 body.is-dragging-card * { cursor: grabbing !important; }
 .list-cards.drag-over{background:rgba(99,102,241,.09);border-radius:10px;outline:2px dashed rgba(99,102,241,.45);outline-offset:-2px}
-.kanban-card{background:#fff;border:1px solid rgba(226,232,240,.92);border-radius:8px;padding:.75rem;margin-bottom:.5rem;box-shadow:0 1px 3px rgba(15,23,42,.06);cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;transition:box-shadow .15s cubic-bezier(0.2, 0, 0, 1),transform .15s cubic-bezier(0.2, 0, 0, 1),border-color .15s cubic-bezier(0.2, 0, 0, 1);position:relative;contain:layout style paint;content-visibility:auto;contain-intrinsic-size:0 100px;transform:translateZ(0);will-change:transform,box-shadow;}
-.kanban-card:hover{box-shadow:0 10px 25px rgba(16,185,129,.2), 0 0 0 1px #10b981;border-color:#10b981;transform:translateY(-2px) translateZ(0)}
+.kanban-card{background:#fff;border:1px solid rgba(226,232,240,.92);border-radius:8px;padding:.75rem;margin-bottom:.5rem;box-shadow:0 1px 3px rgba(15,23,42,.06);cursor:grab;user-select:none;-webkit-user-select:none;position:relative;}
+.kanban-card:hover{box-shadow:0 10px 25px rgba(16,185,129,.2), 0 0 0 1px #10b981;border-color:#10b981;}
 .kanban-card:active{cursor:grabbing}
 .kanban-card:hover .card-quick-btn{opacity:1}
-/* Trello Recessed Ghost Drop Slot */
-.sortable-ghost{opacity:.75!important;background:rgba(148,163,184,.18)!important;border:2px dashed #94a3b8!important;border-radius:10px!important;transform:none!important;box-shadow:inset 0 2px 6px rgba(0,0,0,.08)!important;pointer-events:none!important;visibility:visible!important}
-.sortable-ghost > *{opacity:0!important;visibility:hidden!important}
+/* Trello Ghost & Drag */
+.sortable-ghost{opacity:.5!important;background:rgba(148,163,184,.2)!important;border:2px dashed #94a3b8!important;border-radius:8px!important}
 .sortable-chosen{cursor:grabbing!important}
-/* Trello Floating 3D Lifted Card Under Cursor */
-.sortable-drag{opacity:1!important;transform:rotate(2.5deg) scale(1.025)!important;box-shadow:0 22px 40px -6px rgba(15,23,42,.32), 0 12px 18px -4px rgba(15,23,42,.2)!important;cursor:grabbing!important;z-index:99999!important;pointer-events:none!important;transition:none!important}
+.sortable-drag{opacity:.95!important;box-shadow:0 14px 28px rgba(0,0,0,.2)!important;cursor:grabbing!important;z-index:99999!important}
 .sortable-list-ghost{opacity:.55!important;background:rgba(148,163,184,.2)!important;border:2px dashed #94a3b8!important;border-radius:12px!important}
 .sortable-list-drag{transform:rotate(1.5deg) scale(1.01)!important;box-shadow:0 25px 50px -12px rgba(0,0,0,.35)!important;opacity:.95!important;z-index:9999!important}
-body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-chosen{content-visibility:visible!important;contain-intrinsic-size:none!important}
 /* Block / Waiting List Circle Icon & Custom Popup Tooltip */
 .block-fix-btn{width:24px;height:24px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s cubic-bezier(0.2,0,0,1);cursor:pointer}
 .block-fix-btn:hover{transform:scale(1.12)}
 .block-fix-btn:active{transform:scale(0.92)}
-.block-fix-tooltip{position:absolute;right:calc(100% + 9px);top:50%;transform:translateY(-50%) translateX(6px);opacity:0;visibility:hidden;pointer-events:none;z-index:1000;white-space:nowrap;display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:9px;font-size:11px;font-weight:700;letter-spacing:.02em;background:#0f172a;color:#f8fafc;box-shadow:0 10px 25px -3px rgba(0,0,0,.35),0 4px 6px -4px rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.14);transition:opacity .16s cubic-bezier(0.16,1,0.3,1),transform .16s cubic-bezier(0.16,1,0.3,1),visibility .16s;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.block-fix-tooltip{position:absolute;right:calc(100% + 9px);top:50%;transform:translateY(-50%) translateX(6px);opacity:0;visibility:hidden;pointer-events:none;z-index:1000;white-space:nowrap;display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:9px;font-size:11px;font-weight:700;letter-spacing:.02em;background:#0f172a;color:#f8fafc;box-shadow:0 10px 25px -3px rgba(0,0,0,.35),0 4px 6px -4px rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.14);transition:opacity .16s cubic-bezier(0.16,1,0.3,1),transform .16s cubic-bezier(0.16,1,0.3,1),visibility .16s;transform:translateZ(0)}
 .block-fix-tooltip::after{content:'';position:absolute;right:-5px;top:50%;transform:translateY(-50%) rotate(45deg);width:9px;height:9px;background:inherit;border-right:1px solid rgba(255,255,255,.14);border-top:1px solid rgba(255,255,255,.14)}
 .group\/blockfix:hover .block-fix-tooltip{opacity:1;visibility:visible;transform:translateY(-50%) translateX(0)}
 /* Dark & Neon Theme Overrides for Block Fix & Drag */
@@ -113,12 +125,11 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 
 /* Neon Mode Context Menu */
 [data-theme="neon"] #card-ctx-menu {
-  background: rgba(3, 14, 44, 0.96) !important;
+  background: rgba(3, 14, 44, 0.98) !important;
   border: 1.5px solid rgba(0, 170, 255, 0.45) !important;
   border-radius: 16px !important;
   box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 140, 255, 0.3) !important;
-  backdrop-filter: blur(18px) !important;
-  -webkit-backdrop-filter: blur(18px) !important;
+  transform: translateZ(0);
   padding: 8px !important;
   min-width: 205px !important;
 }
@@ -200,40 +211,339 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 		color: #38bdf8 !important;
 	}
 
-	/* ── Mobile Board Fixes ── */
+	/* ── Mobile Board App-Grade Experience (Trello Resource Standard - Scoped to Board Only) ── */
 	@media (max-width: 1023px) {
-		.topbar { padding: 4px 8px !important; min-height: 36px !important; border-bottom: none !important; margin-bottom: 0 !important; background: transparent !important; }
-		.topbar .mobile-topbar-title-text { display: none; } /* Hide redundant topbar title */
-		.page-content { padding: 0 !important; }
+		.is-board-page .topbar,
+		html:has(.board-wrap) .topbar { padding: 4px 8px !important; min-height: 40px !important; border-bottom: none !important; margin-bottom: 0 !important; background: transparent !important; }
+		.is-board-page .topbar .mobile-topbar-title-text,
+		html:has(.board-wrap) .topbar .mobile-topbar-title-text { display: none; }
+		.is-board-page .page-content,
+		.page-content:has(.board-wrap) { padding: 0 !important; }
+
+		/* Header: Seamless App Bar with easy-to-click action targets */
+		.board-header-mobile {
+			margin: 0.25rem 0.5rem 0 !important;
+			padding: 0.4rem 0.6rem !important;
+			border-radius: 16px !important;
+			gap: 0.4rem !important;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06) !important;
+			flex-wrap: nowrap !important;
+		}
+		.board-header-mobile h1 {
+			font-size: 0.95rem !important;
+			line-height: 1.3 !important;
+		}
+		.board-header-mobile .btn {
+			padding: 0.35rem 0.65rem !important;
+			font-size: 0.8rem !important;
+			height: 36px !important;
+			border-radius: 12px !important;
+		}
+		.board-header-mobile .btn-icon {
+			width: 36px !important;
+			height: 36px !important;
+			padding: 0 !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+		}
+
+		/* Zoom on mobile: fully visible, compact, and styled like a native segmented pill */
+		.board-header-mobile .zoom-container {
+			display: flex !important;
+			align-items: center !important;
+			padding: 2px 4px !important;
+			border-radius: 12px !important;
+			gap: 3px !important;
+			height: 36px !important;
+			background: rgba(241, 245, 249, 0.95) !important;
+			border: 1px solid rgba(203, 213, 225, 0.8) !important;
+		}
+		[data-theme="dark"] .board-header-mobile .zoom-container {
+			background: rgba(30, 41, 59, 0.95) !important;
+			border-color: rgba(51, 65, 85, 0.8) !important;
+		}
+		.board-header-mobile .zoom-label {
+			display: none !important;
+		}
+		.board-header-mobile .zoom-pill {
+			border: none !important;
+			box-shadow: none !important;
+			padding: 0 !important;
+			gap: 2px !important;
+			background: transparent !important;
+		}
+		.board-header-mobile .zoom-btn {
+			width: 26px !important;
+			height: 26px !important;
+			border-radius: 8px !important;
+			font-size: 15px !important;
+			font-weight: 900 !important;
+			background: #ffffff !important;
+			color: #0f172a !important;
+			border: 1px solid rgba(203, 213, 225, 0.8) !important;
+			box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			cursor: pointer;
+		}
+		[data-theme="dark"] .board-header-mobile .zoom-btn {
+			background: #334155 !important;
+			color: #f8fafc !important;
+			border-color: #475569 !important;
+		}
+		.board-header-mobile .zoom-btn:active {
+			transform: scale(0.92) !important;
+			background: #e2e8f0 !important;
+		}
+		.board-header-mobile .zoom-pill span {
+			width: 32px !important;
+			font-size: 11px !important;
+			font-weight: 800 !important;
+			text-align: center;
+		}
+		.kanban-card-avatar {
+			width: 1.45rem !important;
+			height: 1.45rem !important;
+		}
+
+		/* Full viewport lock on mobile board view: eliminates window bounce & lag */
+		html.is-board-page,
+		body.is-board-page,
+		html:has(.board-wrap),
+		body:has(.board-wrap) {
+			height: 100dvh !important;
+			max-height: 100dvh !important;
+			overflow: hidden !important;
+			position: fixed !important;
+			width: 100% !important;
+		}
+		.is-board-page .main-wrapper,
+		.main-wrapper:has(.board-wrap) {
+			height: 100dvh !important;
+			max-height: 100dvh !important;
+			overflow: hidden !important;
+			display: flex !important;
+			flex-direction: column !important;
+		}
+		.is-board-page .topbar,
+		.main-wrapper:has(.board-wrap) .topbar {
+			flex: 0 0 auto !important;
+			height: auto !important;
+			min-height: 0 !important;
+			padding: 4px 8px !important;
+		}
+		.is-board-page .page-content,
+		.page-content:has(.board-wrap) {
+			flex: 1 1 0% !important;
+			min-height: 0 !important;
+			height: 100% !important;
+			max-height: 100% !important;
+			overflow: hidden !important;
+			display: flex !important;
+			flex-direction: column !important;
+			padding: 0 !important;
+		}
+
+		/* Prevent iOS WebKit automatic zooming on inputs / textareas / selects */
+		input, select, textarea {
+			font-size: 16px !important;
+		}
+
+		/* Board canvas & lists: Responsive native app swiping with card peeking */
 		.board-wrap {
-			min-height: calc(100dvh - 40px - 50px - env(safe-area-inset-bottom,0px) - 2rem);
-			padding: .25rem 1rem calc(80px + env(safe-area-inset-bottom, 0px)) 1rem !important;
-			gap: 0.875rem;
-			scroll-behavior: smooth;
-			-webkit-overflow-scrolling: touch;
+			flex: 1 1 0% !important;
+			min-height: 0 !important;
+			height: 100% !important;
+			display: flex !important;
+			padding: 0.25rem 0.75rem calc(56px + max(4px, calc(env(safe-area-inset-bottom, 0px) - 18px))) 0.75rem !important;
+			gap: 0.75rem !important;
+			overflow-x: auto !important;
+			overflow-y: hidden !important;
+			-webkit-overflow-scrolling: touch !important;
+			overscroll-behavior-x: contain !important;
+			scroll-snap-type: x mandatory !important;
+			scroll-padding: 0.75rem !important;
+			touch-action: pan-x pan-y !important;
 		}
+
+		#sortable-lists-container {
+			height: 100% !important;
+			display: flex !important;
+			align-items: stretch !important;
+			min-width: 100% !important;
+			width: max-content !important;
+		}
+
+		/* Responsive native-app list sizing: adaptive width with next list peeking in */
 		.board-list {
-			width: calc(100vw - 2.5rem) !important;
-			max-width: 320px !important;
+			width: calc(100vw - 48px) !important;
+			max-width: 330px !important;
+			min-width: 275px !important;
 			flex-shrink: 0 !important;
-			max-height: calc(100dvh - 40px - 50px - env(safe-area-inset-bottom,0px) - 3rem);
+			border-radius: 18px !important;
+			scroll-snap-align: start !important;
+			scroll-snap-stop: always !important;
+			height: 100% !important;
+			max-height: 100% !important;
+			display: flex !important;
+			flex-direction: column !important;
+			box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08) !important;
 		}
-		/* Board header: compact and responsive on mobile */
-		.board-header-mobile { flex-wrap: wrap !important; gap: .35rem; padding: .4rem .6rem; margin-bottom: .35rem; border-radius: .75rem; }
-		.board-header-mobile h1 { font-size: 1rem; line-height: 1.2; margin: 0; }
-		.board-header-mobile .btn { padding: .25rem .45rem; font-size: .75rem; height: auto; }
-		.board-header-mobile .zoom-container { display: none !important; }
-		/* Member avatars: fewer overlap */
-		.board-member-stack img { width: 1.5rem; height: 1.5rem; }
-		/* kanban cards: Trello compact font */
-		.kanban-card-title { font-size: 0.95rem; }
-		/* Make quick action button easy to click on mobile */
-		.card-quick-btn { opacity: 1; width: 36px; height: 36px; top: 6px; right: 6px; border-radius: 8px; }
-		.card-quick-btn svg { width: 18px; height: 18px; }
+
+		/* List Header */
+		.list-header {
+			padding: 0.7rem 0.85rem !important;
+			font-size: 0.875rem !important;
+			flex-shrink: 0 !important;
+		}
+
+		/* Responsive native-app cards */
+		.list-cards {
+			padding: 0.5rem !important;
+			gap: 0.5rem !important;
+			flex: 1 1 0% !important;
+			min-height: 0 !important;
+			overflow-y: auto !important;
+			-webkit-overflow-scrolling: touch !important;
+			overscroll-behavior-y: contain !important;
+		}
+		.kanban-card {
+			padding: 0.75rem 0.85rem !important;
+			margin-bottom: 0.55rem !important;
+			border-radius: 14px !important;
+			border: 1px solid rgba(226, 232, 240, 0.95) !important;
+			box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+			touch-action: pan-y !important;
+			cursor: pointer !important;
+			transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease !important;
+		}
+		.kanban-card:active {
+			transform: scale(0.985) !important;
+			background: #f8fafc !important;
+		}
+		[data-theme="dark"] .kanban-card:active {
+			background: #1e293b !important;
+		}
+		.kanban-card-title {
+			font-size: 0.9rem !important;
+			line-height: 1.35 !important;
+			font-weight: 700 !important;
+			color: #1e293b !important;
+			display: -webkit-box;
+			-webkit-line-clamp: 4;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+		[data-theme="dark"] .kanban-card-title {
+			color: #f1f5f9 !important;
+		}
+		.kanban-card-label {
+			height: 6px !important;
+			width: 32px !important;
+			border-radius: 9999px !important;
+		}
+		.kanban-card-meta {
+			font-size: 0.775rem !important;
+			padding: 3px 7px !important;
+			border-radius: 7px !important;
+			line-height: 1.25 !important;
+			font-weight: 700 !important;
+		}
+		.card-assignees-scroll {
+			scrollbar-width: none !important;
+			-ms-overflow-style: none !important;
+			touch-action: pan-x pan-y !important;
+			-webkit-overflow-scrolling: touch !important;
+		}
+		.card-assignees-scroll::-webkit-scrollbar {
+			display: none !important;
+		}
+		.card-quick-btn {
+			opacity: 1 !important;
+			width: 28px !important;
+			height: 28px !important;
+			top: 6px !important;
+			right: 6px !important;
+			border-radius: 8px !important;
+			background: rgba(255, 255, 255, 0.96) !important;
+			border: 1px solid rgba(226, 232, 240, 0.85) !important;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			touch-action: manipulation !important;
+		}
+		.card-quick-btn:active {
+			transform: scale(0.92) !important;
+			background: #e2e8f0 !important;
+		}
+		[data-theme="dark"] .card-quick-btn {
+			background: rgba(30, 41, 59, 0.95) !important;
+			border-color: rgba(51, 65, 85, 0.8) !important;
+			color: #cbd5e1 !important;
+		}
+		#card-ctx-menu {
+			min-width: 210px !important;
+			padding: 8px !important;
+			border-radius: 16px !important;
+			box-shadow: 0 12px 35px rgba(0,0,0,0.22) !important;
+		}
+		.ctx-item {
+			padding: 10px 14px !important;
+			font-size: 0.875rem !important;
+			min-height: 40px !important;
+			gap: 12px !important;
+			border-radius: 10px !important;
+		}
+		.add-list-wrapper {
+			scroll-snap-align: none !important;
+			scroll-snap-stop: normal !important;
+		}
+		.add-list-btn {
+			width: calc(100vw - 48px) !important;
+			max-width: 330px !important;
+			min-width: 275px !important;
+			min-height: 46px !important;
+			border-radius: 18px !important;
+		}
+		.adding-list-container {
+			width: calc(100vw - 48px) !important;
+			max-width: 330px !important;
+			min-width: 275px !important;
+			border-radius: 18px !important;
+		}
+
+		/* Zero 300ms tap delay on mobile interactive elements */
+		.kanban-card,
+		.btn,
+		.card-quick-btn,
+		.block-fix-btn,
+		.zoom-btn,
+		.board-list-menu-trigger,
+		button,
+		a {
+			touch-action: manipulation !important;
+			-webkit-tap-highlight-color: transparent !important;
+		}
 	}
 	@media (max-width: 480px) {
-		.board-list { width: calc(100vw - 2rem) !important; max-width: 310px !important; }
-		.board-wrap { padding: .25rem 0.75rem calc(85px + env(safe-area-inset-bottom, 0px)) 0.75rem !important; gap: 0.75rem; }
+		.board-list {
+			width: calc(100vw - 44px) !important;
+			max-width: 320px !important;
+			min-width: 265px !important;
+		}
+		.add-list-btn, .adding-list-container {
+			width: calc(100vw - 44px) !important;
+			max-width: 320px !important;
+			min-width: 265px !important;
+		}
+		.board-wrap {
+			padding: 0.25rem 0.65rem calc(56px + max(4px, calc(env(safe-area-inset-bottom, 0px) - 18px))) 0.65rem !important;
+			gap: 0.65rem !important;
+			scroll-padding: 0.65rem !important;
+		}
 	}
 
 	/* Zoom Control Styling */
@@ -339,6 +649,27 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 		color: #f8fafc;
 	}
 
+	/* ── Dark Mode Canvas Overrides ── */
+	[data-theme="dark"] .board-wrap,
+	html.dark .board-wrap {
+		background: transparent !important;
+	}
+	[data-theme="dark"] .board-canvas-root:not([data-bg-type="image"]),
+	html.dark .board-canvas-root:not([data-bg-type="image"]) {
+		background: #0b1329 !important;
+		background-size: cover !important;
+	}
+	[data-theme="dark"] .board-canvas-root[data-bg-type="image"],
+	html.dark .board-canvas-root[data-bg-type="image"] {
+		background-size: cover !important;
+		background-position: center !important;
+	}
+
+	/* ── Light Mode Canvas Default ── */
+	html:not([data-theme="dark"]):not([data-theme="neon"]):not(.dark) .board-canvas-root:not([data-bg-type="image"]) {
+		background: #ffffff;
+	}
+
 	/* ── Neon Blue UI Overrides for Board View (Screenshot 1) ── */
 	[data-theme="neon"] .board-wrap {
 		background: transparent !important;
@@ -348,16 +679,14 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 					radial-gradient(ellipse at 85% 90%, rgba(0, 100, 255, 0.2) 0%, transparent 50%),
 					radial-gradient(ellipse at 10% 90%, rgba(0, 50, 180, 0.15) 0%, transparent 50%),
 					#020819 !important;
-		background-attachment: fixed !important;
+		background-size: cover !important;
 	}
 	[data-theme="neon"] .board-canvas-root[data-bg-type="image"] {
 		background-size: cover !important;
 		background-position: center !important;
 	}
 	[data-theme="neon"] .board-header-mobile {
-		background: rgba(3, 14, 44, 0.82) !important;
-		backdrop-filter: blur(18px) !important;
-		-webkit-backdrop-filter: blur(18px) !important;
+		background: rgba(3, 14, 44, 0.92) !important;
 		border: 1px solid rgba(0, 170, 255, 0.4) !important;
 		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 130, 255, 0.2) !important;
 		max-width: 100vw;
@@ -367,8 +696,6 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 	[data-theme="neon"] .board-header-mobile div[x-show="openMembers"],
 	[data-theme="neon"] .board-header-mobile div[x-show="searchOpen"] {
 		background: rgba(3, 14, 44, 0.98) !important;
-		backdrop-filter: blur(24px) !important;
-		-webkit-backdrop-filter: blur(24px) !important;
 		border: 1.5px solid rgba(0, 180, 255, 0.6) !important;
 		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 160, 255, 0.35) !important;
 		z-index: 60 !important;
@@ -399,15 +726,13 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 		color: #ffffff !important;
 	}
 	[data-theme="neon"] .board-list {
-		background: rgba(4, 18, 50, 0.78) !important;
-		backdrop-filter: blur(18px) !important;
-		-webkit-backdrop-filter: blur(18px) !important;
+		background: rgba(4, 18, 50, 0.94) !important;
 		border: 1px solid rgba(0, 150, 255, 0.38) !important;
 		border-radius: 16px !important;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 15px rgba(0, 120, 255, 0.15) !important;
 	}
 	[data-theme="neon"] .list-header {
-		background: rgba(2, 12, 36, 0.65) !important;
+		background: rgba(2, 12, 36, 0.75) !important;
 		border-bottom: 1px solid rgba(0, 150, 255, 0.25) !important;
 		color: #f0f9ff !important;
 	}
@@ -417,7 +742,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 		text-shadow: 0 0 8px rgba(0, 180, 255, 0.4) !important;
 	}
 	[data-theme="neon"] .kanban-card {
-		background: rgba(7, 26, 68, 0.88) !important;
+		background: rgba(7, 26, 68, 0.94) !important;
 		border: 1px solid rgba(0, 160, 255, 0.35) !important;
 		border-radius: 14px !important;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 10px rgba(0, 120, 255, 0.15) !important;
@@ -426,7 +751,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 	[data-theme="neon"] .kanban-card:hover {
 		border-color: rgba(0, 220, 255, 0.85) !important;
 		box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 190, 255, 0.5) !important;
-		transform: translateY(-2px) !important;
+		transform: translateY(-2px) translateZ(0) !important;
 	}
 	[data-theme="neon"] .kanban-card-title {
 		color: #ffffff !important;
@@ -559,8 +884,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 		border: 1.5px solid rgba(0, 180, 255, 0.5) !important;
 		border-radius: 16px !important;
 		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 25px rgba(0, 140, 255, 0.4) !important;
-		backdrop-filter: blur(20px) !important;
-		-webkit-backdrop-filter: blur(20px) !important;
+		transform: translateZ(0);
 	}
 	[data-theme="neon"] .board-list-menu button {
 		color: #e0f2fe !important;
@@ -609,9 +933,16 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 @section('content')
 {{-- Board takes full width – no max-width constraint --}}
 @php
-  $bgValue = $board->background_value ?: '#0f172a';
+  $bgValue = $board->background_value ?: '#ffffff';
   if ($board->background_type === 'image') {
-      $safeUrl = str_replace('"', '\"', $bgValue);
+      $safeUrl = $bgValue;
+      if (str_starts_with($safeUrl, '/public/')) {
+          $safeUrl = substr($safeUrl, 7);
+      }
+      if (!filter_var($safeUrl, FILTER_VALIDATE_URL)) {
+          $safeUrl = asset(ltrim($safeUrl, '/'));
+      }
+      $safeUrl = str_replace('"', '\"', $safeUrl);
       $serverStyle = "background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url(\"{$safeUrl}\"); background-color: #0f172a; background-size: cover; background-position: center;";
   } else {
       $serverStyle = "background: {$bgValue};";
@@ -620,9 +951,9 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 <div class="flex-1 flex flex-col min-h-full board-canvas-root" style="{{ $serverStyle }}" :style="sbmBoardPreviewStyle(board)" data-bg-type="{{ $board->background_type }}" x-data='trelloBoard(@json($boardData))' x-init="init()">
 
 {{-- ── Board header ────────────── --}}
-<div class="relative sm:sticky sm:top-[64px] lg:top-[76px] z-[45] flex items-center justify-between gap-2 sm:gap-3 mb-4 flex-wrap sm:flex-nowrap bg-white dark:bg-slate-800 sm:bg-white/65 sm:dark:bg-slate-800/80 sm:backdrop-blur-xl p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-200/60 dark:border-slate-700 sm:dark:border-slate-700/60 shadow-md board-header-mobile">
-  <div class="relative flex items-center gap-2">
-    <div>
+<div class="relative sm:sticky sm:top-[64px] lg:top-[76px] z-[45] flex items-center justify-between gap-1.5 sm:gap-3 mb-2 sm:mb-4 flex-nowrap bg-white dark:bg-slate-800 sm:bg-white/65 sm:dark:bg-slate-800/80 sm:backdrop-blur-xl p-1.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200 sm:border-slate-200/60 dark:border-slate-700 sm:dark:border-slate-700/60 shadow-xs sm:shadow-md board-header-mobile">
+  <div class="relative flex items-center gap-1 sm:gap-2 min-w-0 flex-1 sm:flex-initial">
+    <div class="min-w-0">
       <nav class="hidden sm:block text-xs text-slate-400 mb-0.5">
         @if(isset($isSmmModule) && $isSmmModule)
             <a href="{{ route('smm-boards.index') }}" class="hover:text-indigo-600 font-medium">SMM Planning Boards</a>
@@ -632,39 +963,40 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
             <span class="font-medium text-slate-500" x-text="sbmBoardWorkspaceName(board)">{{ $board->workspace->name }}</span>
         @endif
       </nav>
-      <div class="relative flex items-center gap-1.5 sm:gap-2">
-        <h1 class="font-display font-black text-slate-800 text-base sm:text-lg cursor-pointer hover:text-indigo-600 flex items-center gap-1 sm:gap-1.5 transition-colors select-none" @click="openSwitchBoardsModal()">
-          <span x-text="board.name">{{ $board->name }}</span>
-          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-          </svg>
-        </h1>
+      <div class="relative flex items-center gap-1 sm:gap-2 min-w-0">
+        <button type="button" @click="openSwitchBoardsModal()" class="flex items-center gap-1 sm:gap-1.5 py-1 px-2 rounded-xl bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-700/60 dark:hover:bg-slate-700 active:scale-95 transition-all text-left border border-slate-200/80 dark:border-slate-600/80 group min-w-0 shadow-2xs" title="Tap to switch board">
+          <h1 class="font-display font-black text-slate-800 dark:text-slate-100 text-xs xs:text-sm sm:text-lg flex items-center gap-1 sm:gap-1.5 truncate max-w-[130px] xs:max-w-[190px] sm:max-w-md">
+            <span x-text="board.name" class="truncate">{{ $board->name }}</span>
+            <svg class="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 flex-shrink-0 group-hover:translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </h1>
+        </button>
         
         <!-- Star Toggle -->
-        <button @click="toggleStar()" class="p-1 rounded-lg hover:bg-slate-100 transition-colors flex items-center justify-center text-base sm:text-lg select-none"
-                :class="board.is_starred ? 'text-amber-500' : 'text-slate-300 hover:text-slate-400'">
+        <button @click="toggleStar()" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors flex items-center justify-center text-xs sm:text-lg select-none flex-shrink-0"
+                :class="board.is_starred ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600 hover:text-slate-400'"
+                title="Star board">
             <span x-text="board.is_starred ? '★' : '☆'"></span>
         </button>
       </div>
     </div>
   </div>
 
-
-
-  <div class="ml-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-3">
-    {{-- Zoom Control --}}
-    <div class="zoom-container hidden md:flex items-center gap-2 mr-1 rounded-full px-3 py-1.5 border shadow-sm">
-        <span class="zoom-label text-[10px] font-extrabold uppercase tracking-widest pl-1 mr-1">Zoom</span>
-        <div class="zoom-pill flex items-center gap-1.5 text-xs font-bold rounded-full px-2 py-1 shadow-sm border">
-            <button @click="zoomOut()" class="zoom-btn w-5 h-5 flex items-center justify-center rounded-full transition-colors" :class="{'opacity-40 cursor-not-allowed': zoomLevel <= 33}">−</button>
-            <span class="w-10 text-center" x-text="zoomLevel + '%'"></span>
-            <button @click="zoomIn()" class="zoom-btn w-5 h-5 flex items-center justify-center rounded-full transition-colors" :class="{'opacity-40 cursor-not-allowed': zoomLevel >= 150}">+</button>
+  <div class="ml-auto flex flex-shrink-0 items-center gap-1 sm:gap-2.5">
+    {{-- Zoom Control (Visible and touch-optimized on both mobile and desktop) --}}
+    <div class="zoom-container flex items-center gap-1 sm:gap-2 mr-0.5 sm:mr-1 rounded-xl sm:rounded-full px-1.5 sm:px-3 py-1 sm:py-1.5 border shadow-2xs sm:shadow-sm">
+        <span class="zoom-label hidden md:inline text-[10px] font-extrabold uppercase tracking-widest pl-1 mr-1">Zoom</span>
+        <div class="zoom-pill flex items-center gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-bold rounded-lg sm:rounded-full px-1 sm:px-2 py-0.5 sm:py-1 border">
+            <button type="button" @click="zoomOut()" class="zoom-btn w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center rounded-lg sm:rounded-full font-black transition-colors" :class="{'opacity-40 cursor-not-allowed': zoomLevel <= 50}" title="Zoom out">−</button>
+            <span class="w-8 sm:w-10 text-center select-none cursor-pointer" @click="setZoom(100)" title="Click to reset zoom" x-text="zoomLevel + '%'"></span>
+            <button type="button" @click="zoomIn()" class="zoom-btn w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center rounded-lg sm:rounded-full font-black transition-colors" :class="{'opacity-40 cursor-not-allowed': zoomLevel >= 150}" title="Zoom in">+</button>
         </div>
-        <button x-show="zoomLevel !== 100" @click="setZoom(100)" x-cloak class="zoom-reset text-[11px] font-bold px-1 transition-colors">Reset</button>
+        <button x-show="zoomLevel !== 100" @click="setZoom(100)" x-cloak class="zoom-reset hidden sm:inline text-[11px] font-bold px-1 transition-colors">Reset</button>
     </div>
 
-    {{-- Board Members Stack --}}
-    <div class="flex items-center -space-x-1.5 sm:-space-x-2 mr-0.5 sm:mr-1">
+    {{-- Board Members Stack (Visible on desktop, hidden on tiny mobile) --}}
+    <div class="hidden sm:flex items-center -space-x-1.5 sm:-space-x-2 mr-0.5 sm:mr-1">
       @foreach($board->members->take(3) as $bm)
         <img src="{{ $bm->avatar_url }}" alt="{{ $bm->name }}" title="{{ $bm->name }}"
              class="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100">
@@ -689,19 +1021,24 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
         </svg>
       </button>
       <div x-show="searchOpen" @click.outside="searchOpen = false" x-cloak
-           class="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl z-[60]"
+           class="fixed inset-x-3 top-16 md:absolute md:inset-auto md:right-0 md:top-auto md:mt-2 md:w-80 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-2xl z-[70]"
            x-transition:enter="transition ease-out duration-100"
            x-transition:enter-start="opacity-0 scale-95"
            x-transition:enter-end="opacity-100 scale-100">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 mb-3">
           <p class="text-[10px] uppercase font-black tracking-widest text-slate-400">Search cards</p>
-          <button type="button" x-show="searchQuery.trim()" x-cloak @click="searchQuery = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+          <div class="flex items-center gap-2">
+            <button type="button" x-show="searchQuery.trim()" x-cloak @click="searchQuery = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+            <button type="button" @click="searchOpen = false" class="md:hidden text-slate-400 hover:text-slate-600 p-1" aria-label="Close search">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
         </div>
         <div class="relative">
           <input x-ref="boardSearchInput"
                  x-model.debounce.150ms="searchQuery"
                  type="search"
-                 class="form-input w-full rounded-xl pl-9 text-sm"
+                 class="form-input w-full rounded-xl pl-9 h-11 md:h-9 text-base md:text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
                  placeholder="Search card or public date (e.g. 25/09/2026)...">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6.04 6.04a7.5 7.5 0 0 0 10.61 10.61Z" />
@@ -714,50 +1051,69 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
     <div class="relative">
       <button type="button"
               @click="filtersOpen = !filtersOpen"
-              class="btn btn-secondary py-1 sm:py-1.5 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1.5 font-semibold"
-              :class="activeFiltersCount() ? '!bg-indigo-50 !text-indigo-700 !border-indigo-200' : ''">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor">
+              class="btn btn-secondary py-1 sm:py-1.5 px-2.5 sm:px-3 text-xs flex items-center gap-1.5 font-bold h-9 rounded-xl active:scale-95"
+              :class="activeFiltersCount() ? '!bg-indigo-50 !text-indigo-700 !border-indigo-200 dark:!bg-indigo-950/50 dark:!text-indigo-400 dark:!border-indigo-800' : ''">
+        <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 20.5v-6.068a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
         </svg>
-        <span class="hidden sm:inline">Filters</span>
-        <span x-show="activeFiltersCount()" x-cloak class="min-w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] leading-4 text-center" x-text="activeFiltersCount()"></span>
+        <span class="inline">Filters</span>
+        <span x-show="activeFiltersCount()" x-cloak class="min-w-4 h-4 px-1 rounded-full bg-indigo-600 text-white text-[10px] leading-4 text-center font-bold" x-text="activeFiltersCount()"></span>
       </button>
+
+      {{-- Desktop Dropdown (hidden on mobile, visible on md: screens) --}}
       <div x-show="filtersOpen" @click.outside="filtersOpen = false" x-cloak
-           class="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl z-[60]"
+           class="hidden md:block absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-2xl z-[60]"
            x-transition:enter="transition ease-out duration-100"
            x-transition:enter-start="opacity-0 scale-95"
            x-transition:enter-end="opacity-100 scale-100">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 mb-3">
           <p class="text-[10px] uppercase font-black tracking-widest text-slate-400">Board filters</p>
-          <button type="button" @click="clearFilters()" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+          <button type="button" @click="clearFilters()" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Clear</button>
         </div>
         <div class="space-y-3">
-          {{-- SMM Specific Filters --}}
+          {{-- SMM / Planning / Workflow Filters --}}
           <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow'">
             <div class="space-y-3">
+              {{-- Team Filter for Planning Boards & SMM Planning Boards (hidden on Workflow boards) --}}
+              <template x-if="!isWorkflowBoard()">
+                <label class="block">
+                  <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Team</span>
+                  <template x-if="isNormalPlanningBoard() && !canFilterAllTeams() && currentUser?.team">
+                    <input type="text" :value="'Team ' + currentUser.team + ' (Your Team)'" disabled readonly class="form-input w-full rounded-xl text-xs bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 cursor-not-allowed font-bold">
+                  </template>
+                  <template x-if="isSmmPlanningBoard() || canFilterAllTeams() || !currentUser?.team">
+                    <select x-model="filterTeam" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-medium">
+                      <option value="">All Teams (Team A & B)</option>
+                      <option value="A">Team A</option>
+                      <option value="B">Team B</option>
+                    </select>
+                  </template>
+                </label>
+              </template>
+
               <label class="block">
-                <span class="block text-[11px] font-bold text-slate-500 mb-1">Assign By</span>
-                <select x-model="filterAssignBy" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
+                <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Assign By</span>
+                <select x-model="filterAssignBy" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-medium">
                   <option value="">Anyone</option>
-                  <template x-for="member in allBoardMembers" :key="member.id">
+                  <template x-for="member in (filterAvailableMembers && filterAvailableMembers.length ? filterAvailableMembers : (allBoardMembers || []))" :key="member.id">
                     <option :value="member.id" x-text="member.name"></option>
                   </template>
                 </select>
               </label>
               
               <label class="block">
-                <span class="block text-[11px] font-bold text-slate-500 mb-1">Assign To</span>
-                <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
+                <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Assign To</span>
+                <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-medium">
                   <option value="">Anyone</option>
-                  <template x-for="member in allBoardMembers" :key="member.id">
+                  <template x-for="member in (filterAvailableMembers && filterAvailableMembers.length ? filterAvailableMembers : (allBoardMembers || []))" :key="member.id">
                     <option :value="member.id" x-text="member.name"></option>
                   </template>
                 </select>
               </label>
 
               <label class="block">
-                <span class="block text-[11px] font-bold text-slate-500 mb-1">Label</span>
-                <select x-model="filterLabel" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
+                <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Label</span>
+                <select x-model="filterLabel" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-medium">
                   <option value="">Any Label</option>
                   <template x-for="lbl in labels" :key="lbl.id">
                     <option :value="lbl.id" x-text="lbl.name"></option>
@@ -766,8 +1122,8 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
               </label>
 
               <label class="block">
-                <span class="block text-[11px] font-bold text-slate-500 mb-1">Approval Status</span>
-                <select x-model="filterStatus" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200">
+                <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Approval Status</span>
+                <select x-model="filterStatus" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-medium">
                   <option value="">All Statuses</option>
                   <option value="approved">Approved Only</option>
                   <option value="unapproved">Unapproved</option>
@@ -777,10 +1133,10 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
               {{-- Public Date Filter --}}
               <label class="block">
                 <div class="flex items-center justify-between mb-1">
-                  <span class="block text-[11px] font-bold text-slate-500">Public Date</span>
-                  <button type="button" x-show="filterPublicDate" @click="filterPublicDate = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+                  <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400">Public Date</span>
+                  <button type="button" x-show="filterPublicDate" @click="filterPublicDate = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Clear</button>
                 </div>
-                <input type="date" x-model="filterPublicDate" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200 text-slate-700">
+                <input type="date" x-model="filterPublicDate" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">
               </label>
             </div>
           </template>
@@ -789,11 +1145,21 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
           <template x-if="!(board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow')">
             <div class="space-y-3">
               <label class="block">
-                <span class="block text-[11px] font-bold text-slate-500 mb-1">Member</span>
-                <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs">
+                <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Member</span>
+                <select x-model="filterAssignee" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-medium">
                   <option value="">All members</option>
-                  <template x-for="member in allBoardMembers" :key="member.id">
+                  <template x-for="member in (filterAvailableMembers && filterAvailableMembers.length ? filterAvailableMembers : (allBoardMembers || []))" :key="member.id">
                     <option :value="member.id" x-text="member.name"></option>
+                  </template>
+                </select>
+              </label>
+
+              <label class="block">
+                <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Label</span>
+                <select x-model="filterLabel" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 font-medium">
+                  <option value="">Any Label</option>
+                  <template x-for="lbl in labels" :key="lbl.id">
+                    <option :value="lbl.id" x-text="lbl.name"></option>
                   </template>
                 </select>
               </label>
@@ -801,22 +1167,218 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
               {{-- Public / Due Date Filter --}}
               <label class="block">
                 <div class="flex items-center justify-between mb-1">
-                  <span class="block text-[11px] font-bold text-slate-500">Public / Due Date</span>
-                  <button type="button" x-show="filterPublicDate" @click="filterPublicDate = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800">Clear</button>
+                  <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400">Public / Due Date</span>
+                  <button type="button" x-show="filterPublicDate" @click="filterPublicDate = ''" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Clear</button>
                 </div>
-                <input type="date" x-model="filterPublicDate" class="form-input w-full rounded-xl text-xs bg-slate-50 border-slate-200 text-slate-700">
+                <input type="date" x-model="filterPublicDate" class="form-input w-full rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200">
               </label>
             </div>
           </template>
+        </div>
+      </div>
 
+      {{-- Mobile Filter Drawer / Bottom Sheet (Trello-Style Mobile Native Experience) --}}
+      <div class="md:hidden" x-show="filtersOpen" x-cloak>
+        {{-- Backdrop --}}
+        <div class="fixed inset-0 bg-slate-950/65 backdrop-blur-xs z-[9998] transition-opacity"
+             @click="filtersOpen = false"
+             x-transition:enter="ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"></div>
+
+        {{-- Bottom Sheet Modal Container --}}
+        <div class="fixed inset-x-0 bottom-0 max-h-[88vh] bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl z-[9999] flex flex-col border-t border-slate-200/80 dark:border-slate-800 overflow-hidden"
+             x-transition:enter="transform transition ease-out duration-250"
+             x-transition:enter-start="translate-y-full"
+             x-transition:enter-end="translate-y-0"
+             x-transition:leave="transform transition ease-in duration-200"
+             x-transition:leave-start="translate-y-0"
+             x-transition:leave-end="translate-y-full">
+          
+          {{-- Grab Handle --}}
+          <div class="pt-3 pb-1 flex justify-center flex-shrink-0 cursor-pointer" @click="filtersOpen = false">
+            <div class="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+          </div>
+
+          {{-- Sheet Header --}}
+          <div class="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 20.5v-6.068a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+                </svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-extrabold text-slate-800 dark:text-slate-100 text-base leading-none">Filter Cards</h3>
+                  <span x-show="activeFiltersCount()" x-cloak class="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[11px] font-bold" x-text="activeFiltersCount() + ' active'"></span>
+                </div>
+                <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Filter cards across all lists</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <button type="button" @click="clearFilters(true)" x-show="activeFiltersCount()" x-cloak
+                      class="text-xs font-bold text-rose-500 hover:text-rose-600 py-1.5 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 transition active:scale-95">
+                Clear all
+              </button>
+              <button type="button" @click="filtersOpen = false" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center justify-center transition" aria-label="Close filters">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+
+          {{-- Sheet Content (Scrollable with thumb-friendly controls) --}}
+          <div class="p-5 overflow-y-auto space-y-4 max-h-[calc(88vh-135px)] overscroll-contain">
+            {{-- SMM / Planning / Workflow Boards --}}
+            <template x-if="board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow'">
+              <div class="space-y-4">
+                {{-- Team Filter for Planning Boards & SMM Planning Boards (hidden on Workflow boards) --}}
+                <template x-if="!isWorkflowBoard()">
+                  <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Team</label>
+                    <template x-if="isNormalPlanningBoard() && !canFilterAllTeams() && currentUser?.team">
+                      <div class="flex items-center gap-2 p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-sm">
+                        <span class="w-3 h-3 rounded-full" :class="currentUser.team === 'A' ? 'bg-blue-600' : 'bg-emerald-600'"></span>
+                        <span x-text="'Team ' + currentUser.team + ' (Your Assigned Team)'"></span>
+                      </div>
+                    </template>
+                    <template x-if="isSmmPlanningBoard() || canFilterAllTeams() || !currentUser?.team">
+                      <div class="grid grid-cols-3 gap-2 p-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                        <button type="button" @click="filterTeam = ''"
+                                class="py-2.5 px-2 rounded-xl font-bold text-xs transition-all text-center flex items-center justify-center gap-1 active:scale-95"
+                                :class="!filterTeam ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/80 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:text-slate-800'">
+                          All Teams
+                        </button>
+                        <button type="button" @click="filterTeam = 'A'"
+                                class="py-2.5 px-2 rounded-xl font-bold text-xs transition-all text-center flex items-center justify-center gap-1 active:scale-95"
+                                :class="filterTeam === 'A' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-800'">
+                          <span class="w-2 h-2 rounded-full" :class="filterTeam === 'A' ? 'bg-white' : 'bg-blue-600'"></span>
+                          Team A
+                        </button>
+                        <button type="button" @click="filterTeam = 'B'"
+                                class="py-2.5 px-2 rounded-xl font-bold text-xs transition-all text-center flex items-center justify-center gap-1 active:scale-95"
+                                :class="filterTeam === 'B' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-800'">
+                          <span class="w-2 h-2 rounded-full" :class="filterTeam === 'B' ? 'bg-white' : 'bg-emerald-600'"></span>
+                          Team B
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                {{-- Assign By & Assign To Grid --}}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {{-- Assign By Filter (Mobile) --}}
+                  <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Assign By</label>
+                    <select x-model="filterAssignBy" class="form-input w-full rounded-xl text-base sm:text-xs h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium">
+                      <option value="">Anyone</option>
+                      <template x-for="member in (filterAvailableMembers && filterAvailableMembers.length ? filterAvailableMembers : (allBoardMembers || []))" :key="member.id">
+                        <option :value="member.id" x-text="member.name"></option>
+                      </template>
+                    </select>
+                  </div>
+
+                  {{-- Assign To Filter (Mobile) --}}
+                  <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Assign To</label>
+                    <select x-model="filterAssignee" class="form-input w-full rounded-xl text-base sm:text-xs h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium">
+                      <option value="">Anyone</option>
+                      <template x-for="member in (filterAvailableMembers && filterAvailableMembers.length ? filterAvailableMembers : (allBoardMembers || []))" :key="member.id">
+                        <option :value="member.id" x-text="member.name"></option>
+                      </template>
+                    </select>
+                  </div>
+                </div>
+
+                {{-- Label & Approval Status Grid --}}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Label</label>
+                    <select x-model="filterLabel" class="form-input w-full rounded-xl text-base sm:text-xs h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium">
+                      <option value="">Any Label</option>
+                      <template x-for="lbl in labels" :key="lbl.id">
+                        <option :value="lbl.id" x-text="lbl.name"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Approval Status</label>
+                    <select x-model="filterStatus" class="form-input w-full rounded-xl text-base sm:text-xs h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium">
+                      <option value="">All Statuses</option>
+                      <option value="approved">Approved Only</option>
+                      <option value="unapproved">Unapproved</option>
+                    </select>
+                  </div>
+                </div>
+
+                {{-- Public Date Filter --}}
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Public Date</span>
+                    <button type="button" x-show="filterPublicDate" @click="filterPublicDate = ''" class="text-xs font-bold text-rose-500 hover:text-rose-600">Clear Date</button>
+                  </div>
+                  <input type="date" x-model="filterPublicDate" class="form-input w-full rounded-xl text-base sm:text-xs h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
+                </div>
+              </div>
+            </template>
+
+            {{-- Standard Boards Filter --}}
+            <template x-if="!(board?.name?.toLowerCase().includes('smm') || board?.name?.toLowerCase().includes('planning') || board?.name?.toLowerCase().includes('workflow') || board?.template === 'workflow')">
+              <div class="space-y-4">
+                {{-- Member Filter (Mobile) --}}
+                <div>
+                  <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Member</label>
+                  <select x-model="filterAssignee" class="form-input w-full rounded-xl text-base sm:text-xs h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium">
+                    <option value="">All members</option>
+                    <template x-for="member in (filterAvailableMembers && filterAvailableMembers.length ? filterAvailableMembers : (allBoardMembers || []))" :key="member.id">
+                      <option :value="member.id" x-text="member.name"></option>
+                    </template>
+                  </select>
+                </div>
+
+                {{-- Label Filter (Mobile) --}}
+                <div>
+                  <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Label</label>
+                  <select x-model="filterLabel" class="form-input w-full rounded-xl text-base sm:text-xs h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium">
+                    <option value="">Any Label</option>
+                    <template x-for="lbl in labels" :key="lbl.id">
+                      <option :value="lbl.id" x-text="lbl.name"></option>
+                    </template>
+                  </select>
+                </div>
+
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Public / Due Date</span>
+                    <button type="button" x-show="filterPublicDate" @click="filterPublicDate = ''" class="text-xs font-bold text-rose-500 hover:text-rose-600">Clear Date</button>
+                  </div>
+                  <input type="date" x-model="filterPublicDate" class="form-input w-full rounded-xl text-base sm:text-xs h-11 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
+                </div>
+              </div>
+            </template>
+          </div>
+
+          {{-- Bottom Sticky Apply Button --}}
+          <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs flex-shrink-0">
+            <button type="button" @click="filtersOpen = false"
+                    class="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-extrabold text-sm shadow-md shadow-indigo-500/25 flex items-center justify-center gap-2 transition">
+              <span>Apply & View Cards</span>
+              <span x-show="activeFiltersCount()" x-cloak class="px-2 py-0.5 rounded-full bg-white/20 text-xs font-bold" x-text="activeFiltersCount()"></span>
+            </button>
+          </div>
 
         </div>
       </div>
     </div>
 
     {{-- Manage Board Members Dropdown (Only for Board Admins/Managers) --}}
-    @if(auth()->user()->hasRole('super-admin') || $board->created_by === auth()->id() || auth()->user()->isSupervisorRole() || (auth()->user()->hasRole('sales-crm') && $board->workspace->name === 'CRM Team'))
-      <div class="relative" x-data="{ openMembers: false, search: '' }">
+    @if(auth()->user()->canManageBoardMembers($board))
+      <div class="relative hidden sm:block" x-data="{ openMembers: false, search: '' }">
         <button @click="openMembers = !openMembers; search = ''" class="btn btn-secondary py-1 sm:py-1.5 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5 font-semibold">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
@@ -860,9 +1422,9 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
     @endif
 
 
-    {{-- Import Button --}}
+    {{-- Import Button (Visible on desktop) --}}
     <button @click="openImportModal()"
-            class="btn btn-secondary py-1 sm:py-1.5 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5 font-semibold hover:text-white transition-colors"
+            class="hidden sm:inline-flex btn btn-secondary py-1 sm:py-1.5 px-2 sm:px-3 text-[10px] sm:text-xs items-center gap-1 sm:gap-1.5 font-semibold hover:text-white transition-colors"
             title="Import cards from CSV or Google Sheets">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
@@ -879,6 +1441,79 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
   </div>
 </div>
 
+{{-- Quick Filter Toolbar for Workflow Boards, Planning Boards & SMM Planning Boards --}}
+<template x-if="isWorkflowBoard() || isSmmPlanningBoard() || isPlanningBoard()">
+  <div class="px-2.5 sm:px-4 py-1.5 sm:py-2 border-b border-slate-200/60 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between gap-2 sm:gap-3 text-xs shadow-2xs overflow-x-auto no-scrollbar touch-pan-x" style="-webkit-overflow-scrolling: touch;">
+    <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap min-w-max">
+      {{-- Teams Switcher (All Teams, Team A, Team B) for Planning Boards & SMM Planning Boards (hidden on Workflow boards) --}}
+      <template x-if="!isWorkflowBoard()">
+        <div class="flex items-center gap-1.5">
+          {{-- Normal Planning Board for regular user: strictly locked to their own team --}}
+          <template x-if="isNormalPlanningBoard() && !canFilterAllTeams() && currentUser?.team">
+            <div class="flex items-center gap-1 px-3 py-1.5 min-h-[34px] sm:min-h-0 rounded-xl text-xs font-black shadow-xs select-none"
+                 :class="currentUser.team === 'A' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+              </svg>
+              <span x-text="'Team ' + currentUser.team"></span>
+            </div>
+          </template>
+
+          {{-- SMM Planning Board (for all users) OR Users who can filter all teams: can toggle All Teams, Team A, Team B --}}
+          <template x-if="isSmmPlanningBoard() || canFilterAllTeams() || !currentUser?.team">
+            <div class="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-700">
+              <button type="button" @click="filterTeam = ''"
+                      class="px-3 py-1.5 min-h-[34px] sm:min-h-0 rounded-lg font-bold transition-all text-xs sm:text-[11px] flex items-center gap-1 active:scale-95 touch-manipulation"
+                      :class="!filterTeam ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'">
+                All Teams
+              </button>
+              <button type="button" @click="filterTeam = 'A'"
+                      class="px-3 py-1.5 min-h-[34px] sm:min-h-0 rounded-lg font-bold transition-all text-xs sm:text-[11px] flex items-center gap-1 active:scale-95 touch-manipulation"
+                      :class="filterTeam === 'A' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'">
+                <span>Team A</span>
+              </button>
+              <button type="button" @click="filterTeam = 'B'"
+                      class="px-3 py-1.5 min-h-[34px] sm:min-h-0 rounded-lg font-bold transition-all text-xs sm:text-[11px] flex items-center gap-1 active:scale-95 touch-manipulation"
+                      :class="filterTeam === 'B' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'">
+                <span>Team B</span>
+              </button>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      {{-- Divider --}}
+      <div class="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 flex-shrink-0 mx-0.5"></div>
+
+      {{-- Category Quick Pills (Video, Graphic, Listing, Content, SMM) --}}
+      <div class="flex items-center gap-1 sm:gap-1.5 flex-nowrap">
+        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mr-0.5 hidden xs:inline">CATEGORY:</span>
+        <button type="button" @click="filterCategory = ''"
+                class="px-3.5 py-1.5 min-h-[34px] sm:min-h-0 rounded-full font-bold transition-all text-xs sm:text-[11px] border active:scale-95 touch-manipulation"
+                :class="!filterCategory ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs dark:bg-indigo-600 dark:!text-white dark:border-indigo-500' : 'bg-white/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'">
+          All
+        </button>
+        <template x-for="cat in ['Video', 'Graphic', 'Listing', 'Content', 'SMM']" :key="cat">
+          <button type="button" @click="filterCategory = (filterCategory === cat ? '' : cat)"
+                  class="px-3.5 py-1.5 min-h-[34px] sm:min-h-0 rounded-full font-bold transition-all text-xs sm:text-[11px] border flex items-center gap-1 active:scale-95 whitespace-nowrap touch-manipulation"
+                  :class="filterCategory === cat 
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs' 
+                    : 'bg-white/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300'">
+            <span x-text="cat"></span>
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <div x-show="filterCategory || (!isWorkflowBoard() && (isSmmPlanningBoard() || canFilterAllTeams() || !currentUser?.team) && filterTeam)" x-cloak class="flex-shrink-0">
+      <button type="button" @click="if (isWorkflowBoard()) { filterTeam = getBoardTeam() || ''; } else if (isNormalPlanningBoard() && !canFilterAllTeams() && currentUser?.team) { filterTeam = currentUser.team; } else { filterTeam = ''; } filterCategory = '';"
+              class="text-xs sm:text-[11px] font-bold text-rose-500 hover:text-rose-600 px-3 py-1.5 min-h-[34px] sm:min-h-0 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 whitespace-nowrap active:scale-95 flex items-center gap-1">
+        Clear
+      </button>
+    </div>
+  </div>
+</template>
+
 {{-- ── Lists row ─────────────────────────────────────────────────────── --}}
 <div class="board-wrap" id="board-wrap">
 
@@ -888,18 +1523,18 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
            x-data="{ openMenu: false }"
            :class="{ 'z-40': openMenu, 'z-10': !openMenu }"
            :id="'list-'+list.id"
-           :style="'zoom: ' + (zoomLevel / 100)">
+           :style="zoomLevel !== 100 ? ('zoom: ' + (zoomLevel / 100)) : ''">
 
       {{-- List header --}}
-      <div class="list-header relative z-30 flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl" :style="list.color ? 'border-top:3px solid '+list.color : ''">
-        <div class="flex-1 min-w-0 pr-2">
+      <div class="list-header relative z-30 flex items-center justify-between px-3 py-2 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl gap-1.5" :style="list.color ? 'border-top:3px solid '+list.color : ''">
+        <div class="flex items-center gap-1.5 min-w-0 flex-1 pr-1">
           <!-- Normal view -->
-          <div x-show="editingListId !== list.id" @click="startEditList(list.id, list.name)" class="cursor-pointer group flex items-center gap-1">
-            <span class="font-extrabold text-slate-700 text-sm truncate" x-text="list.name"></span>
+          <div x-show="editingListId !== list.id" @click="startEditList(list.id, list.name)" class="cursor-pointer group flex items-center gap-1 min-w-0">
+            <span class="font-extrabold text-slate-700 dark:text-slate-100 text-sm truncate" x-text="list.name" :title="list.name"></span>
             <span class="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-500 font-bold transition-opacity">edit</span>
           </div>
           <!-- Edit input -->
-          <div x-show="editingListId === list.id" x-cloak>
+          <div x-show="editingListId === list.id" x-cloak class="flex-1">
             <input type="text" x-model="editingListName"
                    @blur="saveListName(list.id)"
                    @keydown.enter="saveListName(list.id)"
@@ -907,9 +1542,26 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
                    class="form-input py-0.5 px-1.5 text-xs font-semibold text-slate-700 w-full rounded-lg"
                    :id="'list-input-'+list.id">
           </div>
+
+          <!-- List Lead Profile Avatar (Just Profile, No Name) -->
+          <template x-if="getListLead(list)">
+            <div class="inline-flex items-center flex-shrink-0 cursor-pointer"
+                 :title="(getListLead(list).display_name || getListLead(list).name) + (getListLead(list).role ? ' • ' + getListLead(list).role : '')">
+              <template x-if="getListLead(list).avatar">
+                <img :src="getListLead(list).avatar" 
+                     :alt="getListLead(list).display_name || getListLead(list).name"
+                     class="list-lead-avatar">
+              </template>
+              <template x-if="!getListLead(list).avatar">
+                <span class="list-lead-avatar flex items-center justify-center text-[11px] font-black text-white shadow-xs"
+                      :style="'background-color: ' + (getListLead(list).avatar_color || '#4f46e5')"
+                      x-text="getListLead(list).initials || 'U'"></span>
+              </template>
+            </div>
+          </template>
         </div>
         
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-shrink-0">
           <span class="text-[10px] text-slate-400 font-bold" x-text="filteredCards(list).length"></span>
           
           <!-- Dropdown menu -->
@@ -961,10 +1613,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
                :data-id="card.id"
                :data-can-drag="!isSelectMode && canDragCard(card, list) ? '1' : '0'"
                @click="isSelectMode ? toggleCardSelection(card.id) : openCard(card.id)"
-               @contextmenu.prevent="isSelectMode ? toggleCardSelection(card.id) : openCtxMenu($event, card, list)"
-               @touchstart="isSelectMode ? null : ctxTouchStart($event, card, list)"
-               @touchend="isSelectMode ? null : ctxTouchEnd()"
-               @touchmove="isSelectMode ? null : ctxTouchEnd()">
+               @contextmenu.prevent="isSelectMode ? toggleCardSelection(card.id) : openCtxMenu($event, card, list)">
 
             {{-- Bulk Select Checkbox --}}
             <div x-show="isSelectMode" x-cloak class="absolute top-2 right-2 pointer-events-none">
@@ -975,6 +1624,8 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
             <button class="card-quick-btn"
                     x-show="!isSelectMode"
                     @click.stop="openCtxMenu($event, card, list)"
+                    @touchstart.stop
+                    @touchend.stop
                     title="Quick actions">
               <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" class="text-slate-500">
                 <circle cx="10" cy="4" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="16" r="1.8"/>
@@ -982,7 +1633,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
             </button>
 
             {{-- Standard Trello Layout --}}
-            <div>
+            <div class="pr-6 sm:pr-0">
                 {{-- Labels and Workflow Status --}}
                 <div class="flex items-start justify-between mb-2.5 mt-1">
                   <div x-show="card.labels && card.labels.length" class="flex flex-wrap gap-1">
@@ -997,19 +1648,39 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
                            :class="{
                               'bg-amber-50 text-amber-600 border-amber-200': card.workflow_status === 'Draft',
                               'bg-blue-50 text-blue-600 border-blue-200': card.workflow_status === 'Head',
+                              'bg-sky-50 text-sky-600 border-sky-200': card.workflow_status === 'Production Team' || card.workflow_status === 'Production',
                               'bg-purple-50 text-purple-600 border-purple-200': card.workflow_status === 'QC',
-                              'bg-indigo-50 text-indigo-600 border-indigo-200': card.workflow_status === 'Supervisor',
-                              'bg-rose-50 text-rose-600 border-rose-200': card.workflow_status === 'Block/waiting'
+                              'bg-indigo-50 text-indigo-600 border-indigo-200': card.workflow_status === 'Supervisor' || card.workflow_status === 'Digital Department',
+                              'bg-emerald-50 text-emerald-600 border-emerald-200': card.workflow_status === 'Approved',
+                              'bg-rose-50 text-rose-600 border-rose-200': card.workflow_status === 'Block/waiting' || card.workflow_status === 'Blocked'
                            }"
                            x-text="card.workflow_status">
                       </span>
                   </template>
                 </div>
 
-                {{-- Title --}}
+                {{-- Title & Team Badge on Planning Boards --}}
                 <div class="flex items-start justify-between gap-2 mb-2">
-                  <p class="kanban-card-title !mb-0 !pr-0"
-                     x-text="card.title"></p>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    {{-- Both Teams badge --}}
+                    <template x-if="isCardBothTeams(card)">
+                      <div class="inline-flex items-center gap-1 select-none">
+                        <span class="inline-flex items-center justify-center font-black text-[10px] px-1.5 py-0.5 rounded font-mono shadow-xs bg-blue-600 text-white" title="Team A">A</span>
+                        <span class="inline-flex items-center justify-center font-black text-[10px] px-1.5 py-0.5 rounded font-mono shadow-xs bg-emerald-600 text-white" title="Team B">B</span>
+                      </div>
+                    </template>
+
+                    {{-- Single Team A or B badge --}}
+                    <template x-if="!isCardBothTeams(card) && (isPlanningBoard() || isSmmPlanningBoard()) && (card.team === 'A' || card.team === 'B')">
+                      <span class="inline-flex items-center justify-center font-black text-[11px] px-2 py-0.5 rounded font-mono shadow-xs select-none"
+                            :class="card.team === 'A' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'"
+                            :title="'Team ' + card.team"
+                            x-text="card.team">
+                      </span>
+                    </template>
+                    <p class="kanban-card-title !mb-0 !pr-0 inline"
+                       x-text="card.title"></p>
+                  </div>
                   <template x-if="board?.name?.toLowerCase().includes('smm') && list.name === 'Final Captions'">
                     <button type="button"
                             @click.stop="toggleSupervisorApprove(card, list)"
@@ -1106,28 +1777,60 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
                     💬 <span x-text="card.comment_count"></span>
                   </span>
 
-                  {{-- Assignees --}}
-                  <div class="ml-auto flex flex-col gap-1.5 items-end">
-                    <template x-for="u in card.assignees.slice(0,3)" :key="u.id">
-                      <div class="flex items-center gap-1 bg-slate-50 rounded-full pl-1.5 pr-[2px] py-[2px] border border-slate-100/60 shadow-sm">
-                        <span class="text-[9px] font-bold text-slate-600 truncate max-w-[110px]" x-text="u.name"></span>
-                        <template x-if="avatarUrl(u)">
-                          <img :src="avatarUrl(u)" :alt="u.name" :title="u.name"
-                               class="kanban-card-avatar rounded-full object-cover">
+                  {{-- Single Assignee (compact inline on meta row) --}}
+                  <template x-if="card.assignees && card.assignees.length === 1">
+                    <div class="ml-auto flex items-center min-w-0 max-w-[140px] flex-shrink-0"
+                         data-no-drag
+                         @click.stop
+                         @mousedown.stop>
+                      <div class="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/90 rounded-full pl-1.5 pr-0.5 py-0.5 border border-slate-200/80 dark:border-slate-700 shadow-2xs group max-w-full" :title="card.assignees[0].name">
+                        <span class="text-[9px] font-bold text-slate-600 dark:text-slate-300 truncate max-w-[95px] select-text" x-text="card.assignees[0].name"></span>
+                        <template x-if="avatarUrl(card.assignees[0])">
+                          <img :src="avatarUrl(card.assignees[0])" :alt="card.assignees[0].name" :title="card.assignees[0].name"
+                               class="w-5 h-5 rounded-full object-cover border border-white dark:border-slate-800 shadow-2xs flex-shrink-0">
                         </template>
-                        <template x-if="!avatarUrl(u)">
-                          <span class="kanban-card-avatar rounded-full flex items-center justify-center text-[10px] font-black text-white"
-                                :style="avatarStyle(u)"
-                                x-text="avatarInitials(u)"
-                                :title="u.name"></span>
+                        <template x-if="!avatarUrl(card.assignees[0])">
+                          <span class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white border border-white dark:border-slate-800 shadow-2xs flex-shrink-0"
+                                :style="avatarStyle(card.assignees[0])"
+                                x-text="avatarInitials(card.assignees[0])"
+                                :title="card.assignees[0].name"></span>
                         </template>
                       </div>
-                    </template>
-                    <span x-show="card.assignees && card.assignees.length > 3" x-cloak
-                          class="text-[10px] font-bold text-slate-400 pr-1"
-                          x-text="'+' + ((card.assignees || []).length - 3) + ' more'"></span>
-                  </div>
+                    </div>
+                  </template>
                 </div>
+
+                {{-- Multiple Assignees (Responsive Scrollable Member Track) --}}
+                <template x-if="card.assignees && card.assignees.length > 1">
+                  <div class="relative w-full mt-2 pt-1.5 border-t border-slate-100/80 dark:border-slate-800/80 min-w-0 group/members"
+                       data-no-drag
+                       @click.stop
+                       @mousedown.stop>
+                    <div class="card-assignees-scroll w-full flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 touch-pan-x cursor-grab active:cursor-grabbing select-none"
+                         x-data="{ isDown: false, startX: 0, sLeft: 0 }"
+                         @mousedown="isDown = true; startX = $event.pageX - $el.offsetLeft; sLeft = $el.scrollLeft"
+                         @mouseleave="isDown = false"
+                         @mouseup="isDown = false"
+                         @mousemove="if(!isDown) return; $event.preventDefault(); const x = $event.pageX - $el.offsetLeft; $el.scrollLeft = sLeft - (x - startX) * 1.4;"
+                         @wheel.stop.prevent="$el.scrollLeft += ($event.deltaY || $event.deltaX)">
+                      <template x-for="u in card.assignees" :key="u.id">
+                        <div class="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/90 rounded-full pl-1.5 pr-0.5 py-0.5 border border-slate-200/80 dark:border-slate-700 shadow-2xs flex-shrink-0 hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors" :title="u.name">
+                          <span class="text-[9px] font-bold text-slate-600 dark:text-slate-300 truncate max-w-[105px] select-text" x-text="u.name"></span>
+                          <template x-if="avatarUrl(u)">
+                            <img :src="avatarUrl(u)" :alt="u.name" :title="u.name"
+                                 class="w-5 h-5 rounded-full object-cover border border-white dark:border-slate-800 shadow-2xs flex-shrink-0">
+                          </template>
+                          <template x-if="!avatarUrl(u)">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white border border-white dark:border-slate-800 shadow-2xs flex-shrink-0"
+                                  :style="avatarStyle(u)"
+                                  x-text="avatarInitials(u)"
+                                  :title="u.name"></span>
+                          </template>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
               </div>
           </div>
         </template>
@@ -1137,8 +1840,8 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
       <div class="px-2 pb-2">
         <div x-show="addingCardListId !== list.id">
           <button @click="startAddCard(list.id)"
-                  class="w-full text-left text-xs text-slate-500 hover:text-indigo-600 hover:bg-white/60 px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 font-medium">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                  class="w-full text-left text-xs text-slate-500 hover:text-indigo-600 hover:bg-white/60 dark:hover:bg-slate-800/60 px-3 py-2.5 min-h-[38px] rounded-xl transition-all flex items-center gap-2 font-bold active:scale-[0.98]">
+            <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
             Add a card
           </button>
         </div>
@@ -1146,15 +1849,37 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
         {{-- Inline add card form --}}
         <div x-show="addingCardListId === list.id" x-cloak>
           <textarea x-model="newCardTitle" @keydown.enter.prevent="saveCard(list.id)"
-                    @keydown.escape="addingCardListId = null; newCardTeam = null"
+                    @keydown.escape="addingCardListId = null; newCardTeam = null; newCardAssignedTeam = null"
                     rows="2" placeholder="Card title…"
                     class="form-input text-sm resize-none w-full mb-2 rounded-xl"
                     x-ref="'newcard_'+list.id"
                     :x-ref="'newcard_'+list.id"></textarea>
 
+          {{-- If manager and board is planning or workflow, allow selecting team A or B or Both --}}
+          <template x-if="(isPlanningBoard() || isWorkflowBoard() || isSmmPlanningBoard()) && (currentUser?.is_special_manager || canFilterAllTeams() || !currentUser?.team)">
+            <div class="flex items-center gap-1.5 mb-2 text-[11px] flex-wrap">
+              <span class="text-slate-400 font-bold">Assign to:</span>
+              <button type="button" @click="newCardAssignedTeam = 'A'"
+                      class="px-2 py-0.5 rounded font-bold transition-all"
+                      :class="(newCardAssignedTeam === 'A' || (!newCardAssignedTeam && filterTeam === 'A')) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
+                Team A
+              </button>
+              <button type="button" @click="newCardAssignedTeam = 'B'"
+                      class="px-2 py-0.5 rounded font-bold transition-all"
+                      :class="(newCardAssignedTeam === 'B' || (!newCardAssignedTeam && filterTeam === 'B')) ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
+                Team B
+              </button>
+              <button type="button" @click="newCardAssignedTeam = 'Both'"
+                      class="px-2 py-0.5 rounded font-bold transition-all"
+                      :class="(newCardAssignedTeam === 'Both') ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
+                Both (A & B)
+              </button>
+            </div>
+          </template>
+
           <div class="flex gap-2 items-center">
             <button @click="saveCard(list.id)" class="btn btn-primary text-xs py-1.5 px-3">Add</button>
-            <button @click="addingCardListId = null; newCardTeam = null" class="text-xs text-slate-400 hover:text-slate-600">✕</button>
+            <button @click="addingCardListId = null; newCardTeam = null; newCardAssignedTeam = null" class="text-xs text-slate-400 hover:text-slate-600">✕</button>
           </div>
         </div>
       </div>
@@ -1162,7 +1887,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
   </template>
 
   {{-- Add list button --}}
-  <div class="add-list-wrapper flex-shrink-0" :style="'zoom: ' + (zoomLevel / 100)">
+  <div class="add-list-wrapper flex-shrink-0" :style="zoomLevel !== 100 ? ('zoom: ' + (zoomLevel / 100)) : ''">
     <button type="button" x-show="!addingList" class="add-list-btn border border-dashed border-white/40 text-white rounded-xl hover:border-white hover:bg-white/20 transition-colors drop-shadow-sm font-semibold" @click.stop="addingList=true; setTimeout(() => { $refs.addListInput.focus() }, 100)">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       Add another list
@@ -1225,7 +1950,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
               <div class="flex-1">
                 <p class="text-slate-700">
                   <strong class="font-bold text-slate-800" x-text="act.user_name"></strong> 
-                  <span x-html="parseMarkdown(act.description || '')"></span>
+                  <span x-html="parseMarkdown(typeof formatActivityDescription === 'function' ? formatActivityDescription(act.description || '') : (act.description || ''))"></span>
                 </p>
                 <span class="text-[9px] text-slate-400 font-bold block mt-1" x-text="act.time_ago"></span>
               </div>
@@ -1319,6 +2044,9 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 {{-- ── Card Detail Modal ─────────────────────────────────────────────── --}}
 @include('boards.partials.card-modal')
 
+{{-- ── Checklist Item Modal ──────────────────────────────────────────── --}}
+@include('boards.partials.checklist-item-modal')
+
 {{-- ── Trello-style Date Picker Modal ───────────────────────────────── --}}
 @include('boards.partials.date-picker-modal')
 
@@ -1339,8 +2067,8 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 
 
 
-{{-- Switch Board Button (Fixed at bottom middle) --}}
-<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] drop-shadow-2xl" x-show="!activeCard && !isSelectMode" x-transition.opacity.duration.200ms>
+{{-- Switch Board Button (Fixed at bottom middle for desktop only; mobile uses header title / menu) --}}
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] drop-shadow-2xl hidden lg:block" x-show="!activeCard && !isSelectMode" x-transition.opacity.duration.200ms>
   <button type="button"
           @click="openSwitchBoardsModal()"
           class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-400 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-6 py-2.5 text-sm font-extrabold text-slate-700 dark:text-slate-200 shadow-xl transition-all hover:-translate-y-1 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:hover:text-white hover:shadow-2xl">
@@ -1359,7 +2087,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
        x-transition:leave="transition ease-in duration-200 transform"
        x-transition:leave-start="translate-y-0 opacity-100"
        x-transition:leave-end="translate-y-full opacity-0"
-       class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-3 bg-slate-900/95 backdrop-blur-md text-white px-5 py-2.5 rounded-full shadow-2xl shadow-slate-900/40 border border-slate-700">
+       class="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-3 bg-slate-900/95 backdrop-blur-md text-white px-5 py-2.5 rounded-full shadow-2xl shadow-slate-900/40 border border-slate-700 touch-manipulation">
     <div class="flex items-center gap-2 mr-1 select-none">
       <span class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-indigo-500/25 text-indigo-300 text-xs font-bold" x-text="selectedCards.length"></span>
       <span class="font-semibold text-xs text-slate-200" x-text="selectedCards.length === 1 ? 'card selected' : 'cards selected'"></span>
@@ -1407,7 +2135,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 
         {{-- Preset Words --}}
         <div class="space-y-1.5">
-          <template x-for="word in ['Ready', 'Team approved', 'Head approved', 'QC approved SMM', 'Approved']" :key="word">
+          <template x-for="word in ['Ready', 'Team approved', 'Production approved', 'Production approved SMM', 'Approved', 'Blocked']" :key="word">
             <button type="button"
                     @click="submitBulkComment(word)"
                     :disabled="bulkCommentSubmitting"
@@ -1449,7 +2177,7 @@ body.is-dragging-card .kanban-card, .sortable-drag, .sortable-ghost, .sortable-c
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 @php
     $trelloBoardVersion = (file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0') . '.' . time();
-    $dragScrollVersion = file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0';
+    $dragScrollVersion = (file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0') . '.' . time();
 @endphp
 <script src="{{ asset('js/trello-board.js') }}?v={{ $trelloBoardVersion }}"></script>
 <script src="{{ asset('js/drag-scroll.js') }}?v={{ $dragScrollVersion }}"></script>

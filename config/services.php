@@ -59,4 +59,12 @@ return [
         'api_secret' => env('GOOGLE_BLOGS_API_SECRET'),
     ],
 
+    'google_kpi' => [
+        // Google Drive Root Folder ID for Staff KPI Evaluations:
+        // https://drive.google.com/drive/folders/1sQiq4-jtjsRmEBfJr6ofZkHXuHZuLhTi
+        'drive_folder_id' => env('GOOGLE_KPI_DRIVE_FOLDER_ID', '1sQiq4-jtjsRmEBfJr6ofZkHXuHZuLhTi'),
+        'apps_script_url' => env('GOOGLE_KPI_APPS_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbxXXOumYYCzercvaTZwu8maugr8FDkHDudUQ5kTf4JWIUY3GqRzqJJgPw27zFEFPvnG/exec'),
+        'api_secret' => env('GOOGLE_KPI_API_SECRET', 'kpi-drive-sync-secret-2026'),
+    ],
+
 ];

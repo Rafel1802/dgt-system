@@ -196,7 +196,7 @@
                         </svg>
                         Download .dmg
                     </a>
-                    <a href="{{ $iosDownloadUrl }}"
+                    <a href="{{ route('downloads.ios-app.file') }}"
                        class="mt-3 inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-6 py-4 text-base font-black text-blue-700 transition hover:bg-blue-100"
                        download>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">

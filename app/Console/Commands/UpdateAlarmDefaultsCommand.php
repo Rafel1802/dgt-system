@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
 class UpdateAlarmDefaultsCommand extends Command
 {
     protected $signature = 'alarm:apply-defaults {--force : Force apply without confirmation}';
-    protected $description = 'Update all users to use lunch.wav for 12PM, funny.wav for 4PM and Sat 11AM, turn off shift clock alarms for everyone by default, and set duration to 15s';
+    protected $description = 'Update all users to use default sounds (lunch.wav for 12PM, funny.wav for 4PM and Sat 11AM) and 15s duration without overwriting users alarm enabled/disabled preferences';
 
     public function handle(): int
     {
@@ -33,7 +33,10 @@ class UpdateAlarmDefaultsCommand extends Command
             if (Schema::hasColumn('users', 'sat_alarm_sound')) {
                 $user->sat_alarm_sound = 'funny.wav';
             }
-            $user->lunch_alarm_enabled = false;
+            // Do NOT overwrite user preference if already set (keep turned ON if on, keep OFF if off)
+            if ($user->lunch_alarm_enabled === null) {
+                $user->lunch_alarm_enabled = false;
+            }
             $user->save();
 
             $updatedCount++;
@@ -41,7 +44,7 @@ class UpdateAlarmDefaultsCommand extends Command
 
         $this->info("✓ Successfully updated {$updatedCount} users:");
         $this->line("   - Default sounds set (12PM: lunch.wav, 4PM: funny.wav, Sat 11AM: funny.wav)");
-        $this->line("   - Shift clock alarms turned OFF for all {$updatedCount} users (opt-in via profile)");
+        $this->line("   - User alarm enabled/disabled preferences preserved (no user settings overwritten)");
 
         // Ensure default shift alarm duration in settings is 15s
         if (Schema::hasTable('settings')) {

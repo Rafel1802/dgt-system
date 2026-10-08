@@ -3,7 +3,7 @@
 @section('page_title', 'Workspaces')
 
 @section('content')
-<div class="animate-fade-in space-y-8 pb-28 md:pb-8" x-data="workspacePage()" x-init="selectedWorkspaceId = {{ $workspaces->first()?->id ?? 'null' }}">
+<div class="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-2 sm:py-4 animate-fade-in space-y-8 pb-28 md:pb-8" x-data="workspacePage()" x-init="selectedWorkspaceId = {{ $workspaces->first()?->id ?? 'null' }}">
   @php
     $hiddenBoardsList = isset($hiddenBoardsFn) ? $hiddenBoardsFn() : collect();
     $hiddenBoardsCount = $hiddenBoardsList->count();
@@ -138,86 +138,113 @@
         </div>
       </div>
 
-      {{-- Board grid --}}
-      <div class="board-sort-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4"
-           data-workspace-id="{{ $workspace->id }}">
-        @foreach($workspace->boards as $board)
-          <div data-board-id="{{ $board->id }}"
-               x-data="{ openBoardMenu: false }"
-               :class="{ 'z-50': openBoardMenu, 'z-10': !openBoardMenu }"
-               @mouseenter="if ('{{ $board->background_type === 'image' && $board->background_value ? 1 : 0 }}' === '1' && !window['_preloaded_bg_' + {{ $board->id }}]) { const img = new Image(); img.src = '{{ str_replace('\'', '\\\'', $board->background_value) }}'; window['_preloaded_bg_' + {{ $board->id }}] = true; }"
-               title="Drag to move this board left or right"
-               class="group block relative h-28 cursor-grab active:cursor-grabbing rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
-               style="{{ $board->coverStyle() }}">
-               
-            <a href="{{ route('boards.show', $board->slug) }}" 
-               data-turbo="false"
-               draggable="false"
-               @click="if(window.isDraggingBoard || openBoardMenu) { $event.preventDefault(); }"
-               class="absolute inset-0 z-0 rounded-xl"></a>
+      @php
+        $isSmmPage = isset($isSmmModule) && $isSmmModule;
+        $workflowBoards = $workspace->boards->filter(fn($b) => str_contains(strtolower($b->name), 'workflow'));
+        $planningBoards = $workspace->boards->filter(function($b) use ($isSmmPage) {
+            $isSmm = ($b->type ?? null) === 'smm' || str_contains(strtolower($b->name), 'smm');
+            if (!$isSmmPage && $isSmm) return false;
+            return str_contains(strtolower($b->name), 'planning');
+        });
+        $otherBoards = $workspace->boards->reject(function($b) use ($isSmmPage) {
+            $isSmm = ($b->type ?? null) === 'smm' || str_contains(strtolower($b->name), 'smm');
+            if (!$isSmmPage && $isSmm) return true;
+            return str_contains(strtolower($b->name), 'workflow') || str_contains(strtolower($b->name), 'planning');
+        });
+        $hasSeparatedSections = $workflowBoards->isNotEmpty() && $planningBoards->isNotEmpty();
+      @endphp
 
-            {{-- Overlay --}}
-            <div class="absolute inset-0 rounded-xl bg-black/20 group-hover:bg-black/10 transition-colors pointer-events-none"></div>
-
-            {{-- Star --}}
-            @if($board->is_starred)
-              <div class="absolute top-2 right-2 text-amber-300 z-10 pointer-events-none">
-                <svg class="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+      @if($hasSeparatedSections)
+        {{-- ── Workflow Board Section (Top) ──────────────────────── --}}
+        <div class="mb-7">
+          <div class="flex items-center justify-between gap-3 mb-3.5 pt-1">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-xs border border-blue-100 dark:border-blue-800/60">
+                <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-13.5 18v-2.25z"/>
                 </svg>
               </div>
-            @endif
-
-            {{-- Board name --}}
-            <div class="absolute bottom-0 left-0 right-0 p-3 pointer-events-none flex justify-between items-end">
-              <p class="text-white font-semibold text-sm drop-shadow leading-tight">{{ $board->name }}</p>
-            </div>
-            
-            {{-- Edit Board Button --}}
-            <button type="button" 
-                    @click.stop.prevent="openEditBoard({{ $board->id }}, '{{ addslashes($board->name) }}', '{{ $board->cover_type ?? $board->background_type }}', '{{ $board->cover_value ?? $board->background_value }}')"
-                    class="absolute top-2 left-2 p-1.5 rounded-lg bg-black/30 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/50"
-                    title="Change cover color">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-            </button>
-
-            {{-- Three-dot menu (superadmin/admin-digital on hover) --}}
-            @if(auth()->user()->canManageBoards())
-              <div class="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity" :class="{ 'opacity-100': openBoardMenu }">
-                <button @click.stop.prevent="openBoardMenu = !openBoardMenu"
-                        class="p-1.5 rounded-lg bg-black/40 text-white hover:bg-black/60 transition-colors backdrop-blur-sm">
-                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
-                </button>
-                <div x-show="openBoardMenu" @click.outside="openBoardMenu = false" x-cloak
-                     x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-90" x-transition:enter-end="opacity-100 scale-100"
-                     class="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden py-1 z-30">
-                  <button @click.stop.prevent="openBoardMenu = false; boardQuickAction('hide', '{{ $board->slug }}', '{{ addslashes($board->name) }}', '{{ isset($isSmmModule) && $isSmmModule ? '/smm-boards' : '/boards' }}')"
-                          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
-                    Hide Board
-                  </button>
-                  <button @click.stop.prevent="openBoardMenu = false; boardQuickAction('delete', '{{ $board->slug }}', '{{ addslashes($board->name) }}', '{{ isset($isSmmModule) && $isSmmModule ? '/smm-boards' : '/boards' }}')"
-                          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-                    Delete Board
-                  </button>
-                </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="font-display font-black text-slate-800 dark:text-slate-100 text-base tracking-tight">Workflow Board</h3>
+                <span class="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/70">TEAM A</span>
+                <span class="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/70">TEAM B</span>
               </div>
+            </div>
+            <span class="text-xs font-semibold text-slate-400 dark:text-slate-500">{{ $workflowBoards->count() }} {{ Str::plural('board', $workflowBoards->count()) }}</span>
+          </div>
+
+          <div class="board-sort-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4"
+               data-workspace-id="{{ $workspace->id }}">
+            @foreach($workflowBoards as $board)
+              @include('boards.partials.board-card-tile', ['board' => $board])
+            @endforeach
+          </div>
+        </div>
+
+        {{-- Subtle elegant section divider --}}
+        <div class="relative my-7">
+          <div class="absolute inset-0 flex items-center" aria-hidden="true">
+            <div class="w-full border-t border-slate-200/80 dark:border-slate-700/80"></div>
+          </div>
+          <div class="relative flex justify-center">
+            <span class="bg-white dark:bg-slate-800 px-3.5 py-0.5 text-[11px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest rounded-full border border-slate-200/60 dark:border-slate-700/60">Planning Section</span>
+          </div>
+        </div>
+
+        {{-- ── Planning Board Section (Below) ──────────────────────── --}}
+        <div>
+          <div class="flex items-center justify-between gap-3 mb-3.5">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 flex items-center justify-center shadow-xs border border-pink-100 dark:border-pink-800/60">
+                <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"/>
+                </svg>
+              </div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-display font-black text-slate-800 dark:text-slate-100 text-base tracking-tight">Planning Board</h3>
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300">{{ $planningBoards->count() + $otherBoards->count() }} {{ Str::plural('board', $planningBoards->count() + $otherBoards->count()) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="board-sort-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4"
+               data-workspace-id="{{ $workspace->id }}">
+            @foreach($planningBoards->concat($otherBoards) as $board)
+              @include('boards.partials.board-card-tile', ['board' => $board])
+            @endforeach
+
+            {{-- Create new board tile --}}
+            @if(auth()->user()->canCreateBoards())
+            <button @click="openCreateBoard({{ $workspace->id }})"
+                    class="create-board-tile h-28 rounded-xl border-2 border-dashed border-slate-200 dark:border-sky-500/30 flex flex-col items-center justify-center gap-1.5 text-slate-400 dark:text-sky-300 hover:border-indigo-400 dark:hover:border-cyan-400 hover:text-indigo-600 dark:hover:text-cyan-300 hover:bg-indigo-50/40 dark:hover:bg-cyan-500/15 transition-all duration-200">
+              <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+              </svg>
+              <span class="text-xs font-medium">Create board</span>
+            </button>
             @endif
           </div>
-        @endforeach
+        </div>
+      @else
+        {{-- Standard single grid for workspaces without workflow/planning split (e.g. SMM) --}}
+        <div class="board-sort-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4"
+             data-workspace-id="{{ $workspace->id }}">
+          @foreach($workspace->boards as $board)
+            @include('boards.partials.board-card-tile', ['board' => $board])
+          @endforeach
 
-        {{-- Create new board tile --}}
-        @if(auth()->user()->canCreateBoards())
-        <button @click="openCreateBoard({{ $workspace->id }})"
-                class="create-board-tile h-28 rounded-xl border-2 border-dashed border-slate-200 dark:border-sky-500/30 flex flex-col items-center justify-center gap-1.5 text-slate-400 dark:text-sky-300 hover:border-indigo-400 dark:hover:border-cyan-400 hover:text-indigo-600 dark:hover:text-cyan-300 hover:bg-indigo-50/40 dark:hover:bg-cyan-500/15 transition-all duration-200">
-          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-          </svg>
-          <span class="text-xs font-medium">Create board</span>
-        </button>
-        @endif
-      </div>
+          {{-- Create new board tile --}}
+          @if(auth()->user()->canCreateBoards())
+          <button @click="openCreateBoard({{ $workspace->id }})"
+                  class="create-board-tile h-28 rounded-xl border-2 border-dashed border-slate-200 dark:border-sky-500/30 flex flex-col items-center justify-center gap-1.5 text-slate-400 dark:text-sky-300 hover:border-indigo-400 dark:hover:border-cyan-400 hover:text-indigo-600 dark:hover:text-cyan-300 hover:bg-indigo-50/40 dark:hover:bg-cyan-500/15 transition-all duration-200">
+            <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+            <span class="text-xs font-medium">Create board</span>
+          </button>
+          @endif
+        </div>
+      @endif
     </section>
   @empty
     {{-- Empty state --}}
@@ -238,13 +265,14 @@
   {{-- ── Create Board Modal ───────────────────────────────────────────── --}}
   @if(auth()->user()->canCreateBoards())
   <div x-show="showCreateBoard" x-cloak
-       class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+       class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+       style="-webkit-overflow-scrolling: touch;"
        @click.self="showCreateBoard = false">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 my-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain"
          @click.stop>
-      <h3 class="font-display font-bold text-slate-800 text-lg mb-5">Create New Board</h3>
+      <h3 class="font-display font-bold text-slate-800 dark:text-slate-100 text-lg mb-5">Create New Board</h3>
 
-      <form method="POST" action="{{ isset($isSmmModule) && $isSmmModule ? route('smm-boards.store') : route('boards.store') }}" enctype="multipart/form-data" class="space-y-4" x-data="{ template: 'normal', bgType: 'color', customColor: '#6366f1', customImage: '', month: '{{ session('last_selected_month', date('F')) }}', year: '{{ session('last_selected_year', date('Y')) }}' }" x-init="$watch('template', value => { if (value === 'workflow') customColor = '#ffffff'; else if (value === 'planning') customColor = '#ef4444'; else customColor = '#6366f1'; })">
+      <form method="POST" action="{{ isset($isSmmModule) && $isSmmModule ? route('smm-boards.store') : route('boards.store') }}" enctype="multipart/form-data" class="space-y-4" x-data="{ template: 'normal', bgType: 'color', customColor: '#ffffff', customImage: '', month: '{{ session('last_selected_month', date('F')) }}', year: '{{ session('last_selected_year', date('Y')) }}' }" x-init="$watch('template', value => { if (value.startsWith('workflow') || value.includes('planning')) customColor = '#ffffff'; })">
         @csrf
         @if(!isset($isSmmModule) || !$isSmmModule)
         <div>
@@ -260,13 +288,23 @@
           <label class="form-label">Template</label>
           <select name="template" x-model="template" class="form-input">
             <option value="normal">Normal (Empty)</option>
-            <option value="workflow">Workflow board</option>
-            <option value="planning">Planning board</option>
+            <optgroup label="Workflow Boards">
+              <option value="workflow_team_a">Workflow Board Team A</option>
+              <option value="workflow_team_b">Workflow Board Team B</option>
+              <option value="workflow">Generic Workflow Board</option>
+            </optgroup>
+            <optgroup label="Planning Boards (@KiuQ)">
+              <option value="video_planning">VideoPlanningBoard@KiuQ</option>
+              <option value="graphic_planning">GraphicPlanningBoard@KiuQ</option>
+              <option value="listing_planning">ListingPlanningBoard@KiuQ</option>
+              <option value="content_planning">ContentPlanningBoard@KiuQ</option>
+              <option value="planning">Generic Planning Board</option>
+            </optgroup>
           </select>
         </div>
         @endif
 
-        <div @if(!isset($isSmmModule) || !$isSmmModule) x-show="template === 'workflow' || template === 'planning'" x-cloak @endif class="grid grid-cols-2 gap-4">
+        <div @if(!isset($isSmmModule) || !$isSmmModule) x-show="template !== 'normal'" x-cloak @endif class="grid grid-cols-2 gap-4">
           <div>
             <label class="form-label">Month</label>
             <select name="template_month" x-model="month" class="form-input">
@@ -341,7 +379,7 @@
 
             <div>
               <label class="form-label">Image URL</label>
-              <input type="url" name="background_value" x-model="customImage" class="form-input" placeholder="https://images.unsplash.com/..." :disabled="bgType !== 'image'">
+              <input type="text" name="background_value" x-model="customImage" class="form-input" placeholder="https://images.unsplash.com/..." :disabled="bgType !== 'image'">
               <p class="text-[10px] text-slate-500 mt-1">Provide a valid image URL if not uploading a file.</p>
             </div>
           </div>
@@ -358,9 +396,9 @@
         </div>
         @endif
 
-        <div class="flex gap-3 pt-2">
-          <button type="button" @click="showCreateBoard = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
-          <button type="submit" class="btn btn-primary flex-1">Create Board</button>
+        <div class="flex gap-3 pt-3">
+          <button type="button" @click="showCreateBoard = false" class="btn btn-cancel btn-secondary flex-1 py-2.5 touch-manipulation active:scale-95 font-bold">Cancel</button>
+          <button type="submit" class="btn btn-primary flex-1 py-2.5 touch-manipulation active:scale-95 font-bold">Create Board</button>
         </div>
       </form>
     </div>
@@ -369,11 +407,12 @@
 
   {{-- ── Create Workspace Modal ───────────────────────────────────────────── --}}
   <div x-show="showCreateWorkspace" x-cloak
-       class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+       class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+       style="-webkit-overflow-scrolling: touch;"
        @click.self="showCreateWorkspace = false">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 my-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain"
          @click.stop>
-      <h3 class="font-display font-bold text-slate-800 text-lg mb-5">Create New Workspace</h3>
+      <h3 class="font-display font-bold text-slate-800 dark:text-slate-100 text-lg mb-5">Create New Workspace</h3>
 
       <form method="POST" action="{{ route('boards.workspaces.store') }}" class="space-y-4">
         @csrf
@@ -385,7 +424,7 @@
 
         <div>
           <label class="form-label">Color Theme <span class="text-red-500">*</span></label>
-          <input type="color" name="color" class="h-10 w-full rounded-xl border border-slate-200 p-1 cursor-pointer shadow-sm" value="#6366f1" required>
+          <input type="color" name="color" class="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-700 p-1 cursor-pointer shadow-sm" value="#6366f1" required>
         </div>
 
         <div>
@@ -394,9 +433,9 @@
           <p class="text-xs text-slate-500 mt-1">Leave empty to auto-use the first letter.</p>
         </div>
 
-        <div class="flex gap-3 pt-2">
-          <button type="button" @click="showCreateWorkspace = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
-          <button type="submit" class="btn btn-primary flex-1">Create Workspace</button>
+        <div class="flex gap-3 pt-3">
+          <button type="button" @click="showCreateWorkspace = false" class="btn btn-cancel btn-secondary flex-1 py-2.5 touch-manipulation active:scale-95 font-bold">Cancel</button>
+          <button type="submit" class="btn btn-primary flex-1 py-2.5 touch-manipulation active:scale-95 font-bold">Create Workspace</button>
         </div>
       </form>
     </div>
@@ -404,11 +443,12 @@
 
   {{-- ── Edit Workspace Modal ─────────────────────────────────────────────── --}}
   <div x-show="editWorkspaceModal.open" x-cloak
-       class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+       class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+       style="-webkit-overflow-scrolling: touch;"
        @click.self="editWorkspaceModal.open = false">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 my-auto max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain"
          @click.stop>
-      <h3 class="font-display font-bold text-slate-800 text-lg mb-5">Rename Workspace</h3>
+      <h3 class="font-display font-bold text-slate-800 dark:text-slate-100 text-lg mb-5">Rename Workspace</h3>
 
       <form method="POST" :action="'/boards/workspaces/' + editWorkspaceModal.id" class="space-y-4">
         @csrf
@@ -421,7 +461,7 @@
 
         <div>
           <label class="form-label">Color Theme <span class="text-red-500">*</span></label>
-          <input type="color" name="color" x-model="editWorkspaceModal.color" class="h-10 w-full rounded-xl border border-slate-200 p-1 cursor-pointer shadow-sm" required>
+          <input type="color" name="color" x-model="editWorkspaceModal.color" class="h-10 w-full rounded-xl border border-slate-200 dark:border-slate-700 p-1 cursor-pointer shadow-sm" required>
         </div>
 
         <div>
@@ -430,9 +470,9 @@
           <p class="text-xs text-slate-500 mt-1">Leave empty to auto-use the first letter.</p>
         </div>
 
-        <div class="flex gap-3 pt-2">
-          <button type="button" @click="editWorkspaceModal.open = false" class="btn btn-cancel btn-secondary flex-1">Cancel</button>
-          <button type="submit" class="btn btn-primary flex-1">Save Changes</button>
+        <div class="flex gap-3 pt-3">
+          <button type="button" @click="editWorkspaceModal.open = false" class="btn btn-cancel btn-secondary flex-1 py-2.5 touch-manipulation active:scale-95 font-bold">Cancel</button>
+          <button type="submit" class="btn btn-primary flex-1 py-2.5 touch-manipulation active:scale-95 font-bold">Save Changes</button>
         </div>
       </form>
 
@@ -451,7 +491,8 @@
 
   {{-- ── Hidden Boards Modal ─────────────────────────────────────────────── --}}
   <div x-show="showHiddenBoards" x-cloak
-       class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity"
+       class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 transition-opacity overflow-y-auto"
+       style="-webkit-overflow-scrolling: touch;"
        x-transition:enter="ease-out duration-300"
        x-transition:enter-start="opacity-0"
        x-transition:enter-end="opacity-100"
@@ -704,7 +745,8 @@
   @if(auth()->user()->canManageBoards())
   <div x-show="showTrashWorkspaces" x-cloak
        x-data="trashManager()"
-       class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity"
+       class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 transition-opacity overflow-y-auto"
+       style="-webkit-overflow-scrolling: touch;"
        x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
        x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
        @click.self="showTrashWorkspaces = false">
@@ -944,7 +986,7 @@
 
             <div>
               <label class="form-label">Image URL</label>
-              <input type="url" name="cover_value" x-model="editBoardModal.customImage" class="form-input" placeholder="https://images.unsplash.com/..." :disabled="editBoardModal.bgType !== 'image'">
+              <input type="text" name="cover_value" x-model="editBoardModal.customImage" class="form-input" placeholder="https://images.unsplash.com/..." :disabled="editBoardModal.bgType !== 'image'">
               <p class="text-[10px] text-slate-500 mt-1">Provide a valid image URL if not uploading a file.</p>
             </div>
           </div>

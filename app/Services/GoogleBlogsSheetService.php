@@ -25,6 +25,7 @@ class GoogleBlogsSheetService
         '5' => ['class' => 'V', 'doc' => 'W', 'public' => 'X', 'date' => 'Y', 'website' => 'Z'],
         '6' => ['class' => 'AC', 'doc' => 'AD', 'public' => 'AE', 'date' => 'AF', 'website' => 'AG'],
         '7' => ['class' => 'AJ', 'doc' => 'AK', 'public' => 'AL', 'date' => 'AM', 'website' => 'AN'],
+        '8' => ['class' => 'AQ', 'doc' => 'AR', 'public' => 'AS', 'date' => 'AT', 'website' => 'AU'],
     ];
 
     /**
@@ -33,6 +34,45 @@ class GoogleBlogsSheetService
     public function isClassSupported(string $classNumber): bool
     {
         return array_key_exists($classNumber, self::CLASS_BLOCKS);
+    }
+
+    /**
+     * Auto-detect the class number (e.g. "5") from a website category string (e.g. "5th Class", "Class 5", "Fifth Class").
+     */
+    public static function extractClassFromCategory(?string $category): ?string
+    {
+        if (empty($category)) {
+            return null;
+        }
+
+        $cat = strtolower(trim($category));
+
+        $wordMap = [
+            'first' => '1', '1st' => '1',
+            'second' => '2', '2nd' => '2',
+            'third' => '3', '3rd' => '3',
+            'fourth' => '4', '4th' => '4',
+            'fifth' => '5', '5th' => '5',
+            'sixth' => '6', '6th' => '6',
+            'seventh' => '7', '7th' => '7',
+            'eighth' => '8', '8th' => '8',
+        ];
+
+        foreach ($wordMap as $key => $num) {
+            if (str_contains($cat, $key)) {
+                return $num;
+            }
+        }
+
+        if (preg_match('/\b([1-8])\b/', $cat, $matches)) {
+            return $matches[1];
+        }
+
+        if (preg_match('/([1-8])/', $cat, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     /**
@@ -61,7 +101,8 @@ class GoogleBlogsSheetService
         string $publicLink,
         string $date,
         string $websiteName,
-        string $idempotencyKey = ''
+        string $idempotencyKey = '',
+        ?string $sheetTab = null
     ): array {
         $scriptUrl = config('services.google_blogs.apps_script_url');
         $secret    = config('services.google_blogs.api_secret');
@@ -78,6 +119,7 @@ class GoogleBlogsSheetService
             'date'             => $date,
             'website'          => $websiteName,
             'idempotency_key'  => $idempotencyKey,
+            'sheet_tab'        => $sheetTab,
         ];
 
         Log::info('GoogleBlogsSheetService: Sending blog to sheet.', [
@@ -149,7 +191,7 @@ class GoogleBlogsSheetService
      * @param string|null $publicLink
      * @return array{success: bool, message: string, error?: string}
      */
-    public function deleteBlog(string $classNumber, int $sheetRow, ?string $publicLink = null): array
+    public function deleteBlog(string $classNumber, int $sheetRow, ?string $publicLink = null, ?string $sheetTab = null): array
     {
         $url    = config('services.google_blogs.apps_script_url');
         $secret = config('services.google_blogs.api_secret');
@@ -168,6 +210,7 @@ class GoogleBlogsSheetService
             'class'       => $classNumber,
             'sheet_row'   => $sheetRow,
             'public_link' => $publicLink,
+            'sheet_tab'   => $sheetTab,
         ];
 
         try {

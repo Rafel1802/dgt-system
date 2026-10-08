@@ -38,7 +38,8 @@ window.workspacePage = function() {
 
     async saveBoardOrder(grid) {
       const workspaceId = grid.dataset.workspaceId;
-      const order = Array.from(grid.querySelectorAll('[data-board-id]'))
+      const section = grid.closest('section') || grid;
+      const order = Array.from(section.querySelectorAll('[data-board-id]'))
         .map((board) => Number(board.dataset.boardId));
 
       try {
@@ -74,11 +75,22 @@ window.workspacePage = function() {
     },
 
     openEditBoard(id, name, type, value) {
+      const boardEl = document.querySelector(`[data-board-id="${id}"]`);
+      if (boardEl) {
+        if (!name && boardEl.dataset.boardName) name = boardEl.dataset.boardName;
+        if (!type && boardEl.dataset.coverType) type = boardEl.dataset.coverType;
+        if (!value && boardEl.dataset.coverValue) value = boardEl.dataset.coverValue;
+      }
+
+      if (value && typeof value === 'string' && value.startsWith('/public/')) {
+        value = value.substring(7);
+      }
+
       this.editBoardModal.id = id;
-      this.editBoardModal.name = name;
+      this.editBoardModal.name = name || '';
       this.editBoardModal.bgType = type === 'image' ? 'image' : 'color';
       
-      const match = name.trim().replace(/\u00A0/g, ' ').match(/^(.*?)(?:\s*[-–—]\s*|\s+)([a-zA-Z]+)\s+(\d{4})$/);
+      const match = (this.editBoardModal.name).trim().replace(/\u00A0/g, ' ').match(/^(.*?)(?:\s*[-–—]\s*|\s+)([a-zA-Z]+)\s+(\d{4})$/);
       if (match) {
         this.editBoardModal.month = match[2];
         this.editBoardModal.year = match[3];
@@ -87,7 +99,7 @@ window.workspacePage = function() {
         this.editBoardModal.year = new Date().getFullYear();
       }
       
-      if (type === 'image') {
+      if (this.editBoardModal.bgType === 'image') {
         this.editBoardModal.customImage = value;
         this.editBoardModal.customColor = '#6366f1';
       } else {
@@ -133,22 +145,38 @@ window.workspacePage = function() {
           this.editBoardModal.open = false;
           if (window.showToast) window.showToast(data.message || 'Board updated successfully.');
           
+          const fileInput = form.querySelector('input[type="file"]');
+          if (fileInput) fileInput.value = '';
+
           const boardEl = document.querySelector(`[data-board-id="${this.editBoardModal.id}"]`);
-          if (boardEl) {
-             const nameEl = boardEl.querySelector('p.text-white');
-             if (nameEl && data.board) nameEl.textContent = data.board.name;
+          if (boardEl && data.board) {
+             let coverVal = (data.board.cover_value || '').trim();
+             if (coverVal.startsWith('/public/')) {
+               coverVal = coverVal.substring(7);
+             }
+
+             boardEl.dataset.boardName = data.board.name;
+             boardEl.dataset.coverType = data.board.cover_type;
+             boardEl.dataset.coverValue = coverVal;
+
+             const nameEl = boardEl.querySelector('p.text-white, p.text-slate-800, p.font-bold');
+             if (nameEl) nameEl.textContent = data.board.name;
              
              let newStyle = '';
              if (data.board.cover_type === 'image') {
-                newStyle = `background-image: url('${data.board.cover_value}'); background-color: #6366f1; background-size: cover; background-position: center;`;
+                newStyle = `background-image: url('${coverVal}'); background-color: #030e2e; background-size: cover; background-position: center; background-repeat: no-repeat;`;
              } else {
-                newStyle = `background-color: ${data.board.cover_value};`;
+                newStyle = `background-color: ${coverVal};`;
              }
              boardEl.setAttribute('style', newStyle);
-             
-             const editBtn = boardEl.querySelector('button[title="Change cover color"]');
-             if (editBtn && data.board) {
-                editBtn.setAttribute('@click.stop.prevent', `openEditBoard(${data.board.id}, '${data.board.name.replace(/'/g, "\\'")}', '${data.board.cover_type}', '${data.board.cover_value}')`);
+
+             const isWhite = (data.board.cover_type === 'color' && ['#ffffff', '#fff', 'white'].includes(coverVal.toLowerCase()));
+             if (nameEl) {
+               if (isWhite) {
+                 nameEl.className = 'text-slate-800 dark:text-slate-100 font-bold text-sm leading-snug';
+               } else {
+                 nameEl.className = 'text-white font-bold text-sm drop-shadow leading-snug';
+               }
              }
           }
         } else {

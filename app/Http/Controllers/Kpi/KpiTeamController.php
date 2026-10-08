@@ -40,7 +40,7 @@ class KpiTeamController extends Controller
         $availableUsers = User::whereNotIn('id', array_filter($existingMemberIds))
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'username', 'email', 'team_role']);
+            ->get(['id', 'name', 'username', 'email', 'avatar', 'team_role']);
 
         return view('kpi.team', compact('squads', 'currentSquad', 'availableUsers', 'isSupervisor', 'userSquadId'));
     }
@@ -55,6 +55,7 @@ class KpiTeamController extends Controller
             'squad_id' => 'required|exists:kpi_squads,id',
             'user_id' => 'required|exists:users,id',
             'role_title' => 'nullable|string|max:100',
+            'work_types' => 'nullable',
         ]);
 
         if (!$isSupervisor && $userSquadId != $validated['squad_id']) {
@@ -64,9 +65,18 @@ class KpiTeamController extends Controller
         $squad = KpiSquad::findOrFail($validated['squad_id']);
         $newMember = User::findOrFail($validated['user_id']);
 
+        $workTypes = $request->input('work_types', []);
+        if (is_string($workTypes)) {
+            $decoded = json_decode($workTypes, true);
+            $workTypes = is_array($decoded) ? $decoded : array_filter(array_map('trim', explode(',', $workTypes)));
+        }
+        $workTypes = is_array($workTypes) ? array_values(array_unique(array_filter($workTypes))) : [];
+        $workTypesJson = !empty($workTypes) ? json_encode($workTypes) : null;
+
         $squad->members()->syncWithoutDetaching([
             $newMember->id => [
                 'role_title' => $validated['role_title'] ?? 'Team Member',
+                'work_types' => $workTypesJson,
                 'joined_date' => now()->toDateString(),
             ]
         ]);
@@ -78,10 +88,66 @@ class KpiTeamController extends Controller
             'entity_id' => $squad->id,
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
-            'new_values' => ['squad' => $squad->name, 'member' => $newMember->name, 'role' => $validated['role_title'] ?? 'Team Member'],
+            'new_values' => [
+                'squad' => $squad->name,
+                'member' => $newMember->name,
+                'role' => $validated['role_title'] ?? 'Team Member',
+                'work_types' => $workTypes,
+            ],
         ]);
 
         return redirect()->back()->with('success', "{$newMember->name} has been added to {$squad->name}.");
+    }
+
+    public function updateMemberRole(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $isSupervisor = $user->isKpiSupervisor();
+        $userSquadId = $user->getKpiSquadId();
+
+        $validated = $request->validate([
+            'squad_id' => 'required|exists:kpi_squads,id',
+            'user_id' => 'required|exists:users,id',
+            'role_title' => 'required|string|max:100',
+            'work_types' => 'nullable',
+        ]);
+
+        if (!$isSupervisor && $userSquadId != $validated['squad_id']) {
+            abort(403, 'You can only manage members in your own squad.');
+        }
+
+        $squad = KpiSquad::findOrFail($validated['squad_id']);
+        $member = User::findOrFail($validated['user_id']);
+
+        $workTypes = $request->input('work_types', []);
+        if (is_string($workTypes)) {
+            $decoded = json_decode($workTypes, true);
+            $workTypes = is_array($decoded) ? $decoded : array_filter(array_map('trim', explode(',', $workTypes)));
+        }
+        $workTypes = is_array($workTypes) ? array_values(array_unique(array_filter($workTypes))) : [];
+        $workTypesJson = !empty($workTypes) ? json_encode($workTypes) : null;
+
+        $squad->members()->updateExistingPivot($member->id, [
+            'role_title' => $validated['role_title'],
+            'work_types' => $workTypesJson,
+        ]);
+
+        KpiAuditLog::create([
+            'user_id' => $user->id,
+            'action' => 'team_member_role_updated',
+            'entity_type' => KpiSquad::class,
+            'entity_id' => $squad->id,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'new_values' => [
+                'squad' => $squad->name,
+                'member' => $member->name,
+                'role' => $validated['role_title'],
+                'work_types' => $workTypes,
+            ],
+        ]);
+
+        return redirect()->back()->with('success', "Updated role and work types for {$member->name}.");
     }
 
     public function removeMember(Request $request, KpiSquad $squad, User $member): RedirectResponse

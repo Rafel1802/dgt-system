@@ -240,6 +240,7 @@ Alpine.store('sidebar', {
 Alpine.data('themeSystem', () => ({
     theme: 'light', // 'light' | 'dark'
     neonMode: false,
+    _transitionTimer: null,
 
     initTheme() {
         const storedTheme = localStorage.getItem('theme');
@@ -261,11 +262,24 @@ Alpine.data('themeSystem', () => ({
                 this.theme = 'light';
             }
         }
-        this.applyTheme();
+        // Initial application without animated transition to avoid flash on cold page load
+        this.applyTheme(false);
 
-        window.addEventListener('dgt-theme-toggle-neon', () => {
-            this.toggleNeonTheme();
-        });
+        // Guard against duplicate listener registration across Turbo navigations
+        if (!window._dgtNeonListenerBound) {
+            window._dgtNeonListenerBound = true;
+            window.addEventListener('dgt-theme-toggle-neon', () => {
+                const themeEl = document.querySelector('[x-data*="themeSystem"]');
+                if (themeEl && window.Alpine) {
+                    try {
+                        const data = window.Alpine.$data(themeEl);
+                        if (data && typeof data.toggleNeonTheme === 'function') {
+                            data.toggleNeonTheme();
+                        }
+                    } catch (_) {}
+                }
+            });
+        }
     },
 
     get isNeon() {
@@ -280,14 +294,14 @@ Alpine.data('themeSystem', () => ({
         // Standard topbar Sun/Moon toggle: always toggles between light and dark
         this.theme = this.theme === 'dark' ? 'light' : 'dark';
         localStorage.setItem('theme', this.theme);
-        this.applyTheme();
+        this.applyTheme(true);
     },
 
     setTheme(targetTheme) {
         if (this.theme === targetTheme) return;
         this.theme = targetTheme;
         localStorage.setItem('theme', this.theme);
-        this.applyTheme();
+        this.applyTheme(true);
     },
 
     toggleNeonTheme() {
@@ -303,10 +317,18 @@ Alpine.data('themeSystem', () => ({
             localStorage.setItem('dgt_neon_mode', 'true');
             localStorage.setItem('theme', 'dark');
         }
-        this.applyTheme();
+        this.applyTheme(true);
     },
 
-    applyTheme() {
+    applyTheme(withTransition = false) {
+        if (withTransition) {
+            document.documentElement.classList.add('theme-transitioning');
+            clearTimeout(this._transitionTimer);
+            this._transitionTimer = setTimeout(() => {
+                document.documentElement.classList.remove('theme-transitioning');
+            }, 220);
+        }
+
         if (this.theme === 'dark') {
             if (this.neonMode) {
                 document.documentElement.setAttribute('data-theme', 'neon');
@@ -317,6 +339,7 @@ Alpine.data('themeSystem', () => ({
             // Light mode is always clean normal light mode (Neon NEVER in light mode)
             document.documentElement.removeAttribute('data-theme');
         }
+
         window.dispatchEvent(new CustomEvent('theme-changed', { 
             detail: { 
                 theme: this.theme, 

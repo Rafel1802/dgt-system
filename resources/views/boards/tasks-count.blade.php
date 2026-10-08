@@ -123,116 +123,259 @@
         <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">You do not currently belong to any planning boards or have not been assigned any cards yet.</p>
       </div>
     @else
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        @foreach($boardBoxes as $box)
-          @php
-            $isTarget = $selectedBoardId && $selectedBoardId == $box['board']->id;
-            
-            // Team icon and accents
-            $themeClasses = match($box['team_key']) {
-                'video'   => ['icon_bg' => 'bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400', 'badge' => 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800'],
-                'graphic' => ['icon_bg' => 'bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400', 'badge' => 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'],
-                'listing' => ['icon_bg' => 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400', 'badge' => 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'],
-                'content' => ['icon_bg' => 'bg-fuchsia-100 dark:bg-fuchsia-950/60 text-fuchsia-600 dark:text-fuchsia-400', 'badge' => 'bg-fuchsia-50 dark:bg-fuchsia-950/40 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-800'],
-                'qc'      => ['icon_bg' => 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400', 'badge' => 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'],
-                'smm'     => ['icon_bg' => 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400', 'badge' => 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'],
-                default   => ['icon_bg' => 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400', 'badge' => 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'],
-            };
-          @endphp
+      @if(count($boardBoxes) === 1)
+        @php
+          $box = $boardBoxes[0];
+          $isTarget = $selectedBoardId && $selectedBoardId == $box['board']->id;
+          $themeClasses = match($box['team_key']) {
+              'video'   => ['icon_bg' => 'bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400', 'badge' => 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800'],
+              'graphic' => ['icon_bg' => 'bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400', 'badge' => 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'],
+              'listing' => ['icon_bg' => 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400', 'badge' => 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'],
+              'content' => ['icon_bg' => 'bg-fuchsia-100 dark:bg-fuchsia-950/60 text-fuchsia-600 dark:text-fuchsia-400', 'badge' => 'bg-fuchsia-50 dark:bg-fuchsia-950/40 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-800'],
+              'qc'      => ['icon_bg' => 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400', 'badge' => 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'],
+              'smm'     => ['icon_bg' => 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400', 'badge' => 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'],
+              default   => ['icon_bg' => 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400', 'badge' => 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'],
+          };
+        @endphp
 
-          {{-- ── SINGLE BOARD BOX ── --}}
-          <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 border {{ $isTarget ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200/80 dark:border-slate-700/70' }} shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-all flex flex-col justify-between group">
+        {{-- ── SINGLE WIDE PLANNING BOARD SHOWCASE ── --}}
+        <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border {{ $isTarget ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200/80 dark:border-slate-700/70' }} shadow-sm hover:shadow-lg transition-all">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
             
-            <div>
-              {{-- Top Row: Team Badge + Month --}}
-              <div class="flex items-center justify-between gap-3 mb-4">
-                <div class="flex items-center gap-2 min-w-0">
-                  <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $themeClasses['icon_bg'] }}">
+            {{-- Left Column: Board Identity, Task Count, and Quick Actions (6 cols) --}}
+            <div class="lg:col-span-6 flex flex-col justify-between space-y-6">
+              <div>
+                {{-- Badges row --}}
+                <div class="flex items-center gap-2.5 mb-3 flex-wrap">
+                  <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 {{ $themeClasses['icon_bg'] }}">
                     @if($box['team_key'] === 'video')
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
                     @elseif($box['team_key'] === 'graphic')
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
                     @else
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"/></svg>
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"/></svg>
                     @endif
                   </div>
-                  <span class="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border {{ $themeClasses['badge'] }} truncate">
+                  <span class="text-xs font-black uppercase tracking-wider px-3 py-1 rounded-lg border {{ $themeClasses['badge'] }}">
                     {{ $box['workspace_name'] }}
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300">
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    {{ $box['month_year'] }}
                   </span>
                 </div>
 
-                {{-- Month and Year Badge --}}
-                <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 shrink-0">
-                  <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                  {{ $box['month_year'] }}
-                </span>
+                {{-- Board Name & Subtitle --}}
+                <h3 class="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-snug">
+                  {{ $box['clean_name'] }}
+                </h3>
+                <p class="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1">{{ $box['board_name'] }}</p>
               </div>
 
-              {{-- Board Name Header --}}
-              <h3 class="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate" title="{{ $box['board_name'] }}">
-                {{ $box['clean_name'] }}
-              </h3>
-              <p class="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{{ $box['board_name'] }}</p>
-
-              {{-- ── GIANT TASK COUNT BOX ── --}}
-              <div class="my-5 p-4 rounded-2xl {{ $box['task_count'] > 0 ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50' : 'bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/50' }} flex items-center justify-between">
+              {{-- Large Tasks Assigned Highlight Panel --}}
+              <div class="p-5 rounded-2xl {{ $box['task_count'] > 0 ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50' : 'bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/50' }} flex items-center justify-between">
                 <div>
-                  <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400 block mb-0.5">Tasks Assigned</span>
-                  <div class="flex items-baseline gap-2">
-                    <span class="text-4xl font-black {{ $box['task_count'] > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500' }}">
+                  <span class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 block mb-1">Tasks Assigned to You</span>
+                  <div class="flex items-baseline gap-2.5">
+                    <span class="text-4xl sm:text-5xl font-black {{ $box['task_count'] > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500' }}">
                       {{ $box['task_count'] }}
                     </span>
-                    <span class="text-xs font-bold text-slate-500 dark:text-slate-400">task{{ $box['task_count'] == 1 ? '' : 's' }}</span>
+                    <span class="text-sm font-bold text-slate-500 dark:text-slate-400">task{{ $box['task_count'] == 1 ? '' : 's' }} in this board</span>
                   </div>
                 </div>
 
-                @if($box['task_count'] > 0)
-                  <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-600 text-white shadow-sm shadow-indigo-500/20">
-                    Active
+                <div>
+                  @if($box['task_count'] > 0)
+                    <span class="px-3.5 py-1.5 rounded-full text-xs font-black bg-indigo-600 text-white shadow-sm shadow-indigo-500/25">
+                      Active
+                    </span>
+                  @else
+                    <span class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      Up to date
+                    </span>
+                  @endif
+                </div>
+              </div>
+
+              {{-- Action Buttons --}}
+              <div class="flex items-center gap-3 pt-1">
+                <a href="{{ $isTarget ? route('tasks.count') : route('tasks.count', ['board_id' => $box['board']->id]) }}"
+                   class="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border {{ $isTarget ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200' }} text-xs sm:text-sm font-bold transition-all">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12"/></svg>
+                  <span>{{ $isTarget ? 'Clear Filter' : 'View Tasks List' }}</span>
+                </a>
+
+                <a href="{{ route('boards.show', $box['board']) }}"
+                   class="inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs sm:text-sm font-bold transition-all group"
+                   title="Open Board">
+                  <span>Open Board</span>
+                  <svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            {{-- Right Column: List & Sprint Breakdown (6 cols) --}}
+            <div class="lg:col-span-6 bg-slate-50/70 dark:bg-slate-900/40 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
+                  <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z"/></svg>
+                    </div>
+                    <span class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      List Distribution
+                    </span>
+                  </div>
+                  <span class="text-[11px] font-bold text-slate-400">
+                    {{ count($box['weeks']) }} Lists
                   </span>
+                </div>
+
+                @if(!empty($box['weeks']))
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    @foreach($box['weeks'] as $weekName => $count)
+                      <div class="flex items-center justify-between py-2.5 px-3 rounded-xl bg-white dark:bg-slate-800 border {{ $count > 0 ? 'border-indigo-200/80 dark:border-indigo-900/50 shadow-xs' : 'border-slate-200/50 dark:border-slate-700/40' }} transition-colors">
+                        <div class="flex items-center gap-2 min-w-0">
+                          <span class="w-2.5 h-2.5 rounded-full {{ $count > 0 ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600' }} shrink-0"></span>
+                          <span class="font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-200 truncate">{{ $weekName }}</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0 pl-2">
+                          <span class="font-black text-sm {{ $count > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400' }}">
+                            {{ $count }}
+                          </span>
+                          <span class="text-[10px] font-semibold text-slate-400">tasks</span>
+                        </div>
+                      </div>
+                    @endforeach
+                  </div>
                 @else
-                  <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                    Up to date
-                  </span>
+                  <p class="text-xs text-slate-400 py-6 text-center">No lists or weeks found on this board.</p>
                 @endif
               </div>
 
-              {{-- ── Weeks / Lists Breakdown (similar to Approval Queue) ── --}}
-              @if(!empty($box['weeks']))
-                <div class="space-y-1.5 mb-5 pt-1">
-                  <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-1">List Distribution</span>
-                  @foreach($box['weeks'] as $weekName => $count)
-                    <div class="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-slate-50/80 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-900/70 transition-colors">
-                      <span class="font-semibold text-slate-600 dark:text-slate-300 truncate max-w-[150px]">{{ $weekName }}</span>
-                      <span class="font-black {{ $count > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400' }}">
-                        {{ $count }}
-                      </span>
-                    </div>
-                  @endforeach
-                </div>
-              @endif
-            </div>
-
-            {{-- ── Footer Action Buttons ── --}}
-            <div class="pt-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center gap-2 mt-2">
-              <a href="{{ route('tasks.count', ['board_id' => $box['board']->id]) }}"
-                 class="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border {{ $isTarget ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200' }} text-xs font-bold transition-all">
-                <span>{{ $isTarget ? 'Filtering' : 'View Tasks' }}</span>
-              </a>
-
-              <a href="{{ route('boards.show', $box['board']) }}"
-                 class="inline-flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition-colors"
-                 title="Open Board">
-                <span>Open Board</span>
-                <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                </svg>
-              </a>
+              <div class="pt-3 mt-4 text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-200/50 dark:border-slate-700/40 flex items-center justify-between">
+                <span>Task distribution across planning lists</span>
+                <span class="font-bold text-slate-600 dark:text-slate-400">{{ $box['task_count'] }} total assigned</span>
+              </div>
             </div>
 
           </div>
-        @endforeach
-      </div>
+        </div>
+      @else
+        {{-- ── MULTIPLE BOARDS (ADAPTIVE 2 OR 3 COLUMNS) ── --}}
+        <div class="grid grid-cols-1 {{ count($boardBoxes) == 2 ? 'lg:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3' }} gap-6">
+          @foreach($boardBoxes as $box)
+            @php
+              $isTarget = $selectedBoardId && $selectedBoardId == $box['board']->id;
+              
+              // Team icon and accents
+              $themeClasses = match($box['team_key']) {
+                  'video'   => ['icon_bg' => 'bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400', 'badge' => 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800'],
+                  'graphic' => ['icon_bg' => 'bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400', 'badge' => 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'],
+                  'listing' => ['icon_bg' => 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400', 'badge' => 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'],
+                  'content' => ['icon_bg' => 'bg-fuchsia-100 dark:bg-fuchsia-950/60 text-fuchsia-600 dark:text-fuchsia-400', 'badge' => 'bg-fuchsia-50 dark:bg-fuchsia-950/40 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-800'],
+                  'qc'      => ['icon_bg' => 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400', 'badge' => 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'],
+                  'smm'     => ['icon_bg' => 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400', 'badge' => 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'],
+                  default   => ['icon_bg' => 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400', 'badge' => 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'],
+              };
+            @endphp
+
+            {{-- ── SINGLE BOARD BOX ── --}}
+            <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-7 border {{ $isTarget ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200/80 dark:border-slate-700/70' }} shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-all flex flex-col justify-between group">
+              
+              <div>
+                {{-- Top Row: Team Badge + Month --}}
+                <div class="flex items-center justify-between gap-3 mb-4">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 {{ $themeClasses['icon_bg'] }}">
+                      @if($box['team_key'] === 'video')
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+                      @elseif($box['team_key'] === 'graphic')
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
+                      @else
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z"/></svg>
+                      @endif
+                    </div>
+                    <span class="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border {{ $themeClasses['badge'] }} truncate">
+                      {{ $box['workspace_name'] }}
+                    </span>
+                  </div>
+
+                  {{-- Month and Year Badge --}}
+                  <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 shrink-0">
+                    <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    {{ $box['month_year'] }}
+                  </span>
+                </div>
+
+                {{-- Board Name Header --}}
+                <h3 class="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate" title="{{ $box['board_name'] }}">
+                  {{ $box['clean_name'] }}
+                </h3>
+                <p class="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{{ $box['board_name'] }}</p>
+
+                {{-- ── GIANT TASK COUNT BOX ── --}}
+                <div class="my-5 p-4 rounded-2xl {{ $box['task_count'] > 0 ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50' : 'bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/50' }} flex items-center justify-between">
+                  <div>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400 block mb-0.5">Tasks Assigned</span>
+                    <div class="flex items-baseline gap-2">
+                      <span class="text-4xl font-black {{ $box['task_count'] > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500' }}">
+                        {{ $box['task_count'] }}
+                      </span>
+                      <span class="text-xs font-bold text-slate-500 dark:text-slate-400">task{{ $box['task_count'] == 1 ? '' : 's' }}</span>
+                    </div>
+                  </div>
+
+                  @if($box['task_count'] > 0)
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-600 text-white shadow-sm shadow-indigo-500/20">
+                      Active
+                    </span>
+                  @else
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      Up to date
+                    </span>
+                  @endif
+                </div>
+
+                {{-- ── Weeks / Lists Breakdown ── --}}
+                @if(!empty($box['weeks']))
+                  <div class="space-y-1.5 mb-5 pt-1">
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-1">List Distribution</span>
+                    @foreach($box['weeks'] as $weekName => $count)
+                      <div class="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-slate-50/80 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-900/70 transition-colors">
+                        <span class="font-semibold text-slate-600 dark:text-slate-300 truncate max-w-[150px]">{{ $weekName }}</span>
+                        <span class="font-black {{ $count > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400' }}">
+                          {{ $count }}
+                        </span>
+                      </div>
+                    @endforeach
+                  </div>
+                @endif
+              </div>
+
+              {{-- ── Footer Action Buttons ── --}}
+              <div class="pt-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center gap-2 mt-2">
+                <a href="{{ $isTarget ? route('tasks.count') : route('tasks.count', ['board_id' => $box['board']->id]) }}"
+                   class="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border {{ $isTarget ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200' }} text-xs font-bold transition-all">
+                  <span>{{ $isTarget ? 'Filtering' : 'View Tasks' }}</span>
+                </a>
+
+                <a href="{{ route('boards.show', $box['board']) }}"
+                   class="inline-flex items-center justify-center gap-1.5 py-2.5 px-3.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition-colors"
+                   title="Open Board">
+                  <span>Open Board</span>
+                  <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                </a>
+              </div>
+
+            </div>
+          @endforeach
+        </div>
+      @endif
     @endif
   </div>
 

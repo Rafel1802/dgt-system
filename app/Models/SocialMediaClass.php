@@ -59,8 +59,34 @@ class SocialMediaClass extends Model
 
     /**
      * Map common aliases/variations of class names to their canonical SocialMediaClass name.
+     * Supports single or multi-select delimited cluster strings (e.g. "ImpossibleMachinery, MachineryAsia.Online").
      */
     public static function canonicalName(?string $name): string
+    {
+        $raw = trim((string)$name);
+        if ($raw === '') {
+            return '';
+        }
+
+        if (preg_match('/[,&+\/\n]/', $raw)) {
+            $parts = preg_split('/[,&+\/\n]+/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+            $canonicalParts = [];
+            foreach ($parts as $part) {
+                $c = self::canonicalSingleName($part);
+                if (!empty($c) && !in_array($c, $canonicalParts)) {
+                    $canonicalParts[] = $c;
+                }
+            }
+            return !empty($canonicalParts) ? implode(', ', $canonicalParts) : $raw;
+        }
+
+        return self::canonicalSingleName($raw);
+    }
+
+    /**
+     * Canonical name for a single class/cluster name.
+     */
+    public static function canonicalSingleName(?string $name): string
     {
         $raw = trim((string)$name);
         if ($raw === '') {
@@ -105,6 +131,32 @@ class SocialMediaClass extends Model
         }
 
         return $raw;
+    }
+
+    /**
+     * Resolve a raw cluster string (single or multi-select) into an array of canonical cluster names
+     * and a canonical string.
+     */
+    public static function resolveClusters(?string $raw): array
+    {
+        $raw = trim((string)$raw);
+        if ($raw === '') {
+            return ['names' => [], 'canonical_string' => ''];
+        }
+
+        $parts = preg_split('/[,&+\/\n]+/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+        $names = [];
+        foreach ($parts as $p) {
+            $c = self::canonicalSingleName(trim($p));
+            if (!empty($c) && !in_array($c, $names)) {
+                $names[] = $c;
+            }
+        }
+
+        return [
+            'names' => $names,
+            'canonical_string' => implode(', ', $names),
+        ];
     }
 
     // ─── Scopes ───────────────────────────────────────────────────────────────

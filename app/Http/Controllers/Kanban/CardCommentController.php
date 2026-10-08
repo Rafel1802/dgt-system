@@ -22,6 +22,17 @@ class CardCommentController extends Controller
             'content' => ['required', 'string', 'max:2000'],
         ]);
 
+        if ($card->hasIncompleteChecklist() && app(\App\Services\BoardWorkflowService::class)->isAutomationComment($card, $validated['content'])) {
+            $msg = preg_match('/\bready\b/i', $validated['content'])
+                ? 'All checklist items must be 100% completed before marking this card as ready.'
+                : 'All checklist items must be 100% completed before using comment automations to move or copy this card.';
+            return response()->json([
+                'error' => $msg,
+                'message' => $msg,
+                'checklist_incomplete' => true,
+            ], 422);
+        }
+
         $comment = $card->comments()->create([
             'user_id'   => auth()->id(),
             'content'   => $validated['content'],

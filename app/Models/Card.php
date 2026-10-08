@@ -55,6 +55,7 @@ class Card extends Model
         'reviewed_by',
         'reviewed_at',
         'sync_group_id',
+        'team',
     ];
 
     protected $casts = [
@@ -89,7 +90,7 @@ class Card extends Model
                 try {
                     $dirty = $card->getDirty();
                     $syncFields = [
-                        'title', 'description', 'label', 'sub_label', 'smm_class_label', 'smm_team_label', 'smm_cluster_label', 'priority', 'status',
+                        'title', 'description', 'label', 'sub_label', 'team', 'smm_class_label', 'smm_team_label', 'smm_cluster_label', 'priority', 'status',
                         'deadline', 'due_at', 'start_date', 'content_public_date', 'due_time', 'reminder', 'recurring',
                         'cover_image', 'is_archived', 'approved_by', 'approved_at', 'rejection_reason',
                         'reviewed_by', 'reviewed_at', 'block_completed_by', 'block_completed_at', 'created_by'
@@ -343,7 +344,12 @@ class Card extends Model
         return $this->hasMany(CardComment::class)
                     ->where('is_system', false)
                     ->where(function($q) {
-                        $q->whereRaw("LOWER(content) LIKE '%qc%approve%'");
+                        $q->whereRaw("LOWER(content) LIKE '%qc%approve%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%production%approve%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%production approved%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%production approved smm%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%head%approve%'")
+                          ->orWhereRaw("LOWER(content) LIKE '%approved%smm%'");
                     })
                     ->orderBy('created_at');
     }
@@ -414,7 +420,12 @@ class Card extends Model
             $classLinks = \App\Models\SocialMediaClass::pluck('external_link', 'name')->toArray();
         }
         
-        return $classLinks[$this->smm_class_label] ?? null;
+        if (isset($classLinks[$this->smm_class_label])) {
+            return $classLinks[$this->smm_class_label];
+        }
+
+        $primaryClass = trim(explode(',', $this->smm_class_label)[0]);
+        return $classLinks[$primaryClass] ?? null;
     }
 
     public function getLabelBgAttribute(): string
@@ -431,7 +442,12 @@ class Card extends Model
             $classColors = \App\Models\SocialMediaClass::pluck('color', 'name')->toArray();
         }
         
-        return $classColors[$this->smm_class_label] ?? '#6366f1';
+        if (isset($classColors[$this->smm_class_label])) {
+            return $classColors[$this->smm_class_label];
+        }
+
+        $primaryClass = trim(explode(',', $this->smm_class_label)[0]);
+        return $classColors[$primaryClass] ?? '#6366f1';
     }
 
     /**
@@ -534,6 +550,31 @@ class Card extends Model
         ];
     }
 
+    /**
+     * Check if the card has any checklist, and whether all checklist items are completed (100%).
+     * Returns true if there is at least one checklist and not all items are completed.
+     */
+    public function hasIncompleteChecklist(): bool
+    {
+        $checklists = $this->relationLoaded('checklists')
+            ? $this->checklists
+            : $this->checklists()->with('items')->get();
+
+        if ($checklists->isEmpty()) {
+            return false;
+        }
+
+        $allItems = $checklists->flatMap(function ($cl) {
+            return $cl->relationLoaded('items') ? $cl->items : $cl->items()->get();
+        });
+
+        if ($allItems->isEmpty()) {
+            return false;
+        }
+
+        return $allItems->contains(fn($item) => ! (bool) $item->is_completed);
+    }
+
     // ─── Scopes ───────────────────────────────────────────────────────────────
 
     public function scopeByStatus($query, CardStatus $status): mixed
@@ -554,6 +595,20 @@ class Card extends Model
 
     public function getWorkflowStatusAttribute(): ?string
     {
+        // 1. If card itself is on a workflow board, deduce from its own list
+        if ($this->relationLoaded('board') && $this->board && str_contains(strtolower($this->board->name), 'workflow')) {
+            $list = $this->boardList;
+            if ($list) {
+                $name = strtolower($list->name);
+                if (str_contains($name, 'draft')) return 'Draft';
+                if (str_contains($name, 'production') || str_contains($name, 'head') || str_contains($name, 'qc')) return 'Production Team';
+                if (str_contains($name, 'digital department') || str_contains($name, 'supervisor')) return 'Digital Department';
+                if (str_contains($name, 'approved') || str_contains($name, 'done') || str_contains($name, 'completed')) return 'Approved';
+                if (str_contains($name, 'block') || str_contains($name, 'waiting')) return 'Blocked/Waiting';
+            }
+        }
+
+        // 2. Check sync siblings (e.g. Planning board twin card on Workflow board)
         if (!$this->sync_group_id) {
             return null;
         }
@@ -570,13 +625,144 @@ class Card extends Model
             
             $name = strtolower($list->name);
             if (str_contains($name, 'draft')) return 'Draft';
-            if (str_contains($name, 'head')) return 'Head';
-            if (str_contains($name, 'qc')) return 'QC';
-            if (str_contains($name, 'supervisor')) return 'Supervisor';
-            if (str_contains($name, 'block') || str_contains($name, 'waiting')) return 'Block/waiting';
-            // Approved doesn't get a text label because it has a green tick, per user request.
+            if (str_contains($name, 'production') || str_contains($name, 'head') || str_contains($name, 'qc')) return 'Production Team';
+            if (str_contains($name, 'digital department') || str_contains($name, 'supervisor')) return 'Digital Department';
+            if (str_contains($name, 'approved') || str_contains($name, 'done') || str_contains($name, 'completed')) return 'Approved';
+            if (str_contains($name, 'block') || str_contains($name, 'waiting')) return 'Blocked/Waiting';
         }
 
         return null;
+    }
+
+    /**
+     * Detect or return the card's assigned digital team ('A', 'B', or 'Both').
+     */
+    public function detectTeam(): ?string
+    {
+        // 1. Explicit attribute
+        if (!empty($this->attributes['team'])) {
+            $t = strtoupper(trim($this->attributes['team']));
+            if (in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B']) || (str_contains($t, 'A') && str_contains($t, 'B'))) {
+                return 'Both';
+            }
+            if ($t === 'A' || $t === 'B') {
+                return $t;
+            }
+            return $t;
+        }
+
+        // 2. Check attached labels (e.g. [Team A] and [Team B], or [Team A & B])
+        $labels = $this->relationLoaded('labels') ? $this->labels : $this->labels()->get();
+        if ($labels && $labels->isNotEmpty()) {
+            $hasA = false;
+            $hasB = false;
+            foreach ($labels as $lbl) {
+                $name = $lbl->name ?? '';
+                if (preg_match('/Team\s*A\s*(&|\+|and)\s*(Team\s*)?B\b/i', $name)) {
+                    return 'Both';
+                }
+                if (preg_match('/Team\s*A\b/i', $name)) {
+                    $hasA = true;
+                }
+                if (preg_match('/Team\s*B\b/i', $name)) {
+                    $hasB = true;
+                }
+            }
+            if ($hasA && $hasB) {
+                return 'Both';
+            }
+            if ($hasA) return 'A';
+            if ($hasB) return 'B';
+        }
+
+        // 3. Check title or bracketed tag e.g. [Team A], (Team B), Team A, Team B
+        $title = $this->title ?? '';
+        $titleHasA = preg_match('/\[Team\s*A\]/i', $title) || preg_match('/\(Team\s*A\)/i', $title) || preg_match('/\bTeam\s*A\b/i', $title);
+        $titleHasB = preg_match('/\[Team\s*B\]/i', $title) || preg_match('/\(Team\s*B\)/i', $title) || preg_match('/\bTeam\s*B\b/i', $title);
+        if ($titleHasA && $titleHasB) {
+            return 'Both';
+        }
+        if ($titleHasA) return 'A';
+        if ($titleHasB) return 'B';
+
+        // 4. Check sync siblings (if twin is on Workflow Board Team A or Team B)
+        try {
+            $siblings = $this->relationLoaded('syncSiblings') ? $this->syncSiblings : $this->syncSiblings()->with('board')->get();
+            $sibHasA = false;
+            $sibHasB = false;
+            foreach ($siblings as $sibling) {
+                $bName = strtolower($sibling->board?->name ?? '');
+                if (str_contains($bName, 'team a') || str_contains($bName, 'teama') || str_contains($bName, 'team-a')) {
+                    $sibHasA = true;
+                }
+                if (str_contains($bName, 'team b') || str_contains($bName, 'teamb') || str_contains($bName, 'team-b')) {
+                    $sibHasB = true;
+                }
+            }
+            if ($sibHasA && $sibHasB) return 'Both';
+            if ($sibHasA) return 'A';
+            if ($sibHasB) return 'B';
+        } catch (\Throwable $e) {}
+
+        // 5. Check assignees (if assignees contain members of Team A and/or Team B)
+        try {
+            $assignees = $this->relationLoaded('assignees') ? $this->assignees : $this->assignees()->get();
+            $assHasA = false;
+            $assHasB = false;
+            foreach ($assignees as $u) {
+                $uTeam = $u->getDigitalTeam();
+                if ($uTeam === 'A') $assHasA = true;
+                if ($uTeam === 'B') $assHasB = true;
+            }
+            if ($assHasA && $assHasB) return 'Both';
+            if ($assHasA) return 'A';
+            if ($assHasB) return 'B';
+        } catch (\Throwable $e) {}
+
+        // 6. Check creator: Kim is Team B, Dara is Team A
+        try {
+            $creator = $this->relationLoaded('creator') ? $this->creator : ($this->created_by ? \App\Models\User::find($this->created_by) : null);
+            if ($creator) {
+                $cUser = strtolower($creator->username ?? '');
+                $cName = strtolower($creator->name ?? '');
+                if (str_contains($cUser, 'kim') || str_contains($cName, 'kim') || $creator->id === 13) {
+                    return 'B';
+                }
+                if (str_contains($cUser, 'dara') || str_contains($cName, 'dara') || $creator->id === 12) {
+                    return 'A';
+                }
+                $cTeam = $creator->getDigitalTeam();
+                if ($cTeam) {
+                    return $cTeam;
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        return null;
+    }
+
+    public function isBothTeams(): bool
+    {
+        $team = $this->team;
+        if (!$team) {
+            $team = $this->detectTeam();
+        }
+        $t = strtoupper(trim((string)$team));
+        return in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B'])
+            || (str_contains($t, 'A') && str_contains($t, 'B'));
+    }
+
+    public function hasTeam(string $team): bool
+    {
+        if ($this->isBothTeams()) {
+            return true;
+        }
+        $t = strtoupper(trim((string)($this->team ?? $this->detectTeam())));
+        return $t === strtoupper(trim($team));
+    }
+
+    public function getTeamAttribute(): ?string
+    {
+        return $this->detectTeam();
     }
 }

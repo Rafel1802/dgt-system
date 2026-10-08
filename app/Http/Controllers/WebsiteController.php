@@ -20,7 +20,7 @@ class WebsiteController extends Controller
 {
     // ── Allowed roles ─────────────────────────────────────────────────────────
     const ALLOWED_ROLES = ['super-admin', 'admin-digital', 'digital-team', 'boss'];
-    const ADMIN_ROLES   = ['super-admin', 'admin-digital'];
+    const ADMIN_ROLES   = ['super-admin', 'admin-digital', 'boss'];
 
     // ── INDEX (5 tabs) ────────────────────────────────────────────────────────
     public function index(Request $request)
@@ -126,7 +126,6 @@ class WebsiteController extends Controller
                     Website::STATUS_MAINTENANCE_QC_CHECKING,
                     Website::STATUS_MAINTENANCE_SUPERVISOR_CHECKING,
                 ])->get();
-                break;
         }
 
         // ── Follow Up Tab ─────────────────────────────────────────────────────
@@ -218,17 +217,27 @@ class WebsiteController extends Controller
             $groupedWebsites->put('Uncategorized', $uncategorized);
         }
 
-        $users = User::role(['digital-team', 'boss'])->orderBy('name')->get(['id', 'name', 'email']);
-        $websiteMembers = WebsiteMember::with('user')->get();
+        $users = User::role(['digital-team', 'boss'])->orderBy('name')->get();
+        WebsiteMember::whereDoesntHave('user')->delete();
+        $websiteMembers = WebsiteMember::with('user')->whereHas('user')->get();
         $memberRolesMap = $websiteMembers->pluck('role', 'user_id')->toArray();
 
         $websiteTeamMembers = User::whereIn('id', function($q) {
             $q->select('user_id')
               ->from('website_members')
               ->whereIn('role', ['Developer', 'QC']);
-        })->orderBy('name')->get(['id', 'name', 'email']);
+        })->orderBy('name')->get();
+
+        $currentUser = auth()->user();
+        if ($currentUser) {
+            $websiteTeamMembers = $websiteTeamMembers->reject(fn($u) => $u->id === $currentUser->id)->prepend($currentUser);
+        }
 
         $reportUsers = $users->concat($websiteTeamMembers)->unique('id')->sortBy('name')->values();
+        if ($currentUser && !$reportUsers->contains('id', $currentUser->id)) {
+            $reportUsers->prepend($currentUser);
+        }
+        $canViewAllWebsiteReports = $currentUser ? $currentUser->canViewAllWebsiteReports() : false;
 
         // --- PERFORMANCE OPTIMIZATION: Relationships are already eager loaded via with($tabRelations) above ---
 
@@ -242,7 +251,7 @@ class WebsiteController extends Controller
             'allClasses', 'websiteMembers', 'memberRolesMap',
             'qcCheckingWebsites', 'supervisorCheckingWebsites',
             'qcErrorWebsites', 'supervisorErrorWebsites', 'websiteTeamMembers', 'reportUsers',
-            'allWebsites'
+            'allWebsites', 'canViewAllWebsiteReports'
         ));
     }
 
@@ -1093,7 +1102,8 @@ class WebsiteController extends Controller
         $filterEnd = $endDateRaw ? \Carbon\Carbon::parse($endDateRaw, config('app.timezone'))->endOfDay() : null;
 
         $user = auth()->user();
-        if (!$user?->hasAnyRole(['super-admin', 'admin-digital']) && !$user?->hasRole('boss')) {
+        $canSeeAll = $user && $user->canViewAllWebsiteReports();
+        if (!$canSeeAll) {
             $memberId = $user->id;
         }
 
@@ -1103,7 +1113,7 @@ class WebsiteController extends Controller
                     $q->where('is_archived', false);
                 });
 
-            $targetUser = $memberId ? \App\Models\User::find($memberId) : auth()->user();
+            $targetUser = $memberId ? \App\Models\User::find($memberId) : null;
             $isQcReport = $targetUser && $targetUser->isQc();
 
             if ($isQcReport) {
@@ -1652,16 +1662,18 @@ class WebsiteController extends Controller
     {
         abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES), 403);
 
+        $name = $website->name;
         if ($website->logo_path && !str_starts_with($website->logo_path, 'http')
             && Storage::disk('public')->exists($website->logo_path)) {
             Storage::disk('public')->delete($website->logo_path);
         }
 
         $this->deleteErrorAttachment($website);
-
         $website->delete();
 
-        return back()->with('success', 'Website removed successfully.');
+        $this->logActivity('website_deleted', "Deleted website \"{$name}\".");
+
+        return back()->with('success', "Website '{$name}' deleted.");
     }
 
     public function viewErrorAttachment(Website $website)
@@ -2282,7 +2294,7 @@ class WebsiteController extends Controller
         $namesStr = implode(', ', $names);
         $this->logActivity('website_member_added', "Added user(s) \"{$namesStr}\" to websites with role \"{$validated['role']}\".");
 
-        if ($request->wantsJson()) {
+        if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['success' => true, 'message' => "Website member(s) added/updated successfully."]);
         }
 
@@ -2291,7 +2303,7 @@ class WebsiteController extends Controller
     }
 
     // ── DESTROY WEBSITE MEMBER ────────────────────────────────────────────────
-    public function destroyMember($id)
+    public function destroyMember(Request $request, $id)
     {
         abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES), 403);
 
@@ -2301,7 +2313,7 @@ class WebsiteController extends Controller
 
         $this->logActivity('website_member_removed', "Removed user \"{$userName}\" from websites members.");
 
-        if ($request->wantsJson()) {
+        if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['success' => true, 'message' => "Website member removed successfully."]);
         }
 

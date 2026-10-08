@@ -121,6 +121,14 @@ class KanbanController extends Controller
             return response()->json(['message' => 'You are not allowed to move this card to ' . $newStatus->label() . '.'], 403);
         }
 
+        $cardStatusVal = is_object($card->status) ? ($card->status->value ?? '') : (string)$card->status;
+        if ($cardStatusVal !== $newStatus->value && $card->hasIncompleteChecklist()) {
+            return response()->json([
+                'message' => 'All checklist items must be 100% completed before moving this card.',
+                'checklist_incomplete' => true,
+            ], 422);
+        }
+
         $card = $this->kanbanService->moveCard($card, $newStatus, $validated['position'], $user);
 
         return response()->json([

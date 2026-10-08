@@ -57,7 +57,7 @@
 
           <button type="button"
                   @click="closeSwitchBoardsModal()"
-                  class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:scale-95 touch-manipulation cursor-pointer"
                   aria-label="Close switch boards modal">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.25" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -66,24 +66,24 @@
         </div>
       </div>
 
-      <div class="flex gap-2 overflow-x-auto px-4 pb-4 sm:px-6 lg:hidden">
+      <div class="flex gap-2 overflow-x-auto px-4 pb-4 sm:px-6 lg:hidden no-scrollbar touch-pan-x" style="-webkit-overflow-scrolling: touch;">
         <button type="button"
                 @click="switchBoardsModal.tab = 'your'"
-                class="whitespace-nowrap rounded-lg px-3 py-2 text-xs font-extrabold transition"
+                class="whitespace-nowrap rounded-lg px-3 py-2 min-h-[36px] text-xs font-extrabold transition active:scale-95 touch-manipulation flex items-center"
                 :class="switchBoardsModal.tab === 'your' ? 'bg-sky-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
           Your boards
         </button>
         <button type="button"
                 @click="switchBoardsModal.tab = 'starred'"
-                class="whitespace-nowrap rounded-lg px-3 py-2 text-xs font-extrabold transition"
+                class="whitespace-nowrap rounded-lg px-3 py-2 min-h-[36px] text-xs font-extrabold transition active:scale-95 touch-manipulation flex items-center"
                 :class="switchBoardsModal.tab === 'starred' ? 'bg-sky-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
           Starred
         </button>
 
-        <template x-for="ws in allWorkspaces" :key="'mobile-ws-' + ws.id">
+        <template x-for="ws in allWorkspaces.filter(w => w.boards && w.boards.length > 0)" :key="'mobile-ws-' + ws.id">
           <button type="button"
                   @click="switchBoardsModal.tab = 'workspace'; switchBoardsModal.selectedWorkspace = ws.id"
-                  class="whitespace-nowrap rounded-lg px-3 py-2 text-xs font-extrabold transition"
+                  class="whitespace-nowrap rounded-lg px-3 py-2 min-h-[36px] text-xs font-extrabold transition active:scale-95 touch-manipulation flex items-center"
                   :class="switchBoardsModal.tab === 'workspace' && switchBoardsModal.selectedWorkspace === ws.id ? 'bg-sky-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                   x-text="ws.name">
           </button>
@@ -122,7 +122,7 @@
         <div class="mt-5 border-t border-slate-100 pt-4">
           <div class="mb-2 px-3 text-[10px] font-black uppercase tracking-wider text-slate-400">Workspaces</div>
           <div class="max-h-[42vh] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
-            <template x-for="ws in allWorkspaces" :key="ws.id">
+            <template x-for="ws in allWorkspaces.filter(w => w.boards && w.boards.length > 0)" :key="ws.id">
               <button type="button"
                       @click="switchBoardsModal.tab = 'workspace'; switchBoardsModal.selectedWorkspace = ws.id"
                       class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-semibold transition"
@@ -152,7 +152,7 @@
           <template x-for="b in switchBoardsModal.filteredBoards" :key="b.id">
             <article x-data="{ menuOpen: false }"
                      class="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
-              <a :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
+              <a :href="b.id === boardId ? '#' : '/boards/' + b.slug"
                  @click="b.id === boardId ? (closeSwitchBoardsModal(), $event.preventDefault()) : null"
                  class="block h-28 w-full overflow-hidden bg-slate-900 text-left relative transition-transform"
                  :style="sbmCoverStyle(b)"
@@ -167,7 +167,7 @@
 
               <div class="space-y-3 p-3">
                 <div class="flex items-start gap-3">
-                  <a :href="b.id === boardId ? '#' : (b.type === 'smm' ? '/smm-boards/' + b.slug : '/boards/' + b.slug)"
+                  <a :href="b.id === boardId ? '#' : '/boards/' + b.slug"
                      @click="b.id === boardId ? (closeSwitchBoardsModal(), $event.preventDefault()) : null"
                      class="min-w-0 flex-1 text-left">
                     <span class="block text-sm font-black text-slate-900 transition hover:text-sky-700" x-text="b.name"></span>

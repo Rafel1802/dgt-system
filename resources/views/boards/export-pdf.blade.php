@@ -591,10 +591,14 @@
     @php
         $statusStats = [];
         $isWorkflowList = function($name) {
+            if (!$name) return false;
             return stripos($name, 'Approved') !== false
                 || stripos($name, 'Urgent') !== false
                 || stripos($name, 'Block') !== false
+                || stripos($name, 'Digital Department') !== false
+                || stripos($name, 'Digital Dept') !== false
                 || stripos($name, 'Supervisor') !== false
+                || stripos($name, 'Production') !== false
                 || stripos($name, 'QC') !== false
                 || stripos($name, 'Text') !== false
                 || stripos($name, 'Head Review') !== false
@@ -614,8 +618,14 @@
                         ->get();
                         
                     $approvedCard = $syncedCards->first(fn($sc) => stripos($sc->boardList?->name ?? '', 'Approved') !== false);
+                    $blockedCard  = $syncedCards->first(fn($sc) => stripos($sc->boardList?->name ?? '', 'Block') !== false);
+                    $urgentCard   = $syncedCards->first(fn($sc) => stripos($sc->boardList?->name ?? '', 'Urgent') !== false);
                     if ($approvedCard) {
                         $effectiveList = $approvedCard->boardList;
+                    } elseif ($blockedCard) {
+                        $effectiveList = $blockedCard->boardList;
+                    } elseif ($urgentCard) {
+                        $effectiveList = $urgentCard->boardList;
                     } else {
                         $workflowCard = $syncedCards->first(fn($sc) => $isWorkflowList($sc->boardList?->name ?? ''));
                         if ($workflowCard) {
@@ -635,21 +645,27 @@
                 } elseif (stripos($listName, 'Block') !== false) {
                     $statusName = 'Blocked';
                     $statusHtml = '<span class="status-badge" style="background:#e2e8f0;color:#475569;">Blocked</span>';
-                } elseif (stripos($listName, 'Supervisor') !== false) {
-                    $statusName = 'Supervisor Review';
-                    $statusHtml = '<span class="status-badge status-review">Supervisor Review</span>';
+                } elseif (stripos($listName, 'Digital Department') !== false || stripos($listName, 'Digital Dept') !== false || stripos($listName, 'Supervisor') !== false) {
+                    $statusName = 'Digital Department';
+                    $statusHtml = '<span class="status-badge" style="background:#fef08a;color:#854d0e;border:1px solid #fde047;">Digital Department</span>';
                 } elseif (stripos($listName, 'QC') !== false || stripos($listName, 'Text') !== false) {
                     $statusName = 'QC Review';
                     $statusHtml = '<span class="status-badge status-in_progress">QC Review</span>';
                 } elseif (stripos($listName, 'Head Review') !== false) {
                     $statusName = 'Head Review';
                     $statusHtml = '<span class="status-badge status-in_progress">Head Review</span>';
+                } elseif (stripos($listName, 'Production Team') !== false || stripos($listName, 'Production') !== false) {
+                    $statusName = stripos($listName, 'Team B') !== false ? 'Production Team B' : (stripos($listName, 'Team A') !== false ? 'Production Team A' : 'In Production');
+                    $statusHtml = '<span class="status-badge status-in_progress">' . e($statusName) . '</span>';
                 } elseif (stripos($listName, 'Drafting') !== false || stripos($listName, 'Draft') !== false) {
                     $statusName = 'Drafting';
                     $statusHtml = '<span class="status-badge status-todo">Drafting</span>';
-                } else {
+                } elseif ($c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason)) {
                     $statusName = 'Fail';
                     $statusHtml = '<span class="status-badge" style="background:#fee2e2;color:#b91c1c;">Fail</span>';
+                } else {
+                    $statusName = !empty($listName) && stripos($listName, 'Week') === false ? $listName : 'In Progress';
+                    $statusHtml = '<span class="status-badge status-in_progress">' . e($statusName) . '</span>';
                 }
             }
             
@@ -672,7 +688,7 @@
     <!-- Header -->
     <div class="header-container">
         <div class="header-left">
-            <h1 style="display: flex; align-items: center;"><img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/kiuqlogo.png'))) }}" alt="Logo" style="height: 40px; margin-right: 12px;">{{ $board ? $board->name : 'Personal Consolidated Report' }}</h1>
+            <h1 style="display: flex; align-items: center;"><img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/kiuqlogo.png'))) }}" alt="Logo" style="height: 40px; margin-right: 12px;">{{ $board ? $board->name : ($reportTitle ?? 'Personal Consolidated Report') }}</h1>
             <div class="meta-info">
                 @if($board)
                     Workspace: <strong>{{ $board->workspace->name ?? 'N/A' }}</strong> &nbsp;|&nbsp; 
@@ -683,7 +699,7 @@
             </div>
         </div>
         <div class="header-right">
-            <span class="badge">{{ $board ? 'Board Report' : 'Personal Report' }}</span>
+            <span class="badge">{{ $board ? 'Board Report' : ($reportTitle ?? 'Personal Report') }}</span>
             <div class="date-info">Exported: {{ $exportDate }}</div>
         </div>
     </div>
@@ -723,7 +739,24 @@
             <tbody>
                 @foreach($memberStats as $name => $stats)
                 <tr>
-                    <td><strong>{{ $name }}</strong></td>
+                    <td>
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            @if(isset($stats['user']) && $stats['user'] instanceof \App\Models\User)
+                                @if($stats['user']->avatar_url)
+                                    <img src="{{ $stats['user']->avatar_url }}" alt="{{ $name }}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid #e2e8f0; vertical-align: middle; flex-shrink: 0;" />
+                                @else
+                                    <span style="display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; background: {{ $stats['user']->avatar_color }}; color: #ffffff; font-size: 9px; font-weight: 800; vertical-align: middle; flex-shrink: 0;">
+                                        {{ $stats['user']->avatar_initials }}
+                                    </span>
+                                @endif
+                            @elseif($name !== 'Unassigned')
+                                <span style="display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; background: #4f46e5; color: #ffffff; font-size: 9px; font-weight: 800; vertical-align: middle; flex-shrink: 0;">
+                                    {{ strtoupper(substr($name, 0, 2)) }}
+                                </span>
+                            @endif
+                            <strong>{{ $name }}</strong>
+                        </div>
+                    </td>
                     <td style="text-align: center; color: var(--success); font-weight: 600;">{{ $stats['completed'] }}</td>
                     <td style="text-align: center; color: var(--warning); font-weight: 600;">{{ $stats['pending'] }}</td>
                     <td style="text-align: center; font-weight: 600;">{{ $stats['total'] }}</td>
@@ -951,8 +984,25 @@
                                     <span class="status-badge status-{{ $statusClass }}">{{ $c->status ? $c->status->label() : 'To Do' }}</span>
                                 @endif
                             </td>
-                            <td>
-                                {{ $c->assignees->pluck('name')->join(', ') ?: 'Unassigned' }}
+                            <td style="vertical-align: middle;">
+                                @if($c->assignees->isNotEmpty())
+                                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                                        @foreach($c->assignees as $u)
+                                            <div style="display: inline-flex; align-items: center; gap: 6px;">
+                                                @if($u->avatar_url)
+                                                    <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover; border: 1px solid #cbd5e1; vertical-align: middle; flex-shrink: 0;" />
+                                                @else
+                                                    <span style="display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; background: {{ $u->avatar_color }}; color: #ffffff; font-size: 8px; font-weight: 800; vertical-align: middle; flex-shrink: 0;">
+                                                        {{ $u->avatar_initials }}
+                                                    </span>
+                                                @endif
+                                                <span style="font-size: 11px; color: #1e293b; font-weight: 500;">{{ $u->name }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <span style="color: var(--text-muted); font-size: 11px; font-style: italic;">Unassigned</span>
+                                @endif
                             </td>
                             <td>
                                 {{ $c->computed_activity_date ? $c->computed_activity_date->format('M d, Y') : ($c->created_at ? $c->created_at->format('M d, Y') : 'N/A') }}
@@ -1008,6 +1058,8 @@
                                     @foreach($c->labels as $lbl)
                                         <span class="tag-label" style="background-color: {{ $lbl->color }}20; color: {{ $lbl->color }}; border: 1px solid {{ $lbl->color }}40;">{{ $lbl->name }}</span>
                                     @endforeach
+                                @elseif(!empty($c->label))
+                                    <span class="tag-label" style="background-color: #6366f120; color: #4f46e5; border: 1px solid #6366f140;">{{ $c->label }}</span>
                                 @else
                                     -
                                 @endif

@@ -37,12 +37,31 @@ class CardPolicy
         return $user->can('kanban.create');
     }
 
+    private function isAllowedMoveUser(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        $username = strtolower(trim($user->username ?? ''));
+        $name = strtolower(trim($user->name ?? ''));
+        $email = strtolower(trim($user->email ?? ''));
+
+        foreach (['dara', 'kim'] as $target) {
+            if (str_contains($username, $target) || str_contains($name, $target) || str_contains($email, $target)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function update(User $user, Card $card): bool
     {
-        if ($user->hasAnyRole(['admin', 'supervisor'])) {
+        if ($this->isAllowedMoveUser($user) || $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss'])) {
             return true;
         }
-        return $card->board->hasAccess($user->id) || $card->assignees->contains($user->id) || $card->created_by === $user->id;
+        return $card->board->hasAccess($user->id) || $card->assignees->contains('id', $user->id) || (int) $card->created_by === (int) $user->id;
     }
 
     /** Only admins can delete cards */
@@ -73,7 +92,7 @@ class CardPolicy
     /** Check if user can move a card to a specific status */
     public function moveTo(User $user, Card $card, CardStatus $newStatus): bool
     {
-        if ($card->board->hasAccess($user->id) || $card->assignees->contains($user->id)) {
+        if ($this->isAllowedMoveUser($user) || $user->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'supervisor', 'boss']) || $card->board->hasAccess($user->id) || $card->assignees->contains('id', $user->id) || (int) $card->created_by === (int) $user->id) {
             return true;
         }
         $role = $user->roles->first()?->name ?? '';

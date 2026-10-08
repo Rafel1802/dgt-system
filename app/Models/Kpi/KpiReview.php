@@ -27,6 +27,9 @@ class KpiReview extends Model
         'manager_notes',
         'supervisor_notes',
         'uploaded_pdf_path',
+        'google_drive_url',
+        'google_drive_file_id',
+        'google_drive_synced_at',
         'evaluation_date',
         'reviewed_at',
     ];
@@ -39,6 +42,7 @@ class KpiReview extends Model
         'overall_kpi' => 'float',
         'reviewed_at' => 'datetime',
         'evaluation_date' => 'date',
+        'google_drive_synced_at' => 'datetime',
     ];
 
     public function assignment(): BelongsTo

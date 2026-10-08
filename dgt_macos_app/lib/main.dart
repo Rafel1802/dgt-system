@@ -140,162 +140,162 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  void _showInAppVideoDialog(String url, String title) {
+  bool _isVideoOverlayOpen = false;
+  String _videoOverlayUrl = '';
+  String _videoOverlayTitle = 'Video Preview';
+  InAppWebViewController? _videoWebViewController;
+
+  void _playInAppVideo(String url, String title) {
     String playUrl = url;
     if (playUrl.contains('drive.google.com')) {
       final match = RegExp(r'/file/d/([a-zA-Z0-9_-]+)').firstMatch(playUrl);
       if (match != null && match.group(1) != null) {
-        playUrl = 'https://drive.google.com/file/d/${match.group(1)}/preview';
+        playUrl = 'https://drive.google.com/file/d/${match.group(1)}/preview?vq=hd1080';
+      } else if (!playUrl.contains('vq=')) {
+        playUrl = '$playUrl${playUrl.contains('?') ? '&' : '?'}vq=hd1080';
       }
     }
 
-    final isGoogleDrive = playUrl.contains('drive.google.com');
+    setState(() {
+      _videoOverlayUrl = playUrl;
+      _videoOverlayTitle = title.isNotEmpty ? title : 'Video Preview';
+      _isVideoOverlayOpen = true;
+    });
 
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogCtx) {
-        final size = MediaQuery.of(dialogCtx).size;
-        final dialogWidth = (size.width * 0.90).clamp(650.0, 1150.0);
-        final dialogHeight = (size.height * 0.88).clamp(480.0, 780.0);
+    if (_videoWebViewController != null) {
+      _videoWebViewController?.loadUrl(
+        urlRequest: URLRequest(url: WebUri(playUrl)),
+      );
+    }
+  }
 
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          clipBehavior: Clip.antiAlias,
-          child: Container(
-            width: dialogWidth,
-            height: dialogHeight,
-            decoration: BoxDecoration(
-              color: const Color(0xFF030A1C),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFF1E293B), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.75),
-                  blurRadius: 36,
-                  spreadRadius: 8,
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0B1329),
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFF1E293B), width: 1),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Text('🎥', style: TextStyle(fontSize: 16)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          title.isNotEmpty ? title : 'Video Preview',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (isGoogleDrive) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF065F46).withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6)),
-                          ),
-                          child: const Text(
-                            'Google Drive',
-                            style: TextStyle(
-                              color: Color(0xFF34D399),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      IconButton(
-                        icon: const Icon(Icons.open_in_browser, color: Color(0xFF94A3B8), size: 18),
-                        splashRadius: 16,
-                        tooltip: 'Open in Default Browser',
-                        onPressed: () {
-                          final ext = playUrl.contains('drive.google.com')
-                              ? playUrl.replaceAll('/preview', '/view')
-                              : playUrl;
-                          final u = Uri.tryParse(ext);
-                          if (u != null) _openExternalUrl(u);
-                        },
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 20),
-                        splashRadius: 18,
-                        tooltip: 'Close (Esc)',
-                        onPressed: () => Navigator.of(dialogCtx).pop(),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                    child: InAppWebView(
-                      initialUrlRequest: URLRequest(url: WebUri(playUrl)),
-                      initialSettings: InAppWebViewSettings(
-                        userAgent:
-                            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-                        javaScriptEnabled: true,
-                        javaScriptCanOpenWindowsAutomatically: true,
-                        allowsInlineMediaPlayback: true,
-                        mediaPlaybackRequiresUserGesture: false,
-                        allowsAirPlayForMediaPlayback: true,
-                        allowsPictureInPictureMediaPlayback: true,
-                        // Share cookies with the main webview so Google auth works
-                        sharedCookiesEnabled: true,
-                        thirdPartyCookiesEnabled: true,
-                        limitsNavigationsToAppBoundDomains: false,
-                        supportZoom: true,
-                        hardwareAcceleration: true,
-                        preferredContentMode: UserPreferredContentMode.DESKTOP,
-                      ),
-                      shouldOverrideUrlLoading: (ctrl, navigationAction) async {
-                        final uri = navigationAction.request.url;
-                        if (uri == null) return NavigationActionPolicy.ALLOW;
-                        final uriStr = uri.toString().toLowerCase();
-                        // Allow Google Drive and Google Auth URLs to load within the dialog
-                        if (uriStr.contains('drive.google.com') ||
-                            uriStr.contains('accounts.google.com') ||
-                            uriStr.contains('google.com/signin') ||
-                            uriStr.contains('google.com/servicelogin') ||
-                            uriStr.contains('gstatic.com') ||
-                            uriStr.contains('googleusercontent.com')) {
-                          return NavigationActionPolicy.ALLOW;
-                        }
-                        // Non-Google external links should be launched in default browser
-                        if (!_isInternalUrl(uri)) {
-                          await _openExternalUrl(uri);
-                          return NavigationActionPolicy.CANCEL;
-                        }
-                        return NavigationActionPolicy.ALLOW;
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  Future<void> _injectHighQualityVideoScript(InAppWebViewController? ctrl) async {
+    if (ctrl == null) return;
+    const hdScript = """
+      (function() {
+        try {
+          var hdConfig = JSON.stringify({
+            data: 'hd1080',
+            expiration: Date.now() + 315360000000,
+            creation: Date.now()
+          });
+          var highBw = JSON.stringify({
+            data: 150000000,
+            expiration: Date.now() + 315360000000,
+            creation: Date.now()
+          });
+          localStorage.setItem('yt-player-quality', hdConfig);
+          localStorage.setItem('yt-player-playback-quality', hdConfig);
+          localStorage.setItem('yt-player-sticky-quality', hdConfig);
+          localStorage.setItem('yt-player-bandwidth', highBw);
+          localStorage.setItem('yt-player-bandwidth-estimate', highBw);
+          sessionStorage.setItem('yt-player-quality', hdConfig);
+        } catch(e) {}
+
+        function forceBestQuality() {
+          try {
+            var player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+            if (player) {
+              if (typeof player.setPlaybackQualityRange === 'function') {
+                player.setPlaybackQualityRange('hd1080', 'highres');
+              }
+              if (typeof player.getAvailableQualityLevels === 'function') {
+                var levels = player.getAvailableQualityLevels();
+                if (levels && levels.length > 0) {
+                  var best = levels[0];
+                  if (best === 'auto' && levels.length > 1) best = levels[1];
+                  if (typeof player.setPlaybackQuality === 'function') {
+                    player.setPlaybackQuality(best);
+                  }
+                  if (typeof player.setPlaybackQualityRange === 'function') {
+                    player.setPlaybackQualityRange(best, best);
+                  }
+                }
+              } else if (typeof player.setPlaybackQuality === 'function') {
+                player.setPlaybackQuality('hd1080');
+              }
+            }
+
+            var iframes = document.querySelectorAll('iframe');
+            for (var i = 0; i < iframes.length; i++) {
+              try {
+                if (iframes[i].contentWindow) {
+                  iframes[i].contentWindow.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'setPlaybackQualityRange',
+                    args: ['hd1080', 'highres']
+                  }), '*');
+                  iframes[i].contentWindow.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'setPlaybackQuality',
+                    args: ['hd1080']
+                  }), '*');
+                }
+              } catch(err) {}
+            }
+          } catch(e) {}
+        }
+
+        forceBestQuality();
+        var c = 0;
+        var t = setInterval(function() {
+          forceBestQuality();
+          c++;
+          if (c > 35) clearInterval(t);
+        }, 150);
+
+        document.addEventListener('play', forceBestQuality, true);
+        document.addEventListener('playing', forceBestQuality, true);
+        document.addEventListener('canplay', forceBestQuality, true);
+        document.addEventListener('loadeddata', forceBestQuality, true);
+      })();
+    """;
+
+    try {
+      await ctrl.evaluateJavascript(source: hdScript);
+    } catch (_) {}
+  }
+
+  void _closeInAppVideo() {
+    setState(() {
+      _isVideoOverlayOpen = false;
+      _videoOverlayUrl = '';
+    });
+    try {
+      // 1. Immediately pause and strip source from all media elements in the theater webview
+      _videoWebViewController?.evaluateJavascript(source: """
+        (function() {
+          try {
+            var vids = document.querySelectorAll('video, audio');
+            for (var i = 0; i < vids.length; i++) {
+              vids[i].pause();
+              vids[i].src = '';
+            }
+            var iframes = document.querySelectorAll('iframe');
+            for (var j = 0; j < iframes.length; j++) {
+              iframes[j].src = 'about:blank';
+            }
+          } catch(e) {}
+        })();
+      """);
+      // 2. Load about:blank on the theater webview to terminate all audio/video buffers & network streams
+      _videoWebViewController?.loadUrl(
+        urlRequest: URLRequest(url: WebUri('about:blank')),
+      );
+      // 3. Also ensure main webview pauses any media
+      controller?.evaluateJavascript(source: """
+        (function() {
+          try {
+            var vids = document.querySelectorAll('video, audio');
+            for (var i = 0; i < vids.length; i++) {
+              vids[i].pause();
+            }
+          } catch(e) {}
+        })();
+      """);
+    } catch (e) {
+      // ignore
+    }
   }
 
   @override
@@ -306,7 +306,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       appUri: appUri,
       onNotification: _showNativeNotificationPayload,
     );
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         setState(() => splashScreenDone = true);
       }
@@ -658,8 +658,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 child: InAppWebView(
                   initialUrlRequest: URLRequest(url: WebUri(appUri.toString())),
                   initialSettings: InAppWebViewSettings(
-                    userAgent:
-                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+                    userAgent: Platform.isIOS
+                        ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1 DGTSystemiOSApp'
+                        : (Platform.isAndroid
+                            ? 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36 DGTSystemAndroidApp'
+                            : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 DGTSystemMacOSApp'),
                     javaScriptEnabled: true,
                     javaScriptCanOpenWindowsAutomatically: true,
                     transparentBackground: false,
@@ -668,18 +671,20 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     useOnDownloadStart: true,
                     allowsBackForwardNavigationGestures: true,
                     isInspectable: false,
-                    // Media & caption capabilities for macOS WebKit
+                    // Media & caption capabilities for WebKit
                     allowsInlineMediaPlayback: true,
                     mediaPlaybackRequiresUserGesture: false,
                     allowsAirPlayForMediaPlayback: true,
                     allowsPictureInPictureMediaPlayback: true,
-                    // Performance: use desktop rendering engine, not mobile
-                    preferredContentMode: UserPreferredContentMode.DESKTOP,
+                    // Performance: adapt rendering engine to platform
+                    preferredContentMode: (Platform.isIOS || Platform.isAndroid)
+                        ? UserPreferredContentMode.MOBILE
+                        : UserPreferredContentMode.DESKTOP,
                     // Performance: disable unnecessary features
                     disableHorizontalScroll: false,
                     disableVerticalScroll: false,
-                    // Performance: allow page zoom
-                    supportZoom: true,
+                    // Prevent accidental double-tap zoom delay on mobile
+                    supportZoom: !(Platform.isIOS || Platform.isAndroid),
                     // Performance: hardware acceleration
                     hardwareAcceleration: true,
                     supportMultipleWindows: true,
@@ -729,7 +734,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                             url = payload;
                           }
                           if (url.isNotEmpty) {
-                            _showInAppVideoDialog(url, title);
+                            _playInAppVideo(url, title);
                           }
                         }
                       },
@@ -753,8 +758,9 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     if (!hasLoadedFirstPage) {
                       setState(() {
                         loadingProgress = progress;
-                        if (progress >= 80) {
+                        if (progress >= 35) {
                           hasLoadedFirstPage = true;
+                          splashScreenDone = true;
                         }
                       });
                     }
@@ -806,6 +812,10 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     }
                     // All external URLs (Google Docs, Sheets, Drive, external links) open in the system default browser
                     if (!_isInternalUrl(uri)) {
+                      if (uriStr.contains('drive.google.com/file/d/')) {
+                        _playInAppVideo(uri.toString(), 'Video Preview');
+                        return true;
+                      }
                       await _openExternalUrl(uri);
                       return true;
                     }
@@ -858,6 +868,203 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              // ── Persistent In-App Video Theater (Keeps Google Session Active) ──
+              if (_isVideoOverlayOpen || _videoWebViewController != null)
+                Positioned.fill(
+                  child: Visibility(
+                    visible: _isVideoOverlayOpen,
+                    maintainState: true,
+                    child: Focus(
+                      autofocus: true,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.escape) {
+                          _closeInAppVideo();
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: GestureDetector(
+                        onTap: _closeInAppVideo,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          color: Colors.black.withValues(alpha: 0.85),
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          child: GestureDetector(
+                            onTap: () {}, // Prevent taps inside player modal from closing it
+                            child: Container(
+                              width: (MediaQuery.of(context).size.width * 0.90).clamp(650.0, 1150.0),
+                              height: (MediaQuery.of(context).size.height * 0.88).clamp(480.0, 780.0),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF030A1C),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: const Color(0xFF1E293B), width: 1.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.75),
+                                    blurRadius: 36,
+                                    spreadRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  // Header bar
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF0B1329),
+                                      border: Border(
+                                        bottom: BorderSide(color: Color(0xFF1E293B), width: 1),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Text('🎥', style: TextStyle(fontSize: 16)),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _videoOverlayTitle,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                        if (_videoOverlayUrl.contains('drive.google.com')) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF065F46).withValues(alpha: 0.5),
+                                              borderRadius: BorderRadius.circular(20),
+                                              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6)),
+                                            ),
+                                            child: const Text(
+                                              'Google Drive',
+                                              style: TextStyle(
+                                                color: Color(0xFF34D399),
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+                                        IconButton(
+                                          icon: const Icon(Icons.open_in_browser, color: Color(0xFF94A3B8), size: 18),
+                                          splashRadius: 16,
+                                          tooltip: 'Open in Default Browser',
+                                          onPressed: () {
+                                            final ext = _videoOverlayUrl.contains('drive.google.com')
+                                                ? _videoOverlayUrl.replaceAll('/preview', '/view')
+                                                : _videoOverlayUrl;
+                                            final u = Uri.tryParse(ext);
+                                            if (u != null) _openExternalUrl(u);
+                                          },
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 20),
+                                          splashRadius: 18,
+                                          tooltip: 'Close (Esc)',
+                                          onPressed: _closeInAppVideo,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Webview (persistent state, shared cookies, never destroyed)
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                                      child: InAppWebView(
+                                        initialUrlRequest: _videoOverlayUrl.isNotEmpty
+                                            ? URLRequest(url: WebUri(_videoOverlayUrl))
+                                            : null,
+                                        initialSettings: InAppWebViewSettings(
+                                          userAgent:
+                                              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+                                          javaScriptEnabled: true,
+                                          javaScriptCanOpenWindowsAutomatically: true,
+                                          allowsInlineMediaPlayback: true,
+                                          mediaPlaybackRequiresUserGesture: false,
+                                          allowsAirPlayForMediaPlayback: true,
+                                          allowsPictureInPictureMediaPlayback: true,
+                                          cacheEnabled: true,
+                                          clearCache: false,
+                                          sharedCookiesEnabled: true,
+                                          thirdPartyCookiesEnabled: true,
+                                          limitsNavigationsToAppBoundDomains: false,
+                                          supportZoom: true,
+                                          hardwareAcceleration: true,
+                                          preferredContentMode: UserPreferredContentMode.DESKTOP,
+                                        ),
+                                        onWebViewCreated: (webViewController) {
+                                          _videoWebViewController = webViewController;
+                                          if (_videoOverlayUrl.isNotEmpty) {
+                                            webViewController.loadUrl(
+                                              urlRequest: URLRequest(url: WebUri(_videoOverlayUrl)),
+                                            );
+                                          }
+                                        },
+                                        onLoadStart: (ctrl, url) async {
+                                          _injectHighQualityVideoScript(ctrl);
+                                        },
+                                        onProgressChanged: (ctrl, progress) async {
+                                          if (progress >= 30) {
+                                            _injectHighQualityVideoScript(ctrl);
+                                          }
+                                        },
+                                        onLoadStop: (ctrl, url) async {
+                                          _injectHighQualityVideoScript(ctrl);
+                                        },
+                                        onCreateWindow: (ctrl, createWindowAction) async {
+                                          final uri = createWindowAction.request.url;
+                                          if (uri != null) {
+                                            await ctrl.loadUrl(urlRequest: createWindowAction.request);
+                                            return true;
+                                          }
+                                          return false;
+                                        },
+                                        shouldOverrideUrlLoading: (ctrl, navigationAction) async {
+                                          final uri = navigationAction.request.url;
+                                          if (uri == null) return NavigationActionPolicy.ALLOW;
+                                          final uriStr = uri.toString().toLowerCase();
+                                          if (uriStr.contains('google.com') ||
+                                              uriStr.contains('google.') ||
+                                              uriStr.contains('googleapis.com') ||
+                                              uriStr.contains('gstatic.com') ||
+                                              uriStr.contains('googleusercontent.com') ||
+                                              uriStr.contains('googlevideo.com') ||
+                                              uriStr.contains('youtube.com') ||
+                                              uriStr.contains('youtu.be') ||
+                                              uriStr.contains('ytimg.com') ||
+                                              uriStr.contains('ggpht.com') ||
+                                              uriStr.contains('loom.com') ||
+                                              uriStr.contains('vimeo.com')) {
+                                            return NavigationActionPolicy.ALLOW;
+                                          }
+                                          if (!_isInternalUrl(uri)) {
+                                            await _openExternalUrl(uri);
+                                            return NavigationActionPolicy.CANCEL;
+                                          }
+                                          return NavigationActionPolicy.ALLOW;
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

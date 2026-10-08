@@ -164,12 +164,19 @@
         if (file_exists(public_path('images/kiuqlogo.png'))) {
             $logoBase64 = base64_encode(file_get_contents(public_path('images/kiuqlogo.png')));
         }
-        $roleTitle = $review->user?->kpiSquads->firstWhere('id', $review->squad_id)?->pivot->role_title ?? 'Content Creator / Editor';
+        $squadPivot = $review->user?->kpiSquads->firstWhere('id', $review->squad_id)?->pivot;
+        $roleTitle = $squadPivot?->role_title ?? 'Content Creator / Editor';
+        $wTypes = $squadPivot?->work_types;
+        $wTypesArr = is_array($wTypes) ? $wTypes : json_decode($wTypes ?? '[]', true);
+        if (!empty($wTypesArr)) {
+            $roleTitle .= ' (' . implode(', ', $wTypesArr) . ')';
+        }
         $evalDate = $review->evaluation_date ? \Carbon\Carbon::parse($review->evaluation_date)->format('Y-m-d') : date('Y-m-d');
         $joinedDate = $review->user?->kpiSquads->firstWhere('id', $review->squad_id)?->pivot->joined_date ? \Carbon\Carbon::parse($review->user->kpiSquads->firstWhere('id', $review->squad_id)->pivot->joined_date)->format('Y-m-d') : '2026-01-01';
-        $leadName = ($review->squad?->lead?->username === 'kim' || $review->squad_id == 2) ? 'Mr. KimOun (Lead)' : 'Mr. Dara (Lead)';
-        $leadSigName = ($review->squad?->lead?->username === 'kim' || $review->squad_id == 2) ? 'Mr. KimOun' : 'Mr. Dara Vuthy';
-        $leadSigRole = ($review->squad?->lead?->username === 'kim' || $review->squad_id == 2) ? 'Human Resource / Squad 2 Lead' : 'Human Resource Department';
+        $isKim = ($review->squad?->lead?->username === 'kim' || $review->squad_id == 2 || ($review->reviewer && $review->reviewer->username === 'kim'));
+        $leadName = $isKim ? 'Mr. Kim (Lead)' : 'Mr. Dara (Lead)';
+        $leadSigName = $isKim ? 'Mr. Kim' : 'Mr. Dara';
+        $leadSigRole = 'Head of Digital Production';
     @endphp
 
     {{-- Top Header --}}

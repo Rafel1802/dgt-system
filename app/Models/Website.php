@@ -136,6 +136,11 @@ class Website extends Model
         return $this->belongsTo(User::class, 'qc_approved_by');
     }
 
+    public function errorFlagger(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'error_flagged_by');
+    }
+
     public function progressLogs(): HasMany
     {
         return $this->hasMany(WebsiteProgressLog::class)

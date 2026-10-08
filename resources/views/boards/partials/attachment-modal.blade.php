@@ -88,57 +88,199 @@
     </div>
 
     {{-- ── FILE TAB ─────────────────────────────────────────────────────────── --}}
-    <div x-show="attachmentModal.tab === 'file'" class="p-5 space-y-4">
+    <div x-show="attachmentModal.tab === 'file'" class="px-4 py-3 space-y-2.5">
 
-      {{-- Drag / Drop Zone --}}
-      <div class="attachment-dropzone relative border-2 border-dashed rounded-xl transition-all duration-200 cursor-pointer"
+      {{-- Hidden multi-file input (placed outside dropzone to prevent event bubbling) --}}
+      <input type="file" x-ref="amFileInput"
+             multiple
+             @change="amUploadFiles($event)"
+             class="hidden"
+             accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.bmp,.tiff,
+                     .pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,
+                     .zip,.rar,.7z,.gz,
+                     .txt,.csv,.md,
+                     .mp4,.mov,.webm,.mp3,.wav,.ogg">
+
+      {{-- Hidden folder input (placed outside dropzone to prevent event bubbling) --}}
+      <input type="file" x-ref="amFolderInput"
+             webkitdirectory
+             directory
+             multiple
+             @change="amUploadFolder($event)"
+             class="hidden">
+
+      {{-- Drag / Drop Zone Container --}}
+      <div class="attachment-dropzone relative border-2 border-dashed rounded-2xl p-3 transition-all duration-200"
            :class="attachmentModal.dragOver
-             ? 'border-indigo-400 bg-indigo-50 scale-[1.01]'
-             : 'border-slate-200 bg-slate-50/40 hover:border-indigo-300 hover:bg-indigo-50/30'"
+             ? 'border-indigo-500 bg-indigo-50/80 scale-[1.01] ring-4 ring-indigo-500/20'
+             : 'border-slate-200 bg-slate-50/40'"
            @dragover.prevent="attachmentModal.dragOver = true"
            @dragleave.prevent="attachmentModal.dragOver = false"
-           @drop.prevent="amHandleDrop($event)"
-           @click="$refs.amFileInput.click()">
+           @drop.prevent="amHandleDrop($event)">
 
-        <div class="flex flex-col items-center justify-center py-8 px-4 text-center select-none">
-          <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 transition-colors"
-               :class="attachmentModal.dragOver ? 'bg-indigo-100' : 'bg-slate-100'">
-            <svg class="w-6 h-6 transition-colors" :class="attachmentModal.dragOver ? 'text-indigo-600' : 'text-slate-400'"
-                 fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"/>
-            </svg>
+        {{-- When dragging over --}}
+        <div x-show="attachmentModal.dragOver" class="py-10 text-center select-none">
+          <div class="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 text-2xl shadow-lg animate-bounce">
+            📥
           </div>
-          <p class="text-xs font-semibold text-slate-700 mb-0.5">
-            <span x-text="attachmentModal.dragOver ? 'Drop it!' : 'Drag & drop or click to browse'"></span>
-          </p>
-          <p class="text-[10px] text-slate-400">
-            Images, PDFs, Office docs, archives — max 20 MB
-          </p>
+          <p class="text-sm font-black text-indigo-700">Drop folder or files here to upload!</p>
+          <p class="text-xs text-indigo-500 mt-1">Folders will be organized automatically</p>
         </div>
-        <input type="file" x-ref="amFileInput"
-               @change="amUploadFile($event)"
-               class="hidden"
-               accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.bmp,.tiff,
-                       .pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,
-                       .zip,.rar,.7z,.gz,
-                       .txt,.csv,.md,
-                       .mp4,.mov,.webm,.mp3,.wav,.ogg">
+
+        {{-- Normal state: Two distinct action cards --}}
+        <div x-show="!attachmentModal.dragOver">
+          <p class="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2 text-center tracking-wide">Choose how you want to upload:</p>
+          
+          <div class="grid grid-cols-2 gap-3">
+            {{-- Option 1: Upload Folder --}}
+            <button type="button"
+                    @click.stop="$refs.amFolderInput.click()"
+                    class="attachment-card-folder p-3 rounded-2xl border-2 border-indigo-400/50 dark:border-indigo-500/50 bg-gradient-to-br from-indigo-500/10 via-indigo-600/5 to-purple-600/15 hover:border-indigo-500 dark:hover:border-cyan-400 hover:bg-indigo-500/20 transition-all text-center flex flex-col items-center justify-center cursor-pointer group shadow-sm hover:shadow-md hover:shadow-indigo-500/25 active:scale-95">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-md shadow-indigo-600/35">
+                <svg class="w-6 h-6 text-white drop-shadow-xs" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                </svg>
+              </div>
+              <span class="text-xs font-black text-slate-900 dark:text-white tracking-wide">Upload Folder</span>
+              <span class="text-[10px] text-indigo-600 dark:text-cyan-300 font-bold mt-0.5">Entire folder · no zip</span>
+            </button>
+
+            {{-- Option 2: Upload Files --}}
+            <button type="button"
+                    @click.stop="$refs.amFileInput.click()"
+                    class="attachment-card-files p-3 rounded-2xl border-2 border-slate-300/70 dark:border-slate-700/80 bg-white/70 dark:bg-slate-900/60 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-white dark:hover:bg-slate-800/80 transition-all text-center flex flex-col items-center justify-center cursor-pointer group shadow-sm hover:shadow-md active:scale-95">
+              <div class="w-10 h-10 rounded-xl bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform shadow-md">
+                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+              </div>
+              <span class="text-xs font-black text-slate-900 dark:text-white tracking-wide">Upload Files</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">Select multiple files/images</span>
+            </button>
+          </div>
+
+          <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-white/10 text-center">
+            <p class="text-[11px] text-slate-400 dark:text-slate-400 font-medium flex items-center justify-center gap-1.5">
+              <span>💡</span>
+              <span>Or drag &amp; drop a folder or multiple files anywhere into this box</span>
+            </p>
+          </div>
+
+          {{-- Staged Files Summary Badge --}}
+          <template x-if="attachmentModal.pendingFiles && attachmentModal.pendingFiles.length">
+            <div class="mt-3 p-3 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800/80 flex items-center justify-between gap-3 shadow-xs">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <template x-if="attachmentModal.folderName">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+                  </template>
+                  <template x-if="!attachmentModal.folderName">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                  </template>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs font-black text-slate-800 dark:text-slate-100 truncate"
+                     x-text="attachmentModal.folderName ? ('Folder: ' + attachmentModal.folderName) : (attachmentModal.pendingFiles.length + ' file' + (attachmentModal.pendingFiles.length === 1 ? '' : 's') + ' selected')"></p>
+                  <p class="text-[10px] text-indigo-600 dark:text-cyan-300 font-semibold"
+                     x-text="attachmentModal.pendingFiles.length + ' items · ' + amFormatBytes(attachmentModal.pendingFiles.reduce((acc, f) => acc + (f.size || 0), 0)) + ' · Ready to upload'"></p>
+                </div>
+              </div>
+              <button type="button"
+                      @click="amClearPendingFiles()"
+                      class="text-[11px] font-bold text-slate-400 hover:text-rose-500 hover:bg-white/10 dark:hover:bg-white/10 px-2 py-1 rounded-lg transition cursor-pointer"
+                      title="Clear and choose different files">
+                ✕ Change
+              </button>
+            </div>
+          </template>
+        </div>
+
       </div>
 
-      {{-- Upload progress bar --}}
-      <template x-if="attachmentModal.uploading">
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between text-[10px] font-semibold text-slate-500">
-            <span>Uploading…</span>
-            <span x-text="attachmentModal.uploadProgress + '%'"></span>
+      {{-- Optional Folder Name Field --}}
+      <div>
+        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+          <span class="flex items-center gap-1">
+            <svg class="w-3.5 h-3.5 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+            Organize into Folder
+          </span>
+          <span class="text-slate-400 font-normal lowercase">(optional)</span>
+        </label>
+        <div class="relative">
+          <input type="text"
+                 x-model="attachmentModal.folderName"
+                 placeholder="e.g. Project Photos, Campaign Creatives"
+                 class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-8 pr-3 py-2.5
+                        focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none
+                        transition-all placeholder-slate-400 text-slate-800 dark:text-slate-100">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 select-none">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+          </span>
+        </div>
+      </div>
+
+      {{-- Live Upload Progress Bar (Shows 0% -> 100%) --}}
+      <template x-if="attachmentModal.uploading || attachmentModal.uploadProgress === 100">
+        <div class="space-y-1.5 bg-indigo-50/70 dark:bg-slate-900/90 p-3.5 rounded-2xl border border-indigo-200 dark:border-indigo-800/80 shadow-xs">
+          <div class="flex items-center justify-between text-xs font-black text-indigo-700 dark:text-cyan-400">
+            <span class="flex items-center gap-1.5 truncate">
+              <svg class="w-3.5 h-3.5 animate-spin text-indigo-600 dark:text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+              <span x-text="attachmentModal.uploadStatusText || 'Uploading...'"></span>
+            </span>
+            <span class="font-extrabold text-sm text-indigo-600 dark:text-cyan-300" x-text="attachmentModal.uploadProgress + '%'"></span>
           </div>
-          <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div class="h-full bg-indigo-500 rounded-full transition-all duration-200"
+          <div class="h-2.5 bg-indigo-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-indigo-200/50 dark:border-white/10">
+            <div class="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 rounded-full transition-all duration-200 shadow-xs"
                  :style="'width:' + attachmentModal.uploadProgress + '%'"></div>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+            <span>0%</span>
+            <span x-show="attachmentModal.uploadProgress > 0 && attachmentModal.uploadProgress < 100">Uploading to card...</span>
+            <span x-show="attachmentModal.uploadProgress === 100" class="text-emerald-500 dark:text-emerald-400 font-bold">Upload Complete (100%)!</span>
+            <span>100%</span>
           </div>
         </div>
       </template>
+
+      {{-- Dedicated Upload Button (Below Organize into Folder) --}}
+      <div>
+        <button type="button"
+                @click="amStartPendingUpload()"
+                :disabled="!attachmentModal.pendingFiles || !attachmentModal.pendingFiles.length || attachmentModal.uploading"
+                class="w-full py-2.5 px-4 rounded-xl font-black text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                :class="(attachmentModal.pendingFiles && attachmentModal.pendingFiles.length)
+                  ? (attachmentModal.uploading
+                      ? 'bg-indigo-600/70 text-white cursor-wait'
+                      : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-500 hover:via-indigo-500 hover:to-indigo-600 text-white shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:shadow-lg')
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/60 cursor-not-allowed'">
+
+          {{-- Uploading State --}}
+          <template x-if="attachmentModal.uploading">
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+              <span x-text="'Uploading ' + (attachmentModal.pendingFiles.length > 1 ? (attachmentModal.pendingFiles.length + ' items') : '1 file') + ' (' + attachmentModal.uploadProgress + '%)'"></span>
+            </span>
+          </template>
+
+          {{-- Ready to Upload State --}}
+          <template x-if="!attachmentModal.uploading && attachmentModal.pendingFiles && attachmentModal.pendingFiles.length">
+            <span class="flex items-center gap-2">
+              <span class="text-sm">🚀</span>
+              <span x-text="attachmentModal.folderName
+                ? ('Upload Folder: &quot;' + attachmentModal.folderName + '&quot; (' + attachmentModal.pendingFiles.length + ' item' + (attachmentModal.pendingFiles.length === 1 ? '' : 's') + ')')
+                : ('Upload ' + attachmentModal.pendingFiles.length + ' File' + (attachmentModal.pendingFiles.length === 1 ? '' : 's'))"></span>
+            </span>
+          </template>
+
+          {{-- Nothing Selected State --}}
+          <template x-if="!attachmentModal.uploading && (!attachmentModal.pendingFiles || !attachmentModal.pendingFiles.length)">
+            <span class="flex items-center gap-1.5">
+              <span>📁</span>
+              <span>Select folder or files above, then click here to upload</span>
+            </span>
+          </template>
+        </button>
+      </div>
 
       {{-- Error message --}}
       <template x-if="attachmentModal.error">
@@ -151,31 +293,17 @@
       </template>
 
       {{-- Allowed types hint --}}
-      <div class="attachment-types-hint bg-slate-50 rounded-xl p-3 text-[10px] text-slate-400 leading-relaxed">
-        <span class="font-semibold text-slate-500 block mb-1">Allowed file types:</span>
-        Images (JPG, PNG, GIF, WebP, SVG) · PDF · Word, Excel, PowerPoint ·
-        ZIP, RAR, 7z · TXT, CSV · MP4, MOV, MP3
-        <span class="block mt-1 text-rose-400 font-semibold">
-          🚫 Executables, scripts and HTML files are blocked.
+      <div class="attachment-types-hint bg-slate-50 dark:bg-slate-900/50 rounded-xl px-2.5 py-1.5 text-[10px] text-slate-400 leading-snug border border-slate-100 dark:border-white/5">
+        <span class="font-semibold text-slate-500 dark:text-slate-300 block mb-0.5">Allowed file types:</span>
+        Images (JPG, PNG, GIF, WebP, SVG) · PDF · Word, Excel, PowerPoint · ZIP, RAR, 7z · MP4, MOV, MP3
+        <span class="block mt-0.5 text-rose-400 font-semibold">
+          🚫 Executables and script files are blocked.
         </span>
-      </div>
-
-      {{-- Action buttons --}}
-      <div class="flex gap-2 pt-1">
-        <button @click="closeAttachmentModal()"
-                class="btn btn-danger attach-cancel-btn flex-1 py-2.5">
-          Cancel
-        </button>
-        <button @click="$refs.amFileInput.click()"
-                :disabled="attachmentModal.uploading"
-                class="btn btn-primary attach-submit-btn flex-1 py-2.5 font-bold">
-          Choose File
-        </button>
       </div>
     </div>
 
     {{-- ── LINK TAB ─────────────────────────────────────────────────────────── --}}
-    <div x-show="attachmentModal.tab === 'link'" class="p-5 space-y-4">
+    <div x-show="attachmentModal.tab === 'link'" class="px-4 py-3 space-y-3">
 
       <div>
         <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">
@@ -239,11 +367,12 @@
 
     {{-- ── Current Attachments list (shown in both tabs) ───────────────────── --}}
     <template x-if="activeCard?.files?.length">
-      <div class="border-t border-slate-100 px-5 pb-4 pt-3">
-        <p class="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider mb-2 select-none">
+      <div class="border-t border-slate-100 px-4 pb-3 pt-2">
+        <p class="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider mb-1.5 select-none">
           Current Attachments
         </p>
-        <div class="space-y-1.5 max-h-64 overflow-y-auto scrollbar-thin pr-1">
+        {{-- Shows ~3 rows, scroll to see the rest --}}
+        <div class="space-y-1.5 overflow-y-auto scrollbar-thin pr-1" style="max-height: 160px;">
           <template x-for="file in activeCard.files" :key="file.id">
             <div class="rounded-xl transition-all"
                  :class="attachmentModal.editingFileId === file.id ? 'bg-amber-50 border border-amber-200 p-3' : 'bg-slate-50 hover:bg-slate-100 px-3 py-2'">
@@ -306,10 +435,17 @@
                                x-on:error="$event.target.src='https://cdn-icons-png.flaticon.com/512/5968/5968517.png'">
                         </button>
                       </template>
-                      <template x-if="!isCanvaFile(file) && !isGoogleDocsFile(file) && (file.disk === 'url' || file.is_link)">
+                      <template x-if="!isCanvaFile(file) && !isGoogleDocsFile(file) && isGoogleDriveFile(file)">
+                        <button type="button" @click="openGoogleDriveDirect(file.disk === 'url' ? file.url : (file.preview_url || file.url))" class="w-full h-full flex items-center justify-center cursor-pointer" :title="isGoogleDriveFolder(file) ? 'Open Google Drive Folder' : 'Open in Google Drive'">
+                          <img src="{{ asset('images/google-drive-icon.svg') }}"
+                               alt="Google Drive"
+                               class="w-5 h-5 object-contain">
+                        </button>
+                      </template>
+                      <template x-if="!isCanvaFile(file) && !isGoogleDocsFile(file) && !isGoogleDriveFile(file) && (file.disk === 'url' || file.is_link)">
                         <svg class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"/></svg>
                       </template>
-                      <template x-if="!isCanvaFile(file) && !isGoogleDocsFile(file) && file.disk !== 'url' && !file.is_link">
+                      <template x-if="!isCanvaFile(file) && !isGoogleDocsFile(file) && !isGoogleDriveFile(file) && file.disk !== 'url' && !file.is_link">
                         <span class="text-base select-none" x-text="amFileIcon(file)"></span>
                       </template>
                     </span>
@@ -328,13 +464,25 @@
                        class="text-xs font-semibold text-slate-700 hover:text-[#00c4cc] truncate block text-left w-full
                               transition-colors cursor-pointer" :title="file.original_name || 'Canva Design'" x-text="file.original_name || 'Canva Design'"></button>
                   </template>
-                  <template x-if="!isVideoFile(file) && !isCanvaFile(file)">
+                  <template x-if="!isVideoFile(file) && !isCanvaFile(file) && isGoogleDocsFile(file)">
+                    <button type="button" @click="openGoogleDocsPreview(file)"
+                       class="text-xs font-semibold text-slate-700 hover:text-[#1a73e8] truncate block text-left w-full
+                              transition-colors cursor-pointer" :title="file.original_name || 'Google Doc'" x-text="file.original_name || (getGoogleDocsType(file) === 'sheet' ? 'Google Sheet' : (getGoogleDocsType(file) === 'slide' ? 'Google Slides' : 'Google Doc'))"></button>
+                  </template>
+                  <template x-if="!isVideoFile(file) && !isCanvaFile(file) && !isGoogleDocsFile(file) && isGoogleDriveFile(file)">
+                    <button type="button" @click="openGoogleDriveDirect(file.disk === 'url' ? file.url : (file.preview_url || file.url))"
+                       class="text-xs font-semibold text-slate-700 hover:text-emerald-600 truncate block text-left w-full
+                              transition-colors cursor-pointer" :title="file.original_name || 'Google Drive'" x-text="file.original_name || (isGoogleDriveFolder(file) ? 'Google Drive Folder' : 'Google Drive')"></button>
+                  </template>
+                  <template x-if="!isVideoFile(file) && !isCanvaFile(file) && !isGoogleDocsFile(file) && !isGoogleDriveFile(file)">
                     <a :href="file.disk === 'url' ? file.url : (file.preview_url || file.url)" target="_blank" rel="noopener"
                        class="text-xs font-semibold text-slate-700 hover:text-indigo-600 truncate block
-                              transition-colors" x-text="file.original_name || 'Attachment'"></a>
+                              transition-colors" x-text="file.display_name || file.original_name || 'Attachment'"></a>
                   </template>
-                  <p class="text-[10px] text-slate-400"
-                     x-text="isCanvaFile(file) ? 'Canva link' : ((file.disk === 'url' || file.is_link) ? 'External link' : (file.formatted_size || ''))"></p>
+                  <p class="text-[10px] text-slate-400 truncate">
+                    <span x-show="file.folder_name" class="text-indigo-500 font-semibold" x-text="'📁 ' + file.folder_name + ' · '"></span>
+                    <span x-text="isCanvaFile(file) ? 'Canva link' : (isGoogleDriveFolder(file) ? 'Google Drive Folder' : (isGoogleDriveFile(file) ? 'Google Drive link' : ((file.disk === 'url' || file.is_link) ? 'External link' : (file.formatted_size || ''))))"></span>
+                  </p>
                 </div>
 
                 {{-- Action buttons --}}
@@ -436,21 +584,359 @@
   </div>
 </div>
 
+{{-- ══════════════════════════════════════════════════════════════════
+     Folder Viewer Modal (Open Folder & View Each Image)
+     ══════════════════════════════════════════════════════════════════ --}}
+<div x-show="folderViewer.open" x-cloak
+     class="fixed inset-0 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-3 sm:p-6"
+     style="z-index: 112;"
+     @keydown.escape.window="if(folderViewer.open) { $event.preventDefault(); closeFolderViewer(); }"
+     @click="closeFolderViewer()">
+
+  <div class="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl flex flex-col"
+       @click.stop>
+
+    {{-- Folder Header --}}
+    <div class="flex items-center justify-between border-b border-white/10 px-4 sm:px-6 py-3.5 text-white bg-slate-900/90 backdrop-blur-md gap-3 flex-shrink-0">
+      <div class="flex items-center gap-3 min-w-0 flex-1">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-xl shadow-md flex-shrink-0 select-none">
+          📁
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h3 class="truncate text-base sm:text-lg font-black text-white" x-text="folderViewer.folderName"></h3>
+            <span class="text-xs font-semibold text-indigo-300 bg-indigo-950/80 border border-indigo-500/40 px-2.5 py-0.5 rounded-full shrink-0"
+                  x-text="folderViewer.files.length + ' item' + (folderViewer.files.length === 1 ? '' : 's')"></span>
+          </div>
+          <p class="text-[11px] text-slate-400 truncate"
+             x-text="amFormatBytes(folderViewer.files.reduce((acc, f) => acc + getFileBytes(f), 0)) + ' total · Click any image to view in gallery'"></p>
+        </div>
+      </div>
+
+      {{-- Action Buttons --}}
+      <div class="flex items-center gap-2 flex-shrink-0">
+        {{-- Download ZIP --}}
+        <button type="button"
+                @click="downloadCardFolder(folderViewer.folderName)"
+                class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer"
+                title="Download folder as ZIP archive">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 16.5m0 0 4.5-4.5M12 16.5V3"/>
+          </svg>
+          <span class="hidden sm:inline">Download ZIP</span>
+          <span class="sm:hidden">ZIP</span>
+        </button>
+
+        {{-- Add to this folder --}}
+        <button type="button"
+                @click="openAttachmentModal(activeCard, folderViewer.folderName)"
+                class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 hover:text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                title="Upload more files into this folder">
+          <span>+ Add Files</span>
+        </button>
+
+        {{-- Delete Folder --}}
+        <button type="button"
+                @click="deleteCardFolder(folderViewer.folderName)"
+                class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-rose-300 hover:text-white hover:bg-rose-600/40 border border-rose-500/30 text-xs font-bold transition active:scale-95 cursor-pointer"
+                title="Delete entire folder">
+          <span class="hidden sm:inline">Delete Folder</span>
+          <span class="sm:hidden">🗑️</span>
+        </button>
+
+        {{-- Close --}}
+        <button type="button"
+                @click="closeFolderViewer()"
+                class="rounded-xl p-1.5 sm:px-2 sm:py-1.5 text-white/80 transition hover:bg-rose-500/30 hover:text-white bg-white/10 border border-white/10 flex items-center gap-1 text-xs font-bold cursor-pointer"
+                aria-label="Close folder view"
+                title="Close (Esc)">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    {{-- Filter Bar --}}
+    <div class="flex items-center gap-2 px-4 sm:px-6 py-2 bg-slate-900/60 border-b border-white/5 text-xs flex-shrink-0">
+      <button type="button"
+              @click="folderViewer.filter = 'all'"
+              class="px-3 py-1 rounded-lg font-semibold transition cursor-pointer"
+              :class="folderViewer.filter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'">
+        All (<span x-text="folderViewer.files.length"></span>)
+      </button>
+      <button type="button"
+              @click="folderViewer.filter = 'images'"
+              class="px-3 py-1 rounded-lg font-semibold transition cursor-pointer"
+              :class="folderViewer.filter === 'images' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'">
+        🖼️ Images (<span x-text="folderViewer.files.filter(f => f.is_image).length"></span>)
+      </button>
+      <button type="button"
+              @click="folderViewer.filter = 'other'"
+              class="px-3 py-1 rounded-lg font-semibold transition cursor-pointer"
+              :class="folderViewer.filter === 'other' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'">
+        📄 Other Files (<span x-text="folderViewer.files.filter(f => !f.is_image).length"></span>)
+      </button>
+    </div>
+
+    {{-- File Grid Body --}}
+    <div class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/70">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+        <template x-for="file in folderViewer.files.filter(f => folderViewer.filter === 'all' ? true : (folderViewer.filter === 'images' ? f.is_image : !f.is_image))" :key="file.id">
+          <div class="group relative rounded-xl border border-slate-700/60 bg-slate-900/90 overflow-hidden hover:border-indigo-500/80 hover:shadow-xl transition-all flex flex-col">
+            
+            {{-- Image Thumbnail Card (Click to open in gallery) --}}
+            <template x-if="file.is_image">
+              <div class="aspect-square w-full relative overflow-hidden bg-black/40 cursor-pointer"
+                   @click="previewAttachment(file, folderViewer.files.filter(f => f.is_image))">
+                <img :src="file.preview_url || file.url"
+                     :alt="file.display_name || file.original_name"
+                     class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                     loading="lazy">
+                {{-- Hover View Overlay --}}
+                <div class="absolute inset-0 bg-indigo-950/50 opacity-0 group-hover:opacity-100 backdrop-blur-[1px] transition-all flex items-center justify-center gap-2">
+                  <span class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-bold shadow-lg flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                    </svg>
+                    View
+                  </span>
+                </div>
+              </div>
+            </template>
+
+            {{-- Non-Image File Card --}}
+            <template x-if="!file.is_image">
+              <div class="aspect-square w-full relative overflow-hidden bg-slate-800/80 flex flex-col items-center justify-center p-3 text-center cursor-pointer"
+                   @click="downloadAttachment(file)">
+                <span class="text-3xl mb-1 select-none" x-text="amFileIcon(file)"></span>
+                <span class="text-[10px] uppercase font-bold text-slate-400" x-text="file.original_name.split('.').pop()"></span>
+              </div>
+            </template>
+
+            {{-- Info & Quick Actions Footer --}}
+            <div class="p-2.5 flex items-center justify-between gap-1 bg-slate-900 border-t border-white/5">
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-semibold text-slate-200 truncate"
+                   :title="file.display_name || file.original_name"
+                   x-text="file.display_name || file.original_name"></p>
+                <p class="text-[10px] text-slate-400" x-text="file.formatted_size || ''"></p>
+              </div>
+
+              {{-- Download & Delete --}}
+              <div class="flex items-center gap-1 shrink-0">
+                <button type="button"
+                        @click.stop="downloadAttachment(file)"
+                        title="Download file"
+                        class="p-1 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-white/10 transition cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 16.5m0 0 4.5-4.5M12 16.5V3"/>
+                  </svg>
+                </button>
+                <button type="button"
+                        @click.stop="amDeleteAttachment(file)"
+                        title="Delete file"
+                        class="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/10 transition cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </template>
+      </div>
+
+      {{-- Empty filter state --}}
+      <template x-if="!folderViewer.files.length">
+        <div class="py-12 text-center text-slate-400 text-sm">
+          This folder is empty.
+        </div>
+      </template>
+    </div>
+
+  </div>
+</div>
+
+{{-- ══════════════════════════════════════════════════════════════════
+     Group into Folder Modal (Select Specific Files to Group)
+     ══════════════════════════════════════════════════════════════════ --}}
+<div x-show="groupFolderModal.open" x-cloak
+     class="fixed inset-0 flex items-center justify-center p-4 sm:p-6"
+     style="z-index: 120;"
+     @keydown.escape.window="if(groupFolderModal.open) { $event.preventDefault(); closeGroupFolderModal(); }">
+
+  {{-- Backdrop --}}
+  <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+       @click="closeGroupFolderModal()"></div>
+
+  {{-- Panel --}}
+  <div class="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 scale-95"
+       x-transition:enter-end="opacity-100 scale-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 scale-100"
+       x-transition:leave-end="opacity-0 scale-95"
+       @click.stop>
+
+    {{-- Header --}}
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-center text-lg select-none">
+          📁
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white">Group into Folder</h3>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">Select which attached files to move into a folder</p>
+        </div>
+      </div>
+      <button type="button"
+              @click="closeGroupFolderModal()"
+              class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    {{-- Body --}}
+    <div class="p-5 overflow-y-auto space-y-4 text-xs">
+      {{-- Error banner --}}
+      <div x-show="groupFolderModal.error"
+           class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+        <svg class="w-4 h-4 shrink-0 text-rose-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        <span x-text="groupFolderModal.error"></span>
+      </div>
+
+      {{-- Folder Name Input --}}
+      <div>
+        <label class="block font-bold text-slate-700 dark:text-slate-300 text-xs mb-1.5">
+          Folder Name <span class="text-rose-500">*</span>
+        </label>
+        <input type="text"
+               x-model="groupFolderModal.folderName"
+               placeholder="e.g. Photos, Documents, Excavator parts"
+               @keydown.enter.prevent="submitGroupFilesToFolder()"
+               class="w-full px-3.5 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-900 dark:text-white transition shadow-2xs">
+      </div>
+
+      {{-- File Selection Header --}}
+      <div class="pt-1">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-slate-700 dark:text-slate-300 text-xs">Select Files to Group</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                  :class="groupFolderModal.selectedFileIds.length > 0 ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'"
+                  x-text="groupFolderModal.selectedFileIds.length + ' of ' + getStandaloneCardFiles(activeCard?.files).length + ' selected'"></span>
+          </div>
+          <button type="button"
+                  @click="toggleSelectAllGroupFiles()"
+                  class="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 hover:underline cursor-pointer"
+                  x-text="groupFolderModal.selectedFileIds.length === getStandaloneCardFiles(activeCard?.files).length ? 'Deselect All' : 'Select All'">
+          </button>
+        </div>
+
+        {{-- Files List --}}
+        <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+          <template x-for="f in getStandaloneCardFiles(activeCard?.files)" :key="f.id">
+            <div @click="toggleGroupFileSelection(f.id)"
+                 :class="isGroupFileSelected(f.id)
+                   ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700 shadow-2xs ring-1 ring-indigo-400/50'
+                   : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 hover:bg-slate-50 dark:hover:bg-slate-800'"
+                 class="flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none group">
+              
+              {{-- Custom Checkbox --}}
+              <div class="flex items-center justify-center shrink-0">
+                <input type="checkbox"
+                       :checked="isGroupFileSelected(f.id)"
+                       @click.stop="toggleGroupFileSelection(f.id)"
+                       class="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer">
+              </div>
+
+              {{-- Thumbnail / Icon --}}
+              <div class="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shrink-0 flex items-center justify-center">
+                <template x-if="f.is_image">
+                  <img :src="f.preview_url || f.url" :alt="f.original_name" class="w-full h-full object-cover">
+                </template>
+                <template x-if="!f.is_image">
+                  <span class="text-base" x-text="amFileIcon(f)"></span>
+                </template>
+              </div>
+
+              {{-- File Info --}}
+              <div class="min-w-0 flex-1">
+                <p class="font-bold text-slate-800 dark:text-slate-100 truncate text-xs"
+                   :title="f.original_name"
+                   x-text="f.display_name || f.original_name"></p>
+                <p class="text-[11px] text-slate-400 mt-0.5" x-text="f.formatted_size || amFormatBytes(getFileBytes(f))"></p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    {{-- Footer --}}
+    <div class="flex items-center justify-end gap-2.5 px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
+      <button type="button"
+              @click="closeGroupFolderModal()"
+              :disabled="groupFolderModal.submitting"
+              class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+        Cancel
+      </button>
+      <button type="button"
+              @click="submitGroupFilesToFolder()"
+              :disabled="groupFolderModal.submitting || !groupFolderModal.folderName.trim() || !groupFolderModal.selectedFileIds.length"
+              class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition shadow-sm shadow-indigo-600/30 active:scale-95 flex items-center gap-1.5 cursor-pointer">
+        <span x-show="groupFolderModal.submitting" class="animate-spin text-xs">⏳</span>
+        <span x-text="groupFolderModal.submitting ? 'Grouping...' : ('Group ' + (groupFolderModal.selectedFileIds.length || 0) + ' File' + (groupFolderModal.selectedFileIds.length === 1 ? '' : 's'))"></span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+{{-- ══════════════════════════════════════════════════════════════════
+     Image Preview Modal (Popup Gallery with Zoom & Pan)
+     ══════════════════════════════════════════════════════════════════ --}}
 <div x-show="imagePreview.open" x-cloak
      x-data="imageZoomHandler()"
-     x-init="$watch('imagePreview.open', value => { if(value) reset(); })"
+     x-init="$watch('imagePreview.open', value => { if(value) reset(); }); $watch('imagePreview.currentIndex', () => reset())"
      class="fixed inset-0 bg-slate-950/95 flex flex-col w-screen h-screen overflow-hidden select-none"
      style="z-index: 99999;"
      @keydown.escape.window="if(imagePreview.open) { $event.preventDefault(); closeImagePreview(); }"
+     @keydown.left.window="if(imagePreview.open && scale <= 1) { previewPrevImage(); }"
+     @keydown.right.window="if(imagePreview.open && scale <= 1) { previewNextImage(); }"
      @click="closeImagePreview()">
+
   <div class="flex items-center justify-between border-b border-white/10 px-4 sm:px-6 pb-3 text-white bg-slate-900/90 backdrop-blur-md flex-shrink-0 w-full"
        style="padding-top: calc(14px + env(safe-area-inset-top, 0px));"
        @click.stop>
     <div class="flex items-center gap-3 min-w-0">
       <p class="truncate text-sm sm:text-base font-extrabold tracking-wide text-white" x-text="imagePreview.title"></p>
+      {{-- Gallery counter badge --}}
+      <span x-show="imagePreview.images && imagePreview.images.length > 1"
+            class="text-xs font-semibold text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full shrink-0"
+            x-text="(imagePreview.currentIndex + 1) + ' of ' + imagePreview.images.length"></span>
       <span class="text-xs font-semibold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-full shrink-0" x-text="Math.round(scale * 100) + '%'"></span>
     </div>
+
     <div class="flex items-center gap-2 sm:gap-3">
+        {{-- Prev / Next controls in header --}}
+        <div x-show="imagePreview.images && imagePreview.images.length > 1"
+             class="inline-flex items-center bg-white/10 rounded-xl p-0.5 border border-white/15">
+          <button type="button" @click="previewPrevImage()" class="p-1.5 hover:bg-white/20 rounded-lg text-white/90 hover:text-white transition cursor-pointer" title="Previous Image (Left Arrow)">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+          </button>
+          <button type="button" @click="previewNextImage()" class="p-1.5 hover:bg-white/20 rounded-lg text-white/90 hover:text-white transition cursor-pointer" title="Next Image (Right Arrow)">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+          </button>
+        </div>
+
         {{-- Zoom In / Out controls --}}
         <div class="inline-flex items-center bg-white/10 rounded-xl p-0.5 border border-white/15">
           <button type="button" @click="zoomOut()" class="p-1.5 hover:bg-white/20 rounded-lg text-white/90 hover:text-white transition" title="Zoom Out (-)">
@@ -460,7 +946,9 @@
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
           </button>
         </div>
+
         <button type="button" @click="reset()" x-show="scale !== 1 || panX !== 0 || panY !== 0" class="text-xs font-bold bg-white/10 hover:bg-white/20 text-cyan-300 border border-cyan-400/30 px-3 py-1.5 rounded-xl transition" aria-label="Reset zoom">Reset Zoom</button>
+
         <button type="button" @click="closeImagePreview()" class="rounded-xl p-2 text-white/80 transition hover:bg-rose-500/30 hover:text-white bg-white/10 border border-white/10" aria-label="Close preview">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -468,6 +956,8 @@
         </button>
     </div>
   </div>
+
+  {{-- Preview Canvas with Floating Prev/Next Gallery Arrows --}}
   <div class="flex-1 w-full h-full flex items-center justify-center p-2 sm:p-6 min-h-0 overflow-hidden relative"
        :class="isDragging ? '!cursor-grabbing' : (scale > 1 ? 'cursor-grab' : 'cursor-zoom-in')"
        @click.stop
@@ -479,6 +969,29 @@
        @touchmove="handleTouchMove"
        @touchend="handleTouchEnd"
        @touchcancel="handleTouchEnd">
+
+    {{-- Floating Prev Arrow --}}
+    <button type="button"
+            x-show="imagePreview.images && imagePreview.images.length > 1 && scale <= 1"
+            @click.stop="previewPrevImage()"
+            class="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white border border-white/20 shadow-2xl flex items-center justify-center transition active:scale-90 hover:scale-105 backdrop-blur-md cursor-pointer"
+            title="Previous Image (← Left Arrow)">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
+      </svg>
+    </button>
+
+    {{-- Floating Next Arrow --}}
+    <button type="button"
+            x-show="imagePreview.images && imagePreview.images.length > 1 && scale <= 1"
+            @click.stop="previewNextImage()"
+            class="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white border border-white/20 shadow-2xl flex items-center justify-center transition active:scale-90 hover:scale-105 backdrop-blur-md cursor-pointer"
+            title="Next Image (→ Right Arrow)">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
+      </svg>
+    </button>
+
     <img :src="imagePreview.url" :alt="imagePreview.title" 
          draggable="false"
          @click="toggleClickZoom($event)"

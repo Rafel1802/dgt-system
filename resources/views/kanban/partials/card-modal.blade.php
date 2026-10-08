@@ -124,7 +124,19 @@
                     <span class="text-xs text-slate-400" x-text="`${cl.items?.filter(i=>i.is_completed).length ?? 0}/${cl.items?.length ?? 0}`"></span>
                   </div>
                   <template x-for="(item, ii) in cl.items" :key="item.id">
-                    <div class="checklist-item" :class="{done: item.is_completed}">
+                    <div class="checklist-item flex items-center gap-2" :class="{done: item.is_completed}">
+                      <template x-if="item.assigned_user">
+                        <div class="relative flex-shrink-0 cursor-pointer" :title="item.assigned_user.name">
+                          <template x-if="item.assigned_user.avatar || item.assigned_user.avatar_url">
+                            <img :src="item.assigned_user.avatar || item.assigned_user.avatar_url" :alt="item.assigned_user.name"
+                                 class="w-5 h-5 rounded-full object-cover shadow-sm ring-1 ring-slate-200">
+                          </template>
+                          <template x-if="!(item.assigned_user.avatar || item.assigned_user.avatar_url)">
+                            <span class="w-5 h-5 rounded-full shadow-sm flex items-center justify-center text-[8px] font-black text-white bg-indigo-600"
+                                  x-text="(item.assigned_user.name || 'U').slice(0, 2).toUpperCase()"></span>
+                          </template>
+                        </div>
+                      </template>
                       <input type="checkbox" :checked="item.is_completed"
                              @change="toggleItem(detailCard.card.id, cl.id, ci, ii)"
                              class="checklist-checkbox">

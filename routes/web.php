@@ -79,15 +79,12 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         // Internal-only: validates Livewire + Turbo coexist safely. Not linked from any menu. Remove after Livewire rollout is verified stable.
         Route::view('/internal/livewire-test', 'internal.livewire-test')->name('internal.livewire-test');
         Route::get('/mac-app/download', [RouteClosureController::class, 'downloadMacApp'])->name('downloads.mac-app.file');
+        Route::get('/ios-app/download', [RouteClosureController::class, 'downloadIosApp'])->name('downloads.ios-app.file');
 
-        // ── System Health & Maintenance Diagnostics (QC & Super-Admin) ───────
-        Route::prefix('system-health')->name('system.health.')->group(function () {
-            Route::get('/', [\App\Http\Controllers\Admin\SystemHealthController::class, 'index'])->name('index');
-            Route::post('/repair', [\App\Http\Controllers\Admin\SystemHealthController::class, 'repair'])->name('repair');
-            Route::post('/optimize', [\App\Http\Controllers\Admin\SystemHealthController::class, 'optimize'])->name('optimize');
-            Route::get('/copy-report', [\App\Http\Controllers\Admin\SystemHealthController::class, 'copyReport'])->name('copy-report');
-            Route::post('/clear-logs', [\App\Http\Controllers\Admin\SystemHealthController::class, 'clearLogs'])->name('clear-logs');
-        });
+        // ── System Health (Removed - Redirect to Dashboard) ───────
+        Route::any('/system-health/{any?}', function () {
+            return redirect()->route('dashboard');
+        })->where('any', '.*')->name('system.health.index');
 
         // Polymorphic attachments download/delete/view
         Route::get('/attachments/{attachment}/download', [\App\Http\Controllers\AttachmentController::class, 'download'])->name('attachments.download');
@@ -139,6 +136,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/websites/{website}/ping', [\App\Http\Controllers\WebsiteController::class, 'ping'])->name('websites.ping');
             Route::get('/websites/{website}/history', [\App\Http\Controllers\WebsiteController::class, 'getHistory'])->name('websites.history');
             Route::post('/websites/{website}/history-logs/comment', [\App\Http\Controllers\WebsiteController::class, 'addHistoryComment'])->name('websites.history-logs.comment.store');
+
+
 
             // Website CRUD resource
             Route::resource('websites', \App\Http\Controllers\WebsiteController::class)->except(['create', 'show', 'edit']);
@@ -239,6 +238,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::delete('/cards/{card}/checklists/{checklist}', [BoardCardController::class, 'destroyChecklist'])->name('cards.checklists.destroy');
             Route::post('/cards/{card}/checklists/{checklist}/items', [BoardCardController::class, 'storeChecklistItem'])->name('cards.checklists.items.store');
             Route::patch('/cards/{card}/checklists/{checklist}/items/{item}', [BoardCardController::class, 'toggleChecklistItem'])->name('cards.checklists.items.toggle');
+            Route::patch('/cards/{card}/checklists/{checklist}/items/{item}/review', [BoardCardController::class, 'reviewChecklistItem'])->name('cards.checklists.items.review');
             Route::delete('/cards/{card}/checklists/{checklist}/items/{item}', [BoardCardController::class, 'destroyChecklistItem'])->name('cards.checklists.items.destroy');
 
             // Comments — Trello Board
@@ -253,6 +253,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/cards/{card}/files/{file}/preview', [BoardCardController::class, 'previewFile'])->name('cards.files.preview');
             Route::get('/cards/{card}/files/{file}/download', [BoardCardController::class, 'downloadFile'])->name('cards.files.download');
             Route::delete('/cards/{card}/files/{file}', [BoardCardController::class, 'deleteFile'])->name('cards.files.destroy');
+            Route::post('/cards/{card}/folders/assign', [BoardCardController::class, 'assignFolder'])->name('cards.folders.assign');
+            Route::get('/cards/{card}/folders/{folder}/download', [BoardCardController::class, 'downloadFolder'])->name('cards.folders.download');
+            Route::delete('/cards/{card}/folders/{folder}', [BoardCardController::class, 'deleteFolder'])->name('cards.folders.destroy');
             Route::get('/canva/resolve', [BoardCardController::class, 'resolveCanvaEmbed'])->name('cards.canva.resolve');
 
             // Board Members Management
@@ -327,6 +330,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             ->group(function () {
                 Route::get('/', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'index'])->name('index');
                 Route::post('/', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'store'])->name('store');
+                Route::get('/{board:slug}', function (\App\Models\Board $board) {
+                    return redirect()->route('boards.show', $board->slug);
+                })->name('show');
                 Route::post('/{board:slug}/duplicate', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'duplicate'])->name('duplicate');
                 Route::patch('/{board:slug}/toggle-active', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'toggleActive'])->name('toggle-active');
                 Route::patch('/{board:slug}/toggle-hidden', [\App\Http\Controllers\SocialMedia\SmmPlanningBoardController::class, 'toggleHidden'])->name('toggle-hidden');
@@ -426,14 +432,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::resource('meeting-alarms', \App\Http\Controllers\Admin\MeetingAlarmController::class)->except(['create', 'show', 'edit']);
         });
 
-        // ── Supervisor Approval Panel ─────────────────────────────────────
-        Route::middleware(['role:super-admin|admin-digital|admin-crm|boss', 'maintenance:approvals'])
-            ->prefix('approvals')
-            ->name('approvals.')
-            ->group(function () {
-                Route::get('/', [ApprovalController::class, 'index'])->name('index');
-                Route::post('/custom-range', [ApprovalController::class, 'customRange'])->name('custom-range');
-            });
+        // ── Supervisor Approval Panel (Removed - Redirect to Dashboard) ───
+        Route::any('/approvals/{any?}', function () {
+            return redirect()->route('dashboard');
+        })->where('any', '.*')->name('approvals.index');
 
         // ── Member Tasks Count Panel (Planning Boards) ────────────────────
         Route::get('/tasks-count', [\App\Http\Controllers\Board\TaskCountController::class, 'index'])->name('tasks.count');
@@ -554,15 +556,11 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
     });
 });
 
-// Blog Reports
+// ── Blog Reports (Removed - Redirect to Dashboard) ───────
 Route::middleware(['auth'])->group(function () {
-    Route::get('/blog-reports', [\App\Http\Controllers\BlogReportController::class, 'index'])->name('blog-reports.index');
-    Route::get('/blog-reports/preview', function () {
-        return redirect()->route('blog-reports.index');
-    });
-    Route::post('/blog-reports/preview', [\App\Http\Controllers\BlogReportController::class, 'preview'])->name('blog-reports.preview');
-    Route::post('/blog-reports/export', [\App\Http\Controllers\BlogReportController::class, 'export'])->name('blog-reports.export');
-    Route::post('/blog-reports/csv', [\App\Http\Controllers\BlogReportController::class, 'csv'])->name('blog-reports.csv');
+    Route::any('/blog-reports/{any?}', function () {
+        return redirect()->route('dashboard');
+    })->where('any', '.*')->name('blog-reports.index');
 });
 
 
@@ -579,6 +577,7 @@ Route::middleware(['auth', 'ensure.active', \App\Http\Middleware\EnsureKpiAccess
         // Squad Team Members Management (Dara & Kim add staff below them)
         Route::get('/team', [\App\Http\Controllers\Kpi\KpiTeamController::class, 'index'])->name('team.index');
         Route::post('/team/add-member', [\App\Http\Controllers\Kpi\KpiTeamController::class, 'addMember'])->name('team.add-member');
+        Route::post('/team/update-member-role', [\App\Http\Controllers\Kpi\KpiTeamController::class, 'updateMemberRole'])->name('team.update-member-role');
         Route::delete('/team/{squad}/members/{member}', [\App\Http\Controllers\Kpi\KpiTeamController::class, 'removeMember'])->name('team.remove-member');
 
         // Staff Monthly KPI Evaluations (Scores, Notes, Approvals, PDF, Upload, History)
@@ -587,9 +586,11 @@ Route::middleware(['auth', 'ensure.active', \App\Http\Middleware\EnsureKpiAccess
         Route::post('/evaluations/{review}/approve', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'approve'])->name('evaluations.approve');
         Route::post('/evaluations/{review}/finalize', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'finalize'])->name('evaluations.finalize');
         Route::post('/evaluations/{review}/upload-pdf', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'uploadPdf'])->name('evaluations.upload-pdf');
+        Route::post('/evaluations/{review}/sync-drive', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'syncDrive'])->name('evaluations.sync-drive');
         Route::post('/evaluations/upload-direct', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'uploadDirect'])->name('evaluations.upload-direct');
         Route::get('/evaluations/history/{user}', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'history'])->name('evaluations.history');
         Route::get('/evaluations/export-all-pdf', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'exportAllStaffPdf'])->name('evaluations.export-all-pdf');
+        Route::get('/staff/pdf', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'exportAllStaffPdf'])->name('staff.pdf');
         Route::get('/evaluations/{review}/pdf', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'exportStaffPdf'])->name('evaluations.pdf');
         Route::get('/squad/{squad}/pdf', [\App\Http\Controllers\Kpi\KpiStaffEvaluationController::class, 'exportSquadPdf'])->name('squad.pdf');
 

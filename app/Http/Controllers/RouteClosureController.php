@@ -54,6 +54,29 @@ class RouteClosureController extends Controller
     }
 
     /**
+     * Download the iOS App (.ipa).
+     */
+    public function downloadIosApp()
+    {
+        $version = '1.0.6';
+        $filename = "KIUQ-SYSTEM-IOS-{$version}.ipa";
+        $candidates = [
+            public_path("downloads/{$filename}"),
+            base_path("public/downloads/{$filename}"),
+            base_path("downloads/{$filename}"),
+            public_path("downloads/KIUQ-SYSTEM.ipa"),
+        ];
+        foreach ($candidates as $filePath) {
+            if (file_exists($filePath)) {
+                return response()->download($filePath, $filename, [
+                    'Content-Type' => 'application/octet-stream',
+                ]);
+            }
+        }
+        return redirect(asset("downloads/{$filename}"));
+    }
+
+    /**
      * Seed automations for boards.
      */
     public function seedAutomations()

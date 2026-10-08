@@ -13,14 +13,17 @@ class SmmPlanningBoardController extends Controller
 {
     public function index()
     {
-        $smmWorkspace = Workspace::firstOrCreate(
+        $smmWorkspace = Workspace::withTrashed()->firstOrCreate(
             ['name' => 'Social Media Management'],
             [
-                'description' => 'Dedicated workspace for SMM Planning Boards.', 
+                'description' => 'Dedicated workspace for SMM Planning Boards.',
                 'color' => '#6366f1',
-                'owner_id' => auth()->id() ?? 1
+                'owner_id' => auth()->id() ?? 1,
             ]
         );
+        if ($smmWorkspace->trashed()) {
+            $smmWorkspace->restore();
+        }
 
         $workspaces = Workspace::where('id', $smmWorkspace->id)
             ->with(['boards' => function ($query) {
@@ -34,7 +37,7 @@ class SmmPlanningBoardController extends Controller
         $user = auth()->user();
         $userId = $user->id;
         $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
-        $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc;
+        $isBypassed = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $isQc || $user->canFilterAllPlanningTeams();
 
         foreach ($workspaces as $workspace) {
             $workspace->setRelation('boards', $workspace->boards->filter(function ($board) use ($userId, $workspace, $isBypassed) {
@@ -79,14 +82,17 @@ class SmmPlanningBoardController extends Controller
             'template_year'  => 'nullable|string',
         ]);
 
-        $smmWorkspace = Workspace::firstOrCreate(
+        $smmWorkspace = Workspace::withTrashed()->firstOrCreate(
             ['name' => 'Social Media Management'],
             [
-                'description' => 'Dedicated workspace for SMM Planning Boards.', 
+                'description' => 'Dedicated workspace for SMM Planning Boards.',
                 'color' => '#6366f1',
-                'owner_id' => auth()->id() ?? 1
+                'owner_id' => auth()->id() ?? 1,
             ]
         );
+        if ($smmWorkspace->trashed()) {
+            $smmWorkspace->restore();
+        }
 
         $boardName = $validated['name'] ?? null;
         if (empty($boardName)) {
@@ -103,6 +109,8 @@ class SmmPlanningBoardController extends Controller
             'is_active_smm'=> false,
             'slug'         => Str::slug($boardName) . '-' . Str::random(4),
             'created_by'   => auth()->id(),
+            'cover_type'   => 'image',
+            'cover_value'  => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/SMM.webp',
             'background_type' => 'color',
             'background_value' => $validated['background'] ?? '#6366f1',
         ]);

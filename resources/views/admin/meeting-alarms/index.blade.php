@@ -4,7 +4,7 @@
 @section('page_title', 'Meeting Alarms')
 
 @section('content')
-<div class="max-w-7xl mx-auto pb-12" x-data="meetingAlarmsManager()">
+<div class="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-2 sm:py-4 pb-28 md:pb-12" x-data="meetingAlarmsManager()">
     {{-- Top Alert Messages --}}
     @if(session('success'))
     <div class="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-between shadow-sm animate-fade-in">
@@ -154,7 +154,7 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-left border-collapse min-w-[850px]">
                 <thead>
                     <tr class="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-700/80">
                         <th class="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-wider">Meeting Info</th>

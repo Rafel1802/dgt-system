@@ -20,16 +20,14 @@
 [data-theme="dark"] .ws-dash-card { background: #0f172a; border-color: #1e293b; }
 [data-theme="dark"] .ws-dash-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
 [data-theme="neon"] .ws-dash-card {
-    background: rgba(4, 20, 56, 0.92) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
+    background: rgba(4, 20, 56, 0.95) !important;
     border: 1.5px solid rgba(0, 160, 255, 0.4) !important;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 120, 255, 0.15) !important;
 }
 [data-theme="neon"] .ws-dash-card:hover {
     border-color: rgba(0, 220, 255, 0.8) !important;
     box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 180, 255, 0.4) !important;
-    transform: translateY(-3px) !important;
+    transform: translateY(-3px) translateZ(0) !important;
 }
 [data-theme="neon"] .ws-dash-card h3 {
     color: #ffffff !important;
@@ -60,16 +58,16 @@
 [data-theme="dark"] .bg-slate-soft { background: rgba(148,163,184,0.1); color: #94a3b8; }
 </style>
 
-<div x-data="{ searchQuery: '', filterClass: '' }">
-<div class="page-header flex flex-wrap gap-4 items-end justify-between mb-8">
+<div class="max-w-7xl mx-auto px-0 sm:px-4 lg:px-8 py-2 sm:py-4" x-data="{ searchQuery: '', filterClass: '' }">
+<div class="page-header flex flex-wrap gap-4 items-end justify-between mb-6 sm:mb-8">
     <div>
-        <h1 class="page-title text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-            <div class="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/30 w-12 h-12 flex items-center justify-center flex-shrink-0">
-                <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Team" class="w-8 h-8 object-contain">
+        <h1 class="page-title text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
+            <div class="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/30 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0">
+                <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Team" class="w-7 h-7 sm:w-8 sm:h-8 object-contain">
             </div>
-            Social Media Team
+            <span>Social Media Team</span>
         </h1>
-        <p class="page-subtitle text-slate-500 dark:text-slate-400 mt-2 font-medium">Manage social media tasks and tracking</p>
+        <p class="page-subtitle text-slate-500 dark:text-slate-400 mt-1.5 sm:mt-2 text-xs sm:text-sm font-medium">Manage social media tasks and tracking</p>
     </div>
     <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
         <div class="flex gap-2 w-full sm:w-auto">
@@ -88,14 +86,14 @@
 
         <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             @if($canManageClasses)
-            <a href="{{ route('social-media.manage') }}" class="btn btn-secondary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm">
+            <a href="{{ route('social-media.manage') }}" class="btn btn-secondary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm py-2 px-3 active:scale-95 touch-manipulation shadow-xs font-semibold">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                 Manage Classes
             </a>
             @endif
 
             @if(auth()->user()->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'boss', 'social_admin', 'supervisor']))
-            <a href="{{ route('social-media.analytics.index') }}" class="btn btn-secondary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm">
+            <a href="{{ route('social-media.analytics.index') }}" class="btn btn-secondary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm py-2 px-3 active:scale-95 touch-manipulation shadow-xs font-semibold">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
                 </svg>
@@ -103,7 +101,7 @@
             </a>
             @endif
 
-            <a href="{{ route('social-media.reports.index') }}" class="btn btn-primary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm">
+            <a href="{{ route('social-media.reports.index') }}" class="btn btn-primary flex-1 sm:flex-none justify-center flex items-center gap-2 text-xs sm:text-sm py-2 px-3 active:scale-95 touch-manipulation shadow-xs font-semibold">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
                 Reports
             </a>
@@ -116,7 +114,7 @@
     <h2 class="text-xl font-extrabold text-slate-800 dark:text-white">All Social Media Classes</h2>
     <div class="h-px bg-slate-200 dark:bg-slate-700/50 flex-1"></div>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-12">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-32 md:pb-12">
     @foreach($classes as $class)
         @php
             $classIcon = trim((string) ($class->getRawOriginal('icon') ?? ''));
@@ -165,7 +163,7 @@
 
             {{-- Card Footer --}}
             <div class="p-4 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800 flex items-center justify-between gap-3">
-                <a href="{{ route('social-media.class.show', $class->id) }}" class="btn btn-primary flex-1 py-2 justify-center shadow-sm">
+                <a href="{{ route('social-media.class.show', $class->id) }}" class="btn btn-primary flex-1 py-2 justify-center shadow-sm active:scale-95 touch-manipulation font-bold">
                     View Table
                 </a>
             </div>

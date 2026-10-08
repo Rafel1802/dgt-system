@@ -53,20 +53,28 @@ class WebsiteFollowUpController extends Controller
         $sheetEnabled   = !empty(config('services.google_blogs.apps_script_url'));
         $forceOverwrite = $request->boolean('force_overwrite');
         $skipSheetSync  = $request->boolean('skip_sheet_sync');
+        $isAsync        = $request->boolean('async_sheet') || count($validated['items']) > 1;
 
-        $targetDate = null;
-        if (!empty($validated['created_at'])) {
-            $targetDate = Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
-        }
+        $targetDate = !empty($validated['created_at'])
+            ? Carbon::parse($validated['created_at'], config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay()
+            : now(config('app.timezone', 'Asia/Phnom_Penh'))->startOfDay();
 
         $successCount = 0;
         $errors = [];
         $hasConflict = false;
+        $asyncSyncList = [];
 
         foreach ($validated['items'] as $index => $item) {
             $websiteId = $item['website_id'];
             $url = $item['url'] ?? null;
             $blogClass = $item['blog_sheet_class'] ?? null;
+
+            if (empty($blogClass)) {
+                $wsLookup = Website::find($websiteId);
+                if ($wsLookup && !empty($wsLookup->category)) {
+                    $blogClass = GoogleBlogsSheetService::extractClassFromCategory($wsLookup->category);
+                }
+            }
 
             $recentDuplicate = WebsiteFollowUp::where('website_id', $websiteId)
                 ->where('created_by', auth()->id())
@@ -80,22 +88,25 @@ class WebsiteFollowUpController extends Controller
                 continue;
             }
 
-            // For Blog Posts, sync with Google Sheets unless user opted to skip
-            if ($finalType === 'blog_post' && $sheetEnabled && !$skipSheetSync) {
-                if (empty($blogClass) || empty($url) || empty($targetDate)) {
-                    $errors[] = "Item #" . ($index + 1) . ": Class, URL, and Date are required for Blog Posts.";
+            // Synchronous Google Sheets sync only if single item and async_sheet is not set
+            if (!$isAsync && $finalType === 'blog_post' && $sheetEnabled && !$skipSheetSync) {
+                if (empty($blogClass) || empty($url)) {
+                    $errors[] = "Item #" . ($index + 1) . ": Class and URL are required for Blog Posts.";
                     continue;
                 }
 
                 $month = $targetDate->month;
-                if ($month < 9 || $month > 12) {
-                    $errors[] = "Item #" . ($index + 1) . ": Google Sheet synchronization is currently configured for September–December Blogs (found month {$month}).";
-                    continue;
-                }
-
                 $website = Website::find($websiteId);
                 $dateForSheet = $targetDate->format('m/d/Y');
                 $sheetTab = match ($month) {
+                    1  => 'Jan Blogs',
+                    2  => 'Feb Blogs',
+                    3  => 'Mar Blogs',
+                    4  => 'Apr Blogs',
+                    5  => 'May Blogs',
+                    6  => 'Jun Blogs',
+                    7  => 'Jul Blogs',
+                    8  => 'Aug Blogs',
                     9  => 'Sep Blogs',
                     10 => 'Oct Blogs',
                     11 => 'Nov Blogs',
@@ -145,6 +156,11 @@ class WebsiteFollowUpController extends Controller
                 }
             }
 
+            $sheetStatus = 'skipped';
+            if ($finalType === 'blog_post' && $sheetEnabled && !$skipSheetSync) {
+                $sheetStatus = $isAsync ? 'pending' : 'synced';
+            }
+
             $followUp = new WebsiteFollowUp([
                 'website_id'          => $websiteId,
                 'type'                => $finalType,
@@ -154,7 +170,7 @@ class WebsiteFollowUpController extends Controller
                 'qc_status'           => 'pending',
                 'created_by'          => auth()->id(),
                 'blog_sheet_class'    => $blogClass,
-                'google_sheet_status' => ($finalType === 'blog_post' && $sheetEnabled && !$skipSheetSync) ? 'synced' : 'skipped',
+                'google_sheet_status' => $sheetStatus,
             ]);
 
             $followUp->save();
@@ -164,6 +180,18 @@ class WebsiteFollowUpController extends Controller
                 $followUp->timestamps = false;
                 $followUp->created_at = $targetDate;
                 $followUp->save();
+            }
+
+            // If async, collect for background sync
+            if ($isAsync && $finalType === 'blog_post' && $sheetEnabled && !$skipSheetSync && !empty($blogClass) && !empty($url)) {
+                $website = Website::find($websiteId);
+                $asyncSyncList[] = [
+                    'follow_up_id' => $followUp->id,
+                    'class'        => (string) $blogClass,
+                    'url'          => $url,
+                    'website_name' => $website?->name ?? 'Unknown',
+                    'target_date'  => $targetDate,
+                ];
             }
 
             // Background image-fetch
@@ -193,6 +221,66 @@ class WebsiteFollowUpController extends Controller
             $successCount++;
         }
 
+        // Offload async Google Sheets sync to background after response is sent to browser
+        if (!empty($asyncSyncList)) {
+            dispatch(function () use ($asyncSyncList, $forceOverwrite) {
+                @set_time_limit(300);
+                $googleService = new GoogleBlogsSheetService();
+                foreach ($asyncSyncList as $idx => $syncData) {
+                    if ($idx > 0) {
+                        usleep(350000); // 0.35s delay between Apps Script calls to cleanly manage locks
+                    }
+                    $tDate = $syncData['target_date'];
+                    $month = $tDate->month;
+                    $sheetTab = match ($month) {
+                        1  => 'Jan Blogs',
+                        2  => 'Feb Blogs',
+                        3  => 'Mar Blogs',
+                        4  => 'Apr Blogs',
+                        5  => 'May Blogs',
+                        6  => 'Jun Blogs',
+                        7  => 'Jul Blogs',
+                        8  => 'Aug Blogs',
+                        9  => 'Sep Blogs',
+                        10 => 'Oct Blogs',
+                        11 => 'Nov Blogs',
+                        12 => 'Dec Blogs',
+                        default => 'Blogs',
+                    };
+                    $dateForSheet = $tDate->format('m/d/Y');
+
+                    try {
+                        $res = $googleService->syncBlogFollowUp(
+                            $syncData['class'],
+                            $syncData['url'],
+                            $dateForSheet,
+                            $syncData['website_name'],
+                            $forceOverwrite,
+                            $sheetTab
+                        );
+                        $fu = WebsiteFollowUp::find($syncData['follow_up_id']);
+                        if ($fu) {
+                            if ($res['success']) {
+                                $fu->updateQuietly([
+                                    'google_sheet_status'    => 'synced',
+                                    'google_sheet_row'       => $res['row'] ?? null,
+                                    'google_sheet_synced_at' => now(),
+                                    'google_sheet_error'     => null,
+                                ]);
+                            } else {
+                                $fu->updateQuietly([
+                                    'google_sheet_status' => 'failed',
+                                    'google_sheet_error'  => $res['error'] ?? $res['message'] ?? 'Sync failed',
+                                ]);
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error("Async sync error for follow-up #{$syncData['follow_up_id']}: " . $e->getMessage());
+                    }
+                }
+            })->afterResponse();
+        }
+
         if (count($errors) > 0) {
             $errorMsg = implode("\n", $errors);
             if ($successCount === 0) {
@@ -218,10 +306,11 @@ class WebsiteFollowUpController extends Controller
         }
 
         if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['success' => true, 'message' => "Successfully added {$successCount} follow-ups."]);
+            return response()->json(['success' => true, 'count' => $successCount, 'message' => "Successfully added {$successCount} follow-up(s)."]);
         }
+
         return redirect()->route('websites.index', ['tab' => 'follow-up'])
-            ->with('success', "Successfully added {$successCount} follow-ups.");
+            ->with('success', "Successfully added {$successCount} follow-up(s).");
     }
 
     // ── UPDATE ────────────────────────────────────────────────────────────────
@@ -298,7 +387,23 @@ class WebsiteFollowUpController extends Controller
         $websiteFollowUp->delete();
 
         if ($type === 'blog_post' && !empty($blogClass) && (!empty($sheetRow) || !empty($url))) {
-            dispatch(new \App\Jobs\GoogleBlogsDeleteJob($blogClass, $sheetRow ?? 0, $url))->afterResponse();
+            $month = $websiteFollowUp->created_at ? Carbon::parse($websiteFollowUp->created_at)->month : now()->month;
+            $sheetTab = match ($month) {
+                1  => 'Jan Blogs',
+                2  => 'Feb Blogs',
+                3  => 'Mar Blogs',
+                4  => 'Apr Blogs',
+                5  => 'May Blogs',
+                6  => 'Jun Blogs',
+                7  => 'Jul Blogs',
+                8  => 'Aug Blogs',
+                9  => 'Sep Blogs',
+                10 => 'Oct Blogs',
+                11 => 'Nov Blogs',
+                12 => 'Dec Blogs',
+                default => 'Blogs',
+            };
+            dispatch(new \App\Jobs\GoogleBlogsDeleteJob($blogClass, $sheetRow ?? 0, $url, $sheetTab))->afterResponse();
         }
 
         return redirect()->route('websites.index', ['tab' => 'follow-up'])

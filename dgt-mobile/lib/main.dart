@@ -112,7 +112,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) {
         setState(() => splashScreenDone = true);
       }

@@ -59,12 +59,30 @@ class GoogleBlogsSyncJob implements ShouldQueue
 
         $idempotencyKey = 'fu-' . $this->followUpId;
 
+        $targetDate = $followUp->created_at ? \Carbon\Carbon::parse($followUp->created_at) : now();
+        $sheetTab = match ($targetDate->month) {
+            1  => 'Jan Blogs',
+            2  => 'Feb Blogs',
+            3  => 'Mar Blogs',
+            4  => 'Apr Blogs',
+            5  => 'May Blogs',
+            6  => 'Jun Blogs',
+            7  => 'Jul Blogs',
+            8  => 'Aug Blogs',
+            9  => 'Sep Blogs',
+            10 => 'Oct Blogs',
+            11 => 'Nov Blogs',
+            12 => 'Dec Blogs',
+            default => 'Blogs',
+        };
+
         $result = $service->pushBlog(
             classNumber:    $this->classNumber,
             publicLink:     $this->publicLink,
             date:           $this->date,
             websiteName:    $followUp->website?->name ?? 'Unknown Website',
             idempotencyKey: $idempotencyKey,
+            sheetTab:       $sheetTab,
         );
 
         if ($result['success']) {

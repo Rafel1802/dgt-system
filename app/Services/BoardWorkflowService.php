@@ -20,18 +20,102 @@ class BoardWorkflowService
         $board = $card->board;
         if (!$board) return;
 
+        // If card has an incomplete checklist, do not allow any comment automation (move or copy)
+        if ($card->hasIncompleteChecklist()) {
+            \Log::info("Card #{$card->id} comment automation trigger ignored because checklist is not 100% complete.");
+            return;
+        }
+
         $isPlanning = stripos($board->name ?? '', 'planning') !== false 
             || $board->type === 'smm' 
             || !empty($board->is_active_smm) 
             || $board->is_template;
 
-        $isWorkflow = stripos($board->name ?? '', 'workflow') !== false;
+        $isWorkflow = stripos($board->name ?? '', 'workflow') !== false
+            || ($board->type ?? '') === 'workflow'
+            || stripos($board->name ?? '', 'team a') !== false
+            || stripos($board->name ?? '', 'team b') !== false
+            || stripos($board->name ?? '', 'production') !== false
+            || $board->lists()->where(function($q) {
+                $q->where('name', 'like', '%production%')
+                  ->orWhere('name', 'like', '%digital department%')
+                  ->orWhere('name', 'like', '%approved%');
+            })->exists();
+
+        $commentText = strtolower(trim($comment->content ?? $comment->body ?? ''));
+        $isProductionApprovedSmm = str_contains($commentText, 'production approved smm');
 
         if ($isPlanning) {
             $this->handlePlanningBoardComment($card, $comment);
-        } elseif ($isWorkflow) {
+        } elseif ($isWorkflow || $isProductionApprovedSmm) {
             $this->handleWorkflowBoardComment($card, $comment);
         }
+    }
+
+    /**
+     * Determine if a comment text acts as an automation trigger (built-in workflow or board automation rule) that moves or copies the card.
+     */
+    public function isAutomationComment(Card $card, string $commentText): bool
+    {
+        $text = strtolower(trim($commentText));
+        if ($text === '') {
+            return false;
+        }
+
+        // Built-in workflow triggers that move, copy, or advance cards
+        $workflowTriggers = [
+            'ready',
+            'caption ready',
+            'production approved smm',
+            'production approved',
+            'qc approved smm',
+            'qc approved',
+            'approved smm',
+            'team approved',
+            'head approved',
+            'supervisor approved',
+            'approved',
+            'blocked',
+            'reject',
+            'rejected',
+            'block',
+            'error',
+        ];
+
+        foreach ($workflowTriggers as $kw) {
+            if ($kw === 'block') {
+                if (preg_match('/\bblock\b/i', $text)) {
+                    return true;
+                }
+            } elseif ($kw === 'ready') {
+                if (preg_match('/\bready\b/i', $text)) {
+                    return true;
+                }
+            } elseif (str_contains($text, $kw)) {
+                return true;
+            }
+        }
+
+        // Check database-defined BoardAutomation rules for keyword triggers that move or copy
+        if ($card->board_id) {
+            $hasDbAutomation = \App\Models\BoardAutomation::where('board_id', $card->board_id)
+                ->whereIn('trigger_type', ['keyword', 'both'])
+                ->whereIn('action_type', ['move', 'copy'])
+                ->whereNotNull('trigger_word')
+                ->where('trigger_word', '!=', '')
+                ->get()
+                ->contains(function ($rule) use ($text) {
+                    $triggerWord = strtolower(trim($rule->trigger_word));
+                    if ($triggerWord === '') return false;
+                    return str_contains($text, $triggerWord) || preg_match('/\b' . preg_quote($triggerWord, '/') . '\b/i', $text);
+                });
+
+            if ($hasDbAutomation) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function handlePlanningBoardComment(Card $card, CardComment $newComment)
@@ -44,6 +128,12 @@ class BoardWorkflowService
 
         // 1. Ready comments (e.g. "Ready", "caption ready")
         if (str_contains($text, 'ready')) {
+            // If card has an incomplete checklist, do not copy to workflow board or move
+            if ($card->hasIncompleteChecklist()) {
+                \Log::info("Card #{$card->id} ready trigger ignored because checklist is not 100% complete.");
+                return;
+            }
+
             $assignees = $card->assignees;
             if ($isAdmin || $assignees->count() === 0 || $assignees->contains('id', $newComment->user_id)) {
                 $this->triggerPlanningToWorkflowCopy($card);
@@ -66,11 +156,37 @@ class BoardWorkflowService
             return;
         }
 
-        // 2. SMM QC Approval (e.g. "QC approved SMM", "QC approved") or Supervisor Approval ("Approved")
-        $isQcApproved = str_contains($text, 'qc approved') || str_contains($text, 'approved smm');
-        $isSupervisorApproved = str_contains($text, 'approved') && !str_contains($text, 'qc') && !str_contains($text, 'head') && !str_contains($text, 'team');
+        // 2. SMM QC / Production Approval (e.g. "Production approved SMM", "QC approved SMM", "QC approved") or Supervisor Approval ("Approved")
+        $isProductionApprovedSmm = str_contains($text, 'production approved smm');
+        $isQcApproved = str_contains($text, 'qc approved') || str_contains($text, 'approved smm') || $isProductionApprovedSmm;
+        $isSupervisorApproved = str_contains($text, 'approved') && !str_contains($text, 'qc') && !str_contains($text, 'head') && !str_contains($text, 'team') && !str_contains($text, 'production');
 
-        if (($isQcApproved && ($isAdmin || $isQcUser)) || ($isSupervisorApproved && ($isAdmin || $isSupervisorUser))) {
+        $isDara = $user && (str_contains(strtolower($user->username ?? ''), 'dara') || str_contains(strtolower($user->name ?? ''), 'dara') || in_array($user->id, [12, 24]));
+        $isKim = $user && (str_contains(strtolower($user->username ?? ''), 'kim') || str_contains(strtolower($user->name ?? ''), 'kim') || $user->id === 13);
+
+        if ($isProductionApprovedSmm && ($isAdmin || $isSupervisorUser || $isDara || $isKim || $isQcUser)) {
+            $board = $card->board;
+            if ($board) {
+                $apprList = $board->lists()->where('name', 'like', '%approved%')->first();
+                if ($apprList && $card->board_list_id !== $apprList->id) {
+                    $card->update(['board_list_id' => $apprList->id]);
+                }
+            }
+            $card->update([
+                'status' => 'approved',
+                'approved_at' => $card->approved_at ?? now(),
+            ]);
+            $actorName = $user?->name ?? 'System';
+            $leadTitle = ($isDara || $isKim) ? ($isDara ? 'Mr. Dara' : 'Mr. Kim') : 'Production Lead';
+            app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
+                $card,
+                "Card approved by {$leadTitle} ({$actorName})."
+            );
+            $this->syncListStateAcrossBoards($card, 'Approved');
+            return;
+        }
+
+        if (($isQcApproved && ($isAdmin || $isQcUser || $isDara || $isKim)) || ($isSupervisorApproved && ($isAdmin || $isSupervisorUser))) {
             $card->update([
                 'status' => 'approved',
                 'approved_at' => $card->approved_at ?? now(),
@@ -115,6 +231,11 @@ class BoardWorkflowService
 
     public function triggerPlanningToWorkflowCopy(Card $card)
     {
+        if ($card->hasIncompleteChecklist()) {
+            \Log::info("Card #{$card->id} planning to workflow copy ignored because checklist is not 100% complete.");
+            return;
+        }
+
         $planningBoard = $card->board;
         if (!$planningBoard) {
             return;
@@ -123,8 +244,7 @@ class BoardWorkflowService
         $isSmmBoard = $planningBoard->type === 'smm'
             || !empty($planningBoard->is_active_smm)
             || stripos($planningBoard->name ?? '', 'smm') !== false
-            || stripos($planningBoard->workspace?->name ?? '', 'social media') !== false
-            || ($card->relationLoaded('labels') && $card->labels->contains(fn($l) => strcasecmp($l->name, 'smm') === 0));
+            || stripos($planningBoard->workspace?->name ?? '', 'social media') !== false;
 
         // If SMM board, ensure card is distributed to the team planning board first if not already distributed
         if ($isSmmBoard) {
@@ -143,9 +263,29 @@ class BoardWorkflowService
             });
         }
 
-        $workflowBoard = $this->findWorkflowBoardForCard($card);
+        // Determine card's team ('A' or 'B')
+        $cardTeam = $card->team ?: $card->detectTeam();
+        if (!$cardTeam) {
+            $actor = auth()->user();
+            if ($actor) {
+                $cardTeam = $actor->getDigitalTeam($planningBoard->workspace_id);
+            }
+        }
+        if ($cardTeam && !$card->team) {
+            try {
+                $card->update(['team' => $cardTeam]);
+            } catch (\Throwable $e) {}
+        }
+
+        $workflowBoard = $this->findWorkflowBoardForCard($card, $cardTeam);
         if (!$workflowBoard) {
             return; // Nowhere to copy
+        }
+
+        // Hard guarantee: Team Planning Board cards can NEVER leave their workspace
+        if (!$isSmmBoard && (int)$workflowBoard->workspace_id !== (int)$planningBoard->workspace_id) {
+            \Log::warning("Aborted copying card across workspaces: Planning Board #{$planningBoard->id} (WS #{$planningBoard->workspace_id}) to Workflow Board #{$workflowBoard->id} (WS #{$workflowBoard->workspace_id})");
+            return;
         }
 
         // Find or create "Draft" list
@@ -169,6 +309,11 @@ class BoardWorkflowService
 
         // Replicate and sync (copies assignees, labels, checklists, sync_group_id)
         $copy = $card->replicateRelationally($workflowBoard->id, $draftList->id, $card->title, null, true);
+        if ($cardTeam) {
+            try {
+                $copy->update(['team' => $cardTeam]);
+            } catch (\Throwable $e) {}
+        }
         
         // Add a system comment on the source card
         app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
@@ -185,6 +330,11 @@ class BoardWorkflowService
                 'content' => "Card automatically copied from **{$planningBoard->name}** (List: {$card->boardList?->name}) by {$actorName}.",
                 'is_system' => true,
             ]);
+            app(\App\Http\Controllers\Board\CardController::class)->logCardActivity(
+                $copy,
+                'copied',
+                "copied this card from **" . ($card->boardList?->name ?? 'list') . "** on **{$planningBoard->name}** to **Draft**"
+            );
         } catch (\Throwable $e) {
             // Ignore comment error
         }
@@ -193,18 +343,25 @@ class BoardWorkflowService
     /**
      * Find the matching workflow board for a card from either a team planning board or SMM planning board.
      */
-    public function findWorkflowBoardForCard(Card $card): ?Board
+    public function findWorkflowBoardForCard(Card $card, ?string $team = null): ?Board
     {
         $planningBoard = $card->board;
         if (!$planningBoard) {
             return null;
         }
 
+        $cardTeam = $team ?: ($card->team ?: $card->detectTeam());
+        if (!$cardTeam) {
+            $actor = auth()->user();
+            if ($actor) {
+                $cardTeam = $actor->getDigitalTeam($planningBoard->workspace_id);
+            }
+        }
+
         $isSmmBoard = $planningBoard->type === 'smm'
             || !empty($planningBoard->is_active_smm)
             || stripos($planningBoard->name ?? '', 'smm') !== false
-            || stripos($planningBoard->workspace?->name ?? '', 'social media') !== false
-            || ($card->relationLoaded('labels') && $card->labels->contains(fn($l) => strcasecmp($l->name, 'smm') === 0));
+            || stripos($planningBoard->workspace?->name ?? '', 'social media') !== false;
 
         // Extract Month Year e.g. "September 2026", "August 2026", "July 2026"
         $monthYear = null;
@@ -227,6 +384,7 @@ class BoardWorkflowService
                            ->where('name', 'not like', '%smm%')
                            ->where('name', 'not like', '%Workflow%');
                     })
+                    ->with('board.workspace')
                     ->first();
                 if ($teamTwin && $teamTwin->board && $teamTwin->board->workspace) {
                     $targetWorkspace = $teamTwin->board->workspace;
@@ -265,92 +423,108 @@ class BoardWorkflowService
                 }
             }
 
-            // 3. Find Workflow board in the target workspace
-            if ($targetWorkspace && $targetWorkspace->boards->isNotEmpty()) {
-                if ($monthYear) {
-                    $matched = $targetWorkspace->boards->first(function ($board) use ($monthYear) {
-                        return !$board->is_archived
-                            && (stripos($board->name, 'Workflow') !== false || $board->type === 'workflow')
-                            && stripos($board->name, $monthYear) !== false;
-                    });
-                    if ($matched) return $matched;
-                }
-
-                if ($monthName) {
-                    $matched = $targetWorkspace->boards->first(function ($board) use ($monthName) {
-                        return !$board->is_archived
-                            && (stripos($board->name, 'Workflow') !== false || $board->type === 'workflow')
-                            && stripos($board->name, $monthName) !== false;
-                    });
-                    if ($matched) return $matched;
-                }
-
-                $workflowBoard = $targetWorkspace->boards->first(function ($board) {
-                    return !$board->is_archived && (stripos($board->name, 'Workflow') !== false || $board->type === 'workflow');
-                });
-                if ($workflowBoard) return $workflowBoard;
+            if (!$targetWorkspace) {
+                $targetWorkspace = Workspace::where(function($q) {
+                    $q->where('name', 'like', '%Digital Department%')
+                      ->orWhere('name', 'like', '%KiuQ%');
+                })->first();
             }
 
-            // 4. Fallback across all workspaces (exclude SMM)
-            $workflowQuery = Board::whereHas('workspace', function ($wq) {
-                $wq->where('name', 'not like', '%social media%')
-                   ->where('name', 'not like', '%smm%');
-            })->where(function ($bq) {
-                $bq->where('name', 'like', '%Workflow%')
-                   ->orWhere('type', 'workflow');
-            });
+            // 3. Find Workflow board strictly in the target workspace
+            if ($targetWorkspace) {
+                $wsBoards = $targetWorkspace->boards()->where('is_archived', false)->get();
+                if ($wsBoards->isNotEmpty()) {
+                    if ($cardTeam) {
+                        $teamKey = 'team ' . strtolower($cardTeam);
+                        $matched = $wsBoards->first(function ($board) use ($teamKey, $monthYear) {
+                            $isWf = stripos($board->name, 'Workflow') !== false || $board->type === 'workflow';
+                            if (!$isWf || !str_contains(strtolower($board->name), $teamKey)) return false;
+                            if ($monthYear) return stripos($board->name, $monthYear) !== false;
+                            return true;
+                        });
+                        if ($matched) return $matched;
+                    }
+
+                    if ($monthYear) {
+                        $matched = $wsBoards->first(function ($board) use ($monthYear) {
+                            return (stripos($board->name, 'Workflow') !== false || $board->type === 'workflow')
+                                && stripos($board->name, $monthYear) !== false;
+                        });
+                        if ($matched) return $matched;
+                    }
+
+                    if ($monthName) {
+                        $matched = $wsBoards->first(function ($board) use ($monthName) {
+                            return (stripos($board->name, 'Workflow') !== false || $board->type === 'workflow')
+                                && stripos($board->name, $monthName) !== false;
+                        });
+                        if ($matched) return $matched;
+                    }
+
+                    $workflowBoard = $wsBoards->first(function ($board) {
+                        return stripos($board->name, 'Workflow') !== false || $board->type === 'workflow';
+                    });
+                    if ($workflowBoard) return $workflowBoard;
+                }
+            }
+
+            // Do NOT fall back across all workspaces — that risks dumping cards into other teams' workflow boards!
+            return null;
+        }
+
+        // Standard Team Planning Board (Workflow board is strictly in the SAME workspace)
+        $wsBoards = Board::where('workspace_id', $planningBoard->workspace_id)
+            ->where('is_archived', false)
+            ->where(function ($q) {
+                $q->where('name', 'like', '%Workflow%')
+                  ->orWhere('type', 'workflow');
+            })
+            ->get();
+
+        // If card belongs to Team A or Team B, prioritize matching that specific Team Workflow Board
+        if ($cardTeam === 'A' || $cardTeam === 'B') {
+            $teamKey = 'team ' . strtolower($cardTeam);
+            $teamAlt = 'team' . strtolower($cardTeam);
 
             if ($monthYear) {
-                $monthMatch = (clone $workflowQuery)->where('name', 'like', "%{$monthYear}%")->first();
-                if ($monthMatch) return $monthMatch;
+                $matched = $wsBoards->first(function ($b) use ($teamKey, $teamAlt, $monthYear) {
+                    $bn = strtolower($b->name);
+                    return (str_contains($bn, $teamKey) || str_contains($bn, $teamAlt)) && stripos($b->name, $monthYear) !== false;
+                });
+                if ($matched) return $matched;
             }
 
-            return $workflowQuery->first();
+            if ($monthName) {
+                $matched = $wsBoards->first(function ($b) use ($teamKey, $teamAlt, $monthName) {
+                    $bn = strtolower($b->name);
+                    return (str_contains($bn, $teamKey) || str_contains($bn, $teamAlt)) && stripos($b->name, $monthName) !== false;
+                });
+                if ($matched) return $matched;
+            }
+
+            $matched = $wsBoards->first(function ($b) use ($teamKey, $teamAlt) {
+                $bn = strtolower($b->name);
+                return str_contains($bn, $teamKey) || str_contains($bn, $teamAlt);
+            });
+            if ($matched) return $matched;
         }
 
-        // Standard Team Planning Board (Workflow board is in the same workspace)
-        $workflowBoard = null;
+        // Fallback: match by Month/Year
         if ($monthYear) {
-            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
-                ->where(function ($q) {
-                    $q->where('name', 'like', '%Workflow%')
-                      ->orWhere('type', 'workflow');
-                })
-                ->where('name', 'like', '%' . $monthYear . '%')
-                ->first();
+            $matched = $wsBoards->first(fn($b) => stripos($b->name, $monthYear) !== false);
+            if ($matched) return $matched;
         }
 
-        if (!$workflowBoard && $monthName) {
-            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
-                ->where(function ($q) {
-                    $q->where('name', 'like', '%Workflow%')
-                      ->orWhere('type', 'workflow');
-                })
-                ->where('name', 'like', '%' . $monthName . '%')
-                ->first();
+        if ($monthName) {
+            $matched = $wsBoards->first(fn($b) => stripos($b->name, $monthName) !== false);
+            if ($matched) return $matched;
         }
 
-        if (!$workflowBoard) {
-            $suffix = trim(str_ireplace(['Planning board', 'Planning'], '', $planningBoard->name ?? ''));
-            if ($suffix) {
-                $workflowBoardName = trim("Workflow board " . $suffix);
-                $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
-                    ->where('name', $workflowBoardName)
-                    ->first();
-            }
+        if ($wsBoards->isNotEmpty()) {
+            return $wsBoards->sortByDesc('created_at')->first();
         }
 
-        if (!$workflowBoard) {
-            $workflowBoard = Board::where('workspace_id', $planningBoard->workspace_id)
-                ->where(function ($q) {
-                    $q->where('name', 'like', '%Workflow%')
-                      ->orWhere('type', 'workflow');
-                })
-                ->latest()
-                ->first();
-        }
-
-        return $workflowBoard;
+        return null;
     }
 
     private function handleWorkflowBoardComment(Card $card, CardComment $newComment)
@@ -359,57 +533,134 @@ class BoardWorkflowService
         $user = $newComment->user ?? \App\Models\User::find($newComment->user_id);
         if (!$user) return;
         $role = strtolower(trim($user->team_role ?? ''));
-        $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || $user->isSupervisorRole();
-        $isQcUser = $isAdmin || $user->isQc() || $user->hasRole('qc') || str_contains($role, 'qc') || stripos($user->name ?? '', 'dara') !== false;
-        $isSupervisorUser = $isAdmin || $user->isSupervisorRole() || $user->hasRole('supervisor') || str_contains($role, 'supervisor');
+        $username = strtolower(trim($user->username ?? ''));
+        $name = strtolower(trim($user->name ?? ''));
+        $board = $card->board;
+        $boardName = strtolower($board?->name ?? '');
 
-        // 0. Supervisor Blocked / Rejected rule (applies across ALL lists on workflow boards)
-        if ((str_contains($text, 'blocked') || str_contains($text, 'reject') || $text === 'block') && $isSupervisorUser) {
-            $this->moveCardToList($card, 'Block/Waiting', "Blocked by Supervisor ({$user->name})", 'Block/Waiting');
+        $isAdmin = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin']) || $user->isSupervisorRole();
+        $isDara = str_contains($username, 'dara') || str_contains($name, 'dara') || in_array($user->id, [12, 24]);
+        $isKim = str_contains($username, 'kim') || str_contains($name, 'kim') || $user->id === 13;
+        $isQcUser = $isAdmin || ($user && ($user->isQc() || $user->hasRole('qc') || stripos($role, 'qc') !== false || stripos($name, 'dara') !== false || stripos($name, 'kim') !== false));
+        $isProductionLead = $isAdmin || $isDara || $isKim || str_contains($role, 'production') || str_contains($role, 'qc') || str_contains($role, 'head');
+        $isSupervisorUser = $isAdmin || $user->isSupervisorRole() || $user->hasRole('supervisor') || str_contains($role, 'supervisor');
+        $isDigitalDepartment = $isAdmin || $isSupervisorUser || $user->hasRole('digital-team') || in_array($user->id, [1, 2, 5, 12, 13, 24]);
+
+        // 0. Blocked / Rejected rule (applies across ALL lists on workflow boards)
+        // Allow BOTH production team leads (Dara for Team A, Kim for Team B, production users) AND supervisor to comment Blocked!
+        if ((str_contains($text, 'blocked') || str_contains($text, 'reject') || $text === 'block') && ($isProductionLead || $isSupervisorUser)) {
+            $actorTitle = $isSupervisorUser ? 'Supervisor' : 'Production Team';
+            $this->moveCardToList($card, 'Block', "Blocked by {$actorTitle} ({$user->name})", 'Blocked/Waiting');
             return;
         }
 
         $currentList = strtolower(trim($card->boardList->name ?? ''));
+        $isProductionList = str_contains($currentList, 'production') || str_contains($currentList, 'head') || str_contains($currentList, 'qc');
+        $isDigitalDeptList = str_contains($currentList, 'digital department') || str_contains($currentList, 'supervisor');
 
-        // 1. Draft -> Head Review (Team approved)
+        // 1. Draft -> Production Team list (keyword: "team approved")
         if (str_contains($currentList, 'draft') && str_contains($text, 'team approved')) {
-            if ($isAdmin || $card->assignees->count() === 0 || $card->assignees->contains('id', $user->id)) {
-                $this->moveCardToList($card, 'Head Review', "Team approved by {$user->name}");
+            $targetName = 'Production Team';
+            if ($board) {
+                $prodList = $board->lists()->where(function($q) {
+                    $q->where('name', 'like', '%production%')
+                      ->orWhere('name', 'like', '%head%')
+                      ->orWhere('name', 'like', '%qc%');
+                })->first();
+                if ($prodList) {
+                    $targetName = $prodList->name;
+                } elseif (str_contains($boardName, 'team b')) {
+                    $targetName = 'Production Team B';
+                } elseif (str_contains($boardName, 'team a')) {
+                    $targetName = 'Production Team A';
+                }
+            }
+            $this->moveCardToList($card, $targetName, "Team approved by {$user->name}", $targetName);
+            return;
+        }
+
+        // 1.2. Head Review -> QC Review (keyword: "head approved")
+        if (str_contains($currentList, 'head') && !str_contains($currentList, 'qc') && str_contains($text, 'head approved')) {
+            $qcList = $board?->lists()->where(function($q) {
+                $q->where('name', 'like', '%qc%')->orWhere('name', 'like', '%text%');
+            })->first();
+            if ($qcList) {
+                $this->moveCardToList($card, $qcList->name, "Head approved by {$user->name}", $qcList->name);
+                return;
+            }
+        }
+
+        // 1.5. Production approved SMM -> Approved list (Can be triggered by Dara, Kim, Admin, Supervisor, QC, or Production lead from any list)
+        if (str_contains($text, 'production approved smm')) {
+            $canApprove = $isAdmin || $isSupervisorUser || $isDara || $isKim || $isProductionLead || $isQcUser;
+            if ($canApprove) {
+                $targetName = 'Approved';
+                if ($board) {
+                    $apprList = $board->lists()->where(function($q) {
+                        $q->where('name', 'Approved')
+                          ->orWhere('name', 'like', '%approved%');
+                    })->first();
+                    if ($apprList) {
+                        $targetName = $apprList->name;
+                    }
+                }
+                $leadTitle = ($isDara || $isKim) ? ($isDara ? 'Mr. Dara' : 'Mr. Kim') : 'Production Lead';
+                $this->moveCardToList($card, $targetName, "Production approved SMM by {$leadTitle} ({$user->name})", $targetName);
+                return;
             }
         }
         
-        // 2. Head Review -> QC Review (Head Approved)
-        elseif (str_contains($currentList, 'head review') && str_contains($text, 'head approved')) {
-            if ($isAdmin || str_contains($role, 'head')) {
-                $this->moveCardToList($card, 'QC', "Head Approved by {$user->name}", 'Text (QC) Review (Mr. Dara)');
+        // 2. Production Team list -> Digital Department list (when Dara or Kim comments "production approved", backward-compatible: "head approved", "qc approved")
+        elseif ($isProductionList && !str_contains($text, 'production approved smm') && (str_contains($text, 'production approved') || str_contains($text, 'head approved') || str_contains($text, 'qc approved') || str_contains($text, 'approved smm'))) {
+            $canApprove = $isAdmin || $isSupervisorUser || $isDara || $isKim || $isProductionLead;
+
+            if ($canApprove) {
+                $targetName = 'Digital Department';
+                if ($board) {
+                    $ddList = $board->lists()->where(function($q) {
+                        $q->where('name', 'like', '%digital department%')
+                          ->orWhere('name', 'like', '%supervisor%');
+                    })->first();
+                    if ($ddList) {
+                        $targetName = $ddList->name;
+                    }
+                }
+                $this->moveCardToList($card, $targetName, "Production Approved by {$user->name}", $targetName);
+                return;
             }
         }
 
-        // 3. QC Review rules
-        elseif (str_contains($currentList, 'qc')) {
-            if ($isQcUser) {
-                if (str_contains($text, 'qc approved') || str_contains($text, 'approved smm')) {
-                    $this->moveCardToList($card, 'Supervisor', "QC Approved by {$user->name}", 'Supervisor Review (Ms. Somalika)');
-                } elseif (str_contains($text, 'error')) {
-                    $this->moveCardToList($card, 'Draft', "Error reported by QC ({$user->name})", 'Draft');
-                }
+        // 3. Error in Production Team -> Draft
+        elseif ($isProductionList && str_contains($text, 'error')) {
+            if ($isProductionLead || $isAdmin || $isSupervisorUser) {
+                $this->moveCardToList($card, 'Draft', "Error reported by Production Team ({$user->name})", 'Draft');
+                return;
             }
         }
 
-        // 4. Supervisor rules
-        elseif (str_contains($currentList, 'supervisor')) {
-            if ($isSupervisorUser) {
-                if (str_contains($text, 'approved') && !str_contains($text, 'qc') && !str_contains($text, 'head') && !str_contains($text, 'team')) {
-                    $this->moveCardToList($card, 'Approved', "Approved by Supervisor ({$user->name})", 'Approved');
-                } elseif (str_contains($text, 'rejected') || str_contains($text, 'blocked') || str_contains($text, 'block')) {
-                    $this->moveCardToList($card, 'Block/Waiting', "Rejected by Supervisor ({$user->name})", 'Block/Waiting');
+        // 4. Digital Department list or Production Team list -> Approved list (keyword: "approved" or "supervisor approved")
+        elseif (($isDigitalDeptList || $isProductionList) && str_contains($text, 'approved') && !str_contains($text, 'production') && !str_contains($text, 'head') && !str_contains($text, 'team') && !str_contains($text, 'qc')) {
+            if ($isSupervisorUser || $isDigitalDepartment || $isAdmin) {
+                $targetName = 'Approved';
+                if ($board) {
+                    $apprList = $board->lists()->where('name', 'like', '%approved%')->first();
+                    if ($apprList) {
+                        $targetName = $apprList->name;
+                    }
                 }
+                $this->moveCardToList($card, $targetName, "Approved by {$user->name}", $targetName);
+                return;
             }
         }
     }
 
     private function moveCardToList(Card $card, string $searchStr, string $reason, ?string $createName = null)
     {
+        if ($card->hasIncompleteChecklist()) {
+            \Log::info("Card #{$card->id} move to list ignored because checklist is not 100% complete.");
+            return;
+        }
+
         $createName = $createName ?? $searchStr;
         $board = $card->board;
         if (!$board) return;
@@ -420,8 +671,18 @@ class BoardWorkflowService
                 $q->where('name', 'like', '%block%')
                   ->orWhere('name', 'like', '%waiting%');
             })->first();
+        } elseif (str_contains(strtolower($searchStr), 'approved')) {
+            $targetList = $board->lists()->where(function($q) {
+                $q->where('name', 'Approved')
+                  ->orWhere('name', 'like', '%approved%');
+            })->first();
         } else {
-            $targetList = $board->lists()->where('name', 'like', "%{$searchStr}%")->first();
+            $targetList = $board->lists()->where(function($q) use ($searchStr, $createName) {
+                $q->where('name', $searchStr)
+                  ->orWhere('name', $createName)
+                  ->orWhere('name', 'like', "%{$searchStr}%")
+                  ->orWhere('name', 'like', "%{$createName}%");
+            })->first();
         }
         
         if (!$targetList) {
@@ -431,7 +692,18 @@ class BoardWorkflowService
             ]);
         }
 
-        $card->update(['board_list_id' => $targetList->id]);
+        // Shift existing cards in the target list down to place moved card at position 0
+        \App\Models\Card::where('board_list_id', $targetList->id)
+            ->where('id', '!=', $card->id)
+            ->increment('position');
+
+        $card->update([
+            'board_id' => $board->id,
+            'board_list_id' => $targetList->id,
+            'position' => 0,
+        ]);
+        $card->unsetRelation('board');
+        $card->unsetRelation('boardList');
         
         app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
             $card,
@@ -441,7 +713,7 @@ class BoardWorkflowService
         // Also trigger the cross-board list sync if it's Block/Waiting or Approved
         if (str_contains(strtolower($createName), 'block')) {
             $this->syncListStateAcrossBoards($card, 'Block/Waiting');
-        } elseif (str_contains(strtolower($createName), 'approved')) {
+        } elseif (str_contains(strtolower($createName), 'approved') || str_contains(strtolower($targetList->name), 'approved')) {
             $card->update([
                 'status' => 'approved',
                 'approved_at' => $card->approved_at ?? now()
@@ -651,14 +923,13 @@ class BoardWorkflowService
             return null;
         }
 
-        // 1. Verify this is an SMM card or SMM board
+        // 1. Verify this is strictly an SMM board (never distribute from a team board)
         $isSmm = $sourceBoard->type === 'smm'
             || !empty($sourceBoard->is_active_smm)
             || stripos($sourceBoard->name ?? '', 'smm') !== false
-            || stripos($sourceBoard->workspace?->name ?? '', 'social media') !== false
-            || $card->labels->contains(fn($l) => strcasecmp($l->name, 'smm') === 0);
+            || stripos($sourceBoard->workspace?->name ?? '', 'social media') !== false;
 
-        // If not SMM board and card is not tagged as SMM, do nothing
+        // If not SMM board, do nothing
         if (!$isSmm) {
             return null;
         }
@@ -666,7 +937,7 @@ class BoardWorkflowService
         // 2. Resolve team label
         $resolvedLabel = $this->resolveSmmTeamLabel($card, $teamLabel);
 
-        if (empty($resolvedLabel)) {
+        if (empty($resolvedLabel) || $resolvedLabel === 'SMM') {
             return null;
         }
 
@@ -678,26 +949,24 @@ class BoardWorkflowService
             });
         }
 
-        // Ensure matching Label model exists and is attached to this card
+        // Ensure matching canonical global label exists and is attached to this card
         try {
-            $teamLabelModel = Label::firstOrCreate(
-                ['name' => $resolvedLabel, 'workspace_id' => null, 'board_id' => null],
-                ['color' => $this->getSmmTeamColor($resolvedLabel)]
-            );
-            if (!$card->labels->contains('id', $teamLabelModel->id)) {
-                $card->labels()->syncWithoutDetaching([$teamLabelModel->id]);
-            }
+            $canonicalLabelName = match ($resolvedLabel) {
+                'Graphic Team', 'Graphic'         => 'Graphic',
+                'Video Team', 'Video'             => 'Video',
+                'Listing Team', 'Listing'         => 'Listing',
+                'Content Writing Team', 'Content' => 'Content',
+                'SMM'                             => 'SMM',
+                default                           => null,
+            };
 
-            // Ensure Content Writing Team and Listing Team labels do not conflict
-            if ($resolvedLabel === 'Content Writing Team') {
-                $listingLabel = Label::where('name', 'Listing Team')->first();
-                if ($listingLabel && $card->labels->contains('id', $listingLabel->id)) {
-                    $card->labels()->detach($listingLabel->id);
-                }
-            } elseif ($resolvedLabel === 'Listing Team') {
-                $cwLabel = Label::where('name', 'Content Writing Team')->first();
-                if ($cwLabel && $card->labels->contains('id', $cwLabel->id)) {
-                    $card->labels()->detach($cwLabel->id);
+            if ($canonicalLabelName) {
+                $teamLabelModel = Label::firstOrCreate(
+                    ['name' => $canonicalLabelName, 'workspace_id' => null, 'board_id' => null],
+                    ['color' => $this->getSmmTeamColor($canonicalLabelName)]
+                );
+                if (!$card->labels->contains('id', $teamLabelModel->id)) {
+                    $card->labels()->syncWithoutDetaching([$teamLabelModel->id]);
                 }
             }
         } catch (\Throwable $e) {
@@ -709,72 +978,128 @@ class BoardWorkflowService
             $workspaces = Workspace::with(['boards.lists'])->get();
         }
 
-        // 4. Find matching target workspace
-        $clean = fn(string $s) => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $s));
-        $normLabel = $clean($resolvedLabel);
-        $targetWorkspace = null;
-
-        foreach ($workspaces as $workspace) {
-            // Skip the source workspace or SMM/Social Media workspace
-            if ($workspace->id === $sourceBoard->workspace_id) {
-                continue;
-            }
-            if (stripos($workspace->name, 'social media') !== false || stripos($workspace->name, 'smm') !== false) {
-                continue;
-            }
-
-            $normWs = $clean($workspace->name);
-
-            // Direct substring match
-            if (!empty($normLabel) && (str_contains($normWs, $normLabel) || str_contains($normLabel, $normWs))) {
-                $targetWorkspace = $workspace;
-                break;
-            }
-
-            // Keyword matching
-            $keywords = ['graphic', 'video', 'listing', 'content', 'qc', 'technical', 'writer', 'design'];
-            foreach ($keywords as $kw) {
-                if (str_contains($normLabel, $kw) && str_contains($normWs, $kw)) {
-                    $targetWorkspace = $workspace;
-                    break 2;
-                }
-            }
-        }
-
-        if (!$targetWorkspace || $targetWorkspace->boards->isEmpty()) {
-            return null;
-        }
-
-        // 5. Match Month/Year Planning Board in target workspace
         $mainBoardName = $sourceBoard->name ?? '';
         $monthYear = '';
         if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/i', $mainBoardName, $matches)) {
             $monthYear = $matches[0];
         }
 
-        $teamBoard = $targetWorkspace->boards->first(function ($board) use ($monthYear) {
-            if ($board->is_archived) return false;
-            $isPlanning = stripos($board->name, 'Planning') !== false;
-            if ($monthYear) {
-                return $isPlanning && stripos($board->name, $monthYear) !== false;
-            }
-            return $isPlanning;
+        $teamBoard = null;
+
+        // 4. Check in primary "Digital Department @ KiuQ" workspace first
+        $digitalWs = $workspaces->first(function ($ws) {
+            $n = strtolower($ws->name ?? '');
+            return str_contains($n, 'digital department') || str_contains($n, 'kiuq');
         });
 
-        if (!$teamBoard) {
-            $teamBoard = $targetWorkspace->boards->first(function ($board) {
-                return !$board->is_archived && stripos($board->name, 'Planning') !== false;
-            });
+        if ($digitalWs) {
+            // Priority: Check if unified Planning Board exists (e.g. Planning Board@KiuQ – October 2026)
+            if ($monthYear) {
+                $teamBoard = $digitalWs->boards->first(function ($b) use ($monthYear) {
+                    if ($b->is_archived) return false;
+                    $bn = strtolower($b->name);
+                    return str_contains($bn, 'planning') && str_contains($bn, 'kiuq') && !str_contains($bn, 'video') && !str_contains($bn, 'graphic') && !str_contains($bn, 'listing') && !str_contains($bn, 'content') && stripos($b->name, $monthYear) !== false;
+                });
+            }
+            if (!$teamBoard) {
+                $teamBoard = $digitalWs->boards->first(function ($b) {
+                    if ($b->is_archived) return false;
+                    $bn = strtolower($b->name);
+                    return str_contains($bn, 'planning') && str_contains($bn, 'kiuq') && !str_contains($bn, 'video') && !str_contains($bn, 'graphic') && !str_contains($bn, 'listing') && !str_contains($bn, 'content');
+                });
+            }
+
+            // Fallback: Legacy per-category boards
+            if (!$teamBoard) {
+                $boardKeyword = match ($resolvedLabel) {
+                    'Video Team'           => 'video',
+                    'Graphic Team'         => 'graphic',
+                    'Listing Team'         => 'listing',
+                    'Content Writing Team' => 'content',
+                    default                => null
+                };
+
+                if ($boardKeyword) {
+                    // Try monthYear + keyword e.g. VideoPlanningBoard@KiuQ - October 2026
+                    if ($monthYear) {
+                        $teamBoard = $digitalWs->boards->first(function ($b) use ($boardKeyword, $monthYear) {
+                            if ($b->is_archived) return false;
+                            $bn = strtolower($b->name);
+                            return str_contains($bn, $boardKeyword) && str_contains($bn, 'planning') && stripos($b->name, $monthYear) !== false;
+                        });
+                    }
+                    // Try matching VideoPlanningBoard@KiuQ without month restriction
+                    if (!$teamBoard) {
+                        $teamBoard = $digitalWs->boards->first(function ($b) use ($boardKeyword) {
+                            if ($b->is_archived) return false;
+                            $bn = strtolower($b->name);
+                            return str_contains($bn, $boardKeyword) && (str_contains($bn, 'planning') || str_contains($bn, '@kiuq'));
+                        });
+                    }
+                }
+            }
         }
 
+        // 5. Fallback: match by team workspace
         if (!$teamBoard) {
-            $teamBoard = $targetWorkspace->boards->first(function ($board) {
-                return !$board->is_archived && stripos($board->name, 'Workflow') === false;
-            });
+            $clean = fn(string $s) => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $s));
+            $normLabel = $clean($resolvedLabel);
+            $targetWorkspace = null;
+
+            foreach ($workspaces as $workspace) {
+                if ($workspace->id === $sourceBoard->workspace_id) {
+                    continue;
+                }
+                if (stripos($workspace->name, 'social media') !== false || stripos($workspace->name, 'smm') !== false) {
+                    continue;
+                }
+
+                $normWs = $clean($workspace->name);
+
+                if (!empty($normLabel) && (str_contains($normWs, $normLabel) || str_contains($normLabel, $normWs))) {
+                    $targetWorkspace = $workspace;
+                    break;
+                }
+
+                $keywords = ['graphic', 'video', 'listing', 'content', 'qc', 'technical', 'writer', 'design'];
+                foreach ($keywords as $kw) {
+                    if (str_contains($normLabel, $kw) && str_contains($normWs, $kw)) {
+                        $targetWorkspace = $workspace;
+                        break 2;
+                    }
+                }
+            }
+
+            if ($targetWorkspace && $targetWorkspace->boards->isNotEmpty()) {
+                $teamBoard = $targetWorkspace->boards->first(function ($board) use ($monthYear) {
+                    if ($board->is_archived) return false;
+                    $isPlanning = stripos($board->name, 'Planning') !== false;
+                    if ($monthYear) {
+                        return $isPlanning && stripos($board->name, $monthYear) !== false;
+                    }
+                    return $isPlanning;
+                });
+
+                if (!$teamBoard) {
+                    $teamBoard = $targetWorkspace->boards->first(function ($board) {
+                        return !$board->is_archived && stripos($board->name, 'Planning') !== false;
+                    });
+                }
+
+                if (!$teamBoard) {
+                    $teamBoard = $targetWorkspace->boards->first(function ($board) {
+                        return !$board->is_archived && stripos($board->name, 'Workflow') === false;
+                    });
+                }
+
+                if (!$teamBoard) {
+                    $teamBoard = $targetWorkspace->boards->first(fn($b) => !$b->is_archived) ?? $targetWorkspace->boards->first();
+                }
+            }
         }
 
-        if (!$teamBoard) {
-            $teamBoard = $targetWorkspace->boards->first(fn($b) => !$b->is_archived) ?? $targetWorkspace->boards->first();
+        if ($teamBoard) {
+            $teamBoard->loadMissing('lists');
         }
 
         if (!$teamBoard || $teamBoard->lists->isEmpty()) {
@@ -832,6 +1157,13 @@ class BoardWorkflowService
         // 9. Replicate relationally
         $clone = $card->replicateRelationally($teamBoard->id, $teamList->id);
         $clone->update(['status' => 'todo']);
+
+        // Explicitly detect and persist team ('A' or 'B') on both cards so team filtering works instantly
+        $cardTeam = $card->team ?: $card->detectTeam();
+        if ($cardTeam) {
+            $card->update(['team' => $cardTeam]);
+            $clone->update(['team' => $cardTeam]);
+        }
 
         // 10. System comments and notifications
         $actor = auth()->user();
@@ -982,6 +1314,9 @@ class BoardWorkflowService
         if (str_contains($clean, 'content') || str_contains($clean, 'writing') || str_contains($clean, 'writer') || str_contains($clean, 'blog') || str_contains($clean, 'article') || str_contains($clean, 'copywrit')) {
             return 'Content Writing Team';
         }
+        if (str_contains($clean, 'smm') || $clean === 'smm') {
+            return 'SMM';
+        }
 
         return null;
     }
@@ -1000,12 +1335,12 @@ class BoardWorkflowService
     public function getSmmTeamColor(string $teamName): string
     {
         return match ($this->normalizeSmmTeamName($teamName)) {
-            'Graphic Team'         => '#0284c7',
-            'Video Team'           => '#ef4444',
-            'Content Writing Team' => '#0ea5e9',
-            'Listing Team'         => '#f59e0b',
-            'QC Team'              => '#8b5cf6',
-            default                => '#f43f5e',
+            'Graphic Team', 'Graphic'         => '#f43f5e',
+            'Video Team', 'Video'             => '#f43f5e',
+            'Content Writing Team', 'Content' => '#0ea5e9',
+            'Listing Team', 'Listing'         => '#f59e0b',
+            'SMM'                             => '#50C878',
+            default                           => '#f43f5e',
         };
     }
 }

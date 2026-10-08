@@ -3,7 +3,9 @@
 @section('title', 'Sign In')
 
 @section('content')
-@php($appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favicon.svg') : asset('favicon.svg'))
+@php
+    $appIcon = file_exists(public_path('storage/favicon.svg')) ? asset('storage/favicon.svg') : asset('favicon.svg');
+@endphp
 <style>
     .login-shell {
         --login-bg: url("{{ asset('bg-light.webp') }}");
@@ -419,6 +421,35 @@
         </span>
     </div>
 
+    <!-- Company Brand & Logo on Top Left (Customizable in Settings) -->
+    @php
+        $companyName = \App\Models\Setting::get('company_name', 'KiuQ Digital Media');
+        $companyLogoUrl = \App\Models\Setting::get('company_logo_url', asset('images/kiuqlogo.webp'));
+        $companyTagline = \App\Models\Setting::get('company_tagline', 'Digital Media System');
+        $appIcon = $appIcon ?? (file_exists(public_path('storage/favicon.svg')) ? asset('storage/favicon.svg') : asset('favicon.svg'));
+    @endphp
+    <div class="absolute left-5 top-5 z-50 sm:left-8 sm:top-8 flex items-center">
+        <a href="{{ route('home') }}" class="flex items-center gap-3 group px-3.5 py-2 rounded-2xl bg-slate-900/50 backdrop-blur-md border border-white/10 hover:border-sky-400/40 shadow-xl hover:shadow-cyan-500/10 transition-all">
+            @if(!empty($companyLogoUrl))
+                <img src="{{ $companyLogoUrl }}" alt="{{ $companyName }}" class="h-9 w-auto max-h-9 max-w-[130px] rounded-lg object-contain drop-shadow-md">
+            @else
+                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/20 border border-sky-400/40 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.3)] backdrop-blur-md">
+                    <img src="{{ $appIcon }}" alt="Logo" class="h-5 w-5 object-contain">
+                </div>
+            @endif
+            <div class="flex flex-col pr-1">
+                <span class="font-display text-sm font-extrabold tracking-wide text-white group-hover:text-cyan-300 transition-colors drop-shadow-sm leading-tight">
+                    {{ $companyName }}
+                </span>
+                @if(!empty($companyTagline))
+                    <span class="text-[10px] font-bold tracking-wider uppercase text-cyan-200/80 leading-tight mt-0.5">
+                        {{ $companyTagline }}
+                    </span>
+                @endif
+            </div>
+        </a>
+    </div>
+
     <section class="relative z-10 grid w-full max-w-7xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(390px,520px)] xl:gap-14">
         <div class="hidden min-h-[640px] flex-col justify-end pb-14 lg:flex">
             <div class="max-w-2xl">
@@ -428,7 +459,7 @@
                 </div>
 
                 <h1 class="mt-8 max-w-3xl font-display text-5xl font-black leading-[1.04] tracking-normal text-white xl:text-6xl">
-                    Digital Team Command Center.
+                    Digital Media System
                 </h1>
                 <p class="mt-5 max-w-xl text-lg font-semibold leading-8 text-sky-100/82">
                     A focused workspace for boards, approvals, websites, social media management, and team operations.
@@ -621,10 +652,6 @@
             <div class="mt-6 text-center text-xs font-semibold leading-6 text-sky-100/70">
                 <div class="flex items-center justify-center gap-3 text-sky-200/80 mb-2">
                     <a href="{{ route('home') }}" class="hover:text-cyan-300 transition-colors">Home</a>
-                    <span>&bull;</span>
-                    <a href="{{ route('privacy-policy') }}" class="hover:text-cyan-300 transition-colors">Privacy Policy</a>
-                    <span>&bull;</span>
-                    <a href="{{ route('terms-of-service') }}" class="hover:text-cyan-300 transition-colors">Terms of Service</a>
                 </div>
                 <p>&copy; {{ date('Y') }} <a href="https://kiuq.com" class="font-bold text-white hover:text-cyan-300 transition-colors">KIUQ.COM</a>. All rights reserved.</p>
             </div>

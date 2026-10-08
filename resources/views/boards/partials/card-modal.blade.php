@@ -1,8 +1,87 @@
 {{-- Upgraded Card Detail Modal (Phase 2 Trello features) --}}
+<style>
+  .cl-review { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .cl-review-wrap { position: relative; display: inline-flex; align-items: center; }
+  .cl-review-box {
+    width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;
+    border: 1.5px solid; background: #fff; padding: 0; line-height: 1;
+    transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease, opacity .15s ease, border-color .15s ease;
+  }
+  .cl-review-box svg { width: 12px; height: 12px; opacity: 0; transform: scale(.5); transition: all .15s ease; }
+  .cl-review-box.is-clickable { cursor: pointer; }
+  .cl-review-box.is-clickable:hover { transform: scale(1.12); }
+  .cl-review-box.is-readonly { cursor: default; }
+  .cl-review-box.is-idle { opacity: .7; }
+  .cl-review-box.is-idle.is-clickable:hover { opacity: 1; }
+
+  .cl-review-box.mark { border-color: #34d399; color: #059669; }
+  .cl-review-box.mark.is-idle:hover { border-color: #059669; background: #ecfdf5; }
+  .cl-review-box.mark.is-idle:hover svg { opacity: .65; color: #059669; transform: scale(0.9); }
+  .cl-review-box.mark.is-on { background: linear-gradient(135deg, #10b981, #059669); border-color: #059669; color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,.4); }
+
+  .cl-review-box.issue { border-color: #fca5a5; color: #dc2626; }
+  .cl-review-box.issue.is-idle:hover { border-color: #dc2626; background: #fef2f2; }
+  .cl-review-box.issue.is-idle:hover svg { opacity: .65; color: #dc2626; transform: scale(0.9); }
+  .cl-review-box.issue.is-on { background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #dc2626; color: #fff; box-shadow: 0 2px 8px rgba(239,68,68,.4); }
+
+  .cl-review-box.is-on svg { opacity: 1; transform: scale(1); color: #fff; }
+
+  /* Fast, pretty custom popup tooltip for review buttons */
+  .cl-tip {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) translateY(3px);
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: .02em;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    z-index: 100;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.35), 0 1px 3px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    transition: opacity 0.12s ease-out, transform 0.12s ease-out, visibility 0.12s;
+  }
+  .cl-tip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 4px;
+    border-style: solid;
+    border-color: #0f172a transparent transparent transparent;
+  }
+  .cl-review-wrap:hover .cl-tip,
+  .cl-review-wrap:focus-within .cl-tip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+  [data-theme="dark"] .cl-tip {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+  [data-theme="dark"] .cl-tip::after {
+    border-color: #1e293b transparent transparent transparent;
+  }
+
+  .cl-issue-pill {
+    font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+    color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; white-space: nowrap;
+  }
+</style>
 <div x-show="activeCard !== null" x-cloak
      class="fixed inset-0"
      style="z-index: 70;"
-     @keydown.escape.window="if(activeCard !== null && !imagePreview.open && !attachmentModal?.open && !exportModal?.open && !switchBoardsModal?.open && !importModal?.open && !cardTransferModal?.open && !videoPreview?.open && !canvaPreview?.open) { $event.preventDefault(); closeCard(); }"
+     @keydown.escape.window="if(activeCard !== null && !groupFolderModal?.open && !imagePreview.open && !attachmentModal?.open && !exportModal?.open && !switchBoardsModal?.open && !importModal?.open && !cardTransferModal?.open && !checklistItemModal?.open && !videoPreview?.open && !canvaPreview?.open) { $event.preventDefault(); closeCard(); }"
      @keydown.window="handleCardModalKeydown($event)">
 
   {{-- Fixed Fullscreen Backdrop with Blur --}}
@@ -70,7 +149,8 @@
 
   {{-- Scrollable Container for Card Modal Box --}}
   <div id="card-modal-scroll-container"
-       class="fixed inset-0 flex items-start justify-center p-2 pt-12 pb-24 sm:p-4 sm:pt-16 sm:pb-32 lg:pb-16 overflow-y-auto z-[75]"
+       class="fixed inset-0 flex items-start justify-center p-2 pt-12 pb-24 sm:p-4 sm:pt-16 sm:pb-32 lg:pb-16 overflow-y-auto overscroll-contain z-[75]"
+       style="-webkit-overflow-scrolling: touch; touch-action: pan-y;"
        @click.self="closeCard()">
 
   <div class="trello-card-modal bg-white rounded-2xl shadow-2xl w-full max-w-4xl mb-8 overflow-hidden border border-slate-100 flex flex-col"
@@ -97,10 +177,10 @@
                    class="card-detail-title font-display font-bold text-slate-800 text-xl w-full bg-transparent border-0 rounded px-2 -ml-2 py-0.5 transition-all truncate focus:ring-2 focus:ring-indigo-500/20 focus:bg-white">
             
             {{-- Stage/List selector dropdown trigger --}}
-            <div class="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5" x-data="{ openListSelect: false }">
+            <div class="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5 flex-wrap" x-data="{ openListSelect: false }">
               <span>in list</span>
               <div class="relative">
-                <button @click="openListSelect = !openListSelect"
+                <button @click="if (isCardChecklistIncomplete(activeCard)) { showChecklistIncompleteModal('move', activeCard); return; } openListSelect = !openListSelect"
                         data-ctx-panel="move"
                         class="font-bold text-indigo-600 hover:text-indigo-800 underline focus:outline-none transition-colors"
                         x-text="activeCard?.board_list_name">
@@ -114,7 +194,7 @@
                   <p class="text-[10px] uppercase font-bold text-slate-400 px-3 py-1.5 border-b border-slate-100">Move Column</p>
                   <div class="max-h-48 overflow-y-auto">
                     <template x-for="l in lists" :key="l.id">
-                      <button @click="openListSelect = false; moveCardDirect(l.id)"
+                      <button @click="if (isCardChecklistIncomplete(activeCard)) { openListSelect = false; showChecklistIncompleteModal('move', activeCard); return; } openListSelect = false; moveCardDirect(l.id)"
                               class="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
                               :class="l.id === activeCard?.board_list_id ? 'bg-indigo-50/50 text-indigo-600 font-semibold' : 'text-slate-600'">
                         <span x-text="l.name"></span>
@@ -126,6 +206,28 @@
                   </div>
                 </div>
               </div>
+
+              {{-- Workflow Stage Badge --}}
+              <template x-if="activeCard?.workflow_status">
+                <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border ml-1.5 select-none"
+                      :class="{
+                          'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800': activeCard.workflow_status === 'Draft',
+                          'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800': activeCard.workflow_status === 'Production Team' || activeCard.workflow_status === 'Production' || activeCard.workflow_status === 'Head' || activeCard.workflow_status === 'QC',
+                          'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800': activeCard.workflow_status === 'Digital Department' || activeCard.workflow_status === 'Supervisor',
+                          'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800': activeCard.workflow_status === 'Approved',
+                          'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800': activeCard.workflow_status === 'Blocked/Waiting' || activeCard.workflow_status === 'Blocked'
+                      }">
+                  <span class="w-1.5 h-1.5 rounded-full"
+                        :class="{
+                            'bg-amber-500': activeCard.workflow_status === 'Draft',
+                            'bg-sky-500': activeCard.workflow_status === 'Production Team' || activeCard.workflow_status === 'Production' || activeCard.workflow_status === 'Head' || activeCard.workflow_status === 'QC',
+                            'bg-indigo-500': activeCard.workflow_status === 'Digital Department' || activeCard.workflow_status === 'Supervisor',
+                            'bg-emerald-500': activeCard.workflow_status === 'Approved',
+                            'bg-rose-500': activeCard.workflow_status === 'Blocked/Waiting' || activeCard.workflow_status === 'Blocked'
+                        }"></span>
+                  <span x-text="activeCard.workflow_status"></span>
+                </span>
+              </template>
             </div>
           </div>
           <div class="flex items-center gap-1.5 flex-shrink-0 mt-1">
@@ -140,8 +242,8 @@
             <button type="button"
                     @click="prevCard()"
                     :disabled="!hasPrevCard()"
-                    :class="hasPrevCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-sm bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
-                    class="p-1.5 rounded-lg transition-all flex items-center justify-center"
+                    :class="hasPrevCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-sm bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 active:scale-95' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
+                    class="w-8 h-8 rounded-lg transition-all flex items-center justify-center touch-manipulation"
                     :title="getPrevCard() ? (getActiveCardIndex() === 0 ? 'Previous card (wrap to last): ' + getPrevCard().title + ' [← / ↑]' : 'Previous card (above): ' + getPrevCard().title + ' [← / ↑]') : 'Only 1 card in this list'">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -152,8 +254,8 @@
             <button type="button"
                     @click="nextCard()"
                     :disabled="!hasNextCard()"
-                    :class="hasNextCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-sm bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
-                    class="p-1.5 rounded-lg transition-all flex items-center justify-center"
+                    :class="hasNextCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-sm bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 active:scale-95' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
+                    class="w-8 h-8 rounded-lg transition-all flex items-center justify-center touch-manipulation"
                     :title="getNextCard() ? (getActiveCardIndex() === totalCardsInActiveList() - 1 ? 'Next card (wrap to first): ' + getNextCard().title + ' [→ / ↓]' : 'Next card (below): ' + getNextCard().title + ' [→ / ↓]') : 'Only 1 card in this list'">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -163,8 +265,8 @@
             <div class="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
             {{-- Close Button --}}
-            <button @click="closeCard()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 rounded-full transition-colors" title="Close (Esc)">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <button @click="closeCard()" class="w-9 h-9 sm:w-8 sm:h-8 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-all active:scale-95 touch-manipulation cursor-pointer" title="Close (Esc)">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -318,6 +420,142 @@
               </div>
             </div>
 
+            {{-- Team Badge (Team A / Team B / Both) --}}
+            <template x-if="activeCard?.team || (isPlanningBoard() || isWorkflowBoard() || isSmmPlanningBoard())">
+              <div class="min-w-[100px] relative" x-data="{ openTeamSelect: false }">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Team</p>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  {{-- Both Teams Pill --}}
+                  <template x-if="isCardBothTeams(activeCard)">
+                    <div class="inline-flex items-center gap-1 cursor-pointer hover:opacity-90 transition-opacity" @click="openTeamSelect = !openTeamSelect" title="Click to change team">
+                      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-bold text-[10px] shadow-sm text-white bg-blue-600">
+                        <span>Team</span>
+                        <span>A</span>
+                      </span>
+                      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-bold text-[10px] shadow-sm text-white bg-emerald-600">
+                        <span>Team</span>
+                        <span>B</span>
+                      </span>
+                    </div>
+                  </template>
+
+                  {{-- Single Team Pill --}}
+                  <template x-if="!isCardBothTeams(activeCard) && activeCard?.team">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-bold text-[10px] shadow-sm text-white cursor-pointer hover:opacity-90 transition-opacity"
+                          @click="openTeamSelect = !openTeamSelect"
+                          :class="activeCard.team === 'A' ? 'bg-blue-600' : (activeCard.team === 'B' ? 'bg-emerald-600' : 'bg-slate-600')"
+                          title="Click to change team">
+                      <span>Team</span>
+                      <span x-text="activeCard.team"></span>
+                    </span>
+                  </template>
+
+                  {{-- None --}}
+                  <template x-if="!isCardBothTeams(activeCard) && !activeCard?.team">
+                    <span class="text-xs text-slate-400 italic cursor-pointer hover:underline" @click="openTeamSelect = !openTeamSelect">None</span>
+                  </template>
+
+                  {{-- Allow changing team (Team A, Team B, Both A & B, None) --}}
+                  <button type="button" @click="openTeamSelect = !openTeamSelect"
+                          class="text-[10px] text-slate-400 hover:text-indigo-600 px-1 py-0.5 rounded border border-slate-200 hover:border-indigo-300">
+                    Change
+                  </button>
+                </div>
+
+                {{-- Dropdown Menu --}}
+                <div x-show="openTeamSelect" @click.outside="openTeamSelect = false" x-cloak
+                     data-team-popover
+                     class="team-popover-menu absolute left-0 mt-1 w-72 rounded-2xl shadow-2xl z-50 p-2.5 space-y-1.5"
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="scale-95 opacity-0"
+                     x-transition:enter-end="scale-100 opacity-100"
+                     x-transition:leave="transition ease-in duration-75"
+                     x-transition:leave-start="scale-100 opacity-100"
+                     x-transition:leave-end="scale-95 opacity-0">
+                  <div class="flex items-center justify-between px-2 pb-2 border-b border-slate-200/20 dark:border-slate-700/60">
+                    <div>
+                      <div class="text-[10px] uppercase font-black tracking-wider text-slate-400 dark:text-sky-300">Assign Team</div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-300 font-medium">Production Team Assignment</div>
+                    </div>
+                    <button type="button" @click="openTeamSelect = false"
+                            class="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors text-xs font-bold">✕</button>
+                  </div>
+                  <div class="space-y-1 pt-0.5">
+                    {{-- Team A --}}
+                    <button type="button" @click="openTeamSelect = false; setCardTeam('A')"
+                            class="team-opt-btn team-opt-a w-full flex items-center justify-between p-2 rounded-xl text-xs text-left transition-all group"
+                            :class="(!isCardBothTeams(activeCard) && activeCard?.team === 'A') ? 'team-opt-selected' : ''">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="team-opt-icon w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 shadow-sm">A</span>
+                        <div class="min-w-0">
+                          <div class="font-bold text-sm leading-tight team-opt-title">Team A</div>
+                          <div class="text-[11px] leading-tight team-opt-desc">Production Team A</div>
+                        </div>
+                      </div>
+                      <div class="team-opt-check shrink-0">
+                        <template x-if="!isCardBothTeams(activeCard) && activeCard?.team === 'A'">
+                          <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black">✓</span>
+                        </template>
+                      </div>
+                    </button>
+
+                    {{-- Team B --}}
+                    <button type="button" @click="openTeamSelect = false; setCardTeam('B')"
+                            class="team-opt-btn team-opt-b w-full flex items-center justify-between p-2 rounded-xl text-xs text-left transition-all group"
+                            :class="(!isCardBothTeams(activeCard) && activeCard?.team === 'B') ? 'team-opt-selected' : ''">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="team-opt-icon w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 shadow-sm">B</span>
+                        <div class="min-w-0">
+                          <div class="font-bold text-sm leading-tight team-opt-title">Team B</div>
+                          <div class="text-[11px] leading-tight team-opt-desc">Production Team B</div>
+                        </div>
+                      </div>
+                      <div class="team-opt-check shrink-0">
+                        <template x-if="!isCardBothTeams(activeCard) && activeCard?.team === 'B'">
+                          <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black">✓</span>
+                        </template>
+                      </div>
+                    </button>
+
+                    {{-- Team A & B (Both Teams / Cross Board Joint Project) --}}
+                    <button type="button" @click="openTeamSelect = false; setCardTeam('Both')"
+                            class="team-opt-btn team-opt-both w-full flex items-center justify-between p-2.5 rounded-xl text-xs text-left transition-all group"
+                            :class="isCardBothTeams(activeCard) ? 'team-opt-selected' : ''">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="flex -space-x-2 shrink-0">
+                          <span class="w-6 h-6 rounded-lg bg-blue-600 border border-blue-300 text-white font-black text-[11px] flex items-center justify-center shadow-md">A</span>
+                          <span class="w-6 h-6 rounded-lg bg-emerald-600 border border-emerald-300 text-white font-black text-[11px] flex items-center justify-center shadow-md">B</span>
+                        </div>
+                        <div class="min-w-0">
+                          <div class="font-bold text-sm leading-tight flex items-center gap-1.5 team-opt-title">
+                            <span>Team A &amp; B</span>
+                            <span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider team-joint-badge">Joint</span>
+                          </div>
+                          <div class="text-[11px] leading-tight team-opt-desc">Cross-board: visible to both teams</div>
+                        </div>
+                      </div>
+                      <div class="team-opt-check shrink-0">
+                        <template x-if="isCardBothTeams(activeCard)">
+                          <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black">✓</span>
+                        </template>
+                      </div>
+                    </button>
+                  </div>
+
+                  {{-- Clear Team --}}
+                  <template x-if="activeCard?.team">
+                    <div class="pt-1.5 border-t border-slate-200/20 dark:border-slate-700/60">
+                      <button type="button" @click="openTeamSelect = false; setCardTeam(null)"
+                              class="team-clear-btn w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold rounded-xl transition-all">
+                        <span>✕</span>
+                        <span>Remove team assignment</span>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
             {{-- Due Date → opens Trello-style date picker --}}
             <div class="min-w-[180px]">
               <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">📅 Dates</p>
@@ -380,8 +618,8 @@
 
               {{-- Non-editing preview mode --}}
               <div x-show="!isEditingDesc"
-                   @click="isEditingDesc = true"
-                   class="bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100/70 dark:hover:bg-slate-800 border border-slate-100/50 dark:border-slate-700 rounded-xl p-4 text-xs text-slate-700 dark:text-slate-200 cursor-pointer min-h-16 prose prose-slate dark:prose-invert max-w-none transition-all leading-relaxed"
+                   @click="const a = $event.target.closest('a'); if (a) { window.open(a.href, '_blank', 'noopener,noreferrer'); $event.preventDefault(); $event.stopPropagation(); return; } isEditingDesc = true;"
+                   class="card-description-preview bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100/70 dark:hover:bg-slate-800 border border-slate-100/50 dark:border-slate-700 rounded-xl p-4 text-xs text-slate-700 dark:text-slate-200 cursor-pointer min-h-16 prose prose-slate dark:prose-invert max-w-none transition-all leading-relaxed"
                    x-html="parseMarkdown(activeCard?.description)">
               </div>
 
@@ -461,6 +699,99 @@
                     color: #ffffff !important; 
                   }
                   html[data-theme="neon"] .ql-editor.ql-blank::before { color: #7dd3fc !important; }
+
+                  /* ─── Description Link Styling (Theme-Adaptive Highlight) ─── */
+                  .card-description-preview a,
+                  .card-desc-link,
+                  #card-desc-editor .ql-editor a {
+                    color: #4f46e5 !important;
+                    background-color: rgba(99, 102, 241, 0.1) !important;
+                    border: 1px solid rgba(99, 102, 241, 0.28) !important;
+                    padding: 1.5px 7px !important;
+                    border-radius: 6px !important;
+                    font-weight: 600 !important;
+                    text-decoration: underline !important;
+                    text-decoration-color: #818cf8 !important;
+                    text-decoration-thickness: 1.5px !important;
+                    text-underline-offset: 3px !important;
+                    display: inline !important;
+                    word-break: break-all !important;
+                    cursor: pointer !important;
+                    transition: all 0.15s ease-in-out !important;
+                    pointer-events: auto !important;
+                  }
+                  .card-description-preview a::after,
+                  .card-desc-link::after,
+                  #card-desc-editor .ql-editor a::after {
+                    content: ' ↗';
+                    font-size: 10px;
+                    font-weight: 700;
+                    opacity: 0.8;
+                    margin-left: 2px;
+                    line-height: 1;
+                  }
+                  .card-description-preview a:hover,
+                  .card-desc-link:hover,
+                  #card-desc-editor .ql-editor a:hover {
+                    color: #3730a3 !important;
+                    background-color: rgba(99, 102, 241, 0.22) !important;
+                    border-color: rgba(99, 102, 241, 0.55) !important;
+                    text-decoration-color: #4338ca !important;
+                    box-shadow: 0 1px 4px rgba(79, 70, 229, 0.2) !important;
+                  }
+
+                  /* Dark Theme Link Highlight */
+                  html[data-theme="dark"] .card-description-preview a,
+                  html[data-theme="dark"] .card-desc-link,
+                  html[data-theme="dark"] #card-desc-editor .ql-editor a,
+                  .dark .card-description-preview a,
+                  .dark .card-desc-link,
+                  .dark #card-desc-editor .ql-editor a {
+                    color: #38bdf8 !important;
+                    background-color: rgba(56, 189, 248, 0.14) !important;
+                    border-color: rgba(56, 189, 248, 0.35) !important;
+                    text-decoration-color: #38bdf8 !important;
+                    text-decoration-thickness: 1.5px !important;
+                    text-underline-offset: 3px !important;
+                    box-shadow: 0 0 6px rgba(56, 189, 248, 0.15) !important;
+                  }
+                  html[data-theme="dark"] .card-description-preview a:hover,
+                  html[data-theme="dark"] .card-desc-link:hover,
+                  html[data-theme="dark"] #card-desc-editor .ql-editor a:hover,
+                  .dark .card-description-preview a:hover,
+                  .dark .card-desc-link:hover,
+                  .dark #card-desc-editor .ql-editor a:hover {
+                    color: #e0f2fe !important;
+                    background-color: rgba(56, 189, 248, 0.26) !important;
+                    border-color: rgba(56, 189, 248, 0.7) !important;
+                    text-decoration-color: #bae6fd !important;
+                    box-shadow: 0 0 10px rgba(56, 189, 248, 0.35) !important;
+                  }
+
+                  /* Neon Theme Link Highlight */
+                  html[data-theme="neon"] .card-description-preview a,
+                  html[data-theme="neon"] .card-desc-link,
+                  html[data-theme="neon"] #card-desc-editor .ql-editor a {
+                    color: #00f0ff !important;
+                    background-color: rgba(0, 240, 255, 0.16) !important;
+                    border-color: rgba(0, 240, 255, 0.55) !important;
+                    text-decoration-color: #00f0ff !important;
+                    text-decoration-thickness: 2px !important;
+                    text-underline-offset: 3px !important;
+                    text-shadow: 0 0 8px rgba(0, 240, 255, 0.75) !important;
+                    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25) !important;
+                    font-weight: 700 !important;
+                  }
+                  html[data-theme="neon"] .card-description-preview a:hover,
+                  html[data-theme="neon"] .card-desc-link:hover,
+                  html[data-theme="neon"] #card-desc-editor .ql-editor a:hover {
+                    color: #ffffff !important;
+                    background-color: rgba(0, 240, 255, 0.32) !important;
+                    border-color: #00f0ff !important;
+                    text-decoration-color: #ffffff !important;
+                    text-shadow: 0 0 14px rgba(0, 240, 255, 1) !important;
+                    box-shadow: 0 0 18px rgba(0, 240, 255, 0.5) !important;
+                  }
                 </style>
                 <div id="card-desc-editor" class="w-full"></div>
                 
@@ -480,21 +811,232 @@
 
           {{-- Checklists Section --}}
           <template x-for="cl in (activeCard?.checklists ?? [])" :key="cl.id">
-            <div class="flex gap-4" x-data="{ isEditingClTitle: false, editClTitle: cl.name || cl.title }">
+            <div class="flex gap-4" x-data="{
+              isEditingClTitle: false,
+              editClTitle: cl.name || cl.title,
+              bulkAssignUserId: '__keep__',
+              bulkDropdownOpen: false,
+              bulkMemberSearch: '',
+              savingChecklist: false,
+              startEditing(c) {
+                this.isEditingClTitle = true;
+                this.editClTitle = c.name || c.title;
+                this.bulkAssignUserId = '__keep__';
+                this.bulkDropdownOpen = false;
+                this.bulkMemberSearch = '';
+                this.$nextTick(() => this.$refs.clTitleInput?.focus());
+              },
+              cancelEditing() {
+                this.isEditingClTitle = false;
+                this.bulkDropdownOpen = false;
+              },
+              async saveEditing(c) {
+                if (this.savingChecklist) return;
+                this.savingChecklist = true;
+                try {
+                  await editChecklistInline(c, this.editClTitle, isHeadUser() ? this.bulkAssignUserId : '__keep__');
+                  this.isEditingClTitle = false;
+                  this.bulkDropdownOpen = false;
+                } finally {
+                  this.savingChecklist = false;
+                }
+              }
+            }">
               <span class="text-xl mt-0.5 select-none">☑</span>
               <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between mb-2">
+                {{-- Standard View Mode --}}
+                <div x-show="!isEditingClTitle" class="flex items-center justify-between mb-2">
                   <h3 class="font-bold text-slate-800 text-sm flex items-center gap-1.5 flex-1 mr-4">
-                    <span x-show="!isEditingClTitle" x-text="cl.name || cl.title" class="truncate"></span>
-                    <input x-show="isEditingClTitle" x-ref="clTitleInput" x-model="editClTitle"
-                           @keydown.enter="editChecklistInline(cl, editClTitle); isEditingClTitle = false"
-                           @keydown.escape="$event.preventDefault(); isEditingClTitle = false"
-                           @blur="editChecklistInline(cl, editClTitle); isEditingClTitle = false"
-                           class="w-full text-sm font-bold border-slate-300 rounded px-1.5 py-0.5 focus:ring-indigo-500 focus:border-indigo-500">
+                    <span x-text="cl.name || cl.title" class="truncate"></span>
                   </h3>
                   <div class="flex items-center gap-2 flex-shrink-0">
-                    <button @click="isEditingClTitle = true; editClTitle = cl.name || cl.title; $nextTick(() => $refs.clTitleInput.focus())" class="text-xs text-slate-400 hover:text-indigo-600 hover:underline">Edit</button>
-                    <button @click="deleteChecklist(cl)" class="text-xs text-rose-500 hover:underline">Delete</button>
+                    <button type="button" @click="startEditing(cl)" class="text-xs text-slate-400 hover:text-indigo-600 hover:underline cursor-pointer">Edit</button>
+                    <button type="button" @click="deleteChecklist(cl)" class="text-xs text-rose-500 hover:underline cursor-pointer">Delete</button>
+                  </div>
+                </div>
+
+                {{-- Edit Mode --}}
+                <div x-show="isEditingClTitle" x-cloak class="w-full mb-3 p-3 bg-slate-50 dark:bg-slate-800/90 rounded-xl border border-indigo-200 dark:border-indigo-900/60 shadow-xs space-y-2.5">
+                  <div>
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                      Checklist Title
+                    </label>
+                    <input x-ref="clTitleInput"
+                           x-model="editClTitle"
+                           @keydown.enter.prevent="if (!bulkDropdownOpen) { saveEditing(cl); }"
+                           @keydown.escape.prevent="cancelEditing()"
+                           placeholder="Checklist title"
+                           class="w-full text-sm font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition shadow-2xs">
+                  </div>
+
+                  {{-- Only Mr. Dara & Mr. Kim (Heads) see the Bulk Assign section --}}
+                  <template x-if="isHeadUser()">
+                    <div class="p-2.5 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/50 rounded-xl space-y-2">
+                      <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-indigo-950 dark:text-indigo-300 flex items-center gap-1.5">
+                          <span class="text-xs">👑</span>
+                          <span>Assign to all checkboxes below:</span>
+                        </label>
+                        <template x-if="cl.items?.length">
+                          <span class="text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full"
+                                x-text="cl.items.length + (cl.items.length === 1 ? ' checkbox' : ' checkboxes')"></span>
+                        </template>
+                      </div>
+
+                      {{-- Dropdown Trigger --}}
+                      <div class="relative" @click.outside="bulkDropdownOpen = false">
+                        <button type="button"
+                                @click="bulkDropdownOpen = !bulkDropdownOpen; if (bulkDropdownOpen) $nextTick(() => $refs.bulkMemberSearchInput?.focus())"
+                                class="w-full text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 flex items-center justify-between shadow-2xs hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all cursor-pointer">
+                          <div class="flex items-center gap-2 min-w-0">
+                            <template x-if="bulkAssignUserId === '__keep__'">
+                              <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                                <span class="text-xs">🔒</span>
+                                <span class="italic font-normal">Keep current assignments (no change)</span>
+                              </div>
+                            </template>
+                            <template x-if="bulkAssignUserId === '__clear__'">
+                              <div class="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                                <span class="w-4 h-4 rounded-full border border-rose-300 dark:border-rose-700 flex items-center justify-center text-[10px]">✕</span>
+                                <span class="font-bold">Unassign all checkboxes (clear assignees)</span>
+                              </div>
+                            </template>
+                            <template x-if="bulkAssignUserId !== '__keep__' && bulkAssignUserId !== '__clear__'">
+                              <div class="flex items-center gap-2 min-w-0" x-data="{ su: findMemberById(bulkAssignUserId) }">
+                                <template x-if="avatarUrl(su)">
+                                  <img :src="avatarUrl(su)" :alt="su?.name" class="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200 shrink-0">
+                                </template>
+                                <template x-if="!avatarUrl(su)">
+                                  <span class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white shrink-0"
+                                        :style="avatarStyle(su)" x-text="avatarInitials(su)"></span>
+                                </template>
+                                <span class="font-bold truncate text-indigo-700 dark:text-indigo-300" x-text="su?.name || 'Selected User'"></span>
+                                <span class="text-[10px] text-slate-400 shrink-0 font-medium">→ auto-insert all</span>
+                              </div>
+                            </template>
+                          </div>
+                          <svg class="h-4 w-4 text-slate-400 shrink-0 ml-2 transition-transform duration-150"
+                               :class="bulkDropdownOpen ? 'rotate-180 text-indigo-500' : ''"
+                               fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                          </svg>
+                        </button>
+
+                        {{-- Dropdown Menu (Z-index 50, absolute) --}}
+                        <div x-show="bulkDropdownOpen"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="opacity-0 -translate-y-1"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             class="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-2 space-y-1.5 max-h-64 flex flex-col">
+
+                          {{-- Search Input --}}
+                          <div class="relative shrink-0">
+                            <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none"
+                                 fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+                            </svg>
+                            <input type="text"
+                                   x-ref="bulkMemberSearchInput"
+                                   x-model="bulkMemberSearch"
+                                   placeholder="Search user..."
+                                   autocomplete="off"
+                                   class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                          </div>
+
+                          {{-- Scrollable List of Options --}}
+                          <div class="overflow-y-auto space-y-0.5 flex-1 pr-1 overscroll-contain">
+                            {{-- Keep current --}}
+                            <button type="button"
+                                    @click="bulkAssignUserId = '__keep__'; bulkDropdownOpen = false"
+                                    class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer"
+                                    :class="bulkAssignUserId === '__keep__' ? 'bg-indigo-50 dark:bg-indigo-950/60 font-bold text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'">
+                              <div class="flex items-center gap-2">
+                                <span class="text-xs">🔒</span>
+                                <span>Keep current assignments (no change)</span>
+                              </div>
+                              <span x-show="bulkAssignUserId === '__keep__'" class="text-indigo-600 dark:text-indigo-400 font-bold">✓</span>
+                            </button>
+
+                            {{-- Unassign all --}}
+                            <button type="button"
+                                    @click="bulkAssignUserId = '__clear__'; bulkDropdownOpen = false"
+                                    class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer"
+                                    :class="bulkAssignUserId === '__clear__' ? 'bg-rose-50 dark:bg-rose-950/40 font-bold text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'">
+                              <div class="flex items-center gap-2">
+                                <span class="w-4 h-4 rounded-full border border-dashed border-rose-300 dark:border-rose-700 flex items-center justify-center text-[9px] text-rose-500">✕</span>
+                                <span class="text-rose-600 dark:text-rose-400">Clear all assignees (unassign all)</span>
+                              </div>
+                              <span x-show="bulkAssignUserId === '__clear__'" class="text-rose-600 dark:text-rose-400 font-bold">✓</span>
+                            </button>
+
+                            <div class="border-t border-slate-100 dark:border-slate-800 my-1"></div>
+
+                            {{-- Users list --}}
+                            <template x-for="m in getAllChecklistEligibleMembers(bulkMemberSearch)" :key="'bulk-u-' + m.id">
+                              <button type="button"
+                                      @click="bulkAssignUserId = m.id; bulkDropdownOpen = false"
+                                      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left cursor-pointer"
+                                      :class="Number(bulkAssignUserId) === Number(m.id) ? 'bg-indigo-50 dark:bg-indigo-950/60 font-bold text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'">
+                                <div class="flex items-center gap-2 min-w-0">
+                                  <template x-if="avatarUrl(m)">
+                                    <img :src="avatarUrl(m)" :alt="m.name"
+                                         class="w-5 h-5 rounded-full object-cover shadow-2xs ring-1 ring-slate-200 shrink-0">
+                                  </template>
+                                  <template x-if="!avatarUrl(m)">
+                                    <span class="w-5 h-5 rounded-full shadow-2xs flex items-center justify-center text-[8px] font-black text-white shrink-0"
+                                          :style="avatarStyle(m)"
+                                          x-text="avatarInitials(m)"></span>
+                                  </template>
+                                  <div class="flex flex-col min-w-0">
+                                    <span class="truncate font-medium" x-text="m.name"></span>
+                                    <span class="text-[9px] text-slate-400 truncate" x-text="m.username ? '@' + m.username : m.email"></span>
+                                  </div>
+                                </div>
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                  <span x-show="m._memberType === 'card'" class="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-1 py-0.5 rounded">Card</span>
+                                  <span x-show="Number(bulkAssignUserId) === Number(m.id)" class="text-indigo-600 dark:text-indigo-400 font-bold">✓</span>
+                                </div>
+                              </button>
+                            </template>
+
+                            <template x-if="bulkMemberSearch && !getAllChecklistEligibleMembers(bulkMemberSearch).length">
+                              <div class="px-3 py-3 text-xs text-slate-400 italic text-center">
+                                No users found matching "<span x-text="bulkMemberSearch"></span>"
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+
+                  {{-- Save / Cancel Action Buttons --}}
+                  <div class="flex items-center justify-end gap-2 pt-1">
+                    <button type="button"
+                            @click="cancelEditing()"
+                            class="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 dark:hover:bg-slate-700/50 rounded-lg transition cursor-pointer">
+                      Cancel
+                    </button>
+                    <button type="button"
+                            @click="saveEditing(cl)"
+                            :disabled="savingChecklist"
+                            class="px-3.5 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 rounded-lg shadow-2xs flex items-center gap-1.5 transition cursor-pointer">
+                      <template x-if="savingChecklist">
+                        <span class="flex items-center gap-1">
+                          <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Saving…</span>
+                        </span>
+                      </template>
+                      <template x-if="!savingChecklist">
+                        <span class="flex items-center gap-1">
+                          <span>✓</span>
+                          <span>Save Changes</span>
+                        </span>
+                      </template>
+                    </button>
                   </div>
                 </div>
                 
@@ -512,28 +1054,148 @@
                 {{-- Checklist Items --}}
                 <div class="space-y-1.5 mb-3">
                   <template x-for="item in (cl.items ?? [])" :key="item.id">
-                    <div class="flex items-center justify-between py-1.5 group hover:bg-slate-100/80 rounded-lg px-3 transition-colors"
-                         x-data="{ isEditingItemTitle: false, editItemTitle: item.title || item.content }">
-                      <div class="flex items-center gap-3 flex-1 min-w-0 select-none">
-                        <input type="checkbox" :checked="item.is_completed" class="rounded accent-indigo-600 w-4 h-4 border-slate-300 focus:ring-0 cursor-pointer"
-                               @change="toggleChecklistItem(cl, item)">
-                        <label class="flex-1 min-w-0 cursor-pointer" @dblclick="isEditingItemTitle = true; editItemTitle = item.title || item.content; $nextTick(() => $refs.itemTitleInput.focus())">
-                          <span x-show="!isEditingItemTitle" class="text-xs text-slate-600 truncate block" :class="item.is_completed ? 'line-through text-slate-400 font-medium' : 'text-slate-700'"
+                    <div class="flex items-center justify-between py-1.5 group hover:bg-slate-100/80 rounded-lg px-3 transition-colors">
+                      <div class="flex items-center gap-2.5 flex-1 min-w-0 select-none">
+                        {{-- 1. Assigned User Profile Avatar(s) immediately to the LEFT of the checkbox --}}
+                        <div class="flex items-center gap-1 flex-shrink-0" x-show="getChecklistItemUsers(item).length > 0">
+                          <template x-for="u in getChecklistItemUsers(item)" :key="u.id">
+                            <div class="relative flex-shrink-0 cursor-pointer" :title="u.name">
+                              <template x-if="avatarUrl(u)">
+                                <img :src="avatarUrl(u)" :alt="u.name"
+                                     class="w-5 h-5 rounded-full object-cover shadow-sm ring-1 ring-slate-200">
+                              </template>
+                              <template x-if="!avatarUrl(u)">
+                                <span class="w-5 h-5 rounded-full shadow-sm flex items-center justify-center text-[8px] font-black text-white"
+                                      :style="avatarStyle(u)"
+                                      x-text="avatarInitials(u)"></span>
+                              </template>
+                            </div>
+                          </template>
+                        </div>
+
+                        {{-- 2. Checkbox --}}
+                        <input type="checkbox" :checked="item.is_completed" class="rounded accent-indigo-600 w-4 h-4 border-slate-300 focus:ring-0 cursor-pointer flex-shrink-0"
+                               :style="canTickChecklistItem(item) ? '' : 'opacity:.45; cursor:not-allowed;'"
+                               :title="checklistTickTitle(item)"
+                               @change="toggleChecklistItem(cl, item, $event)">
+                        <span x-show="!canTickChecklistItem(item)" class="text-[10px] flex-shrink-0 select-none" :title="checklistTickTitle(item)">🔒</span>
+
+                        {{-- 3. Checklist Text --}}
+                        <label class="flex-1 min-w-0 cursor-pointer" @dblclick="openEditChecklistItemModal(cl, item)">
+                          <span class="text-xs truncate block" :class="item.is_completed ? 'line-through text-slate-400 font-medium' : 'text-slate-700'"
                                 x-text="item.title || item.content"></span>
-                          <input x-show="isEditingItemTitle" x-ref="itemTitleInput" x-model="editItemTitle"
-                                 @keydown.enter="editChecklistItemInline(cl, item, editItemTitle); isEditingItemTitle = false"
-                                 @keydown.escape="$event.preventDefault(); isEditingItemTitle = false"
-                                 @blur="editChecklistItemInline(cl, item, editItemTitle); isEditingItemTitle = false"
-                                 class="w-full text-xs border-slate-300 rounded px-1.5 py-0.5 focus:ring-indigo-500 focus:border-indigo-500">
                         </label>
                       </div>
-                      <div class="flex items-center gap-1  group-hover: transition-opacity">
-                        <button @click="isEditingItemTitle = true; editItemTitle = item.title || item.content; $nextTick(() => $refs.itemTitleInput.focus())"
-                                class="text-[10px] text-slate-400 hover:text-indigo-600 p-1">
+
+                      {{-- 3b. Review marks: green tick (Production A/B), red cross (error) --}}
+                      <div class="cl-review mr-1"
+                           x-show="canReviewMark() || item.is_marked || item.has_issue">
+
+                        {{-- Case 1: Green mark is ON (Hide red, show green with user avatar + name) --}}
+                        <template x-if="item.is_marked">
+                          <div class="cl-review-wrap">
+                            <span class="cl-tip" x-show="canReviewMark()">untick</span>
+                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 shadow-2xs"
+                                 :title="!canReviewMark() ? ('Checked by ' + (item.marked_user?.name || getReviewUser(item.marked_by, item.marked_user)?.name || 'Reviewer')) : ''">
+                              <button type="button"
+                                      class="cl-review-box mark is-on flex-shrink-0"
+                                      :class="canReviewMark() ? 'is-clickable' : 'is-readonly'"
+                                      :disabled="!canReviewMark()"
+                                      aria-label="untick"
+                                      @click.stop="reviewChecklistItem(cl, item, 'mark')">
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                              </button>
+                              <div class="flex items-center gap-1 select-none flex-shrink-0"
+                                   x-show="item.marked_user || getReviewUser(item.marked_by, item.marked_user)">
+                                <template x-if="avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))">
+                                  <img :src="avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"
+                                       :alt="(item.marked_user || getReviewUser(item.marked_by, item.marked_user))?.name"
+                                       class="w-4 h-4 rounded-full object-cover shadow-2xs ring-1 ring-emerald-300">
+                                </template>
+                                <template x-if="!avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))">
+                                  <span class="w-4 h-4 rounded-full flex items-center justify-center text-[7.5px] font-black text-white shadow-2xs ring-1 ring-emerald-300"
+                                        :style="avatarStyle(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"
+                                        x-text="avatarInitials(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"></span>
+                                </template>
+                                <span class="text-[11px] font-semibold text-emerald-800 max-w-[90px] truncate"
+                                      x-text="(item.marked_user || getReviewUser(item.marked_by, item.marked_user))?.name || ''"></span>
+                              </div>
+                            </div>
+                          </div>
+                        </template>
+
+                        {{-- Case 2: Red issue is ON (Hide green, show red with user avatar + name) --}}
+                        <template x-if="item.has_issue">
+                          <div class="cl-review-wrap">
+                            <span class="cl-tip" x-show="canReviewMark()">untick</span>
+                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 shadow-2xs"
+                                 :title="!canReviewMark() ? ('Error reported by ' + (item.issue_user?.name || getReviewUser(item.issue_by, item.issue_user)?.name || 'Reviewer')) : ''">
+                              <button type="button"
+                                      class="cl-review-box issue is-on flex-shrink-0"
+                                      :class="canReviewMark() ? 'is-clickable' : 'is-readonly'"
+                                      :disabled="!canReviewMark()"
+                                      aria-label="untick"
+                                      @click.stop="reviewChecklistItem(cl, item, 'issue')">
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                              </button>
+                              <div class="flex items-center gap-1 select-none flex-shrink-0"
+                                   x-show="item.issue_user || getReviewUser(item.issue_by, item.issue_user)">
+                                <template x-if="avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))">
+                                  <img :src="avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"
+                                       :alt="(item.issue_user || getReviewUser(item.issue_by, item.issue_user))?.name"
+                                       class="w-4 h-4 rounded-full object-cover shadow-2xs ring-1 ring-rose-300">
+                                </template>
+                                <template x-if="!avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))">
+                                  <span class="w-4 h-4 rounded-full flex items-center justify-center text-[7.5px] font-black text-white shadow-2xs ring-1 ring-rose-300"
+                                        :style="avatarStyle(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"
+                                        x-text="avatarInitials(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"></span>
+                                </template>
+                                <span class="text-[11px] font-semibold text-rose-800 max-w-[90px] truncate"
+                                      x-text="(item.issue_user || getReviewUser(item.issue_by, item.issue_user))?.name || ''"></span>
+                              </div>
+                            </div>
+                          </div>
+                        </template>
+
+                        {{-- Case 3: Both unticked / idle (Visible to Dara / Kim) --}}
+                        <template x-if="!item.is_marked && !item.has_issue && canReviewMark()">
+                          <div class="flex items-center gap-1.5">
+                            {{-- Green mark box --}}
+                            <div class="cl-review-wrap">
+                              <span class="cl-tip">approve</span>
+                              <button type="button"
+                                      class="cl-review-box mark is-idle is-clickable"
+                                      aria-label="approve"
+                                      @click.stop="reviewChecklistItem(cl, item, 'mark')">
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                              </button>
+                            </div>
+
+                            {{-- Red issue box --}}
+                            <div class="cl-review-wrap">
+                              <span class="cl-tip">error</span>
+                              <button type="button"
+                                      class="cl-review-box issue is-idle is-clickable"
+                                      aria-label="error"
+                                      @click.stop="reviewChecklistItem(cl, item, 'issue')">
+                                <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                              </button>
+                            </div>
+                          </div>
+                        </template>
+
+                      </div>
+
+                      {{-- 4. Edit and Delete --}}
+                      <div class="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <button type="button" @click="openEditChecklistItemModal(cl, item)"
+                                class="text-[10px] text-slate-400 hover:text-indigo-600 p-1 rounded hover:bg-slate-200/50 cursor-pointer"
+                                title="Edit checklist item">
                           ✏️
                         </button>
-                        <button @click="deleteChecklistItem(cl, item)"
-                                class="text-[10px] text-slate-400 hover:text-rose-600 p-1">
+                        <button type="button" @click="deleteChecklistItem(cl, item)"
+                                class="text-[10px] text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 cursor-pointer"
+                                title="Delete checklist item">
                           🗑
                         </button>
                       </div>
@@ -542,8 +1204,8 @@
                 </div>
 
                 {{-- Add Checklist Item Form --}}
-                <button @click="addChecklistItem(cl)"
-                        class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 px-3 py-1.5 hover:bg-indigo-50/50 rounded-lg transition-colors">
+                <button type="button" @click="openAddChecklistItemModal(cl)"
+                        class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 px-3 py-1.5 hover:bg-indigo-50/50 rounded-lg transition-colors cursor-pointer">
                   <span>+</span> Add checklist item
                 </button>
               </div>
@@ -554,11 +1216,106 @@
           <div class="flex gap-4">
             <span class="text-xl mt-0.5 select-none">📎</span>
             <div class="flex-1">
-              <h3 class="font-bold text-slate-800 text-sm mb-3">Attachments</h3>
+              {{-- Hidden input for direct folder upload without opening modal --}}
+              <input type="file" x-ref="directCardFolderInput"
+                     webkitdirectory
+                     directory
+                     multiple
+                     @change="handleDirectFolderUpload($event)"
+                     class="hidden">
 
-              {{-- Files Card Grid (All attachments including videos as square icons) --}}
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm">Attachments</h3>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  {{-- Group into Folder button (visible when there are loose files) --}}
+                  <button type="button"
+                          x-show="getStandaloneCardFiles(activeCard?.files).length > 0"
+                          @click="openGroupFolderModal()"
+                          class="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/80 flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all shadow-2xs hover:shadow-xs active:scale-95 cursor-pointer"
+                          title="Group loose attachments into a folder">
+                    <span>📁</span> Group into Folder
+                  </button>
+
+                  {{-- Add file or link button --}}
+                  <button type="button"
+                          @click="openAttachmentModal(activeCard)"
+                          class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1 px-2.5 py-1 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 rounded-lg transition-colors cursor-pointer">
+                    <span>+</span> Add file or link
+                  </button>
+                </div>
+              </div>
+
+              {{-- Folders Section --}}
+              <div x-show="getCardFolders(activeCard?.files).length" class="mb-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <template x-for="folder in getCardFolders(activeCard?.files)" :key="folder.name">
+                    <div @click="openFolderViewer(folder.name, folder.files)"
+                         class="card-folder-item col-span-1 p-2 sm:p-2.5 bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/80 dark:hover:border-indigo-400 rounded-xl hover:shadow-md transition-all duration-150 group flex items-center gap-2.5 sm:gap-3 cursor-pointer">
+                      
+                      {{-- Folder Icon / Thumbnail --}}
+                      <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-lg bg-slate-800 border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-white shadow-xs flex-shrink-0 relative overflow-hidden">
+                        <template x-if="folder.coverImage">
+                          <img :src="folder.coverImage.preview_url || folder.coverImage.url"
+                               :alt="folder.name"
+                               class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+                        </template>
+                        <template x-if="!folder.coverImage">
+                          <div class="w-full h-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-inner">
+                            <svg class="w-5 h-5 text-white drop-shadow" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                            </svg>
+                          </div>
+                        </template>
+                        {{-- Corner folder badge if image preview is shown --}}
+                        <div x-show="folder.coverImage" class="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/80 text-[8px] font-bold text-indigo-300 flex items-center gap-0.5 shadow-xs border border-white/20">
+                          <svg class="w-2.5 h-2.5 text-indigo-300" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                          </svg>
+                        </div>
+                      </div>
+
+                      {{-- Info: Strictly ONE LINE folder name + ONE LINE meta row --}}
+                      <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-cyan-400 transition-colors truncate whitespace-nowrap block"
+                            :title="folder.name"
+                            x-text="(folder.name || '').replace(/_/g, ' ')"></h4>
+                        <div class="flex items-center gap-1.5 mt-0.5 text-[11px] whitespace-nowrap overflow-hidden">
+                          <span class="inline-flex items-center gap-1 font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800/60 px-1.5 py-0.2 rounded-md text-[10px] shrink-0"
+                                x-text="folder.imageCount > 0 ? (folder.imageCount + ' image' + (folder.imageCount === 1 ? '' : 's')) : (folder.fileCount + ' file' + (folder.fileCount === 1 ? '' : 's'))"></span>
+                          <span class="text-slate-300 dark:text-slate-600 shrink-0">·</span>
+                          <span class="text-slate-500 dark:text-slate-400 font-medium text-[11px] shrink-0" x-text="folder.formattedSize"></span>
+                        </div>
+                      </div>
+
+                      {{-- Action Buttons --}}
+                      <div class="flex items-center gap-1 shrink-0" @click.stop>
+                        <button type="button"
+                                @click="openFolderViewer(folder.name, folder.files)"
+                                class="folder-open-btn px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-all shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer shrink-0"
+                                title="Open folder and view images">
+                          <span>Open</span>
+                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
+                          </svg>
+                        </button>
+                        <button type="button"
+                                @click="downloadCardFolder(folder.name)"
+                                class="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-cyan-400 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition cursor-pointer shrink-0"
+                                title="Download folder as ZIP">
+                          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 16.5m0 0 4.5-4.5M12 16.5V3"/>
+                          </svg>
+                        </button>
+                      </div>
+
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              {{-- Files Card Grid (Standalone attachments) --}}
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <template x-for="f in (activeCard?.files ?? [])" :key="f.id">
+                <template x-for="f in getStandaloneCardFiles(activeCard?.files)" :key="f.id">
                   <div class="col-span-1 relative w-full h-full flex flex-col">
                     {{-- Normal View --}}
                     <div x-show="attachmentModal.editingFileId !== f.id"
@@ -644,7 +1401,17 @@
                                  x-on:error="$event.target.src='https://cdn-icons-png.flaticon.com/512/5968/5968517.png'">
                           </button>
                         </template>
-                        <template x-if="!isCanvaFile(f) && !isGoogleDocsFile(f)">
+                        <template x-if="!isCanvaFile(f) && !isGoogleDocsFile(f) && isGoogleDriveFile(f)">
+                          <button type="button"
+                                  @click.stop="openGoogleDriveDirect(f.disk === 'url' ? f.url : (f.preview_url || f.url))"
+                                  class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-emerald-200/60 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/40 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 flex items-center justify-center flex-shrink-0 select-none transition group/drive-thumb cursor-pointer shadow-xs active:scale-95"
+                                  :title="isGoogleDriveFolder(f) ? 'Open Google Drive Folder' : 'Open in Google Drive'">
+                            <img src="{{ asset('images/google-drive-icon.svg') }}"
+                                 alt="Google Drive"
+                                 class="w-7 h-7 sm:w-8 sm:h-8 object-contain shadow-xs transition-transform group-hover/drive-thumb:scale-110">
+                          </button>
+                        </template>
+                        <template x-if="!isCanvaFile(f) && !isGoogleDocsFile(f) && !isGoogleDriveFile(f)">
                           <a :href="f.disk === 'url' ? f.url : (f.preview_url || f.url)"
                              target="_blank"
                              rel="noopener"
@@ -675,13 +1442,27 @@
                                   :title="f.original_name || f.url"
                                   x-text="f.original_name || 'Canva Design'">
                           </button>
-                          <a x-show="!isVideoFile(f) && !isCanvaFile(f)"
+                          <button type="button"
+                                  x-show="!isVideoFile(f) && !isCanvaFile(f) && isGoogleDocsFile(f)"
+                                  @click.stop="openGoogleDocsPreview(f)"
+                                  class="text-left font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 hover:text-[#1a73e8] dark:hover:text-blue-400 transition-colors truncate block w-full cursor-pointer"
+                                  :title="f.original_name || f.url"
+                                  x-text="f.original_name || (getGoogleDocsType(f) === 'sheet' ? 'Google Sheet' : (getGoogleDocsType(f) === 'slide' ? 'Google Slides' : 'Google Doc'))">
+                          </button>
+                          <button type="button"
+                                  x-show="!isVideoFile(f) && !isCanvaFile(f) && !isGoogleDocsFile(f) && isGoogleDriveFile(f)"
+                                  @click.stop="openGoogleDriveDirect(f.disk === 'url' ? f.url : (f.preview_url || f.url))"
+                                  class="text-left font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block w-full cursor-pointer"
+                                  :title="f.original_name || f.url"
+                                  x-text="f.original_name || (isGoogleDriveFolder(f) ? 'Google Drive Folder' : 'Google Drive')">
+                          </button>
+                          <a x-show="!isVideoFile(f) && !isCanvaFile(f) && !isGoogleDocsFile(f) && !isGoogleDriveFile(f)"
                              :href="f.disk === 'url' ? f.url : (f.preview_url || f.url)"
                              target="_blank"
                              rel="noopener"
                              class="block text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 hover:text-[#2F68ED] dark:hover:text-[#4C8BF5] transition-colors truncate w-full"
-                             :title="f.original_name || f.url"
-                             x-text="f.original_name || 'Attachment'">
+                             :title="f.display_name || f.original_name || f.url"
+                             x-text="f.display_name || f.original_name || 'Attachment'">
                           </a>
                         </div>
 
@@ -764,6 +1545,21 @@
                             </svg>
                           </button>
 
+                          {{-- Google Drive: Open Button --}}
+                          <button type="button"
+                                  x-show="!isVideoFile(f) && isGoogleDriveFile(f)"
+                                  @click.stop="openGoogleDriveDirect(f.disk === 'url' ? f.url : (f.preview_url || f.url))"
+                                  :title="isGoogleDriveFolder(f) ? 'Open Google Drive Folder' : 'Open in Google Drive'"
+                                  class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs hover:shadow active:scale-95 transition-all flex-shrink-0 whitespace-nowrap cursor-pointer">
+                            <img src="{{ asset('images/google-drive-icon.svg') }}"
+                                 alt="Drive"
+                                 class="w-3.5 h-3.5 object-contain flex-shrink-0">
+                            <span x-text="isGoogleDriveFolder(f) ? 'Open Folder' : 'Open Drive'"></span>
+                            <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+                            </svg>
+                          </button>
+
                           {{-- Image Full Screen Button --}}
                           <button type="button"
                                   x-show="f.is_image"
@@ -783,12 +1579,12 @@
                           </button>
 
                           {{-- External Link Icon (for non-Canva, non-video generic URLs) --}}
-                          <div class="relative group/tip inline-flex items-center shrink-0" x-show="f.url && f.disk === 'url' && !isCanvaFile(f) && !isVideoFile(f) && !isGoogleDocsFile(f)">
+                          <div class="relative group/tip inline-flex items-center shrink-0" x-show="f.url && f.disk === 'url' && !isCanvaFile(f) && !isVideoFile(f) && !isGoogleDocsFile(f) && !isGoogleDriveFile(f)">
                             <a :href="f.url"
-                               target="_blank"
-                               rel="noopener"
-                               title="Open link in new tab"
-                               class="p-1 text-slate-400 hover:text-cyan-500 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition flex-shrink-0 cursor-pointer">
+                                target="_blank"
+                                rel="noopener"
+                                title="Open link in new tab"
+                                class="p-1 text-slate-400 hover:text-cyan-500 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition flex-shrink-0 cursor-pointer">
                               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
                               </svg>
@@ -868,7 +1664,7 @@
               <div class="flex gap-3 mb-6">
                 <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->name }}"
                      class="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-sm flex-shrink-0 select-none mt-1">
-                <div class="flex-1" x-data="{ commentFocused: false, quickReplies: ['Ready', 'Team approved', 'Head approved', 'QC approved', 'QC approved SMM', 'Approved', 'Blocked'] }">
+                <div class="flex-1" x-data="{ commentFocused: false, quickReplies: ['Ready', 'Team approved', 'Production approved', 'Production approved SMM', 'Approved', 'Blocked'] }">
                   {{-- Paste multi-image preview --}}
                   <template x-if="(pastedImages && pastedImages.length > 0) || pastedImage">
                     <div class="mb-3 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-800/60">
@@ -936,7 +1732,7 @@
                          class="absolute z-40 bottom-full left-0 mb-1 w-56 bg-white border border-slate-200 shadow-xl rounded-xl py-1 overflow-hidden"
                          x-cloak>
                         <template x-for="reply in quickReplies" :key="reply">
-                            <button type="button" @mousedown.prevent="newComment = reply; setTimeout(() => $refs.commentInput.focus(), 10)"
+                            <button type="button" @mousedown.prevent="if (isCardChecklistIncomplete(activeCard)) { showChecklistIncompleteModal(reply === 'Ready' ? 'ready' : 'automation', activeCard); return; } newComment = reply; setTimeout(() => $refs.commentInput.focus(), 10)"
                                     class="w-full text-left px-3 py-1.5 text-xs text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors block font-medium">
                                 <span x-text="reply"></span>
                             </button>
@@ -1111,6 +1907,131 @@
                   <span class="ml-auto bg-indigo-100 text-indigo-700 group-hover:bg-white/20 group-hover:text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-md transition-colors" x-text="activeCard.assignees.length"></span>
                 </template>
               </button>
+
+              {{-- Team Dropdown Action --}}
+              {{-- Team Dropdown Action --}}
+              <div class="relative" x-data="{ open: false }">
+                <button type="button" @click="open = !open" data-ctx-panel="team"
+                        class="btn btn-secondary group w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl relative">
+                  <span class="text-sm">👥</span>
+                  <span class="font-semibold group-hover:text-white transition-colors">Team</span>
+                  
+                  {{-- Current Team Badge on the right --}}
+                  <template x-if="isCardBothTeams(activeCard)">
+                    <span class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 shadow-sm border border-cyan-400/40">
+                      <span>A &amp; B</span>
+                    </span>
+                  </template>
+                  <template x-if="!isCardBothTeams(activeCard) && activeCard?.team === 'A'">
+                    <span class="ml-auto px-2 py-0.5 rounded-md text-[10px] font-black text-white bg-blue-600 shadow-sm border border-blue-400/30">
+                      Team A
+                    </span>
+                  </template>
+                  <template x-if="!isCardBothTeams(activeCard) && activeCard?.team === 'B'">
+                    <span class="ml-auto px-2 py-0.5 rounded-md text-[10px] font-black text-white bg-emerald-600 shadow-sm border border-emerald-400/30">
+                      Team B
+                    </span>
+                  </template>
+                  <template x-if="!isCardBothTeams(activeCard) && !activeCard?.team">
+                    <span class="ml-auto text-[10px] text-slate-400 group-hover:text-white/70 font-medium">None</span>
+                  </template>
+                </button>
+
+                {{-- Popover Dropdown --}}
+                <div x-show="open" @click.outside="open = false" x-cloak
+                     data-team-popover
+                     class="team-popover-menu absolute right-0 top-11 w-72 rounded-2xl shadow-2xl z-50 p-2.5 space-y-1.5"
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="scale-95 opacity-0"
+                     x-transition:enter-end="scale-100 opacity-100"
+                     x-transition:leave="transition ease-in duration-75"
+                     x-transition:leave-start="scale-100 opacity-100"
+                     x-transition:leave-end="scale-95 opacity-0">
+                  
+                  <div class="flex items-center justify-between px-2 pb-2 border-b border-slate-200/20 dark:border-slate-700/60">
+                    <div>
+                      <div class="text-[10px] uppercase font-black tracking-wider text-slate-400 dark:text-sky-300">Assign Team</div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-300 font-medium">Production Team Assignment</div>
+                    </div>
+                    <button type="button" @click="open = false"
+                            class="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors text-xs font-bold">✕</button>
+                  </div>
+
+                  <div class="space-y-1 pt-0.5">
+                    {{-- Team A --}}
+                    <button type="button" @click="setCardTeam('A'); open = false"
+                            class="team-opt-btn team-opt-a w-full flex items-center justify-between p-2 rounded-xl text-xs text-left transition-all group"
+                            :class="(!isCardBothTeams(activeCard) && activeCard?.team === 'A') ? 'team-opt-selected' : ''">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="team-opt-icon w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 shadow-sm">A</span>
+                        <div class="min-w-0">
+                          <div class="font-bold text-sm leading-tight team-opt-title">Team A</div>
+                          <div class="text-[11px] leading-tight team-opt-desc">Production Team A</div>
+                        </div>
+                      </div>
+                      <div class="team-opt-check shrink-0">
+                        <template x-if="!isCardBothTeams(activeCard) && activeCard?.team === 'A'">
+                          <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black">✓</span>
+                        </template>
+                      </div>
+                    </button>
+
+                    {{-- Team B --}}
+                    <button type="button" @click="setCardTeam('B'); open = false"
+                            class="team-opt-btn team-opt-b w-full flex items-center justify-between p-2 rounded-xl text-xs text-left transition-all group"
+                            :class="(!isCardBothTeams(activeCard) && activeCard?.team === 'B') ? 'team-opt-selected' : ''">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="team-opt-icon w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 shadow-sm">B</span>
+                        <div class="min-w-0">
+                          <div class="font-bold text-sm leading-tight team-opt-title">Team B</div>
+                          <div class="text-[11px] leading-tight team-opt-desc">Production Team B</div>
+                        </div>
+                      </div>
+                      <div class="team-opt-check shrink-0">
+                        <template x-if="!isCardBothTeams(activeCard) && activeCard?.team === 'B'">
+                          <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black">✓</span>
+                        </template>
+                      </div>
+                    </button>
+
+                    {{-- Team A & B (Both Teams / Cross Board Joint Project) --}}
+                    <button type="button" @click="setCardTeam('Both'); open = false"
+                            class="team-opt-btn team-opt-both w-full flex items-center justify-between p-2.5 rounded-xl text-xs text-left transition-all group"
+                            :class="isCardBothTeams(activeCard) ? 'team-opt-selected' : ''">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="flex -space-x-2 shrink-0">
+                          <span class="w-6 h-6 rounded-lg bg-blue-600 border border-blue-300 text-white font-black text-[11px] flex items-center justify-center shadow-md">A</span>
+                          <span class="w-6 h-6 rounded-lg bg-emerald-600 border border-emerald-300 text-white font-black text-[11px] flex items-center justify-center shadow-md">B</span>
+                        </div>
+                        <div class="min-w-0">
+                          <div class="font-bold text-sm leading-tight flex items-center gap-1.5 team-opt-title">
+                            <span>Team A &amp; B</span>
+                            <span class="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider team-joint-badge">Joint</span>
+                          </div>
+                          <div class="text-[11px] leading-tight team-opt-desc">Cross-board: visible to both teams</div>
+                        </div>
+                      </div>
+                      <div class="team-opt-check shrink-0">
+                        <template x-if="isCardBothTeams(activeCard)">
+                          <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black">✓</span>
+                        </template>
+                      </div>
+                    </button>
+                  </div>
+
+                  {{-- Clear Team --}}
+                  <template x-if="activeCard?.team">
+                    <div class="pt-1.5 border-t border-slate-200/20 dark:border-slate-700/60">
+                      <button type="button" @click="setCardTeam(null); open = false"
+                              class="team-clear-btn w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold rounded-xl transition-all">
+                        <span>✕</span>
+                        <span>Remove team assignment</span>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
               {{-- Labels Dropdown Action --}}
               <div class="relative" x-data="{ open: false, search: '' }">
                 <button @click="open = !open; search = ''; $nextTick(() => { if(open) $refs.labelSearch.focus() })" data-ctx-panel="labels"
@@ -1316,7 +2237,7 @@
           {{-- Card Options (Bottom as row) --}}
           <div>
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none mb-2">Card Options</p>
-            <button @click="openCardTransferModal('copy', activeCard, lists.find(l => l.id === activeCard.board_list_id))" type="button" class="w-full bg-white text-indigo-600 border border-indigo-200/60 rounded-xl text-xs justify-center gap-2 py-2.5 px-3 flex items-center hover:bg-indigo-50 hover:border-indigo-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white dark:hover:border-indigo-600 transition-all mb-2 shadow-sm">
+            <button @click="if (isCardChecklistIncomplete(activeCard)) { showChecklistIncompleteModal('copy', activeCard); return; } openCardTransferModal('copy', activeCard, lists.find(l => l.id === activeCard.board_list_id))" type="button" class="w-full bg-white text-indigo-600 border border-indigo-200/60 rounded-xl text-xs justify-center gap-2 py-2.5 px-3 flex items-center hover:bg-indigo-50 hover:border-indigo-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-indigo-600 dark:hover:text-white dark:hover:border-indigo-600 transition-all mb-2 shadow-sm">
               <span class="text-[11px]">📄</span>
               <span class="font-bold">Copy card to</span>
             </button>

@@ -23,11 +23,43 @@ class NotificationController extends Controller
      */
     private function scopeToUserModules($query, Request $request)
     {
-        $modules = $request->user()->notificationModules();
+        $user = $request->user();
+        $modules = $user->notificationModules();
 
-        return $query->where(function (Builder $q) use ($modules) {
+        $query->where(function (Builder $q) use ($modules) {
             $q->whereNull('data->module')->orWhereIn('data->module', $modules);
         });
+
+        // Team Isolation: Team A members do not see Team B notifications; Team B members do not see Team A notifications
+        $isGeneralSupervisor = $user->hasAnyRole(['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss']) || $user->canFilterAllPlanningTeams();
+        if (!$isGeneralSupervisor) {
+            $userTeam = $user->getDigitalTeam();
+            if ($userTeam === 'A') {
+                $query->where(function (Builder $q) {
+                    $q->whereNull('data->card_team')
+                      ->orWhere('data->card_team', '!=', 'B')
+                      ->orWhere('data->card_team', 'Both')
+                      ->orWhere('data->card_team', 'BOTH')
+                      ->orWhere('data->card_team', 'A,B');
+                })->where(function (Builder $q) {
+                    $q->whereNull('data->board_name')
+                      ->orWhereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(data, '$.board_name'))) NOT LIKE '%team b%'");
+                });
+            } elseif ($userTeam === 'B') {
+                $query->where(function (Builder $q) {
+                    $q->whereNull('data->card_team')
+                      ->orWhere('data->card_team', '!=', 'A')
+                      ->orWhere('data->card_team', 'Both')
+                      ->orWhere('data->card_team', 'BOTH')
+                      ->orWhere('data->card_team', 'A,B');
+                })->where(function (Builder $q) {
+                    $q->whereNull('data->board_name')
+                      ->orWhereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(data, '$.board_name'))) NOT LIKE '%team a%'");
+                });
+            }
+        }
+
+        return $query;
     }
 
     public function index(Request $request): JsonResponse

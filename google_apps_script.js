@@ -7,16 +7,16 @@
  *
  *  SHEET STRUCTURE:
  *    Tabs: "Sep Blogs", "Oct Blogs", "Nov Blogs", "Dec Blogs", "Blogs"
- *    Row 1: Group Headers: "Class 3th & 4th", "Class 2nd", "Class 1st", "Class 5th", "Class 6th", "Class 7th"
+ *    Row 1: Group Headers: "Class 3th & 4th", "Class 2nd", "Class 1st", "Class 5th", "Class 6th", "Class 7th", "Class 8th"
  *    Row 2: Column Headers: "Class", "Doc Link", "Public Link", "Dated", "Website link", "Writer"
  *
  *    Each 7-column class block layout:
- *      +0 = Class        (Col A=0,  H=7,  O=14, V=21, AC=28, AJ=35)
- *      +1 = Doc Link     (Col B=1,  I=8,  P=15, W=22, AD=29, AK=36)  — NEVER modified
- *      +2 = Public Link  (Col C=2,  J=9,  Q=16, X=23, AE=30, AL=37)  — Updated with Blog URL
- *      +3 = Dated        (Col D=3,  K=10, R=17, Y=24, AF=31, AM=38)  — Updated with MM/DD Date
- *      +4 = Website link (Col E=4,  L=11, S=18, Z=25, AG=32, AN=39)  — Preserved
- *      +5 = Writer       (Col F=5,  M=12, T=19, AA=26, AH=33, AO=40) — Preserved
+ *      +0 = Class        (Col A=0,  H=7,  O=14, V=21, AC=28, AJ=35, AQ=42)
+ *      +1 = Doc Link     (Col B=1,  I=8,  P=15, W=22, AD=29, AK=36, AR=43)  — NEVER modified
+ *      +2 = Public Link  (Col C=2,  J=9,  Q=16, X=23, AE=30, AL=37, AS=44)  — Updated with Blog URL
+ *      +3 = Dated        (Col D=3,  K=10, R=17, Y=24, AF=31, AM=38, AT=45)  — Updated with MM/DD Date
+ *      +4 = Website link (Col E=4,  L=11, S=18, Z=25, AG=32, AN=39, AU=46)  — Preserved
+ *      +5 = Writer       (Col F=5,  M=12, T=19, AA=26, AH=33, AO=40, AV=47) — Preserved
  *      +6 = Spacer / Blank
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -134,19 +134,23 @@ function doPost(e) {
         }
       }
 
-      // 2. Derive month from dated parameter
-      if (!sheet && dated) {
-        var targetMonthNames = [];
-        var d = new Date(dated);
+      // 2. Derive month from dated parameter or current date
+      if (!sheet) {
         var m = 0;
-        if (!isNaN(d.getTime())) {
-          m = d.getMonth() + 1;
-        } else {
-          var mMatch = dated.match(/(\d{1,2})[\/\-](\d{1,2})/);
-          if (mMatch) {
-            var v1 = parseInt(mMatch[1], 10), v2 = parseInt(mMatch[2], 10);
-            m = (v1 >= 9 && v1 <= 12) ? v1 : ((v2 >= 9 && v2 <= 12) ? v2 : v1);
+        if (dated) {
+          var d = new Date(dated);
+          if (!isNaN(d.getTime())) {
+            m = d.getMonth() + 1;
+          } else {
+            var mMatch = dated.match(/(\d{1,2})[\/\-](\d{1,2})/);
+            if (mMatch) {
+              var v1 = parseInt(mMatch[1], 10), v2 = parseInt(mMatch[2], 10);
+              m = (v1 >= 1 && v1 <= 12) ? v1 : ((v2 >= 1 && v2 <= 12) ? v2 : 0);
+            }
           }
+        }
+        if (m === 0) {
+          m = (new Date()).getMonth() + 1;
         }
 
         var monthMap = {
@@ -164,7 +168,7 @@ function doPost(e) {
           12: ['dec blogs', 'december blogs', 'dec']
         };
 
-        targetMonthNames = monthMap[m] || [];
+        var targetMonthNames = monthMap[m] || [];
         if (targetMonthNames.length > 0) {
           for (var tm = 0; tm < targetMonthNames.length; tm++) {
             var tName = targetMonthNames[tm];
@@ -343,11 +347,36 @@ function doPost(e) {
         }
 
         if (websiteRows.length === 0) {
+          // If website was not found in existing pre-scheduled rows for this class,
+          // find the first available row in this class block where website is empty or at the end
+          var emptyBlockRow = -1;
+          for (var r = dataStartRow; r < allData.length; r++) {
+            var cellWeb = String(allData[r][COL_WEBSITE] || '').trim();
+            var cellPub = String(allData[r][COL_PUBLIC]  || '').trim();
+            if (cellWeb === '' && (cellPub === '' || !/^https?:\/\//i.test(cellPub))) {
+              emptyBlockRow = r + 1;
+              break;
+            }
+          }
+          if (emptyBlockRow === -1) {
+            emptyBlockRow = allData.length + 1;
+          }
+
+          sheet.getRange(emptyBlockRow, COL_CLASS   + 1).setValue(classNum);
+          sheet.getRange(emptyBlockRow, COL_PUBLIC  + 1).setValue(publicLink);
+          sheet.getRange(emptyBlockRow, COL_DATED   + 1).setValue(formattedDate);
+          sheet.getRange(emptyBlockRow, COL_WEBSITE + 1).setValue(websiteDomain);
+          SpreadsheetApp.flush();
+
+          var appendResult = {
+            success: true,
+            sheet: sheetName,
+            row: emptyBlockRow,
+            message: 'Blog successfully inserted into row ' + emptyBlockRow + '.'
+          };
+          if (requestId) storeIdempotencyResult(requestId, appendResult);
           lock.releaseLock();
-          return buildResponse({
-            success: false,
-            message: 'Website "' + websiteDomain + '" was not found in Class ' + classNum + ' (tab "' + sheetName + '"). Please make sure this website exists in Class ' + classNum + '.'
-          });
+          return buildResponse(appendResult);
         }
 
         var target = null;
@@ -356,70 +385,53 @@ function doPost(e) {
         var dateMatchingRows = websiteRows.filter(function(w) { return w.isDateMatch; });
 
         if (dateMatchingRows.length > 0) {
-          var dateRowsWithDoc = dateMatchingRows.filter(function(w) { return w.hasDoc; });
-
-          if (dateRowsWithDoc.length === 0) {
-            // Row exists for this date, but does NOT have a Doc Link yet!
-            lock.releaseLock();
-            return buildResponse({
-              success: false,
-              message: 'This row does not have a Doc Link yet. The scheduled row for "' + websiteDomain + '" on ' + dated + ' in Class ' + classNum + ' (tab "' + sheetName + '") is missing a Doc Link (\'Link\'). Please add the Doc Link in Google Sheet before importing.'
-            });
-          }
-
-          // Priority 1: URL match (idempotent re-sync)
-          var urlMatchOnDate = dateRowsWithDoc.filter(function(w) { return w.isUrlMatch; });
+          // Priority 1: URL match on date (idempotent re-sync)
+          var urlMatchOnDate = dateMatchingRows.filter(function(w) { return w.isUrlMatch; });
           if (urlMatchOnDate.length > 0) {
             target = urlMatchOnDate[0];
           } else {
             // Priority 2: Empty Public Link on this date
-            var emptyOnDate = dateRowsWithDoc.filter(function(w) { return w.isEmptyPublic; });
+            var emptyOnDate = dateMatchingRows.filter(function(w) { return w.isEmptyPublic; });
             if (emptyOnDate.length > 0) {
               target = emptyOnDate[0];
             } else if (payload.force_overwrite) {
-              target = dateRowsWithDoc[0];
+              target = dateMatchingRows[0];
             } else {
               lock.releaseLock();
               return buildResponse({
                 success: false,
                 needs_confirmation: true,
-                sheet_row: dateRowsWithDoc[0].sheetRow,
-                existing_public_link: dateRowsWithDoc[0].publicLink,
-                message: 'Row ' + dateRowsWithDoc[0].sheetRow + ' for "' + websiteDomain + '" on ' + dated + ' in Class ' + classNum + ' (tab "' + sheetName + '") already has a Public Link (' + dateRowsWithDoc[0].publicLink + '). Confirm overwrite to replace it.'
+                sheet_row: dateMatchingRows[0].sheetRow,
+                existing_public_link: dateMatchingRows[0].publicLink,
+                message: 'Row ' + dateMatchingRows[0].sheetRow + ' for "' + websiteDomain + '" on ' + dated + ' in Class ' + classNum + ' (tab "' + sheetName + '") already has a Public Link (' + dateMatchingRows[0].publicLink + '). Confirm overwrite to replace it.'
               });
             }
           }
         } else {
           // 2. No exact date match found in the sheet:
-          var rowsWithDoc = websiteRows.filter(function(w) { return w.hasDoc; });
-
-          if (rowsWithDoc.length === 0) {
-            lock.releaseLock();
-            return buildResponse({
-              success: false,
-              message: 'This row does not have a Doc Link yet. None of the rows for "' + websiteDomain + '" in Class ' + classNum + ' (tab "' + sheetName + '") have a Doc Link (\'Link\') yet. Please add the Doc Link in Google Sheet before importing.'
-            });
-          }
-
-          // Priority 1: URL match across rows
-          var urlMatches = rowsWithDoc.filter(function(w) { return w.isUrlMatch; });
+          // Priority 1: URL match across rows (idempotent re-sync)
+          var urlMatches = websiteRows.filter(function(w) { return w.isUrlMatch; });
           if (urlMatches.length > 0) {
             target = urlMatches[0];
           } else {
-            // Priority 2: First empty slot with Doc Link
-            var emptySlots = rowsWithDoc.filter(function(w) { return w.isEmptyPublic; });
-            if (emptySlots.length > 0) {
-              target = emptySlots[0];
+            // Priority 2: First empty slot (prefer row that has Doc Link if present, otherwise any empty slot)
+            var emptyWithDoc = websiteRows.filter(function(w) { return w.isEmptyPublic && w.hasDoc; });
+            var emptyAny = websiteRows.filter(function(w) { return w.isEmptyPublic; });
+
+            if (emptyWithDoc.length > 0) {
+              target = emptyWithDoc[0];
+            } else if (emptyAny.length > 0) {
+              target = emptyAny[0];
             } else if (payload.force_overwrite) {
-              target = rowsWithDoc[0];
+              target = websiteRows[0];
             } else {
               lock.releaseLock();
               return buildResponse({
                 success: false,
                 needs_confirmation: true,
-                sheet_row: rowsWithDoc[0].sheetRow,
-                existing_public_link: rowsWithDoc[0].publicLink,
-                message: 'All scheduled rows with a Doc Link for "' + websiteDomain + '" in Class ' + classNum + ' (tab "' + sheetName + '") already have a Public Link (' + rowsWithDoc[0].publicLink + '). Confirm overwrite to replace it.'
+                sheet_row: websiteRows[0].sheetRow,
+                existing_public_link: websiteRows[0].publicLink,
+                message: 'All scheduled rows for "' + websiteDomain + '" in Class ' + classNum + ' (tab "' + sheetName + '") already have a Public Link (' + websiteRows[0].publicLink + '). Confirm overwrite to replace it.'
               });
             }
           }
@@ -444,7 +456,7 @@ function doPost(e) {
           success: true,
           sheet: sheetName,
           row: writeSheetRow,
-          message: 'Blog successfully synchronized into row ' + writeSheetRow + ' with existing Doc Link.'
+          message: 'Blog successfully synchronized into row ' + writeSheetRow + '.'
         };
         if (requestId) storeIdempotencyResult(requestId, syncResult);
         lock.releaseLock();
@@ -533,9 +545,12 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
   if (!allData || allData.length === 0) return null;
 
   var numRows = allData.length;
-  var numCols = allData[0].length;
-  var row0 = allData[0];
-  var row1 = numRows > 1 ? allData[1] : null;
+  var numCols = (allData[0] && allData[0].length) ? allData[0].length : 0;
+  for (var ir = 0; ir < Math.min(10, numRows); ir++) {
+    if (allData[ir] && allData[ir].length > numCols) {
+      numCols = allData[ir].length;
+    }
+  }
 
   // Standard 7-column offsets per class:
   var standardOffsets = {
@@ -545,35 +560,54 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
     '1': 14,
     '5': 21,
     '6': 28,
-    '7': 35
+    '7': 35,
+    '8': 42
   };
 
-  // Header row index: row 2 (0-indexed 1) in standard sheet
-  var headerRowIndex = 1;
-  var dataStartRow = 2; // Data rows start at row 3 (0-indexed 2)
+  // Dynamically locate subheader row (contains Link, Public, Doc, Date, etc.)
+  var subRowIndex = -1;
+  var groupRowIndex = -1;
 
-  // Verify whether row 2 has subheaders
-  if (row1) {
-    var hasSubHeaders = false;
-    for (var c = 0; c < numCols; c++) {
-      var h = String(row1[c] || '').toLowerCase();
-      if (h.indexOf('link') !== -1 || h.indexOf('doc') !== -1 || h.indexOf('public') !== -1 || 
-          h.indexOf('date') !== -1 || h.indexOf('writer') !== -1 || h === 'class' || /^class\b/i.test(h)) {
-        hasSubHeaders = true;
-        break;
+  for (var r = 0; r < Math.min(15, numRows); r++) {
+    var row = allData[r];
+    if (!row) continue;
+    var subMatches = 0;
+    for (var c = 0; c < row.length; c++) {
+      var h = String(row[c] || '').toLowerCase().trim();
+      if (h.indexOf('link') !== -1 || h.indexOf('public') !== -1 || h.indexOf('doc') !== -1 || 
+          h.indexOf('date') !== -1 || h.indexOf('writer') !== -1) {
+        subMatches++;
       }
     }
-    if (!hasSubHeaders) {
-      headerRowIndex = 0;
-      dataStartRow = 1;
+    if (subMatches >= 3) {
+      subRowIndex = r;
+      break;
     }
-  } else {
-    headerRowIndex = 0;
-    dataStartRow = 1;
   }
 
-  var groupRow = (headerRowIndex === 1) ? row0 : null;
-  var subRow   = allData[headerRowIndex];
+  if (subRowIndex === -1) {
+    subRowIndex = 1;
+  }
+
+  // Look for group header row immediately above subRowIndex or earlier
+  for (var gr = subRowIndex - 1; gr >= 0; gr--) {
+    var grow = allData[gr];
+    if (!grow) continue;
+    var grpMatches = 0;
+    for (var gc = 0; gc < grow.length; gc++) {
+      if (/class\s*\d/i.test(String(grow[gc] || ''))) {
+        grpMatches++;
+      }
+    }
+    if (grpMatches >= 1) {
+      groupRowIndex = gr;
+      break;
+    }
+  }
+
+  var groupRow = (groupRowIndex !== -1) ? allData[groupRowIndex] : null;
+  var subRow   = allData[subRowIndex];
+  var dataStartRow = subRowIndex + 1;
 
   // 1. Locate all Class start columns
   var classColIndices = [];
@@ -581,7 +615,7 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
     var hSub = String(subRow[c] || '').trim().toLowerCase();
     var hGrp = groupRow ? String(groupRow[c] || '').trim().toLowerCase() : '';
 
-    if (hSub === 'class' || (headerRowIndex === 1 && /^class\b/i.test(hGrp) && (c % 7 === 0))) {
+    if (hSub === 'class' || (groupRow && /^class\b/i.test(hGrp) && (c % 7 === 0))) {
       if (classColIndices.indexOf(c) === -1) {
         classColIndices.push(c);
       }
@@ -589,7 +623,7 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
   }
 
   if (classColIndices.length === 0) {
-    classColIndices = [0, 7, 14, 21, 28, 35];
+    classColIndices = [0, 7, 14, 21, 28, 35, 42];
   }
 
   // 2. Build block configurations

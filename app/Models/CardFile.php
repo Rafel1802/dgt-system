@@ -12,6 +12,7 @@ class CardFile extends Model
         'card_id',
         'uploaded_by',
         'original_name',
+        'folder_name',
         'stored_name',
         'disk',
         'path',
@@ -109,7 +110,32 @@ class CardFile extends Model
         'is_image',
         'is_video',
         'is_canva',
+        'is_google_drive',
+        'is_google_drive_folder',
+        'folder_name',
+        'display_name',
     ];
+
+    public function getFolderNameAttribute(): ?string
+    {
+        if (!empty($this->attributes['folder_name'])) {
+            return $this->attributes['folder_name'];
+        }
+        if ($this->original_name && str_contains($this->original_name, '/')) {
+            $parts = explode('/', $this->original_name, 2);
+            return $parts[0] ?: null;
+        }
+        return null;
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        if ($this->original_name && str_contains($this->original_name, '/')) {
+            $parts = explode('/', $this->original_name, 2);
+            return $parts[1] ?: $this->original_name;
+        }
+        return $this->original_name ?? 'file';
+    }
 
     public function card(): BelongsTo
     {
@@ -193,8 +219,28 @@ class CardFile extends Model
         return str_contains($raw, 'canva.com') || str_contains($raw, 'canva.link') || str_contains($raw, 'canva.me') || str_contains($raw, 'canva.site');
     }
 
+    public function getIsGoogleDriveAttribute(): bool
+    {
+        $raw = strtolower(($this->path ?? '') . ' ' . ($this->stored_name ?? '') . ' ' . ($this->original_name ?? ''));
+        return str_contains($raw, 'drive.google.com');
+    }
+
+    public function getIsGoogleDriveFolderAttribute(): bool
+    {
+        $raw = strtolower(($this->path ?? '') . ' ' . ($this->stored_name ?? '') . ' ' . ($this->original_name ?? ''));
+        return str_contains($raw, 'drive.google.com') && (
+            str_contains($raw, '/folders/') ||
+            str_contains($raw, '/folderview') ||
+            str_contains($raw, 'folders%2f')
+        );
+    }
+
     public function getIsVideoAttribute(): bool
     {
+        if ($this->is_canva) {
+            return false;
+        }
+
         $mime = strtolower($this->mime_type ?? '');
         if (str_starts_with($mime, 'video/')) {
             return true;
@@ -209,10 +255,20 @@ class CardFile extends Model
         }
 
         $url = strtolower($this->path ?? $this->stored_name ?? '');
+
+        // Google Drive links: Folders and documents are NEVER video
         if (str_contains($url, 'drive.google.com')) {
-            $nonVideoExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.zip', '.rar', '.7z'];
+            if (str_contains($url, '/folders/') || str_contains($url, '/folderview') || str_contains($url, 'folders%2f')) {
+                return false;
+            }
+
+            if (str_contains($url, '/document/') || str_contains($url, '/spreadsheets/') || str_contains($url, '/presentation/') || str_contains($url, '/forms/')) {
+                return false;
+            }
+
+            $nonVideoExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.zip', '.rar', '.7z', '.txt', '.csv', '.tar', '.gz', '.json', '.xml', '.mp3', '.wav', '.ogg'];
             foreach ($nonVideoExts as $ext) {
-                if (str_ends_with($name, $ext)) {
+                if (str_ends_with($name, $ext) || str_contains($url, $ext)) {
                     return false;
                 }
             }
@@ -235,6 +291,11 @@ class CardFile extends Model
 
         // Google Drive
         if (str_contains($rawUrl, 'drive.google.com')) {
+            // Folders and documents cannot be embedded as video
+            if (str_contains($rawUrl, '/folders/') || str_contains($rawUrl, '/folderview') || str_contains($rawUrl, 'folders%2f') ||
+                str_contains($rawUrl, '/document/') || str_contains($rawUrl, '/spreadsheets/') || str_contains($rawUrl, '/presentation/') || str_contains($rawUrl, '/forms/')) {
+                return null;
+            }
             // Check for /file/d/{id}/
             if (preg_match('/\/file\/d\/([a-zA-Z0-9_-]+)/i', $rawUrl, $matches)) {
                 return "https://drive.google.com/file/d/{$matches[1]}/preview";
@@ -243,9 +304,12 @@ class CardFile extends Model
             if (preg_match('/[?&]id=([a-zA-Z0-9_-]+)/i', $rawUrl, $matches)) {
                 return "https://drive.google.com/file/d/{$matches[1]}/preview";
             }
-            // Fallback: strip query and replace /view with /preview
-            $clean = explode('?', $rawUrl)[0];
-            return str_replace('/view', '/preview', $clean);
+            // Fallback: only if it's considered video
+            if ($this->is_video) {
+                $clean = explode('?', $rawUrl)[0];
+                return str_replace('/view', '/preview', $clean);
+            }
+            return null;
         }
 
         // YouTube
@@ -314,6 +378,9 @@ class CardFile extends Model
 
         // Google Drive video thumbnail
         if (str_contains($rawUrl, 'drive.google.com')) {
+            if (str_contains($rawUrl, '/folders/') || str_contains($rawUrl, '/folderview') || str_contains($rawUrl, 'folders%2f')) {
+                return null;
+            }
             if (preg_match('/\/file\/d\/([a-zA-Z0-9_-]+)/i', $rawUrl, $matches)) {
                 return "https://drive.google.com/thumbnail?id={$matches[1]}&sz=w320";
             }

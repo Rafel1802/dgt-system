@@ -20,7 +20,8 @@ window.trelloBoard = function(config) {
     currentUserId: config.currentUserId,
     currentUser: config.currentUser || { id: config.currentUserId, can_move_any_card: false, can_manage_blocked_cards: false, is_digital_team: false },
     lists:      config.lists,
-    labels:     config.labels,
+    labels:     config.labels || [],
+    allBoardLabels: (config.labels && config.labels.length > 0) ? config.labels : [],
     smmClasses: config.smmClasses || [],
     smmTeams:   config.smmTeams   || ['Graphic Team', 'Video Team', 'Listing Team', 'Content Writing Team', 'QC Team'],
     smmContentTypes: config.smmContentTypes || [
@@ -36,7 +37,129 @@ window.trelloBoard = function(config) {
     allBoardMembers:     config.boardMembers     || [],
     allWorkspaceMembers: config.workspaceMembers || [],
     allSystemMembers:    config.allSystemMembers || [],
-    allWorkspaces:       config.allWorkspaces    || [],
+    allWorkspaces:       (config.allWorkspaces || []).filter(ws => ws.boards && ws.boards.length > 0),
+
+    get availableLabels() {
+      const canonical = [
+        { id: 'Graphic', name: 'Graphic', color: '#f43f5e' },
+        { id: 'Video', name: 'Video', color: '#ef4444' },
+        { id: 'SMM', name: 'SMM', color: '#50C878' },
+        { id: 'Listing', name: 'Listing', color: '#f59e0b' },
+        { id: 'Content', name: 'Content', color: '#0ea5e9' },
+      ];
+      const list = [...(this.labels || this.allBoardLabels || [])];
+      canonical.forEach(c => {
+        const found = list.find(l => (l.name || '').toLowerCase() === c.name.toLowerCase());
+        if (!found) {
+          list.push(c);
+        } else if (!found.color) {
+          found.color = c.color;
+        }
+      });
+      return list;
+    },
+
+    get exportAvailableMembers() {
+      const map = new Map();
+      (this.allBoardMembers || []).forEach(m => { if (m && m.id) map.set(String(m.id), m); });
+      (this.allWorkspaceMembers || []).forEach(m => { if (m && m.id && !map.has(String(m.id))) map.set(String(m.id), m); });
+      (this.allSystemMembers || []).forEach(m => { if (m && m.id && !map.has(String(m.id))) map.set(String(m.id), m); });
+      return Array.from(map.values());
+    },
+
+    get filterAvailableMembers() {
+      const map = new Map();
+      (this.allBoardMembers || []).forEach(m => { if (m && m.id) map.set(String(m.id), m); });
+      (this.allWorkspaceMembers || []).forEach(m => { if (m && m.id && !map.has(String(m.id))) map.set(String(m.id), m); });
+      (this.allSystemMembers || []).forEach(m => { if (m && m.id && !map.has(String(m.id))) map.set(String(m.id), m); });
+      return Array.from(map.values());
+    },
+
+    get selectedFilterAssignee() {
+      const id = this.filterAssignee;
+      if (!id || id === 'all') return null;
+      return (this.filterAvailableMembers || []).find(m => String(m.id) === String(id)) || null;
+    },
+
+    get selectedFilterAssignBy() {
+      const id = this.filterAssignBy;
+      if (!id || id === 'all') return null;
+      return (this.filterAvailableMembers || []).find(m => String(m.id) === String(id)) || null;
+    },
+
+    get filteredFilterAssignees() {
+      const q = (this.filterAssigneeSearch || '').toLowerCase().trim();
+      const list = this.filterAvailableMembers || [];
+      if (!q) return list;
+      return list.filter(m => (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q) || (m.username || '').toLowerCase().includes(q));
+    },
+
+    get filteredFilterAssignBy() {
+      const q = (this.filterAssignBySearch || '').toLowerCase().trim();
+      const list = this.filterAvailableMembers || [];
+      if (!q) return list;
+      return list.filter(m => (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q) || (m.username || '').toLowerCase().includes(q));
+    },
+
+    get selectedExportMember() {
+      const id = this.exportModal?.memberId;
+      if (!id || id === 'all') return null;
+      return (this.exportAvailableMembers || []).find(m => String(m.id) === String(id)) || null;
+    },
+
+    get selectedExportAssignBy() {
+      const id = this.exportModal?.assignById;
+      if (!id || id === 'all') return null;
+      return (this.exportAvailableMembers || []).find(m => String(m.id) === String(id)) || null;
+    },
+
+    get filteredExportAssignees() {
+      const q = (this.exportModal?.assigneeSearch || '').toLowerCase().trim();
+      const list = this.exportAvailableMembers || [];
+      if (!q) return list;
+      return list.filter(m => (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q) || (m.username || '').toLowerCase().includes(q));
+    },
+
+    get filteredExportAssignBy() {
+      const q = (this.exportModal?.assignBySearch || '').toLowerCase().trim();
+      const list = this.exportAvailableMembers || [];
+      if (!q) return list;
+      return list.filter(m => (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q) || (m.username || '').toLowerCase().includes(q));
+    },
+
+    toggleExportLabel(label) {
+      const em = this.exportModal;
+      if (!Array.isArray(em.labelIds)) em.labelIds = [];
+      const val = label.id || label.name;
+      const idx = em.labelIds.findIndex(item => String(item).toLowerCase() === String(val).toLowerCase() || (label.name && String(item).toLowerCase() === String(label.name).toLowerCase()));
+      if (idx > -1) {
+        em.labelIds.splice(idx, 1);
+      } else {
+        em.labelIds.push(val);
+      }
+    },
+
+    isExportLabelSelected(label) {
+      const em = this.exportModal;
+      if (!Array.isArray(em.labelIds) || em.labelIds.length === 0) return false;
+      const val = label.id || label.name;
+      return em.labelIds.some(item => String(item).toLowerCase() === String(val).toLowerCase() || (label.name && String(item).toLowerCase() === String(label.name).toLowerCase()));
+    },
+
+    selectAllExportLabels() {
+      const em = this.exportModal;
+      em.labelIds = (this.availableLabels || []).map(l => l.id || l.name);
+    },
+
+    clearExportLabels() {
+      const em = this.exportModal;
+      em.labelIds = [];
+    },
+
+    getMemberById(id) {
+      if (!id || id === 'all') return null;
+      return (this.exportAvailableMembers || []).find(m => String(m.id) === String(id)) || null;
+    },
 
     // Filters & Zoom
     zoomLevel: parseInt(localStorage.getItem('boardZoomLevel')) || 100,
@@ -54,13 +177,33 @@ window.trelloBoard = function(config) {
     filterContentPublicDateFrom: '',
     filterContentPublicDateTo: '',
     filterPublicDate: '',
+    filterTeam: '',
+    filterCategory: '',
     filtersOpen: false,
+    filterOpenAssignBy: false,
+    filterAssignBySearch: '',
+    filterOpenAssignee: false,
+    filterAssigneeSearch: '',
     searchOpen: false,
+    currentTheme: (typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || (document.documentElement.classList.contains('dark') ? 'dark' : 'light')) : 'light'),
     boardMembers: [], // unique list for filter dropdown (populated by loadBoardMembers)
 
     // Activity drawer
     activityOpen: false,
     activities: [],
+
+    // Checklist Item Modal
+    checklistItemModal: {
+      open: false,
+      mode: 'add', // 'add' or 'edit'
+      checklist: null,
+      item: null,
+      title: '',
+      assignedUserIds: [],
+      manuallySelected: false,
+      detectedCategory: null,
+      detectedMembers: [],
+    },
 
     // Board menu drawer
     boardMenu: {
@@ -80,7 +223,7 @@ window.trelloBoard = function(config) {
       backgroundValue: '',
       backgroundColorDraft: '#2F68ED',
       backgroundImageUrl: '',
-      backgroundColors: ['#2F68ED', '#0ea5e9', '#6366f1', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#0f172a'],
+      backgroundColors: ['#ffffff', '#2F68ED', '#0ea5e9', '#6366f1', '#14b8a6', '#22c55e', '#f59e0b', '#ef4444', '#0f172a'],
       backgroundGradients: [
         'linear-gradient(135deg,#0ea5e9,#22c55e)',
         'linear-gradient(135deg,#6366f1,#ec4899)',
@@ -140,6 +283,11 @@ window.trelloBoard = function(config) {
       memberId: 'all',
       assignById: 'all',
       labelId: 'all',
+      labelIds: [],
+      openAssigneeDropdown: false,
+      assigneeSearch: '',
+      openAssignByDropdown: false,
+      assignBySearch: '',
       statuses: ['draft', 'in_progress', 'review', 'completed', 'archived'],
       includeDesc: false,
       includeComments: false
@@ -271,6 +419,12 @@ window.trelloBoard = function(config) {
       dragOver:       false,
       uploading:      false,
       uploadProgress: 0,
+      uploadCount:    0,
+      uploadStatusText: '',
+      folderName:     '',
+      pendingFiles:   [],
+      pendingRelativePaths: [],
+      pendingFolderName: '',
       error:          '',
       linkUrl:        '',
       linkName:       '',
@@ -291,6 +445,7 @@ window.trelloBoard = function(config) {
     addingCardListId: null,
     newCardTitle:     '',
     newCardTeam:      null,
+    newCardAssignedTeam: null,
 
     // Card modal - pre-initialize synchronously if ?card= is in query string or autoOpenCardId is passed
     activeCard: (function() {
@@ -322,6 +477,21 @@ window.trelloBoard = function(config) {
       open: false,
       url: '',
       title: '',
+      images: [],
+      currentIndex: 0,
+    },
+    folderViewer: {
+      open: false,
+      folderName: '',
+      files: [],
+      filter: 'all',
+    },
+    groupFolderModal: {
+      open: false,
+      folderName: 'Photos',
+      selectedFileIds: [],
+      submitting: false,
+      error: '',
     },
     videoPreview: {
       open: false,
@@ -379,6 +549,26 @@ window.trelloBoard = function(config) {
 
     // ── Init ─────────────────────────────────────────────────────────────────
     init() {
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.add('is-board-page');
+        document.body.classList.add('is-board-page');
+        document.addEventListener('turbo:before-visit', () => {
+          document.documentElement.classList.remove('is-board-page');
+          document.body.classList.remove('is-board-page');
+        }, { once: true });
+      }
+
+      this.currentTheme = (typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || (document.documentElement.classList.contains('dark') ? 'dark' : 'light')) : 'light');
+      window.addEventListener('theme-changed', (e) => {
+        this.currentTheme = e.detail?.dataTheme || (e.detail?.theme === 'dark' ? (e.detail?.neon ? 'neon' : 'dark') : 'light');
+      });
+      if (typeof MutationObserver !== 'undefined' && document.documentElement) {
+        const themeObserver = new MutationObserver(() => {
+          this.currentTheme = document.documentElement.getAttribute('data-theme') || (document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        });
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+      }
+
       this.isMacPlatform = this.checkIsMacApp();
       window.addEventListener('dgt-macos-app-ready', () => {
         this.isMacPlatform = true;
@@ -397,7 +587,23 @@ window.trelloBoard = function(config) {
         Notification.requestPermission();
       }
 
-      // Close context menu and preview modals on ESC (using capturing listener)
+      // Auto-set team filter:
+      // - Workflow boards: strictly locked to board's team (Team A or B)
+      // - Normal Planning boards: Team A and Team B members/leads see ONLY their team (Team A or B) unless they can filter all teams
+      // - Users who can filter all teams (dara, kim, somalika, admin-digital, supervisor, boss): see BOTH teams by default (filterTeam = '')
+      const canFilterAll = this.canFilterAllTeams();
+      if (this.isWorkflowBoard()) {
+        const bTeam = this.getBoardTeam();
+        if (bTeam) {
+          this.filterTeam = bTeam;
+        }
+      } else if (this.isNormalPlanningBoard() && !canFilterAll && this.currentUser?.team) {
+        this.filterTeam = this.currentUser.team;
+      } else {
+        this.filterTeam = '';
+      }
+
+      // Close context menu and preview modals on ESC, handle image gallery arrow keys
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           if (this.canvaPreview && this.canvaPreview.open) {
@@ -418,7 +624,19 @@ window.trelloBoard = function(config) {
             this.closeImagePreview();
             return;
           }
+          if (this.folderViewer && this.folderViewer.open) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeFolderViewer();
+            return;
+          }
           this.closeCtxMenu();
+        } else if (this.imagePreview && this.imagePreview.open) {
+          if (e.key === 'ArrowLeft') {
+            this.previewPrevImage();
+          } else if (e.key === 'ArrowRight') {
+            this.previewNextImage();
+          }
         }
       }, true);
       document.addEventListener('click', (e) => {
@@ -447,7 +665,9 @@ window.trelloBoard = function(config) {
       this.$watch('switchBoardsModal.tab', () => this.updateSbmFilteredBoards());
       this.$watch('switchBoardsModal.selectedWorkspace', () => this.updateSbmFilteredBoards());
 
-      // Preload removed to restore performance
+      // Reset horizontal scroll cleanly without layout thrashing
+      const wrap = document.getElementById('board-wrap');
+      if (wrap) wrap.scrollLeft = 0;
 
       // Auto-open card if passed in query param
       const urlParams = new URLSearchParams(window.location.search);
@@ -463,13 +683,13 @@ window.trelloBoard = function(config) {
     },
 
     zoomIn() {
-      const levels = [33, 50, 67, 75, 80, 90, 100, 110, 125, 150];
+      const levels = [50, 67, 75, 85, 100, 115, 125, 150];
       const next = levels.find(l => l > this.zoomLevel);
       if (next) this.setZoom(next);
     },
 
     zoomOut() {
-      const levels = [33, 50, 67, 75, 80, 90, 100, 110, 125, 150];
+      const levels = [50, 67, 75, 85, 100, 115, 125, 150];
       const prev = [...levels].reverse().find(l => l < this.zoomLevel);
       if (prev) this.setZoom(prev);
     },
@@ -506,6 +726,130 @@ window.trelloBoard = function(config) {
 
     avatarStyle(user) {
       return `background:${this.avatarColor(user)}`;
+    },
+
+    getListLead(list) {
+      if (list?.lead) return list.lead;
+      const name = String(list?.name || '').toLowerCase();
+      const boardName = String(this.board?.name || '').toLowerCase();
+      const isWorkflow = boardName.includes('workflow') || this.board?.type === 'workflow';
+
+      if (!isWorkflow && !name.includes('team a') && !name.includes('team b') && !name.includes('digital department')) {
+        return null;
+      }
+
+      if ((name.includes('production team a') || name.includes('team a') || name.includes('dara') || name.includes('qc')) && !name.includes('team b')) {
+        const u = this.allSystemMembers?.find(m => m.id === 12 || (m.name && m.name.toLowerCase().includes('dara')));
+        return {
+          id: u?.id || 12,
+          name: 'Mr. Dara',
+          display_name: 'Mr. Dara',
+          full_name: u?.name || 'Mr. Dara (QC)',
+          avatar: u?.avatar || this.avatarUrl(u),
+          initials: 'MD',
+          avatar_color: u?.avatar_color || '#334155',
+          role: 'Team A QC / Lead'
+        };
+      }
+
+      if ((name.includes('production team b') || name.includes('team b') || name.includes('kim') || name.includes('head review')) && !name.includes('team a')) {
+        const u = this.allSystemMembers?.find(m => m.id === 13 || (m.name && m.name.toLowerCase().includes('kim')));
+        return {
+          id: u?.id || 13,
+          name: 'Mr. Kim',
+          display_name: 'Mr. Kim',
+          full_name: u?.name || 'Mr. KimOun (Head)',
+          avatar: u?.avatar || this.avatarUrl(u),
+          initials: 'MK',
+          avatar_color: u?.avatar_color || '#0369a1',
+          role: 'Team B Head'
+        };
+      }
+
+      if (name.includes('digital department') || name.includes('supervisor') || name.includes('somalika')) {
+        const u = this.allSystemMembers?.find(m => m.id === 2 || (m.name && (m.name.toLowerCase().includes('somalika') || m.name.toLowerCase().includes('supervisor'))));
+        return {
+          id: u?.id || 2,
+          name: 'Supervisor',
+          display_name: 'Supervisor',
+          full_name: u?.name || 'Ms. Somalika (Supervisor)',
+          avatar: u?.avatar || this.avatarUrl(u),
+          initials: 'MS',
+          avatar_color: u?.avatar_color || '#0f766e',
+          role: 'Digital Supervisor'
+        };
+      }
+
+      return null;
+    },
+
+    isWorkflowBoard() {
+      const name = String(this.board?.name || '').toLowerCase();
+      return (name.includes('workflow') || this.board?.type === 'workflow') && !name.includes('planning');
+    },
+
+    getBoardTeam() {
+      const name = String(this.board?.name || '').toLowerCase();
+      if (name.includes('team a') || name.includes('teama') || name.includes('team-a')) return 'A';
+      if (name.includes('team b') || name.includes('teamb') || name.includes('team-b')) return 'B';
+      return null;
+    },
+
+    isCardBothTeams(card) {
+      if (!card) return false;
+      const t = (card.team || '').toUpperCase().trim();
+      if (t === 'BOTH' || t === 'ALL' || t === 'A,B' || t === 'A, B' || t === 'A&B' || t === 'A & B' || t === 'A+B' || (t.includes('A') && t.includes('B'))) {
+        return true;
+      }
+      if (card.labels && Array.isArray(card.labels)) {
+        if (card.labels.some(l => /team\s*a\s*(&|\+|and)\s*(team\s*)?b\b/i.test(l.name || ''))) return true;
+        const hasA = card.labels.some(l => /team\s*a\b/i.test(l.name || ''));
+        const hasB = card.labels.some(l => /team\s*b\b/i.test(l.name || ''));
+        if (hasA && hasB) return true;
+      }
+      const title = card.title || '';
+      if (/team\s*a\b/i.test(title) && /team\s*b\b/i.test(title)) return true;
+      return false;
+    },
+
+    cardBelongsToTeam(card, teamLetter) {
+      if (!card || !teamLetter) return false;
+      if (this.isCardBothTeams(card)) return true;
+      const t = (card.team || '').toUpperCase().trim();
+      if (t === teamLetter.toUpperCase()) return true;
+      if (card.labels && Array.isArray(card.labels)) {
+        const reg = new RegExp('team\\s*' + teamLetter + '\\b', 'i');
+        if (card.labels.some(l => reg.test(l.name || ''))) return true;
+      }
+      return false;
+    },
+
+    isSmmPlanningBoard() {
+      const name = String(this.board?.name || '').toLowerCase();
+      const wsName = String(this.board?.workspace_name || '').toLowerCase();
+      return name.includes('smm') || this.board?.type === 'smm' || wsName.includes('social media');
+    },
+
+    isPlanningBoard() {
+      const name = String(this.board?.name || '').toLowerCase();
+      return name.includes('planning') || this.board?.is_template || this.board?.type === 'smm';
+    },
+
+    isNormalPlanningBoard() {
+      return this.isPlanningBoard() && !this.isSmmPlanningBoard() && !this.isWorkflowBoard();
+    },
+
+    canFilterAllTeams() {
+      const user = this?.currentUser || this?.boardData?.currentUser || {};
+      if (user.can_filter_all_teams) return true;
+      if (user.is_special_manager) return true;
+      const roles = user.roles || [];
+      if (roles.some(r => ['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss'].includes(r))) return true;
+      const username = String(user.username || '').toLowerCase().trim();
+      const name = String(user.name || '').toLowerCase().trim();
+      if (['dara', 'kim', 'somalika'].includes(username) || username.includes('dara') || username.includes('kim') || username.includes('somalika')) return true;
+      if (name.includes('dara') || name.includes('kim') || name.includes('somalika')) return true;
+      return false;
     },
 
     escapeHtml(value) {
@@ -669,6 +1013,8 @@ window.trelloBoard = function(config) {
     // Long-press support (500 ms) for mobile
     ctxTouchStart(event, card, list) {
       this.ctxTouchTimer = setTimeout(() => {
+        this.justOpenedCtx = true;
+        setTimeout(() => { this.justOpenedCtx = false; }, 400);
         // Synthesise a fake event from the touch position
         const touch = event.touches[0];
         this.openCtxMenu({ clientX: touch.clientX, clientY: touch.clientY }, card, list);
@@ -803,6 +1149,12 @@ window.trelloBoard = function(config) {
 
     openCardTransferModal(mode, card, list) {
       const normalizedMode = mode === 'copy' ? 'copy' : 'move';
+      const targetCard = card || this.activeCard;
+      if (this.isCardChecklistIncomplete(targetCard)) {
+        this.showChecklistIncompleteModal(normalizedMode, targetCard);
+        return;
+      }
+
       const fallbackListId = parseInt(list?.id ?? card?.board_list_id ?? 0, 10) || null;
 
       this.cardTransferModal.mode = normalizedMode;
@@ -962,6 +1314,17 @@ window.trelloBoard = function(config) {
         }))
       );
 
+      // If viewing a hidden board, ensure the current board itself is also included in transfer list
+      if (this.board && !boards.some(b => b.id === this.board.id)) {
+        boards.unshift({
+          id: this.board.id,
+          name: this.board.name,
+          workspace_id: this.board.workspace_id,
+          workspace_name: this.board.workspace?.name || 'Current Board',
+          lists: this.lists,
+        });
+      }
+
       const seen = new Set();
       return boards.filter(board => {
         if (!board || seen.has(board.id)) return false;
@@ -1068,6 +1431,13 @@ window.trelloBoard = function(config) {
       const sourceListId = parseInt(this.cardTransferModal.sourceListId, 10) || null;
       const sourceList = this.lists.find(l => l.id === sourceListId) || null;
       const sourceCard = sourceList?.cards?.find(c => c.id === cardId) || null;
+      const targetCard = sourceCard || this.findCard(cardId) || this.activeCard;
+
+      if (this.isCardChecklistIncomplete(targetCard)) {
+        this.closeCardTransferModal();
+        this.showChecklistIncompleteModal(mode === 'copy' ? 'copy' : 'move', targetCard);
+        return;
+      }
 
       this.cardTransferModal.submitting = true;
 
@@ -1358,23 +1728,22 @@ window.trelloBoard = function(config) {
             }
 
             el.sortableInstance = new Sortable(el, {
-              group: 'cards',
+              group: {
+                name: 'cards',
+                pull: true,
+                put: true
+              },
               draggable: '.kanban-card[data-can-drag="1"]',
               filter: 'button, input, select, textarea, a, .card-quick-btn, .block-fix-btn, [data-no-drag]',
               preventOnFilter: false,
-              animation: 200,
-              easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+              animation: 180,
               ghostClass: 'sortable-ghost',
               chosenClass: 'sortable-chosen',
               dragClass: 'sortable-drag',
-              delay: 60,
+              delay: window.innerWidth < 768 ? 220 : 120,
               delayOnTouchOnly: true,
-              touchStartThreshold: 4,
-              fallbackTolerance: 4,
-              swapThreshold: 0.65,
-              invertSwap: true,
-              direction: 'vertical',
-              emptyInsertThreshold: 35,
+              touchStartThreshold: window.innerWidth < 768 ? 4 : 6,
+              emptyInsertThreshold: 60,
               scroll: true,
               scrollSensitivity: 100,
               scrollSpeed: 20,
@@ -1387,12 +1756,16 @@ window.trelloBoard = function(config) {
                 document.body.classList.add('is-dragging-card');
               },
               onMove: (evt) => {
-                const card = this.findCard(parseInt(evt.dragged.dataset.id));
-                const fromList = this.lists.find(l => l.id === parseInt(evt.from.dataset.listId));
-                const toList = this.lists.find(l => l.id === parseInt(evt.to.dataset.listId));
-                if (!this.canDragCard(card, fromList) || !this.canDragCard(card, toList)) {
-                  return false;
+                const toListId = parseInt(evt.to?.dataset?.listId || evt.to?.getAttribute('data-list-id'));
+                const toList = this.lists.find(l => l.id === toListId);
+
+                // Only block if dropping into a block list without permission
+                if (toList && this.isBlockList(toList)) {
+                  if (!this.currentUser?.can_manage_blocked_cards) {
+                    return false;
+                  }
                 }
+
                 // Highlight target list
                 containers.forEach(c => {
                   if (c === evt.to) {
@@ -1405,17 +1778,21 @@ window.trelloBoard = function(config) {
               },
               onEnd: async (evt) => {
                 this.realtimeDragging = false;
+                this.justDroppedCard = true;
+                setTimeout(() => { this.justDroppedCard = false; }, 300);
                 document.body.classList.remove('is-dragging-card');
                 containers.forEach(c => c.classList.remove('drag-over'));
 
-                const cardId = evt.item.dataset.id;
-                const fromListId = evt.from.dataset.listId;
-                const toListId = evt.to.dataset.listId;
+                const cardId = evt.item?.dataset?.id || evt.item?.getAttribute('data-id');
+                const fromListId = evt.from?.dataset?.listId || evt.from?.getAttribute('data-list-id');
+                const toListId = evt.to?.dataset?.listId || evt.to?.getAttribute('data-list-id');
                 const newIndex = evt.newIndex;
+                const oldIndex = evt.oldIndex;
 
-                if (fromListId === toListId && evt.oldIndex === newIndex) return;
+                if (!cardId || !fromListId || !toListId) return;
+                if (fromListId === toListId && oldIndex === newIndex) return;
 
-                await this.persistCardOrder(cardId, fromListId, toListId, newIndex);
+                await this.persistCardOrder(cardId, fromListId, toListId, newIndex, evt);
               }
             });
           });
@@ -1437,7 +1814,7 @@ window.trelloBoard = function(config) {
               ghostClass: 'sortable-list-ghost',
               chosenClass: 'sortable-list-chosen',
               dragClass: 'sortable-list-drag',
-              delay: 80,
+              delay: window.innerWidth < 768 ? 400 : 80,
               delayOnTouchOnly: true,
               touchStartThreshold: 5,
               scroll: true,
@@ -1478,13 +1855,46 @@ window.trelloBoard = function(config) {
       });
     },
 
-    async persistCardOrder(cardId, fromListId, toListId, newIndex) {
-      const cardBeforeMove = this.findCard(parseInt(cardId));
-      const sourceListBeforeMove = this.lists.find(l => l.id === parseInt(fromListId));
-      const targetListBeforeMove = this.lists.find(l => l.id === parseInt(toListId));
-      if (!this.canDragCard(cardBeforeMove, sourceListBeforeMove) || !this.canDragCard(cardBeforeMove, targetListBeforeMove)) {
+    async persistCardOrder(cardId, fromListId, toListId, newIndex, evt = null) {
+      const id = parseInt(cardId);
+      const fromId = parseInt(fromListId);
+      const toId = parseInt(toListId);
+      const cardBeforeMove = this.findCard(id);
+      const sourceListBeforeMove = this.lists.find(l => l.id === fromId);
+      const targetListBeforeMove = this.lists.find(l => l.id === toId);
+
+      if (!cardBeforeMove) {
         this.initSortable();
         return;
+      }
+
+      if (!this.canDragCard(cardBeforeMove, sourceListBeforeMove)) {
+        window.showToast('You do not have permission to move this card.', 'error');
+        this.initSortable();
+        return;
+      }
+
+      if (this.isBlockList(targetListBeforeMove) && !this.currentUser?.can_manage_blocked_cards) {
+        window.showToast('Only supervisors can move cards to Blocked list.', 'error');
+        this.initSortable();
+        return;
+      }
+
+      if (fromId !== toId && this.isCardChecklistIncomplete(cardBeforeMove)) {
+        this.showChecklistIncompleteModal('move', cardBeforeMove);
+        this.initSortable();
+        return;
+      }
+
+      // Revert SortableJS DOM move so Alpine can cleanly manage its reactive DOM without duplicating or missing nodes!
+      if (evt && evt.item && evt.from) {
+        if (evt.from !== evt.to) {
+          if (evt.oldIndex !== undefined && evt.oldIndex < evt.from.children.length) {
+            evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex] || null);
+          } else {
+            evt.from.appendChild(evt.item);
+          }
+        }
       }
 
       // Find the card element in local state and move it
@@ -1509,11 +1919,8 @@ window.trelloBoard = function(config) {
         }
       }
 
-      // Retrieve new order IDs from visual list container
-      const container = document.getElementById(`cards-${toListId}`);
-      if (!container) return;
-      const cardEls = container.querySelectorAll('.kanban-card');
-      const order = Array.from(cardEls).map(el => parseInt(el.dataset.id));
+      const targetList = this.lists.find(l => l.id === parseInt(toListId));
+      const order = targetList ? targetList.cards.map(c => parseInt(c.id)).filter(id => !isNaN(id)) : [];
 
       try {
         // Save target list order
@@ -1522,9 +1929,9 @@ window.trelloBoard = function(config) {
           source_list_id: parseInt(fromListId),
           moving_card_id: parseInt(cardId),
           order: order
-        }, { silentErrors: true });
+        });
         if (reorderRes._ok === false) {
-          // setTimeout(() => window.location.reload(), 800);
+          this.initSortable();
           return;
         }
 
@@ -1534,9 +1941,9 @@ window.trelloBoard = function(config) {
             board_list_id: parseInt(toListId),
             source_list_id: parseInt(fromListId),
             position: newIndex
-          }, { silentErrors: true });
+          });
           if (res._ok === false) {
-            // setTimeout(() => window.location.reload(), 800);
+            this.initSortable();
             return;
           }
           
@@ -1601,18 +2008,57 @@ window.trelloBoard = function(config) {
       }
     },
 
-    async editChecklistInline(cl, title) {
-      if (!title || title === (cl.name || cl.title)) return;
+    async editChecklistInline(cl, title, bulkAssignUserId = '__keep__') {
+      const trimmedTitle = (title || '').trim();
+      if (!trimmedTitle) {
+        window.showToast('Checklist title cannot be empty', 'warning');
+        return;
+      }
+
+      const titleChanged = trimmedTitle !== (cl.name || cl.title);
+      const assignmentChanged = bulkAssignUserId !== '__keep__';
+
+      if (!titleChanged && !assignmentChanged) {
+        return;
+      }
+
       try {
-        const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}`, 'PATCH', { title });
+        const payload = { title: trimmedTitle };
+        if (assignmentChanged) {
+          if (bulkAssignUserId === '__clear__') {
+            payload.assigned_user_id = null;
+            payload.assigned_user_ids = [];
+          } else {
+            payload.assigned_user_id = Number(bulkAssignUserId);
+            payload.assigned_user_ids = [Number(bulkAssignUserId)];
+          }
+        }
+
+        const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}`, 'PATCH', payload);
         if (res.success && res.checklist) {
           cl.name = res.checklist.title;
           cl.title = res.checklist.title;
-          this.refreshCardData();
+          if (Array.isArray(res.checklist.items)) {
+            cl.items = res.checklist.items;
+          }
+          this.updateCardChecklistProgress();
+
+          if (assignmentChanged) {
+            if (bulkAssignUserId === '__clear__') {
+              window.showToast('Checklist updated and all checkboxes unassigned', 'success');
+            } else {
+              const u = this.findMemberById(bulkAssignUserId);
+              const name = u ? u.name : 'selected user';
+              window.showToast(`Checklist updated and all checkboxes assigned to ${name}`, 'success');
+            }
+          } else {
+            window.showToast('Checklist updated', 'success');
+          }
         }
       } catch (e) {
         console.error(e);
-        window.showToast('Failed to edit checklist', 'error');
+        const msg = e?.response?.data?.message || e?.message || 'Failed to edit checklist';
+        window.showToast(msg, 'error');
       }
     },
 
@@ -1675,10 +2121,13 @@ window.trelloBoard = function(config) {
       if (this.filterContentPublicDateFrom) count++;
       if (this.filterContentPublicDateTo) count++;
       if (this.filterPublicDate) count++;
+      const isTeamLocked = this.isWorkflowBoard() || (this.isNormalPlanningBoard() && !this.canFilterAllTeams() && this.currentUser?.team);
+      if (!isTeamLocked && this.filterTeam) count++;
+      if (this.filterCategory) count++;
       return count;
     },
 
-    clearFilters() {
+    clearFilters(keepOpen = false) {
       this.searchQuery = '';
       this.filterPriority = '';
       this.filterAssignee = '';
@@ -1693,8 +2142,24 @@ window.trelloBoard = function(config) {
       this.filterContentPublicDateFrom = '';
       this.filterContentPublicDateTo = '';
       this.filterPublicDate = '';
+      const canFilterAll = this.canFilterAllTeams();
+      if (this.isWorkflowBoard()) {
+        const bTeam = this.getBoardTeam();
+        this.filterTeam = bTeam || '';
+      } else if (this.isNormalPlanningBoard() && !canFilterAll && this.currentUser?.team) {
+        this.filterTeam = this.currentUser.team;
+      } else {
+        this.filterTeam = '';
+      }
+      this.filterCategory = '';
+      this.filterOpenAssignBy = false;
+      this.filterAssignBySearch = '';
+      this.filterOpenAssignee = false;
+      this.filterAssigneeSearch = '';
       this.searchOpen = false;
-      this.filtersOpen = false;
+      if (!keepOpen) {
+        this.filtersOpen = false;
+      }
     },
 
     cardMatchesDate(dateVal, query) {
@@ -1756,9 +2221,14 @@ window.trelloBoard = function(config) {
     },
 
     hasActiveFilters() {
+      const isTeamLocked = this.isWorkflowBoard() || (this.isNormalPlanningBoard() && !this.canFilterAllTeams() && this.currentUser?.team);
+      const hasTeamFilter = isTeamLocked ? false : !!this.filterTeam;
+
       return !!(
         (this.searchQuery && this.searchQuery.trim()) ||
         this.filterPublicDate ||
+        hasTeamFilter ||
+        this.filterCategory ||
         this.filterPriority ||
         this.filterLabel ||
         this.filterAssignee ||
@@ -1778,11 +2248,26 @@ window.trelloBoard = function(config) {
       if (!list || !Array.isArray(list.cards)) return [];
 
       const isBlock = this.isBlockList(list);
+      const isNormalPlanning = this.isNormalPlanningBoard();
+      const canFilterAll = this.canFilterAllTeams();
+      const userTeam = this.currentUser?.team;
 
       // Fast path: No active filters
       if (!this.hasActiveFilters()) {
-        if (!isBlock) return list.cards;
-        return [...list.cards].sort((a, b) => {
+        let baseCards = list.cards;
+        if (isNormalPlanning && !canFilterAll && userTeam) {
+          baseCards = baseCards.filter(c => {
+            if (this.isCardBothTeams(c)) return true;
+            const isDirectAssignee = c.assignees && c.assignees.some(u => u.id === this.currentUser?.id);
+            if (isDirectAssignee) return true;
+            const cardTeam = (c.team || '').toUpperCase().trim();
+            if (userTeam === 'A' && cardTeam === 'B') return false;
+            if (userTeam === 'B' && cardTeam === 'A') return false;
+            return true;
+          });
+        }
+        if (!isBlock) return baseCards;
+        return [...baseCards].sort((a, b) => {
           const aDone = a.block_completed_at ? 1 : 0;
           const bDone = b.block_completed_at ? 1 : 0;
           if (aDone !== bDone) return aDone - bDone;
@@ -1801,6 +2286,43 @@ window.trelloBoard = function(config) {
       const statusLower = (this.filterStatus && this.filterStatus !== 'all') ? this.filterStatus.toLowerCase() : null;
 
       const cards = list.cards.filter(c => {
+        // Team filter:
+        // - Workflow boards: strictly auto-show only that board's team cards (or cards belonging to Both teams)!
+        // - Normal planning boards: regular team members can ONLY see their own team's cards (or Both teams)!
+        // - Users with all-teams access (dara, kim, somalika, admin-digital, supervisor, boss) or SMM planning boards: can see both teams, or filter optionally by Team A or Team B or ALL
+        if (this.isWorkflowBoard()) {
+          const bTeam = this.getBoardTeam();
+          if (bTeam) {
+            if (!this.cardBelongsToTeam(c, bTeam)) return false;
+          }
+        } else if (isNormalPlanning && !canFilterAll && (userTeam === 'A' || userTeam === 'B')) {
+          if (!this.isCardBothTeams(c)) {
+            const isDirectAssignee = c.assignees && c.assignees.some(u => u.id === this.currentUser?.id);
+            if (!isDirectAssignee) {
+              const cardTeam = (c.team || '').toUpperCase().trim();
+              if (userTeam === 'A' && (cardTeam === 'B' || (c.labels && c.labels.some(l => /team\s*b\b/i.test(l.name || ''))))) return false;
+              if (userTeam === 'B' && (cardTeam === 'A' || (c.labels && c.labels.some(l => /team\s*a\b/i.test(l.name || ''))))) return false;
+            }
+          }
+        } else {
+          // Users who can filter all teams or SMM planning board: filter optionally by Team A or Team B, or show ALL
+          if (this.filterTeam) {
+            if (!this.cardBelongsToTeam(c, this.filterTeam)) return false;
+          }
+        }
+
+        // Category filter (Video, Graphic, Listing, Content, SMM)
+        if (this.filterCategory) {
+          const cat = this.filterCategory.toLowerCase();
+          const matchLabel = c.labels && c.labels.some(l => (l.name || '').toLowerCase().includes(cat));
+          const matchClass = (c.smm_class_label || '').toLowerCase().includes(cat);
+          const matchTeam = (c.smm_team_label || '').toLowerCase().includes(cat);
+          const matchCardLabel = (c.label || '').toLowerCase().includes(cat);
+          const matchSubLabel = (c.sub_label || '').toLowerCase().includes(cat);
+          const matchTitle = (c.title || '').toLowerCase().includes(cat);
+          if (!matchLabel && !matchClass && !matchTeam && !matchCardLabel && !matchSubLabel && !matchTitle) return false;
+        }
+
         // Search text (matches title, description, public date, due date, start date, assignees, labels)
         if (q) {
           const matchTitle = c.title && c.title.toLowerCase().includes(q);
@@ -1834,13 +2356,19 @@ window.trelloBoard = function(config) {
         if (this.filterPriority && c.priority !== this.filterPriority) return false;
 
         // Label
-        if (filterLabelId && (!c.labels || !c.labels.some(lbl => lbl.id == filterLabelId))) return false;
+        if (filterLabelId) {
+          const lblObj = (this.labels || []).find(l => String(l.id) === String(filterLabelId));
+          const lblName = lblObj ? (lblObj.name || '').toLowerCase() : '';
+          const matchRel = c.labels && c.labels.some(lbl => String(lbl.id) === String(filterLabelId) || (lblName && (lbl.name || '').toLowerCase() === lblName));
+          const matchText = lblName && ((c.label || '').toLowerCase() === lblName || (c.sub_label || '').toLowerCase() === lblName);
+          if (!matchRel && !matchText) return false;
+        }
 
         // Assignee
-        if (filterAssigneeId && (!c.assignees || !c.assignees.some(u => u.id === filterAssigneeId))) return false;
+        if (filterAssigneeId && (!c.assignees || !c.assignees.some(u => String(u.id) === String(filterAssigneeId)))) return false;
 
         // Assign By
-        if (filterAssignById && (!c.creator || c.creator.id !== filterAssignById)) return false;
+        if (filterAssignById && (!c.creator || String(c.creator.id) !== String(filterAssignById)) && String(c.created_by) !== String(filterAssignById)) return false;
 
         // Team Label
         if (teamLower && (!c.smm_team_label || !c.smm_team_label.toLowerCase().includes(teamLower))) return false;
@@ -1908,9 +2436,27 @@ window.trelloBoard = function(config) {
 
     canDragCard(card, list) {
       if (!card) return false;
-      if (this.isBlockList(list)) return !!this.currentUser.can_manage_blocked_cards;
-      if (this.currentUser.can_move_any_card) return true;
-      return (card.assignees || []).some(u => parseInt(u.id) === parseInt(this.currentUserId));
+      const uname = (this.currentUser?.username || '').toLowerCase().trim();
+      const name = (this.currentUser?.name || '').toLowerCase().trim();
+      const email = (this.currentUser?.email || '').toLowerCase().trim();
+      const isAllowedUser = uname.includes('dara') || uname.includes('kim') ||
+                            name.includes('dara') || name.includes('kim') ||
+                            email.includes('dara') || email.includes('kim');
+      if (isAllowedUser) return true;
+      if (this.currentUser?.can_move_any_card) return true;
+      if (Array.isArray(this.currentUser?.roles) && (
+          this.currentUser.roles.includes('super-admin') ||
+          this.currentUser.roles.includes('admin-digital') ||
+          this.currentUser.roles.includes('admin') ||
+          this.currentUser.roles.includes('supervisor') ||
+          this.currentUser.roles.includes('boss')
+      )) return true;
+      if (this.isBlockList(list)) return !!this.currentUser?.can_manage_blocked_cards;
+      const myId = parseInt(this.currentUserId || this.currentUser?.id || 0);
+      const isAssigned = (card.assignees || []).some(u => parseInt(u.id) === myId);
+      const creatorId = parseInt(card.created_by || card.creator?.id || card.creator_id || 0);
+      const isCreator = creatorId > 0 && creatorId === myId;
+      return isAssigned || isCreator;
     },
 
     async completeBlockedCard(card, list) {
@@ -2307,9 +2853,11 @@ window.trelloBoard = function(config) {
       if (this.boardMenu.busy) return;
       this.boardMenu.busy = true;
       try {
-        const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/watch`, { method: 'POST' });
-        this.boardMenu.watched = res.watching;
-        window.showToast(res.message);
+        const res = await this.api(`/${this.baseRoute}/${this.boardSlug}/watch`, 'POST');
+        if (res && res._ok !== false) {
+          this.boardMenu.watched = res.watching;
+          window.showToast(res.message);
+        }
       } catch (err) {
         window.showToast('Error updating watch status', 'error');
       } finally {
@@ -2394,8 +2942,11 @@ window.trelloBoard = function(config) {
       const bm = this.boardMenu;
       bm.trashLoading = true;
       try {
-        const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/trash`, { method: 'GET' });
-        bm.trashItems = res.items || [];
+        const res = await this.api(`/${this.baseRoute}/${this.boardSlug}/trash`, 'GET');
+        bm.trashItems = (res && res.items) ? res.items : [];
+      } catch (err) {
+        console.error('Error fetching trash items:', err);
+        bm.trashItems = [];
       } finally {
         bm.trashLoading = false;
       }
@@ -2406,7 +2957,7 @@ window.trelloBoard = function(config) {
       // tab is 'cards' or 'lists' (plural), but API returns type 'card'/'list' (singular)
       const typeMap = { 'cards': 'card', 'lists': 'list' };
       const typeFilter = typeMap[tab] || tab;
-      return this.boardMenu.trashItems.filter(item => item.type === typeFilter);
+      return (this.boardMenu.trashItems || []).filter(item => item.type === typeFilter);
     },
 
     isTrashSelected(type, id) {
@@ -2437,12 +2988,9 @@ window.trelloBoard = function(config) {
       const items = [...this.boardMenu.selectedTrashItems];
       if (!items.length) return;
       if (!await window.confirmModal(`Restore ${items.length} item(s)?`)) return;
-      const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/trash/restore-bulk`, {
-        method: 'POST',
-        body: JSON.stringify({ items })
-      });
-      if (res.message) {
-        window.showToast(res.message);
+      const res = await this.api(`/${this.baseRoute}/${this.boardSlug}/trash/restore-bulk`, 'POST', { items });
+      if (res && (res.message || res.success)) {
+        window.showToast(res.message || 'Items restored.');
         this.boardMenu.selectedTrashItems = [];
         await this.fetchTrashItems();
         setTimeout(() => window.location.reload(), 500);
@@ -2453,12 +3001,9 @@ window.trelloBoard = function(config) {
       const items = [...this.boardMenu.selectedTrashItems];
       if (!items.length) return;
       if (!await window.confirmModal(`Permanently delete ${items.length} item(s)? This cannot be undone.`, 'Delete Permanently', 'Cancel', 'bg-rose-600')) return;
-      const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/trash/force-bulk`, {
-        method: 'DELETE',
-        body: JSON.stringify({ items })
-      });
-      if (res.message) {
-        window.showToast(res.message);
+      const res = await this.api(`/${this.baseRoute}/${this.boardSlug}/trash/force-bulk`, 'DELETE', { items });
+      if (res && (res.message || res.success)) {
+        window.showToast(res.message || 'Items permanently deleted.');
         this.boardMenu.selectedTrashItems = [];
         await this.fetchTrashItems();
       }
@@ -2466,12 +3011,9 @@ window.trelloBoard = function(config) {
 
     async restoreTrashItem(type, id) {
       if (!await window.confirmModal(`Restore this ${type}?`)) return;
-      const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/trash/restore`, { 
-        method: 'POST', 
-        body: JSON.stringify({ type, id }) 
-      });
-      if (res.message) {
-        window.showToast(res.message);
+      const res = await this.api(`/${this.baseRoute}/${this.boardSlug}/trash/restore`, 'POST', { type, id });
+      if (res && (res.message || res.success)) {
+        window.showToast(res.message || 'Item restored.');
         await this.fetchTrashItems();
         setTimeout(() => window.location.reload(), 500);
       }
@@ -2479,12 +3021,9 @@ window.trelloBoard = function(config) {
 
     async forceDeleteTrashItem(type, id) {
       if (!await window.confirmModal(`Permanently delete this ${type}? This cannot be undone.`, 'Delete Permanently', 'Cancel', 'bg-rose-600')) return;
-      const res = await window.fetchJson(`/${this.baseRoute}/${this.boardSlug}/trash/force`, { 
-        method: 'DELETE', 
-        body: JSON.stringify({ type, id }) 
-      });
-      if (res.message) {
-        window.showToast(res.message);
+      const res = await this.api(`/${this.baseRoute}/${this.boardSlug}/trash/force`, 'DELETE', { type, id });
+      if (res && (res.message || res.success)) {
+        window.showToast(res.message || 'Item permanently deleted.');
         await this.fetchTrashItems();
       }
     },
@@ -2805,9 +3344,25 @@ window.trelloBoard = function(config) {
       em.dateRange = 'all_time';
       em.startDate = '';
       em.endDate = '';
-      em.memberId = 'all';
+
+      const isBossOrSupervisor = this.currentUser?.is_special_manager
+        || this.currentUser?.can_filter_all_teams
+        || (this.currentUser?.roles || []).some(r => ['super-admin', 'admin-digital', 'admin', 'supervisor', 'boss'].includes(r))
+        || ['dara', 'kim', 'kimoun'].some(name => (this.currentUser?.name || '').toLowerCase().includes(name));
+
+      if (!isBossOrSupervisor && this.currentUserId) {
+        em.memberId = this.currentUserId;
+      } else {
+        em.memberId = 'all';
+      }
+
       em.assignById = 'all';
       em.labelId = 'all';
+      em.labelIds = [];
+      em.openAssigneeDropdown = false;
+      em.assigneeSearch = '';
+      em.openAssignByDropdown = false;
+      em.assignBySearch = '';
       em.statuses = ['draft', 'in_progress', 'review', 'completed', 'archived'];
       em.includeDesc = false;
       em.includeComments = false;
@@ -2846,8 +3401,14 @@ window.trelloBoard = function(config) {
       // Assign By
       params.append('assign_by_id', em.assignById);
 
-      // Label
-      params.append('label_id', em.labelId);
+      // Labels (single or multi-select)
+      if (Array.isArray(em.labelIds) && em.labelIds.length > 0) {
+        em.labelIds.forEach(id => {
+          params.append('label_ids[]', id);
+        });
+      } else if (em.labelId && em.labelId !== 'all') {
+        params.append('label_id', em.labelId);
+      }
 
       // Statuses
       if (em.statuses.length === 0) {
@@ -3192,6 +3753,19 @@ window.trelloBoard = function(config) {
       this.addingCardListId = listId;
       this.newCardTitle     = '';
       this.newCardTeam      = null;
+
+      const uname = (this.currentUser?.username || '').toLowerCase().trim();
+      const name = (this.currentUser?.name || '').toLowerCase().trim();
+      let defaultTeam = null;
+      if (uname.includes('kim') || name.includes('kim') || this.currentUser?.id === 13) {
+        defaultTeam = 'B';
+      } else if (uname.includes('dara') || name.includes('dara') || this.currentUser?.id === 12) {
+        defaultTeam = 'A';
+      } else if (this.currentUser?.team) {
+        defaultTeam = this.currentUser.team;
+      }
+
+      this.newCardAssignedTeam = (this.isWorkflowBoard() ? this.getBoardTeam() : null) || defaultTeam || this.filterTeam || 'A';
       this.$nextTick(() => {
         const el = document.querySelector(`#cards-${listId}`);
         if (el) el.scrollTop = el.scrollHeight;
@@ -3207,11 +3781,25 @@ window.trelloBoard = function(config) {
 
       const teamLabel = this.newCardTeam || null;
 
+      const uname = (this.currentUser?.username || '').toLowerCase().trim();
+      const name = (this.currentUser?.name || '').toLowerCase().trim();
+      let userDefaultTeam = null;
+      if (uname.includes('kim') || name.includes('kim') || this.currentUser?.id === 13) {
+        userDefaultTeam = 'B';
+      } else if (uname.includes('dara') || name.includes('dara') || this.currentUser?.id === 12) {
+        userDefaultTeam = 'A';
+      } else if (this.currentUser?.team) {
+        userDefaultTeam = this.currentUser.team;
+      }
+
+      const assignedTeam = (this.isWorkflowBoard() ? this.getBoardTeam() : null) || this.newCardAssignedTeam || userDefaultTeam || this.filterTeam || null;
+
       // Optimistic Create
       const tempId = 'temp-' + Date.now();
       const tempCard = {
         id: tempId,
         title: title,
+        team: assignedTeam || null,
         smm_team_label: teamLabel,
         priority: 'medium',
         due_at: null,
@@ -3228,6 +3816,7 @@ window.trelloBoard = function(config) {
       
       this.newCardTitle = '';
       this.newCardTeam = null;
+      this.newCardAssignedTeam = null;
       this.addingCardListId = null;
 
       // Background Sync
@@ -3237,6 +3826,9 @@ window.trelloBoard = function(config) {
       };
       if (teamLabel) {
         payload.smm_team_label = teamLabel;
+      }
+      if (assignedTeam) {
+        payload.team = assignedTeam;
       }
 
       const res = await this.api(`/boards/${this.boardSlug}/cards`, 'POST', payload);
@@ -3253,6 +3845,9 @@ window.trelloBoard = function(config) {
 
     // ── Card detail modal ────────────────────────────────────────────────────
     async openCard(cardId) {
+      if (this.realtimeDragging || this.justDroppedCard || this.justOpenedCtx) {
+        return;
+      }
       if (String(cardId).startsWith('temp-')) {
           window.showToast('Card is still saving, please wait a moment.', 'info');
           return;
@@ -3413,7 +4008,10 @@ window.trelloBoard = function(config) {
 
     formatActivityDescription(desc) {
       if (!desc) return '';
-      return desc.replace(/\bbulk\s+copied\b/gi, 'copied').replace(/\bbulk\s+moved\b/gi, 'moved');
+      let formatted = desc.replace(/\bbulk\s+copied\b/gi, 'copied').replace(/\bbulk\s+moved\b/gi, 'moved');
+      formatted = formatted.replace(/^copied\s+from\s+card\b/i, 'copied this card from');
+      formatted = formatted.replace(/^Copied\s+From\s+Card\b/, 'copied this card from');
+      return formatted;
     },
 
     async updateCardField(fields) {
@@ -3423,13 +4021,13 @@ window.trelloBoard = function(config) {
         if (res.card_moved) {
           window.showToast('Card moved by automation!');
           const newCard = res.card;
-          if (newCard.board_id !== this.boardId) {
-            this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
+          if (parseInt(newCard.board_id, 10) !== parseInt(this.boardId, 10)) {
+            this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
             this.closeCard();
             return;
-          } else if (newCard.board_list_id !== this.activeCard.board_list_id) {
-            this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
-            const targetList = this.lists.find(l => l.id === newCard.board_list_id);
+          } else if (parseInt(newCard.board_list_id, 10) !== parseInt(this.activeCard.board_list_id, 10)) {
+            this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
+            const targetList = this.lists.find(l => parseInt(l.id, 10) === parseInt(newCard.board_list_id, 10));
             if (targetList) targetList.cards.unshift(newCard);
             this.closeCard();
             return;
@@ -3439,11 +4037,46 @@ window.trelloBoard = function(config) {
         this.lists.forEach(l => {
           const c = l.cards.find(x => x.id === this.activeCard.id);
           if (c) Object.assign(c, res.card);
+          if (res.card.sync_group_id && res.card.team !== undefined) {
+            l.cards.filter(x => x.sync_group_id === res.card.sync_group_id && x.id !== res.card.id).forEach(sib => {
+              sib.team = res.card.team;
+            });
+          }
         });
         Object.assign(this.activeCard, res.card);
         window.showToast('Card updated successfully!');
         this.refreshCardActivities();
       }
+    },
+
+    async setCardTeam(teamVal) {
+      if (!this.activeCard) return;
+      let normalized = null;
+      if (teamVal) {
+        const t = String(teamVal).toUpperCase().trim();
+        if (t === 'BOTH' || t === 'ALL' || t === 'A,B' || t === 'A, B' || t === 'A&B' || t === 'A & B' || t === 'A+B' || (t.includes('A') && t.includes('B'))) {
+          normalized = 'Both';
+        } else if (t === 'A' || t === 'B') {
+          normalized = t;
+        } else {
+          normalized = teamVal;
+        }
+      }
+
+      // Optimistic update in memory
+      this.activeCard.team = normalized;
+      const cardId = this.activeCard.id;
+      const syncGroupId = this.activeCard.sync_group_id;
+
+      this.lists.forEach(l => {
+        l.cards.forEach(c => {
+          if (c.id === cardId || (syncGroupId && c.sync_group_id === syncGroupId)) {
+            c.team = normalized;
+          }
+        });
+      });
+
+      await this.updateCardField({ team: normalized });
     },
 
     // ── Members & Labels ──────────────────────────────────────────────────────
@@ -3614,20 +4247,36 @@ window.trelloBoard = function(config) {
         const newCreatorId = isAlreadyCreator ? null : user.id;
         const newCreator = isAlreadyCreator ? null : user;
 
-        card.created_by = newCreatorId;
-        card.creator = newCreator;
+        // Auto set team if kim or dara
+        const uUname = (user?.username || '').toLowerCase().trim();
+        const uName = (user?.name || '').toLowerCase().trim();
+        let autoTeam = null;
+        if (uUname.includes('kim') || uName.includes('kim') || user?.id === 13) {
+          autoTeam = 'B';
+        } else if (uUname.includes('dara') || uName.includes('dara') || user?.id === 12) {
+          autoTeam = 'A';
+        }
+        if (autoTeam && !this.isWorkflowBoard() && !this.isCardBothTeams(card)) {
+          card.team = autoTeam;
+        }
+
         this.lists.forEach(l => {
           const c = l.cards.find(x => x.id === card.id);
           if (c) {
             c.created_by = newCreatorId;
             c.creator = newCreator;
+            if (autoTeam && !this.isWorkflowBoard() && !this.isCardBothTeams(c)) c.team = autoTeam;
           }
         });
         this.mpSeparateMembers(card);
         this.closeMemberPicker();
 
         // Background update
-        const res = await this.api(`/boards/cards/${card.id}`, 'PATCH', { created_by: newCreatorId });
+        const patchPayload = { created_by: newCreatorId };
+        if (autoTeam && !this.isWorkflowBoard() && !this.isCardBothTeams(card)) {
+          patchPayload.team = autoTeam;
+        }
+        const res = await this.api(`/boards/cards/${card.id}`, 'PATCH', patchPayload);
         if (res.card) {
           window.showToast("Assign By updated");
           this.refreshCardActivities();
@@ -3889,38 +4538,476 @@ window.trelloBoard = function(config) {
         });
     },
 
-    async addChecklistItem(cl) {
-      if (!this.activeCard) return;
-      const title = await window.promptModal({
-        title: 'Add checklist item',
-        message: 'Add a new item to this checklist.',
-        inputLabel: 'Item name',
-        placeholder: 'Add item',
-        confirmText: 'Add item',
-      });
-      if (!title) return;
+    detectCategoryFromText(text) {
+      if (!text) return null;
+      const trimmed = text.trim();
 
-      const tempId = 'temp-item-' + Date.now();
-      const fakeItem = { id: tempId, title: title, content: title, is_completed: false };
-      if (!cl.items) cl.items = [];
-      cl.items.push(fakeItem);
-      this.updateCardChecklistProgress();
+      const videoPatterns = [
+        /\bvideo\s+short\b/i,
+        /\bshort\s+video\b/i,
+        /\bvideo\s+landscape\b/i,
+        /\blandscape\s+video\b/i,
+        /\bvideo\s+content\b/i,
+        /\bvideo\b/i,
+        /\bshort\b/i,
+        /\breels?\b/i
+      ];
 
-      this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items`, 'POST', { title }).then(res => {
-        if (res.item) {
-          const idx = cl.items.findIndex(i => i.id === tempId);
-          if (idx !== -1) cl.items[idx] = res.item;
-        }
-      }).catch(() => {});
+      const graphicPatterns = [
+        /\bsocial\s+media\s+graphic\b/i,
+        /\bgraphic\s+design\b/i,
+        /\bposter\b/i,
+        /\bgraphic\b/i,
+        /\bdesign\b/i,
+        /\bartwork\b/i,
+        /\bbanner\b/i,
+        /\bcreative\b/i
+      ];
+
+      for (const p of videoPatterns) {
+        if (p.test(trimmed)) return 'video';
+      }
+      for (const p of graphicPatterns) {
+        if (p.test(trimmed)) return 'graphic';
+      }
+      if (/\blistings?\b/i.test(trimmed)) return 'listing';
+      if (/\bcontent\b/i.test(trimmed)) return 'content';
+
+      return null;
     },
 
-    async toggleChecklistItem(cl, item) {
-      item.is_completed = !item.is_completed;
+    // Fixed users for categories that are not tied to card members
+    categoryUsernames: { listing: 'chhay', content: 'sreypich' },
+
+    findMemberByUsername(username) {
+      if (!username) return null;
+      const target = String(username).toLowerCase();
+      const pools = [
+        this.activeCard?.assignees ?? [],
+        this.allBoardMembers || [],
+        this.allSystemMembers || [],
+        this.allWorkspaceMembers || [],
+      ];
+      for (const pool of pools) {
+        const exact = pool.find(m => String(m.username || '').toLowerCase() === target);
+        if (exact) return exact;
+      }
+      for (const pool of pools) {
+        const partial = pool.find(m => String(m.username || '').toLowerCase().includes(target));
+        if (partial) return partial;
+      }
+      return null;
+    },
+
+    isVideoMember(user) {
+      if (!user) return false;
+      const name = String(user.name || '').toLowerCase();
+      const username = String(user.username || '').toLowerCase();
+      const videoNames = ['samnang', 'nalin', 'sarak'];
+      return videoNames.some(vn => name.includes(vn) || username.includes(vn));
+    },
+
+    isGraphicMember(user) {
+      if (!user) return false;
+      const name = String(user.name || '').toLowerCase();
+      const username = String(user.username || '').toLowerCase();
+      const graphicNames = ['vouchky', 'pich', 'sor', 'kim'];
+      return graphicNames.some(gn => {
+        if (gn === 'sor') {
+          return name.includes('sopor') || username.includes('sopor') || /\bsor\b/i.test(name) || /\bsor\b/i.test(username) || name.startsWith('sor');
+        }
+        if (gn === 'pich') {
+          return name.includes('pich') || name.includes('sreypich') || username.includes('pich');
+        }
+        return name.includes(gn) || username.includes(gn);
+      });
+    },
+
+    detectMemberForChecklist(text, card = this.activeCard) {
+      const cat = this.detectCategoryFromText(text);
+      if (!cat) return null;
+      if (this.categoryUsernames[cat]) {
+        return this.findMemberByUsername(this.categoryUsernames[cat]);
+      }
+      const cardMembers = card?.assignees ?? [];
+      const matching = cardMembers.filter(m => cat === 'video' ? this.isVideoMember(m) : this.isGraphicMember(m));
+      if (matching.length === 1) {
+        return matching[0];
+      }
+      return null;
+    },
+
+    getChecklistItemUsers(item) {
+      if (!item) return [];
+      if (Array.isArray(item.assigned_users) && item.assigned_users.length > 0) {
+        return item.assigned_users;
+      }
+      if (item.assigned_user) {
+        return [item.assigned_user];
+      }
+      if (item.assigned_user_id) {
+        const cardMembers = this.activeCard?.assignees ?? [];
+        const found = cardMembers.find(m => m.id == item.assigned_user_id)
+          || (this.allBoardMembers || []).find(m => m.id == item.assigned_user_id)
+          || (this.allSystemMembers || []).find(m => m.id == item.assigned_user_id);
+        if (found) return [found];
+        if (item.assignedUser) return [item.assignedUser];
+      }
+
+      // Auto-detect fallback from keyword & card members
+      const title = String(item.content || item.title || '').toLowerCase().trim();
+      if (title) {
+        const cardMembers = this.activeCard?.assignees ?? [];
+        // Listing / Description -> Chhay
+        if (/\b(listings?|descriptions?|desc)\b/i.test(title)) {
+          const chhay = cardMembers.find(m => /chhay/i.test(m.name || '') || /chhay/i.test(m.username || ''))
+            || (this.allBoardMembers || []).find(m => /chhay/i.test(m.name || '') || /chhay/i.test(m.username || ''))
+            || (this.allSystemMembers || []).find(m => /chhay/i.test(m.name || '') || /chhay/i.test(m.username || ''));
+          if (chhay) return [chhay];
+        }
+        // Content -> Sreypich
+        if (/\bcontent\b/i.test(title) && !/\bvideo\s+content\b/i.test(title)) {
+          const sreypich = cardMembers.find(m => /sreypich/i.test(m.name || '') || /sreypich/i.test(m.username || ''))
+            || (this.allBoardMembers || []).find(m => /sreypich/i.test(m.name || '') || /sreypich/i.test(m.username || ''))
+            || (this.allSystemMembers || []).find(m => /sreypich/i.test(m.name || '') || /sreypich/i.test(m.username || ''));
+          if (sreypich) return [sreypich];
+        }
+        // Graphic -> Graphic member
+        if (/\b(graphic|poster|design|artwork|banner|creative)\b/i.test(title)) {
+          const graphicUsers = cardMembers.filter(m => /vouchky|pich|sor|sopor|kim/i.test(m.name || '') || /vouchky|pich|sor|sopor|kim/i.test(m.username || ''));
+          if (graphicUsers.length === 1) return [graphicUsers[0]];
+        }
+        // Video -> Video member
+        if (/\b(video|short|reel)\b/i.test(title)) {
+          const videoUsers = cardMembers.filter(m => /samnang|nalin|sarak/i.test(m.name || '') || /samnang|nalin|sarak/i.test(m.username || ''));
+          if (videoUsers.length === 1) return [videoUsers[0]];
+        }
+      }
+      return [];
+    },
+
+    getChecklistItemAssigneeIds(item) {
+      return this.getChecklistItemUsers(item).map(u => Number(u.id));
+    },
+
+    // An assigned item can only be ticked by its assignee(s), or by dara / kim / somalika.
+    canTickChecklistItem(item) {
+      const ids = this.getChecklistItemAssigneeIds(item);
+      if (!ids.length) return true;
+      if (this.currentUser?.can_override_tick) return true;
+      return ids.includes(Number(this.currentUserId));
+    },
+
+    checklistTickTitle(item) {
+      if (this.canTickChecklistItem(item)) return '';
+      const names = this.getChecklistItemUsers(item).map(u => u.name).filter(Boolean).join(', ');
+      return `Assigned to ${names || 'another member'} — only they, dara, kim or somalika can tick this`;
+    },
+
+    openAddChecklistItemModal(cl) {
+      if (!this.activeCard) return;
+      this.checklistItemModal = {
+        open: true,
+        mode: 'add',
+        checklist: cl,
+        item: null,
+        title: '',
+        assignedUserIds: [],
+        manuallySelected: false,
+        detectedCategory: null,
+        detectedMembers: [],
+      };
+      this.$nextTick(() => {
+        const input = document.getElementById('checklist-item-modal-input');
+        if (input) input.focus();
+      });
+    },
+
+    openEditChecklistItemModal(cl, item) {
+      if (!this.activeCard) return;
+      this.checklistItemModal = {
+        open: true,
+        mode: 'edit',
+        checklist: cl,
+        item: item,
+        title: item.title || item.content || '',
+        assignedUserIds: this.getChecklistItemAssigneeIds(item),
+        manuallySelected: true,
+        detectedCategory: null,
+        detectedMembers: [],
+      };
+      this.$nextTick(() => {
+        const input = document.getElementById('checklist-item-modal-input');
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+    },
+
+    closeChecklistItemModal() {
+      this.checklistItemModal.open = false;
+    },
+
+    onChecklistItemTitleInput() {
+      if (this.checklistItemModal.manuallySelected) {
+        return;
+      }
+      const cat = this.detectCategoryFromText(this.checklistItemModal.title);
+      this.checklistItemModal.detectedCategory = cat;
+      if (!cat) {
+        this.checklistItemModal.detectedMembers = [];
+        this.checklistItemModal.assignedUserIds = [];
+        return;
+      }
+      if (this.categoryUsernames[cat]) {
+        const special = this.findMemberByUsername(this.categoryUsernames[cat]);
+        this.checklistItemModal.detectedMembers = special ? [special] : [];
+        this.checklistItemModal.assignedUserIds = special ? [Number(special.id)] : [];
+        return;
+      }
+      const cardMembers = this.activeCard?.assignees ?? [];
+      const matching = cardMembers.filter(m => cat === 'video' ? this.isVideoMember(m) : this.isGraphicMember(m));
+      this.checklistItemModal.detectedMembers = matching;
+      this.checklistItemModal.assignedUserIds = matching.length === 1 ? [Number(matching[0].id)] : [];
+    },
+
+    // Toggle one member in the multi-select list. Passing null clears everyone.
+    selectChecklistUser(userId) {
+      this.checklistItemModal.manuallySelected = true;
+      if (!userId) {
+        this.checklistItemModal.assignedUserIds = [];
+        return;
+      }
+      const id = Number(userId);
+      const ids = this.checklistItemModal.assignedUserIds || [];
+      this.checklistItemModal.assignedUserIds = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
+    },
+
+    isChecklistUserSelected(userId) {
+      return (this.checklistItemModal.assignedUserIds || []).includes(Number(userId));
+    },
+
+    findMemberById(id) {
+      const cardMembers = this.activeCard?.assignees ?? [];
+      return cardMembers.find(m => m.id == id)
+        || (this.allBoardMembers || []).find(m => m.id == id)
+        || (this.allSystemMembers || []).find(m => m.id == id)
+        || null;
+    },
+
+    getSelectedChecklistUsers() {
+      return (this.checklistItemModal.assignedUserIds || [])
+        .map(id => this.findMemberById(id))
+        .filter(Boolean);
+    },
+
+    getChecklistCardMembers(query = '') {
+      const cardMembers = this.activeCard?.assignees ?? [];
+      const q = (query || '').toLowerCase().trim();
+      if (!q) return cardMembers;
+      return cardMembers.filter(m => (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q));
+    },
+
+    getChecklistBoardMembers(query = '') {
+      const cardMemberIds = new Set((this.activeCard?.assignees ?? []).map(m => m.id));
+      const boardMembers = (this.allBoardMembers || []).filter(m => !cardMemberIds.has(m.id));
+      const q = (query || '').toLowerCase().trim();
+      if (!q) return boardMembers;
+      return boardMembers.filter(m => (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q));
+    },
+
+    getAllChecklistEligibleMembers(query = '') {
+      const cardMembers = this.activeCard?.assignees ?? [];
+      const cardMemberIds = new Set(cardMembers.map(m => m.id));
+      const boardMembers = (this.allBoardMembers || []).filter(m => !cardMemberIds.has(m.id));
+      const boardMemberIds = new Set([...cardMemberIds, ...boardMembers.map(m => m.id)]);
+      const systemMembers = (this.allSystemMembers || []).filter(m => !boardMemberIds.has(m.id));
+
+      const all = [
+        ...cardMembers.map(m => ({ ...m, _memberType: 'card' })),
+        ...boardMembers.map(m => ({ ...m, _memberType: 'board' })),
+        ...systemMembers.map(m => ({ ...m, _memberType: 'system' })),
+      ];
+
+      const q = (query || '').toLowerCase().trim();
+      if (!q) return all;
+      return all.filter(m =>
+        (m.name || '').toLowerCase().includes(q) ||
+        (m.username || '').toLowerCase().includes(q) ||
+        (m.email || '').toLowerCase().includes(q)
+      );
+    },
+
+    async submitChecklistItemModal() {
+      const title = (this.checklistItemModal.title || '').trim();
+      if (!title || !this.activeCard) return;
+      const cl = this.checklistItemModal.checklist;
+      if (!cl) return;
+
+      const assignedUserIds = (this.checklistItemModal.assignedUserIds || []).map(Number);
+      const assignedUsers = this.getSelectedChecklistUsers();
+      const assignedUserId = assignedUserIds[0] ?? null;
+      const assignedUser = assignedUsers[0] ?? null;
+      const payloadUsers = (serverItem) => (
+        Array.isArray(serverItem?.assigned_users) && serverItem.assigned_users.length
+          ? serverItem.assigned_users
+          : assignedUsers
+      );
+
+      if (this.checklistItemModal.mode === 'add') {
+        const tempId = 'temp-item-' + Date.now();
+        const fakeItem = {
+          id: tempId,
+          title: title,
+          content: title,
+          is_completed: false,
+          assigned_user_id: assignedUserId,
+          assigned_user_ids: assignedUserIds,
+          assigned_user: assignedUser,
+          assigned_users: assignedUsers,
+        };
+        if (!cl.items) cl.items = [];
+        cl.items.push(fakeItem);
+        this.updateCardChecklistProgress();
+        this.closeChecklistItemModal();
+
+        try {
+          const postData = { title };
+          if (assignedUserIds && assignedUserIds.length > 0) {
+            postData.assigned_user_id = assignedUserId;
+            postData.assigned_user_ids = assignedUserIds;
+          }
+          const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items`, 'POST', postData);
+          if (res && res.item) {
+            const idx = cl.items.findIndex(i => i.id === tempId);
+            if (idx !== -1) {
+              cl.items[idx] = {
+                ...res.item,
+                assigned_user: res.item.assigned_user || assignedUser,
+                assigned_users: payloadUsers(res.item),
+              };
+            }
+          }
+        } catch (e) {
+          window.showToast?.('Failed to add checklist item', 'error');
+        }
+      } else if (this.checklistItemModal.mode === 'edit') {
+        const item = this.checklistItemModal.item;
+        if (!item) return;
+        const oldTitle = item.title || item.content;
+        const oldUserId = item.assigned_user_id;
+        const oldUsers = item.assigned_users;
+        const oldUser = item.assigned_user;
+
+        item.title = title;
+        item.content = title;
+        item.assigned_user_id = assignedUserId;
+        item.assigned_user_ids = assignedUserIds;
+        item.assigned_user = assignedUser;
+        item.assigned_users = assignedUsers;
+        this.closeChecklistItemModal();
+
+        try {
+          const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items/${item.id}`, 'PATCH', {
+            title,
+            assigned_user_id: assignedUserId,
+            assigned_user_ids: assignedUserIds,
+          });
+          if (res && res.item) {
+            Object.assign(item, res.item);
+            item.assigned_user = res.item.assigned_user || assignedUser;
+            item.assigned_users = payloadUsers(res.item);
+          }
+          window.showToast?.('Item updated.');
+        } catch (e) {
+          item.title = oldTitle;
+          item.content = oldTitle;
+          item.assigned_user_id = oldUserId;
+          item.assigned_users = oldUsers;
+          item.assigned_user = oldUser;
+          window.showToast?.('Failed to update checklist item', 'error');
+        }
+      }
+    },
+
+    addChecklistItem(cl) {
+      this.openAddChecklistItemModal(cl);
+    },
+
+    async toggleChecklistItem(cl, item, event = null) {
+      if (!this.canTickChecklistItem(item)) {
+        if (event?.target) event.target.checked = !!item.is_completed;
+        window.showToast?.('This task is assigned to another member. Only the assignee, dara, kim or somalika can tick it.', 'error');
+        return;
+      }
+      const previous = !!item.is_completed;
+      item.is_completed = !previous;
       const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items/${item.id}`, 'PATCH');
       if (res.success) {
         this.updateCardChecklistProgress();
         // Silently refresh activities in background
         this.refreshCardActivities();
+      } else {
+        // Server refused (e.g. not the assignee) — revert the optimistic tick
+        item.is_completed = previous;
+        if (event?.target) event.target.checked = previous;
+      }
+    },
+
+    // ── Checklist review marks (green tick / red cross / approved) ────────────
+    canReviewMark() {
+      return !!this.currentUser?.can_review_mark;
+    },
+
+    isHeadUser() {
+      if (this.currentUser?.is_head !== undefined) return !!this.currentUser.is_head;
+      if (this.currentUser?.is_dara_or_kim !== undefined) return !!this.currentUser.is_dara_or_kim;
+      if (this.currentUser?.can_review_mark !== undefined) return !!this.currentUser.can_review_mark;
+      const name = String(this.currentUser?.name || '').toLowerCase();
+      const uname = String(this.currentUser?.username || '').toLowerCase();
+      return name.includes('dara') || name.includes('kim') || uname.includes('dara') || uname.includes('kim');
+    },
+
+    canApproveChecklist() {
+      return !!this.currentUser?.can_approve_checklist;
+    },
+
+    checklistReviewState(item) {
+      if (item?.is_approved) return 'approved';
+      if (item?.has_issue) return 'issue';
+      if (item?.is_marked) return 'marked';
+      return 'none';
+    },
+
+    getReviewUser(userId, fallbackUserObj) {
+      if (fallbackUserObj && fallbackUserObj.name) return fallbackUserObj;
+      if (!userId) return null;
+      return this.boardMembers?.find(m => m.id === userId)
+          || this.activeCard?.assignees?.find(a => a.id === userId)
+          || (this.currentUser?.id === userId ? this.currentUser : null)
+          || null;
+    },
+
+    async reviewChecklistItem(cl, item, action) {
+      if (!this.activeCard || !item || String(item.id).startsWith('temp-')) return;
+      if (action === 'approve' ? !this.canApproveChecklist() : !this.canReviewMark()) {
+        window.showToast?.(action === 'approve'
+          ? 'Only admins can approve checklist items.'
+          : 'Only Production Team A & B can mark checklist items.', 'error');
+        return;
+      }
+      const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items/${item.id}/review`, 'PATCH', { action });
+      if (res && res.success && res.item) {
+        item.is_marked = !!res.item.is_marked;
+        item.has_issue = !!res.item.has_issue;
+        item.is_approved = !!res.item.is_approved;
+        item.marked_by = res.item.marked_by;
+        item.issue_by = res.item.issue_by;
+        item.approved_by = res.item.approved_by;
+        item.marked_user = res.item.marked_user || null;
+        item.issue_user = res.item.issue_user || null;
+        this.refreshCardActivities?.();
       }
     },
 
@@ -3952,6 +5039,75 @@ window.trelloBoard = function(config) {
           c.checklist_done = done;
         }
       });
+    },
+
+    getCardChecklistProgress(card = this.activeCard) {
+      if (!card) return null;
+      let total = 0;
+      let done = 0;
+
+      if (Array.isArray(card.checklists) && card.checklists.length > 0) {
+        total = card.checklists.reduce((acc, curr) => acc + (curr.items?.length || 0), 0);
+        done = card.checklists.reduce((acc, curr) => acc + (curr.items?.filter(i => i.is_completed).length || 0), 0);
+      } else if (card.checklist_total !== undefined) {
+        total = card.checklist_total || 0;
+        done = card.checklist_done || 0;
+      }
+
+      const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+      return {
+        total,
+        done,
+        percent,
+        hasChecklist: (Array.isArray(card.checklists) && card.checklists.length > 0) || (card.checklist_total ?? 0) > 0,
+        isIncomplete: total > 0 && done < total
+      };
+    },
+
+    isCardChecklistIncomplete(card = this.activeCard) {
+      const progress = this.getCardChecklistProgress(card);
+      return Boolean(progress && progress.hasChecklist && progress.isIncomplete);
+    },
+
+    showChecklistIncompleteModal(action = 'proceed', card = this.activeCard) {
+      const info = this.getCardChecklistProgress(card);
+      const actionPhrases = {
+        'ready': 'marking this card as ready or copying it to the workflow board',
+        'move': 'moving this card to another list or board',
+        'copy': 'copying or duplicating this card',
+        'automation': 'using comment automations to move or copy this card',
+      };
+      const actionText = actionPhrases[action] || 'marking this card as ready, moving, or copying it';
+
+      const progressHtml = info && info.total > 0
+        ? `<div class="mt-3.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Checklist Progress:
+            </span>
+            <span class="font-bold text-amber-600 dark:text-amber-400 font-mono">${info.done} / ${info.total} completed (${info.percent}%)</span>
+           </div>`
+        : '';
+
+      const modalPayload = {
+        title: 'Checklist Incomplete',
+        message: `<p class="text-sm font-semibold text-slate-800 dark:text-slate-100">All checklist items must be 100% completed before ${actionText}.</p>
+                  <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Please complete all remaining tasks in the checklist to proceed.</p>
+                  ${progressHtml}`,
+        confirmText: 'Understood',
+        tone: 'warning'
+      };
+
+      if (typeof window.alertModal === 'function') {
+        return window.alertModal(modalPayload);
+      } else if (typeof window.confirmModal === 'function') {
+        return window.confirmModal(modalPayload);
+      } else {
+        alert('All checklist items must be 100% completed before ' + actionText + '.');
+        return Promise.resolve(true);
+      }
     },
 
     // ── Switch Boards Modal ──────────────────────────────────────────────────
@@ -4066,7 +5222,7 @@ window.trelloBoard = function(config) {
     },
 
     sbmBoardPreviewStyle(board) {
-      const value = board?.background_value || '#0f172a';
+      const value = board?.background_value || '#ffffff';
       if (board?.background_type === 'image') {
         let safeUrl = String(value);
         if (safeUrl.includes('images.unsplash.com')) {
@@ -4077,12 +5233,46 @@ window.trelloBoard = function(config) {
         return `background-image: linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.32)), url("${safeUrl}"); background-color: #0f172a; background-size: cover; background-position: center; image-rendering: -webkit-optimize-contrast;`;
       }
 
+      const isNeon = (this.currentTheme === 'neon' || document.documentElement.getAttribute('data-theme') === 'neon');
+      const isDark = (this.currentTheme === 'dark' || document.documentElement.getAttribute('data-theme') === 'dark' || document.documentElement.classList.contains('dark'));
+
+      if (isNeon) {
+        return `background: radial-gradient(ellipse at 45% -10%, rgba(0, 150, 255, 0.42) 0%, rgba(0, 70, 210, 0.22) 42%, transparent 70%), radial-gradient(ellipse at 85% 90%, rgba(0, 100, 255, 0.2) 0%, transparent 50%), radial-gradient(ellipse at 10% 90%, rgba(0, 50, 180, 0.15) 0%, transparent 50%), #020819; background-size: cover;`;
+      }
+      if (isDark) {
+        return `background: #0b1329; background-size: cover;`;
+      }
+
       return `background: ${value};`;
     },
 
     sbmCoverStyle(board) {
-      const type = board?.cover_type || board?.background_type || 'color';
-      let value = board?.cover_value || board?.background_value || '#0ea5e9';
+      let type = board?.cover_type;
+      let value = board?.cover_value;
+
+      const name = String(board?.name || '').toLowerCase();
+      const wsName = String(this.sbmBoardWorkspaceName(board) || '').toLowerCase();
+      const isSmm = board?.type === 'smm' || board?.is_active_smm || name.includes('smm') || wsName.includes('social media');
+      const isPlanning = !isSmm && (name.includes('planning') || board?.type === 'planning');
+      const isTeamA = !isSmm && !isPlanning && (name.includes('team a') || name.includes('teama') || name.includes('team-a'));
+      const isTeamB = !isSmm && !isPlanning && (name.includes('team b') || name.includes('teamb') || name.includes('team-b'));
+
+      if (isSmm) {
+        type = 'image';
+        value = 'https://img.miniexcavator.org/ebay/Dashboard-Icon/SMM.webp';
+      } else if (isPlanning) {
+        type = 'image';
+        value = 'https://img.miniexcavator.org/ebay/Dashboard-Icon/ChatGPT%20Image%20Oct%203%202026%2007_59_23%20AM.webp';
+      } else if (isTeamA) {
+        type = 'image';
+        value = 'https://img.miniexcavator.org/ebay/Dashboard-Icon/TeamA.webp';
+      } else if (isTeamB) {
+        type = 'image';
+        value = 'https://img.miniexcavator.org/ebay/Dashboard-Icon/B.webp';
+      }
+
+      type = type || board?.background_type || 'color';
+      value = value || board?.background_value || '#0ea5e9';
       const isNeon = (this.currentTheme === 'neon' || document.documentElement.getAttribute('data-theme') === 'neon');
 
       if (type === 'image') {
@@ -4125,12 +5315,12 @@ window.trelloBoard = function(config) {
         return;
       }
       
-      const routePrefix = board.type === 'smm' ? '/smm-boards' : '/boards';
+      const url = `/boards/${board.slug}`;
       
       if (window.Turbo) {
-        window.Turbo.visit(`${routePrefix}/${board.slug}`);
+        window.Turbo.visit(url);
       } else {
-        window.location.href = `${routePrefix}/${board.slug}`;
+        window.location.href = url;
       }
     },
 
@@ -4283,9 +5473,58 @@ window.trelloBoard = function(config) {
       // Optionally focus back to textarea at correct position (requires $nextTick and refs, but good enough for now)
     },
     
+    isCommentAutomation(body, card = this.activeCard) {
+      if (!body) return false;
+      const text = body.toLowerCase().trim();
+
+      const workflowKeywords = [
+        'ready',
+        'caption ready',
+        'production approved smm',
+        'production approved',
+        'qc approved smm',
+        'qc approved',
+        'approved smm',
+        'team approved',
+        'head approved',
+        'supervisor approved',
+        'approved',
+        'blocked',
+        'reject',
+        'rejected',
+        'block',
+        'error',
+      ];
+
+      for (const kw of workflowKeywords) {
+        if (kw === 'block' || kw === 'ready') {
+          const re = new RegExp('\\b' + kw + '\\b', 'i');
+          if (re.test(text)) return true;
+        } else if (text.includes(kw)) {
+          return true;
+        }
+      }
+
+      if (Array.isArray(this.boardAutomations)) {
+        for (const auto of this.boardAutomations) {
+          if (['keyword', 'both'].includes(auto.trigger_type) && ['move', 'copy'].includes(auto.action_type) && auto.trigger_word) {
+            const tw = auto.trigger_word.toLowerCase().trim();
+            if (tw && text.includes(tw)) return true;
+          }
+        }
+      }
+
+      return false;
+    },
+
     submitComment() {
       const body = this.newComment.trim();
       if (!body || !this.activeCard) return;
+
+      if (this.isCardChecklistIncomplete(this.activeCard) && this.isCommentAutomation(body, this.activeCard)) {
+        this.showChecklistIncompleteModal(/\bready\b/i.test(body) ? 'ready' : 'automation', this.activeCard);
+        return;
+      }
 
       const tempId = 'temp-' + Date.now();
       const newCommentVal = this.newComment;
@@ -4323,13 +5562,13 @@ window.trelloBoard = function(config) {
             if (res.card_moved) {
               window.showToast('Card moved by automation!');
               const newCard = res.card;
-              if (newCard.board_id !== this.boardId) {
-                this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
+              if (parseInt(newCard.board_id, 10) !== parseInt(this.boardId, 10)) {
+                this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
                 this.closeCard();
                 return;
-              } else if (newCard.board_list_id !== this.activeCard.board_list_id) {
-                this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
-                const targetList = this.lists.find(l => l.id === newCard.board_list_id);
+              } else if (parseInt(newCard.board_list_id, 10) !== parseInt(this.activeCard.board_list_id, 10)) {
+                this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
+                const targetList = this.lists.find(l => parseInt(l.id, 10) === parseInt(newCard.board_list_id, 10));
                 if (targetList) targetList.cards.unshift(newCard);
                 this.closeCard();
                 return;
@@ -4339,8 +5578,13 @@ window.trelloBoard = function(config) {
           } else {
             this.revertComment(tempId, newCommentVal);
           }
-        }).catch(() => {
+        }).catch((err) => {
           this.revertComment(tempId, newCommentVal);
+          if (err && err.checklist_incomplete) {
+            this.showChecklistIncompleteModal(/\bready\b/i.test(newCommentVal) ? 'ready' : 'automation', this.activeCard);
+          } else {
+            window.showToast?.(err?.error || err?.message || 'Failed to post comment', 'error');
+          }
         });
     },
 
@@ -4372,7 +5616,7 @@ window.trelloBoard = function(config) {
 
     // ── Attachment Modal ──────────────────────────────────────────────────────
 
-    openAttachmentModal(card) {
+    openAttachmentModal(card, defaultFolder = '') {
       if (!card) return;
       const am = this.attachmentModal;
       am.cardId         = card.id;
@@ -4380,6 +5624,12 @@ window.trelloBoard = function(config) {
       am.dragOver       = false;
       am.uploading      = false;
       am.uploadProgress = 0;
+      am.uploadCount    = 0;
+      am.uploadStatusText = '';
+      am.folderName     = defaultFolder || '';
+      am.pendingFiles   = [];
+      am.pendingRelativePaths = [];
+      am.pendingFolderName   = defaultFolder || '';
       am.error          = '';
       am.linkUrl        = '';
       am.linkName       = '';
@@ -4389,61 +5639,364 @@ window.trelloBoard = function(config) {
     closeAttachmentModal() {
       this.attachmentModal.open = false;
       this.attachmentModal.editingFileId = null;
+      this.attachmentModal.folderName = '';
+      this.attachmentModal.pendingFiles = [];
+      this.attachmentModal.pendingRelativePaths = [];
+      this.attachmentModal.pendingFolderName = '';
+      this.attachmentModal.uploading = false;
+      this.attachmentModal.error = '';
     },
 
-    amHandleDrop(event) {
+    amClearPendingFiles() {
+      this.attachmentModal.pendingFiles = [];
+      this.attachmentModal.pendingRelativePaths = [];
+      this.attachmentModal.pendingFolderName = '';
+      this.attachmentModal.error = '';
+    },
+
+    amStageFiles(fileList, folderName = '', relativePaths = []) {
+      const am = this.attachmentModal;
+      const files = Array.from(fileList || []).filter(f => f && f.name && !f.name.startsWith('.') && f.name !== 'Thumbs.db');
+      if (!files.length) {
+        am.error = 'No valid files selected.';
+        return;
+      }
+
+      // Pre-check size (25 MB per file)
+      const MAX_SIZE = 25 * 1024 * 1024;
+      for (const f of files) {
+        if (f.size > MAX_SIZE) {
+          am.error = `File "${f.name}" is too large: ${this.amFormatBytes(f.size)}. Maximum allowed is 25 MB.`;
+          return;
+        }
+      }
+
+      am.error = '';
+      am.pendingFiles = files;
+      am.pendingRelativePaths = (relativePaths && relativePaths.length) ? relativePaths : files.map(f => f.name);
+      am.pendingFolderName = folderName ? folderName.trim() : '';
+
+      if (folderName && !am.folderName) {
+        am.folderName = folderName.trim();
+      }
+    },
+
+    async amHandleDrop(event) {
       this.attachmentModal.dragOver = false;
-      const file = event.dataTransfer.files[0];
-      if (file) this.amDoUpload(file);
+      const items = event.dataTransfer?.items;
+      const files = [];
+      const relativePaths = [];
+      let detectedFolderName = this.attachmentModal.folderName ? this.attachmentModal.folderName.trim() : '';
+
+      if (items && items.length && items[0].webkitGetAsEntry) {
+        const getFilesFromEntry = async (entry, path = '') => {
+          if (entry.isFile) {
+            return new Promise((resolve) => {
+              entry.file((file) => {
+                const rel = path ? `${path}/${file.name}` : file.name;
+                files.push(file);
+                relativePaths.push(rel);
+                resolve();
+              }, () => resolve());
+            });
+          } else if (entry.isDirectory) {
+            if (!detectedFolderName && !path) {
+              detectedFolderName = entry.name;
+            }
+            const currentPath = path ? `${path}/${entry.name}` : entry.name;
+            const dirReader = entry.createReader();
+
+            const readAllEntries = () => {
+              return new Promise((resolve) => {
+                const allEntries = [];
+                const readBatch = () => {
+                  dirReader.readEntries((entries) => {
+                    if (!entries || !entries.length) {
+                      resolve(allEntries);
+                    } else {
+                      allEntries.push(...entries);
+                      readBatch();
+                    }
+                  }, () => resolve(allEntries));
+                };
+                readBatch();
+              });
+            };
+
+            const childEntries = await readAllEntries();
+            for (const child of childEntries) {
+              await getFilesFromEntry(child, currentPath);
+            }
+          }
+        };
+
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry();
+          if (entry) {
+            await getFilesFromEntry(entry);
+          }
+        }
+      }
+
+      // Fallback if webkitGetAsEntry didn't yield files but dataTransfer.files exists
+      if (!files.length && event.dataTransfer?.files?.length) {
+        for (let i = 0; i < event.dataTransfer.files.length; i++) {
+          const f = event.dataTransfer.files[i];
+          files.push(f);
+          relativePaths.push(f.name);
+        }
+      }
+
+      if (files.length) {
+        this.amStageFiles(files, detectedFolderName, relativePaths);
+      }
     },
 
     amUploadFile(event) {
-      const file = event.target.files[0];
-      if (file) this.amDoUpload(file);
-      // Reset so same file can be re-selected
+      this.amUploadFiles(event);
+    },
+
+    amUploadFiles(event) {
+      const fileList = event.target.files;
+      if (!fileList || !fileList.length) return;
+      const files = Array.from(fileList);
+      const relativePaths = files.map(f => f.name);
+      this.amStageFiles(files, this.attachmentModal.folderName, relativePaths);
       event.target.value = '';
     },
 
+    amUploadFolder(event) {
+      const fileList = event.target.files;
+      if (!fileList || !fileList.length) return;
+
+      const files = Array.from(fileList);
+      const relativePaths = [];
+      let detectedFolderName = this.attachmentModal.folderName ? this.attachmentModal.folderName.trim() : '';
+
+      files.forEach(f => {
+        const rel = f.webkitRelativePath || f.name;
+        relativePaths.push(rel);
+        if (!detectedFolderName && rel.includes('/')) {
+          detectedFolderName = rel.split('/')[0];
+        }
+      });
+
+      if (!detectedFolderName) {
+        detectedFolderName = 'Uploaded Folder';
+      }
+
+      this.amStageFiles(files, detectedFolderName, relativePaths);
+      event.target.value = '';
+    },
+
+    handleDirectFolderUpload(event) {
+      const fileList = event.target.files;
+      if (!fileList || !fileList.length) return;
+
+      const files = Array.from(fileList);
+      const relativePaths = [];
+      let detectedFolderName = '';
+
+      files.forEach(f => {
+        const rel = f.webkitRelativePath || f.name;
+        relativePaths.push(rel);
+        if (!detectedFolderName && rel.includes('/')) {
+          detectedFolderName = rel.split('/')[0];
+        }
+      });
+
+      if (!detectedFolderName) {
+        detectedFolderName = 'Uploaded Folder';
+      }
+
+      this.openAttachmentModal(this.activeCard, detectedFolderName);
+      this.amStageFiles(files, detectedFolderName, relativePaths);
+      event.target.value = '';
+    },
+
+    amStartPendingUpload() {
+      const am = this.attachmentModal;
+      if (!am.pendingFiles || !am.pendingFiles.length) {
+        am.error = 'Please select a folder or files above first.';
+        return;
+      }
+      const folderName = (am.folderName || am.pendingFolderName || '').trim();
+      this.amDoUploadFiles(am.pendingFiles, folderName, am.pendingRelativePaths);
+    },
+
+    openGroupFolderModal() {
+      const card = this.activeCard;
+      if (!card) return;
+
+      const standalone = this.getStandaloneCardFiles(card.files);
+      if (!standalone.length) {
+        window.showToast?.('No loose files found to group into a folder.', 'info');
+        return;
+      }
+
+      this.groupFolderModal.folderName = 'Photos';
+      this.groupFolderModal.selectedFileIds = [];
+      this.groupFolderModal.error = '';
+      this.groupFolderModal.submitting = false;
+      this.groupFolderModal.open = true;
+    },
+
+    closeGroupFolderModal() {
+      this.groupFolderModal.open = false;
+      this.groupFolderModal.selectedFileIds = [];
+      this.groupFolderModal.error = '';
+      this.groupFolderModal.submitting = false;
+    },
+
+    toggleGroupFileSelection(fileId) {
+      const id = Number(fileId);
+      const idx = this.groupFolderModal.selectedFileIds.indexOf(id);
+      if (idx > -1) {
+        this.groupFolderModal.selectedFileIds.splice(idx, 1);
+      } else {
+        this.groupFolderModal.selectedFileIds.push(id);
+      }
+      this.groupFolderModal.error = '';
+    },
+
+    isGroupFileSelected(fileId) {
+      const id = Number(fileId);
+      return this.groupFolderModal.selectedFileIds.includes(id);
+    },
+
+    toggleSelectAllGroupFiles() {
+      const card = this.activeCard;
+      if (!card) return;
+      const standalone = this.getStandaloneCardFiles(card.files);
+      if (this.groupFolderModal.selectedFileIds.length === standalone.length) {
+        this.groupFolderModal.selectedFileIds = [];
+      } else {
+        this.groupFolderModal.selectedFileIds = standalone.map(f => Number(f.id));
+      }
+      this.groupFolderModal.error = '';
+    },
+
+    async submitGroupFilesToFolder() {
+      const card = this.activeCard;
+      if (!card) return;
+
+      const trimmedName = (this.groupFolderModal.folderName || '').trim();
+      if (!trimmedName) {
+        this.groupFolderModal.error = 'Please enter a folder name.';
+        return;
+      }
+
+      if (!this.groupFolderModal.selectedFileIds.length) {
+        this.groupFolderModal.error = 'Please select at least one file below to group.';
+        return;
+      }
+
+      this.groupFolderModal.submitting = true;
+      this.groupFolderModal.error = '';
+
+      try {
+        const res = await fetch(`/boards/cards/${card.id}/folders/assign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': this.csrfToken,
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            folder_name: trimmedName,
+            file_ids: this.groupFolderModal.selectedFileIds,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (data.files) {
+            card.files = data.files;
+          } else {
+            const selectedSet = new Set(this.groupFolderModal.selectedFileIds);
+            (card.files || []).forEach(f => {
+              if (selectedSet.has(Number(f.id))) {
+                f.folder_name = trimmedName;
+                if (!f.original_name.startsWith(`${trimmedName}/`)) {
+                  f.original_name = `${trimmedName}/${f.original_name}`;
+                }
+                f.display_name = f.original_name.split('/').pop();
+              }
+            });
+          }
+          const count = data.count || this.groupFolderModal.selectedFileIds.length;
+          window.showToast?.(`Grouped ${count} file${count === 1 ? '' : 's'} into folder "${trimmedName}"! 📁`, 'success');
+          this.closeGroupFolderModal();
+          this.refreshCardActivities();
+        } else {
+          this.groupFolderModal.error = data.error || 'Failed to group files into folder.';
+        }
+      } catch (err) {
+        console.error('Error grouping files into folder:', err);
+        this.groupFolderModal.error = 'Network error grouping files. Please try again.';
+      } finally {
+        this.groupFolderModal.submitting = false;
+      }
+    },
+
+    groupCardFilesIntoFolderPrompt() {
+      this.openGroupFolderModal();
+    },
+
     amDoUpload(file) {
+      this.amDoUploadFiles([file], this.attachmentModal.folderName);
+    },
+
+    amDoUploadFiles(fileList, folderName = '', relativePaths = []) {
       const am   = this.attachmentModal;
       const card = this.activeCard;
       if (!card) return;
 
-      // Client-side size check (20 MB)
-      if (file.size > 20 * 1024 * 1024) {
-        am.error = `File too large: ${this.amFormatBytes(file.size)}. Maximum allowed is 20 MB.`;
+      const files = Array.from(fileList || []).filter(f => f && f.name && !f.name.startsWith('.') && f.name !== 'Thumbs.db');
+      if (!files.length) {
+        am.error = 'No valid files selected.';
         return;
       }
 
-      // Client-side MIME pre-check
-      const ALLOWED_PREFIXES = ['image/', 'video/', 'audio/', 'text/'];
-      const ALLOWED_EXACT = [
-        'application/pdf', 'application/msword', 'application/zip',
-        'application/x-zip-compressed', 'application/x-rar-compressed',
-        'application/x-7z-compressed', 'application/gzip',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
-      ];
-      const BLOCKED = ['text/html', 'application/javascript', 'application/x-httpd-php'];
-      if (BLOCKED.includes(file.type)) {
-        am.error = `File type "${file.type}" is not allowed.`;
-        return;
+      // Client-side size check (25 MB per file)
+      const MAX_SIZE = 25 * 1024 * 1024;
+      for (const f of files) {
+        if (f.size > MAX_SIZE) {
+          am.error = `File "${f.name}" is too large: ${this.amFormatBytes(f.size)}. Maximum allowed is 25 MB.`;
+          return;
+        }
       }
-      const allowed = ALLOWED_PREFIXES.some(p => file.type.startsWith(p))
-                   || ALLOWED_EXACT.includes(file.type);
-      if (!allowed) {
-        am.error = `File type "${file.type || 'unknown'}" is not permitted.`;
-        return;
+
+      // Client-side MIME / extension pre-check
+      const BLOCKED_EXTS = ['.html', '.htm', '.php', '.exe', '.sh', '.bat', '.cmd'];
+      for (const f of files) {
+        const lowerName = f.name.toLowerCase();
+        if (BLOCKED_EXTS.some(ext => lowerName.endsWith(ext)) || f.type === 'text/html' || f.type === 'application/x-httpd-php') {
+          am.error = `File "${f.name}" has a disallowed file type.`;
+          return;
+        }
       }
 
       am.error          = '';
       am.uploading      = true;
       am.uploadProgress = 0;
+      am.uploadCount    = files.length;
+      am.uploadStatusText = files.length > 1
+        ? `Preparing ${files.length} files...`
+        : `Preparing ${files[0].name}...`;
 
       const formData = new FormData();
-      formData.append('file', file);
+      if (folderName) {
+        formData.append('folder_name', folderName.trim());
+      }
+
+      files.forEach((file, index) => {
+        formData.append('files[]', file);
+        const rel = (relativePaths && relativePaths[index]) || file.relative_path || file.webkitRelativePath || file.name;
+        if (rel) {
+          formData.append('relative_paths[]', rel);
+        }
+      });
 
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `/boards/cards/${card.id}/files`);
@@ -4452,30 +6005,55 @@ window.trelloBoard = function(config) {
 
       xhr.upload.addEventListener('progress', e => {
         if (e.lengthComputable) {
-          am.uploadProgress = Math.round((e.loaded / e.total) * 100);
+          am.uploadProgress = Math.min(100, Math.round((e.loaded / e.total) * 100));
+          am.uploadStatusText = files.length > 1
+            ? `Uploading ${files.length} items (${am.uploadProgress}%)...`
+            : `Uploading (${am.uploadProgress}%)...`;
         }
       });
 
       xhr.addEventListener('load', () => {
-        am.uploading = false;
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (xhr.status === 201 && data.file) {
-            if (!card.files) card.files = [];
-            card.files.push(data.file);
-            this.lists.forEach(l => {
-              const c = l.cards.find(x => x.id === card.id);
-              if (c) c.has_files = true;
-            });
-            window.showToast('File attached successfully! 📎');
-            this.refreshCardActivities();
-            this.closeAttachmentModal();
-          } else {
-            am.error = data.error || data.message || 'Upload failed. Please try again.';
+        am.uploadProgress = 100;
+        am.uploadStatusText = 'Complete! 100%';
+        setTimeout(() => {
+          am.uploading = false;
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if ((xhr.status === 200 || xhr.status === 201) && (data.files || data.file)) {
+              if (!card.files) card.files = [];
+              const newFiles = data.files || [data.file];
+              newFiles.forEach(nf => {
+                const idx = card.files.findIndex(x => x.id === nf.id);
+                if (idx >= 0) card.files[idx] = nf;
+                else card.files.push(nf);
+              });
+
+              this.lists.forEach(l => {
+                const c = l.cards.find(x => x.id === card.id);
+                if (c) c.has_files = true;
+              });
+
+              const successMsg = folderName
+                ? `Uploaded folder "${folderName}" (${newFiles.length} items)! 📁`
+                : (newFiles.length > 1 ? `Attached ${newFiles.length} files successfully! 📎` : 'File attached successfully! 📎');
+              window.showToast?.(successMsg);
+              this.refreshCardActivities();
+              this.closeAttachmentModal();
+
+              // Refresh Folder Viewer if open for this folder
+              if (this.folderViewer.open && this.folderViewer.folderName === folderName) {
+                this.folderViewer.files = (card.files || []).filter(f => {
+                  const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+                  return fFolder === folderName;
+                });
+              }
+            } else {
+              am.error = data.error || data.message || 'Upload failed. Please try again.';
+            }
+          } catch {
+            am.error = 'Upload failed — invalid server response.';
           }
-        } catch {
-          am.error = 'Upload failed — invalid server response.';
-        }
+        }, 400);
       });
 
       xhr.addEventListener('error', () => {
@@ -4484,6 +6062,146 @@ window.trelloBoard = function(config) {
       });
 
       xhr.send(formData);
+    },
+
+    getFileBytes(f) {
+      if (!f) return 0;
+      let size = Number(f.size);
+      if (size && !isNaN(size) && size > 0) return size;
+      if (typeof f.formatted_size === 'string') {
+        const match = f.formatted_size.trim().match(/^([\d.,]+)\s*([A-Za-z]+)?$/i);
+        if (match) {
+          const val = parseFloat(match[1].replace(/,/g, ''));
+          const unit = (match[2] || 'B').toUpperCase();
+          const multipliers = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024, TB: 1024 * 1024 * 1024 * 1024 };
+          return Math.round(val * (multipliers[unit] || 1));
+        }
+      }
+      return 0;
+    },
+
+    getCardFolders(files) {
+      if (!files || !files.length) return [];
+      const foldersMap = {};
+
+      files.forEach(f => {
+        const folder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+        if (!folder) return;
+
+        if (!foldersMap[folder]) {
+          foldersMap[folder] = {
+            name: folder,
+            files: [],
+            totalBytes: 0,
+            imageCount: 0,
+          };
+        }
+        foldersMap[folder].files.push(f);
+        foldersMap[folder].totalBytes += this.getFileBytes(f);
+        if (f.is_image) foldersMap[folder].imageCount++;
+      });
+
+      return Object.values(foldersMap).map(f => {
+        f.fileCount = f.files.length;
+        f.formattedSize = this.amFormatBytes(f.totalBytes);
+        f.coverImage = f.files.find(item => item.is_image) || null;
+        return f;
+      });
+    },
+
+    getStandaloneCardFiles(files) {
+      if (!files || !files.length) return [];
+      return files.filter(f => {
+        const folder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+        return !folder;
+      });
+    },
+
+    openFolderViewer(folderName, files = null) {
+      if (!folderName) return;
+      const allFiles = this.activeCard?.files || [];
+      const folderFiles = Array.isArray(files) && files.length
+        ? files
+        : allFiles.filter(f => {
+            const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+            return fFolder === folderName;
+          });
+
+      this.folderViewer.folderName = folderName;
+      this.folderViewer.files = folderFiles;
+      this.folderViewer.filter = 'all';
+      this.folderViewer.open = true;
+    },
+
+    closeFolderViewer() {
+      this.folderViewer.open = false;
+      this.folderViewer.folderName = '';
+      this.folderViewer.files = [];
+    },
+
+    downloadCardFolder(folderName) {
+      if (!this.activeCard || !folderName) return;
+      const url = `/boards/cards/${this.activeCard.id}/folders/${encodeURIComponent(folderName)}/download`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${folderName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.showToast?.(`Downloading folder "${folderName}" as ZIP... 📦`);
+    },
+
+    async deleteCardFolder(folderName) {
+      if (!this.activeCard || !folderName) return;
+      const count = (this.activeCard.files || []).filter(f => {
+        const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+        return fFolder === folderName;
+      }).length;
+
+      const ok = await window.confirmModal({
+        title: `Delete folder "${folderName}"?`,
+        message: `This will permanently delete folder "<strong>${folderName}</strong>" and all <strong>${count} file(s)</strong> inside it.`,
+        confirmText: 'Delete Folder',
+        tone: 'danger',
+      });
+      if (!ok) return;
+
+      const originalFiles = [...this.activeCard.files];
+      this.activeCard.files = this.activeCard.files.filter(f => {
+        const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+        return fFolder !== folderName;
+      });
+
+      this.lists.forEach(l => {
+        const c = l.cards.find(x => x.id === this.activeCard.id);
+        if (c) c.has_files = this.activeCard.files.length > 0;
+      });
+
+      if (this.folderViewer.folderName === folderName) {
+        this.closeFolderViewer();
+      }
+
+      window.showToast?.(`Folder "${folderName}" deleted.`);
+
+      try {
+        const resp = await fetch(`/boards/cards/${this.activeCard.id}/folders/${encodeURIComponent(folderName)}`, {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-TOKEN': this.csrfToken,
+            'Accept': 'application/json',
+          },
+        });
+        const res = await resp.json();
+        if (!res.success) {
+          this.activeCard.files = originalFiles;
+          window.showToast?.(res.error || 'Failed to delete folder', 'error');
+        } else {
+          this.refreshCardActivities();
+        }
+      } catch (err) {
+        this.activeCard.files = originalFiles;
+        window.showToast?.('Network error deleting folder', 'error');
+      }
     },
 
     amSubmitLink() {
@@ -4631,7 +6349,8 @@ window.trelloBoard = function(config) {
     },
 
     async amDeleteAttachment(file) {
-      if (!this.activeCard || !await window.confirmModal(`Remove "${file.original_name}"?`)) return;
+      const fileName = file.display_name || file.original_name || 'attachment';
+      if (!this.activeCard || !await window.confirmModal(`Remove "${fileName}"?`)) return;
       
       const original = [...this.activeCard.files];
       this.activeCard.files = this.activeCard.files.filter(x => x.id !== file.id);
@@ -4639,6 +6358,14 @@ window.trelloBoard = function(config) {
         const c = l.cards.find(x => x.id === this.activeCard.id);
         if (c) c.has_files = this.activeCard.files.length > 0;
       });
+
+      if (this.folderViewer && this.folderViewer.files) {
+        this.folderViewer.files = this.folderViewer.files.filter(x => x.id !== file.id);
+        if (!this.folderViewer.files.length) {
+          this.closeFolderViewer();
+        }
+      }
+
       window.showToast('Attachment removed.');
 
       this.api(`/boards/cards/${this.activeCard.id}/files/${file.id}`, 'DELETE')
@@ -4648,6 +6375,12 @@ window.trelloBoard = function(config) {
             const c = l.cards.find(x => x.id === this.activeCard.id);
             if (c) c.has_files = this.activeCard.files.length > 0;
           });
+          if (this.folderViewer && this.folderViewer.open) {
+            this.folderViewer.files = this.activeCard.files.filter(f => {
+              const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+              return fFolder === this.folderViewer.folderName;
+            });
+          }
           window.showToast?.('Failed to remove attachment', 'error');
         });
     },
@@ -4667,11 +6400,52 @@ window.trelloBoard = function(config) {
       }
     },
 
-    previewAttachment(file) {
+    previewAttachment(file, gallery = null) {
       if (!file?.is_image) return;
+
+      let images = [];
+      if (Array.isArray(gallery) && gallery.length) {
+        images = gallery.filter(f => f && f.is_image);
+      } else {
+        const folder = file.folder_name || (file.original_name && file.original_name.includes('/') ? file.original_name.split('/')[0] : null);
+        if (folder && this.activeCard?.files) {
+          images = this.activeCard.files.filter(f => {
+            const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+            return f.is_image && fFolder === folder;
+          });
+        } else if (this.activeCard?.files) {
+          images = this.activeCard.files.filter(f => f.is_image);
+        } else {
+          images = [file];
+        }
+      }
+
+      this.imagePreview.images = images.length ? images : [file];
+      const idx = this.imagePreview.images.findIndex(img => img.id === file.id);
+      this.imagePreview.currentIndex = idx >= 0 ? idx : 0;
       this.imagePreview.url = file.preview_url || file.url;
-      this.imagePreview.title = file.original_name || 'Image preview';
+      this.imagePreview.title = file.display_name || file.original_name || 'Image preview';
       this.imagePreview.open = true;
+    },
+
+    previewNextImage() {
+      if (!this.imagePreview.images || this.imagePreview.images.length <= 1) return;
+      let nextIdx = this.imagePreview.currentIndex + 1;
+      if (nextIdx >= this.imagePreview.images.length) nextIdx = 0;
+      this.imagePreview.currentIndex = nextIdx;
+      const file = this.imagePreview.images[nextIdx];
+      this.imagePreview.url = file.preview_url || file.url;
+      this.imagePreview.title = file.display_name || file.original_name || 'Image preview';
+    },
+
+    previewPrevImage() {
+      if (!this.imagePreview.images || this.imagePreview.images.length <= 1) return;
+      let prevIdx = this.imagePreview.currentIndex - 1;
+      if (prevIdx < 0) prevIdx = this.imagePreview.images.length - 1;
+      this.imagePreview.currentIndex = prevIdx;
+      const file = this.imagePreview.images[prevIdx];
+      this.imagePreview.url = file.preview_url || file.url;
+      this.imagePreview.title = file.display_name || file.original_name || 'Image preview';
     },
 
     openAvatarPreview(userOrUrl, fallbackTitle = 'Profile image') {
@@ -4689,6 +6463,8 @@ window.trelloBoard = function(config) {
 
       this.imagePreview.url = url;
       this.imagePreview.title = title;
+      this.imagePreview.images = [{ preview_url: url, url: url, original_name: title, is_image: true }];
+      this.imagePreview.currentIndex = 0;
       this.imagePreview.open = true;
     },
 
@@ -4696,6 +6472,8 @@ window.trelloBoard = function(config) {
       this.imagePreview.open = false;
       this.imagePreview.url = '';
       this.imagePreview.title = '';
+      this.imagePreview.images = [];
+      this.imagePreview.currentIndex = 0;
     },
 
     async downloadAttachment(file) {
@@ -4742,16 +6520,31 @@ window.trelloBoard = function(config) {
     isVideoFile(file) {
       if (!file) return false;
       if (this.isCanvaFile(file)) return false;
+      if (this.isGoogleDocsFile && this.isGoogleDocsFile(file)) return false;
+
       const url = (file.url || file.preview_url || file.download_url || file.path || file.stored_name || '').toLowerCase();
       const name = (file.original_name || '').toLowerCase();
+      const raw = url + ' ' + name;
 
+      // Google Drive folders are NEVER videos
+      if (raw.includes('drive.google.com') && (raw.includes('/folders/') || raw.includes('/folderview') || raw.includes('folders%2f'))) {
+        return false;
+      }
+      if (file.is_google_drive_folder === true) {
+        return false;
+      }
+
+      if (file.is_video === false) return false;
       if (file.is_video === true) return true;
       const mime = (file.mime_type || '').toLowerCase();
       if (mime.startsWith('video/')) return true;
 
       if (url.includes('drive.google.com')) {
-        const nonVideoExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.zip', '.rar', '.7z'];
-        return !nonVideoExts.some(ext => name.endsWith(ext));
+        const nonVideoExts = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.zip', '.rar', '.7z', '.txt', '.csv', '.tar', '.gz', '.json', '.xml', '.mp3', '.wav', '.ogg'];
+        if (nonVideoExts.some(ext => name.endsWith(ext) || url.endsWith(ext))) {
+          return false;
+        }
+        return url.includes('/file/d/') || url.includes('id=');
       }
       if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('loom.com') || url.includes('vimeo.com')) {
         return true;
@@ -4762,9 +6555,11 @@ window.trelloBoard = function(config) {
 
     getVideoThumbnailUrl(file) {
       if (!file) return '';
+      if (!this.isVideoFile(file)) return '';
       if (file.thumbnail_url) return file.thumbnail_url;
       const url = file.url || file.preview_url || file.download_url || file.path || file.stored_name || '';
       if (!url) return '';
+      if (url.includes('/folders/') || url.includes('/folderview') || url.includes('folders%2f')) return '';
 
       // Google Drive thumbnail fallback
       if (url.includes('drive.google.com')) {
@@ -4797,6 +6592,38 @@ window.trelloBoard = function(config) {
       if (mime.startsWith('video/')) return true;
       const videoExts = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.wmv', '.flv', '.m4v', '.3gp'];
       return videoExts.some(ext => name.endsWith(ext) || url.endsWith(ext));
+    },
+
+    // ── Google Drive helpers ──────────────────────────────────────────────────
+    isGoogleDriveFile(file) {
+      if (!file) return false;
+      if (file.is_google_drive === true) return true;
+      const url = (file.url || file.preview_url || file.download_url || file.path || file.stored_name || '').toLowerCase();
+      const name = (file.original_name || '').toLowerCase();
+      return url.includes('drive.google.com') || name.includes('drive.google.com');
+    },
+
+    isGoogleDriveFolder(file) {
+      if (!file) return false;
+      if (file.is_google_drive_folder === true) return true;
+      const url = (file.url || file.preview_url || file.download_url || file.path || file.stored_name || '').toLowerCase();
+      const name = (file.original_name || '').toLowerCase();
+      const raw = url + ' ' + name;
+      return raw.includes('drive.google.com') && (
+        raw.includes('/folders/') ||
+        raw.includes('/folderview') ||
+        raw.includes('folders%2f')
+      );
+    },
+
+    openGoogleDriveDirect(url) {
+      const target = url;
+      if (!target) return;
+      if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.flutter_inappwebview.callHandler('DgtOpenExternal', target);
+      } else {
+        window.open(target, '_blank', 'noopener,noreferrer');
+      }
     },
 
     // ── Google Docs / Sheets / Slides helpers ─────────────────────────────────
@@ -4925,23 +6752,29 @@ window.trelloBoard = function(config) {
 
       // Google Drive: extract file ID
       if (url.includes('drive.google.com')) {
+        if (url.includes('/folders/') || url.includes('/folderview') || url.includes('folders%2f')) {
+          return '';
+        }
         const matchFile = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i);
         if (matchFile && matchFile[1]) {
-          return `https://drive.google.com/file/d/${matchFile[1]}/preview`;
+          return `https://drive.google.com/file/d/${matchFile[1]}/preview?vq=hd1080`;
         }
         const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
         if (matchId && matchId[1]) {
-          return `https://drive.google.com/file/d/${matchId[1]}/preview`;
+          return `https://drive.google.com/file/d/${matchId[1]}/preview?vq=hd1080`;
         }
-        const cleanUrl = url.split('?')[0];
-        return cleanUrl.replace('/view', '/preview');
+        if (this.isVideoFile(file)) {
+          const cleanUrl = url.split('?')[0];
+          return cleanUrl.replace('/view', '/preview') + '?vq=hd1080';
+        }
+        return '';
       }
 
       // YouTube
       if (url.includes('youtube.com') || url.includes('youtu.be')) {
         const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
         if (ytMatch && ytMatch[1]) {
-          return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&enablejsapi=1&mute=0`;
+          return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&enablejsapi=1&mute=0&vq=hd1080`;
         }
       }
 
@@ -4971,10 +6804,14 @@ window.trelloBoard = function(config) {
 
       const title = file.original_name || 'Video Preview';
 
-      // ── macOS App InAppWebView: For Google Drive videos, open in native dialog ──
-      // Top-level dialog shares Google session cookies and bypasses iframe partitioning
-      if (this.isMacApp() && window.flutter_inappwebview && window.flutter_inappwebview.callHandler && rawUrl.includes('drive.google.com')) {
-        window.flutter_inappwebview.callHandler('DgtPlayInAppVideo', { url: rawUrl, title: title });
+      // ── macOS App InAppWebView: View video inside system (native theater) ──
+      const isDriveVideo = (rawUrl && rawUrl.includes('drive.google.com')) || (file.embed_url && file.embed_url.includes('drive.google.com')) || (typeof this.isGoogleDriveFile === 'function' && this.isGoogleDriveFile(file));
+      if (this.isMacApp() && window.flutter_inappwebview && window.flutter_inappwebview.callHandler && isDriveVideo) {
+        let driveUrl = rawUrl || file.embed_url;
+        if (!driveUrl.includes('vq=')) {
+          driveUrl += (driveUrl.includes('?') ? '&' : '?') + 'vq=hd1080';
+        }
+        window.flutter_inappwebview.callHandler('DgtPlayInAppVideo', { url: driveUrl, title: title });
         return;
       }
 
@@ -5023,6 +6860,8 @@ window.trelloBoard = function(config) {
             if (!win) return;
             // YouTube & Google Drive embedded player handshake & play commands
             win.postMessage(JSON.stringify({ event: 'listening' }), '*');
+            win.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackQualityRange', args: ['hd1080', 'highres'] }), '*');
+            win.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackQuality', args: ['hd1080'] }), '*');
             win.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
             win.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
             // Vimeo / Loom play commands
@@ -5432,22 +7271,35 @@ window.trelloBoard = function(config) {
     async moveCardDirect(listId) {
       if (!this.activeCard) return;
       
+      if (this.activeCard.board_list_id !== listId && this.isCardChecklistIncomplete(this.activeCard)) {
+        this.showChecklistIncompleteModal('move', this.activeCard);
+        return;
+      }
+
       const targetList = this.lists.find(l => l.id === listId);
       if (!targetList) return;
       
-      const res = await this.api(`/boards/cards/${this.activeCard.id}/move`, 'POST', {
-        board_list_id: listId
-      });
-      
-      if (res.card) {
-        this.lists.forEach(l => {
-          l.cards = l.cards.filter(c => c.id !== this.activeCard.id);
+      try {
+        const res = await this.api(`/boards/cards/${this.activeCard.id}/move`, 'POST', {
+          board_list_id: listId
         });
-        targetList.cards.push(this.activeCard);
-        this.activeCard.board_list_id = listId;
-        this.activeCard.board_list_name = targetList.name;
-        window.showToast(`Moved card to "${targetList.name}"`);
-        this.refreshCardActivities();
+        
+        if (res.card) {
+          this.lists.forEach(l => {
+            l.cards = l.cards.filter(c => c.id !== this.activeCard.id);
+          });
+          targetList.cards.push(this.activeCard);
+          this.activeCard.board_list_id = listId;
+          this.activeCard.board_list_name = targetList.name;
+          window.showToast(`Moved card to "${targetList.name}"`);
+          this.refreshCardActivities();
+        }
+      } catch (err) {
+        if (err && err.checklist_incomplete) {
+          this.showChecklistIncompleteModal('move', this.activeCard);
+        } else {
+          window.showToast(err?.error || err?.message || 'Failed to move card.', 'error');
+        }
       }
     },
 
@@ -5519,17 +7371,84 @@ window.trelloBoard = function(config) {
       textarea.setSelectionRange(start + replacement.length, start + replacement.length);
     },
 
+    enhanceDescriptionHtml(htmlString) {
+      if (!htmlString || typeof htmlString !== 'string') return '';
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlString, 'text/html');
+
+        const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            let p = node.parentElement;
+            while (p && p !== doc.body) {
+              if (p.tagName === 'A' || p.tagName === 'SCRIPT' || p.tagName === 'STYLE') {
+                return NodeFilter.FILTER_REJECT;
+              }
+              p = p.parentElement;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        });
+
+        const textNodes = [];
+        while (walker.nextNode()) {
+          textNodes.push(walker.currentNode);
+        }
+
+        const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s]|(?<![\w@])www\.[^\s<]+[^<.,:;"')\]\s])/gi;
+
+        for (const node of textNodes) {
+          const val = node.nodeValue;
+          if (urlRegex.test(val)) {
+            urlRegex.lastIndex = 0;
+            const frag = doc.createDocumentFragment();
+            let lastIdx = 0;
+            let match;
+            while ((match = urlRegex.exec(val)) !== null) {
+              if (match.index > lastIdx) {
+                frag.appendChild(doc.createTextNode(val.substring(lastIdx, match.index)));
+              }
+              const rawUrl = match[0];
+              const href = rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl;
+              const a = doc.createElement('a');
+              a.href = href;
+              a.target = '_blank';
+              a.rel = 'noopener noreferrer';
+              a.className = 'card-desc-link';
+              a.textContent = rawUrl;
+              frag.appendChild(a);
+              lastIdx = match.index + rawUrl.length;
+            }
+            if (lastIdx < val.length) {
+              frag.appendChild(doc.createTextNode(val.substring(lastIdx)));
+            }
+            node.parentNode.replaceChild(frag, node);
+          }
+        }
+
+        doc.body.querySelectorAll('a').forEach(a => {
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.classList.add('card-desc-link');
+        });
+
+        return doc.body.innerHTML;
+      } catch (e) {
+        return htmlString;
+      }
+    },
+
     parseMarkdown(text) {
       if (!text) return '<p class="text-slate-400 italic">No description provided. Click here to add one...</p>';
 
-      // If it's already HTML (from Quill WYSIWYG), return it safely
       const trimmed = text.trim();
+      // If it's already HTML (from Quill WYSIWYG or tags), enhance it and ensure links are clickable
       if (/<[a-z][\s\S]*>/i.test(trimmed)) {
-        return text;
+        return this.enhanceDescriptionHtml(text);
       }
 
-      // If it looks like an activity log (short, no newlines), do a lightweight parse
-      if (!text.includes('\n') && text.length < 500) {
+      // If it looks like an activity log (short, no newlines, no URLs), do a lightweight parse
+      if (!text.includes('\n') && text.length < 500 && !text.includes('http://') && !text.includes('https://') && !text.includes('www.')) {
         return ' ' + text
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
@@ -5543,15 +7462,29 @@ window.trelloBoard = function(config) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
       
-      html = html.replace(/^### (.*$)/gim, '<h3 class="text-sm font-bold text-slate-800 mt-3 mb-1">$1</h3>');
-      html = html.replace(/^## (.*$)/gim, '<h2 class="text-sm font-bold text-slate-800 mt-4 mb-2">$1</h2>');
-      html = html.replace(/^# (.*$)/gim, '<h1 class="text-base font-bold text-slate-900 mt-4 mb-2">$1</h1>');
+      html = html.replace(/^### (.*$)/gim, '<h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 mt-3 mb-1">$1</h3>');
+      html = html.replace(/^## (.*$)/gim, '<h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mt-4 mb-2">$1</h2>');
+      html = html.replace(/^# (.*$)/gim, '<h1 class="text-base font-bold text-slate-900 dark:text-slate-50 mt-4 mb-2">$1</h1>');
       
-      html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900">$1</strong>');
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-slate-100">$1</strong>');
       html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
-      html = html.replace(/`(.*?)`/g, '<code class="bg-slate-100 text-rose-500 rounded px-1 py-0.5 text-sm font-mono">$1</code>');
+      html = html.replace(/`(.*?)`/g, '<code class="bg-slate-100 dark:bg-slate-700/60 text-rose-500 rounded px-1 py-0.5 text-sm font-mono">$1</code>');
       
-      html = html.replace(/^\s*-\s+(.*$)/gim, '<li class="ml-4 list-disc text-slate-600 text-sm">$1</li>');
+      html = html.replace(/^\s*-\s+(.*$)/gim, '<li class="ml-4 list-disc text-slate-600 dark:text-slate-300 text-sm">$1</li>');
+
+      // Markdown links: [label](url)
+      html = html.replace(/\[([^\]]+?)\]\(((?:https?:\/\/|www\.)[^\s)]+)\)/gi, (match, label, url) => {
+        const href = url.startsWith('http') ? url : 'https://' + url;
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="card-desc-link">${label}</a>`;
+      });
+
+      // Raw URLs: https://... or http://... or www....
+      const rawUrlRegex = /(^|[\s(>])((?:https?:\/\/|www\.)[^\s<]+[^<.,:;"')\]\s])/gi;
+      html = html.replace(rawUrlRegex, (match, prefix, url) => {
+        const href = url.startsWith('http') ? url : 'https://' + url;
+        return `${prefix}<a href="${href}" target="_blank" rel="noopener noreferrer" class="card-desc-link">${url}</a>`;
+      });
+
       html = html.replace(/\n/g, '<br>');
       
       return html;
@@ -5709,13 +7642,13 @@ window.trelloBoard = function(config) {
           if (res.card_moved) {
             window.showToast('Card moved by automation!');
             const newCard = res.card;
-            if (newCard.board_id !== this.boardId) {
-              this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
+            if (parseInt(newCard.board_id, 10) !== parseInt(this.boardId, 10)) {
+              this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
               this.closeCard();
               return;
-            } else if (newCard.board_list_id !== this.activeCard.board_list_id) {
-              this.lists.forEach(l => l.cards = l.cards.filter(c => c.id !== this.activeCard.id));
-              const targetList = this.lists.find(l => l.id === newCard.board_list_id);
+            } else if (parseInt(newCard.board_list_id, 10) !== parseInt(this.activeCard.board_list_id, 10)) {
+              this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
+              const targetList = this.lists.find(l => parseInt(l.id, 10) === parseInt(newCard.board_list_id, 10));
               if (targetList) targetList.cards.unshift(newCard);
               this.closeCard();
               return;
@@ -5848,7 +7781,7 @@ window.trelloBoard = function(config) {
       this.labels = payload.labels || this.labels;
       this.allBoardMembers = payload.boardMembers || this.allBoardMembers;
       this.allWorkspaceMembers = payload.workspaceMembers || this.allWorkspaceMembers;
-      this.allWorkspaces = payload.allWorkspaces || this.allWorkspaces;
+      this.allWorkspaces = (payload.allWorkspaces || this.allWorkspaces).filter(ws => ws.boards && ws.boards.length > 0);
 
       if (payload.lists) {
         let listStructureChanged = false;
@@ -5878,19 +7811,30 @@ window.trelloBoard = function(config) {
                 });
 
                 if (newList.cards) {
-                    const newCardIds = new Set(newList.cards.map(c => c.id));
+                    const newCardIds = new Set(newList.cards.map(c => parseInt(c.id, 10)));
                     if (!existingList.cards) existingList.cards = [];
                     
                     // Remove deleted cards
                     for (let c = existingList.cards.length - 1; c >= 0; c--) {
-                        if (!newCardIds.has(existingList.cards[c].id)) {
+                        const existingCardId = parseInt(existingList.cards[c].id, 10);
+
+                        // Safety protection: Never delete the active card that the user is currently viewing/editing,
+                        // unless it is confirmed present in another list or is archived
+                        if (activeCardId && existingCardId === activeCardId) {
+                            const foundInAnyNewList = newLists.some(nl => (nl.cards || []).some(nc => parseInt(nc.id, 10) === activeCardId));
+                            if (!foundInAnyNewList) {
+                                continue;
+                            }
+                        }
+
+                        if (!newCardIds.has(existingCardId)) {
                             existingList.cards.splice(c, 1);
                         }
                     }
 
                     // Add or update cards
                     newList.cards.forEach((newCard, cIndex) => {
-                        let existingCard = existingList.cards.find(c => c.id === newCard.id);
+                        let existingCard = existingList.cards.find(c => parseInt(c.id, 10) === parseInt(newCard.id, 10));
                         if (!existingCard) {
                             existingList.cards.splice(cIndex, 0, newCard);
                         } else {
@@ -5924,7 +7868,11 @@ window.trelloBoard = function(config) {
         if (stillExists) {
           this.refreshActiveCard();
         } else {
-          this.closeCard();
+          if (this.activeCard && !this.activeCard.is_archived) {
+            // Keep card open if actively being interacted with
+          } else {
+            this.closeCard();
+          }
         }
       }
     },

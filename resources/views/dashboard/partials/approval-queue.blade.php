@@ -34,7 +34,7 @@
                 {{ $isSupervisor ? 'Supervisor Approval Queue' : ($isQc ? 'Quality Control & Approval Queue' : 'Workflow Pipeline & Approvals') }}
             </h3>
             <p class="text-sm font-medium text-slate-500 dark:text-slate-400">
-                {{ $isSupervisor ? 'Live tasks on supervisor list across workflow boards awaiting your final review & approval.' : 'Live task status across workflow boards — drafting, reviews, and approvals.' }}
+                {{ $isSupervisor ? 'Live tasks on Digital Department List across workflow boards awaiting your final review & approval.' : 'Live task status across workflow boards — draft list, production team, and digital department approvals.' }}
             </p>
         </div>
 
@@ -96,11 +96,11 @@
                             <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white">Your Queue</span>
                             <span class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Action Required</span>
                         </div>
-                        <h4 class="text-lg font-black text-slate-900 dark:text-white mt-0.5">Supervisor List</h4>
+                        <h4 class="text-lg font-black text-slate-900 dark:text-white mt-0.5">Digital Department List</h4>
                     </div>
                 </div>
                 <div class="text-right">
-                    <span class="text-4xl font-black text-amber-600 dark:text-amber-400">{{ $stats['supervisor_review']['total'] ?? 0 }}</span>
+                    <span class="text-4xl font-black text-amber-600 dark:text-amber-400">{{ $stats['digital_department']['total'] ?? ($stats['supervisor_review']['total'] ?? 0) }}</span>
                     <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Cards</span>
                 </div>
             </div>
@@ -110,33 +110,33 @@
                     <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200/60 dark:border-sky-800/40 text-xs font-bold text-sky-700 dark:text-sky-300">
                         <span class="w-2 h-2 rounded-full bg-sky-500"></span>
                         <span>Graphic:</span>
-                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['supervisor_review']['graphic'] ?? 0 }}</span>
+                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['digital_department']['graphic'] ?? ($stats['supervisor_review']['graphic'] ?? 0) }}</span>
                     </div>
                     <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-50 dark:bg-violet-950/50 border border-violet-200/60 dark:border-violet-800/40 text-xs font-bold text-violet-700 dark:text-violet-300">
                         <span class="w-2 h-2 rounded-full bg-violet-500"></span>
                         <span>Video:</span>
-                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['supervisor_review']['video'] ?? 0 }}</span>
+                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['digital_department']['video'] ?? ($stats['supervisor_review']['video'] ?? 0) }}</span>
                     </div>
                     <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/40 text-xs font-bold text-amber-700 dark:text-amber-300">
                         <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                         <span>Listing:</span>
-                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['supervisor_review']['listing'] ?? 0 }}</span>
+                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['digital_department']['listing'] ?? ($stats['supervisor_review']['listing'] ?? 0) }}</span>
                     </div>
                     <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-fuchsia-50 dark:bg-fuchsia-950/50 border border-fuchsia-200/60 dark:border-fuchsia-800/40 text-xs font-bold text-fuchsia-700 dark:text-fuchsia-300">
                         <span class="w-2 h-2 rounded-full bg-fuchsia-500"></span>
                         <span>Content:</span>
-                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['supervisor_review']['content'] ?? 0 }}</span>
+                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['digital_department']['content'] ?? ($stats['supervisor_review']['content'] ?? 0) }}</span>
                     </div>
                     <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/60 dark:border-emerald-800/40 text-xs font-bold text-emerald-700 dark:text-emerald-300">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span>QC:</span>
-                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['supervisor_review']['qc'] ?? 0 }}</span>
+                        <span class="font-black text-slate-900 dark:text-white ml-0.5">{{ $stats['digital_department']['qc'] ?? ($stats['supervisor_review']['qc'] ?? 0) }}</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- Column 2: QC Review / Approved Pipeline --}}
+        {{-- Column 2: Production Team / Approved Pipeline --}}
         <div x-data="{ viewMode: 'qc' }" class="rounded-2xl p-6 bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col justify-between hover:shadow-md transition-all">
             <div class="flex items-center justify-between mb-5">
                 <div class="flex items-center gap-3.5">
@@ -154,14 +154,14 @@
                     </div>
                     <div>
                         <div class="flex items-center gap-1.5">
-                            <button type="button" @click="viewMode = 'qc'" class="px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer" :class="viewMode === 'qc' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200'">QC Review</button>
+                            <button type="button" @click="viewMode = 'qc'" class="px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer" :class="viewMode === 'qc' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200'">Production Team</button>
                             <button type="button" @click="viewMode = 'approved'" class="px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer" :class="viewMode === 'approved' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200'">Approved</button>
                         </div>
-                        <h4 class="text-lg font-black text-slate-900 dark:text-white mt-0.5" x-text="viewMode === 'qc' ? 'QC Review Queue' : 'Completed / Approved'">QC Review Queue</h4>
+                        <h4 class="text-lg font-black text-slate-900 dark:text-white mt-0.5" x-text="viewMode === 'qc' ? 'Production Team Queue' : 'Completed / Approved'">Production Team Queue</h4>
                     </div>
                 </div>
                 <div class="text-right">
-                    <span class="text-4xl font-black text-slate-800 dark:text-white" x-text="viewMode === 'qc' ? '{{ $stats['qc_review']['total'] ?? 0 }}' : '{{ $stats['approved']['total'] ?? 0 }}'">{{ $stats['qc_review']['total'] ?? 0 }}</span>
+                    <span class="text-4xl font-black text-slate-800 dark:text-white" x-text="viewMode === 'qc' ? '{{ $stats['production_team']['total'] ?? ($stats['qc_review']['total'] ?? 0) }}' : '{{ $stats['approved']['total'] ?? 0 }}'">{{ $stats['production_team']['total'] ?? ($stats['qc_review']['total'] ?? 0) }}</span>
                     <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Cards</span>
                 </div>
             </div>
@@ -238,10 +238,10 @@
                     </div>
                     <div>
                         <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Stage 1</span>
-                        <h4 class="text-base font-black text-slate-800 dark:text-slate-100">Drafting</h4>
+                        <h4 class="text-base font-black text-slate-800 dark:text-slate-100">Draft List</h4>
                     </div>
                 </div>
-                <span class="text-3xl font-black text-slate-800 dark:text-white">{{ $stats['drafting']['total'] ?? 0 }}</span>
+                <span class="text-3xl font-black text-slate-800 dark:text-white">{{ $stats['draft_list']['total'] ?? ($stats['drafting']['total'] ?? 0) }}</span>
             </div>
             <div class="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
                 <span title="Graphic">G: {{ $stats['drafting']['graphic'] ?? 0 }}</span>
@@ -252,83 +252,83 @@
             </div>
         </div>
 
-        {{-- Head Review --}}
-        <div class="rounded-2xl p-5 bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col justify-between hover:shadow-md transition-all">
+        {{-- Production Team List (Spotlight for Dara / QC) --}}
+        <div class="rounded-2xl p-5 {{ $isQc ? 'bg-gradient-to-br from-indigo-50/90 to-blue-50/70 dark:from-indigo-950/40 dark:to-blue-950/30 border-2 border-indigo-500/80 shadow-md shadow-indigo-500/10' : 'bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60' }} flex flex-col justify-between hover:shadow-lg transition-all">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center {{ $isQc ? 'bg-indigo-600 text-white shadow-sm' : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400' }}">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                         </svg>
                     </div>
                     <div>
+                        @if($isQc)
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white">Your Queue</span>
+                        @else
                         <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Stage 2</span>
-                        <h4 class="text-base font-black text-slate-800 dark:text-slate-100">Head Review</h4>
+                        @endif
+                        <h4 class="text-base font-black text-slate-800 dark:text-slate-100">Production Team List</h4>
                     </div>
                 </div>
-                <span class="text-3xl font-black text-indigo-600 dark:text-indigo-400">{{ $stats['head_review']['total'] ?? 0 }}</span>
+                <span class="text-3xl font-black {{ $isQc ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-800 dark:text-white' }}">{{ $stats['production_team']['total'] ?? ($stats['head_review']['total'] ?? 0) }}</span>
             </div>
             <div class="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-                <span title="Graphic">G: {{ $stats['head_review']['graphic'] ?? 0 }}</span>
-                <span title="Video">V: {{ $stats['head_review']['video'] ?? 0 }}</span>
-                <span title="Listing">L: {{ $stats['head_review']['listing'] ?? 0 }}</span>
-                <span title="Content">C: {{ $stats['head_review']['content'] ?? 0 }}</span>
-                <span title="QC">Q: {{ $stats['head_review']['qc'] ?? 0 }}</span>
+                <span title="Graphic">G: {{ $stats['production_team']['graphic'] ?? 0 }}</span>
+                <span title="Video">V: {{ $stats['production_team']['video'] ?? 0 }}</span>
+                <span title="Listing">L: {{ $stats['production_team']['listing'] ?? 0 }}</span>
+                <span title="Content">C: {{ $stats['production_team']['content'] ?? 0 }}</span>
+                <span title="QC">Q: {{ $stats['production_team']['qc'] ?? 0 }}</span>
             </div>
         </div>
 
-        {{-- QC Review (Spotlight for QC User) --}}
-        <div class="rounded-2xl p-5 {{ $isQc ? 'bg-gradient-to-br from-indigo-50/90 to-blue-50/70 dark:from-indigo-950/40 dark:to-blue-950/30 border-2 border-indigo-500/80 shadow-md shadow-indigo-500/10' : 'bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60' }} flex flex-col justify-between hover:shadow-lg transition-all">
+        {{-- Digital Department List --}}
+        <div class="rounded-2xl p-5 bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col justify-between hover:shadow-lg transition-all">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-xl flex items-center justify-center {{ $isQc ? 'bg-indigo-600 text-white shadow-sm' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400' }}">
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                         </svg>
                     </div>
                     <div>
-                        @if($isQc)
-                        <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white">Your Queue</span>
-                        @else
                         <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Stage 3</span>
-                        @endif
-                        <h4 class="text-base font-black text-slate-800 dark:text-slate-100">QC Review</h4>
+                        <h4 class="text-base font-black text-slate-800 dark:text-slate-100">Digital Department</h4>
                     </div>
                 </div>
-                <span class="text-3xl font-black {{ $isQc ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-800 dark:text-white' }}">{{ $stats['qc_review']['total'] ?? 0 }}</span>
+                <span class="text-3xl font-black text-slate-800 dark:text-white">{{ $stats['digital_department']['total'] ?? ($stats['supervisor_review']['total'] ?? 0) }}</span>
             </div>
             <div class="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-                <span title="Graphic">G: {{ $stats['qc_review']['graphic'] ?? 0 }}</span>
-                <span title="Video">V: {{ $stats['qc_review']['video'] ?? 0 }}</span>
-                <span title="Listing">L: {{ $stats['qc_review']['listing'] ?? 0 }}</span>
-                <span title="Content">C: {{ $stats['qc_review']['content'] ?? 0 }}</span>
-                <span title="QC">Q: {{ $stats['qc_review']['qc'] ?? 0 }}</span>
+                <span title="Graphic">G: {{ $stats['digital_department']['graphic'] ?? 0 }}</span>
+                <span title="Video">V: {{ $stats['digital_department']['video'] ?? 0 }}</span>
+                <span title="Listing">L: {{ $stats['digital_department']['listing'] ?? 0 }}</span>
+                <span title="Content">C: {{ $stats['digital_department']['content'] ?? 0 }}</span>
+                <span title="QC">Q: {{ $stats['digital_department']['qc'] ?? 0 }}</span>
             </div>
         </div>
 
-        {{-- Supervisor Review --}}
+        {{-- Approved List --}}
         <div class="rounded-2xl p-5 bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col justify-between hover:shadow-lg transition-all">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-xl flex items-center justify-center bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
                     </div>
                     <div>
                         <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Stage 4</span>
-                        <h4 class="text-base font-black text-slate-800 dark:text-slate-100">Supervisor Review</h4>
+                        <h4 class="text-base font-black text-slate-800 dark:text-slate-100">Approved List</h4>
                     </div>
                 </div>
-                <span class="text-3xl font-black text-slate-800 dark:text-white">{{ $stats['supervisor_review']['total'] ?? 0 }}</span>
+                <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400">{{ $stats['approved']['total'] ?? 0 }}</span>
             </div>
             <div class="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-                <span title="Graphic">G: {{ $stats['supervisor_review']['graphic'] ?? 0 }}</span>
-                <span title="Video">V: {{ $stats['supervisor_review']['video'] ?? 0 }}</span>
-                <span title="Listing">L: {{ $stats['supervisor_review']['listing'] ?? 0 }}</span>
-                <span title="Content">C: {{ $stats['supervisor_review']['content'] ?? 0 }}</span>
-                <span title="QC">Q: {{ $stats['supervisor_review']['qc'] ?? 0 }}</span>
+                <span title="Graphic">G: {{ $stats['approved']['graphic'] ?? 0 }}</span>
+                <span title="Video">V: {{ $stats['approved']['video'] ?? 0 }}</span>
+                <span title="Listing">L: {{ $stats['approved']['listing'] ?? 0 }}</span>
+                <span title="Content">C: {{ $stats['approved']['content'] ?? 0 }}</span>
+                <span title="QC">Q: {{ $stats['approved']['qc'] ?? 0 }}</span>
             </div>
         </div>
     </div>
@@ -431,7 +431,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                 </svg>
                 <h4 class="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                    {{ $isSupervisor ? 'Tasks on Supervisor List' : ($isQc ? 'Tasks Awaiting QC Action' : 'Tasks Awaiting Action') }} ({{ $pendingCards->count() }})
+                    {{ $isSupervisor ? 'Tasks on Digital Department List' : ($isQc ? 'Tasks on Production Team List' : 'Tasks Awaiting Action') }} ({{ $pendingCards->count() }})
                 </h4>
             </div>
             <span class="text-xs font-bold text-slate-400">Click task or Review to auto-open in board</span>

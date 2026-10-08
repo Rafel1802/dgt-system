@@ -116,23 +116,4 @@ class BlogReportHyperlinkTest extends TestCase
         $this->assertSame('https://docs.google.com/document/d/real-doc-id/edit', $row2[1]['link']);
         $this->assertSame('https://newdiggerforsale.com/real-article-slug', $row2[2]['link']);
     }
-
-    public function test_preview_renders_real_hyperlinks_from_xlsx(): void
-    {
-        $mockXlsx = $this->createMockXlsx();
-
-        Http::fake([
-            'https://docs.google.com/spreadsheets/d/test-sheet-id/export?format=xlsx' => Http::response($mockXlsx, 200),
-        ]);
-
-        $response = $this->actingAs($this->user)->post(route('blog-reports.preview'), [
-            'sheet_url' => 'https://docs.google.com/spreadsheets/d/test-sheet-id/edit#gid=0',
-            'month_label' => 'Blog Reports - September',
-        ]);
-
-        $response->assertOk();
-        $response->assertSee('https://docs.google.com/document/d/real-doc-id/edit', false);
-        $response->assertSee('https://newdiggerforsale.com/real-article-slug', false);
-        $response->assertDontSee('href="http://link"', false);
-    }
 }

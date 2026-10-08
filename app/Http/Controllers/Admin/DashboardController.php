@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Models\Website;
 use App\Services\KanbanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -105,6 +106,19 @@ class DashboardController extends Controller
             $approvalQueueData = $this->kanbanService->getApprovalQueueData(null, 'today', $user);
         }
 
+        $websiteErrorWebsites = Website::where('is_archived', false)
+            ->whereIn('status', [
+                Website::STATUS_QC_ERROR,
+                Website::STATUS_MAINTENANCE_QC_ERROR,
+                Website::STATUS_SUPERVISOR_ERROR,
+                Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR,
+            ])
+            ->with(['handler', 'errorFlagger'])
+            ->orderByDesc('error_flagged_at')
+            ->orderByDesc('updated_at')
+            ->get();
+        $websiteErrorsCount = $websiteErrorWebsites->count();
+
         return view('dashboard.index', compact(
             'user',
             'stats',
@@ -120,6 +134,8 @@ class DashboardController extends Controller
             'totalWarningCount',
             'totalTasksCount',
             'approvalQueueData',
+            'websiteErrorWebsites',
+            'websiteErrorsCount',
         ));
     }
 

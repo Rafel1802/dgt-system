@@ -30,7 +30,7 @@ class KpiSquad extends Model
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'kpi_squad_members', 'squad_id', 'user_id')
-            ->withPivot('role_title', 'joined_date')
+            ->withPivot('role_title', 'work_types', 'joined_date')
             ->withTimestamps();
     }
 
