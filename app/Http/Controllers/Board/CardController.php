@@ -1313,11 +1313,13 @@ class CardController extends Controller
                             }
 
                             if ($matches) {
-                                $twinItem->updateQuietly($toggleData);
+                                $twinItem->updateQuietly(array_merge($toggleData, ['sync_id' => $item->sync_id]));
                             }
                         }
                     }
                 }
+
+                $this->syncChecklistsAcrossTwins($card);
             }
 
             $status = $item->is_completed ? 'completed' : 'uncompleted';
@@ -1434,6 +1436,8 @@ class CardController extends Controller
                     }
                 }
             }
+
+            $this->syncChecklistsAcrossTwins($card);
         }
 
         $this->logCardActivity($card, 'checklist_item_reviewed', "{$label} item **{$item->content}**", false);
@@ -1962,13 +1966,15 @@ class CardController extends Controller
 
         $modified = false;
 
-        // Heal any file that has a folder in original_name but folder_name column is empty
+        // Heal any file that has a folder in original_name but folder_name column is empty in DB
         if ($hasColumn) {
             foreach ($card->files as $f) {
-                if (empty($f->folder_name) && $f->original_name && str_contains($f->original_name, '/')) {
+                $rawFolder = $f->getAttributes()['folder_name'] ?? null;
+                if (empty($rawFolder) && $f->original_name && str_contains($f->original_name, '/')) {
                     $parts = explode('/', $f->original_name, 2);
-                    if (!empty(trim($parts[0]))) {
-                        $f->folder_name = trim($parts[0]);
+                    $folder = trim($parts[0]);
+                    if (!empty($folder)) {
+                        $f->folder_name = $folder;
                         $f->saveQuietly();
                         $modified = true;
                     }
@@ -1988,8 +1994,9 @@ class CardController extends Controller
             foreach ($groupCards as $gCard) {
                 foreach ($gCard->files as $f) {
                     $folder = null;
-                    if (!empty($f->folder_name)) {
-                        $folder = trim($f->folder_name);
+                    $rawFolder = $f->getAttributes()['folder_name'] ?? null;
+                    if (!empty($rawFolder)) {
+                        $folder = trim($rawFolder);
                     } elseif ($f->original_name && str_contains($f->original_name, '/')) {
                         $parts = explode('/', $f->original_name, 2);
                         if (!empty(trim($parts[0]))) {
@@ -2012,11 +2019,12 @@ class CardController extends Controller
                 }
             }
 
-            // Propagate discovered folders to any file in the sync group lacking a folder
+            // Propagate discovered folders to any file in the sync group lacking a folder or lacking DB column value
             if (!empty($folderBySyncId) || !empty($folderByStoredName) || !empty($folderByBaseName)) {
                 foreach ($groupCards as $gCard) {
                     foreach ($gCard->files as $f) {
-                        $currentFolder = !empty($f->folder_name) ? trim($f->folder_name) : null;
+                        $rawFolder = $f->getAttributes()['folder_name'] ?? null;
+                        $currentFolder = !empty($rawFolder) ? trim($rawFolder) : null;
                         if (!$currentFolder && $f->original_name && str_contains($f->original_name, '/')) {
                             $parts = explode('/', $f->original_name, 2);
                             if (!empty(trim($parts[0]))) {
@@ -2024,10 +2032,9 @@ class CardController extends Controller
                             }
                         }
 
-                        if (!$currentFolder) {
-                            $matchedFolder = null;
+                        $matchedFolder = $currentFolder;
+                        if (!$matchedFolder) {
                             $base = basename($f->original_name);
-
                             if ($f->sync_id && isset($folderBySyncId[$f->sync_id])) {
                                 $matchedFolder = $folderBySyncId[$f->sync_id];
                             } elseif ($f->stored_name && isset($folderByStoredName[$f->stored_name])) {
@@ -2035,17 +2042,77 @@ class CardController extends Controller
                             } elseif ($base && isset($folderByBaseName[$base])) {
                                 $matchedFolder = $folderByBaseName[$base];
                             }
+                        }
 
-                            if ($matchedFolder) {
-                                if ($hasColumn) {
-                                    $f->folder_name = $matchedFolder;
-                                }
-                                $cleanName = basename($f->original_name);
-                                $f->original_name = "{$matchedFolder}/{$cleanName}";
+                        if ($matchedFolder) {
+                            $cleanName = basename($f->original_name);
+                            $expectedOriginalName = "{$matchedFolder}/{$cleanName}";
+                            $needsSave = false;
+
+                            if ($hasColumn && ($f->getAttributes()['folder_name'] ?? null) !== $matchedFolder) {
+                                $f->folder_name = $matchedFolder;
+                                $needsSave = true;
+                            }
+                            if ($f->original_name !== $expectedOriginalName) {
+                                $f->original_name = $expectedOriginalName;
+                                $needsSave = true;
+                            }
+
+                            if ($needsSave) {
                                 $f->saveQuietly();
                                 $modified = true;
                             }
                         }
+                    }
+                }
+            }
+
+            // Replicate any files that are missing on twin cards
+            $allGroupFiles = [];
+            foreach ($groupCards as $gCard) {
+                foreach ($gCard->files as $f) {
+                    $allGroupFiles[] = $f;
+                }
+            }
+
+            foreach ($groupCards as $targetCard) {
+                foreach ($allGroupFiles as $gf) {
+                    if ($gf->card_id === $targetCard->id) {
+                        continue;
+                    }
+                    $cleanBase = basename($gf->original_name);
+                    $existsOnTarget = $targetCard->files->first(function ($tf) use ($gf, $cleanBase) {
+                        return ($gf->sync_id && $tf->sync_id === $gf->sync_id)
+                            || ($gf->stored_name && $tf->stored_name === $gf->stored_name)
+                            || (basename($tf->original_name) === $cleanBase);
+                    });
+
+                    if (!$existsOnTarget) {
+                        if ($gf->disk !== 'url' && $gf->mime_type !== 'link') {
+                            $newPath = "kanban/{$targetCard->id}/{$gf->stored_name}";
+                            if (\Illuminate\Support\Facades\Storage::exists($gf->path)) {
+                                \Illuminate\Support\Facades\Storage::copy($gf->path, $newPath);
+                            }
+                        } else {
+                            $newPath = $gf->path;
+                        }
+
+                        $newF = new CardFile([
+                            'card_id'       => $targetCard->id,
+                            'uploaded_by'   => $gf->uploaded_by ?? 1,
+                            'original_name' => $gf->original_name,
+                            'folder_name'   => $gf->folder_name,
+                            'stored_name'   => $gf->stored_name,
+                            'disk'          => $gf->disk ?? 'local',
+                            'path'          => $newPath,
+                            'mime_type'     => $gf->mime_type,
+                            'size'          => $gf->size ?? 0,
+                            'sync_id'       => $gf->sync_id ?: (string) \Illuminate\Support\Str::uuid(),
+                            'is_comment_image' => $gf->is_comment_image ?? false,
+                        ]);
+                        $newF->saveQuietly();
+                        $targetCard->files->push($newF);
+                        $modified = true;
                     }
                 }
             }
@@ -2098,7 +2165,8 @@ class CardController extends Controller
                                     if ($hasColumn) {
                                         $sf->folder_name = $targetFolder;
                                     }
-                                    $sf->original_name = "{$targetFolder}/{$sf->original_name}";
+                                    $cleanName = basename($sf->original_name);
+                                    $sf->original_name = "{$targetFolder}/{$cleanName}";
                                     $sf->saveQuietly();
                                     $modified = true;
                                 }
@@ -2145,17 +2213,33 @@ class CardController extends Controller
             return ($t === 'checklist' || $t === 'status') ? 'status' : $t;
         };
 
-        // Group checklists across all twin cards by normalized title
+        // 1. Group checklists across all twin cards by normalized title
         $checklistsByTitle = [];
+        $canonicalTitleMap = [];
+        $canonicalPositionMap = [];
+
         foreach ($groupCards as $gCard) {
             foreach ($gCard->checklists as $chk) {
                 $tKey = $normalizeTitle($chk->title);
                 $checklistsByTitle[$tKey][] = $chk;
+                if (!isset($canonicalTitleMap[$tKey]) || ($chk->title && strlen($chk->title) > strlen($canonicalTitleMap[$tKey]))) {
+                    $canonicalTitleMap[$tKey] = $chk->title;
+                }
+                if (!isset($canonicalPositionMap[$tKey]) || $chk->position < $canonicalPositionMap[$tKey]) {
+                    $canonicalPositionMap[$tKey] = $chk->position;
+                }
             }
         }
 
-        foreach ($checklistsByTitle as $tKey => $chkList) {
-            // 1. Unify checklist sync_id across twins
+        if (empty($checklistsByTitle)) {
+            return false;
+        }
+
+        foreach ($checklistsByTitle as $tKey => &$chkList) {
+            $canonicalTitle = $canonicalTitleMap[$tKey] ?? 'Checklist';
+            $canonicalPosition = $canonicalPositionMap[$tKey] ?? 1;
+
+            // 1a. Unify checklist sync_id across twins
             $commonChecklistSyncId = null;
             foreach ($chkList as $c) {
                 if (!empty($c->sync_id)) {
@@ -2166,11 +2250,34 @@ class CardController extends Controller
             if (!$commonChecklistSyncId) {
                 $commonChecklistSyncId = (string) \Illuminate\Support\Str::uuid();
             }
+
             foreach ($chkList as $c) {
                 if ($c->sync_id !== $commonChecklistSyncId) {
                     $c->sync_id = $commonChecklistSyncId;
                     $c->saveQuietly();
                     $modified = true;
+                }
+            }
+
+            // 1b. Ensure EVERY twin card in the sync group has this checklist
+            $cardsWithThisChecklist = collect($chkList)->pluck('card_id')->all();
+            foreach ($groupCards as $gCard) {
+                if (!in_array($gCard->id, $cardsWithThisChecklist, true)) {
+                    \App\Models\Card::$isSyncing = true;
+                    try {
+                        $newChk = \App\Models\CardChecklist::create([
+                            'card_id'  => $gCard->id,
+                            'title'    => $canonicalTitle,
+                            'position' => $canonicalPosition,
+                            'sync_id'  => $commonChecklistSyncId,
+                        ]);
+                        $newChk->setRelation('items', collect([]));
+                        $chkList[] = $newChk;
+                        $cardsWithThisChecklist[] = $gCard->id;
+                        $modified = true;
+                    } finally {
+                        \App\Models\Card::$isSyncing = false;
+                    }
                 }
             }
 
@@ -2233,7 +2340,7 @@ class CardController extends Controller
                 $clusters[] = $cluster;
             }
 
-            // 3. For each cluster, unify sync_id, review marks, completion, and assignees
+            // 3. For each cluster, unify sync_id, review marks, completion, and assignees, and replicate missing items to all twin checklists
             foreach ($clusters as $cluster) {
                 if (empty($cluster)) {
                     continue;
@@ -2251,7 +2358,20 @@ class CardController extends Controller
                     $unifiedSyncId = (string) \Illuminate\Support\Str::uuid();
                 }
 
-                // Find best review mark in cluster (any marked, flagged with issue, or approved)
+                // Pick best content and position
+                $canonicalContent = $cluster[0]->content;
+                $canonicalPosition = $cluster[0]->position ?? 0;
+                foreach ($cluster as $it) {
+                    if (!empty($it->content) && strlen($it->content) > strlen($canonicalContent)) {
+                        $canonicalContent = $it->content;
+                    }
+                    if (isset($it->position) && $it->position < $canonicalPosition) {
+                        $canonicalPosition = $it->position;
+                    }
+                }
+                $clusterNormKey = $normalizeItemKey($canonicalContent);
+
+                // Find best review mark in cluster (marked, flagged with issue, or approved)
                 $bestReviewItem = null;
                 foreach ($cluster as $it) {
                     if ($it->is_marked || $it->has_issue || $it->is_approved) {
@@ -2267,7 +2387,7 @@ class CardController extends Controller
                     }
                 }
 
-                // Find best completion state in cluster
+                // Find best completion state in cluster (is_completed = true wins in auto-healing)
                 $bestCompletedItem = null;
                 foreach ($cluster as $it) {
                     if ($it->is_completed) {
@@ -2293,7 +2413,22 @@ class CardController extends Controller
                     }
                 }
 
-                // Apply harmonized values to every item in cluster
+                // Harmonized review attributes
+                $isMarked   = $bestReviewItem ? (bool)$bestReviewItem->is_marked : false;
+                $markedBy   = $bestReviewItem ? $bestReviewItem->marked_by : null;
+                $markedAt   = $bestReviewItem ? $bestReviewItem->marked_at : null;
+                $hasIssue   = $bestReviewItem ? (bool)$bestReviewItem->has_issue : false;
+                $issueBy    = $bestReviewItem ? $bestReviewItem->issue_by : null;
+                $issueAt    = $bestReviewItem ? $bestReviewItem->issue_at : null;
+                $isApproved = $bestReviewItem ? (bool)$bestReviewItem->is_approved : false;
+                $approvedBy = $bestReviewItem ? $bestReviewItem->approved_by : null;
+                $approvedAt = $bestReviewItem ? $bestReviewItem->approved_at : null;
+
+                $isCompleted = (bool)$bestCompletedItem;
+                $completedBy = $bestCompletedItem ? $bestCompletedItem->completed_by : null;
+                $completedAt = $bestCompletedItem ? $bestCompletedItem->completed_at : null;
+
+                // 3a. Update existing items in the cluster
                 foreach ($cluster as $it) {
                     $updates = [];
 
@@ -2303,39 +2438,39 @@ class CardController extends Controller
                     }
 
                     if ($bestReviewItem) {
-                        if ((bool)$it->is_marked !== (bool)$bestReviewItem->is_marked) {
-                            $updates['is_marked'] = (bool)$bestReviewItem->is_marked;
-                            $updates['marked_by'] = $bestReviewItem->marked_by;
-                            $updates['marked_at'] = $bestReviewItem->marked_at;
-                            $it->is_marked = (bool)$bestReviewItem->is_marked;
-                            $it->marked_by = $bestReviewItem->marked_by;
-                            $it->marked_at = $bestReviewItem->marked_at;
+                        if ((bool)$it->is_marked !== $isMarked) {
+                            $updates['is_marked'] = $isMarked;
+                            $updates['marked_by'] = $markedBy;
+                            $updates['marked_at'] = $markedAt;
+                            $it->is_marked = $isMarked;
+                            $it->marked_by = $markedBy;
+                            $it->marked_at = $markedAt;
                         }
-                        if ((bool)$it->has_issue !== (bool)$bestReviewItem->has_issue) {
-                            $updates['has_issue'] = (bool)$bestReviewItem->has_issue;
-                            $updates['issue_by'] = $bestReviewItem->issue_by;
-                            $updates['issue_at'] = $bestReviewItem->issue_at;
-                            $it->has_issue = (bool)$bestReviewItem->has_issue;
-                            $it->issue_by = $bestReviewItem->issue_by;
-                            $it->issue_at = $bestReviewItem->issue_at;
+                        if ((bool)$it->has_issue !== $hasIssue) {
+                            $updates['has_issue'] = $hasIssue;
+                            $updates['issue_by'] = $issueBy;
+                            $updates['issue_at'] = $issueAt;
+                            $it->has_issue = $hasIssue;
+                            $it->issue_by = $issueBy;
+                            $it->issue_at = $issueAt;
                         }
-                        if ((bool)$it->is_approved !== (bool)$bestReviewItem->is_approved) {
-                            $updates['is_approved'] = (bool)$bestReviewItem->is_approved;
-                            $updates['approved_by'] = $bestReviewItem->approved_by;
-                            $updates['approved_at'] = $bestReviewItem->approved_at;
-                            $it->is_approved = (bool)$bestReviewItem->is_approved;
-                            $it->approved_by = $bestReviewItem->approved_by;
-                            $it->approved_at = $bestReviewItem->approved_at;
+                        if ((bool)$it->is_approved !== $isApproved) {
+                            $updates['is_approved'] = $isApproved;
+                            $updates['approved_by'] = $approvedBy;
+                            $updates['approved_at'] = $approvedAt;
+                            $it->is_approved = $isApproved;
+                            $it->approved_by = $approvedBy;
+                            $it->approved_at = $approvedAt;
                         }
                     }
 
-                    if ($bestCompletedItem && !$it->is_completed) {
+                    if ($isCompleted && !$it->is_completed) {
                         $updates['is_completed'] = true;
-                        $updates['completed_by'] = $bestCompletedItem->completed_by;
-                        $updates['completed_at'] = $bestCompletedItem->completed_at;
+                        $updates['completed_by'] = $completedBy;
+                        $updates['completed_at'] = $completedAt;
                         $it->is_completed = true;
-                        $it->completed_by = $bestCompletedItem->completed_by;
-                        $it->completed_at = $bestCompletedItem->completed_at;
+                        $it->completed_by = $completedBy;
+                        $it->completed_at = $completedAt;
                     }
 
                     if ($bestAssigneeId && !$it->assigned_user_id && empty($it->assigned_user_ids)) {
@@ -2348,6 +2483,78 @@ class CardController extends Controller
                     if (!empty($updates)) {
                         $it->updateQuietly($updates);
                         $modified = true;
+                    }
+                }
+
+                // 3b. Ensure EVERY checklist in $chkList has this item!
+                $checklistsHoldingItem = collect($cluster)->pluck('checklist_id')->unique()->all();
+                foreach ($chkList as $c) {
+                    if (!in_array($c->id, $checklistsHoldingItem, true)) {
+                        // Check if $c already has a matching item not in this cluster
+                        $existingItemOnC = $c->items->first(function ($ci) use ($unifiedSyncId, $clusterNormKey, $normalizeItemKey) {
+                            return ($ci->sync_id && $ci->sync_id === $unifiedSyncId)
+                                || ($clusterNormKey !== '' && $normalizeItemKey($ci->content) === $clusterNormKey);
+                        });
+
+                        if ($existingItemOnC) {
+                            $cUpdates = [];
+                            if ($existingItemOnC->sync_id !== $unifiedSyncId) {
+                                $cUpdates['sync_id'] = $unifiedSyncId;
+                            }
+                            if ($isCompleted && !$existingItemOnC->is_completed) {
+                                $cUpdates['is_completed'] = true;
+                                $cUpdates['completed_by'] = $completedBy;
+                                $cUpdates['completed_at'] = $completedAt;
+                            }
+                            if ($bestReviewItem) {
+                                $cUpdates['is_marked']   = $isMarked;
+                                $cUpdates['marked_by']   = $markedBy;
+                                $cUpdates['marked_at']   = $markedAt;
+                                $cUpdates['has_issue']   = $hasIssue;
+                                $cUpdates['issue_by']    = $issueBy;
+                                $cUpdates['issue_at']    = $issueAt;
+                                $cUpdates['is_approved'] = $isApproved;
+                                $cUpdates['approved_by'] = $approvedBy;
+                                $cUpdates['approved_at'] = $approvedAt;
+                            }
+                            if ($bestAssigneeId && !$existingItemOnC->assigned_user_id) {
+                                $cUpdates['assigned_user_id'] = $bestAssigneeId;
+                                $cUpdates['assigned_user_ids'] = $bestAssigneeIds;
+                            }
+                            if (!empty($cUpdates)) {
+                                $existingItemOnC->updateQuietly($cUpdates);
+                                $modified = true;
+                            }
+                        } else {
+                            \App\Models\Card::$isSyncing = true;
+                            try {
+                                $newItem = new \App\Models\CardChecklistItem([
+                                    'checklist_id'     => $c->id,
+                                    'content'          => $canonicalContent,
+                                    'position'         => $canonicalPosition,
+                                    'sync_id'          => $unifiedSyncId,
+                                    'is_completed'     => $isCompleted,
+                                    'completed_by'     => $completedBy,
+                                    'completed_at'     => $completedAt,
+                                    'is_marked'        => $isMarked,
+                                    'marked_by'        => $markedBy,
+                                    'marked_at'        => $markedAt,
+                                    'has_issue'        => $hasIssue,
+                                    'issue_by'         => $issueBy,
+                                    'issue_at'         => $issueAt,
+                                    'is_approved'      => $isApproved,
+                                    'approved_by'      => $approvedBy,
+                                    'approved_at'      => $approvedAt,
+                                    'assigned_user_id' => $bestAssigneeId,
+                                    'assigned_user_ids'=> $bestAssigneeIds,
+                                ]);
+                                $newItem->saveQuietly();
+                                $c->items->push($newItem);
+                                $modified = true;
+                            } finally {
+                                \App\Models\Card::$isSyncing = false;
+                            }
+                        }
                     }
                 }
             }
@@ -2409,7 +2616,7 @@ class CardController extends Controller
             if (!$file->sync_id && $card->sync_group_id) {
                 $file->sync_id = (string) \Illuminate\Support\Str::uuid();
             }
-            $file->save();
+            $file->saveQuietly();
         }
 
         // Synchronize folder assignment to all twin cards in the same sync_group_id
@@ -2446,9 +2653,36 @@ class CardController extends Controller
                             $twinFile->sync_id = $file->sync_id;
                         }
                         $twinFile->saveQuietly();
+                    } else {
+                        // Replicate file to twin card if missing
+                        if ($file->disk !== 'url' && $file->mime_type !== 'link') {
+                            $newPath = "kanban/{$twinCard->id}/{$file->stored_name}";
+                            if (\Illuminate\Support\Facades\Storage::exists($file->path)) {
+                                \Illuminate\Support\Facades\Storage::copy($file->path, $newPath);
+                            }
+                        } else {
+                            $newPath = $file->path;
+                        }
+
+                        $newTwinFile = new CardFile([
+                            'card_id'       => $twinCard->id,
+                            'uploaded_by'   => $file->uploaded_by ?? auth()->id() ?? 1,
+                            'original_name' => "{$folderName}/{$cleanName}",
+                            'folder_name'   => $folderName,
+                            'stored_name'   => $file->stored_name ?? '',
+                            'disk'          => $file->disk ?? 'local',
+                            'path'          => $newPath,
+                            'mime_type'     => $file->mime_type,
+                            'size'          => $file->size ?? 0,
+                            'sync_id'       => $file->sync_id,
+                            'is_comment_image' => $file->is_comment_image ?? false,
+                        ]);
+                        $newTwinFile->saveQuietly();
                     }
                 }
             }
+
+            $this->syncFolderGroupingAcrossTwins($card);
         }
 
         $count = $files->count();

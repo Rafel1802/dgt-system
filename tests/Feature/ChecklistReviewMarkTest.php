@@ -309,4 +309,141 @@ class ChecklistReviewMarkTest extends TestCase
     {
         $this->artisan('cards:sync-checklists')->assertExitCode(0);
     }
+
+    public function test_show_card_auto_heals_missing_twin_checklist_and_completed_items(): void
+    {
+        $dara = User::factory()->create(['username' => 'dara_sync', 'name' => 'Dara Sync', 'is_active' => true]);
+        $ws = Workspace::create(['name' => 'Digital WS', 'owner_id' => $dara->id, 'is_active' => true]);
+        $board = Board::create(['workspace_id' => $ws->id, 'name' => 'Workflow A', 'created_by' => $dara->id]);
+        $list = BoardList::create(['board_id' => $board->id, 'name' => 'Production Team', 'position' => 1]);
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+
+        $card1 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $list->id,
+            'title' => 'Master Card A',
+            'status' => 'todo',
+            'sync_group_id' => $syncGroupId,
+            'created_by' => $dara->id,
+        ]);
+        $card2 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $list->id,
+            'title' => 'Twin Card B',
+            'status' => 'todo',
+            'sync_group_id' => $syncGroupId,
+            'created_by' => $dara->id,
+        ]);
+
+        Card::$isSyncing = true;
+        try {
+            $cl1 = CardChecklist::create(['card_id' => $card1->id, 'title' => 'Status', 'position' => 1]);
+            $item1 = CardChecklistItem::create([
+                'checklist_id' => $cl1->id,
+                'content' => 'Final Graphic Review',
+                'position' => 1,
+                'is_completed' => true,
+                'completed_by' => $dara->id,
+                'completed_at' => now(),
+                'is_marked' => true,
+                'marked_by' => $dara->id,
+                'marked_at' => now(),
+            ]);
+        } finally {
+            Card::$isSyncing = false;
+        }
+
+        // Card 2 initially has no checklists at all
+        $this->assertCount(0, $card2->fresh()->checklists);
+
+        // Loading card 2 modal via show() must auto-heal: create checklist, item, completion and review mark
+        $response = $this->actingAs($dara)->getJson("/boards/cards/{$card2->id}");
+        $response->assertOk();
+
+        $card2Fresh = $card2->fresh(['checklists.items']);
+        $this->assertCount(1, $card2Fresh->checklists);
+        $cl2 = $card2Fresh->checklists->first();
+        $this->assertSame('Status', $cl2->title);
+        $this->assertCount(1, $cl2->items);
+
+        $item2 = $cl2->items->first();
+        $this->assertSame('Final Graphic Review', $item2->content);
+        $this->assertTrue($item2->is_completed);
+        $this->assertTrue($item2->is_marked);
+        $this->assertEquals($item1->fresh()->sync_id, $item2->sync_id);
+
+        // Run sync-checklists artisan command to ensure it never reverts completed status or review marks
+        $this->artisan('cards:sync-checklists')->assertExitCode(0);
+
+        $item1After = $item1->fresh();
+        $item2After = $item2->fresh();
+        $this->assertTrue($item1After->is_completed);
+        $this->assertTrue($item2After->is_completed);
+        $this->assertTrue($item1After->is_marked);
+        $this->assertTrue($item2After->is_marked);
+    }
+
+    public function test_toggle_and_review_mark_propagate_immediately_to_twins_and_heal(): void
+    {
+        $dara = User::factory()->create(['username' => 'dara_prop', 'name' => 'Dara Prop', 'is_active' => true]);
+        $ws = Workspace::create(['name' => 'Digital WS 2', 'owner_id' => $dara->id, 'is_active' => true]);
+        $board = Board::create(['workspace_id' => $ws->id, 'name' => 'Workflow B', 'created_by' => $dara->id]);
+        $list = BoardList::create(['board_id' => $board->id, 'name' => 'Production Team', 'position' => 1]);
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+
+        $card1 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $list->id,
+            'title' => 'Card 1',
+            'status' => 'todo',
+            'sync_group_id' => $syncGroupId,
+            'created_by' => $dara->id,
+        ]);
+        $card2 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $list->id,
+            'title' => 'Card 2',
+            'status' => 'todo',
+            'sync_group_id' => $syncGroupId,
+            'created_by' => $dara->id,
+        ]);
+
+        $cl1 = CardChecklist::create(['card_id' => $card1->id, 'title' => 'Status', 'position' => 1]);
+        $cl2 = CardChecklist::create(['card_id' => $card2->id, 'title' => 'Status', 'position' => 1]);
+
+        $item1 = CardChecklistItem::create([
+            'checklist_id' => $cl1->id,
+            'content' => 'Deploy Checklist Item',
+            'position' => 1,
+            'is_completed' => false,
+        ]);
+        $item2 = CardChecklistItem::create([
+            'checklist_id' => $cl2->id,
+            'content' => 'Deploy Checklist Item',
+            'position' => 1,
+            'is_completed' => false,
+        ]);
+
+        // Toggle item 1 to completed
+        $toggleRes = $this->actingAs($dara)->patchJson(route('boards.cards.checklists.items.toggle', [$card1, $cl1, $item1]));
+        $toggleRes->assertOk();
+        $this->assertTrue($item1->fresh()->is_completed);
+        $this->assertTrue($item2->fresh()->is_completed);
+
+        // Mark item 1 with green tick
+        $markRes = $this->actingAs($dara)->patchJson($this->url($card1, $cl1, $item1), [
+            'action' => 'mark',
+        ]);
+        $markRes->assertOk();
+        $this->assertTrue($item1->fresh()->is_marked);
+        $this->assertTrue($item2->fresh()->is_marked);
+
+        // Open card 2 modal and ensure everything stays completed and marked
+        $showRes = $this->actingAs($dara)->getJson("/boards/cards/{$card2->id}");
+        $showRes->assertOk();
+        $this->assertTrue($item1->fresh()->is_completed);
+        $this->assertTrue($item2->fresh()->is_completed);
+        $this->assertTrue($item1->fresh()->is_marked);
+        $this->assertTrue($item2->fresh()->is_marked);
+    }
 }

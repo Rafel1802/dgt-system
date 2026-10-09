@@ -75,7 +75,56 @@ class CardChecklistItem extends Model
                         ->where('id', '!=', $checklist->id)
                         ->get();
                     foreach ($otherChecklists as $otherChecklist) {
-                        if (!\App\Models\CardChecklistItem::where('checklist_id', $otherChecklist->id)->where('sync_id', $item->sync_id)->exists()) {
+                        $existingSibling = \App\Models\CardChecklistItem::where('checklist_id', $otherChecklist->id)
+                            ->where(function($q) use ($item) {
+                                $q->where('sync_id', $item->sync_id)
+                                  ->orWhere('content', $item->content);
+                            })
+                            ->first();
+
+                        if ($existingSibling) {
+                            $siblingUpdates = [];
+                            if (!$existingSibling->sync_id && $item->sync_id) {
+                                $siblingUpdates['sync_id'] = $item->sync_id;
+                            }
+                            if ($item->is_completed && !$existingSibling->is_completed) {
+                                $siblingUpdates['is_completed'] = true;
+                                $siblingUpdates['completed_by'] = $item->completed_by;
+                                $siblingUpdates['completed_at'] = $item->completed_at;
+                            } elseif ($existingSibling->is_completed && !$item->is_completed) {
+                                $item->updateQuietly([
+                                    'is_completed' => true,
+                                    'completed_by' => $existingSibling->completed_by,
+                                    'completed_at' => $existingSibling->completed_at,
+                                ]);
+                            }
+                            if (($item->is_marked || $item->has_issue || $item->is_approved) && (!$existingSibling->is_marked && !$existingSibling->has_issue && !$existingSibling->is_approved)) {
+                                $siblingUpdates['is_marked']   = $item->is_marked;
+                                $siblingUpdates['marked_by']   = $item->marked_by;
+                                $siblingUpdates['marked_at']   = $item->marked_at;
+                                $siblingUpdates['has_issue']   = $item->has_issue;
+                                $siblingUpdates['issue_by']    = $item->issue_by;
+                                $siblingUpdates['issue_at']    = $item->issue_at;
+                                $siblingUpdates['is_approved'] = $item->is_approved;
+                                $siblingUpdates['approved_by'] = $item->approved_by;
+                                $siblingUpdates['approved_at'] = $item->approved_at;
+                            } elseif (($existingSibling->is_marked || $existingSibling->has_issue || $existingSibling->is_approved) && (!$item->is_marked && !$item->has_issue && !$item->is_approved)) {
+                                $item->updateQuietly([
+                                    'is_marked'   => $existingSibling->is_marked,
+                                    'marked_by'   => $existingSibling->marked_by,
+                                    'marked_at'   => $existingSibling->marked_at,
+                                    'has_issue'   => $existingSibling->has_issue,
+                                    'issue_by'    => $existingSibling->issue_by,
+                                    'issue_at'    => $existingSibling->issue_at,
+                                    'is_approved' => $existingSibling->is_approved,
+                                    'approved_by' => $existingSibling->approved_by,
+                                    'approved_at' => $existingSibling->approved_at,
+                                ]);
+                            }
+                            if (!empty($siblingUpdates)) {
+                                $existingSibling->updateQuietly($siblingUpdates);
+                            }
+                        } else {
                             \App\Models\CardChecklistItem::create([
                                 'checklist_id'     => $otherChecklist->id,
                                 'content'          => $item->content ?? '',

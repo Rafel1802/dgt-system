@@ -223,23 +223,7 @@ if __name__ == "__main__":
 
     tinker_fix_automations = PHP + ' artisan tinker --execute="App\\\\Models\\\\BoardAutomation::where(\'action_type\', \'copy\')->where(\'trigger_word\', \'ready\')->get()->each(function(\\$auto) { \\$board = \\$auto->board; if (\\$board && str_contains(\\$board->name, \'Planning board\')) { \\$suffix = trim(str_ireplace(\'Planning board\', \'\', \\$board->name)); \\$workflowName = trim(\'Workflow board \' . \\$suffix); \\$workflowBoard = App\\\\Models\\\\Board::where(\'workspace_id\', \\$board->workspace_id)->where(\'name\', \\$workflowName)->first(); if (\\$workflowBoard && \\$auto->target_board_id !== \\$workflowBoard->id) { \\$draftList = \\$workflowBoard->lists()->where(\'name\', \'like\', \'%Draft%\')->first(); if (\\$draftList) { \\$auto->updateQuietly([\'target_board_id\' => \\$workflowBoard->id, \'target_list_id\' => \\$draftList->id]); } } } });" && '
 
-    tinker_fix_dara_card = (
-        PHP + ' artisan tinker --execute="'
-        "\\$cards = App\\\\Models\\\\Card::where('title', 'like', '%A+ Content for TD01%')"
-        "->whereHas('boardList', function(\\$q) { \\$q->where('name', 'like', '%Approved%'); })"
-        "->get(); "
-        "foreach (\\$cards as \\$c) { "
-        "    \\$sup = \\$c->board->lists()->where('name', 'like', '%Supervisor Review%')->first(); "
-        "    if (\\$sup) { "
-        "        \\$c->update(['board_list_id' => \\$sup->id, 'status' => 'todo', 'approved_at' => null]); "
-        "        if (\\$c->sync_group_id) { "
-        "            App\\\\Models\\\\Card::where('sync_group_id', \\$c->sync_group_id)->update(['status' => 'todo', 'approved_at' => null]); "
-        "        } "
-        "        echo 'Fixed card ' . \\$c->id . ' (' . \\$c->title . ') back to Supervisor Review\\n'; "
-        "    } "
-        "}"
-        '" && '
-    )
+    tinker_fix_dara_card = ""
 
     tinker_clean_reorder = PHP + ' artisan tinker --execute="\\Illuminate\\Support\\Facades\\DB::table(\'notifications\')->where(\'data\', \'like\', \'%card_reordered%\')->orWhere(\'data\', \'like\', \'%reordered card%\')->delete(); App\\\\Models\\\\ActivityLog::where(\'description\', \'like\', \'%reordered%\')->orWhere(\'action\', \'like\', \'%reorder%\')->delete(); echo \'Cleaned up reorder notifications and activities\\n\';" && '
 

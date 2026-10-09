@@ -79,12 +79,26 @@ class CardFile extends Model
             if ($file->sync_id && ($file->wasChanged('folder_name') || $file->wasChanged('original_name'))) {
                 \App\Models\Card::$isSyncing = true;
                 try {
-                    \App\Models\CardFile::where('sync_id', $file->sync_id)
+                    $otherFiles = \App\Models\CardFile::where('sync_id', $file->sync_id)
                         ->where('id', '!=', $file->id)
-                        ->update([
-                            'folder_name'   => $file->folder_name,
-                            'original_name' => $file->original_name,
-                        ]);
+                        ->get();
+
+                    foreach ($otherFiles as $other) {
+                        $updates = [];
+                        if ($file->wasChanged('folder_name')) {
+                            $updates['folder_name'] = $file->folder_name;
+                            $cleanBase = basename($other->original_name);
+                            $updates['original_name'] = $file->folder_name ? "{$file->folder_name}/{$cleanBase}" : $cleanBase;
+                        } elseif ($file->wasChanged('original_name')) {
+                            $folder = $file->folder_name;
+                            $cleanBase = basename($other->original_name);
+                            $updates['folder_name'] = $folder;
+                            $updates['original_name'] = $folder ? "{$folder}/{$cleanBase}" : $cleanBase;
+                        }
+                        if (!empty($updates)) {
+                            $other->updateQuietly($updates);
+                        }
+                    }
                 } finally {
                     \App\Models\Card::$isSyncing = false;
                 }
@@ -146,6 +160,35 @@ class CardFile extends Model
             return $parts[0] ?: null;
         }
         return null;
+    }
+
+    public function setFolderNameAttribute(?string $value): void
+    {
+        $folder = !empty(trim((string)$value)) ? trim((string)$value) : null;
+        $this->attributes['folder_name'] = $folder;
+        if (!empty($this->attributes['original_name'])) {
+            $base = basename($this->attributes['original_name']);
+            $this->attributes['original_name'] = $folder ? "{$folder}/{$base}" : $base;
+        }
+    }
+
+    public function setOriginalNameAttribute(?string $value): void
+    {
+        if (empty($value)) {
+            $this->attributes['original_name'] = $value;
+            return;
+        }
+        if (str_contains($value, '/')) {
+            $parts = explode('/', $value, 2);
+            $folder = trim($parts[0]);
+            $base = basename($parts[1]);
+            $this->attributes['folder_name'] = !empty($folder) ? $folder : null;
+            $this->attributes['original_name'] = !empty($folder) ? "{$folder}/{$base}" : $base;
+        } else {
+            $base = basename($value);
+            $currentFolder = !empty($this->attributes['folder_name']) ? trim($this->attributes['folder_name']) : null;
+            $this->attributes['original_name'] = $currentFolder ? "{$currentFolder}/{$base}" : $base;
+        }
     }
 
     public function getDisplayNameAttribute(): string

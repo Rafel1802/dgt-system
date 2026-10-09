@@ -494,4 +494,72 @@ class CardFolderUploadTest extends TestCase
         $this->assertCount(0, $card1->fresh()->files);
         $this->assertCount(0, $card2->fresh()->files);
     }
+
+    public function test_assign_folder_replicates_missing_files_and_preserves_folder_across_twin_sync(): void
+    {
+        Storage::fake('public');
+        [$user, $board, $list, $card1] = $this->cardFixture();
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+        $card1->update(['sync_group_id' => $syncGroupId]);
+
+        $card2 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $list->id,
+            'title' => 'Twin Card For Folder Grouping',
+            'status' => 'todo',
+            'sync_group_id' => $syncGroupId,
+            'created_by' => $user->id,
+        ]);
+        $card2->assignees()->attach($user->id);
+
+        Card::$isSyncing = true;
+        try {
+            $f1 = CardFile::create([
+                'card_id' => $card1->id,
+                'uploaded_by' => $user->id,
+                'original_name' => 'banner.jpg',
+                'folder_name' => null,
+                'stored_name' => 'cards/1/banner.jpg',
+                'disk' => 'public',
+                'path' => 'cards/1/banner.jpg',
+                'mime_type' => 'image/jpeg',
+                'size' => 200,
+            ]);
+        } finally {
+            Card::$isSyncing = false;
+        }
+
+        // Initially card2 has 0 files
+        $this->assertCount(0, $card2->fresh()->files);
+
+        // Group the loose file on card 1 into folder "Graphics"
+        $assignRes = $this->actingAs($user)->postJson(route('boards.cards.folders.assign', $card1), [
+            'folder_name' => 'Graphics',
+            'file_ids' => [$f1->id],
+        ]);
+        $assignRes->assertOk();
+
+        // Card 1 must have the file grouped
+        $f1Fresh = $f1->fresh();
+        $this->assertSame('Graphics', $f1Fresh->folder_name);
+        $this->assertSame('Graphics/banner.jpg', $f1Fresh->original_name);
+
+        // Card 2 must now have the file replicated and grouped into "Graphics"
+        $card2Files = $card2->fresh()->files;
+        $this->assertCount(1, $card2Files);
+        $c2f = $card2Files->first();
+        $this->assertSame('Graphics', $c2f->folder_name);
+        $this->assertSame('Graphics/banner.jpg', $c2f->original_name);
+
+        // Now run syncFolderGroupingAcrossTwins to simulate deploy-time folder sync
+        $controller = app(\App\Http\Controllers\Board\CardController::class);
+        $controller->syncFolderGroupingAcrossTwins($card1);
+        $controller->syncFolderGroupingAcrossTwins($card2);
+
+        // Files on both cards MUST stay in folder "Graphics" and NEVER revert or ungroup
+        $this->assertSame('Graphics', $f1->fresh()->folder_name);
+        $this->assertSame('Graphics/banner.jpg', $f1->fresh()->original_name);
+        $this->assertSame('Graphics', $c2f->fresh()->folder_name);
+        $this->assertSame('Graphics/banner.jpg', $c2f->fresh()->original_name);
+    }
 }

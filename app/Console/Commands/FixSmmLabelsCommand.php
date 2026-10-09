@@ -207,18 +207,7 @@ class FixSmmLabelsCommand extends Command
                         $matchedClass = $best['row']['cluster'];
                     }
 
-                    if ($best['score'] >= 30) {
-                        $matchedRow = $best['row'];
-                        if (!$isDryRun && (!empty($matchedRow['attachment']) || !empty($matchedRow['checklist']))) {
-                            $smmController = app(\App\Http\Controllers\SocialMedia\SmmImportController::class);
-                            if (!empty($matchedRow['attachment'])) {
-                                $smmController->attachLinksToCard($card, $matchedRow['attachment'], $card->created_by ?: 1);
-                            }
-                            if (!empty($matchedRow['checklist'])) {
-                                $smmController->syncCardChecklist($card, $matchedRow['checklist']);
-                            }
-                        }
-                    }
+
                 }
             }
 
