@@ -2750,8 +2750,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         if (!container) return;
 
         const appLogo = data.app_logo || '/favicon.svg';
+        const isErrorNotif = Boolean(data.is_error || data.type === 'checklist_item_error' || (data.review_action && String(data.review_action).includes('error')));
         const toast = document.createElement('div');
-        toast.className = 'dgt-notification-toast flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border border-slate-200/60 dark:bg-slate-900/95 dark:text-slate-100 dark:border-slate-700/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 max-w-sm cursor-pointer hover:border-slate-300/80 dark:hover:border-slate-600 select-none backdrop-blur-2xl ring-1 ring-slate-900/5 dark:ring-white/10';
+        toast.className = `dgt-notification-toast flex items-start gap-3 p-4 rounded-3xl shadow-2xl bg-white/95 text-slate-900 border ${isErrorNotif ? 'border-rose-300 ring-2 ring-rose-400/40' : 'border-slate-200/60 ring-1 ring-slate-900/5'} dark:bg-slate-900/95 dark:text-slate-100 dark:border-slate-700/60 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 max-w-sm cursor-pointer hover:border-slate-300/80 dark:hover:border-slate-600 select-none backdrop-blur-2xl dark:ring-white/10`;
         
         const actorName = data.actor_name || 'System';
         const avatar = data.actor_avatar || window.dgtInitialsAvatar(actorName);
@@ -2761,8 +2762,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         const actionText = window.dgtShortenNotificationText
             ? window.dgtShortenNotificationText(actionRaw, 100)
             : actionRaw;
+        const badgeClasses = isErrorNotif
+            ? 'border-rose-300 bg-rose-50 text-rose-700'
+            : 'border-indigo-200 bg-indigo-50 text-indigo-700';
         const cardTitleMarkup = data.card_title 
-            ? `<span class="toast-badge mt-2 inline-flex max-w-full rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-black text-indigo-700">${window.dgtEscapeHtml(data.card_title)}</span>`
+            ? `<span class="toast-badge mt-2 inline-flex max-w-full rounded-lg border ${badgeClasses} px-2 py-1 text-[11px] font-black">${isErrorNotif ? '⚠️ ' : ''}${window.dgtEscapeHtml(data.card_title)}</span>`
             : '';
         
         toast.innerHTML = `

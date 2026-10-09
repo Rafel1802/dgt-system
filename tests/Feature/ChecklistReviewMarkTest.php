@@ -552,7 +552,7 @@ class ChecklistReviewMarkTest extends TestCase
         $cl = CardChecklist::create(['card_id' => $card->id, 'title' => 'Status', 'position' => 1]);
         $item = CardChecklistItem::create(['checklist_id' => $cl->id, 'content' => 'Review Banner', 'position' => 1]);
 
-        // 1. Dara flags an issue
+        // 1. Dara flags an issue (marks error)
         $this->actingAs($dara)->patchJson($this->url($card, $cl, $item), ['action' => 'issue'])->assertOk();
 
         \Illuminate\Support\Facades\Notification::assertSentTo(
@@ -561,8 +561,9 @@ class ChecklistReviewMarkTest extends TestCase
             function ($notification) use ($card, $dara) {
                 $data = $notification->toArray($dara);
                 return $data['card_id'] === $card->id
-                    && $data['review_action'] === 'flagged an issue on'
-                    && str_contains($data['message'], 'flagged an issue on checklist item');
+                    && $data['review_action'] === 'marked error on'
+                    && !empty($data['is_error'])
+                    && str_contains($data['message'], 'marked error on checklist item');
             }
         );
 

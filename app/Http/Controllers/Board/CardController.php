@@ -1376,12 +1376,12 @@ class CardController extends Controller
         } elseif ($action === 'issue') {
             if ($item->has_issue) {
                 $updateData = $reset;
-                $label = 'cleared the issue on';
-                $notifAction = 'cleared issue on';
+                $label = 'cleared error on';
+                $notifAction = 'cleared error on';
             } else {
                 $updateData = array_merge($reset, ['has_issue' => true, 'issue_by' => $user->id, 'issue_at' => now()]);
-                $label = 'flagged an issue on';
-                $notifAction = 'flagged an issue on';
+                $label = 'marked error on';
+                $notifAction = 'marked error on';
             }
         } else {
             if ($item->is_approved) {
@@ -1517,10 +1517,13 @@ class CardController extends Controller
             $boardSlug = $card->board?->slug;
             $link = $boardSlug ? (route('boards.show', $boardSlug) . "?card={$card->id}") : null;
 
+            $isError = ($action === 'issue' && !empty($updateData['has_issue']));
+
             $notifPayload = [
                 'module'         => 'digital',
-                'type'           => 'checklist_item_reviewed',
+                'type'           => $isError ? 'checklist_item_error' : 'checklist_item_reviewed',
                 'action'         => 'checklist_item_reviewed',
+                'is_error'       => $isError,
                 'actor_id'       => $user->id,
                 'actor_name'     => $user->name,
                 'actor_avatar'   => $user->avatar_url,
@@ -1535,7 +1538,7 @@ class CardController extends Controller
                 'item_id'        => $item->id,
                 'item_content'   => $itemContent,
                 'review_action'  => $notifAction,
-                'title'          => "{$user->name} {$notifAction} checklist item",
+                'title'          => $isError ? "⚠️ Error reported on checklist item" : "{$user->name} {$notifAction} checklist item",
                 'description'    => "{$notifAction} item **{$itemContent}** on card '{$cardTitle}'",
                 'message'        => "{$user->name} {$notifAction} checklist item '{$itemContent}' on card '{$cardTitle}'",
                 'link'           => $link,
