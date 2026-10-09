@@ -35,6 +35,18 @@ class CardController extends Controller
             return response()->json(['error' => 'This card has been deleted or no longer exists.'], 404);
         }
 
+        $card->load('files');
+        $modifiedFolders = $this->syncFolderGroupingAcrossTwins($card);
+        if ($modifiedFolders) {
+            $card->unsetRelation('files');
+        }
+
+        $card->load('checklists.items');
+        $modifiedChecklists = $this->syncChecklistsAcrossTwins($card);
+        if ($modifiedChecklists) {
+            $card->unsetRelation('checklists');
+        }
+
         $card->load([
             'assignees',
             'labels',
@@ -1217,7 +1229,43 @@ class CardController extends Controller
                 $updateData['assigned_user_id']  = $assigneeIds[0] ?? null;
                 $updateData['assigned_user_ids'] = $assigneeIds ?: null;
             }
+            if (!$item->sync_id) {
+                $item->sync_id = (string) \Illuminate\Support\Str::uuid();
+                $updateData['sync_id'] = $item->sync_id;
+            }
             $item->update($updateData);
+
+            if ($card->sync_group_id && !empty($updateData)) {
+                $normalizeItemKey = function ($text) {
+                    $text = mb_strtolower(trim($text ?? ''));
+                    $text = preg_replace('/\s*([:\.\-])\s*/u', '$1', $text);
+                    $text = preg_replace('/\s+/u', ' ', $text);
+                    return $text;
+                };
+                $targetKey = $normalizeItemKey($item->content);
+
+                $twins = Card::where('sync_group_id', $card->sync_group_id)
+                    ->where('id', '!=', $card->id)
+                    ->with('checklists.items')
+                    ->get();
+
+                foreach ($twins as $twin) {
+                    foreach ($twin->checklists as $twinChecklist) {
+                        foreach ($twinChecklist->items as $twinItem) {
+                            $matches = false;
+                            if ($item->sync_id && $twinItem->sync_id === $item->sync_id) {
+                                $matches = true;
+                            } elseif ($targetKey !== '' && $normalizeItemKey($twinItem->content) === $targetKey) {
+                                $matches = true;
+                            }
+
+                            if ($matches) {
+                                $twinItem->updateQuietly(array_merge($updateData, ['sync_id' => $item->sync_id]));
+                            }
+                        }
+                    }
+                }
+            }
         } else {
             // Items assigned to someone can only be ticked by them (or dara / kim / somalika)
             if (! $item->canBeTickedBy(auth()->user())) {
@@ -1227,11 +1275,50 @@ class CardController extends Controller
                 ], 403);
             }
 
-            $item->update([
-                'is_completed' => ! $item->is_completed,
-                'completed_by' => ! $item->is_completed ? auth()->id() : null,
-                'completed_at' => ! $item->is_completed ? now() : null,
-            ]);
+            if (!$item->sync_id) {
+                $item->sync_id = (string) \Illuminate\Support\Str::uuid();
+            }
+
+            $newCompleted = ! $item->is_completed;
+            $toggleData = [
+                'sync_id'      => $item->sync_id,
+                'is_completed' => $newCompleted,
+                'completed_by' => $newCompleted ? auth()->id() : null,
+                'completed_at' => $newCompleted ? now() : null,
+            ];
+            $item->update($toggleData);
+
+            if ($card->sync_group_id) {
+                $normalizeItemKey = function ($text) {
+                    $text = mb_strtolower(trim($text ?? ''));
+                    $text = preg_replace('/\s*([:\.\-])\s*/u', '$1', $text);
+                    $text = preg_replace('/\s+/u', ' ', $text);
+                    return $text;
+                };
+                $targetKey = $normalizeItemKey($item->content);
+
+                $twins = Card::where('sync_group_id', $card->sync_group_id)
+                    ->where('id', '!=', $card->id)
+                    ->with('checklists.items')
+                    ->get();
+
+                foreach ($twins as $twin) {
+                    foreach ($twin->checklists as $twinChecklist) {
+                        foreach ($twinChecklist->items as $twinItem) {
+                            $matches = false;
+                            if ($item->sync_id && $twinItem->sync_id === $item->sync_id) {
+                                $matches = true;
+                            } elseif ($targetKey !== '' && $normalizeItemKey($twinItem->content) === $targetKey) {
+                                $matches = true;
+                            }
+
+                            if ($matches) {
+                                $twinItem->updateQuietly($toggleData);
+                            }
+                        }
+                    }
+                }
+            }
 
             $status = $item->is_completed ? 'completed' : 'uncompleted';
             $this->logCardActivity($card, 'checklist_item_toggled', "marked item **{$item->content}** as {$status}");
@@ -1275,38 +1362,77 @@ class CardController extends Controller
 
         if ($action === 'mark') {
             if ($item->is_marked) {
-                $item->update($reset);
+                $updateData = $reset;
                 $label = 'removed the mark from';
             } else {
-                $item->update(array_merge($reset, ['is_marked' => true, 'marked_by' => $user->id, 'marked_at' => now()]));
+                $updateData = array_merge($reset, ['is_marked' => true, 'marked_by' => $user->id, 'marked_at' => now()]);
                 $label = 'marked';
             }
         } elseif ($action === 'issue') {
             if ($item->has_issue) {
-                $item->update($reset);
+                $updateData = $reset;
                 $label = 'cleared the issue on';
             } else {
-                $item->update(array_merge($reset, ['has_issue' => true, 'issue_by' => $user->id, 'issue_at' => now()]));
+                $updateData = array_merge($reset, ['has_issue' => true, 'issue_by' => $user->id, 'issue_at' => now()]);
                 $label = 'flagged an issue on';
             }
         } else {
             if ($item->is_approved) {
                 // Un-approve: fall back to the plain "marked" state
-                $item->update([
+                $updateData = [
                     'is_approved' => false, 'approved_by' => null, 'approved_at' => null,
-                ]);
+                ];
                 $label = 'removed approval from';
             } elseif (! $item->is_marked && ! $item->has_issue) {
                 return response()->json(['success' => false, 'message' => 'Only marked or issue-flagged items can be approved.'], 422);
             } else {
-                $item->update([
+                $updateData = [
                     'is_marked' => true,
                     'marked_by' => $item->marked_by ?: $user->id,
                     'marked_at' => $item->marked_at ?: now(),
                     'has_issue' => false, 'issue_by' => null, 'issue_at' => null,
                     'is_approved' => true, 'approved_by' => $user->id, 'approved_at' => now(),
-                ]);
+                ];
                 $label = 'approved';
+            }
+        }
+
+        if (!$item->sync_id) {
+            $item->sync_id = (string) \Illuminate\Support\Str::uuid();
+        }
+        $updateData['sync_id'] = $item->sync_id;
+        $item->update($updateData);
+
+        // Propagate review mark to all twin cards in the sync group
+        if ($card->sync_group_id) {
+            $normalizeItemKey = function ($text) {
+                $text = mb_strtolower(trim($text ?? ''));
+                $text = preg_replace('/\s*([:\.\-])\s*/u', '$1', $text);
+                $text = preg_replace('/\s+/u', ' ', $text);
+                return $text;
+            };
+            $targetKey = $normalizeItemKey($item->content);
+
+            $twins = Card::where('sync_group_id', $card->sync_group_id)
+                ->where('id', '!=', $card->id)
+                ->with('checklists.items')
+                ->get();
+
+            foreach ($twins as $twin) {
+                foreach ($twin->checklists as $twinChecklist) {
+                    foreach ($twinChecklist->items as $twinItem) {
+                        $matches = false;
+                        if ($item->sync_id && $twinItem->sync_id === $item->sync_id) {
+                            $matches = true;
+                        } elseif ($targetKey !== '' && $normalizeItemKey($twinItem->content) === $targetKey) {
+                            $matches = true;
+                        }
+
+                        if ($matches) {
+                            $twinItem->updateQuietly(array_merge($updateData, ['sync_id' => $item->sync_id]));
+                        }
+                    }
+                }
             }
         }
 
@@ -1792,6 +1918,23 @@ class CardController extends Controller
             $kanbanService->deleteFile($f, auth()->user());
         }
 
+        // Also delete from other cards in the same sync group
+        if ($card->sync_group_id) {
+            $twinCards = Card::where('sync_group_id', $card->sync_group_id)
+                ->where('id', '!=', $card->id)
+                ->with('files')
+                ->get();
+
+            foreach ($twinCards as $twinCard) {
+                $twinFiles = $twinCard->files->filter(function ($f) use ($folderName) {
+                    return $f->folder_name === $folderName || str_starts_with($f->original_name, "{$folderName}/");
+                });
+                foreach ($twinFiles as $tf) {
+                    $kanbanService->deleteFile($tf, auth()->user());
+                }
+            }
+        }
+
         $this->logCardActivity($card, 'folder_deleted', "deleted folder **{$folderName}** ({$count} files)");
 
         return response()->json([
@@ -1799,6 +1942,418 @@ class CardController extends Controller
             'folder'  => $folderName,
             'deleted_count' => $count,
         ]);
+    }
+
+    /**
+     * Synchronize and auto-heal folder grouping across twin cards in the same sync group,
+     * or from recent folder_assigned activity logs if files became disassociated.
+     */
+    public function syncFolderGroupingAcrossTwins(Card $card): bool
+    {
+        $hasColumn = \Illuminate\Support\Facades\Schema::hasColumn('card_files', 'folder_name');
+        if (!$hasColumn) {
+            try {
+                \Illuminate\Support\Facades\Schema::table('card_files', function ($table) {
+                    $table->string('folder_name')->nullable()->after('original_name')->index();
+                });
+                $hasColumn = true;
+            } catch (\Throwable $e) {}
+        }
+
+        $modified = false;
+
+        // Heal any file that has a folder in original_name but folder_name column is empty
+        if ($hasColumn) {
+            foreach ($card->files as $f) {
+                if (empty($f->folder_name) && $f->original_name && str_contains($f->original_name, '/')) {
+                    $parts = explode('/', $f->original_name, 2);
+                    if (!empty(trim($parts[0]))) {
+                        $f->folder_name = trim($parts[0]);
+                        $f->saveQuietly();
+                        $modified = true;
+                    }
+                }
+            }
+        }
+
+        // 1. Cross-card twin synchronization
+        if ($card->sync_group_id) {
+            $groupCards = Card::where('sync_group_id', $card->sync_group_id)->with('files')->get();
+
+            // Collect known folder assignments from any card in the sync group
+            $folderBySyncId = [];
+            $folderByStoredName = [];
+            $folderByBaseName = [];
+
+            foreach ($groupCards as $gCard) {
+                foreach ($gCard->files as $f) {
+                    $folder = null;
+                    if (!empty($f->folder_name)) {
+                        $folder = trim($f->folder_name);
+                    } elseif ($f->original_name && str_contains($f->original_name, '/')) {
+                        $parts = explode('/', $f->original_name, 2);
+                        if (!empty(trim($parts[0]))) {
+                            $folder = trim($parts[0]);
+                        }
+                    }
+
+                    if ($folder) {
+                        $base = basename($f->original_name);
+                        if ($f->sync_id) {
+                            $folderBySyncId[$f->sync_id] = $folder;
+                        }
+                        if ($f->stored_name) {
+                            $folderByStoredName[$f->stored_name] = $folder;
+                        }
+                        if ($base) {
+                            $folderByBaseName[$base] = $folder;
+                        }
+                    }
+                }
+            }
+
+            // Propagate discovered folders to any file in the sync group lacking a folder
+            if (!empty($folderBySyncId) || !empty($folderByStoredName) || !empty($folderByBaseName)) {
+                foreach ($groupCards as $gCard) {
+                    foreach ($gCard->files as $f) {
+                        $currentFolder = !empty($f->folder_name) ? trim($f->folder_name) : null;
+                        if (!$currentFolder && $f->original_name && str_contains($f->original_name, '/')) {
+                            $parts = explode('/', $f->original_name, 2);
+                            if (!empty(trim($parts[0]))) {
+                                $currentFolder = trim($parts[0]);
+                            }
+                        }
+
+                        if (!$currentFolder) {
+                            $matchedFolder = null;
+                            $base = basename($f->original_name);
+
+                            if ($f->sync_id && isset($folderBySyncId[$f->sync_id])) {
+                                $matchedFolder = $folderBySyncId[$f->sync_id];
+                            } elseif ($f->stored_name && isset($folderByStoredName[$f->stored_name])) {
+                                $matchedFolder = $folderByStoredName[$f->stored_name];
+                            } elseif ($base && isset($folderByBaseName[$base])) {
+                                $matchedFolder = $folderByBaseName[$base];
+                            }
+
+                            if ($matchedFolder) {
+                                if ($hasColumn) {
+                                    $f->folder_name = $matchedFolder;
+                                }
+                                $cleanName = basename($f->original_name);
+                                $f->original_name = "{$matchedFolder}/{$cleanName}";
+                                $f->saveQuietly();
+                                $modified = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Auto-heal from ActivityLog if standalone files exist but activity shows they were grouped
+        $cardIds = $card->sync_group_id
+            ? Card::where('sync_group_id', $card->sync_group_id)->pluck('id')->all()
+            : [$card->id];
+
+        $latestGroupLog = ActivityLog::whereIn('subject_id', $cardIds)
+            ->where(function ($q) {
+                $q->where('action', 'folder_assigned')
+                  ->orWhere('action', 'folder_attached')
+                  ->orWhere('description', 'like', '%grouped % files into folder%');
+            })
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($latestGroupLog) {
+            $desc = $latestGroupLog->description;
+            if (preg_match('/(?:into folder|attached folder)\s+\*{0,2}([^*]+?)\*{0,2}(?:\s*\(|\s*$)/i', $desc, $matches)) {
+                $targetFolder = trim($matches[1]);
+
+                // Check if this folder was deleted later
+                $deletedLater = ActivityLog::whereIn('subject_id', $cardIds)
+                    ->where('action', 'folder_deleted')
+                    ->where('description', 'like', "%{$targetFolder}%")
+                    ->where('created_at', '>', $latestGroupLog->created_at)
+                    ->exists();
+
+                if (!$deletedLater && !empty($targetFolder)) {
+                    $targetCards = Card::whereIn('id', $cardIds)->with('files')->get();
+                    foreach ($targetCards as $tCard) {
+                        $hasFolderFiles = $tCard->files->contains(function ($file) use ($targetFolder) {
+                            return $file->folder_name === $targetFolder || str_starts_with($file->original_name, "{$targetFolder}/");
+                        });
+
+                        // If no files are currently in this folder, check for standalone non-link files
+                        if (!$hasFolderFiles) {
+                            $standaloneFiles = $tCard->files->filter(function ($file) {
+                                return empty($file->folder_name)
+                                    && !str_contains($file->original_name, '/')
+                                    && $file->disk !== 'url'
+                                    && $file->mime_type !== 'link';
+                            });
+
+                            if ($standaloneFiles->isNotEmpty()) {
+                                foreach ($standaloneFiles as $sf) {
+                                    if ($hasColumn) {
+                                        $sf->folder_name = $targetFolder;
+                                    }
+                                    $sf->original_name = "{$targetFolder}/{$sf->original_name}";
+                                    $sf->saveQuietly();
+                                    $modified = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $modified;
+    }
+
+    /**
+     * Auto-heal and harmonize checklist items across twin cards in the same sync_group_id.
+     * Ensures review marks (green tick / red issue / admin approval), completion status,
+     * assignees, and sync_ids never revert or go missing across boards.
+     */
+    public function syncChecklistsAcrossTwins(Card $card): bool
+    {
+        if (empty($card->sync_group_id)) {
+            return false;
+        }
+
+        $groupCards = Card::where('sync_group_id', $card->sync_group_id)
+            ->with(['checklists.items'])
+            ->get();
+
+        if ($groupCards->count() <= 1) {
+            return false;
+        }
+
+        $modified = false;
+
+        $normalizeItemKey = function ($text) {
+            $text = mb_strtolower(trim($text ?? ''));
+            $text = preg_replace('/\s*([:\.\-])\s*/u', '$1', $text);
+            $text = preg_replace('/\s+/u', ' ', $text);
+            return $text;
+        };
+
+        $normalizeTitle = function ($title) {
+            $t = strtolower(trim($title ?? ''));
+            return ($t === 'checklist' || $t === 'status') ? 'status' : $t;
+        };
+
+        // Group checklists across all twin cards by normalized title
+        $checklistsByTitle = [];
+        foreach ($groupCards as $gCard) {
+            foreach ($gCard->checklists as $chk) {
+                $tKey = $normalizeTitle($chk->title);
+                $checklistsByTitle[$tKey][] = $chk;
+            }
+        }
+
+        foreach ($checklistsByTitle as $tKey => $chkList) {
+            // 1. Unify checklist sync_id across twins
+            $commonChecklistSyncId = null;
+            foreach ($chkList as $c) {
+                if (!empty($c->sync_id)) {
+                    $commonChecklistSyncId = $c->sync_id;
+                    break;
+                }
+            }
+            if (!$commonChecklistSyncId) {
+                $commonChecklistSyncId = (string) \Illuminate\Support\Str::uuid();
+            }
+            foreach ($chkList as $c) {
+                if ($c->sync_id !== $commonChecklistSyncId) {
+                    $c->sync_id = $commonChecklistSyncId;
+                    $c->saveQuietly();
+                    $modified = true;
+                }
+            }
+
+            // 2. Cluster items within this checklist across all twin cards
+            $allClusterItems = [];
+            foreach ($chkList as $c) {
+                foreach ($c->items as $item) {
+                    $allClusterItems[] = $item;
+                }
+            }
+
+            // Group by sync_id first
+            $itemBySyncId = [];
+            foreach ($allClusterItems as $item) {
+                if (!empty($item->sync_id)) {
+                    $itemBySyncId[$item->sync_id][] = $item;
+                }
+            }
+
+            // Also group by normalized content key
+            $itemByNormKey = [];
+            foreach ($allClusterItems as $item) {
+                $nKey = $normalizeItemKey($item->content);
+                if ($nKey !== '') {
+                    $itemByNormKey[$nKey][] = $item;
+                }
+            }
+
+            // Merge items into unified clusters
+            $clusters = [];
+            $visitedItemIds = [];
+            foreach ($allClusterItems as $item) {
+                if (isset($visitedItemIds[$item->id])) {
+                    continue;
+                }
+                $cluster = [$item];
+                $visitedItemIds[$item->id] = true;
+
+                // Add items sharing same sync_id
+                if (!empty($item->sync_id) && isset($itemBySyncId[$item->sync_id])) {
+                    foreach ($itemBySyncId[$item->sync_id] as $sibling) {
+                        if (!isset($visitedItemIds[$sibling->id])) {
+                            $cluster[] = $sibling;
+                            $visitedItemIds[$sibling->id] = true;
+                        }
+                    }
+                }
+
+                // Add items sharing same normalized content key
+                $nKey = $normalizeItemKey($item->content);
+                if ($nKey !== '' && isset($itemByNormKey[$nKey])) {
+                    foreach ($itemByNormKey[$nKey] as $sibling) {
+                        if (!isset($visitedItemIds[$sibling->id])) {
+                            $cluster[] = $sibling;
+                            $visitedItemIds[$sibling->id] = true;
+                        }
+                    }
+                }
+
+                $clusters[] = $cluster;
+            }
+
+            // 3. For each cluster, unify sync_id, review marks, completion, and assignees
+            foreach ($clusters as $cluster) {
+                if (empty($cluster)) {
+                    continue;
+                }
+
+                // Pick/generate shared sync_id
+                $unifiedSyncId = null;
+                foreach ($cluster as $it) {
+                    if (!empty($it->sync_id)) {
+                        $unifiedSyncId = $it->sync_id;
+                        break;
+                    }
+                }
+                if (!$unifiedSyncId) {
+                    $unifiedSyncId = (string) \Illuminate\Support\Str::uuid();
+                }
+
+                // Find best review mark in cluster (any marked, flagged with issue, or approved)
+                $bestReviewItem = null;
+                foreach ($cluster as $it) {
+                    if ($it->is_marked || $it->has_issue || $it->is_approved) {
+                        if (!$bestReviewItem) {
+                            $bestReviewItem = $it;
+                        } else {
+                            $currentTs = $it->approved_at ?? $it->issue_at ?? $it->marked_at ?? $it->updated_at;
+                            $bestTs = $bestReviewItem->approved_at ?? $bestReviewItem->issue_at ?? $bestReviewItem->marked_at ?? $bestReviewItem->updated_at;
+                            if ($currentTs && $bestTs && $currentTs > $bestTs) {
+                                $bestReviewItem = $it;
+                            }
+                        }
+                    }
+                }
+
+                // Find best completion state in cluster
+                $bestCompletedItem = null;
+                foreach ($cluster as $it) {
+                    if ($it->is_completed) {
+                        if (!$bestCompletedItem) {
+                            $bestCompletedItem = $it;
+                        } elseif ($it->completed_at && (!$bestCompletedItem->completed_at || $it->completed_at > $bestCompletedItem->completed_at)) {
+                            $bestCompletedItem = $it;
+                        }
+                    }
+                }
+
+                // Find best assignees in cluster
+                $bestAssigneeId = null;
+                $bestAssigneeIds = null;
+                foreach ($cluster as $it) {
+                    if (!empty($it->assigned_user_ids)) {
+                        $bestAssigneeIds = $it->assigned_user_ids;
+                        $bestAssigneeId = $it->assigned_user_id ?: ($bestAssigneeIds[0] ?? null);
+                        break;
+                    } elseif (!empty($it->assigned_user_id)) {
+                        $bestAssigneeId = $it->assigned_user_id;
+                        $bestAssigneeIds = [$it->assigned_user_id];
+                    }
+                }
+
+                // Apply harmonized values to every item in cluster
+                foreach ($cluster as $it) {
+                    $updates = [];
+
+                    if ($it->sync_id !== $unifiedSyncId) {
+                        $updates['sync_id'] = $unifiedSyncId;
+                        $it->sync_id = $unifiedSyncId;
+                    }
+
+                    if ($bestReviewItem) {
+                        if ((bool)$it->is_marked !== (bool)$bestReviewItem->is_marked) {
+                            $updates['is_marked'] = (bool)$bestReviewItem->is_marked;
+                            $updates['marked_by'] = $bestReviewItem->marked_by;
+                            $updates['marked_at'] = $bestReviewItem->marked_at;
+                            $it->is_marked = (bool)$bestReviewItem->is_marked;
+                            $it->marked_by = $bestReviewItem->marked_by;
+                            $it->marked_at = $bestReviewItem->marked_at;
+                        }
+                        if ((bool)$it->has_issue !== (bool)$bestReviewItem->has_issue) {
+                            $updates['has_issue'] = (bool)$bestReviewItem->has_issue;
+                            $updates['issue_by'] = $bestReviewItem->issue_by;
+                            $updates['issue_at'] = $bestReviewItem->issue_at;
+                            $it->has_issue = (bool)$bestReviewItem->has_issue;
+                            $it->issue_by = $bestReviewItem->issue_by;
+                            $it->issue_at = $bestReviewItem->issue_at;
+                        }
+                        if ((bool)$it->is_approved !== (bool)$bestReviewItem->is_approved) {
+                            $updates['is_approved'] = (bool)$bestReviewItem->is_approved;
+                            $updates['approved_by'] = $bestReviewItem->approved_by;
+                            $updates['approved_at'] = $bestReviewItem->approved_at;
+                            $it->is_approved = (bool)$bestReviewItem->is_approved;
+                            $it->approved_by = $bestReviewItem->approved_by;
+                            $it->approved_at = $bestReviewItem->approved_at;
+                        }
+                    }
+
+                    if ($bestCompletedItem && !$it->is_completed) {
+                        $updates['is_completed'] = true;
+                        $updates['completed_by'] = $bestCompletedItem->completed_by;
+                        $updates['completed_at'] = $bestCompletedItem->completed_at;
+                        $it->is_completed = true;
+                        $it->completed_by = $bestCompletedItem->completed_by;
+                        $it->completed_at = $bestCompletedItem->completed_at;
+                    }
+
+                    if ($bestAssigneeId && !$it->assigned_user_id && empty($it->assigned_user_ids)) {
+                        $updates['assigned_user_id'] = $bestAssigneeId;
+                        $updates['assigned_user_ids'] = $bestAssigneeIds;
+                        $it->assigned_user_id = $bestAssigneeId;
+                        $it->assigned_user_ids = $bestAssigneeIds;
+                    }
+
+                    if (!empty($updates)) {
+                        $it->updateQuietly($updates);
+                        $modified = true;
+                    }
+                }
+            }
+        }
+
+        return $modified;
     }
 
     /** Assign existing files on a card to a folder */
@@ -1851,7 +2406,49 @@ class CardController extends Controller
             if ($hasColumn) {
                 $file->folder_name = $folderName;
             }
+            if (!$file->sync_id && $card->sync_group_id) {
+                $file->sync_id = (string) \Illuminate\Support\Str::uuid();
+            }
             $file->save();
+        }
+
+        // Synchronize folder assignment to all twin cards in the same sync_group_id
+        if ($card->sync_group_id) {
+            $twinCards = Card::where('sync_group_id', $card->sync_group_id)
+                ->where('id', '!=', $card->id)
+                ->with('files')
+                ->get();
+
+            foreach ($twinCards as $twinCard) {
+                foreach ($files as $file) {
+                    $cleanName = basename($file->original_name);
+                    $twinFile = null;
+
+                    if ($file->sync_id) {
+                        $twinFile = $twinCard->files->firstWhere('sync_id', $file->sync_id);
+                    }
+                    if (!$twinFile && $file->stored_name) {
+                        $twinFile = $twinCard->files->firstWhere('stored_name', $file->stored_name);
+                    }
+                    if (!$twinFile) {
+                        $twinFile = $twinCard->files->first(function ($tf) use ($cleanName) {
+                            return basename($tf->original_name) === $cleanName;
+                        });
+                    }
+
+                    if ($twinFile) {
+                        if ($hasColumn) {
+                            $twinFile->folder_name = $folderName;
+                        }
+                        $twinCleanName = basename($twinFile->original_name);
+                        $twinFile->original_name = "{$folderName}/{$twinCleanName}";
+                        if (!$twinFile->sync_id && $file->sync_id) {
+                            $twinFile->sync_id = $file->sync_id;
+                        }
+                        $twinFile->saveQuietly();
+                    }
+                }
+            }
         }
 
         $count = $files->count();

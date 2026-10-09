@@ -202,7 +202,7 @@ class Card extends Model
                 foreach ($checklist->items as $item) {
                     if ($enableSync && !$item->sync_id) {
                         $item->sync_id = (string)\Illuminate\Support\Str::uuid();
-                        $item->save();
+                        $item->saveQuietly();
                     }
 
                     $newItem = $item->replicate();
@@ -210,6 +210,18 @@ class Card extends Model
                     if ($enableSync) {
                         $newItem->sync_id = $item->sync_id;
                     }
+                    $newItem->is_marked = (bool)$item->is_marked;
+                    $newItem->marked_by = $item->marked_by;
+                    $newItem->marked_at = $item->marked_at;
+                    $newItem->has_issue = (bool)$item->has_issue;
+                    $newItem->issue_by = $item->issue_by;
+                    $newItem->issue_at = $item->issue_at;
+                    $newItem->is_approved = (bool)$item->is_approved;
+                    $newItem->approved_by = $item->approved_by;
+                    $newItem->approved_at = $item->approved_at;
+                    $newItem->is_completed = (bool)$item->is_completed;
+                    $newItem->completed_by = $item->completed_by;
+                    $newItem->completed_at = $item->completed_at;
                     $newItem->save();
                 }
             }
@@ -238,6 +250,8 @@ class Card extends Model
 
                 $newFile = $file->replicate();
                 $newFile->card_id = $replica->id;
+                $newFile->folder_name = $file->folder_name;
+                $newFile->original_name = $file->original_name;
                 if ($enableSync) {
                     $newFile->sync_id = $file->sync_id;
                 }

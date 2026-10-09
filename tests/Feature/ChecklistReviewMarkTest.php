@@ -153,4 +153,160 @@ class ChecklistReviewMarkTest extends TestCase
             ->assertOk();
         $this->assertTrue($item->fresh()->is_completed);
     }
+
+    public function test_marking_checklist_item_syncs_to_twin_cards_in_same_sync_group(): void
+    {
+        $dara = User::factory()->create(['username' => 'dara', 'name' => 'Mr. Dara (Head)', 'is_active' => true]);
+        $workspace = Workspace::create(['name' => 'Digital Dept', 'owner_id' => $dara->id, 'is_active' => true]);
+        $board1 = Board::create(['workspace_id' => $workspace->id, 'name' => 'Planning Board', 'created_by' => $dara->id]);
+        $board2 = Board::create(['workspace_id' => $workspace->id, 'name' => 'Workflow Board', 'created_by' => $dara->id]);
+        $list1 = BoardList::create(['board_id' => $board1->id, 'name' => 'Week 1', 'position' => 1]);
+        $list2 = BoardList::create(['board_id' => $board2->id, 'name' => 'Production Team A', 'position' => 1]);
+
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+        $card1 = Card::create(['board_id' => $board1->id, 'board_list_id' => $list1->id, 'title' => 'Task Card', 'sync_group_id' => $syncGroupId, 'created_by' => $dara->id]);
+        $card2 = Card::create(['board_id' => $board2->id, 'board_list_id' => $list2->id, 'title' => 'Task Card', 'sync_group_id' => $syncGroupId, 'created_by' => $dara->id]);
+
+        $cl1 = CardChecklist::create(['card_id' => $card1->id, 'title' => 'Status', 'position' => 1]);
+        $cl2 = CardChecklist::create(['card_id' => $card2->id, 'title' => 'Status', 'position' => 1]);
+
+        $item1 = CardChecklistItem::create(['checklist_id' => $cl1->id, 'content' => '1. Poster : 12TH-OCT', 'position' => 1]);
+        $item2 = CardChecklistItem::create(['checklist_id' => $cl2->id, 'content' => '1. Poster : 12TH-OCT', 'position' => 1]);
+
+        // Dara marks item1 with green tick
+        $this->actingAs($dara)->patchJson($this->url($card1, $cl1, $item1), ['action' => 'mark'])
+            ->assertOk()
+            ->assertJsonPath('item.is_marked', true);
+
+        // Verify item2 on twin card was automatically updated with the exact same review mark and unified sync_id
+        $item2Fresh = $item2->fresh();
+        $this->assertTrue($item2Fresh->is_marked);
+        $this->assertEquals($dara->id, $item2Fresh->marked_by);
+        $this->assertNotNull($item2Fresh->marked_at);
+        $this->assertEquals($item1->fresh()->sync_id, $item2Fresh->sync_id);
+
+        // Now Dara flags issue on item1
+        $this->actingAs($dara)->patchJson($this->url($card1, $cl1, $item1), ['action' => 'issue'])
+            ->assertOk()
+            ->assertJsonPath('item.has_issue', true);
+
+        $item2Fresh = $item2->fresh();
+        $this->assertTrue($item2Fresh->has_issue);
+        $this->assertFalse($item2Fresh->is_marked);
+        $this->assertEquals($dara->id, $item2Fresh->issue_by);
+    }
+
+    public function test_unrelated_update_to_item_does_not_wipe_out_review_marks(): void
+    {
+        $dara = User::factory()->create(['username' => 'dara', 'name' => 'Mr. Dara (Head)', 'is_active' => true]);
+        $chhay = User::factory()->create(['username' => 'chhay', 'name' => 'Chhay', 'is_active' => true]);
+        $workspace = Workspace::create(['name' => 'Digital Dept', 'owner_id' => $dara->id, 'is_active' => true]);
+        $board1 = Board::create(['workspace_id' => $workspace->id, 'name' => 'Planning Board', 'created_by' => $dara->id]);
+        $board2 = Board::create(['workspace_id' => $workspace->id, 'name' => 'Workflow Board', 'created_by' => $dara->id]);
+        $list1 = BoardList::create(['board_id' => $board1->id, 'name' => 'Week 1', 'position' => 1]);
+        $list2 = BoardList::create(['board_id' => $board2->id, 'name' => 'Production Team A', 'position' => 1]);
+
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+        $card1 = Card::create(['board_id' => $board1->id, 'board_list_id' => $list1->id, 'title' => 'Task Card', 'sync_group_id' => $syncGroupId, 'created_by' => $dara->id]);
+        $card2 = Card::create(['board_id' => $board2->id, 'board_list_id' => $list2->id, 'title' => 'Task Card', 'sync_group_id' => $syncGroupId, 'created_by' => $dara->id]);
+
+        $cl1 = CardChecklist::create(['card_id' => $card1->id, 'title' => 'Status', 'position' => 1]);
+        $cl2 = CardChecklist::create(['card_id' => $card2->id, 'title' => 'Status', 'position' => 1]);
+
+        $sharedSyncId = (string) \Illuminate\Support\Str::uuid();
+        $item1 = CardChecklistItem::create([
+            'checklist_id' => $cl1->id,
+            'content' => '1. Poster : 12TH-OCT',
+            'position' => 1,
+            'sync_id' => $sharedSyncId,
+            'is_marked' => true,
+            'marked_by' => $dara->id,
+            'marked_at' => now(),
+        ]);
+        $item2 = CardChecklistItem::create([
+            'checklist_id' => $cl2->id,
+            'content' => '1. Poster : 12TH-OCT',
+            'position' => 1,
+            'sync_id' => $sharedSyncId,
+            'is_marked' => true,
+            'marked_by' => $dara->id,
+            'marked_at' => now(),
+        ]);
+
+        // Simulating upload_and_clear.py deploy updating assigned_user_id
+        $item1->update(['assigned_user_id' => $chhay->id, 'assigned_user_ids' => [$chhay->id]]);
+
+        $item2Fresh = $item2->fresh();
+        $this->assertEquals($chhay->id, $item2Fresh->assigned_user_id);
+        // Review mark MUST still be true and not wiped back to false!
+        $this->assertTrue($item2Fresh->is_marked, 'Review mark was wiped out after unrelated update!');
+        $this->assertEquals($dara->id, $item2Fresh->marked_by);
+    }
+
+    public function test_card_show_auto_heals_missing_review_marks_from_twin_card(): void
+    {
+        $dara = User::factory()->create(['username' => 'dara', 'name' => 'Mr. Dara (Head)', 'is_active' => true]);
+        $workspace = Workspace::create(['name' => 'Digital Dept', 'owner_id' => $dara->id, 'is_active' => true]);
+        $board1 = Board::create(['workspace_id' => $workspace->id, 'name' => 'Planning Board', 'created_by' => $dara->id]);
+        $board2 = Board::create(['workspace_id' => $workspace->id, 'name' => 'Workflow Board', 'created_by' => $dara->id]);
+        $list1 = BoardList::create(['board_id' => $board1->id, 'name' => 'Week 1', 'position' => 1]);
+        $list2 = BoardList::create(['board_id' => $board2->id, 'name' => 'Production Team A', 'position' => 1]);
+
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+        $card1 = Card::create(['board_id' => $board1->id, 'board_list_id' => $list1->id, 'title' => 'Card 1', 'sync_group_id' => $syncGroupId, 'created_by' => $dara->id]);
+        $card2 = Card::create(['board_id' => $board2->id, 'board_list_id' => $list2->id, 'title' => 'Card 2', 'sync_group_id' => $syncGroupId, 'created_by' => $dara->id]);
+
+        $cl1 = CardChecklist::create(['card_id' => $card1->id, 'title' => 'Status', 'position' => 1]);
+        $cl2 = CardChecklist::create(['card_id' => $card2->id, 'title' => 'Status', 'position' => 1]);
+
+        // item1 was marked
+        $item1 = CardChecklistItem::create([
+            'checklist_id' => $cl1->id,
+            'content' => '2. Poster : 13TH-OCT',
+            'position' => 1,
+            'is_marked' => true,
+            'marked_by' => $dara->id,
+            'marked_at' => now(),
+        ]);
+        // item2 had not been marked yet (e.g. from separate import)
+        $item2 = CardChecklistItem::create([
+            'checklist_id' => $cl2->id,
+            'content' => '2.Poster: 13TH-OCT',
+            'position' => 1,
+            'is_marked' => false,
+        ]);
+
+        // When card2 is loaded via show(), it must auto-heal and receive the mark
+        $response = $this->actingAs($dara)->getJson("/boards/cards/{$card2->id}");
+        $response->assertOk();
+
+        $item2Fresh = $item2->fresh();
+        $this->assertTrue($item2Fresh->is_marked);
+        $this->assertEquals($dara->id, $item2Fresh->marked_by);
+        $this->assertEquals($item1->fresh()->sync_id, $item2Fresh->sync_id);
+    }
+
+    public function test_replicate_relationally_preserves_review_marks(): void
+    {
+        $dara = User::factory()->create(['username' => 'dara', 'name' => 'Mr. Dara (Head)', 'is_active' => true]);
+        [$card, $cl, $item] = $this->makeItem($dara);
+
+        $item->update([
+            'is_marked' => true,
+            'marked_by' => $dara->id,
+            'marked_at' => now(),
+        ]);
+
+        $replica = $card->replicateRelationally(true, $dara->id);
+        $replicaItem = $replica->checklists->first()->items->first();
+
+        $this->assertTrue($replicaItem->is_marked);
+        $this->assertEquals($dara->id, $replicaItem->marked_by);
+        $this->assertEquals($item->fresh()->sync_id, $replicaItem->sync_id);
+    }
+
+    public function test_cards_sync_checklists_command_runs_successfully(): void
+    {
+        $this->artisan('cards:sync-checklists')->assertExitCode(0);
+    }
 }

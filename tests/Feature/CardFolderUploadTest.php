@@ -257,4 +257,241 @@ class CardFolderUploadTest extends TestCase
         $response->assertJsonPath('files.0.size', 1234);
         $response->assertJsonPath('files.1.size', 1234);
     }
+
+    public function test_assign_folder_syncs_to_twin_card_in_same_sync_group(): void
+    {
+        [$user, $board, $list, $card1] = $this->cardFixture();
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+        $card1->update(['sync_group_id' => $syncGroupId]);
+
+        $card2 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $list->id,
+            'title' => 'Twin Poster Campaign',
+            'status' => 'todo',
+            'sync_group_id' => $syncGroupId,
+            'created_by' => $user->id,
+        ]);
+        $card2->assignees()->attach($user->id);
+
+        $fileSyncId1 = (string) \Illuminate\Support\Str::uuid();
+        $fileSyncId2 = (string) \Illuminate\Support\Str::uuid();
+
+        $c1File1 = CardFile::create([
+            'card_id' => $card1->id,
+            'uploaded_by' => $user->id,
+            'original_name' => '12th.jpg',
+            'stored_name' => 'cards/1/fake_12th.jpg',
+            'disk' => 'public',
+            'path' => 'cards/1/fake_12th.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1200,
+            'sync_id' => $fileSyncId1,
+        ]);
+        $c1File2 = CardFile::create([
+            'card_id' => $card1->id,
+            'uploaded_by' => $user->id,
+            'original_name' => '14th.jpg',
+            'stored_name' => 'cards/1/fake_14th.jpg',
+            'disk' => 'public',
+            'path' => 'cards/1/fake_14th.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1400,
+            'sync_id' => $fileSyncId2,
+        ]);
+
+        $c2File1 = CardFile::create([
+            'card_id' => $card2->id,
+            'uploaded_by' => $user->id,
+            'original_name' => '12th.jpg',
+            'stored_name' => 'cards/2/fake_12th.jpg',
+            'disk' => 'public',
+            'path' => 'cards/2/fake_12th.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1200,
+            'sync_id' => $fileSyncId1,
+        ]);
+        $c2File2 = CardFile::create([
+            'card_id' => $card2->id,
+            'uploaded_by' => $user->id,
+            'original_name' => '14th.jpg',
+            'stored_name' => 'cards/2/fake_14th.jpg',
+            'disk' => 'public',
+            'path' => 'cards/2/fake_14th.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1400,
+            'sync_id' => $fileSyncId2,
+        ]);
+
+        $response = $this->actingAs($user)->postJson("/boards/cards/{$card1->id}/folders/assign", [
+            'folder_name' => 'Photos',
+            'file_ids' => [$c1File1->id, $c1File2->id],
+        ]);
+
+        $response->assertStatus(200);
+
+        $c1File1->refresh();
+        $c1File2->refresh();
+        $c2File1->refresh();
+        $c2File2->refresh();
+
+        $this->assertSame('Photos', $c1File1->folder_name);
+        $this->assertSame('Photos/12th.jpg', $c1File1->original_name);
+        $this->assertSame('Photos', $c2File1->folder_name);
+        $this->assertSame('Photos/12th.jpg', $c2File1->original_name);
+
+        $this->assertSame('Photos', $c1File2->folder_name);
+        $this->assertSame('Photos/14th.jpg', $c1File2->original_name);
+        $this->assertSame('Photos', $c2File2->folder_name);
+        $this->assertSame('Photos/14th.jpg', $c2File2->original_name);
+    }
+
+    public function test_show_card_auto_heals_folder_from_twin_card(): void
+    {
+        [$user, $board, $list, $card1] = $this->cardFixture();
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+        $card1->update(['sync_group_id' => $syncGroupId]);
+
+        $card2 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $list->id,
+            'title' => 'Twin Poster Campaign',
+            'status' => 'todo',
+            'sync_group_id' => $syncGroupId,
+            'created_by' => $user->id,
+        ]);
+        $card2->assignees()->attach($user->id);
+
+        $fileSyncId = (string) \Illuminate\Support\Str::uuid();
+
+        Card::$isSyncing = true;
+        try {
+            // Card 1 has folder 'Photos'
+            CardFile::create([
+                'card_id' => $card1->id,
+                'uploaded_by' => $user->id,
+                'original_name' => 'Photos/16th.jpg',
+                'folder_name' => 'Photos',
+                'stored_name' => 'cards/1/fake_16th.jpg',
+                'disk' => 'public',
+                'path' => 'cards/1/fake_16th.jpg',
+                'mime_type' => 'image/jpeg',
+                'size' => 1600,
+                'sync_id' => $fileSyncId,
+            ]);
+
+            // Card 2 lost folder_name and prefix
+            $c2File = CardFile::create([
+                'card_id' => $card2->id,
+                'uploaded_by' => $user->id,
+                'original_name' => '16th.jpg',
+                'folder_name' => null,
+                'stored_name' => 'cards/2/fake_16th.jpg',
+                'disk' => 'public',
+                'path' => 'cards/2/fake_16th.jpg',
+                'mime_type' => 'image/jpeg',
+                'size' => 1600,
+                'sync_id' => $fileSyncId,
+            ]);
+        } finally {
+            Card::$isSyncing = false;
+        }
+
+        $response = $this->actingAs($user)->getJson("/boards/cards/{$card2->id}");
+        $response->assertStatus(200);
+
+        $response->assertJsonPath('card.files.0.folder_name', 'Photos');
+        $response->assertJsonPath('card.files.0.display_name', '16th.jpg');
+
+        $c2File->refresh();
+        $this->assertSame('Photos', $c2File->folder_name);
+        $this->assertSame('Photos/16th.jpg', $c2File->original_name);
+    }
+
+    public function test_show_card_auto_heals_standalone_files_from_activity_log(): void
+    {
+        [$user, $board, $list, $card] = $this->cardFixture();
+
+        $file = CardFile::create([
+            'card_id' => $card->id,
+            'uploaded_by' => $user->id,
+            'original_name' => '18th.jpg',
+            'folder_name' => null,
+            'stored_name' => 'cards/1/fake_18th.jpg',
+            'disk' => 'public',
+            'path' => 'cards/1/fake_18th.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1800,
+        ]);
+
+        \App\Models\ActivityLog::create([
+            'user_id' => $user->id,
+            'subject_type' => Card::class,
+            'subject_id' => $card->id,
+            'action' => 'folder_assigned',
+            'description' => 'grouped 1 files into folder **Photos**',
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/boards/cards/{$card->id}");
+        $response->assertStatus(200);
+
+        $response->assertJsonPath('card.files.0.folder_name', 'Photos');
+        $response->assertJsonPath('card.files.0.display_name', '18th.jpg');
+
+        $file->refresh();
+        $this->assertSame('Photos', $file->folder_name);
+        $this->assertSame('Photos/18th.jpg', $file->original_name);
+    }
+
+    public function test_delete_folder_syncs_deletion_across_twins(): void
+    {
+        [$user, $board, $list, $card1] = $this->cardFixture();
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+        $card1->update(['sync_group_id' => $syncGroupId]);
+
+        $card2 = Card::create([
+            'board_id' => $board->id,
+            'board_list_id' => $list->id,
+            'title' => 'Twin Poster Campaign',
+            'status' => 'todo',
+            'sync_group_id' => $syncGroupId,
+            'created_by' => $user->id,
+        ]);
+        $card2->assignees()->attach($user->id);
+
+        $path1 = 'cards/1/photo.jpg';
+        $path2 = 'cards/2/photo.jpg';
+        Storage::disk('public')->put($path1, 'bytes1');
+        Storage::disk('public')->put($path2, 'bytes2');
+
+        CardFile::create([
+            'card_id' => $card1->id,
+            'uploaded_by' => $user->id,
+            'original_name' => 'Photos/photo.jpg',
+            'folder_name' => 'Photos',
+            'stored_name' => $path1,
+            'disk' => 'public',
+            'path' => $path1,
+            'mime_type' => 'image/jpeg',
+            'size' => 100,
+        ]);
+
+        CardFile::create([
+            'card_id' => $card2->id,
+            'uploaded_by' => $user->id,
+            'original_name' => 'Photos/photo.jpg',
+            'folder_name' => 'Photos',
+            'stored_name' => $path2,
+            'disk' => 'public',
+            'path' => $path2,
+            'mime_type' => 'image/jpeg',
+            'size' => 100,
+        ]);
+
+        $response = $this->actingAs($user)->deleteJson("/boards/cards/{$card1->id}/folders/Photos");
+        $response->assertStatus(200);
+
+        $this->assertCount(0, $card1->fresh()->files);
+        $this->assertCount(0, $card2->fresh()->files);
+    }
 }

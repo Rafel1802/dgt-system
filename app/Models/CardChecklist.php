@@ -22,13 +22,25 @@ class CardChecklist extends Model
                 try {
                     if (!$checklist->sync_id) {
                         $checklist->sync_id = (string) \Illuminate\Support\Str::uuid();
-                        $checklist->save();
+                        $checklist->saveQuietly();
                     }
                     $otherCards = \App\Models\Card::where('sync_group_id', $card->sync_group_id)
                         ->where('id', '!=', $card->id)
                         ->get();
                     foreach ($otherCards as $otherCard) {
-                        if (!\App\Models\CardChecklist::where('card_id', $otherCard->id)->where('sync_id', $checklist->sync_id)->exists()) {
+                        $existing = \App\Models\CardChecklist::where('card_id', $otherCard->id)
+                            ->where(function($q) use ($checklist) {
+                                $q->where('sync_id', $checklist->sync_id)
+                                  ->orWhere('title', $checklist->title);
+                            })
+                            ->first();
+
+                        if ($existing) {
+                            if (!$existing->sync_id || $existing->sync_id !== $checklist->sync_id) {
+                                $existing->sync_id = $checklist->sync_id;
+                                $existing->saveQuietly();
+                            }
+                        } else {
                             \App\Models\CardChecklist::create([
                                 'card_id' => $otherCard->id,
                                 'title' => $checklist->title ?? '',

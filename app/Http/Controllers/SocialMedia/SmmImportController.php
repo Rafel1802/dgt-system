@@ -1353,6 +1353,10 @@ class SmmImportController extends Controller
                 }
             }
         }
+
+        if ($card->sync_group_id) {
+            app(\App\Http\Controllers\Board\CardController::class)->syncChecklistsAcrossTwins($card);
+        }
     }
 
     private function mapRow(array $rawRow, array $colMap): array

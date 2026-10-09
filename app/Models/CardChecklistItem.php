@@ -58,12 +58,18 @@ class CardChecklistItem extends Model
                 return;
             }
             $checklist = $item->checklist;
+            if ($checklist) {
+                if (!$checklist->sync_id && $checklist->card?->sync_group_id) {
+                    $checklist->sync_id = (string) \Illuminate\Support\Str::uuid();
+                    $checklist->saveQuietly();
+                }
+            }
             if ($checklist && $checklist->sync_id) {
                 \App\Models\Card::$isSyncing = true;
                 try {
                     if (!$item->sync_id) {
                         $item->sync_id = (string) \Illuminate\Support\Str::uuid();
-                        $item->save();
+                        $item->saveQuietly();
                     }
                     $otherChecklists = \App\Models\CardChecklist::where('sync_id', $checklist->sync_id)
                         ->where('id', '!=', $checklist->id)
@@ -103,28 +109,29 @@ class CardChecklistItem extends Model
                 return;
             }
             if ($item->sync_id) {
+                $allowed = [
+                    'content',
+                    'is_completed', 'completed_by', 'completed_at',
+                    'assigned_user_id', 'assigned_user_ids',
+                    'position',
+                    'is_marked', 'marked_by', 'marked_at',
+                    'has_issue', 'issue_by', 'issue_at',
+                    'is_approved', 'approved_by', 'approved_at',
+                ];
+                $changes = array_intersect_key($item->getChanges(), array_flip($allowed));
+                if (empty($changes)) {
+                    return;
+                }
+
+                if (array_key_exists('assigned_user_ids', $changes) && is_array($changes['assigned_user_ids'])) {
+                    $changes['assigned_user_ids'] = json_encode(array_values($changes['assigned_user_ids']));
+                }
+
                 \App\Models\Card::$isSyncing = true;
                 try {
                     \App\Models\CardChecklistItem::where('sync_id', $item->sync_id)
                         ->where('id', '!=', $item->id)
-                        ->update([
-                            'content'          => $item->content ?? '',
-                            'is_completed'     => $item->is_completed ?? false,
-                            'completed_by'     => $item->completed_by,
-                            'completed_at'     => $item->completed_at,
-                            'assigned_user_id' => $item->assigned_user_id,
-                            'assigned_user_ids' => is_array($item->assigned_user_ids) ? json_encode(array_values($item->assigned_user_ids)) : (is_string($item->assigned_user_ids) ? $item->assigned_user_ids : null),
-                            'position'         => $item->position ?? 0,
-                            'is_marked'        => $item->is_marked ?? false,
-                            'marked_by'        => $item->marked_by,
-                            'marked_at'        => $item->marked_at,
-                            'has_issue'        => $item->has_issue ?? false,
-                            'issue_by'         => $item->issue_by,
-                            'issue_at'         => $item->issue_at,
-                            'is_approved'      => $item->is_approved ?? false,
-                            'approved_by'      => $item->approved_by,
-                            'approved_at'      => $item->approved_at,
-                        ]);
+                        ->update($changes);
                 } finally {
                     \App\Models\Card::$isSyncing = false;
                 }

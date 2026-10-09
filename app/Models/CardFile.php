@@ -55,6 +55,7 @@ class CardFile extends Model
                                 'card_id' => $otherCard->id,
                                 'uploaded_by' => $file->uploaded_by ?? auth()->id() ?? 1,
                                 'original_name' => $file->original_name ?? '',
+                                'folder_name' => $file->folder_name ?? null,
                                 'stored_name' => $file->stored_name ?? '',
                                 'disk' => $file->disk ?? 'local',
                                 'path' => $newPath,
@@ -65,6 +66,25 @@ class CardFile extends Model
                             ]);
                         }
                     }
+                } finally {
+                    \App\Models\Card::$isSyncing = false;
+                }
+            }
+        });
+
+        static::updated(function ($file) {
+            if (\App\Models\Card::$isSyncing) {
+                return;
+            }
+            if ($file->sync_id && ($file->wasChanged('folder_name') || $file->wasChanged('original_name'))) {
+                \App\Models\Card::$isSyncing = true;
+                try {
+                    \App\Models\CardFile::where('sync_id', $file->sync_id)
+                        ->where('id', '!=', $file->id)
+                        ->update([
+                            'folder_name'   => $file->folder_name,
+                            'original_name' => $file->original_name,
+                        ]);
                 } finally {
                     \App\Models\Card::$isSyncing = false;
                 }

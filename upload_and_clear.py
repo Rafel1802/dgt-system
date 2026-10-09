@@ -243,6 +243,15 @@ if __name__ == "__main__":
 
     tinker_clean_reorder = PHP + ' artisan tinker --execute="\\Illuminate\\Support\\Facades\\DB::table(\'notifications\')->where(\'data\', \'like\', \'%card_reordered%\')->orWhere(\'data\', \'like\', \'%reordered card%\')->delete(); App\\\\Models\\\\ActivityLog::where(\'description\', \'like\', \'%reordered%\')->orWhere(\'action\', \'like\', \'%reorder%\')->delete(); echo \'Cleaned up reorder notifications and activities\\n\';" && '
 
+    tinker_sync_folders = (
+        PHP + ' artisan tinker --execute="'
+        "\\$controller = app(\\\\App\\\\Http\\\\Controllers\\\\Board\\\\CardController::class); "
+        "\\\\App\\\\Models\\\\Card::whereNotNull('sync_group_id')->get()->each(function(\\$c) use (\\$controller) { \\$controller->syncFolderGroupingAcrossTwins(\\$c); }); "
+        "\\\\App\\\\Models\\\\Card::all()->each(function(\\$c) use (\\$controller) { \\$controller->syncFolderGroupingAcrossTwins(\\$c); }); "
+        "echo 'Synced card folders across twins and healed activities\\n';"
+        '" && '
+    )
+
     tinker_fix_smm_labels = (
         PHP + ' artisan tinker --execute="'
         "\\\\App\\\\Models\\\\Card::whereIn('smm_class_label', ['Machinery.Bargains', 'Machinery Bargains'])->update(['smm_class_label' => 'MachineryBargains']); "
@@ -292,7 +301,7 @@ if __name__ == "__main__":
         "->get()->each(function(\\$item) { "
         "    if (\\$card = \\$item->checklist?->card) { "
         "        if (\\$uid = \\\\App\\\\Models\\\\CardChecklistItem::detectUserIdForCard(\\$item->content ?? '', \\$card)) { "
-        "            \\$item->update(['assigned_user_id' => \\$uid, 'assigned_user_ids' => [\\$uid]]); "
+        "            \\$item->updateQuietly(['assigned_user_id' => \\$uid, 'assigned_user_ids' => [\\$uid]]); "
         "        } "
         "    } "
         "}); "
@@ -424,7 +433,9 @@ if __name__ == "__main__":
             + tinker_fix_automations
             + tinker_fix_dara_card
             + tinker_clean_reorder
+            + tinker_sync_folders
             + tinker_setup_october_planning
+            + PHP + " artisan cards:sync-checklists && "
             + PHP + " artisan app:setup-blog-report-permission && "
             + PHP + " artisan view:cache && "
             + PHP + " artisan storage:link && "

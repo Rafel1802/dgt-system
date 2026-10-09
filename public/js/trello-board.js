@@ -6043,7 +6043,7 @@ window.trelloBoard = function(config) {
               // Refresh Folder Viewer if open for this folder
               if (this.folderViewer.open && this.folderViewer.folderName === folderName) {
                 this.folderViewer.files = (card.files || []).filter(f => {
-                  const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+                  const fFolder = this.getFolderOfFile(f);
                   return fFolder === folderName;
                 });
               }
@@ -6062,6 +6062,20 @@ window.trelloBoard = function(config) {
       });
 
       xhr.send(formData);
+    },
+
+    getFolderOfFile(f) {
+      if (!f) return null;
+      if (typeof f.folder_name === 'string' && f.folder_name.trim().length > 0) {
+        return f.folder_name.trim();
+      }
+      if (typeof f.original_name === 'string' && /[\/\\]/.test(f.original_name)) {
+        const parts = f.original_name.split(/[\/\\]/);
+        if (parts[0] && parts[0].trim().length > 0) {
+          return parts[0].trim();
+        }
+      }
+      return null;
     },
 
     getFileBytes(f) {
@@ -6085,7 +6099,7 @@ window.trelloBoard = function(config) {
       const foldersMap = {};
 
       files.forEach(f => {
-        const folder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+        const folder = this.getFolderOfFile(f);
         if (!folder) return;
 
         if (!foldersMap[folder]) {
@@ -6112,7 +6126,7 @@ window.trelloBoard = function(config) {
     getStandaloneCardFiles(files) {
       if (!files || !files.length) return [];
       return files.filter(f => {
-        const folder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+        const folder = this.getFolderOfFile(f);
         return !folder;
       });
     },
@@ -6123,7 +6137,7 @@ window.trelloBoard = function(config) {
       const folderFiles = Array.isArray(files) && files.length
         ? files
         : allFiles.filter(f => {
-            const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+            const fFolder = this.getFolderOfFile(f);
             return fFolder === folderName;
           });
 
@@ -6154,7 +6168,7 @@ window.trelloBoard = function(config) {
     async deleteCardFolder(folderName) {
       if (!this.activeCard || !folderName) return;
       const count = (this.activeCard.files || []).filter(f => {
-        const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+        const fFolder = this.getFolderOfFile(f);
         return fFolder === folderName;
       }).length;
 
@@ -6168,7 +6182,7 @@ window.trelloBoard = function(config) {
 
       const originalFiles = [...this.activeCard.files];
       this.activeCard.files = this.activeCard.files.filter(f => {
-        const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+        const fFolder = this.getFolderOfFile(f);
         return fFolder !== folderName;
       });
 
@@ -6377,7 +6391,7 @@ window.trelloBoard = function(config) {
           });
           if (this.folderViewer && this.folderViewer.open) {
             this.folderViewer.files = this.activeCard.files.filter(f => {
-              const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+              const fFolder = this.getFolderOfFile(f);
               return fFolder === this.folderViewer.folderName;
             });
           }
@@ -6407,10 +6421,10 @@ window.trelloBoard = function(config) {
       if (Array.isArray(gallery) && gallery.length) {
         images = gallery.filter(f => f && f.is_image);
       } else {
-        const folder = file.folder_name || (file.original_name && file.original_name.includes('/') ? file.original_name.split('/')[0] : null);
+        const folder = this.getFolderOfFile(file);
         if (folder && this.activeCard?.files) {
           images = this.activeCard.files.filter(f => {
-            const fFolder = f.folder_name || (f.original_name && f.original_name.includes('/') ? f.original_name.split('/')[0] : null);
+            const fFolder = this.getFolderOfFile(f);
             return f.is_image && fFolder === folder;
           });
         } else if (this.activeCard?.files) {
