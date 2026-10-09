@@ -13,6 +13,7 @@ use App\Models\CardFile;
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Notifications\GenericDatabaseNotification;
+use App\Support\InstantNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -1365,18 +1366,22 @@ class CardController extends Controller
         if ($action === 'mark') {
             if ($item->is_marked) {
                 $updateData = $reset;
-                $label = 'removed the mark from';
+                $label = 'removed review mark from';
+                $notifAction = 'removed review mark from';
             } else {
                 $updateData = array_merge($reset, ['is_marked' => true, 'marked_by' => $user->id, 'marked_at' => now()]);
-                $label = 'marked';
+                $label = 'marked approved';
+                $notifAction = 'marked approved';
             }
         } elseif ($action === 'issue') {
             if ($item->has_issue) {
                 $updateData = $reset;
                 $label = 'cleared the issue on';
+                $notifAction = 'cleared issue on';
             } else {
                 $updateData = array_merge($reset, ['has_issue' => true, 'issue_by' => $user->id, 'issue_at' => now()]);
                 $label = 'flagged an issue on';
+                $notifAction = 'flagged an issue on';
             }
         } else {
             if ($item->is_approved) {
@@ -1385,6 +1390,7 @@ class CardController extends Controller
                     'is_approved' => false, 'approved_by' => null, 'approved_at' => null,
                 ];
                 $label = 'removed approval from';
+                $notifAction = 'removed approval from';
             } elseif (! $item->is_marked && ! $item->has_issue) {
                 return response()->json(['success' => false, 'message' => 'Only marked or issue-flagged items can be approved.'], 422);
             } else {
@@ -1396,6 +1402,7 @@ class CardController extends Controller
                     'is_approved' => true, 'approved_by' => $user->id, 'approved_at' => now(),
                 ];
                 $label = 'approved';
+                $notifAction = 'approved';
             }
         }
 
@@ -1406,18 +1413,21 @@ class CardController extends Controller
         $item->update($updateData);
 
         // Propagate review mark to all twin cards in the sync group
+        $twins = collect();
+        $targetKey = '';
+        $normalizeItemKey = function ($text) {
+            $text = mb_strtolower(trim($text ?? ''));
+            $text = preg_replace('/\s*([:\.\-])\s*/u', '$1', $text);
+            $text = preg_replace('/\s+/u', ' ', $text);
+            return $text;
+        };
+
         if ($card->sync_group_id) {
-            $normalizeItemKey = function ($text) {
-                $text = mb_strtolower(trim($text ?? ''));
-                $text = preg_replace('/\s*([:\.\-])\s*/u', '$1', $text);
-                $text = preg_replace('/\s+/u', ' ', $text);
-                return $text;
-            };
             $targetKey = $normalizeItemKey($item->content);
 
             $twins = Card::where('sync_group_id', $card->sync_group_id)
                 ->where('id', '!=', $card->id)
-                ->with('checklists.items')
+                ->with(['checklists.items', 'assignees'])
                 ->get();
 
             foreach ($twins as $twin) {
@@ -1441,6 +1451,110 @@ class CardController extends Controller
         }
 
         $this->logCardActivity($card, 'checklist_item_reviewed', "{$label} item **{$item->content}**", false);
+
+        // Notify users on that card (card assignees, item assignees, creator, and twin card users)
+        $recipientIds = [];
+
+        // 1. Card assignees
+        $card->loadMissing(['assignees', 'board']);
+        foreach ($card->assignees as $assignee) {
+            $recipientIds[] = $assignee->id;
+        }
+
+        // 2. Card creator
+        if ($card->created_by) {
+            $recipientIds[] = (int) $card->created_by;
+        }
+
+        // 3. Checklist item assignees
+        foreach ($item->effectiveAssigneeIds() as $assigneeId) {
+            $recipientIds[] = (int) $assigneeId;
+        }
+        if ($item->assigned_user_id) {
+            $recipientIds[] = (int) $item->assigned_user_id;
+        }
+
+        // 4. Twin card assignees and twin checklist item assignees
+        if ($card->sync_group_id && $twins->isNotEmpty()) {
+            foreach ($twins as $twin) {
+                $twin->loadMissing('assignees');
+                foreach ($twin->assignees as $twinAssignee) {
+                    $recipientIds[] = $twinAssignee->id;
+                }
+                if ($twin->created_by) {
+                    $recipientIds[] = (int) $twin->created_by;
+                }
+                foreach ($twin->checklists as $twinChecklist) {
+                    foreach ($twinChecklist->items as $twinItem) {
+                        $matches = false;
+                        if ($item->sync_id && $twinItem->sync_id === $item->sync_id) {
+                            $matches = true;
+                        } elseif ($targetKey !== '' && $normalizeItemKey($twinItem->content) === $targetKey) {
+                            $matches = true;
+                        }
+                        if ($matches) {
+                            foreach ($twinItem->effectiveAssigneeIds() as $tid) {
+                                $recipientIds[] = (int) $tid;
+                            }
+                            if ($twinItem->assigned_user_id) {
+                                $recipientIds[] = (int) $twinItem->assigned_user_id;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Exclude the acting user so they don't notify themselves
+        $recipientIds = array_values(array_unique(array_filter(
+            $recipientIds,
+            fn ($id) => !empty($id) && (int) $id !== (int) $user->id
+        )));
+
+        if (!empty($recipientIds)) {
+            $cardTitle = $card->title ?? 'Card';
+            $itemContent = $item->content ?? 'Checklist Item';
+            $boardSlug = $card->board?->slug;
+            $link = $boardSlug ? (route('boards.show', $boardSlug) . "?card={$card->id}") : null;
+
+            $notifPayload = [
+                'module'         => 'digital',
+                'type'           => 'checklist_item_reviewed',
+                'action'         => 'checklist_item_reviewed',
+                'actor_id'       => $user->id,
+                'actor_name'     => $user->name,
+                'actor_avatar'   => $user->avatar_url,
+                'actor_initials' => $user->avatar_initials,
+                'card_id'        => $card->id,
+                'card_title'     => $cardTitle,
+                'board_id'       => $card->board_id,
+                'board_name'     => $card->board?->name,
+                'board_slug'     => $boardSlug,
+                'checklist_id'   => $checklist->id,
+                'checklist_title'=> $checklist->title,
+                'item_id'        => $item->id,
+                'item_content'   => $itemContent,
+                'review_action'  => $notifAction,
+                'title'          => "{$user->name} {$notifAction} checklist item",
+                'description'    => "{$notifAction} item **{$itemContent}** on card '{$cardTitle}'",
+                'message'        => "{$user->name} {$notifAction} checklist item '{$itemContent}' on card '{$cardTitle}'",
+                'link'           => $link,
+                'created_at'     => now()->toIso8601String(),
+            ];
+
+            $sendNotifications = function () use ($recipientIds, $notifPayload) {
+                $targets = User::whereIn('id', $recipientIds)->get();
+                foreach ($targets as $target) {
+                    InstantNotifier::send($target, new GenericDatabaseNotification($notifPayload));
+                }
+            };
+
+            if (app()->runningUnitTests()) {
+                $sendNotifications();
+            } else {
+                dispatch($sendNotifications)->afterResponse();
+            }
+        }
 
         return response()->json([
             'success' => true,

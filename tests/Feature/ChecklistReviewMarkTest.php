@@ -446,4 +446,138 @@ class ChecklistReviewMarkTest extends TestCase
         $this->assertTrue($item1->fresh()->is_marked);
         $this->assertTrue($item2->fresh()->is_marked);
     }
+
+    public function test_review_mark_sends_notification_to_card_and_item_users(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $dara = User::factory()->create(['username' => 'dara_reviewer', 'name' => 'Mr. Dara (Head)', 'is_active' => true]);
+        $assignee = User::factory()->create(['username' => 'assignee_user', 'name' => 'Card Assignee', 'is_active' => true]);
+        $itemUser = User::factory()->create(['username' => 'item_user', 'name' => 'Item Assignee', 'is_active' => true]);
+        $creator = User::factory()->create(['username' => 'creator_user', 'name' => 'Card Creator', 'is_active' => true]);
+
+        $workspace = Workspace::create(['name' => 'Marketing WS', 'owner_id' => $creator->id, 'is_active' => true]);
+        $board = Board::create(['workspace_id' => $workspace->id, 'name' => 'Workflow Board', 'slug' => 'workflow-board', 'created_by' => $creator->id]);
+        $list = BoardList::create(['board_id' => $board->id, 'name' => 'Production Team', 'position' => 1]);
+        $card = Card::create(['board_id' => $board->id, 'board_list_id' => $list->id, 'title' => 'Important Card', 'created_by' => $creator->id]);
+        $card->assignees()->attach($assignee->id);
+
+        $checklist = CardChecklist::create(['card_id' => $card->id, 'title' => 'Status', 'position' => 1]);
+        $item = CardChecklistItem::create([
+            'checklist_id' => $checklist->id,
+            'content' => '1. Poster : 12TH-OCT',
+            'position' => 1,
+            'assigned_user_ids' => [$itemUser->id],
+        ]);
+
+        $res = $this->actingAs($dara)->patchJson($this->url($card, $checklist, $item), ['action' => 'mark']);
+        $res->assertOk();
+
+        // Assignee, item assignee, and creator must receive GenericDatabaseNotification
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            [$assignee, $itemUser, $creator],
+            \App\Notifications\GenericDatabaseNotification::class,
+            function ($notification) use ($card, $item, $dara) {
+                $data = $notification->toArray($dara);
+                return $data['card_id'] === $card->id
+                    && $data['card_title'] === 'Important Card'
+                    && $data['actor_id'] === $dara->id
+                    && $data['review_action'] === 'marked approved'
+                    && str_contains($data['message'], 'marked approved checklist item');
+            }
+        );
+
+        // Actor (Dara) must NOT receive notification
+        \Illuminate\Support\Facades\Notification::assertNotSentTo(
+            $dara,
+            \App\Notifications\GenericDatabaseNotification::class
+        );
+    }
+
+    public function test_review_mark_sends_notification_to_twin_card_users(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $dara = User::factory()->create(['username' => 'dara_twin_rev', 'name' => 'Mr. Dara (Head)', 'is_active' => true]);
+        $planningAssignee = User::factory()->create(['username' => 'planning_user', 'name' => 'Planning User', 'is_active' => true]);
+        $creator = User::factory()->create(['username' => 'lead_creator', 'name' => 'Lead Creator', 'is_active' => true]);
+
+        $workspace = Workspace::create(['name' => 'Marketing Twin', 'owner_id' => $creator->id, 'is_active' => true]);
+        $board1 = Board::create(['workspace_id' => $workspace->id, 'name' => 'Workflow Board 1', 'slug' => 'wf-1', 'created_by' => $creator->id]);
+        $board2 = Board::create(['workspace_id' => $workspace->id, 'name' => 'Planning Board', 'slug' => 'plan-1', 'created_by' => $creator->id]);
+        $list1 = BoardList::create(['board_id' => $board1->id, 'name' => 'Team A', 'position' => 1]);
+        $list2 = BoardList::create(['board_id' => $board2->id, 'name' => 'Planning List', 'position' => 1]);
+
+        $syncGroupId = (string) \Illuminate\Support\Str::uuid();
+        $card1 = Card::create(['board_id' => $board1->id, 'board_list_id' => $list1->id, 'title' => 'Twin Product Card', 'sync_group_id' => $syncGroupId, 'created_by' => $dara->id]);
+        $card2 = Card::create(['board_id' => $board2->id, 'board_list_id' => $list2->id, 'title' => 'Twin Product Card', 'sync_group_id' => $syncGroupId, 'created_by' => $creator->id]);
+        $card2->assignees()->attach($planningAssignee->id);
+
+        $cl1 = CardChecklist::create(['card_id' => $card1->id, 'title' => 'Status', 'position' => 1]);
+        $cl2 = CardChecklist::create(['card_id' => $card2->id, 'title' => 'Status', 'position' => 1]);
+
+        $item1 = CardChecklistItem::create(['checklist_id' => $cl1->id, 'content' => '1. Poster : 12TH-OCT', 'position' => 1]);
+        $item2 = CardChecklistItem::create(['checklist_id' => $cl2->id, 'content' => '1. Poster : 12TH-OCT', 'position' => 1]);
+
+        $res = $this->actingAs($dara)->patchJson($this->url($card1, $cl1, $item1), ['action' => 'mark']);
+        $res->assertOk();
+
+        // Planning card assignee on twin card must receive notification
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            $planningAssignee,
+            \App\Notifications\GenericDatabaseNotification::class,
+            function ($notification) use ($card1, $dara) {
+                $data = $notification->toArray($dara);
+                return $data['card_id'] === $card1->id
+                    && $data['review_action'] === 'marked approved';
+            }
+        );
+    }
+
+    public function test_issue_and_approval_notifications(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $dara = User::factory()->create(['username' => 'dara_flag', 'name' => 'Mr. Dara (Head)', 'is_active' => true]);
+        $assignee = User::factory()->create(['username' => 'card_worker', 'name' => 'Card Worker', 'is_active' => true]);
+        $admin = User::factory()->create(['username' => 'admin_super', 'name' => 'Super Admin', 'is_active' => true]);
+        $admin->assignRole('super-admin');
+
+        $workspace = Workspace::create(['name' => 'WS Test', 'owner_id' => $admin->id, 'is_active' => true]);
+        $board = Board::create(['workspace_id' => $workspace->id, 'name' => 'WF', 'slug' => 'wf-test', 'created_by' => $admin->id]);
+        $list = BoardList::create(['board_id' => $board->id, 'name' => 'List 1', 'position' => 1]);
+        $card = Card::create(['board_id' => $board->id, 'board_list_id' => $list->id, 'title' => 'Issue Card', 'created_by' => $admin->id]);
+        $card->assignees()->attach($assignee->id);
+
+        $cl = CardChecklist::create(['card_id' => $card->id, 'title' => 'Status', 'position' => 1]);
+        $item = CardChecklistItem::create(['checklist_id' => $cl->id, 'content' => 'Review Banner', 'position' => 1]);
+
+        // 1. Dara flags an issue
+        $this->actingAs($dara)->patchJson($this->url($card, $cl, $item), ['action' => 'issue'])->assertOk();
+
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            $assignee,
+            \App\Notifications\GenericDatabaseNotification::class,
+            function ($notification) use ($card, $dara) {
+                $data = $notification->toArray($dara);
+                return $data['card_id'] === $card->id
+                    && $data['review_action'] === 'flagged an issue on'
+                    && str_contains($data['message'], 'flagged an issue on checklist item');
+            }
+        );
+
+        // 2. Admin approves the flagged item
+        $this->actingAs($admin)->patchJson($this->url($card, $cl, $item), ['action' => 'approve'])->assertOk();
+
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            $assignee,
+            \App\Notifications\GenericDatabaseNotification::class,
+            function ($notification) use ($card, $admin) {
+                $data = $notification->toArray($admin);
+                return $data['card_id'] === $card->id
+                    && $data['review_action'] === 'approved'
+                    && str_contains($data['message'], 'approved checklist item');
+            }
+        );
+    }
 }
