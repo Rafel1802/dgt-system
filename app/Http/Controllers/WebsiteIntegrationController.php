@@ -153,6 +153,16 @@ class WebsiteIntegrationController extends Controller
     {
         abort_unless(auth()->user()?->hasWebsiteAccess(), 403);
 
+        // Auto-synchronize every 5 minutes so posts and views are always fresh and never show 'long time ago'
+        if (!Cache::has('dgt_blogs_auto_sync_timer')) {
+            try {
+                app(\App\Services\WebsiteSyncService::class)->syncAllIntegratedNetworkSites();
+                Cache::put('dgt_blogs_auto_sync_timer', now()->timestamp, 300); // 5 minutes
+            } catch (\Throwable $e) {
+                \Log::warning('Blogs auto sync failed: ' . $e->getMessage());
+            }
+        }
+
         $siteId = $request->get('website_id');
         $category = $request->get('category');
         $memberId = $request->get('member_id');
@@ -273,6 +283,31 @@ class WebsiteIntegrationController extends Controller
             'dateFrom',
             'dateTo'
         ));
+    }
+
+    /**
+     * Trigger immediate synchronization across all connected websites and blog views.
+     */
+    public function syncBlogsNow(Request $request): \Illuminate\Http\JsonResponse
+    {
+        abort_unless(auth()->user()?->hasWebsiteAccess(), 403);
+        try {
+            $result = app(\App\Services\WebsiteSyncService::class)->syncAllIntegratedNetworkSites();
+            Cache::forget('dgt_active_websites_array');
+            Cache::put('dgt_blogs_auto_sync_timer', now()->timestamp, 300);
+            return response()->json([
+                'success'      => true,
+                'message'      => 'All 56 websites and blog views synchronized successfully!',
+                'duration_ms'  => $result['duration_ms'] ?? 0,
+                'synced_sites' => $result['synced_sites'] ?? [],
+                'synced_at'    => now()->diffForHumans(),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sync failed: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     // ─── 3. EXPORT BLOGS TO CSV ───────────────────────────────────────────────

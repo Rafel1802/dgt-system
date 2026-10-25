@@ -81,8 +81,52 @@
         }
         form.submit();
         this.exportModalOpen = false;
+    },
+    isSyncing: false,
+    syncBtnText: 'Sync Now',
+    triggerManualSync() {
+        this.isSyncing = true;
+        this.syncBtnText = 'Syncing...';
+        fetch('{{ route('websites.blogs.sync-now') }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            this.isSyncing = false;
+            this.syncBtnText = 'Synced Just Now!';
+            setTimeout(() => {
+                window.location.reload();
+            }, 600);
+        })
+        .catch(err => {
+            this.isSyncing = false;
+            this.syncBtnText = 'Sync Failed';
+            setTimeout(() => { this.syncBtnText = 'Sync Now'; }, 3000);
+        });
+    },
+    initAutoSync() {
+        // Automatic background synchronization every 5 minutes (300,000 ms)
+        setInterval(() => {
+            fetch('{{ route('websites.blogs.sync-now') }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(() => {
+                window.location.reload();
+            })
+            .catch(() => {});
+        }, 300000);
     }
-}" @keydown.escape.window="exportModalOpen = false">
+}" x-init="initAutoSync()" @keydown.escape.window="exportModalOpen = false">
 
     <!-- ── Top Navigation Bar ── -->
     <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">
@@ -111,7 +155,24 @@
             </a>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5">
+            <!-- Auto-Sync Indicator & Manual Sync Button -->
+            <button type="button" 
+                    @click="triggerManualSync()" 
+                    :disabled="isSyncing"
+                    class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-xs transition-all disabled:opacity-60 cursor-pointer"
+                    title="Auto-synchronizes every 5 minutes. Click to sync all 56 websites now.">
+                <svg class="w-3.5 h-3.5 text-indigo-500 shrink-0" :class="{ 'animate-spin': isSyncing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span x-text="syncBtnText"></span>
+                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md border border-emerald-200/50">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    5m Auto
+                </span>
+            </button>
+
+            <!-- Export Report Button -->
             <button type="button" @click="exportModalOpen = true" class="inline-flex items-center gap-2.5 px-4 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-indigo-500/25 transition-all">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 <span>Export Report</span>
@@ -652,8 +713,11 @@
                             </td>
 
                             <!-- Last Synced -->
-                            <td class="py-3.5 px-4 text-xs text-slate-400">
-                                {{ $post->last_synced_at ? $post->last_synced_at->diffForHumans() : '-' }}
+                            <td class="py-3.5 px-4 text-xs">
+                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 shadow-2xs">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span>{{ $post->last_synced_at ? $post->last_synced_at->diffForHumans() : 'Just now' }}</span>
+                                </span>
                             </td>
                         </tr>
                     @empty

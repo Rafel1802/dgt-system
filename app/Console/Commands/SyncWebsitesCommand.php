@@ -55,6 +55,13 @@ class SyncWebsitesCommand extends Command
             $query->where('category', $category);
         }
 
+        if (!$siteId && !$category && !$hostinger) {
+            $this->info("Executing full multi-network synchronization across all connected websites...");
+            $res = $syncService->syncAllIntegratedNetworkSites();
+            $this->info("Completed in {$res['duration_ms']}ms! Synchronized {$res['total_posts']} total posts across connected network.");
+            return 0;
+        }
+
         $websites = $query->with('integration')->get();
 
         if ($websites->isEmpty()) {

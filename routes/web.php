@@ -138,6 +138,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/websites/blogs', [\App\Http\Controllers\WebsiteIntegrationController::class, 'blogs'])->name('websites.blogs.index');
             Route::get('/websites/blogs/export/csv', [\App\Http\Controllers\WebsiteIntegrationController::class, 'exportBlogsCsv'])->name('websites.blogs.export.csv');
             Route::get('/websites/blogs/export/pdf', [\App\Http\Controllers\WebsiteIntegrationController::class, 'exportBlogsPdf'])->name('websites.blogs.export.pdf');
+            Route::post('/websites/blogs/sync-now', [\App\Http\Controllers\WebsiteIntegrationController::class, 'syncBlogsNow'])->name('websites.blogs.sync-now');
             Route::post('/websites/{website}/integration', [\App\Http\Controllers\WebsiteIntegrationController::class, 'saveIntegration'])->name('websites.integration.save');
             Route::post('/websites/{website}/integration/test', [\App\Http\Controllers\WebsiteIntegrationController::class, 'testConnection'])->name('websites.integration.test');
             Route::post('/websites/{website}/integration/sync', [\App\Http\Controllers\WebsiteIntegrationController::class, 'syncNow'])->name('websites.integration.sync');
