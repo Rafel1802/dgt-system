@@ -157,8 +157,15 @@
                             </h4>
                         </div>
                         <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                            <span class="text-xs text-slate-400">Total Views</span>
-                            <span class="text-sm font-black text-slate-900 dark:text-white">
+                            @if($rankPost->website?->handler)
+                                <div class="flex items-center gap-1.5 min-w-0" title="Handler: {{ $rankPost->website->handler->name }}">
+                                    <img src="{{ $rankPost->website->handler->avatar_url }}" alt="{{ $rankPost->website->handler->name }}" class="w-4.5 h-4.5 rounded-full object-cover shrink-0 ring-1 ring-indigo-500/30" loading="lazy">
+                                    <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300 truncate max-w-[85px]">{{ $rankPost->website->handler->name }}</span>
+                                </div>
+                            @else
+                                <span class="text-xs text-slate-400">Total Views</span>
+                            @endif
+                            <span class="text-sm font-black text-slate-900 dark:text-white shrink-0">
                                 {{ number_format($rankPost->cumulative_views) }}
                             </span>
                         </div>
@@ -185,13 +192,15 @@
             selectedName: '{{ $selectedWebsite ? addslashes($selectedWebsite->name) : 'All Websites' }}',
             selectedClass: '{{ $selectedWebsite ? addslashes($selectedWebsite->category ?: '') : '' }}',
             selectedHandler: '{{ $selectedWebsite && $selectedWebsite->handler ? addslashes($selectedWebsite->handler->name) : '' }}',
+            selectedHandlerAvatar: '{{ $selectedWebsite && $selectedWebsite->handler ? addslashes($selectedWebsite->handler->avatar_url) : '' }}',
             items: [
                 @foreach($allWebsites as $w)
                 {
-                    id: '{{ $w->id }}',
-                    name: '{{ addslashes($w->name) }}',
-                    category: '{{ addslashes($w->category ?: 'Uncategorized') }}',
-                    handler: '{{ addslashes($w->handler?->name ?: 'Unassigned') }}'
+                    id: '{{ $w['id'] ?? $w->id }}',
+                    name: '{{ addslashes($w['name'] ?? $w->name) }}',
+                    category: '{{ addslashes(($w['category'] ?? $w->category) ?: 'Uncategorized') }}',
+                    handler: '{{ addslashes(($w['handler'] ?? $w->handler?->name) ?: 'Unassigned') }}',
+                    handler_avatar: '{{ addslashes($w->handler?->avatar_url ?? ($w['handler_avatar'] ?? '')) }}'
                 },
                 @endforeach
             ],
@@ -209,11 +218,13 @@
                     this.selectedName = 'All Websites';
                     this.selectedClass = '';
                     this.selectedHandler = '';
+                    this.selectedHandlerAvatar = '';
                 } else {
                     this.selectedId = site.id;
                     this.selectedName = site.name;
                     this.selectedClass = site.category;
                     this.selectedHandler = site.handler;
+                    this.selectedHandlerAvatar = site.handler_avatar;
                 }
                 this.open = false;
                 this.$refs.hiddenInput.value = this.selectedId;
@@ -225,7 +236,7 @@
 
             <!-- Trigger Button -->
             <button type="button" @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
-                    class="flex items-center justify-between gap-2.5 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 transition min-w-[220px] max-w-[340px]">
+                    class="flex items-center justify-between gap-2.5 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 transition min-w-[200px] max-w-[320px]">
                 <div class="flex items-center gap-2 overflow-hidden text-left">
                     <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                     <div class="truncate">
@@ -234,7 +245,12 @@
                             <span class="ml-1 px-1.5 py-0.2 text-[10px] font-bold rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300" x-text="selectedClass"></span>
                         </template>
                         <template x-if="selectedHandler && selectedHandler !== 'Unassigned'">
-                            <span class="ml-1 text-[11px] text-slate-500 dark:text-slate-400" x-text="'(' + selectedHandler + ')'"></span>
+                            <span class="ml-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium inline-flex items-center gap-1">
+                                <template x-if="selectedHandlerAvatar">
+                                    <img :src="selectedHandlerAvatar" :alt="selectedHandler" class="w-3.5 h-3.5 rounded-full object-cover shrink-0 ring-1 ring-indigo-400/40">
+                                </template>
+                                <span x-text="'(' + selectedHandler + ')'"></span>
+                            </span>
                         </template>
                     </div>
                 </div>
@@ -251,8 +267,6 @@
             <!-- Dropdown Panel -->
             <div x-show="open" @click.outside="open = false" x-cloak
                  class="absolute left-0 z-50 mt-1.5 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden ring-1 ring-black/5">
-                
-                <!-- Search Input Header -->
                 <div class="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
                     <div class="relative">
                         <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -268,9 +282,7 @@
                     </div>
                 </div>
 
-                <!-- List of Websites -->
                 <div class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/50 p-1.5 custom-scrollbar">
-                    <!-- Option: All Websites -->
                     <button type="button" @click="select(null)"
                             class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between"
                             :class="!selectedId ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'">
@@ -281,7 +293,6 @@
                         <span class="text-[10px] text-slate-400" x-text="'(' + items.length + ')'"></span>
                     </button>
 
-                    <!-- Website Items -->
                     <template x-for="item in filtered" :key="item.id">
                         <button type="button" @click="select(item)"
                                 class="w-full text-left px-3 py-2.5 rounded-xl transition flex flex-col gap-1 border-b border-slate-50 dark:border-slate-800/40 last:border-b-0"
@@ -292,15 +303,18 @@
                             </div>
                             <div class="flex items-center gap-2 flex-wrap text-[11px]">
                                 <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50" x-text="item.category"></span>
-                                <span class="text-slate-600 dark:text-slate-300 flex items-center gap-1 font-medium">
-                                    <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                    <span x-text="item.handler"></span>
-                                </span>
+                                <template x-if="item.handler && item.handler !== 'Unassigned'">
+                                    <span class="text-slate-600 dark:text-slate-300 flex items-center gap-1.5 font-medium">
+                                        <template x-if="item.handler_avatar">
+                                            <img :src="item.handler_avatar" :alt="item.handler" class="w-3.5 h-3.5 rounded-full object-cover shrink-0 ring-1 ring-slate-200 dark:ring-slate-700">
+                                        </template>
+                                        <span x-text="item.handler"></span>
+                                    </span>
+                                </template>
                             </div>
                         </button>
                     </template>
 
-                    <!-- Empty State -->
                     <div x-show="filtered.length === 0" class="py-6 text-center text-xs text-slate-400">
                         No websites match "<span class="font-bold text-slate-600 dark:text-slate-300" x-text="searchQuery"></span>"
                     </div>
@@ -309,35 +323,214 @@
         </div>
 
         <!-- Category Dropdown -->
-        <select name="category" onchange="this.form.submit()" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            <option value="">All Categories</option>
-            @foreach($categories as $c)
-                <option value="{{ $c }}" {{ $category === $c ? 'selected' : '' }}>{{ $c }}</option>
-            @endforeach
-        </select>
+        <div class="relative" x-data="{
+            open: false,
+            selected: '{{ $category }}',
+            categories: [
+                @foreach($categories as $c)
+                '{{ addslashes($c) }}',
+                @endforeach
+            ],
+            select(cat) {
+                this.selected = cat;
+                this.open = false;
+                this.$refs.catInput.value = cat;
+                this.$refs.catInput.form.submit();
+            }
+        }" @keydown.window.escape="open = false">
+            <input type="hidden" name="category" x-ref="catInput" value="{{ $category }}">
+            <button type="button" @click="open = !open"
+                    class="flex items-center justify-between gap-2 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 transition min-w-[140px] max-w-[220px]">
+                <div class="flex items-center gap-2 overflow-hidden text-left">
+                    <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                    <span class="font-bold text-xs truncate" x-text="selected ? selected : 'All Categories'"></span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <template x-if="selected">
+                        <span @click.stop="select('')" title="Clear category filter" class="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </span>
+                    </template>
+                    <svg class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+            </button>
+            <div x-show="open" @click.outside="open = false" x-cloak
+                 class="absolute left-0 z-50 mt-1.5 w-60 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden p-1.5 custom-scrollbar max-h-64 overflow-y-auto ring-1 ring-black/5">
+                <button type="button" @click="select('')"
+                        class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between"
+                        :class="!selected ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'">
+                    <span>All Categories</span>
+                    <span x-show="!selected" class="text-indigo-600 font-bold">✓</span>
+                </button>
+                <template x-for="cat in categories" :key="cat">
+                    <button type="button" @click="select(cat)"
+                            class="w-full text-left px-3 py-2 rounded-xl text-xs transition flex items-center justify-between"
+                            :class="selected === cat ? 'bg-indigo-50/90 dark:bg-indigo-950/80 text-indigo-900 dark:text-indigo-200 font-bold' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/70 font-medium'">
+                        <span x-text="cat"></span>
+                        <span x-show="selected === cat" class="text-indigo-600 dark:text-indigo-400 font-bold">✓</span>
+                    </button>
+                </template>
+            </div>
+        </div>
 
-        <!-- Member Dropdown -->
-        <select name="member_id" onchange="this.form.submit()" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            <option value="">All Members</option>
-            @foreach($members as $m)
-                <option value="{{ $m->id }}" {{ $memberId == $m->id ? 'selected' : '' }}>{{ $m->name }}</option>
-            @endforeach
-        </select>
+        <!-- Searchable Member Dropdown with Profile Image / Avatar -->
+        <div class="relative" x-data="{
+            open: false,
+            searchQuery: '',
+            selectedId: '{{ $memberId }}',
+            selectedName: '{{ $selectedMember ? addslashes($selectedMember->name) : 'All Members' }}',
+            selectedAvatar: '{{ $selectedMember ? addslashes($selectedMember->avatar_url) : '' }}',
+            members: [
+                @foreach($members as $m)
+                {
+                    id: '{{ $m->id }}',
+                    name: '{{ addslashes($m->name) }}',
+                    avatar: '{{ addslashes($m->avatar_url) }}',
+                    role: '{{ addslashes($m->team_role ?? $m->crm_role ?? 'Team Member') }}'
+                },
+                @endforeach
+            ],
+            get filtered() {
+                if (!this.searchQuery.trim()) return this.members;
+                const q = this.searchQuery.toLowerCase().trim();
+                return this.members.filter(m => m.name.toLowerCase().includes(q) || (m.role && m.role.toLowerCase().includes(q)));
+            },
+            select(m) {
+                if (!m) {
+                    this.selectedId = '';
+                    this.selectedName = 'All Members';
+                    this.selectedAvatar = '';
+                } else {
+                    this.selectedId = m.id;
+                    this.selectedName = m.name;
+                    this.selectedAvatar = m.avatar;
+                }
+                this.open = false;
+                this.$refs.hiddenMemberInput.value = this.selectedId;
+                this.$refs.hiddenMemberInput.form.submit();
+            }
+        }" @keydown.window.escape="open = false">
+            <input type="hidden" name="member_id" x-ref="hiddenMemberInput" value="{{ $memberId }}">
 
-        <!-- Sort -->
-        <select name="sort" onchange="this.form.submit()" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            <option value="views_desc" {{ $sort === 'views_desc' ? 'selected' : '' }}>Most Views</option>
-            <option value="period_desc" {{ $sort === 'period_desc' ? 'selected' : '' }}>Most Period Views (30d)</option>
-            <option value="published_desc" {{ $sort === 'published_desc' ? 'selected' : '' }}>Newest Published</option>
-            <option value="published_asc" {{ $sort === 'published_asc' ? 'selected' : '' }}>Oldest Published</option>
-        </select>
+            <!-- Trigger Button with User Avatar -->
+            <button type="button" @click="open = !open; if(open) $nextTick(() => $refs.memberSearchInput.focus())"
+                    class="flex items-center justify-between gap-2.5 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 transition min-w-[170px] max-w-[260px]">
+                <div class="flex items-center gap-2 overflow-hidden text-left">
+                    <template x-if="selectedAvatar">
+                        <img :src="selectedAvatar" :alt="selectedName" class="w-5 h-5 rounded-full object-cover shrink-0 ring-1.5 ring-indigo-500/40 shadow-xs">
+                    </template>
+                    <template x-if="!selectedAvatar">
+                        <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    </template>
+                    <span class="font-bold text-xs truncate" x-text="selectedName"></span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <template x-if="selectedId">
+                        <span @click.stop="select(null)" title="Clear member filter" class="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </span>
+                    </template>
+                    <svg class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+            </button>
+
+            <!-- Dropdown Panel -->
+            <div x-show="open" @click.outside="open = false" x-cloak
+                 class="absolute left-0 z-50 mt-1.5 w-72 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden ring-1 ring-black/5">
+                <div class="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
+                    <div class="relative">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <input type="text" x-ref="memberSearchInput" x-model="searchQuery"
+                               placeholder="Search member name or role..."
+                               @keydown.escape="open = false"
+                               class="w-full pl-9 pr-7 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" x-show="searchQuery" @click="searchQuery = ''; $refs.memberSearchInput.focus()" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs">✕</button>
+                    </div>
+                    <div class="flex items-center justify-between mt-2 px-1 text-[11px] text-slate-400">
+                        <span x-text="'Showing ' + filtered.length + ' of ' + members.length + ' members'"></span>
+                        <span class="text-[10px] uppercase font-bold text-slate-400">Avatar • Name • Role</span>
+                    </div>
+                </div>
+
+                <div class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/50 p-1.5 custom-scrollbar">
+                    <button type="button" @click="select(null)"
+                            class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between"
+                            :class="!selectedId ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'">
+                        <span class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                            All Members (Reset)
+                        </span>
+                        <span class="text-[10px] text-slate-400" x-text="'(' + members.length + ')'"></span>
+                    </button>
+
+                    <template x-for="m in filtered" :key="m.id">
+                        <button type="button" @click="select(m)"
+                                class="w-full text-left px-3 py-2 rounded-xl transition flex items-center justify-between gap-2.5"
+                                :class="selectedId == m.id ? 'bg-indigo-50/90 dark:bg-indigo-950/80 text-indigo-900 dark:text-indigo-200' : 'hover:bg-slate-50 dark:hover:bg-slate-800/70'">
+                            <div class="flex items-center gap-2.5 overflow-hidden">
+                                <img :src="m.avatar" :alt="m.name" class="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-slate-200 dark:ring-slate-700 shadow-xs" loading="lazy">
+                                <div class="truncate">
+                                    <span class="font-extrabold text-xs text-slate-900 dark:text-white block truncate" x-text="m.name"></span>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block truncate" x-text="m.role || 'Team Member'"></span>
+                                </div>
+                            </div>
+                            <span x-show="selectedId == m.id" class="text-indigo-600 dark:text-indigo-400 shrink-0 font-bold text-xs">✓</span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sort Dropdown -->
+        <div class="relative" x-data="{
+            open: false,
+            selected: '{{ $sort }}',
+            options: [
+                { value: 'views_desc', label: 'Most Views' },
+                { value: 'period_desc', label: 'Period Views (30d)' },
+                { value: 'published_desc', label: 'Newest Published' },
+                { value: 'published_asc', label: 'Oldest Published' }
+            ],
+            get currentLabel() {
+                const found = this.options.find(o => o.value === this.selected);
+                return found ? found.label : 'Most Views';
+            },
+            select(val) {
+                this.selected = val;
+                this.open = false;
+                this.$refs.sortInput.value = val;
+                this.$refs.sortInput.form.submit();
+            }
+        }" @keydown.window.escape="open = false">
+            <input type="hidden" name="sort" x-ref="sortInput" value="{{ $sort }}">
+            <button type="button" @click="open = !open"
+                    class="flex items-center justify-between gap-2 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 transition min-w-[155px]">
+                <div class="flex items-center gap-2 overflow-hidden text-left">
+                    <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
+                    <span class="font-bold text-xs truncate" x-text="currentLabel"></span>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div x-show="open" @click.outside="open = false" x-cloak
+                 class="absolute right-0 z-50 mt-1.5 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden p-1.5 ring-1 ring-black/5">
+                <template x-for="opt in options" :key="opt.value">
+                    <button type="button" @click="select(opt.value)"
+                            class="w-full text-left px-3 py-2 rounded-xl text-xs transition flex items-center justify-between"
+                            :class="selected === opt.value ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-900 dark:text-indigo-200 font-bold' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/70 font-medium'">
+                        <span x-text="opt.label"></span>
+                        <span x-show="selected === opt.value" class="text-indigo-600 dark:text-indigo-400 font-bold">✓</span>
+                    </button>
+                </template>
+            </div>
+        </div>
 
         <!-- Date Range -->
-        <div class="flex items-center gap-1.5 text-xs text-slate-500">
-            <input type="date" name="date_from" value="{{ $dateFrom }}" class="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            <span>to</span>
-            <input type="date" name="date_to" value="{{ $dateTo }}" class="px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            <button type="submit" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200">Go</button>
+        <div class="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <input type="date" name="date_from" value="{{ $dateFrom }}" class="bg-transparent text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
+            <span class="text-slate-400 font-bold">to</span>
+            <input type="date" name="date_to" value="{{ $dateTo }}" class="bg-transparent text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
+            <button type="submit" class="px-2 py-0.5 text-xs font-bold rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition">Go</button>
         </div>
 
         @if($search || $siteId || $category || $memberId || $dateFrom || $dateTo)
@@ -380,25 +573,33 @@
 
                             <!-- Website, Class & Handler -->
                             <td class="py-3.5 px-3">
-                                <div class="font-bold text-slate-800 dark:text-slate-200">
+                                <div class="font-bold text-slate-900 dark:text-white leading-snug">
                                     {{ $post->website?->name }}
                                 </div>
-                                <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
-                                    <span class="inline-block px-1.5 py-0.2 text-[10px] font-bold rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">
-                                        {{ $post->website?->category ?: '-' }}
-                                    </span>
+                                <div class="flex items-center gap-1.5 flex-wrap mt-1">
+                                    @if($post->website?->category)
+                                        <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">
+                                            {{ $post->website->category }}
+                                        </span>
+                                    @endif
                                     @if($post->website?->handler)
-                                        <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                                            <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                            {{ $post->website->handler->name }}
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs" title="Handler: {{ $post->website->handler->name }}">
+                                            <img src="{{ $post->website->handler->avatar_url }}"
+                                                 alt="{{ $post->website->handler->name }}"
+                                                 class="w-4 h-4 rounded-full object-cover shrink-0 ring-1 ring-indigo-500/30"
+                                                 loading="lazy">
+                                            <span class="truncate max-w-[110px]">{{ $post->website->handler->name }}</span>
                                         </span>
                                     @endif
                                 </div>
                             </td>
 
                             <!-- Author -->
-                            <td class="py-3.5 px-3 text-xs text-slate-600 dark:text-slate-400">
-                                {{ $post->author_name ?: '-' }}
+                            <td class="py-3.5 px-3 text-xs text-slate-700 dark:text-slate-300">
+                                <div class="flex items-center gap-1.5 font-medium truncate max-w-[160px]" title="{{ $post->author_name ?: 'System' }}">
+                                    <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                    <span class="truncate">{{ $post->author_name ?: '-' }}</span>
+                                </div>
                             </td>
 
                             <!-- Published Date -->
@@ -432,11 +633,22 @@
 
                             <!-- Analytics Source -->
                             <td class="py-3.5 px-3">
-                                <span class="inline-block px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider
-                                    {{ $post->analytics_source === 'ga4' ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-600 border border-sky-200' :
-                                       ($post->analytics_source !== 'none' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-500') }}">
-                                    {{ str_replace('_', ' ', $post->analytics_source) }}
-                                </span>
+                                @if($post->analytics_source === 'none')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700" title="WordPress website has no view counter plugin installed yet (0 views recorded)">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                        No Tracker (0 Views)
+                                    </span>
+                                @elseif($post->analytics_source === 'ga4')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-600 border border-sky-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                                        GA4
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                        {{ str_replace('_', ' ', $post->analytics_source) }}
+                                    </span>
+                                @endif
                             </td>
 
                             <!-- Last Synced -->
