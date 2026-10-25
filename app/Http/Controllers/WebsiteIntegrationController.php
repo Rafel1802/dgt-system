@@ -49,7 +49,16 @@ class WebsiteIntegrationController extends Controller
             ->withSum('posts', 'period_views');
 
         if ($hostingerAccount) {
-            $query->whereHas('integration', fn($q) => $q->where('hostinger_account', $hostingerAccount));
+            $aliases = [
+                'americanskidsteers@gmail.com'  => ['americanskidsteers@gmail.com', 'Hostinger Account 1'],
+                'americanskidsteer@gmail.com'   => ['americanskidsteer@gmail.com', 'Hostinger Account 2'],
+                'impossiblemachinery@gmail.com' => ['impossiblemachinery@gmail.com', 'Hostinger Account 3'],
+                'Hostinger Account 1'           => ['americanskidsteers@gmail.com', 'Hostinger Account 1'],
+                'Hostinger Account 2'           => ['americanskidsteer@gmail.com', 'Hostinger Account 2'],
+                'Hostinger Account 3'           => ['impossiblemachinery@gmail.com', 'Hostinger Account 3'],
+            ];
+            $targets = $aliases[$hostingerAccount] ?? [$hostingerAccount];
+            $query->whereHas('integration', fn($q) => $q->whereIn('hostinger_account', $targets));
         }
 
         if ($category) {
@@ -96,7 +105,11 @@ class WebsiteIntegrationController extends Controller
 
         // Filter dropdown data
         $categories = Website::whereNotNull('category')->distinct()->pluck('category')->sort()->values();
-        $hostingerAccounts = ['Hostinger Account 1', 'Hostinger Account 2', 'Hostinger Account 3'];
+        $hostingerAccounts = [
+            'americanskidsteers@gmail.com',
+            'americanskidsteer@gmail.com',
+            'impossiblemachinery@gmail.com',
+        ];
         $members = User::where('is_active', true)->orderBy('name')->get(['id', 'name', 'avatar']);
 
         return view('websites.integrations.index', compact(
