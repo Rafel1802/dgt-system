@@ -93,6 +93,21 @@
             background: #e2e8f0;
             color: #475569;
         }
+        .rank-medal {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            line-height: 18px;
+            text-align: center;
+            border-radius: 50%;
+            font-size: 8px;
+            font-weight: bold;
+        }
+        .medal-gold { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .medal-silver { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+        .medal-bronze { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+        .badge-class { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+        .handler-text { font-size: 8px; color: #64748b; margin-top: 2px; }
         .text-right { text-align: right; }
         .footer {
             position: fixed;
@@ -114,14 +129,23 @@
         <tr>
             <td>
                 <div class="title">DGT Central Platform — Blog Performance Report</div>
-                <div class="subtitle">Multi-Site Blog View Metrics across Hostinger Accounts</div>
+                <div class="subtitle">
+                    {{ !empty($limit) ? 'Top ' . $limit . ' Ranking Blog Posts by Cumulative Views' : 'Multi-Site Blog View Metrics across Hostinger Accounts' }}
+                </div>
             </td>
             <td class="meta-text">
-                <div><strong>Generated:</strong> {{ $generatedAt }}</div>
-                <div><strong>Exported By:</strong> {{ $generatedBy }}</div>
-                @if($website)
-                    <div><strong>Filtered Site:</strong> {{ $website->name }}</div>
-                @endif
+                <div><strong>Generated:</strong> {{ $generatedAt }} by {{ $generatedBy }}</div>
+                <div>
+                    <strong>Date Range:</strong> {{ !empty($dateFrom) ? $dateFrom : 'All Time' }} to {{ !empty($dateTo) ? $dateTo : 'Present' }}
+                    @if(!empty($limit))
+                        &bull; <strong>Ranking Scope:</strong> Top {{ $limit }} Articles
+                    @endif
+                </div>
+                <div>
+                    <strong>Website:</strong> {{ $website ? $website->name : 'All Websites' }}
+                    @if(!empty($category)) &bull; <strong>Class:</strong> {{ $category }} @endif
+                    @if(!empty($member)) &bull; <strong>Handler:</strong> {{ $member->name }} @endif
+                </div>
             </td>
         </tr>
     </table>
@@ -147,7 +171,7 @@
         <thead>
             <tr>
                 <th style="width: 25px;">#</th>
-                <th style="width: 140px;">Website / Category</th>
+                <th style="width: 140px;">Website / Class / Handler</th>
                 <th>Post Title & Canonical URL</th>
                 <th style="width: 80px;">Author</th>
                 <th style="width: 70px;">Published</th>
@@ -159,10 +183,23 @@
         <tbody>
             @forelse($posts as $index => $post)
                 <tr>
-                    <td class="text-right">{{ $index + 1 }}</td>
+                    <td class="text-right">
+                        @if($index === 0)
+                            <span class="rank-medal medal-gold">1</span>
+                        @elseif($index === 1)
+                            <span class="rank-medal medal-silver">2</span>
+                        @elseif($index === 2)
+                            <span class="rank-medal medal-bronze">3</span>
+                        @else
+                            {{ $index + 1 }}
+                        @endif
+                    </td>
                     <td>
                         <strong>{{ $post->website?->name }}</strong><br>
-                        <span class="badge">{{ $post->website?->category ?: '-' }}</span>
+                        <span class="badge badge-class">{{ $post->website?->category ?: '-' }}</span>
+                        @if($post->website?->handler)
+                            <div class="handler-text">👤 {{ $post->website->handler->name }}</div>
+                        @endif
                     </td>
                     <td>
                         <strong style="color: #0f172a;">{{ $post->title }}</strong><br>

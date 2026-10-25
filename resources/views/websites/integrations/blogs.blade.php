@@ -37,7 +37,52 @@
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
 </style>
 
-<div class="space-y-6 pb-12">
+<div class="space-y-6 pb-12" x-data="{
+    exportModalOpen: false,
+    exportSiteId: '{{ $siteId ?? '' }}',
+    exportCategory: '{{ $category ?? '' }}',
+    exportMemberId: '{{ $memberId ?? '' }}',
+    exportLimit: '10',
+    exportDateFrom: '{{ $dateFrom ?? '' }}',
+    exportDateTo: '{{ $dateTo ?? '' }}',
+    exportSort: '{{ $sort ?? 'views_desc' }}',
+    setDateRange(range) {
+        const today = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        if (range === 'all') {
+            this.exportDateFrom = '';
+            this.exportDateTo = '';
+        } else if (range === 'today') {
+            this.exportDateFrom = fmt(today);
+            this.exportDateTo = fmt(today);
+        } else if (range === '7days') {
+            const p = new Date();
+            p.setDate(p.getDate() - 7);
+            this.exportDateFrom = fmt(p);
+            this.exportDateTo = fmt(today);
+        } else if (range === '30days') {
+            const p = new Date();
+            p.setDate(p.getDate() - 30);
+            this.exportDateFrom = fmt(p);
+            this.exportDateTo = fmt(today);
+        } else if (range === 'this_month') {
+            const f = new Date(today.getFullYear(), today.getMonth(), 1);
+            this.exportDateFrom = fmt(f);
+            this.exportDateTo = fmt(today);
+        }
+    },
+    submitExport(format) {
+        const form = this.$refs.exportReportForm;
+        if (format === 'csv') {
+            form.action = '{{ route('websites.blogs.export.csv') }}';
+        } else {
+            form.action = '{{ route('websites.blogs.export.pdf') }}';
+        }
+        form.submit();
+        this.exportModalOpen = false;
+    }
+}" @keydown.escape.window="exportModalOpen = false">
 
     <!-- ── Top Navigation Bar ── -->
     <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">
@@ -67,14 +112,11 @@
         </div>
 
         <div class="flex items-center gap-3">
-            <a href="{{ route('websites.blogs.export.csv', request()->query()) }}" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
+            <button type="button" @click="exportModalOpen = true" class="inline-flex items-center gap-2.5 px-4 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-indigo-500/25 transition-all">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Export CSV
-            </a>
-            <a href="{{ route('websites.blogs.export.pdf', request()->query()) }}" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                Export PDF
-            </a>
+                <span>Export Report</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] bg-white/20 font-bold uppercase tracking-wider">CSV • PDF</span>
+            </button>
         </div>
     </div>
 
@@ -418,6 +460,156 @@
                 {{ $posts->links() }}
             </div>
         @endif
+    </div>
+
+    <!-- ── Export Report Modal (CSV & PDF with Custom Filters) ── -->
+    <div x-show="exportModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity">
+        <div @click.outside="exportModalOpen = false"
+             class="w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden ring-1 ring-black/10 transform transition-all">
+            
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-gradient-to-r from-slate-50 to-indigo-50/40 dark:from-slate-800/50 dark:to-indigo-950/20">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 dark:text-white">Export Blog Performance Report</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Customize date range, ranking limits, and filter criteria for CSV or PDF.</p>
+                    </div>
+                </div>
+                <button type="button" @click="exportModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Modal Form -->
+            <form x-ref="exportReportForm" method="GET" target="_blank" class="p-6 space-y-5">
+                <input type="hidden" name="search" value="{{ $search }}">
+
+                <!-- Date Range Section -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            Custom Date Range (Published Date)
+                        </label>
+                    </div>
+
+                    <!-- Preset Chips -->
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button type="button" @click="setDateRange('all')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400">All Time</button>
+                        <button type="button" @click="setDateRange('today')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400">Today</button>
+                        <button type="button" @click="setDateRange('7days')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400">Last 7 Days</button>
+                        <button type="button" @click="setDateRange('30days')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400">Last 30 Days</button>
+                        <button type="button" @click="setDateRange('this_month')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 transition text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400">This Month</button>
+                    </div>
+
+                    <!-- Inputs -->
+                    <div class="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                            <span class="block text-[11px] font-semibold text-slate-400 mb-1">From Date</span>
+                            <input type="date" name="date_from" x-model="exportDateFrom"
+                                   class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <span class="block text-[11px] font-semibold text-slate-400 mb-1">To Date</span>
+                            <input type="date" name="date_to" x-model="exportDateTo"
+                                   class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ranking Limit / Total of Ranking -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            Total of Ranking (Top N Articles)
+                        </label>
+                        <span class="text-[11px] text-slate-400" x-text="exportLimit ? 'Exporting top ' + exportLimit + ' articles' : 'Exporting all matched articles'"></span>
+                    </div>
+
+                    <!-- Limit Preset Chips -->
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button type="button" @click="exportLimit = '10'" :class="exportLimit === '10' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'" class="px-3 py-1 text-[11px] font-extrabold rounded-lg border transition">Top 10</button>
+                        <button type="button" @click="exportLimit = '20'" :class="exportLimit === '20' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'" class="px-3 py-1 text-[11px] font-extrabold rounded-lg border transition">Top 20</button>
+                        <button type="button" @click="exportLimit = '50'" :class="exportLimit === '50' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'" class="px-3 py-1 text-[11px] font-extrabold rounded-lg border transition">Top 50</button>
+                        <button type="button" @click="exportLimit = '100'" :class="exportLimit === '100' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'" class="px-3 py-1 text-[11px] font-extrabold rounded-lg border transition">Top 100</button>
+                        <button type="button" @click="exportLimit = ''" :class="!exportLimit ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'" class="px-3 py-1 text-[11px] font-extrabold rounded-lg border transition">All (No Limit)</button>
+                    </div>
+
+                    <div class="relative pt-1">
+                        <input type="number" name="limit" x-model="exportLimit" min="1" max="1000" placeholder="Custom ranking number, e.g. 10 or 20 (leave blank for all)"
+                               class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Scope Filters Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <!-- Website Selection -->
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Website</label>
+                        <select name="website_id" x-model="exportSiteId" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">All Websites</option>
+                            @foreach($allWebsites as $w)
+                                <option value="{{ $w->id }}">{{ $w->name }} ({{ $w->category ?: 'General' }}{{ $w->handler ? ' • ' . $w->handler->name : '' }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Class Selection -->
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Class / Category</label>
+                        <select name="category" x-model="exportCategory" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">All Classes</option>
+                            @foreach($categories as $c)
+                                <option value="{{ $c }}">{{ $c }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Member Selection -->
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Member (Handler)</label>
+                        <select name="member_id" x-model="exportMemberId" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">All Members</option>
+                            @foreach($members as $m)
+                                <option value="{{ $m->id }}">{{ $m->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Sort Selection -->
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Ranking Metric</label>
+                        <select name="sort" x-model="exportSort" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="views_desc">Most Views (Cumulative Views)</option>
+                            <option value="period_desc">Most Period Views (30 Days)</option>
+                            <option value="published_desc">Newest Published</option>
+                            <option value="published_asc">Oldest Published</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+                    <button type="button" @click="exportModalOpen = false" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                        Cancel
+                    </button>
+                    <div class="flex items-center gap-2.5">
+                        <button type="button" @click="submitExport('csv')" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 transition shadow-sm hover:shadow-emerald-600/25">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Export CSV
+                        </button>
+                        <button type="button" @click="submitExport('pdf')" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 transition shadow-md hover:shadow-indigo-600/30">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                            Export PDF
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
 
 </div>

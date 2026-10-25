@@ -239,8 +239,21 @@ class WebsiteIntegrationController extends Controller
         $memberId = $request->get('member_id');
         $source = $request->get('source');
         $search = $request->get('search');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $limit = $request->filled('limit') && (int)$request->get('limit') > 0 ? (int)$request->get('limit') : null;
+        $sort = $request->get('sort', 'views_desc');
 
-        $query = WebsitePost::with(['website.handler'])->orderByDesc('cumulative_views');
+        $query = WebsitePost::with(['website.handler']);
+
+        // Sorting
+        match ($sort) {
+            'views_asc'      => $query->orderBy('cumulative_views', 'asc'),
+            'period_desc'    => $query->orderBy('period_views', 'desc'),
+            'published_desc' => $query->orderBy('published_at', 'desc'),
+            'published_asc'  => $query->orderBy('published_at', 'asc'),
+            default          => $query->orderBy('cumulative_views', 'desc'),
+        };
 
         if ($siteId) {
             $query->where('website_id', $siteId);
@@ -253,6 +266,12 @@ class WebsiteIntegrationController extends Controller
         }
         if ($source && $source !== 'all') {
             $query->where('analytics_source', $source);
+        }
+        if ($dateFrom) {
+            $query->whereDate('published_at', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->whereDate('published_at', '<=', $dateTo);
         }
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -269,20 +288,25 @@ class WebsiteIntegrationController extends Controller
             });
         }
 
-        $filename = 'dgt-central-blogs-' . now()->format('Y-m-d') . '.csv';
+        if ($limit) {
+            $query->take($limit);
+        }
 
-        return response()->streamDownload(function () use ($query) {
+        $filenamePrefix = $limit ? "dgt-top-{$limit}-blogs-" : "dgt-central-blogs-";
+        $filename = $filenamePrefix . now()->format('Y-m-d') . '.csv';
+
+        return response()->streamDownload(function () use ($query, $limit) {
             $handle = fopen('php://output', 'w');
             // UTF-8 BOM for Microsoft Excel
             fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, [
+                'Rank',
                 'Website Name',
                 'Domain',
-                'Category',
-                'Assigned Member',
+                'Class / Category',
+                'Assigned Member (Handler)',
                 'Post Title',
-                'External ID',
                 'Canonical URL',
                 'Author',
                 'Published Date',
@@ -291,32 +315,54 @@ class WebsiteIntegrationController extends Controller
                 'Page Views',
                 'Unique Visitors',
                 'Analytics Source',
-                'Data Completeness',
                 'Last Synced Timestamp',
             ]);
 
-            $query->chunk(200, function ($posts) use ($handle) {
+            $rank = 1;
+            if ($limit) {
+                $posts = $query->get();
                 foreach ($posts as $post) {
                     fputcsv($handle, [
+                        '#' . $rank++,
                         $post->website?->name ?? 'Unknown',
                         $post->website?->clean_domain ?? '',
                         $post->website?->category ?? '-',
                         $post->website?->handler?->name ?? 'Unassigned',
                         $post->title,
-                        $post->external_id,
                         $post->canonical_url,
                         $post->author_name ?? '-',
-                        $post->published_at ? $post->published_at->format('Y-m-d H:i') : '-',
+                        $post->published_at ? $post->published_at->format('Y-m-d') : '-',
                         $post->cumulative_views,
                         $post->period_views,
                         $post->page_views,
                         $post->unique_visitors,
                         $post->analytics_source,
-                        $post->data_completeness,
                         $post->last_synced_at ? $post->last_synced_at->format('Y-m-d H:i') : '-',
                     ]);
                 }
-            });
+            } else {
+                $query->chunk(200, function ($posts) use ($handle, &$rank) {
+                    foreach ($posts as $post) {
+                        fputcsv($handle, [
+                            '#' . $rank++,
+                            $post->website?->name ?? 'Unknown',
+                            $post->website?->clean_domain ?? '',
+                            $post->website?->category ?? '-',
+                            $post->website?->handler?->name ?? 'Unassigned',
+                            $post->title,
+                            $post->canonical_url,
+                            $post->author_name ?? '-',
+                            $post->published_at ? $post->published_at->format('Y-m-d') : '-',
+                            $post->cumulative_views,
+                            $post->period_views,
+                            $post->page_views,
+                            $post->unique_visitors,
+                            $post->analytics_source,
+                            $post->last_synced_at ? $post->last_synced_at->format('Y-m-d H:i') : '-',
+                        ]);
+                    }
+                });
+            }
 
             fclose($handle);
         }, $filename, [
@@ -334,8 +380,21 @@ class WebsiteIntegrationController extends Controller
         $category = $request->get('category');
         $memberId = $request->get('member_id');
         $search = $request->get('search');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $limit = $request->filled('limit') && (int)$request->get('limit') > 0 ? (int)$request->get('limit') : null;
+        $sort = $request->get('sort', 'views_desc');
 
-        $query = WebsitePost::with(['website.handler'])->orderByDesc('cumulative_views');
+        $query = WebsitePost::with(['website.handler']);
+
+        // Sorting
+        match ($sort) {
+            'views_asc'      => $query->orderBy('cumulative_views', 'asc'),
+            'period_desc'    => $query->orderBy('period_views', 'desc'),
+            'published_desc' => $query->orderBy('published_at', 'desc'),
+            'published_asc'  => $query->orderBy('published_at', 'asc'),
+            default          => $query->orderBy('cumulative_views', 'desc'),
+        };
 
         if ($siteId) {
             $query->where('website_id', $siteId);
@@ -345,6 +404,12 @@ class WebsiteIntegrationController extends Controller
         }
         if ($memberId) {
             $query->whereHas('website', fn($q) => $q->assignedToMember((int) $memberId));
+        }
+        if ($dateFrom) {
+            $query->whereDate('published_at', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->whereDate('published_at', '<=', $dateTo);
         }
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -361,19 +426,29 @@ class WebsiteIntegrationController extends Controller
             });
         }
 
-        $posts = $query->take(100)->get();
+        $effectiveLimit = $limit ?? 100;
+        $posts = $query->take($effectiveLimit)->get();
         $totalViews = $posts->sum('cumulative_views');
         $site = $siteId ? Website::find($siteId) : null;
+        $member = $memberId ? User::find($memberId) : null;
 
         $pdf = Pdf::loadView('websites.integrations.pdf-blogs', [
             'posts'       => $posts,
             'totalViews'  => $totalViews,
             'website'     => $site,
+            'category'    => $category,
+            'member'      => $member,
+            'dateFrom'    => $dateFrom,
+            'dateTo'      => $dateTo,
+            'limit'       => $limit,
             'generatedAt' => now()->format('Y-m-d H:i:s'),
             'generatedBy' => auth()->user()?->name ?? 'System',
         ])->setPaper('a4', 'landscape');
 
-        return $pdf->download('dgt-blogs-report-' . now()->format('Y-m-d') . '.pdf');
+        $filenamePrefix = $limit ? "dgt-top-{$limit}-blogs-" : "dgt-blogs-report-";
+        $filename = $filenamePrefix . now()->format('Y-m-d') . '.pdf';
+
+        return $pdf->download($filename);
     }
 
     // ─── 5. SAVE / CONFIGURE INTEGRATION ──────────────────────────────────────
