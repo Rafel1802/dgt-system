@@ -219,7 +219,7 @@ class WebsiteIntegrationController extends Controller
         // Cached collections for fast dropdown filters and smooth tab switching
         $allWebsites = Cache::remember('dgt_active_websites_list', 180, function () {
             return Website::where('is_archived', false)
-                ->with('handler:id,name,email,avatar,avatar_color')
+                ->with('handler:id,name,email,avatar')
                 ->orderBy('name')
                 ->get(['id', 'name', 'category', 'handled_by', 'url']);
         });
@@ -232,7 +232,7 @@ class WebsiteIntegrationController extends Controller
         $members = Cache::remember('dgt_active_members_list', 180, function () {
             return User::where('is_active', true)
                 ->orderBy('name')
-                ->get(['id', 'name', 'email', 'avatar', 'avatar_color', 'team_role', 'crm_role']);
+                ->get(['id', 'name', 'email', 'avatar', 'team_role', 'crm_role']);
         });
         $selectedMember = $memberId ? $members->firstWhere('id', (int) $memberId) : null;
 
