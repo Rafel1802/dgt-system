@@ -170,7 +170,14 @@ class WebsiteIntegrationController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
                   ->orWhere('canonical_url', 'like', "%{$search}%")
-                  ->orWhere('author_name', 'like', "%{$search}%");
+                  ->orWhere('author_name', 'like', "%{$search}%")
+                  ->orWhereHas('website', function ($wq) use ($search) {
+                      $wq->where('name', 'like', "%{$search}%")
+                        ->orWhere('category', 'like', "%{$search}%")
+                        ->orWhereHas('handler', function ($hq) use ($search) {
+                            $hq->where('name', 'like', "%{$search}%");
+                        });
+                  });
             });
         }
 
@@ -195,7 +202,11 @@ class WebsiteIntegrationController extends Controller
 
         $posts = $query->paginate(30)->withQueryString();
 
-        $allWebsites = Website::where('is_archived', false)->orderBy('name')->get(['id', 'name']);
+        $allWebsites = Website::where('is_archived', false)
+            ->with('handler:id,name,avatar')
+            ->orderBy('name')
+            ->get(['id', 'name', 'category', 'handled_by', 'url']);
+        $selectedWebsite = $siteId ? $allWebsites->firstWhere('id', (int) $siteId) : null;
         $categories = Website::whereNotNull('category')->distinct()->pluck('category')->sort()->values();
         $members = User::where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
@@ -203,6 +214,7 @@ class WebsiteIntegrationController extends Controller
             'posts',
             'topRanked',
             'allWebsites',
+            'selectedWebsite',
             'categories',
             'members',
             'siteId',
@@ -226,6 +238,7 @@ class WebsiteIntegrationController extends Controller
         $category = $request->get('category');
         $memberId = $request->get('member_id');
         $source = $request->get('source');
+        $search = $request->get('search');
 
         $query = WebsitePost::with(['website.handler'])->orderByDesc('cumulative_views');
 
@@ -240,6 +253,20 @@ class WebsiteIntegrationController extends Controller
         }
         if ($source && $source !== 'all') {
             $query->where('analytics_source', $source);
+        }
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('canonical_url', 'like', "%{$search}%")
+                  ->orWhere('author_name', 'like', "%{$search}%")
+                  ->orWhereHas('website', function ($wq) use ($search) {
+                      $wq->where('name', 'like', "%{$search}%")
+                        ->orWhere('category', 'like', "%{$search}%")
+                        ->orWhereHas('handler', function ($hq) use ($search) {
+                            $hq->where('name', 'like', "%{$search}%");
+                        });
+                  });
+            });
         }
 
         $filename = 'dgt-central-blogs-' . now()->format('Y-m-d') . '.csv';
@@ -306,6 +333,7 @@ class WebsiteIntegrationController extends Controller
         $siteId = $request->get('website_id');
         $category = $request->get('category');
         $memberId = $request->get('member_id');
+        $search = $request->get('search');
 
         $query = WebsitePost::with(['website.handler'])->orderByDesc('cumulative_views');
 
@@ -317,6 +345,20 @@ class WebsiteIntegrationController extends Controller
         }
         if ($memberId) {
             $query->whereHas('website', fn($q) => $q->assignedToMember((int) $memberId));
+        }
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('canonical_url', 'like', "%{$search}%")
+                  ->orWhere('author_name', 'like', "%{$search}%")
+                  ->orWhereHas('website', function ($wq) use ($search) {
+                      $wq->where('name', 'like', "%{$search}%")
+                        ->orWhere('category', 'like', "%{$search}%")
+                        ->orWhereHas('handler', function ($hq) use ($search) {
+                            $hq->where('name', 'like', "%{$search}%");
+                        });
+                  });
+            });
         }
 
         $posts = $query->take(100)->get();

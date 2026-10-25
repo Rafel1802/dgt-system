@@ -99,9 +99,16 @@
                         <div>
                             <div class="flex items-center justify-between">
                                 <span class="blog-rank-badge {{ $badgeClass }}">#{{ $index + 1 }}</span>
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-                                    {{ $rankPost->website?->name }}
-                                </span>
+                                <div class="flex items-center gap-1 flex-wrap justify-end">
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                                        {{ $rankPost->website?->name }}
+                                    </span>
+                                    @if($rankPost->website?->category)
+                                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                            {{ $rankPost->website->category }}
+                                        </span>
+                                    @endif
+                                </div>
                             </div>
                             <h4 class="mt-3 text-xs font-bold text-slate-900 dark:text-white line-clamp-2" title="{{ $rankPost->title }}">
                                 {{ $rankPost->title }}
@@ -123,18 +130,141 @@
     <form method="GET" action="{{ route('websites.blogs.index') }}" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-3">
         <!-- Search -->
         <div class="relative flex-1 min-w-[220px]">
-            <input type="text" name="search" value="{{ $search }}" placeholder="Search post title, author, url..."
+            <input type="text" name="search" value="{{ $search }}" placeholder="Search title, author, website, handler, class..."
                    class="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
 
-        <!-- Website Dropdown -->
-        <select name="website_id" onchange="this.form.submit()" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            <option value="">All Websites</option>
-            @foreach($allWebsites as $w)
-                <option value="{{ $w->id }}" {{ $siteId == $w->id ? 'selected' : '' }}>{{ $w->name }}</option>
-            @endforeach
-        </select>
+        <!-- Searchable Website Dropdown with Handler & Class -->
+        <div class="relative" x-data="{
+            open: false,
+            searchQuery: '',
+            selectedId: '{{ $siteId }}',
+            selectedName: '{{ $selectedWebsite ? addslashes($selectedWebsite->name) : 'All Websites' }}',
+            selectedClass: '{{ $selectedWebsite ? addslashes($selectedWebsite->category ?: '') : '' }}',
+            selectedHandler: '{{ $selectedWebsite && $selectedWebsite->handler ? addslashes($selectedWebsite->handler->name) : '' }}',
+            items: [
+                @foreach($allWebsites as $w)
+                {
+                    id: '{{ $w->id }}',
+                    name: '{{ addslashes($w->name) }}',
+                    category: '{{ addslashes($w->category ?: 'Uncategorized') }}',
+                    handler: '{{ addslashes($w->handler?->name ?: 'Unassigned') }}'
+                },
+                @endforeach
+            ],
+            get filtered() {
+                if (!this.searchQuery.trim()) return this.items;
+                const terms = this.searchQuery.toLowerCase().trim().split(/\s+/);
+                return this.items.filter(item => {
+                    const haystack = (item.name + ' ' + item.category + ' ' + item.handler).toLowerCase();
+                    return terms.every(t => haystack.includes(t));
+                });
+            },
+            select(site) {
+                if (!site) {
+                    this.selectedId = '';
+                    this.selectedName = 'All Websites';
+                    this.selectedClass = '';
+                    this.selectedHandler = '';
+                } else {
+                    this.selectedId = site.id;
+                    this.selectedName = site.name;
+                    this.selectedClass = site.category;
+                    this.selectedHandler = site.handler;
+                }
+                this.open = false;
+                this.$refs.hiddenInput.value = this.selectedId;
+                this.$refs.hiddenInput.form.submit();
+            }
+        }" @keydown.window.escape="open = false">
+            <!-- Hidden input for form submission -->
+            <input type="hidden" name="website_id" x-ref="hiddenInput" value="{{ $siteId }}">
+
+            <!-- Trigger Button -->
+            <button type="button" @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                    class="flex items-center justify-between gap-2.5 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 transition min-w-[220px] max-w-[340px]">
+                <div class="flex items-center gap-2 overflow-hidden text-left">
+                    <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                    <div class="truncate">
+                        <span class="font-bold text-xs" x-text="selectedName"></span>
+                        <template x-if="selectedClass">
+                            <span class="ml-1 px-1.5 py-0.2 text-[10px] font-bold rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300" x-text="selectedClass"></span>
+                        </template>
+                        <template x-if="selectedHandler && selectedHandler !== 'Unassigned'">
+                            <span class="ml-1 text-[11px] text-slate-500 dark:text-slate-400" x-text="'(' + selectedHandler + ')'"></span>
+                        </template>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <template x-if="selectedId">
+                        <span @click.stop="select(null)" title="Clear website filter" class="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </span>
+                    </template>
+                    <svg class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+            </button>
+
+            <!-- Dropdown Panel -->
+            <div x-show="open" @click.outside="open = false" x-cloak
+                 class="absolute left-0 z-50 mt-1.5 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden ring-1 ring-black/5">
+                
+                <!-- Search Input Header -->
+                <div class="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
+                    <div class="relative">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <input type="text" x-ref="searchInput" x-model="searchQuery"
+                               placeholder="Search website, handler, class..."
+                               @keydown.escape="open = false"
+                               class="w-full pl-9 pr-7 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" x-show="searchQuery" @click="searchQuery = ''; $refs.searchInput.focus()" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs">✕</button>
+                    </div>
+                    <div class="flex items-center justify-between mt-2 px-1 text-[11px] text-slate-400">
+                        <span x-text="'Showing ' + filtered.length + ' of ' + items.length + ' websites'"></span>
+                        <span class="text-[10px] uppercase font-bold text-slate-400">Name • Class • Handler</span>
+                    </div>
+                </div>
+
+                <!-- List of Websites -->
+                <div class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/50 p-1.5 custom-scrollbar">
+                    <!-- Option: All Websites -->
+                    <button type="button" @click="select(null)"
+                            class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between"
+                            :class="!selectedId ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'">
+                        <span class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                            All Websites (Reset filter)
+                        </span>
+                        <span class="text-[10px] text-slate-400" x-text="'(' + items.length + ')'"></span>
+                    </button>
+
+                    <!-- Website Items -->
+                    <template x-for="item in filtered" :key="item.id">
+                        <button type="button" @click="select(item)"
+                                class="w-full text-left px-3 py-2.5 rounded-xl transition flex flex-col gap-1 border-b border-slate-50 dark:border-slate-800/40 last:border-b-0"
+                                :class="selectedId == item.id ? 'bg-indigo-50/90 dark:bg-indigo-950/80 text-indigo-900 dark:text-indigo-200' : 'hover:bg-slate-50 dark:hover:bg-slate-800/70'">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-extrabold text-xs text-slate-900 dark:text-white truncate" x-text="item.name"></span>
+                                <span x-show="selectedId == item.id" class="text-indigo-600 dark:text-indigo-400 shrink-0 font-bold text-xs">✓</span>
+                            </div>
+                            <div class="flex items-center gap-2 flex-wrap text-[11px]">
+                                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50" x-text="item.category"></span>
+                                <span class="text-slate-600 dark:text-slate-300 flex items-center gap-1 font-medium">
+                                    <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    <span x-text="item.handler"></span>
+                                </span>
+                            </div>
+                        </button>
+                    </template>
+
+                    <!-- Empty State -->
+                    <div x-show="filtered.length === 0" class="py-6 text-center text-xs text-slate-400">
+                        No websites match "<span class="font-bold text-slate-600 dark:text-slate-300" x-text="searchQuery"></span>"
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Category Dropdown -->
         <select name="category" onchange="this.form.submit()" class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
@@ -182,7 +312,7 @@
                 <thead>
                     <tr class="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700/80 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         <th class="py-3.5 px-4">Post Title & URL</th>
-                        <th class="py-3.5 px-3">Website & Category</th>
+                        <th class="py-3.5 px-3">Website, Class & Handler</th>
                         <th class="py-3.5 px-3">Author</th>
                         <th class="py-3.5 px-3">Published Date</th>
                         <th class="py-3.5 px-3">Cumulative Views</th>
@@ -206,14 +336,22 @@
                                 </a>
                             </td>
 
-                            <!-- Website & Category -->
+                            <!-- Website, Class & Handler -->
                             <td class="py-3.5 px-3">
                                 <div class="font-bold text-slate-800 dark:text-slate-200">
                                     {{ $post->website?->name }}
                                 </div>
-                                <span class="inline-block mt-0.5 px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                                    {{ $post->website?->category ?: '-' }}
-                                </span>
+                                <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                    <span class="inline-block px-1.5 py-0.2 text-[10px] font-bold rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">
+                                        {{ $post->website?->category ?: '-' }}
+                                    </span>
+                                    @if($post->website?->handler)
+                                        <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                            <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            {{ $post->website->handler->name }}
+                                        </span>
+                                    @endif
+                                </div>
                             </td>
 
                             <!-- Author -->
