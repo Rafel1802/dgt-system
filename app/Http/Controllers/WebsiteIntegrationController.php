@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -92,16 +93,29 @@ class WebsiteIntegrationController extends Controller
 
         $websites = $query->orderBy('name')->paginate(25)->withQueryString();
 
-        // Summary Statistics across all non-archived websites
-        $totalWebsites = Website::where('is_archived', false)->count();
-        $connectedCmsCount = WebsiteIntegration::where('cms_status', WebsiteIntegration::CMS_STATUS_CONNECTED)->where('is_active', true)->count();
-        $notConnectedCount = $totalWebsites - $connectedCmsCount;
-        $connectedAnalyticsCount = WebsiteIntegration::where('analytics_status', WebsiteIntegration::ANALYTICS_STATUS_CONNECTED)->count();
-        $totalBlogPosts = WebsitePost::count();
-        $totalCumulativeViews = (int) WebsitePost::sum('cumulative_views');
-        $recentErrorsCount = WebsiteSyncLog::where('status', WebsiteSyncLog::STATUS_FAILED)
-            ->where('created_at', '>=', now()->subHours(24))
-            ->count();
+        // Summary Statistics across all non-archived websites (cached 60s for instant tab switching)
+        $stats = Cache::remember('dgt_fleet_summary_metrics', 60, function () {
+            $totalWebsites = Website::where('is_archived', false)->count();
+            $connectedCmsCount = WebsiteIntegration::where('cms_status', WebsiteIntegration::CMS_STATUS_CONNECTED)->where('is_active', true)->count();
+            $notConnectedCount = $totalWebsites - $connectedCmsCount;
+            $connectedAnalyticsCount = WebsiteIntegration::where('analytics_status', WebsiteIntegration::ANALYTICS_STATUS_CONNECTED)->count();
+            $totalBlogPosts = WebsitePost::count();
+            $totalCumulativeViews = (int) WebsitePost::sum('cumulative_views');
+            $recentErrorsCount = WebsiteSyncLog::where('status', WebsiteSyncLog::STATUS_FAILED)
+                ->where('created_at', '>=', now()->subHours(24))
+                ->count();
+
+            return compact(
+                'totalWebsites',
+                'connectedCmsCount',
+                'notConnectedCount',
+                'connectedAnalyticsCount',
+                'totalBlogPosts',
+                'totalCumulativeViews',
+                'recentErrorsCount'
+            );
+        });
+        extract($stats);
 
         // Filter dropdown data
         $categories = Website::whereNotNull('category')->distinct()->pluck('category')->sort()->values();
@@ -202,13 +216,22 @@ class WebsiteIntegrationController extends Controller
 
         $posts = $query->paginate(30)->withQueryString();
 
-        $allWebsites = Website::where('is_archived', false)
-            ->with('handler:id,name,avatar')
-            ->orderBy('name')
-            ->get(['id', 'name', 'category', 'handled_by', 'url']);
+        // Cached collections for fast dropdown filters and smooth tab switching
+        $allWebsites = Cache::remember('dgt_active_websites_list', 180, function () {
+            return Website::where('is_archived', false)
+                ->with('handler:id,name,avatar')
+                ->orderBy('name')
+                ->get(['id', 'name', 'category', 'handled_by', 'url']);
+        });
         $selectedWebsite = $siteId ? $allWebsites->firstWhere('id', (int) $siteId) : null;
-        $categories = Website::whereNotNull('category')->distinct()->pluck('category')->sort()->values();
-        $members = User::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+
+        $categories = Cache::remember('dgt_website_categories_list', 180, function () {
+            return Website::whereNotNull('category')->distinct()->pluck('category')->sort()->values();
+        });
+
+        $members = Cache::remember('dgt_active_members_list', 180, function () {
+            return User::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        });
 
         return view('websites.integrations.blogs', compact(
             'posts',
