@@ -263,6 +263,26 @@ class Website extends Model
         return $this->hasMany(\App\Models\GoogleSearchConsole\GoogleSearchConsoleDevice::class, 'website_id');
     }
 
+    public function integration(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(WebsiteIntegration::class, 'website_id');
+    }
+
+    public function posts(): HasMany
+    {
+        return $this->hasMany(WebsitePost::class, 'website_id');
+    }
+
+    public function postSnapshots(): HasMany
+    {
+        return $this->hasMany(WebsitePostAnalyticsSnapshot::class, 'website_id');
+    }
+
+    public function syncLogs(): HasMany
+    {
+        return $this->hasMany(WebsiteSyncLog::class, 'website_id')->orderByDesc('created_at');
+    }
+
     /**
      * Scope query to websites assigned to specified user(s) (via handled_by or website_assignees)
      */

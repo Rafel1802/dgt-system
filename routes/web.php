@@ -133,6 +133,19 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/websites/dashboard', [\App\Http\Controllers\WebsitesDashboardController::class, 'index'])->name('websites.dashboard');
             Route::get('/websites/dashboard/export', [\App\Http\Controllers\WebsitesDashboardController::class, 'export'])->name('websites.dashboard.export');
 
+            // ── Central Website Integration Platform & Blog Analytics ──
+            Route::get('/websites/integrations', [\App\Http\Controllers\WebsiteIntegrationController::class, 'index'])->name('websites.integrations.index');
+            Route::get('/websites/blogs', [\App\Http\Controllers\WebsiteIntegrationController::class, 'blogs'])->name('websites.blogs.index');
+            Route::get('/websites/blogs/export/csv', [\App\Http\Controllers\WebsiteIntegrationController::class, 'exportBlogsCsv'])->name('websites.blogs.export.csv');
+            Route::get('/websites/blogs/export/pdf', [\App\Http\Controllers\WebsiteIntegrationController::class, 'exportBlogsPdf'])->name('websites.blogs.export.pdf');
+            Route::post('/websites/{website}/integration', [\App\Http\Controllers\WebsiteIntegrationController::class, 'saveIntegration'])->name('websites.integration.save');
+            Route::post('/websites/{website}/integration/test', [\App\Http\Controllers\WebsiteIntegrationController::class, 'testConnection'])->name('websites.integration.test');
+            Route::post('/websites/{website}/integration/sync', [\App\Http\Controllers\WebsiteIntegrationController::class, 'syncNow'])->name('websites.integration.sync');
+            Route::post('/websites/{website}/integration/rotate-key', [\App\Http\Controllers\WebsiteIntegrationController::class, 'rotateCredentials'])->name('websites.integration.rotate');
+            Route::post('/websites/{website}/integration/disconnect', [\App\Http\Controllers\WebsiteIntegrationController::class, 'disconnect'])->name('websites.integration.disconnect');
+            Route::post('/websites/{website}/integration/unsync', [\App\Http\Controllers\WebsiteIntegrationController::class, 'unsync'])->name('websites.integration.unsync');
+            Route::get('/websites/{website}/integration/logs', [\App\Http\Controllers\WebsiteIntegrationController::class, 'getLogs'])->name('websites.integration.logs');
+
             // Category management
             Route::post('/websites/category', [\App\Http\Controllers\WebsiteController::class, 'storeCategory'])->name('websites.storeCategory');
             Route::put('/websites/category/rename', [\App\Http\Controllers\WebsiteController::class, 'renameCategory'])->name('websites.renameCategory');

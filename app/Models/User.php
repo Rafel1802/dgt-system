@@ -329,6 +329,9 @@ SVG;
         if ($this->hasAnyRole(['super-admin', 'admin-digital'])) {
             return true;
         }
+        if ($this->canAccessCentralConnectors()) {
+            return true;
+        }
         return \App\Models\WebsiteMember::where('user_id', $this->id)->exists();
     }
 
@@ -1153,6 +1156,39 @@ SVG;
         $name = strtolower($this->name ?? '');
         if (str_contains($name, 'dara') && (str_contains($name, 'qc') || str_contains(strtolower($this->team_role ?? ''), 'qc'))) {
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if user has permission to access the Central Website Connectors module.
+     * Strictly restricted to:
+     * - username "dara" (or name containing "dara")
+     * - SuperAdmin (ID: 1, super-admin role, or username 'superadmin')
+     */
+    public function canAccessCentralConnectors(): bool
+    {
+        if ((int) $this->id === 1) {
+            return true;
+        }
+
+        $username = strtolower(trim($this->username ?? ''));
+        $name = strtolower(trim($this->name ?? ''));
+
+        if (in_array($username, ['dara', 'superadmin'], true)
+            || str_contains($username, 'dara')
+            || str_starts_with($name, 'mr. dara')
+            || str_contains($name, 'dara')) {
+            return true;
+        }
+
+        try {
+            if ($this->hasRole('super-admin')) {
+                return true;
+            }
+        } catch (\Throwable) {
+            // Role may not exist in current environment/test DB
         }
 
         return false;

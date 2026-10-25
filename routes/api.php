@@ -47,3 +47,14 @@ Route::middleware(['check.ip.ban'])->group(function () {
         Route::get('/social-media', [SocialMediaController::class, 'dashboard']);
     });
 });
+
+// ─── Versioned Website Connector API (v1) ───────────────────────────────────
+Route::prefix('v1/connector')
+    ->middleware(['check.ip.ban', 'auth.connector', 'throttle:60,1'])
+    ->group(function () {
+        Route::get('/handshake', [\App\Http\Controllers\Api\V1\WebsiteConnectorController::class, 'handshake'])->name('api.v1.connector.handshake');
+        Route::post('/verify', [\App\Http\Controllers\Api\V1\WebsiteConnectorController::class, 'verify'])->name('api.v1.connector.verify');
+        Route::post('/ping', [\App\Http\Controllers\Api\V1\WebsiteConnectorController::class, 'ping'])->name('api.v1.connector.ping');
+        Route::post('/sync/posts', [\App\Http\Controllers\Api\V1\WebsiteConnectorController::class, 'syncPosts'])->name('api.v1.connector.sync.posts');
+    });
+

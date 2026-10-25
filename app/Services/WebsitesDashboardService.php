@@ -6,6 +6,7 @@ use App\Enums\CardStatus;
 use App\Models\Board;
 use App\Models\Card;
 use App\Models\Website;
+use App\Models\WebsitePost;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -80,12 +81,13 @@ class WebsitesDashboardService
         $localOpenIssues  = $allRawCards->where('status_value', 'todo')->count();
         $localBlogCount   = $allRawCards->filter(fn($c) => str_contains(strtolower($c['sub_label'] ?? ''), 'blog'))->count();
         $localPluginCount = $allRawCards->filter(fn($c) => str_contains(strtolower($c['sub_label'] ?? ''), 'plugin'))->count();
+        $realBlogCount    = WebsitePost::whereIn('website_id', $websites->pluck('id'))->count();
 
-        // Prefer API data when available, add local for any gaps
+        // Prefer real synchronized post data, then API data when available, add local for any gaps
         $globalMetrics = [
             'total_open_issues'       => $apiData->isNotEmpty() ? $apiOpenIssues : $localOpenIssues,
             'overall_completion_rate' => $this->globalCompletionRate($websiteData),
-            'active_blog_schedules'   => $apiData->isNotEmpty() ? $apiBlogCount   : $localBlogCount,
+            'active_blog_schedules'   => $realBlogCount > 0 ? $realBlogCount : ($apiData->isNotEmpty() ? $apiBlogCount : $localBlogCount),
             'pending_plugin_updates'  => $apiData->isNotEmpty() ? $apiPluginCount  : $localPluginCount,
         ];
 
@@ -265,6 +267,9 @@ class WebsitesDashboardService
             'pillars'            => $pillars,
             'qc_badges'          => $qcBadges,
             'followup_schedule'  => $remoteEntry['followup_schedule'] ?? null,
+            'integration'        => $website->integration,
+            'posts_count'        => $website->posts()->count(),
+            'cumulative_views'   => (int) $website->posts()->sum('cumulative_views'),
             '_raw_cards'         => $rawCards,
             '_raw_tasks'         => $remoteEntry['_raw_tasks'] ?? [],
         ];

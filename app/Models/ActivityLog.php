@@ -39,6 +39,30 @@ class ActivityLog extends Model
     }
 
     /**
+     * Record a system activity safely.
+     */
+    public static function record($user, string $action, string $description, ?Model $subject = null, array $properties = []): ?self
+    {
+        try {
+            $userId = is_numeric($user) ? (int) $user : ($user instanceof User ? $user->id : auth()->id());
+            return self::create([
+                'user_id'      => $userId,
+                'action'       => $action,
+                'module'       => 'websites',
+                'description'  => $description,
+                'subject_type' => $subject ? get_class($subject) : null,
+                'subject_id'   => $subject?->id,
+                'properties'   => $properties,
+                'ip_address'   => request()?->ip(),
+                'user_agent'   => request()?->userAgent(),
+                'created_at'   => now(),
+            ]);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
      * Accessor: Always return clean, human-readable English without route dots.
      */
     public function getDescriptionAttribute(?string $value): string
