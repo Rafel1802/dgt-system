@@ -74,7 +74,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             return "Updated $count";
         });
 
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard')->middleware('maintenance:dashboard');
         Route::view('/mac-app', 'downloads.mac-app')->name('downloads.mac-app');
         // Internal-only: validates Livewire + Turbo coexist safely. Not linked from any menu. Remove after Livewire rollout is verified stable.
         Route::view('/internal/livewire-test', 'internal.livewire-test')->name('internal.livewire-test');
@@ -92,12 +92,44 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::delete('/attachments/{attachment}', [\App\Http\Controllers\AttachmentController::class, 'destroy'])->name('attachments.destroy');
 
         // ── All Members Directory (read-only — data from users table) ────────
-        Route::get('/members', [MemberController::class, 'index'])->name('members.index');
-        Route::get('/members/search', [MemberController::class, 'search'])->name('members.search');
+        Route::get('/members', [MemberController::class, 'index'])->name('members.index')->middleware('maintenance:members');
+        Route::get('/members/search', [MemberController::class, 'search'])->name('members.search')->middleware('maintenance:members');
 
         // All Websites (Digital Team)
         // ── All Websites Executive Dashboard ──────────────────────────────────
         Route::middleware(['maintenance:all_websites'])->group(function () {
+            // Google Search Console Integration
+            Route::get('/google/search-console/connect', [\App\Http\Controllers\GoogleSearchConsoleAuthController::class, 'redirect'])->name('google.search-console.connect');
+            Route::get('/google/search-console/callback', [\App\Http\Controllers\GoogleSearchConsoleAuthController::class, 'callback'])->name('google.search-console.callback');
+            Route::post('/google/search-console/disconnect', [\App\Http\Controllers\GoogleSearchConsoleAuthController::class, 'disconnect'])->name('google.search-console.disconnect');
+            Route::get('/google/search-console/status', [\App\Http\Controllers\GoogleSearchConsoleAuthController::class, 'status'])->name('google.search-console.status');
+
+            Route::get('/websites/google-search-console', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'index'])->name('websites.search-console.index');
+            Route::get('/websites/google-search-console/data', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'data'])->name('websites.search-console.data');
+            Route::get('/websites/google-search-console/keyword-details', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'keywordDetails'])->name('websites.search-console.keyword-details');
+            Route::get('/websites/google-search-console/properties', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'properties'])->name('websites.search-console.properties');
+            Route::post('/websites/google-search-console/mappings', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'saveMapping'])->name('websites.search-console.mappings.save');
+            Route::post('/websites/google-search-console/mappings/batch', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'batchSaveMappings'])->name('websites.search-console.mappings.batch');
+            Route::match(['get', 'post'], '/websites/google-search-console/mappings/auto-match', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'autoMatchMappings'])->name('websites.search-console.mappings.auto-match');
+            Route::delete('/websites/google-search-console/mappings/{id}', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'deleteMapping'])->name('websites.search-console.mappings.delete');
+            Route::get('/websites/google-search-console/compare-data', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'compareData'])->name('websites.search-console.compare-data');
+            Route::post('/websites/google-search-console/sync', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'syncNow'])->name('websites.search-console.sync');
+            Route::post('/websites/google-search-console/auto-sync-check', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'autoSyncCheck'])->name('websites.search-console.auto-sync-check');
+            Route::get('/websites/google-search-console/export/pdf', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'exportPdf'])->name('websites.search-console.export.pdf');
+            Route::get('/websites/google-search-console/export/excel', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'exportExcel'])->name('websites.search-console.export.excel');
+            Route::get('/websites/google-search-console/export/csv', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'exportCsv'])->name('websites.search-console.export.csv');
+            
+            // Sitemaps & Page Indexation Hub
+            Route::get('/websites/google-search-console/sitemaps', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'getSitemaps'])->name('websites.search-console.sitemaps');
+            Route::post('/websites/google-search-console/sitemaps/submit', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'submitSitemap'])->name('websites.search-console.sitemaps.submit');
+            Route::delete('/websites/google-search-console/sitemaps/delete', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'deleteSitemap'])->name('websites.search-console.sitemaps.delete');
+            Route::post('/websites/google-search-console/sitemaps/test', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'testSitemapUrl'])->name('websites.search-console.sitemaps.test');
+            Route::get('/websites/google-search-console/index-status', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'getIndexStatus'])->name('websites.search-console.index-status');
+            Route::post('/websites/google-search-console/inspect-url', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'inspectUrl'])->name('websites.search-console.inspect-url');
+            Route::post('/websites/google-search-console/test-live-url', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'testLiveUrl'])->name('websites.search-console.test-live-url');
+            Route::post('/websites/google-search-console/sitemaps/update-coverage', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'updateCoverageSnapshot'])->name('websites.search-console.sitemaps.update-coverage');
+            Route::get('/websites/google-search-console/export/sitemaps-csv', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'exportSitemapsCsv'])->name('websites.search-console.export.sitemaps-csv');
+
             Route::get('/websites/dashboard', [\App\Http\Controllers\WebsitesDashboardController::class, 'index'])->name('websites.dashboard');
             Route::get('/websites/dashboard/export', [\App\Http\Controllers\WebsitesDashboardController::class, 'export'])->name('websites.dashboard.export');
 
@@ -438,12 +470,12 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         })->where('any', '.*')->name('approvals.index');
 
         // ── Member Tasks Count Panel (Planning Boards) ────────────────────
-        Route::get('/tasks-count', [\App\Http\Controllers\Board\TaskCountController::class, 'index'])->name('tasks.count');
+        Route::get('/tasks-count', [\App\Http\Controllers\Board\TaskCountController::class, 'index'])->name('tasks.count')->middleware('maintenance:tasks_count');
 
 
 
         // ── Reports — Phase 5 ─────────────────────────────────────────────
-        Route::middleware(['role:super-admin|admin-digital|admin-crm|sales-crm|boss'])
+        Route::middleware(['role:super-admin|admin-digital|admin-crm|sales-crm|boss', 'maintenance:reports'])
             ->prefix('reports')
             ->name('reports.')
             ->group(function () {
@@ -567,7 +599,7 @@ Route::middleware(['auth'])->group(function () {
 // ==============================================================================
 // Digital Media KPI System Routes (Strictly for Supervisor, Dara, Kim & Superadmin)
 // ==============================================================================
-Route::middleware(['auth', 'ensure.active', \App\Http\Middleware\EnsureKpiAccess::class])
+Route::middleware(['auth', 'ensure.active', \App\Http\Middleware\EnsureKpiAccess::class, 'maintenance:kpi'])
     ->prefix('kpi')
     ->name('kpi.')
     ->group(function () {

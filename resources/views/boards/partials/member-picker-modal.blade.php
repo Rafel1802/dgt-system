@@ -8,7 +8,7 @@
 <div x-show="memberPicker.open" x-cloak
      class="fixed inset-0 flex items-center justify-center p-4"
      style="z-index: 110;"
-     @keydown.escape.window="closeMemberPicker()">
+     @keydown.escape.window="if(memberPicker?.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeMemberPicker(); }">
 
   {{-- Backdrop --}}
   <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"

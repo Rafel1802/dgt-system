@@ -484,29 +484,53 @@ class SystemHealthService
         $maintenanceModules = json_decode($maintenanceJson, true) ?: [];
 
         $modules = [
+            'dashboard' => [
+                'name' => 'Main Dashboard',
+                'status' => in_array('dashboard', $maintenanceModules) ? 'maintenance' : 'operational',
+            ],
+            'members' => [
+                'name' => 'All Members Directory',
+                'status' => in_array('members', $maintenanceModules) ? 'maintenance' : 'operational',
+            ],
             'boards' => [
                 'name' => 'Boards & Workspaces',
                 'status' => in_array('boards', $maintenanceModules) ? 'maintenance' : 'operational',
             ],
-            'social_media' => [
-                'name' => 'Social Media Management',
-                'status' => (in_array('social_media', $maintenanceModules) || in_array('social_media_planning', $maintenanceModules)) ? 'maintenance' : 'operational',
+            'tasks_count' => [
+                'name' => 'Tasks Count Panel',
+                'status' => in_array('tasks_count', $maintenanceModules) ? 'maintenance' : 'operational',
+            ],
+            'personal_report' => [
+                'name' => 'Personal Report',
+                'status' => (in_array('personal_report', $maintenanceModules) || in_array('boards', $maintenanceModules)) ? 'maintenance' : 'operational',
             ],
             'all_websites' => [
                 'name' => 'All Websites & Follow Ups',
                 'status' => (in_array('all_websites', $maintenanceModules) || in_array('websites_status', $maintenanceModules)) ? 'maintenance' : 'operational',
             ],
+            'google_search_console' => [
+                'name' => 'Google Search Console',
+                'status' => (in_array('google_search_console', $maintenanceModules) || in_array('all_websites', $maintenanceModules)) ? 'maintenance' : 'operational',
+            ],
+            'social_media' => [
+                'name' => 'Social Media Management',
+                'status' => (in_array('social_media', $maintenanceModules) || in_array('social_media_planning', $maintenanceModules) || in_array('social_media_analytics', $maintenanceModules)) ? 'maintenance' : 'operational',
+            ],
             'notes' => [
                 'name' => 'Notes & Collaboration',
                 'status' => in_array('notes', $maintenanceModules) ? 'maintenance' : 'operational',
             ],
+            'kpi' => [
+                'name' => 'Digital Media KPI',
+                'status' => in_array('kpi', $maintenanceModules) ? 'maintenance' : 'operational',
+            ],
+            'reports' => [
+                'name' => 'Reports Portals',
+                'status' => in_array('reports', $maintenanceModules) ? 'maintenance' : 'operational',
+            ],
             'approvals' => [
                 'name' => 'Supervisor Approval Queue',
                 'status' => in_array('approvals', $maintenanceModules) ? 'maintenance' : 'operational',
-            ],
-            'crm' => [
-                'name' => 'Customer CRM & Tech Support',
-                'status' => in_array('crm', $maintenanceModules) ? 'maintenance' : 'operational',
             ],
         ];
 

@@ -5,20 +5,9 @@ import Sortable from 'sortablejs';
 
 // Expose globally for inline scripts
 window.Sortable = Sortable;
-window.loadChart = (() => {
-    let chartPromise = null;
-
-    return async () => {
-        if (window.Chart) return window.Chart;
-
-        chartPromise ??= import('chart.js/auto').then((module) => {
-            window.Chart = module.default;
-            return window.Chart;
-        });
-
-        return chartPromise;
-    };
-})();
+import Chart from 'chart.js/auto';
+window.Chart = Chart;
+window.loadChart = async () => window.Chart;
 
 // Register Alpine.js plugins
 Alpine.plugin(collapse);

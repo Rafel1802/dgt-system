@@ -21,4 +21,8 @@ Schedule::command('app:cleanup-trash')->daily();
 // Auto-clear activity and security logs older than 7 days (1 week retention)
 Schedule::command('system:cleanup --days=7')->daily()->name('system-cleanup-weekly-logs')->withoutOverlapping();
 
+// Daily Google Search Console Performance Data Sync
+Schedule::command('gsc:sync --days=30')->dailyAt('03:00')->withoutOverlapping()->name('gsc-sync-daily');
+
+
 

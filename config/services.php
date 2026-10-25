@@ -67,4 +67,10 @@ return [
         'api_secret' => env('GOOGLE_KPI_API_SECRET', 'kpi-drive-sync-secret-2026'),
     ],
 
+    'google_search_console' => [
+        'client_id'     => env('GOOGLE_SEARCH_CONSOLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET'),
+        'redirect_uri'  => env('GOOGLE_SEARCH_CONSOLE_REDIRECT_URI'),
+    ],
+
 ];

@@ -158,7 +158,7 @@
                     $rowClassCenter = $taskRowNum % 2 == 0 ? 's13' : 's6'; // Center
                     $cardUrl = ($c->board ? route('boards.show', $c->board->slug) : (isset($board) && $board ? route('boards.show', $board->slug) : null));
                     if ($cardUrl) {
-                        $cardUrl .= '?card=' . $c->id;
+                        $cardUrl .= '?card=' . ($c->parent_card_id ?? $c->id);
                     }
                 @endphp
                 <tr>
@@ -170,6 +170,9 @@
                             <a href="{{ $cardUrl }}" target="_blank" style="color: #0f172a; text-decoration: underline;">{{ $c->title }}</a>
                         @else
                             {{ $c->title }}
+                        @endif
+                        @if($c->is_checklist_task ?? false)
+                            <div style="font-size: 8pt; color: #64748b; margin-top: 2px;">[Checklist: {{ $c->checklist_item_name }}]</div>
                         @endif
                         @if(($includeDesc ?? false) && !empty($c->description))
                             <div style="font-size: 8pt; color: #64748b; margin-top: 4px;">{{ Str::limit(strip_tags($c->description), 200) }}</div>

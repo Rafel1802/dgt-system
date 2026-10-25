@@ -81,7 +81,7 @@
 <div x-show="activeCard !== null" x-cloak
      class="fixed inset-0"
      style="z-index: 70;"
-     @keydown.escape.window="if(activeCard !== null && !groupFolderModal?.open && !imagePreview.open && !attachmentModal?.open && !exportModal?.open && !switchBoardsModal?.open && !importModal?.open && !cardTransferModal?.open && !checklistItemModal?.open && !videoPreview?.open && !canvaPreview?.open) { $event.preventDefault(); closeCard(); }"
+     @keydown.escape.window="if(activeCard !== null && !isAnyPreviewOrModalOpen()) { $event.preventDefault(); closeCard(); }"
      @keydown.window="handleCardModalKeydown($event)">
 
   {{-- Fixed Fullscreen Backdrop with Blur --}}

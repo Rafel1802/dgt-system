@@ -427,10 +427,13 @@ class CardChecklistItem extends Model
             '/\bshort\s+video\b/i',
             '/\bvideo\s+landscape\b/i',
             '/\blandscape\s+video\b/i',
+            '/\bvideo\s+long\b/i',
+            '/\blong\s+video\b/i',
             '/\bvideo\s+content\b/i',
             '/\bvideo\b/i',
             '/\bshort\b/i',
             '/\breels?\b/i',
+            '/\btiktok\b/i',
         ];
 
         $graphicPatterns = [
@@ -442,6 +445,9 @@ class CardChecklistItem extends Model
             '/\bartwork\b/i',
             '/\bbanner\b/i',
             '/\bcreative\b/i',
+            '/\bcarousel\b/i',
+            '/\bphoto\b/i',
+            '/\bimage\b/i',
         ];
 
         foreach ($videoPatterns as $pattern) {

@@ -45,7 +45,7 @@
 <div x-show="attachmentModal.open" x-cloak
      class="fixed inset-0 flex items-center justify-center p-4"
      style="z-index: 110;"
-     @keydown.escape.window="closeAttachmentModal()">
+     @keydown.escape.window="if(attachmentModal.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeAttachmentModal(); }">
 
   {{-- Backdrop --}}
   <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
@@ -590,7 +590,7 @@
 <div x-show="folderViewer.open" x-cloak
      class="fixed inset-0 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-3 sm:p-6"
      style="z-index: 112;"
-     @keydown.escape.window="if(folderViewer.open) { $event.preventDefault(); closeFolderViewer(); }"
+     @keydown.escape.window="if(folderViewer.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeFolderViewer(); }"
      @click="closeFolderViewer()">
 
   <div class="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl flex flex-col"
@@ -765,7 +765,7 @@
 <div x-show="groupFolderModal.open" x-cloak
      class="fixed inset-0 flex items-center justify-center p-4 sm:p-6"
      style="z-index: 120;"
-     @keydown.escape.window="if(groupFolderModal.open) { $event.preventDefault(); closeGroupFolderModal(); }">
+     @keydown.escape.window="if(groupFolderModal.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeGroupFolderModal(); }">
 
   {{-- Backdrop --}}
   <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
@@ -908,9 +908,9 @@
      x-init="$watch('imagePreview.open', value => { if(value) reset(); }); $watch('imagePreview.currentIndex', () => reset())"
      class="fixed inset-0 bg-slate-950/95 flex flex-col w-screen h-screen overflow-hidden select-none"
      style="z-index: 99999;"
-     @keydown.escape.window="if(imagePreview.open) { $event.preventDefault(); closeImagePreview(); }"
-     @keydown.left.window="if(imagePreview.open && scale <= 1) { previewPrevImage(); }"
-     @keydown.right.window="if(imagePreview.open && scale <= 1) { previewNextImage(); }"
+     @keydown.escape.window="if(imagePreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeImagePreview(); }"
+     @keydown.left.window="if(imagePreview.open && scale <= 1) { $event.preventDefault(); $event.stopImmediatePropagation(); previewPrevImage(); }"
+     @keydown.right.window="if(imagePreview.open && scale <= 1) { $event.preventDefault(); $event.stopImmediatePropagation(); previewNextImage(); }"
      @click="closeImagePreview()">
 
   <div class="flex items-center justify-between border-b border-white/10 px-4 sm:px-6 pb-3 text-white bg-slate-900/90 backdrop-blur-md flex-shrink-0 w-full"
@@ -1150,7 +1150,7 @@ function imageZoomHandler() {
 <div x-show="videoPreview.open" x-cloak
      class="fixed inset-0 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-3 sm:p-6"
      style="z-index: 110;"
-     @keydown.escape.window="if(videoPreview.open) { $event.preventDefault(); closeVideoPreview(); }"
+     @keydown.escape.window="if(videoPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeVideoPreview(); }"
      @click="closeVideoPreview()">
   <div class="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-950 shadow-2xl flex flex-col" @click.stop>
     <div class="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white bg-slate-900/80 backdrop-blur-md gap-3">
@@ -1212,11 +1212,11 @@ function imageZoomHandler() {
 <div x-show="canvaPreview.open" x-cloak
      class="fixed inset-0 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-2 sm:p-5"
      style="z-index: 110;"
-     @keydown.escape.window="if(canvaPreview.open) { $event.preventDefault(); closeCanvaPreview(); }"
-     @keydown.left.window="if(canvaPreview.open) { if(canvaPreview.scale > 1) { canvaPanLeft(); } else { canvaPrevPage(); } }"
-     @keydown.right.window="if(canvaPreview.open) { if(canvaPreview.scale > 1) { canvaPanRight(); } else { canvaNextPage(); } }"
-     @keydown.up.window="if(canvaPreview.open && canvaPreview.scale > 1) { $event.preventDefault(); canvaPanUp(); }"
-     @keydown.down.window="if(canvaPreview.open && canvaPreview.scale > 1) { $event.preventDefault(); canvaPanDown(); }"
+     @keydown.escape.window="if(canvaPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeCanvaPreview(); }"
+     @keydown.left.window="if(canvaPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); if(canvaPreview.scale > 1) { canvaPanLeft(); } else { canvaPrevPage(); } }"
+     @keydown.right.window="if(canvaPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); if(canvaPreview.scale > 1) { canvaPanRight(); } else { canvaNextPage(); } }"
+     @keydown.up.window="if(canvaPreview.open && canvaPreview.scale > 1) { $event.preventDefault(); $event.stopImmediatePropagation(); canvaPanUp(); }"
+     @keydown.down.window="if(canvaPreview.open && canvaPreview.scale > 1) { $event.preventDefault(); $event.stopImmediatePropagation(); canvaPanDown(); }"
      @fullscreenchange.window="canvaPreview.isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement)"
      @webkitfullscreenchange.window="canvaPreview.isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement)"
      @click="closeCanvaPreview()">
@@ -1428,7 +1428,7 @@ function imageZoomHandler() {
 <div x-show="googleDocsPreview.open" x-cloak
      class="fixed inset-0 flex flex-col bg-slate-950/95 backdrop-blur-sm"
      style="z-index: 120;"
-     @keydown.escape.window="if(googleDocsPreview.open) { $event.preventDefault(); closeGoogleDocsPreview(); }">
+     @keydown.escape.window="if(googleDocsPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeGoogleDocsPreview(); }">
 
   {{-- Header bar --}}
   <div class="flex items-center gap-3 px-4 py-3 bg-[#1a1f2e]/90 border-b border-white/10 flex-shrink-0 shadow-xl">

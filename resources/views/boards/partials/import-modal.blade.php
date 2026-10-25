@@ -4,7 +4,7 @@
      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
      style="z-index: 110;"
      @click.self="closeImportModal()"
-     @keydown.escape.window="closeImportModal()">
+     @keydown.escape.window="if(importModal?.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeImportModal(); }">
 
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 flex flex-col"
        x-show="importModal.open"

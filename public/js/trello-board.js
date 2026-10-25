@@ -524,6 +524,8 @@ window.trelloBoard = function(config) {
       type: 'doc', // 'doc' | 'sheet' | 'slide' | 'form'
       loading: false,
     },
+    previewOriginCardId: null,
+    lastPreviewClosedAt: 0,
     khTimeZone: 'Asia/Phnom_Penh',
     realtimeBound: false,
     realtimeTimer: null,
@@ -534,6 +536,55 @@ window.trelloBoard = function(config) {
     realtimeDragging: false,
     lastSnapshotAt: 0,
     isMacPlatform: false,
+
+    isAnyPreviewOrModalOpen() {
+      if (Date.now() - (this.lastPreviewClosedAt || 0) < 150) {
+        return true;
+      }
+      return Boolean(
+        this.canvaPreview?.open ||
+        this.videoPreview?.open ||
+        this.googleDocsPreview?.open ||
+        this.imagePreview?.open ||
+        this.folderViewer?.open ||
+        this.groupFolderModal?.open ||
+        this.attachmentModal?.open ||
+        this.exportModal?.open ||
+        this.switchBoardsModal?.open ||
+        this.importModal?.open ||
+        this.cardTransferModal?.open ||
+        this.checklistItemModal?.open ||
+        this.datePickerOpen ||
+        this.memberPickerOpen
+      );
+    },
+
+    savePreviewOriginCard() {
+      if (this.activeCard && this.activeCard.id) {
+        this.previewOriginCardId = this.activeCard.id;
+      }
+    },
+
+    restorePreviewOriginCard() {
+      this.lastPreviewClosedAt = Date.now();
+      const originId = this.previewOriginCardId;
+      if (originId) {
+        if (!this.activeCard || this.activeCard.id != originId) {
+          for (const l of (this.lists || [])) {
+            const found = (l.cards || []).find(c => c.id == originId);
+            if (found) {
+              this.activeCard = JSON.parse(JSON.stringify(found));
+              break;
+            }
+          }
+        }
+        setTimeout(() => {
+          if (this.previewOriginCardId === originId) {
+            this.previewOriginCardId = null;
+          }
+        }, 500);
+      }
+    },
 
     checkIsMacApp() {
       return (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList.contains('dgt-macos-app')) ||
@@ -608,34 +659,85 @@ window.trelloBoard = function(config) {
         if (e.key === 'Escape') {
           if (this.canvaPreview && this.canvaPreview.open) {
             e.preventDefault();
-            e.stopPropagation();
+            e.stopImmediatePropagation();
             this.closeCanvaPreview();
             return;
           }
           if (this.videoPreview && this.videoPreview.open) {
             e.preventDefault();
-            e.stopPropagation();
+            e.stopImmediatePropagation();
             this.closeVideoPreview();
+            return;
+          }
+          if (this.googleDocsPreview && this.googleDocsPreview.open) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            this.closeGoogleDocsPreview();
             return;
           }
           if (this.imagePreview && this.imagePreview.open) {
             e.preventDefault();
-            e.stopPropagation();
+            e.stopImmediatePropagation();
             this.closeImagePreview();
             return;
           }
           if (this.folderViewer && this.folderViewer.open) {
             e.preventDefault();
-            e.stopPropagation();
+            e.stopImmediatePropagation();
             this.closeFolderViewer();
             return;
           }
+          if (this.groupFolderModal && this.groupFolderModal.open) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            this.closeGroupFolderModal();
+            return;
+          }
+          if (this.attachmentModal && this.attachmentModal.open) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            this.closeAttachmentModal();
+            return;
+          }
           this.closeCtxMenu();
+        } else if (this.canvaPreview && this.canvaPreview.open) {
+          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            if (e.key === 'ArrowLeft') {
+              if (this.canvaPreview.scale > 1) { this.canvaPanLeft(); } else { this.canvaPrevPage(); }
+            } else if (e.key === 'ArrowRight') {
+              if (this.canvaPreview.scale > 1) { this.canvaPanRight(); } else { this.canvaNextPage(); }
+            } else if (e.key === 'ArrowUp') {
+              if (this.canvaPreview.scale > 1) { this.canvaPanUp(); }
+            } else if (e.key === 'ArrowDown') {
+              if (this.canvaPreview.scale > 1) { this.canvaPanDown(); }
+            }
+          }
         } else if (this.imagePreview && this.imagePreview.open) {
           if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
             this.previewPrevImage();
           } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
             this.previewNextImage();
+          }
+        } else if (this.videoPreview && this.videoPreview.open) {
+          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          }
+        } else if (this.googleDocsPreview && this.googleDocsPreview.open) {
+          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          }
+        } else if (this.folderViewer && this.folderViewer.open) {
+          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+            e.stopPropagation();
+            e.stopImmediatePropagation();
           }
         }
       }, true);
@@ -3845,6 +3947,9 @@ window.trelloBoard = function(config) {
 
     // ── Card detail modal ────────────────────────────────────────────────────
     async openCard(cardId) {
+      if (this.isAnyPreviewOrModalOpen()) {
+        return;
+      }
       if (this.realtimeDragging || this.justDroppedCard || this.justOpenedCtx) {
         return;
       }
@@ -3918,11 +4023,15 @@ window.trelloBoard = function(config) {
     },
 
     closeCard() {
-      if (this.videoPreview && this.videoPreview.open) {
-        this.closeVideoPreview();
-      }
-      if (this.canvaPreview && this.canvaPreview.open) {
-        this.closeCanvaPreview();
+      if (this.isAnyPreviewOrModalOpen() || (Date.now() - (this.lastPreviewClosedAt || 0) < 300)) {
+        if (this.canvaPreview?.open) this.closeCanvaPreview();
+        if (this.videoPreview?.open) this.closeVideoPreview();
+        if (this.googleDocsPreview?.open) this.closeGoogleDocsPreview();
+        if (this.imagePreview?.open) this.closeImagePreview();
+        if (this.folderViewer?.open) this.closeFolderViewer();
+        if (this.groupFolderModal?.open) this.closeGroupFolderModal();
+        if (this.attachmentModal?.open) this.closeAttachmentModal();
+        return;
       }
       this.activeCard = null;
     },
@@ -3975,6 +4084,9 @@ window.trelloBoard = function(config) {
     },
 
     async prevCard() {
+      if (this.isAnyPreviewOrModalOpen()) {
+        return;
+      }
       const prev = this.getPrevCard();
       if (prev) {
         await this.openCard(prev.id);
@@ -3982,6 +4094,9 @@ window.trelloBoard = function(config) {
     },
 
     async nextCard() {
+      if (this.isAnyPreviewOrModalOpen()) {
+        return;
+      }
       const next = this.getNextCard();
       if (next) {
         await this.openCard(next.id);
@@ -3994,7 +4109,7 @@ window.trelloBoard = function(config) {
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || event.target?.isContentEditable) {
         return;
       }
-      if (this.imagePreview?.open || this.attachmentModal?.open || this.exportModal?.open || this.switchBoardsModal?.open || this.importModal?.open || this.cardTransferModal?.open) {
+      if (this.isAnyPreviewOrModalOpen()) {
         return;
       }
       if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
@@ -5618,6 +5733,7 @@ window.trelloBoard = function(config) {
 
     openAttachmentModal(card, defaultFolder = '') {
       if (!card) return;
+      this.savePreviewOriginCard();
       const am = this.attachmentModal;
       am.cardId         = card.id;
       am.tab            = 'file';
@@ -5645,6 +5761,7 @@ window.trelloBoard = function(config) {
       this.attachmentModal.pendingFolderName = '';
       this.attachmentModal.uploading = false;
       this.attachmentModal.error = '';
+      this.restorePreviewOriginCard();
     },
 
     amClearPendingFiles() {
@@ -5827,6 +5944,7 @@ window.trelloBoard = function(config) {
     openGroupFolderModal() {
       const card = this.activeCard;
       if (!card) return;
+      this.savePreviewOriginCard();
 
       const standalone = this.getStandaloneCardFiles(card.files);
       if (!standalone.length) {
@@ -5846,6 +5964,7 @@ window.trelloBoard = function(config) {
       this.groupFolderModal.selectedFileIds = [];
       this.groupFolderModal.error = '';
       this.groupFolderModal.submitting = false;
+      this.restorePreviewOriginCard();
     },
 
     toggleGroupFileSelection(fileId) {
@@ -6133,6 +6252,7 @@ window.trelloBoard = function(config) {
 
     openFolderViewer(folderName, files = null) {
       if (!folderName) return;
+      this.savePreviewOriginCard();
       const allFiles = this.activeCard?.files || [];
       const folderFiles = Array.isArray(files) && files.length
         ? files
@@ -6151,6 +6271,7 @@ window.trelloBoard = function(config) {
       this.folderViewer.open = false;
       this.folderViewer.folderName = '';
       this.folderViewer.files = [];
+      this.restorePreviewOriginCard();
     },
 
     downloadCardFolder(folderName) {
@@ -6416,6 +6537,7 @@ window.trelloBoard = function(config) {
 
     previewAttachment(file, gallery = null) {
       if (!file?.is_image) return;
+      this.savePreviewOriginCard();
 
       let images = [];
       if (Array.isArray(gallery) && gallery.length) {
@@ -6474,6 +6596,7 @@ window.trelloBoard = function(config) {
       }
 
       if (!url) return;
+      this.savePreviewOriginCard();
 
       this.imagePreview.url = url;
       this.imagePreview.title = title;
@@ -6488,6 +6611,7 @@ window.trelloBoard = function(config) {
       this.imagePreview.title = '';
       this.imagePreview.images = [];
       this.imagePreview.currentIndex = 0;
+      this.restorePreviewOriginCard();
     },
 
     async downloadAttachment(file) {
@@ -6701,6 +6825,7 @@ window.trelloBoard = function(config) {
 
     openGoogleDocsPreview(file) {
       if (!file) return;
+      this.savePreviewOriginCard();
       const rawUrl = file.url || file.preview_url || file.path || file.stored_name || '';
       if (!rawUrl) return;
 
@@ -6729,6 +6854,7 @@ window.trelloBoard = function(config) {
       this.googleDocsPreview.embedUrl = '';
       this.googleDocsPreview.url = '';
       this.googleDocsPreview.title = '';
+      this.restorePreviewOriginCard();
     },
 
     openGoogleDocsDirect(url) {
@@ -6813,6 +6939,7 @@ window.trelloBoard = function(config) {
 
     openVideoPreview(file) {
       if (!file) return;
+      this.savePreviewOriginCard();
       const rawUrl = file.url || file.preview_url || file.download_url || file.path || file.stored_name || '';
       if (!rawUrl && !file.embed_url) return;
 
@@ -6895,6 +7022,7 @@ window.trelloBoard = function(config) {
       this.videoPreview.embedUrl = ''; // Clear iframe src to stop playback
       this.videoPreview.url = '';
       this.videoPreview.title = '';
+      this.restorePreviewOriginCard();
     },
 
     openVideoDirect(url) {
@@ -6966,6 +7094,7 @@ window.trelloBoard = function(config) {
 
     openCanvaPreview(file) {
       if (!file) return;
+      this.savePreviewOriginCard();
       const rawUrl = file.url || file.preview_url || file.path || file.stored_name || '';
       if (!rawUrl) return;
 
@@ -7036,6 +7165,7 @@ window.trelloBoard = function(config) {
       this.canvaPreview.currentPage = 1;
       this.canvaPreview.totalPages = 16;
       this.canvaPreview.isFullscreen = false;
+      this.restorePreviewOriginCard();
     },
 
     canvaZoomIn() {

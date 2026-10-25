@@ -861,7 +861,7 @@
                                     @php
                                         $cardUrl = ($c->board ? route('boards.show', $c->board->slug) : (isset($board) && $board ? route('boards.show', $board->slug) : null));
                                         if ($cardUrl) {
-                                            $cardUrl .= '?card=' . $c->id;
+                                            $cardUrl .= '?card=' . ($c->parent_card_id ?? $c->id);
                                         }
                                     @endphp
                                     @if($cardUrl)
@@ -870,6 +870,15 @@
                                         {{ $c->title }}
                                     @endif
                                 </div>
+                                @if($c->is_checklist_task ?? false)
+                                    <div style="font-size: 10px; color: #64748b; margin-top: 3px; font-weight: 500;">
+                                        <span style="color: #4f46e5; font-weight: 700;">📋 Checklist:</span> {{ $c->checklist_item_name }}
+                                        @if(!empty($c->parent_card_title) && $c->parent_card_title !== $c->title)
+                                            <span style="color: #94a3b8; margin: 0 4px;">&bull;</span>
+                                            <span style="color: #64748b;">Card: {{ $c->parent_card_title }}</span>
+                                        @endif
+                                    </div>
+                                @endif
                                 @if($includeDesc && $c->description)
                                     <div class="task-desc">{!! strip_tags($c->description) !!}</div>
                                 @endif

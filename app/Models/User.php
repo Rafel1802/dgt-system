@@ -127,6 +127,16 @@ class User extends Authenticatable
         return $this->hasMany(DeviceLog::class);
     }
 
+    public function handledWebsites(): HasMany
+    {
+        return $this->hasMany(\App\Models\Website::class, 'handled_by');
+    }
+
+    public function assignedWebsites(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Website::class, 'website_assignees', 'user_id', 'website_id')->withTimestamps();
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     /**

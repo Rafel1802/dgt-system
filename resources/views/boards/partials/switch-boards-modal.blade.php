@@ -6,7 +6,7 @@
 <div x-show="switchBoardsModal.open" x-cloak
      class="fixed inset-0 flex items-start justify-center px-3 py-6 sm:px-5 sm:py-10"
      style="z-index: 70;"
-     @keydown.escape.window="closeSwitchBoardsModal()">
+     @keydown.escape.window="if(switchBoardsModal?.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeSwitchBoardsModal(); }">
 
   <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
        x-transition:enter="transition ease-out duration-200"

@@ -5,7 +5,7 @@
 <div x-show="checklistItemModal.open" x-cloak
      class="fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
      style="z-index: 120;"
-     @keydown.escape.window="if (checklistItemModal.open) { $event.stopPropagation(); closeChecklistItemModal(); }">
+     @keydown.escape.window="if (checklistItemModal.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeChecklistItemModal(); }">
 
   {{-- Backdrop --}}
   <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"

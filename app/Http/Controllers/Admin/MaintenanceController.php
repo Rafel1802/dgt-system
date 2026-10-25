@@ -13,8 +13,9 @@ class MaintenanceController extends Controller
      */
     public function index()
     {
+        $user = auth()->user();
         abort_unless(
-            auth()->user()->hasAnyRole(['super-admin', 'admin-digital']),
+            $user && ($user->isDara() || $user->hasAnyRole(['super-admin', 'admin-digital'])),
             403,
             'Access restricted to admins.'
         );
@@ -22,16 +23,27 @@ class MaintenanceController extends Controller
         $maintenanceJson = Setting::where('key', 'maintenance_modules')->value('value') ?? '[]';
         $maintenanceModules = json_decode($maintenanceJson, true) ?: [];
 
-        $templateStyle = Setting::where('key', 'maintenance_template_style')->value('value') ?? 'original';
-        $siteName = Setting::where('key', 'maintenance_site_name')->value('value') ?? 'MyWebsite';
+        $templateStyle = Setting::where('key', 'maintenance_template_style')->value('value') ?? 'custom';
+        $siteName = Setting::where('key', 'maintenance_site_name')->value('value') ?: 'KiuQ.com';
+        if ($siteName === 'MyWebsite') {
+            $siteName = 'KiuQ.com';
+        }
+        $titlePreset = Setting::where('key', 'maintenance_title_preset')->value('value') ?: 'Under Maintenance';
+        $titleCustom = Setting::where('key', 'maintenance_title_custom')->value('value') ?: '';
+        $title = Setting::where('key', 'maintenance_title')->value('value')
+            ?: ($titlePreset === 'other' && !empty($titleCustom) ? $titleCustom : $titlePreset);
+
         $message = Setting::where('key', 'maintenance_message')->value('value') ?? "We're currently performing scheduled maintenance.";
         $time = Setting::where('key', 'maintenance_time')->value('value') ?? "We'll be back shortly!";
-        $email = Setting::where('key', 'maintenance_email')->value('value') ?? 'support@example.com';
+        $email = Setting::where('key', 'maintenance_email')->value('value') ?? 'digital@typhonmachinery.com';
 
         return view('admin.maintenance.index', compact(
             'maintenanceModules',
             'templateStyle',
             'siteName',
+            'titlePreset',
+            'titleCustom',
+            'title',
             'message',
             'time',
             'email'
@@ -43,8 +55,9 @@ class MaintenanceController extends Controller
      */
     public function store(Request $request)
     {
+        $user = auth()->user();
         abort_unless(
-            auth()->user()->hasAnyRole(['super-admin', 'admin-digital']),
+            $user && ($user->isDara() || $user->hasAnyRole(['super-admin', 'admin-digital'])),
             403,
             'Access restricted to admins.'
         );
@@ -53,6 +66,8 @@ class MaintenanceController extends Controller
             'modules' => ['nullable', 'array'],
             'modules.*' => ['string'],
             'template_style' => ['required', 'in:original,custom'],
+            'title_preset' => ['nullable', 'string', 'max:255'],
+            'title_custom' => ['nullable', 'string', 'max:255'],
             'site_name' => ['nullable', 'string', 'max:255'],
             'message' => ['nullable', 'string'],
             'time' => ['nullable', 'string', 'max:255'],
@@ -66,8 +81,20 @@ class MaintenanceController extends Controller
             ['value' => json_encode(array_keys($modules))]
         );
 
+        $titlePreset = $validated['title_preset'] ?? 'Under Maintenance';
+        $titleCustom = trim($validated['title_custom'] ?? '');
+        $effectiveTitle = ($titlePreset === 'other') ? ($titleCustom ?: 'Under Maintenance') : $titlePreset;
+
+        $siteName = trim($validated['site_name'] ?? '');
+        if (empty($siteName) || $siteName === 'MyWebsite') {
+            $siteName = 'KiuQ.com';
+        }
+
         Setting::updateOrCreate(['key' => 'maintenance_template_style'], ['value' => $validated['template_style']]);
-        Setting::updateOrCreate(['key' => 'maintenance_site_name'], ['value' => $validated['site_name'] ?? '']);
+        Setting::updateOrCreate(['key' => 'maintenance_title_preset'], ['value' => $titlePreset]);
+        Setting::updateOrCreate(['key' => 'maintenance_title_custom'], ['value' => $titleCustom]);
+        Setting::updateOrCreate(['key' => 'maintenance_title'], ['value' => $effectiveTitle]);
+        Setting::updateOrCreate(['key' => 'maintenance_site_name'], ['value' => $siteName]);
         Setting::updateOrCreate(['key' => 'maintenance_message'], ['value' => $validated['message'] ?? '']);
         Setting::updateOrCreate(['key' => 'maintenance_time'], ['value' => $validated['time'] ?? '']);
         Setting::updateOrCreate(['key' => 'maintenance_email'], ['value' => $validated['email'] ?? '']);

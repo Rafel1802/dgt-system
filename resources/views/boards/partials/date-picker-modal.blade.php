@@ -8,7 +8,7 @@
      class="fixed inset-0 flex items-center justify-center p-4 z-[110]"
      style="z-index: 110;"
      @click.self="closeDatePicker()"
-     @keydown.escape.window="closeDatePicker()">
+     @keydown.escape.window="if(datePicker?.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeDatePicker(); }">
 
   {{-- Backdrop --}}
   <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"

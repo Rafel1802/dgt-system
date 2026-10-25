@@ -218,6 +218,65 @@ class Website extends Model
         return $this->hasMany(WebsiteFollowUp::class)->orderByDesc('created_at');
     }
 
+    public function assignees(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'website_assignees', 'website_id', 'user_id')->withTimestamps();
+    }
+
+    public function searchConsoleSite(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\GoogleSearchConsole\GoogleSearchConsoleSite::class, 'website_id');
+    }
+
+    public function searchConsoleDailyMetrics(): HasMany
+    {
+        return $this->hasMany(\App\Models\GoogleSearchConsole\GoogleSearchConsoleDailyMetric::class, 'website_id');
+    }
+
+    public function searchConsoleQueries(): HasMany
+    {
+        return $this->hasMany(\App\Models\GoogleSearchConsole\GoogleSearchConsoleSearchQuery::class, 'website_id');
+    }
+
+    public function searchConsolePages(): HasMany
+    {
+        return $this->hasMany(\App\Models\GoogleSearchConsole\GoogleSearchConsolePage::class, 'website_id');
+    }
+
+    public function searchConsoleCountries(): HasMany
+    {
+        return $this->hasMany(\App\Models\GoogleSearchConsole\GoogleSearchConsoleCountry::class, 'website_id');
+    }
+
+    public function searchConsoleSitemaps(): HasMany
+    {
+        return $this->hasMany(\App\Models\GoogleSearchConsole\GoogleSearchConsoleSitemap::class, 'website_id');
+    }
+
+    public function searchConsoleUrlInspections(): HasMany
+    {
+        return $this->hasMany(\App\Models\GoogleSearchConsole\GoogleSearchConsoleUrlInspection::class, 'website_id');
+    }
+
+    public function searchConsoleDevices(): HasMany
+    {
+        return $this->hasMany(\App\Models\GoogleSearchConsole\GoogleSearchConsoleDevice::class, 'website_id');
+    }
+
+    /**
+     * Scope query to websites assigned to specified user(s) (via handled_by or website_assignees)
+     */
+    public function scopeAssignedToMember($query, $userIds)
+    {
+        $ids = is_array($userIds) ? $userIds : [$userIds];
+        return $query->where(function ($q) use ($ids) {
+            $q->whereIn('handled_by', $ids)
+              ->orWhereHas('assignees', function ($aq) use ($ids) {
+                  $aq->whereIn('users.id', $ids);
+              });
+        });
+    }
+
     // ── Status helpers ────────────────────────────────────────────────────────
 
     public function isLive(): bool

@@ -7,7 +7,7 @@
 <div x-show="cardTransferModal.open" x-cloak
      class="fixed inset-0 flex items-center justify-center px-4 py-8 sm:py-12"
      style="z-index: 75;"
-     @keydown.escape.window="closeCardTransferModal()">
+     @keydown.escape.window="if(cardTransferModal?.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeCardTransferModal(); }">
 
   <div class="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
        @click="closeCardTransferModal()"

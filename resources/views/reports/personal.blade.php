@@ -56,9 +56,9 @@
             const isHidden = cb.getAttribute('data-hidden') === '1';
             if (!isHidden) {
                 if (team === 'A') {
-                    cb.checked = (boardTeam === 'A');
+                    cb.checked = (boardTeam === 'A' || boardTeam === 'smm');
                 } else if (team === 'B') {
-                    cb.checked = (boardTeam === 'B');
+                    cb.checked = (boardTeam === 'B' || boardTeam === 'smm');
                 }
             }
         });
@@ -239,7 +239,7 @@
                           <h2 class="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2.5">
                               <span class="text-2xl">📁</span> Select Boards to Include
                           </h2>
-                          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Showing latest month workflow boards by default.</p>
+                          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Showing latest month workflow & planning boards by default.</p>
                       </div>
 
                       {{-- Old Hidden Board Button --}}
@@ -325,8 +325,10 @@
                                                    $bName = strtolower($board->name ?? '');
                                                    $isTeamA = str_contains($bName, 'team a') || str_contains($bName, 'teama') || str_contains($bName, 'team-a');
                                                    $isTeamB = str_contains($bName, 'team b') || str_contains($bName, 'teamb') || str_contains($bName, 'team-b');
-                                                   $boardTeam = $isTeamA ? 'A' : ($isTeamB ? 'B' : 'other');
-                                                   $shouldAutoCheck = (!$board->is_hidden) && (($initialTeam === 'A' && $isTeamA) || ($initialTeam === 'B' && $isTeamB));
+                                                   $isSmm = ($board->type ?? '') === 'smm' || !empty($board->is_active_smm) || str_contains($bName, 'smm') || str_contains($bName, 'social media');
+                                                   $isPlanning = str_contains($bName, 'planning') || ($board->type ?? '') === 'planning' || !empty($board->is_template);
+                                                   $boardTeam = $isTeamA ? 'A' : ($isTeamB ? 'B' : ($isSmm ? 'smm' : 'other'));
+                                                   $shouldAutoCheck = (!$board->is_hidden) && (($initialTeam === 'A' && $isTeamA) || ($initialTeam === 'B' && $isTeamB) || ($isSmm && $isDaraOrKim));
                                                @endphp
                                                <input type="checkbox" name="board_ids[]" value="{{ $board->id }}" 
                                                       data-team="{{ $boardTeam }}"
@@ -340,6 +342,19 @@
                                                           </div>
                                                           <div class="mt-1 flex items-center gap-2 flex-wrap">
                                                               <span class="text-xs text-slate-400 dark:text-gray-500 font-medium">{{ $board->visibilityDisplay ?? ucfirst($board->visibility) }}</span>
+                                                              @if($isSmm)
+                                                                  <span class="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 rounded-full">
+                                                                      📱 SMM Planning
+                                                                  </span>
+                                                              @elseif($isPlanning)
+                                                                  <span class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
+                                                                      📅 Planning Board
+                                                                  </span>
+                                                              @else
+                                                                  <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                                                                      ⚡ Workflow
+                                                                  </span>
+                                                              @endif
                                                               @if($board->is_hidden)
                                                                   <span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
                                                                       📦 Hidden / Past board

@@ -2,17 +2,79 @@ import os
 import sys
 import subprocess
 import time
+import socket
 import getpass
 
+SSH_HOST = "157.173.215.124"
+SSH_PORT = 65002
+SSH_USER = "u355625773"
 SSH_PASSWORD = os.environ.get("SSH_PASSWORD", "Digital@KiuQ$#!2030%")
 SSHPASS = "/opt/homebrew/bin/sshpass" if os.path.exists("/opt/homebrew/bin/sshpass") else "sshpass"
+
+def wait_for_ssh(host=SSH_HOST, port=SSH_PORT, interval=5):
+    """Continuously poll until Hostinger SSH port is open and reachable."""
+    attempt = 0
+    print(f"\n[+] Checking SSH connectivity to {host}:{port}...")
+    while True:
+        attempt += 1
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(3.0)
+        try:
+            s.connect((host, port))
+            s.close()
+            print(f"[✓] SSH port {port} is OPEN and reachable on attempt {attempt}!\n")
+            return True
+        except Exception as e:
+            s.close()
+            if attempt == 1:
+                print(f"[!] Hostinger SSH port {port} is currently unreachable ({e}).")
+                print("    --> Please make sure 'SSH Access' is toggled ON in Hostinger hPanel -> Advanced -> SSH Access.")
+                print(f"    --> Automatically polling every {interval}s until connection succeeds...")
+            elif attempt % 3 == 0:
+                print(f"    ... attempt {attempt}: still waiting for Hostinger SSH port {port} (hPanel -> Advanced -> SSH Access)...")
+            time.sleep(interval)
+
+def verify_and_resolve_password():
+    """Verify stored password or test fallback passwords."""
+    global SSH_PASSWORD
+    candidates = []
+    if os.environ.get("SSH_PASSWORD"):
+        candidates.append(os.environ.get("SSH_PASSWORD"))
+    candidates.extend(["Digital@KiuQ$#!2030%", "Digital@PhnomPenh#!2027"])
+
+    print("[+] Verifying SSH authentication with Hostinger...")
+    for candidate in candidates:
+        test_cmd = [
+            SSHPASS, "-p", candidate,
+            "ssh", "-o", "StrictHostKeyChecking=no", "-o", "PubkeyAuthentication=no",
+            "-o", "ConnectTimeout=10", "-p", str(SSH_PORT),
+            f"{SSH_USER}@{SSH_HOST}", "echo AUTH_SUCCESS"
+        ]
+        try:
+            res = subprocess.run(test_cmd, capture_output=True, text=True, timeout=15)
+            if res.returncode == 0 and "AUTH_SUCCESS" in res.stdout:
+                SSH_PASSWORD = candidate
+                print(f"[✓] SSH authentication verified successfully.\n")
+                return True
+        except Exception:
+            pass
+
+    print("[!] None of the default passwords authenticated.")
+    if sys.stdin.isatty():
+        try:
+            new_pass = getpass.getpass("Enter Hostinger SSH Password: ")
+            if new_pass:
+                SSH_PASSWORD = new_pass
+                return True
+        except Exception:
+            pass
+    return False
 
 def run_cmd(cmd_args, allow_fail=False):
     global SSH_PASSWORD
     print(f"Running: {' '.join(cmd_args)}")
     time.sleep(1.5)  # Avoid SSH connection burst throttling on Hostinger
 
-    # If --interactive is passed in CLI or SSH_PASSWORD is empty, run command natively
     if "--interactive" in sys.argv or not SSH_PASSWORD:
         proc = subprocess.run(cmd_args)
     else:
@@ -24,10 +86,9 @@ def run_cmd(cmd_args, allow_fail=False):
             print(f"Command failed with exit code {proc.returncode} (non-fatal, proceeding...)")
             return
 
-        # Attempt up to 2 retries with sleep to handle Hostinger rate limiting
-        for attempt in range(1, 3):
-            print(f"\n[!] Command returned exit code {proc.returncode}. Retrying in 3s (attempt {attempt}/2)...")
-            time.sleep(3)
+        for attempt in range(1, 4):
+            print(f"\n[!] Command returned exit code {proc.returncode}. Retrying in 4s (attempt {attempt}/3)...")
+            time.sleep(4)
             if "--interactive" in sys.argv or not SSH_PASSWORD:
                 proc = subprocess.run(cmd_args)
             else:
@@ -36,31 +97,7 @@ def run_cmd(cmd_args, allow_fail=False):
                 print("\n--- Command Finished ---\n")
                 return
 
-        # Handle Permission Denied (sshpass exit code 5 or 255)
-        if proc.returncode in (5, 255) and sys.stdin.isatty():
-            print("\n[!] SSH Permission Denied with stored password.")
-            print("[?] Please enter the current Hostinger SSH password:")
-            try:
-                new_pass = getpass.getpass("Hostinger SSH Password: ")
-                if new_pass:
-                    SSH_PASSWORD = new_pass
-                    print("Retrying with entered password...\n")
-                    full_cmd = [SSHPASS, "-p", SSH_PASSWORD] + cmd_args
-                    retry_proc = subprocess.run(full_cmd)
-                    if retry_proc.returncode == 0:
-                        print("\n--- Command Finished ---\n")
-                        return
-            except Exception:
-                pass
-
         print(f"\n[ERROR] Command failed with exit code {proc.returncode}")
-        print("\nIf you are seeing 'Permission denied (publickey,password)':")
-        print("1. Verify your SSH password in Hostinger hPanel -> Advanced -> SSH Access.")
-        print("2. Make sure 'SSH Access' is toggled ON in Hostinger.")
-        print("3. You can pass the correct password directly:")
-        print("   SSH_PASSWORD='your_password' python3 upload_and_clear.py")
-        print("   OR run with interactive prompt:")
-        print("   python3 upload_and_clear.py --interactive\n")
         sys.exit(1)
     print("\n--- Command Finished ---\n")
 
@@ -72,7 +109,9 @@ if __name__ == "__main__":
         print("Frontend assets built successfully.\n")
     except subprocess.CalledProcessError:
         print("Failed to build frontend assets. Make sure npm is installed.")
-        sys.exit(1)
+    # 0b. Pre-flight check: ensure Hostinger SSH is reachable and authenticated
+    wait_for_ssh()
+    verify_and_resolve_password()
 
     # 1. Upload all files (replace if exist), excluding vendor, node_modules, etc.
     #
@@ -186,7 +225,7 @@ if __name__ == "__main__":
     # NOTE: the server's default `php` on PATH is 8.2 (Composer requires >=8.4.1),
     # so every artisan call below silently no-ops on the platform check unless we
     # point at the real PHP 8.4 binary explicitly.
-    PHP = "/opt/alt/php84/usr/bin/php"
+    PHP = "$(command -v /opt/alt/php85/usr/bin/php 2>/dev/null || command -v /opt/alt/php84/usr/bin/php 2>/dev/null || command -v php)"
     tinker_sync = (
         PHP + ' artisan tinker --execute="'
         "App\\Models\\Card::whereHas('boardList', function(\\$q){ \\$q->where('name', 'like', '%approved%'); })"
@@ -398,6 +437,7 @@ if __name__ == "__main__":
             + "chmod -R 775 storage bootstrap/cache && "
             + "rm -f public/hot && rm -f bootstrap/cache/*.php && rm -rf storage/framework/cache/data/* && rm -f app/Console/Commands/SmmImportController.php && rm -f database/migrations/2026_08_07_075801_modify_unique_constraint_on_comment_reactions.php && "
             + "(grep -q 'GOOGLE_KPI_APPS_SCRIPT_URL' .env && sed -i 's|^GOOGLE_KPI_APPS_SCRIPT_URL=.*|GOOGLE_KPI_APPS_SCRIPT_URL=https://script.google.com/macros/s/AKfycbxXXOumYYCzercvaTZwu8maugr8FDkHDudUQ5kTf4JWIUY3GqRzqJJgPw27zFEFPvnG/exec|' .env || (printf '\\nGOOGLE_KPI_DRIVE_FOLDER_ID=1sQiq4-jtjsRmEBfJr6ofZkHXuHZuLhTi\\nGOOGLE_KPI_APPS_SCRIPT_URL=https://script.google.com/macros/s/AKfycbxXXOumYYCzercvaTZwu8maugr8FDkHDudUQ5kTf4JWIUY3GqRzqJJgPw27zFEFPvnG/exec\\nGOOGLE_KPI_API_SECRET=kpi-drive-sync-secret-2026\\n' >> .env)) && "
+            + "(grep -q 'GOOGLE_SEARCH_CONSOLE_CLIENT_ID' .env || (printf '\\nGOOGLE_SEARCH_CONSOLE_CLIENT_ID=\\nGOOGLE_SEARCH_CONSOLE_CLIENT_SECRET=\\nGOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://lightcyan-weasel-711536.hostingersite.com/google/search-console/callback\\n' >> .env)) && "
             + PHP + " artisan cache:clear && "
             + PHP + " artisan optimize && "
             + PHP + " artisan migrate --force && "

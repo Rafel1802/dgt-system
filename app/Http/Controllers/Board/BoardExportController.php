@@ -375,8 +375,8 @@ class BoardExportController extends Controller
 
         // $boardIds === null means QC personal export with no specific board selection (search all boards)
         $query = ($boardIds === null)
-            ? Card::query()->with(['board', 'boardList', 'assignees', 'labels', 'files', 'allFiles', 'activities', 'comments'])
-            : Card::whereIn('board_id', $boardIds)->with(['board', 'boardList', 'assignees', 'labels', 'files', 'allFiles', 'activities', 'comments']);
+            ? Card::query()->with(['board', 'boardList', 'assignees', 'labels', 'files', 'allFiles', 'activities', 'comments', 'checklists.items.assignedUser', 'checklists.items.markedBy', 'checklists.items.issueBy'])
+            : Card::whereIn('board_id', $boardIds)->with(['board', 'boardList', 'assignees', 'labels', 'files', 'allFiles', 'activities', 'comments', 'checklists.items.assignedUser', 'checklists.items.markedBy', 'checklists.items.issueBy']);
 
         // When include_comments is requested, load all non-system comments with author information.
         // Otherwise, for QC personal exports, load only QC-approved comments for timestamp calculation.
@@ -392,10 +392,14 @@ class BoardExportController extends Controller
             }, 'comments.user', 'allFiles']);
         } elseif ($isPersonalExportCheck && $currentUser && $currentUser->isQc()) {
             $qcUserId = $currentUser->id;
-            $query->with(['comments' => function($q) use ($qcUserId) {
+            $qcUserIds = [$qcUserId];
+            if ($currentUser->isDara()) $qcUserIds = array_unique(array_merge($qcUserIds, [12, 24]));
+            if ($currentUser->isKim()) $qcUserIds = array_unique(array_merge($qcUserIds, [13]));
+
+            $query->with(['comments' => function($q) use ($qcUserIds) {
                 // Only load the QC-approved comments by this user — these are all
                 // that assignActivityDates needs for QC timestamp calculation.
-                $q->where('user_id', $qcUserId)
+                $q->whereIn('user_id', $qcUserIds)
                   ->where('is_system', false)
                   ->where(function($sub) {
                       $sub->whereRaw("LOWER(content) LIKE '%qc%approve%'")
@@ -467,11 +471,19 @@ class BoardExportController extends Controller
             }
         }
 
-        // 2. Members Filtering (Standard report filters by card assignees)
+        // 2. Members Filtering (Standard report filters by card assignees or SMM checklist items)
         if ($request->filled('member_id') && $request->member_id !== 'all') {
             $memberId = (int)$request->member_id;
-            $query->whereHas('assignees', function($q) use ($memberId) {
-                $q->where('users.id', $memberId);
+            $query->where(function($q) use ($memberId) {
+                $q->whereHas('assignees', function($aq) use ($memberId) {
+                    $aq->where('users.id', $memberId);
+                })->orWhereHas('checklists.items', function($ci) use ($memberId) {
+                    $ci->where('assigned_user_id', $memberId)
+                       ->orWhereJsonContains('assigned_user_ids', $memberId)
+                       ->orWhere('completed_by', $memberId)
+                       ->orWhere('marked_by', $memberId)
+                       ->orWhere('approved_by', $memberId);
+                });
             });
         }
         
@@ -618,9 +630,13 @@ class BoardExportController extends Controller
                     });
                 }
 
-                $query->where(function($q) use ($userId, $startDate, $endDate) {
-                    $q->whereHas('comments', function($qc) use ($userId, $startDate, $endDate) {
-                        $qc->where('user_id', $userId)
+                $reviewerIds = [$userId];
+                if ($isDara) $reviewerIds = array_unique(array_merge($reviewerIds, [12, 24]));
+                if ($isKim) $reviewerIds = array_unique(array_merge($reviewerIds, [13]));
+
+                $query->where(function($q) use ($reviewerIds, $startDate, $endDate) {
+                    $q->whereHas('comments', function($qc) use ($reviewerIds, $startDate, $endDate) {
+                        $qc->whereIn('user_id', $reviewerIds)
                            ->where('is_system', false)  // Exclude auto-generated comments
                            ->where(function($sub) {
                                $sub->whereRaw("LOWER(content) LIKE '%qc%approve%'")
@@ -632,12 +648,34 @@ class BoardExportController extends Controller
                            });
                         if (isset($startDate)) $qc->where('created_at', '>=', $startDate);
                         if (isset($endDate)) $qc->where('created_at', '<=', $endDate);
+                    })
+                    ->orWhereHas('checklists.items', function($qi) use ($reviewerIds, $startDate, $endDate) {
+                        $qi->where(function($sub) use ($reviewerIds, $startDate, $endDate) {
+                            $sub->where(function($sm) use ($reviewerIds, $startDate, $endDate) {
+                                $sm->where('is_marked', true)
+                                   ->whereIn('marked_by', $reviewerIds);
+                                if (isset($startDate)) $sm->where('marked_at', '>=', $startDate);
+                                if (isset($endDate)) $sm->where('marked_at', '<=', $endDate);
+                            })
+                            ->orWhere(function($si) use ($reviewerIds, $startDate, $endDate) {
+                                $si->where('has_issue', true)
+                                   ->whereIn('issue_by', $reviewerIds);
+                                if (isset($startDate)) $si->where('issue_at', '>=', $startDate);
+                                if (isset($endDate)) $si->where('issue_at', '<=', $endDate);
+                            })
+                            ->orWhere(function($sa) use ($reviewerIds, $startDate, $endDate) {
+                                $sa->where('is_approved', true)
+                                   ->whereIn('approved_by', $reviewerIds);
+                                if (isset($startDate)) $sa->where('approved_at', '>=', $startDate);
+                                if (isset($endDate)) $sa->where('approved_at', '<=', $endDate);
+                            });
+                        });
                     });
                 });
 
                 // Eager-load QC / Production approved comments strictly by THIS user to support revision counting
-                $query->with(['qcApprovalComments' => function($q) use ($userId) {
-                    $q->where('user_id', $userId)
+                $query->with(['qcApprovalComments' => function($q) use ($reviewerIds) {
+                    $q->whereIn('user_id', $reviewerIds)
                       ->where('is_system', false)
                       ->where(function($sub) {
                           $sub->whereRaw("LOWER(content) LIKE '%qc%approve%'")
@@ -668,6 +706,40 @@ class BoardExportController extends Controller
                         if (isset($endDate)) $qc->where('created_at', '<=', $endDate);
                     });
                 });
+            } elseif ($user) {
+                // Standard member personal export scope:
+                //  • Cards assigned to this member
+                //  • SMM Cards where this member ticked (completed) checklist items within the date range
+                $userId = $user->id;
+                $query->where(function($q) use ($userId, $startDate, $endDate) {
+                    $q->whereHas('assignees', function($aq) use ($userId) {
+                        $aq->where('users.id', $userId);
+                    })
+                    ->orWhereHas('checklists.items', function($qi) use ($userId, $startDate, $endDate) {
+                        $qi->where(function($sub) use ($userId, $startDate, $endDate) {
+                            $sub->where(function($cSub) use ($userId, $startDate, $endDate) {
+                                $cSub->where('is_completed', true)
+                                     ->where(function($ucond) use ($userId) {
+                                         $ucond->where('completed_by', $userId)
+                                               ->orWhere('assigned_user_id', $userId)
+                                               ->orWhereJsonContains('assigned_user_ids', $userId);
+                                     });
+                                if (isset($startDate)) $cSub->where('completed_at', '>=', $startDate);
+                                if (isset($endDate)) $cSub->where('completed_at', '<=', $endDate);
+                            })
+                            ->orWhere(function($iSub) use ($userId, $startDate, $endDate) {
+                                $iSub->where('has_issue', true)
+                                     ->where(function($ucond) use ($userId) {
+                                         $ucond->where('completed_by', $userId)
+                                               ->orWhere('assigned_user_id', $userId)
+                                               ->orWhereJsonContains('assigned_user_ids', $userId);
+                                     });
+                                if (isset($startDate)) $iSub->where('issue_at', '>=', $startDate);
+                                if (isset($endDate)) $iSub->where('issue_at', '<=', $endDate);
+                            });
+                        });
+                    });
+                });
             }
         }
 
@@ -678,6 +750,9 @@ class BoardExportController extends Controller
     {
         $targetUser = $targetUser ?? auth()->user();
         foreach ($cards as $card) {
+            if ($card->is_checklist_task && $card->computed_activity_date) {
+                continue;
+            }
             $activityDate = null;
             
             // Collect all timestamps
@@ -793,7 +868,9 @@ class BoardExportController extends Controller
             
             // Calculate Error
             $isError = false;
-            if ($c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason)) {
+            if ($c->is_checklist_task ?? false) {
+                $isError = (bool)($c->is_error ?? false);
+            } elseif ($c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason)) {
                 $isError = true;
             } else if ($c->sync_group_id) {
                 // Check if any synced card is in a Blocked list from pre-fetched collection
@@ -810,29 +887,33 @@ class BoardExportController extends Controller
                 $errorTasks++;
             }
             
-            // Completed date from pre-fetched ActivityLog collection
-            $completedDate = null;
-            $statusVal = $c->status instanceof \BackedEnum ? $c->status->value : (string)($c->status ?? '');
-            $isApproved = $c->status === \App\Enums\CardStatus::Approved || $c->status === \App\Enums\CardStatus::Done || in_array(strtolower($statusVal), ['approved', 'done']) || stripos($listName, 'Approved') !== false;
-            if ($isApproved) {
-                $cardLogs = $logsByCard->get($c->id, collect());
-                $log = $cardLogs->first(function($l) {
-                    return $l->action === 'moved' && (stripos($l->description ?? '', 'Approved') !== false || stripos($l->description ?? '', 'Done') !== false);
-                });
-                if ($log) {
-                    $completedDate = $log->created_at;
-                } else {
-                     $logStatus = $cardLogs->first(function($l) {
-                         return $l->action === 'updated' && stripos($l->description ?? '', 'status to Approved') !== false;
-                     });
-                     if ($logStatus) {
-                         $completedDate = $logStatus->created_at;
-                     } else {
-                         $completedDate = $c->approved_at ?? $c->updated_at;
-                     }
+            // Completed date
+            if ($c->is_checklist_task ?? false) {
+                $c->exact_completed_date = $c->exact_completed_date ?: '-';
+            } else {
+                $completedDate = null;
+                $statusVal = $c->status instanceof \BackedEnum ? $c->status->value : (string)($c->status ?? '');
+                $isApproved = $c->status === \App\Enums\CardStatus::Approved || $c->status === \App\Enums\CardStatus::Done || in_array(strtolower($statusVal), ['approved', 'done']) || stripos($listName, 'Approved') !== false;
+                if ($isApproved) {
+                    $cardLogs = $logsByCard->get($c->id, collect());
+                    $log = $cardLogs->first(function($l) {
+                        return $l->action === 'moved' && (stripos($l->description ?? '', 'Approved') !== false || stripos($l->description ?? '', 'Done') !== false);
+                    });
+                    if ($log) {
+                        $completedDate = $log->created_at;
+                    } else {
+                         $logStatus = $cardLogs->first(function($l) {
+                             return $l->action === 'updated' && stripos($l->description ?? '', 'status to Approved') !== false;
+                         });
+                         if ($logStatus) {
+                             $completedDate = $logStatus->created_at;
+                         } else {
+                             $completedDate = $c->approved_at ?? $c->updated_at;
+                         }
+                    }
                 }
+                $c->exact_completed_date = $completedDate ? \Carbon\Carbon::parse($completedDate)->setTimezone('Asia/Phnom_Penh')->format('Y-m-d') : '-';
             }
-            $c->exact_completed_date = $completedDate ? \Carbon\Carbon::parse($completedDate)->setTimezone('Asia/Phnom_Penh')->format('Y-m-d') : '-';
 
             $weeks[$weekName][] = $c;
         }
@@ -855,7 +936,7 @@ class BoardExportController extends Controller
                     if (str_contains($l, 'video')) return 1;
                     if (str_contains($l, 'graphic')) return 2;
                     if (str_contains($l, 'content')) return 3;
-                    if (str_contains($l, 'listing')) return 4;
+                    if (str_contains($l, 'listing') || str_contains($l, 'desc')) return 4;
                     return 5;
                 };
 
@@ -865,8 +946,120 @@ class BoardExportController extends Controller
 
         return [
             'groupedCards' => $weeks,
-            'errorTasks' => $errorTasks
+            'errorTasks' => $errorTasks,
         ];
+    }
+
+    /**
+     * Check if a card is an SMM card (has SMM label, smm class/team, or belongs to an SMM board/workspace).
+     */
+    public static function isSmmCard(Card $card): bool
+    {
+        if (!empty($card->smm_class_label) || !empty($card->smm_team_label) || !empty($card->smm_cluster_label)) {
+            return true;
+        }
+        if ($card->relationLoaded('labels') && $card->labels->contains(fn($l) => strtoupper($l->name) === 'SMM')) {
+            return true;
+        }
+        $bName = strtolower($card->board?->name ?? '');
+        $bType = strtolower($card->board?->type ?? '');
+        if ($bType === 'smm' || str_contains($bName, 'smm') || str_contains($bName, 'social media')) {
+            return true;
+        }
+        $wsName = strtolower($card->board?->workspace?->name ?? '');
+        if (str_contains($wsName, 'smm') || str_contains($wsName, 'social media')) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Deduplicate twin cards across synced boards (e.g. Workflow, Planning, and SMM boards)
+     * Ensuring no duplicate tasks appear in reports.
+     */
+    public static function deduplicateSyncedCards($cards, ?User $targetUser = null): \Illuminate\Support\Collection
+    {
+        $isDara = $targetUser?->isDara() ?? false;
+        $isKim = $targetUser?->isKim() ?? false;
+
+        return $cards->groupBy(function($c) {
+            if (!empty($c->sync_group_id)) {
+                return 'sync_' . $c->sync_group_id;
+            }
+            $normTitle = mb_strtolower(trim($c->title ?? ''));
+            $team = strtoupper($c->team ?? '');
+            $wsId = $c->board?->workspace_id ?? 0;
+            return 'title_' . $normTitle . '_' . $team . '_' . $wsId;
+        })->map(function($group) use ($isDara, $isKim) {
+            if ($group->count() === 1) {
+                return $group->first();
+            }
+
+            $selected = null;
+            if ($isDara) {
+                $selected = $group->first(fn($c) => 
+                    stripos($c->board?->name ?? '', 'team a') !== false 
+                    || stripos($c->boardList?->name ?? '', 'team a') !== false
+                    || strtoupper($c->team ?? '') === 'A'
+                );
+                if (!$selected) {
+                    $selected = $group->first(fn($c) => 
+                        stripos($c->board?->name ?? '', 'team b') === false 
+                        && stripos($c->boardList?->name ?? '', 'team b') === false
+                        && strtoupper($c->team ?? '') !== 'B'
+                    );
+                }
+            } elseif ($isKim) {
+                $selected = $group->first(fn($c) => 
+                    stripos($c->board?->name ?? '', 'team b') !== false 
+                    || stripos($c->boardList?->name ?? '', 'team b') !== false
+                    || strtoupper($c->team ?? '') === 'B'
+                );
+                if (!$selected) {
+                    $selected = $group->first(fn($c) => 
+                        stripos($c->board?->name ?? '', 'team a') === false 
+                        && stripos($c->boardList?->name ?? '', 'team a') === false
+                        && strtoupper($c->team ?? '') !== 'A'
+                    );
+                }
+            }
+
+            if (!$selected) {
+                // Prioritize Workflow card, or card with checklists/description
+                $selected = $group->first(fn($c) => stripos($c->board?->name ?? '', 'workflow') !== false && !empty($c->description))
+                    ?? $group->first(fn($c) => $c->checklists->isNotEmpty() && $c->checklists->some(fn($chk) => $chk->items->isNotEmpty()))
+                    ?? $group->first(fn($c) => stripos($c->board?->name ?? '', 'workflow') !== false)
+                    ?? $group->first();
+            }
+
+            // Borrow description, checklists, comments, assignees from siblings if missing
+            if (empty($selected->description)) {
+                $siblingWithDesc = $group->first(fn($c) => !empty($c->description));
+                if ($siblingWithDesc) {
+                    $selected->description = $siblingWithDesc->description;
+                }
+            }
+            if ($selected->checklists->isEmpty() || $selected->checklists->every(fn($chk) => $chk->items->isEmpty())) {
+                $siblingWithChecklists = $group->first(fn($c) => $c->checklists->isNotEmpty() && $c->checklists->some(fn($chk) => $chk->items->isNotEmpty()));
+                if ($siblingWithChecklists) {
+                    $selected->setRelation('checklists', $siblingWithChecklists->checklists);
+                }
+            }
+            if ($selected->comments->isEmpty()) {
+                $siblingWithComments = $group->first(fn($c) => $c->comments->isNotEmpty());
+                if ($siblingWithComments) {
+                    $selected->setRelation('comments', $siblingWithComments->comments);
+                }
+            }
+            if ($selected->assignees->isEmpty()) {
+                $siblingWithAssignees = $group->first(fn($c) => $c->assignees->isNotEmpty());
+                if ($siblingWithAssignees) {
+                    $selected->setRelation('assignees', $siblingWithAssignees->assignees);
+                }
+            }
+
+            return $selected;
+        })->values();
     }
 
     /**
@@ -879,7 +1072,60 @@ class BoardExportController extends Controller
 
         $includeDesc = $request->boolean('include_desc', false);
         $includeComments = $request->boolean('include_comments', false);
-        $cards = $this->getFilteredCardsQuery($request, $board)->get();
+
+        $period = 'All Time';
+        $filterStartDate = null;
+        $filterEndDate = null;
+        $now = Carbon::now('Asia/Phnom_Penh');
+
+        if ($request->filled('date_range')) {
+            switch ($request->date_range) {
+                case 'today': 
+                    $period = 'Today'; 
+                    $filterStartDate = $now->copy()->startOfDay();
+                    $filterEndDate = $now->copy()->endOfDay();
+                    break;
+                case 'this_week': 
+                    $period = 'This Week'; 
+                    $filterStartDate = $now->copy()->startOfWeek();
+                    $filterEndDate = $now->copy()->endOfWeek();
+                    break;
+                case 'this_month': 
+                    $period = 'This Month'; 
+                    $filterStartDate = $now->copy()->startOfMonth();
+                    $filterEndDate = $now->copy()->endOfMonth();
+                    break;
+                case 'last_month': 
+                    $period = 'Last Month'; 
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
+                    break;
+                case 'custom':
+                case 'custom_period':
+                    $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
+                    $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
+                    $period = "$start - $end";
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay();
+                    break;
+            }
+        }
+
+        $targetUser = null;
+        if ($request->filled('member_id') && $request->member_id !== 'all') {
+            $targetUser = User::find($request->member_id);
+        } elseif ($request->filled('reviewer_id')) {
+            $targetUser = User::find($request->reviewer_id);
+        } elseif ($request->filled('user_id') && $request->user_id !== 'all') {
+            $targetUser = User::find($request->user_id);
+        } elseif (!auth()->user()->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'boss', 'supervisor']) && !auth()->user()->isQc()) {
+            $targetUser = auth()->user();
+        }
+
+        $cards = $this->getFilteredCardsQuery($request, $board, $targetUser)->get();
+        $cards = self::deduplicateSyncedCards($cards, $targetUser);
+        $cards = $this->integrateChecklistTasks($cards, $targetUser, $filterStartDate, $filterEndDate);
+        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, false, $targetUser?->isQc() ?? false, $targetUser);
 
         // Calculate statistics for the summary sections
         $totalTasks = $cards->count();
@@ -926,45 +1172,6 @@ class BoardExportController extends Controller
             }
         }
 
-        $period = 'All Time';
-        $filterStartDate = null;
-        $filterEndDate = null;
-        $now = Carbon::now('Asia/Phnom_Penh');
-
-        if ($request->filled('date_range')) {
-            switch ($request->date_range) {
-                case 'today': 
-                    $period = 'Today'; 
-                    $filterStartDate = $now->copy()->startOfDay();
-                    $filterEndDate = $now->copy()->endOfDay();
-                    break;
-                case 'this_week': 
-                    $period = 'This Week';
-                    $filterStartDate = $now->copy()->startOfWeek();
-                    $filterEndDate = $now->copy()->endOfWeek();
-                    break;
-                case 'this_month': 
-                    $period = 'This Month';
-                    $filterStartDate = $now->copy()->startOfMonth();
-                    $filterEndDate = $now->copy()->endOfMonth();
-                    break;
-                case 'last_month': 
-                    $period = 'Last Month';
-                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
-                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
-                    break;
-                case 'custom':
-                case 'custom_period':
-                    $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
-                    $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
-                    $period = "$start - $end";
-                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
-                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay();
-                    break;
-            }
-        }
-
-        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, false, false);
         $smmData = $this->prepareSmmExportData($cards, $board);
 
         if ($request->boolean('raw') || $request->input('format') === 'raw_csv') {
@@ -1010,7 +1217,59 @@ class BoardExportController extends Controller
         @set_time_limit(180);
         @ini_set('memory_limit', '512M');
 
-        $cards = $this->getFilteredCardsQuery($request, $board)->get();
+        $period = 'All Time';
+        $filterStartDate = null;
+        $filterEndDate = null;
+        $now = Carbon::now('Asia/Phnom_Penh');
+        
+        if ($request->filled('date_range')) {
+            switch ($request->date_range) {
+                case 'today': 
+                    $period = 'Today'; 
+                    $filterStartDate = $now->copy()->startOfDay();
+                    $filterEndDate = $now->copy()->endOfDay();
+                    break;
+                case 'this_week': 
+                    $period = 'This Week'; 
+                    $filterStartDate = $now->copy()->startOfWeek();
+                    $filterEndDate = $now->copy()->endOfWeek();
+                    break;
+                case 'this_month': 
+                    $period = 'This Month'; 
+                    $filterStartDate = $now->copy()->startOfMonth();
+                    $filterEndDate = $now->copy()->endOfMonth();
+                    break;
+                case 'last_month': 
+                    $period = 'Last Month'; 
+                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
+                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
+                    break;
+                case 'custom':
+                case 'custom_period':
+                    $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
+                    $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
+                    $period = "$start - $end";
+                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
+                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay();
+                    break;
+            }
+        }
+
+        $targetUser = null;
+        if ($request->filled('member_id') && $request->member_id !== 'all') {
+            $targetUser = User::find($request->member_id);
+        } elseif ($request->filled('reviewer_id')) {
+            $targetUser = User::find($request->reviewer_id);
+        } elseif ($request->filled('user_id') && $request->user_id !== 'all') {
+            $targetUser = User::find($request->user_id);
+        } elseif (!auth()->user()->hasAnyRole(['super-admin', 'admin', 'admin-digital', 'boss', 'supervisor']) && !auth()->user()->isQc()) {
+            $targetUser = auth()->user();
+        }
+
+        $cards = $this->getFilteredCardsQuery($request, $board, $targetUser)->get();
+        $cards = self::deduplicateSyncedCards($cards, $targetUser);
+        $cards = $this->integrateChecklistTasks($cards, $targetUser, $filterStartDate, $filterEndDate);
+        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, false, $targetUser?->isQc() ?? false, $targetUser);
 
         // Calculate statistics - Completed tasks includes Done and Approved
         $totalTasks = $cards->count();
@@ -1067,47 +1326,6 @@ class BoardExportController extends Controller
             }
             return strcmp($teamA, $teamB);
         });
-
-        // Get report period string
-        $period = 'All Time';
-        $filterStartDate = null;
-        $filterEndDate = null;
-        $now = Carbon::now('Asia/Phnom_Penh');
-        
-        if ($request->filled('date_range')) {
-            switch ($request->date_range) {
-                case 'today': 
-                    $period = 'Today'; 
-                    $filterStartDate = $now->copy()->startOfDay();
-                    $filterEndDate = $now->copy()->endOfDay();
-                    break;
-                case 'this_week': 
-                    $period = 'This Week'; 
-                    $filterStartDate = $now->copy()->startOfWeek();
-                    $filterEndDate = $now->copy()->endOfWeek();
-                    break;
-                case 'this_month': 
-                    $period = 'This Month'; 
-                    $filterStartDate = $now->copy()->startOfMonth();
-                    $filterEndDate = $now->copy()->endOfMonth();
-                    break;
-                case 'last_month': 
-                    $period = 'Last Month'; 
-                    $filterStartDate = $now->copy()->subMonth()->startOfMonth();
-                    $filterEndDate = $now->copy()->subMonth()->endOfMonth();
-                    break;
-                case 'custom':
-                case 'custom_period':
-                    $start = $request->start_date ? Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'Beginning';
-                    $end = $request->end_date ? Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->format('M d, Y') : 'End';
-                    $period = "$start - $end";
-                    if ($request->filled('start_date')) $filterStartDate = Carbon::parse($request->start_date, 'Asia/Phnom_Penh')->startOfDay();
-                    if ($request->filled('end_date')) $filterEndDate = Carbon::parse($request->end_date, 'Asia/Phnom_Penh')->endOfDay();
-                    break;
-            }
-        }
-
-        $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, false, false);
 
         $labelStats = [];
         foreach ($cards as $c) {
@@ -1189,6 +1407,533 @@ class BoardExportController extends Controller
     }
 
     /**
+     * Extract leading item number from checklist item text (e.g. '2.Video Short : 13TH-OCT' => 2).
+     */
+    public static function extractNumberFromChecklistItem(?string $content): ?int
+    {
+        if (empty($content)) return null;
+        $content = trim($content);
+        if (preg_match('/^#?\s*(\d+)[\.\:\)\-\s]/u', $content, $m)) {
+            return (int) $m[1];
+        }
+        if (preg_match('/^#?\s*(\d+)/u', $content, $m)) {
+            return (int) $m[1];
+        }
+        return null;
+    }
+
+    /**
+     * Match a task line from the card description matching the given number
+     * (e.g. matches '2.TYPH-0509 Vs. TYPH-0565 : Power and size comparison').
+     */
+    public static function matchDescriptionByNumber(?string $description, int $number): ?string
+    {
+        if (empty($description)) return null;
+
+        // Clean HTML markup into line breaks
+        $text = preg_replace('/<(?:br|\/p|\/div|\/li|tr)\s*\/?>/i', "\n", $description);
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = str_replace(["\xc2\xa0", "\u{00a0}", '&nbsp;'], ' ', $text);
+
+        $lines = preg_split('/\r\n|\r|\n/', $text);
+        if (!$lines) return null;
+
+        // Pattern: exact number at beginning of line, e.g. "2.TYPH-0509" or "2. TYPH-0509" or "2: TYPH"
+        $patternExact = '/^\s*#?\s*' . $number . '[\.\:\)\-\s]\s*(.+)$/ui';
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') continue;
+            if (preg_match($patternExact, $trimmed)) {
+                return $trimmed;
+            }
+        }
+
+        // Fallback pattern if number is immediately adjacent to text
+        $patternFallback = '/^\s*#?\s*' . $number . '[\.\:\)\-]?\s*(.+)$/ui';
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') continue;
+            if (preg_match($patternFallback, $trimmed)) {
+                return $trimmed;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Match a task line from the card description matching category keywords (e.g. Graphic, Video, Description).
+     */
+    public static function matchDescriptionByCategory(?string $description, string $category, string $itemContent): ?string
+    {
+        if (empty($description)) return null;
+
+        $text = preg_replace('/<(?:br|\/p|\/div|\/li|tr)\s*\/?>/i', "\n", $description);
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = str_replace(["\xc2\xa0", "\u{00a0}", '&nbsp;'], ' ', $text);
+
+        $lines = preg_split('/\r\n|\r|\n/', $text);
+        if (!$lines) return null;
+
+        $catKeywords = [];
+        $catLower = strtolower($category);
+        if ($catLower === 'graphic') {
+            $catKeywords = ['graphic', 'poster', 'banner', 'design', 'artwork', 'photo', 'image'];
+        } elseif ($catLower === 'video') {
+            $catKeywords = ['video', 'reel', 'short', 'tiktok', 'landscape'];
+        } elseif ($catLower === 'listing' || $catLower === 'description') {
+            $catKeywords = ['description', 'listing', 'desc'];
+        } elseif ($catLower === 'content') {
+            $catKeywords = ['content'];
+        }
+
+        $kwPattern = implode('|', array_map('preg_quote', $catKeywords));
+        if (empty($kwPattern)) return null;
+
+        $pattern = '/^\s*#?\s*(?:' . $kwPattern . ')\s*[\:\-\.]\s*(.+)$/ui';
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') continue;
+            if (preg_match($pattern, $trimmed)) {
+                return $trimmed;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Format a descriptive task title for checklist tasks on normal and SMM cards.
+     * E.g. "PRJ: KUVUO WITH BUNDLE - Graphic" or "PRJ: KUVUO WITH BUNDLE - Description".
+     */
+    public static function formatChecklistTaskTitle(?string $cardTitle, ?string $itemContent, ?string $categoryName = null): string
+    {
+        $cardTitle = trim($cardTitle ?? '');
+        $itemContent = trim($itemContent ?? '');
+        $categoryName = trim($categoryName ?? '');
+
+        if (empty($cardTitle)) {
+            return $itemContent ?: ($categoryName ?: 'Task');
+        }
+
+        if (empty($itemContent) && empty($categoryName)) {
+            return $cardTitle;
+        }
+
+        // Determine what suffix to attach
+        $taskSuffix = $itemContent;
+        if (empty($taskSuffix) || in_array(strtolower($taskSuffix), ['task', 'status', 'checklist', 'todo'])) {
+            $taskSuffix = $categoryName;
+        }
+
+        $titleLower = mb_strtolower($cardTitle);
+        $suffixLower = mb_strtolower($taskSuffix);
+        $catLower = mb_strtolower($categoryName);
+
+        // If card title already explicitly contains this task suffix or category, return card title
+        if ($suffixLower !== '' && str_contains($titleLower, $suffixLower)) {
+            return $cardTitle;
+        }
+        if ($catLower !== '' && str_contains($titleLower, $catLower)) {
+            return $cardTitle;
+        }
+        if ($catLower === 'video' && (str_contains($titleLower, 'video') || str_contains($titleLower, 'reel') || str_contains($titleLower, 'short') || str_contains($titleLower, 'tiktok'))) {
+            return $cardTitle;
+        }
+        if ($catLower === 'graphic' && (str_contains($titleLower, 'graphic') || str_contains($titleLower, 'poster') || str_contains($titleLower, 'banner') || str_contains($titleLower, 'design'))) {
+            return $cardTitle;
+        }
+        if (($catLower === 'listing' || $catLower === 'description') && (str_contains($titleLower, 'listing') || str_contains($titleLower, 'description') || str_contains($titleLower, 'desc'))) {
+            return $cardTitle;
+        }
+
+        $displaySuffix = !empty($taskSuffix) ? $taskSuffix : $categoryName;
+        return $cardTitle . ' - ' . $displaySuffix;
+    }
+
+    /**
+     * Resolve the label object (Video, Graphic, Content, Listing/Description) from the checklist item text.
+     */
+    public static function resolveChecklistTaskLabel(string $content, Card $card, ?\App\Models\CardChecklist $chk = null, ?User $assignedOrCompletedUser = null): \App\Models\Label
+    {
+        $category = \App\Models\CardChecklistItem::detectCategory($content);
+        if (!$category && $chk) {
+            $category = \App\Models\CardChecklistItem::detectCategory($chk->title ?? '');
+        }
+        if (!$category && $assignedOrCompletedUser) {
+            if (\App\Models\CardChecklistItem::isVideoUser($assignedOrCompletedUser)) $category = 'video';
+            elseif (\App\Models\CardChecklistItem::isGraphicUser($assignedOrCompletedUser)) $category = 'graphic';
+            elseif (\App\Models\CardChecklistItem::isListingUser($assignedOrCompletedUser)) $category = 'listing';
+        }
+        
+        $name = 'Graphic';
+        $color = '#ec4899';
+
+        if ($category === 'video') {
+            $name = 'Video';
+            $color = '#8b5cf6';
+        } elseif ($category === 'content') {
+            $name = 'Content';
+            $color = '#06b6d4';
+        } elseif ($category === 'listing') {
+            if (stripos($content, 'desc') !== false || ($chk && stripos($chk->title ?? '', 'desc') !== false)) {
+                $name = 'Description';
+            } else {
+                $name = 'Listing';
+            }
+            $color = '#10b981';
+        } elseif ($category === 'graphic') {
+            $name = 'Graphic';
+            $color = '#ec4899';
+        } else {
+            // Fallback: check if parent card has Video, Graphic, Content, Listing or Description label
+            $existing = $card->labels->first(fn($l) => in_array(strtolower($l->name), ['video', 'graphic', 'content', 'listing', 'description']));
+            if ($existing) {
+                return $existing;
+            }
+            if (stripos($content, 'video') !== false || ($chk && stripos($chk->title ?? '', 'video') !== false)) {
+                $name = 'Video';
+                $color = '#8b5cf6';
+            } elseif (stripos($content, 'desc') !== false || ($chk && stripos($chk->title ?? '', 'desc') !== false)) {
+                $name = 'Description';
+                $color = '#10b981';
+            }
+        }
+
+        // Try to find matching label in DB
+        $dbLabel = \App\Models\Label::whereRaw('LOWER(name) = ?', [strtolower($name)])->first();
+        if (!$dbLabel && ($name === 'Description' || $name === 'Listing')) {
+            $dbLabel = \App\Models\Label::whereRaw('LOWER(name) IN (?, ?)', ['listing', 'description'])->first();
+        }
+        if ($dbLabel) {
+            return $dbLabel;
+        }
+
+        $virtual = new \App\Models\Label();
+        $virtual->name = $name;
+        $virtual->color = $color;
+        return $virtual;
+    }
+
+    /**
+     * Integrate checklist tasks for reports (Personal Report and Planning/Workflow Board exports).
+     *
+     * - Normal cards (non-SMM) with checklists: expanded into individual tasks from checklist items,
+     *   detected as Graphic, Video, or Description of that card title (e.g. "PRJ: KUVUO WITH BUNDLE - Graphic").
+     * - Normal cards without checklists: included as regular tasks like before.
+     * - SMM cards: expanded into individual tasks from checklist items, with task titles
+     *   detected from the card description matching the item number (e.g. 2.TYPH-0509),
+     *   category label resolved (Video, Graphic, Content, Listing/Description), and assignees properly mapped.
+     * - For Mr. Dara & Mr. Kim (QC): show tasks they clicked mark as approved (green tick) or marked error (red flag).
+     * - For other users / standard members: show tasks they completed (ticked finish) or items with reviewer errors.
+     * - For full board export (no specific user): show all checklist tasks with proper status.
+     * - Tasks are deduplicated to ensure no duplicate entries appear.
+     */
+    public function integrateChecklistTasks($cards, ?User $targetUser, ?\Illuminate\Support\Carbon $startDate, ?\Illuminate\Support\Carbon $endDate): \Illuminate\Support\Collection
+    {
+        $isQcUser = $targetUser?->isQc() ?? false;
+        $isDara = $targetUser?->isDara() ?? false;
+        $isKim = $targetUser?->isKim() ?? false;
+        $targetUserId = $targetUser ? (int) $targetUser->id : null;
+
+        $isReviewer = function($userId) use ($targetUserId, $isDara, $isKim) {
+            if (!$userId) return false;
+            $uid = (int) $userId;
+            if ($uid === $targetUserId) return true;
+            if ($isDara && in_array($uid, [12, 24])) return true;
+            if ($isKim && $uid === 13) return true;
+            return false;
+        };
+
+        $resultCards = collect();
+        $seenChecklistItems = [];
+
+        foreach ($cards as $card) {
+            $isSmm = self::isSmmCard($card);
+            $cardChecklists = $card->checklists;
+            $hasChecklistItems = $cardChecklists && $cardChecklists->isNotEmpty() && $cardChecklists->contains(fn($chk) => $chk->items && $chk->items->isNotEmpty());
+
+            $qualifyingItems = collect();
+
+            if ($hasChecklistItems) {
+                foreach ($cardChecklists as $chk) {
+                    foreach ($chk->items as $item) {
+                        $itemKey = $item->sync_id ?: ('item_' . $item->id);
+                        if (isset($seenChecklistItems[$itemKey])) {
+                            continue;
+                        }
+
+                        $itemTimestamp = null;
+                        $isError = false;
+                        $status = null;
+                        $exactCompletedDate = '-';
+                        $rejectionReason = null;
+
+                        if ($targetUser && ($isQcUser || $isDara || $isKim)) {
+                            // QC Reviewers (Dara & Kim): show tasks they clicked mark as approved (or issue)
+                            $isMarkedBy = $item->is_marked && $isReviewer($item->marked_by);
+                            $hasIssueBy = $item->has_issue && $isReviewer($item->issue_by);
+                            $isApprovedBy = $item->is_approved && ($isReviewer($item->approved_by) || $isReviewer($item->marked_by));
+
+                            if (!$isMarkedBy && !$hasIssueBy && !$isApprovedBy) {
+                                continue;
+                            }
+
+                            if ($hasIssueBy) {
+                                $itemTimestamp = $item->issue_at ?: $item->updated_at;
+                                $status = CardStatus::Rejected;
+                                $isError = true;
+                                $rejectionReason = 'Error on checklist item: ' . $item->content;
+                            } elseif ($isMarkedBy) {
+                                $itemTimestamp = $item->marked_at ?: ($item->approved_at ?: $item->updated_at);
+                                $status = CardStatus::Approved;
+                                $isError = false;
+                            } else {
+                                $itemTimestamp = $item->approved_at ?: ($item->marked_at ?: $item->updated_at);
+                                $status = CardStatus::Approved;
+                                $isError = false;
+                            }
+
+                            $exactCompletedDate = (!$isError && $itemTimestamp) 
+                                ? Carbon::parse($itemTimestamp)->setTimezone('Asia/Phnom_Penh')->format('Y-m-d') 
+                                : '-';
+
+                        } elseif ($targetUser) {
+                            // Standard members: show tasks they completed (ticked finish), or items where reviewer flagged error/approved
+                            $isCompleted = (bool) $item->is_completed;
+                            $hasIssue = (bool) $item->has_issue;
+                            $isApproved = (bool) $item->is_approved;
+                            $isMarked = (bool) $item->is_marked;
+
+                            $isCompletedByMe = ((int) $item->completed_by === $targetUserId);
+                            $assigneeIds = $item->effectiveAssigneeIds();
+                            $isAssignedToMe = in_array($targetUserId, $assigneeIds) || ((int) $item->assigned_user_id === $targetUserId);
+                            $isCardAssignedToMe = $card->assignees->contains('id', $targetUserId);
+
+                            // Category matching for normal card checklists:
+                            // e.g. if item is "Graphic" and targetUser is the Graphic member on the card
+                            $category = \App\Models\CardChecklistItem::detectCategory($item->content)
+                                ?: \App\Models\CardChecklistItem::detectCategory($chk->title ?? '');
+                            $isCategoryMatch = false;
+                            if ($category && $isCardAssignedToMe) {
+                                if ($category === 'video' && \App\Models\CardChecklistItem::isVideoUser($targetUser)) $isCategoryMatch = true;
+                                elseif ($category === 'graphic' && \App\Models\CardChecklistItem::isGraphicUser($targetUser)) $isCategoryMatch = true;
+                                elseif ($category === 'listing' && \App\Models\CardChecklistItem::isListingUser($targetUser)) $isCategoryMatch = true;
+                                elseif ($category === 'content' && str_contains(strtolower($targetUser->name ?? ''), 'sreypich')) $isCategoryMatch = true;
+                            }
+
+                            $belongsToMe = $isCompletedByMe || $isAssignedToMe || $isCategoryMatch || ($isCardAssignedToMe && empty($item->completed_by));
+
+                            if (!$belongsToMe) {
+                                continue;
+                            }
+
+                            // Must be completed OR have an issue flagged by reviewer (error)
+                            if (!$isCompleted && !$hasIssue) {
+                                continue;
+                            }
+
+                            if ($hasIssue) {
+                                $itemTimestamp = $item->issue_at ?: ($item->completed_at ?: $item->updated_at);
+                                $status = CardStatus::Rejected;
+                                $isError = true;
+                                $rejectionReason = 'Error on checklist item: ' . $item->content;
+                                $exactCompletedDate = '-';
+                            } else {
+                                $itemTimestamp = $item->completed_at ?: $item->updated_at;
+                                $status = ($isApproved || $isMarked) ? CardStatus::Approved : CardStatus::Done;
+                                $isError = false;
+                                $exactCompletedDate = $itemTimestamp 
+                                    ? Carbon::parse($itemTimestamp)->setTimezone('Asia/Phnom_Penh')->format('Y-m-d') 
+                                    : '-';
+                            }
+
+                        } else {
+                            // No specific user (full board export): include all checklist tasks
+                            $itemTimestamp = $item->completed_at ?: ($item->marked_at ?: ($item->approved_at ?: $item->updated_at));
+                            if ($item->has_issue) {
+                                $status = CardStatus::Rejected;
+                                $isError = true;
+                                $rejectionReason = 'Error on checklist item: ' . $item->content;
+                            } elseif ($item->is_approved || $item->is_marked) {
+                                $status = CardStatus::Approved;
+                                $isError = false;
+                                $exactCompletedDate = $itemTimestamp ? Carbon::parse($itemTimestamp)->setTimezone('Asia/Phnom_Penh')->format('Y-m-d') : '-';
+                            } elseif ($item->is_completed) {
+                                $status = CardStatus::Done;
+                                $isError = false;
+                                $exactCompletedDate = $itemTimestamp ? Carbon::parse($itemTimestamp)->setTimezone('Asia/Phnom_Penh')->format('Y-m-d') : '-';
+                            } else {
+                                $status = CardStatus::Todo;
+                                $isError = false;
+                                $exactCompletedDate = '-';
+                            }
+                        }
+
+                        // Date filtering
+                        if ($startDate && $itemTimestamp && $itemTimestamp < $startDate) {
+                            continue;
+                        }
+                        if ($endDate && $itemTimestamp && $itemTimestamp > $endDate) {
+                            continue;
+                        }
+
+                        $seenChecklistItems[$itemKey] = true;
+
+                        $qualifyingItems->push([
+                            'item' => $item,
+                            'checklist' => $chk,
+                            'status' => $status,
+                            'is_error' => $isError,
+                            'timestamp' => $itemTimestamp,
+                            'exact_completed_date' => $exactCompletedDate,
+                            'rejection_reason' => $rejectionReason,
+                        ]);
+                    }
+                }
+            }
+
+            if ($qualifyingItems->isNotEmpty()) {
+                foreach ($qualifyingItems as $entry) {
+                    $item = $entry['item'];
+                    $chk = $entry['checklist'] ?? null;
+                    $status = $entry['status'];
+                    $isError = $entry['is_error'];
+                    $timestamp = $entry['timestamp'];
+                    $exactCompletedDate = $entry['exact_completed_date'];
+                    $rejectionReason = $entry['rejection_reason'];
+
+                    // 1. Assignees
+                    $assigneeIds = $item->effectiveAssigneeIds();
+                    $taskAssignees = collect();
+                    if (!empty($assigneeIds)) {
+                        $taskAssignees = User::whereIn('id', $assigneeIds)->get();
+                    }
+                    if ($taskAssignees->isEmpty() && $item->completed_by) {
+                        $taskAssignees = User::where('id', $item->completed_by)->get();
+                    }
+                    if ($taskAssignees->isEmpty()) {
+                        $detectedUserId = \App\Models\CardChecklistItem::detectUserIdForCard($item->content, $card);
+                        if ($detectedUserId) {
+                            $detectedUser = User::find($detectedUserId);
+                            if ($detectedUser) $taskAssignees = collect([$detectedUser]);
+                        }
+                    }
+                    if ($taskAssignees->isEmpty()) {
+                        $taskAssignees = $card->assignees;
+                    }
+
+                    // 2. Category / Label
+                    $firstAssignee = $taskAssignees->first();
+                    $labelObj = self::resolveChecklistTaskLabel($item->content, $card, $chk, $firstAssignee);
+                    $categoryName = $labelObj->name;
+
+                    // 3. Task Title: match number in description, match category in description, or format with card title
+                    $itemNumber = self::extractNumberFromChecklistItem($item->content);
+                    $matchedTitle = null;
+                    if ($itemNumber !== null) {
+                        $matchedTitle = self::matchDescriptionByNumber($card->description, $itemNumber);
+                    }
+
+                    if (!$matchedTitle && !empty($card->description)) {
+                        $matchedTitle = self::matchDescriptionByCategory($card->description, $categoryName, $item->content);
+                    }
+
+                    if ($matchedTitle) {
+                        $taskTitle = $matchedTitle;
+                    } else {
+                        $taskTitle = self::formatChecklistTaskTitle($card->title, $item->content, $categoryName);
+                    }
+
+                    // 4. Virtual Card instantiation
+                    $taskCard = clone $card;
+                    $taskCard->is_checklist_task = true;
+                    $taskCard->checklist_item_id = $item->id;
+                    $taskCard->checklist_item_name = $item->content;
+                    $taskCard->parent_card_title = $card->title;
+                    $taskCard->parent_card_id = $card->id;
+                    $taskCard->title = $taskTitle;
+                    $taskCard->description = $item->content;
+
+                    // Set label
+                    $taskCard->setRelation('labels', collect([$labelObj]));
+                    $taskCard->label = $labelObj->name;
+
+                    // Set SMM class if missing
+                    if (!$taskCard->smm_class_label) {
+                        $taskCard->smm_class_label = $labelObj->name;
+                        $taskCard->smm_class_color = $labelObj->color ?? '#6366f1';
+                    }
+
+                    // Set assignees
+                    $taskCard->setRelation('assignees', $taskAssignees);
+
+                    // Set status & error
+                    $taskCard->status = $status;
+                    $taskCard->is_error = $isError;
+                    $taskCard->exact_completed_date = $exactCompletedDate;
+                    $taskCard->rejection_reason = $rejectionReason;
+
+                    // Set computed activity date
+                    $taskCard->computed_activity_date = $timestamp ? Carbon::parse($timestamp)->setTimezone('Asia/Phnom_Penh') : null;
+
+                    $resultCards->push($taskCard);
+                }
+            } else {
+                // If card had no checklist items, or no checklist items matched:
+                if ($targetUser && $isQcUser) {
+                    // For QC users: check if they approved this card via comment or status
+                    $hasCardApprovalComment = false;
+                    if ($card->comments && $card->comments->isNotEmpty()) {
+                        $hasCardApprovalComment = $card->comments->contains(function($cmt) use ($isReviewer, $startDate, $endDate) {
+                            if ($cmt->is_system) return false;
+                            if (!$isReviewer($cmt->user_id)) return false;
+                            $txt = strtolower($cmt->content ?? $cmt->body ?? '');
+                            $isApprove = str_contains($txt, 'qc approve')
+                                || str_contains($txt, 'production approve')
+                                || str_contains($txt, 'production approved')
+                                || str_contains($txt, 'production approved smm')
+                                || str_contains($txt, 'head approve')
+                                || str_contains($txt, 'approved smm');
+                            if (!$isApprove) return false;
+                            if ($startDate && $cmt->created_at < $startDate) return false;
+                            if ($endDate && $cmt->created_at > $endDate) return false;
+                            return true;
+                        });
+                    }
+
+                    if ($hasCardApprovalComment || stripos($card->boardList?->name ?? '', 'Approved') !== false || $card->status === CardStatus::Approved) {
+                        $card->is_checklist_task = false;
+                        $resultCards->push($card);
+                    }
+                } elseif ($targetUser && !$isQcUser) {
+                    // For standard member: if card has no checklists, keep normal card assigned to them
+                    if (!$hasChecklistItems) {
+                        $card->is_checklist_task = false;
+                        $resultCards->push($card);
+                    }
+                } else {
+                    // Full board export with no checklists on this card
+                    $card->is_checklist_task = false;
+                    $resultCards->push($card);
+                }
+            }
+        }
+
+        return $resultCards;
+    }
+
+    /**
+     * Backward-compatible proxy for integrateChecklistTasksForQc.
+     */
+    private function integrateChecklistTasksForQc($cards, User $targetUser, ?\Illuminate\Support\Carbon $startDate, ?\Illuminate\Support\Carbon $endDate): \Illuminate\Support\Collection
+    {
+        return $this->integrateChecklistTasks($cards, $targetUser, $startDate, $endDate);
+    }
+
+    /**
      * Render the setup page for compiling a consolidated Personal Report.
      */
     public function personalReport(Request $request)
@@ -1199,16 +1944,58 @@ class BoardExportController extends Controller
         // (boards are hidden at month-end but must still be available for historical exports)
         $workspaces = $this->getAuthorizedWorkspaces(auth()->user(), includeHidden: true);
 
-        // Filter to include ONLY Workflow boards (strictly exclude Planning boards)
+        $now = Carbon::now('Asia/Phnom_Penh');
+        $currentMonthLong = strtolower($now->format('F')); // 'october'
+        $currentMonthShort = strtolower($now->format('M')); // 'oct'
+        $allMonths = [
+            'january', 'february', 'march', 'april', 'may', 'june',
+            'july', 'august', 'september', 'october', 'november', 'december'
+        ];
+        $pastMonths = array_diff($allMonths, [$currentMonthLong]);
+
+        // Filter to include Workflow boards, Planning boards, and SMM boards
         $hiddenBoardsCount = 0;
         foreach ($workspaces as $workspace) {
             $filteredBoards = $workspace->boards->filter(function ($board) {
                 $name = strtolower($board->name ?? '');
+                $type = strtolower($board->type ?? '');
+
                 $isWorkflow = str_contains($name, 'workflow')
-                    || ($board->type ?? '') === 'workflow'
+                    || $type === 'workflow'
                     || str_contains($name, 'team a')
                     || str_contains($name, 'team b');
-                return $isWorkflow && !str_contains($name, 'planning') && ($board->type ?? '') !== 'planning' && ($board->type ?? '') !== 'smm';
+
+                $isPlanning = str_contains($name, 'planning')
+                    || $type === 'planning'
+                    || !empty($board->is_template);
+
+                $isSmm = $type === 'smm'
+                    || !empty($board->is_active_smm)
+                    || str_contains($name, 'smm')
+                    || str_contains($name, 'social media');
+
+                return $isWorkflow || $isPlanning || $isSmm;
+            })->map(function ($board) use ($currentMonthLong, $currentMonthShort, $pastMonths) {
+                $name = strtolower($board->name ?? '');
+
+                // Check if this board is explicitly named after a past month
+                $hasPastMonth = false;
+                foreach ($pastMonths as $pm) {
+                    if (str_contains($name, $pm)) {
+                        $hasPastMonth = true;
+                        break;
+                    }
+                }
+
+                // If board explicitly specifies a past month, mark as hidden so it goes under "Old Hidden Board"
+                if ($hasPastMonth && !str_contains($name, $currentMonthLong) && !str_contains($name, $currentMonthShort)) {
+                    $board->is_hidden = true;
+                } elseif (str_contains($name, $currentMonthLong) || str_contains($name, $currentMonthShort)) {
+                    // Board is for this month -> show directly as active (not hidden)
+                    $board->is_hidden = false;
+                }
+
+                return $board;
             })->values();
 
             $workspace->setRelation('boards', $filteredBoards);
@@ -1219,7 +2006,7 @@ class BoardExportController extends Controller
             $hiddenBoardsCount += $workspace->hidden_workflow_boards_count;
         }
 
-        // Filter out workspaces that have no workflow boards
+        // Filter out workspaces that have no qualifying boards
         $workspaces = $workspaces->filter(fn($ws) => $ws->boards->isNotEmpty())->values();
 
         $users = \App\Models\User::where('is_active', true)->orderBy('name')->get();
@@ -1248,45 +2035,8 @@ class BoardExportController extends Controller
 
         $cards = $this->getFilteredCardsQuery($request, null, $targetUser)->get();
 
-        if ($targetUser?->isQc()) {
-            $uName = strtolower($targetUser->name ?? '');
-            $uUsername = strtolower($targetUser->username ?? '');
-            $isDara = str_contains($uUsername, 'dara') || str_contains($uName, 'dara') || in_array($targetUser->id, [12, 24]);
-            $isKim = str_contains($uUsername, 'kim') || str_contains($uName, 'kim') || $targetUser->id === 13;
-
-            // Deduplicate twin cards across synced boards (e.g. Workflow, Planning, and SMM boards)
-            // Ensure no confusion: Mr. Dara prioritizes Team A boards/lists, Mr. Kim prioritizes Team B boards/lists!
-            $cards = $cards->groupBy(fn($c) => $c->sync_group_id ?: ('card_' . $c->id))->map(function($group) use ($isDara, $isKim) {
-                if ($isDara) {
-                    $preferred = $group->first(fn($c) => 
-                        stripos($c->board?->name ?? '', 'team a') !== false 
-                        || stripos($c->boardList?->name ?? '', 'team a') !== false
-                        || strtoupper($c->team ?? '') === 'A'
-                    );
-                    if ($preferred) return $preferred;
-                    $nonTeamB = $group->first(fn($c) => 
-                        stripos($c->board?->name ?? '', 'team b') === false 
-                        && stripos($c->boardList?->name ?? '', 'team b') === false
-                        && strtoupper($c->team ?? '') !== 'B'
-                    );
-                    if ($nonTeamB) return $nonTeamB;
-                } elseif ($isKim) {
-                    $preferred = $group->first(fn($c) => 
-                        stripos($c->board?->name ?? '', 'team b') !== false 
-                        || stripos($c->boardList?->name ?? '', 'team b') !== false
-                        || strtoupper($c->team ?? '') === 'B'
-                    );
-                    if ($preferred) return $preferred;
-                    $nonTeamA = $group->first(fn($c) => 
-                        stripos($c->board?->name ?? '', 'team a') === false 
-                        && stripos($c->boardList?->name ?? '', 'team a') === false
-                        && strtoupper($c->team ?? '') !== 'A'
-                    );
-                    if ($nonTeamA) return $nonTeamA;
-                }
-                return $group->first(fn($c) => stripos($c->board?->name ?? '', 'workflow') !== false) ?? $group->first();
-            })->values();
-        }
+        // Deduplicate twin cards across synced boards (e.g. Workflow, Planning, and SMM boards)
+        $cards = self::deduplicateSyncedCards($cards, $targetUser);
 
         $format = $request->input('format', 'pdf');
         $includeDesc = $request->boolean('include_desc', false);
@@ -1330,13 +2080,19 @@ class BoardExportController extends Controller
             }
         }
 
+        // Integrate checklist item reviews (for QC) and ticked tasks (for members) into individual cards
+        $cards = $this->integrateChecklistTasks($cards, $targetUser, $filterStartDate, $filterEndDate);
+
         $cards = $this->assignActivityDates($cards, $filterStartDate, $filterEndDate, true, $targetUser->isQc(), $targetUser);
 
-        if ($format === 'csv') {
-            // A card is "completed" when physically in a list named "Approved" (Supervisor approved it).
-            // The `status` field is NOT reliable — all cards keep status='todo' even after being moved.
+        if ($format === 'csv' || $format === 'raw_csv') {
+            // A card is "completed" when physically in a list named "Approved" (Supervisor approved it),
+            // or when it represents an approved checklist item.
             $isCompleted = function($c) {
                 if ($c->is_archived) return false;
+                if ($c->is_checklist_task ?? false) {
+                    return $c->status === \App\Enums\CardStatus::Approved || $c->status === \App\Enums\CardStatus::Done;
+                }
                 $statusVal = $c->status instanceof \BackedEnum ? $c->status->value : (string)($c->status ?? '');
                 return stripos($c->boardList?->name ?? '', 'Approved') !== false 
                     || $c->status === \App\Enums\CardStatus::Approved 
@@ -1348,11 +2104,15 @@ class BoardExportController extends Controller
             $archivedTasks  = $cards->filter(fn($c) => $c->is_archived)->count();
             $pendingTasks   = $totalTasks - $completedTasks - $archivedTasks;
 
-            // For QC report: errors = cards that required revisions (had to be QC approved more than once by this reviewer)
-            // For Supervisor report: errors = cards with rejection_reason or Rejected status
+            // For QC report: errors = checklist error tasks OR cards that required revisions
             if ($targetUser->isQc()) {
                 $reviewerId = $targetUser->id;
-                $errorTasks = $cards->filter(fn($c) => ($c->qcApprovalComments?->where('user_id', $reviewerId)->count() ?? 0) > 1)->count();
+                $errorTasks = $cards->filter(function($c) use ($reviewerId) {
+                    if ($c->is_checklist_task ?? false) {
+                        return (bool)($c->is_error ?? false);
+                    }
+                    return ($c->qcApprovalComments?->where('user_id', $reviewerId)->count() ?? 0) > 1;
+                })->count();
             } else {
                 $errorTasks = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
             }
@@ -1427,10 +2187,11 @@ class BoardExportController extends Controller
         }
 
         // PDF Consolidated Report
-        // A card is "completed" when physically in a list named "Approved" (Supervisor approved it).
-        // The `status` field is NOT reliable — all cards keep status='todo' even after being moved.
         $isCompleted = function($c) {
             if ($c->is_archived) return false;
+            if ($c->is_checklist_task ?? false) {
+                return $c->status === \App\Enums\CardStatus::Approved || $c->status === \App\Enums\CardStatus::Done;
+            }
             $statusVal = $c->status instanceof \BackedEnum ? $c->status->value : (string)($c->status ?? '');
             return stripos($c->boardList?->name ?? '', 'Approved') !== false 
                 || $c->status === \App\Enums\CardStatus::Approved 
@@ -1442,11 +2203,15 @@ class BoardExportController extends Controller
         $archivedTasks  = $cards->filter(fn($c) => $c->is_archived)->count();
         $pendingTasks   = $totalTasks - $completedTasks - $archivedTasks;
 
-        // For QC report: errors = cards that required revisions (had to be QC approved more than once by this reviewer)
-        // For Supervisor report: errors = cards with rejection_reason or Rejected status
+        // For QC report: errors = checklist error tasks OR cards that required revisions
         if ($targetUser->isQc()) {
             $reviewerId = $targetUser->id;
-            $errorTasks = $cards->filter(fn($c) => ($c->qcApprovalComments?->where('user_id', $reviewerId)->count() ?? 0) > 1)->count();
+            $errorTasks = $cards->filter(function($c) use ($reviewerId) {
+                if ($c->is_checklist_task ?? false) {
+                    return (bool)($c->is_error ?? false);
+                }
+                return ($c->qcApprovalComments?->where('user_id', $reviewerId)->count() ?? 0) > 1;
+            })->count();
         } else {
             $errorTasks = $cards->filter(fn($c) => $c->status === \App\Enums\CardStatus::Rejected || !empty($c->rejection_reason))->count();
         }
@@ -1527,7 +2292,8 @@ class BoardExportController extends Controller
             foreach ($groupedByLabel as $labelName => $titles) {
                 $copyText .= $labelName . ' (total ' . count($titles) . ")\n";
                 foreach ($titles as $idx => $title) {
-                    $copyText .= ($idx + 1) . '.' . $title . "\n";
+                    $cleanTitle = trim(preg_replace('/^\d+[\.\:\)\-]\s*/', '', $title));
+                    $copyText .= ($idx + 1) . '.' . ($cleanTitle ?: $title) . "\n";
                 }
                 $copyText .= "\n";
             }
@@ -1627,9 +2393,14 @@ class BoardExportController extends Controller
 
                     $attached = !empty($attachedParts) ? implode("; ", $attachedParts) : '-';
 
+                    $csvTitle = $c->title;
+                    if (($c->is_checklist_task ?? false) && !empty($c->checklist_item_name)) {
+                        $csvTitle .= ' [' . $c->checklist_item_name . ']';
+                    }
+
                     $row = [
                         $c->smm_class_label ?? '-',
-                        $c->title,
+                        $csvTitle,
                         $status,
                         $c->assignees->pluck('name')->join(', ') ?: 'Unassigned',
                         $activityDate,
