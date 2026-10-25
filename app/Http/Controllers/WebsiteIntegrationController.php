@@ -216,25 +216,45 @@ class WebsiteIntegrationController extends Controller
 
         $posts = $query->paginate(30)->withQueryString();
 
-        // Cached collections for fast dropdown filters and smooth tab switching
-        $allWebsites = Cache::remember('dgt_active_websites_list', 180, function () {
+        // Cached collections as pure arrays for fast dropdown filters, zero serialization bugs, and smooth tab switching
+        $allWebsites = Cache::remember('dgt_active_websites_array', 300, function () {
             return Website::where('is_archived', false)
                 ->with('handler:id,name,email,avatar')
                 ->orderBy('name')
-                ->get(['id', 'name', 'category', 'handled_by', 'url']);
+                ->get()
+                ->map(function ($w) {
+                    return [
+                        'id' => (int) $w->id,
+                        'name' => (string) $w->name,
+                        'category' => (string) ($w->category ?: 'General'),
+                        'handled_by' => $w->handled_by ? (int) $w->handled_by : null,
+                        'handler_name' => $w->handler?->name ?: 'Unassigned',
+                        'handler_avatar' => $w->handler?->avatar_url ?: '',
+                    ];
+                })
+                ->all();
         });
-        $selectedWebsite = $siteId ? $allWebsites->firstWhere('id', (int) $siteId) : null;
+        $selectedWebsite = $siteId ? collect($allWebsites)->firstWhere('id', (int) $siteId) : null;
 
-        $categories = Cache::remember('dgt_website_categories_list', 180, function () {
-            return Website::whereNotNull('category')->distinct()->pluck('category')->sort()->values();
+        $categories = Cache::remember('dgt_website_categories_array', 300, function () {
+            return Website::whereNotNull('category')->distinct()->pluck('category')->filter()->sort()->values()->all();
         });
 
-        $members = Cache::remember('dgt_active_members_list', 180, function () {
+        $members = Cache::remember('dgt_active_members_array', 300, function () {
             return User::where('is_active', true)
                 ->orderBy('name')
-                ->get(['id', 'name', 'email', 'avatar', 'team_role', 'crm_role']);
+                ->get(['id', 'name', 'email', 'avatar', 'team_role', 'crm_role'])
+                ->map(function ($m) {
+                    return [
+                        'id' => (int) $m->id,
+                        'name' => (string) $m->name,
+                        'avatar' => (string) $m->avatar_url,
+                        'role' => (string) ($m->team_role ?? $m->crm_role ?? 'Team Member'),
+                    ];
+                })
+                ->all();
         });
-        $selectedMember = $memberId ? $members->firstWhere('id', (int) $memberId) : null;
+        $selectedMember = $memberId ? collect($members)->firstWhere('id', (int) $memberId) : null;
 
         return view('websites.integrations.blogs', compact(
             'posts',

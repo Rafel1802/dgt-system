@@ -189,18 +189,18 @@
             open: false,
             searchQuery: '',
             selectedId: '{{ $siteId }}',
-            selectedName: '{{ $selectedWebsite ? addslashes($selectedWebsite->name) : 'All Websites' }}',
-            selectedClass: '{{ $selectedWebsite ? addslashes($selectedWebsite->category ?: '') : '' }}',
-            selectedHandler: '{{ $selectedWebsite && $selectedWebsite->handler ? addslashes($selectedWebsite->handler->name) : '' }}',
-            selectedHandlerAvatar: '{{ $selectedWebsite && $selectedWebsite->handler ? addslashes($selectedWebsite->handler->avatar_url) : '' }}',
+            selectedName: '{{ $selectedWebsite ? addslashes(is_array($selectedWebsite) ? $selectedWebsite['name'] : $selectedWebsite->name) : 'All Websites' }}',
+            selectedClass: '{{ $selectedWebsite ? addslashes((is_array($selectedWebsite) ? ($selectedWebsite['category'] ?? '') : $selectedWebsite->category) ?: '') : '' }}',
+            selectedHandler: '{{ $selectedWebsite ? addslashes((is_array($selectedWebsite) ? ($selectedWebsite['handler_name'] ?? '') : ($selectedWebsite->handler?->name ?? '')) ?: '') : '' }}',
+            selectedHandlerAvatar: '{{ $selectedWebsite ? addslashes((is_array($selectedWebsite) ? ($selectedWebsite['handler_avatar'] ?? '') : ($selectedWebsite->handler?->avatar_url ?? '')) ?: '') : '' }}',
             items: [
                 @foreach($allWebsites as $w)
                 {
-                    id: '{{ $w['id'] ?? $w->id }}',
-                    name: '{{ addslashes($w['name'] ?? $w->name) }}',
-                    category: '{{ addslashes(($w['category'] ?? $w->category) ?: 'Uncategorized') }}',
-                    handler: '{{ addslashes(($w['handler'] ?? $w->handler?->name) ?: 'Unassigned') }}',
-                    handler_avatar: '{{ addslashes($w->handler?->avatar_url ?? ($w['handler_avatar'] ?? '')) }}'
+                    id: '{{ is_array($w) ? $w['id'] : $w->id }}',
+                    name: '{{ addslashes(is_array($w) ? $w['name'] : $w->name) }}',
+                    category: '{{ addslashes((is_array($w) ? ($w['category'] ?? 'General') : ($w->category ?: 'General'))) }}',
+                    handler: '{{ addslashes((is_array($w) ? ($w['handler_name'] ?? 'Unassigned') : ($w->handler?->name ?: 'Unassigned'))) }}',
+                    handler_avatar: '{{ addslashes((is_array($w) ? ($w['handler_avatar'] ?? '') : ($w->handler?->avatar_url ?? ''))) }}'
                 },
                 @endforeach
             ],
@@ -378,15 +378,15 @@
             open: false,
             searchQuery: '',
             selectedId: '{{ $memberId }}',
-            selectedName: '{{ $selectedMember ? addslashes($selectedMember->name) : 'All Members' }}',
-            selectedAvatar: '{{ $selectedMember ? addslashes($selectedMember->avatar_url) : '' }}',
+            selectedName: '{{ $selectedMember ? addslashes(is_array($selectedMember) ? $selectedMember['name'] : $selectedMember->name) : 'All Members' }}',
+            selectedAvatar: '{{ $selectedMember ? addslashes(is_array($selectedMember) ? $selectedMember['avatar'] : $selectedMember->avatar_url) : '' }}',
             members: [
                 @foreach($members as $m)
                 {
-                    id: '{{ $m->id }}',
-                    name: '{{ addslashes($m->name) }}',
-                    avatar: '{{ addslashes($m->avatar_url) }}',
-                    role: '{{ addslashes($m->team_role ?? $m->crm_role ?? 'Team Member') }}'
+                    id: '{{ is_array($m) ? $m['id'] : $m->id }}',
+                    name: '{{ addslashes(is_array($m) ? $m['name'] : $m->name) }}',
+                    avatar: '{{ addslashes(is_array($m) ? $m['avatar'] : $m->avatar_url) }}',
+                    role: '{{ addslashes((is_array($m) ? ($m['role'] ?? 'Team Member') : ($m->team_role ?? $m->crm_role ?? 'Team Member'))) }}'
                 },
                 @endforeach
             ],
@@ -765,7 +765,13 @@
                         <select name="website_id" x-model="exportSiteId" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="">All Websites</option>
                             @foreach($allWebsites as $w)
-                                <option value="{{ $w->id }}">{{ $w->name }} ({{ $w->category ?: 'General' }}{{ $w->handler ? ' • ' . $w->handler->name : '' }})</option>
+                                @php
+                                    $wId = is_array($w) ? $w['id'] : $w->id;
+                                    $wName = is_array($w) ? $w['name'] : $w->name;
+                                    $wCategory = (is_array($w) ? ($w['category'] ?? null) : $w->category) ?: 'General';
+                                    $wHandler = is_array($w) ? ($w['handler_name'] ?? null) : ($w->handler?->name ?? null);
+                                @endphp
+                                <option value="{{ $wId }}">{{ $wName }} ({{ $wCategory }}{{ $wHandler ? ' • ' . $wHandler : '' }})</option>
                             @endforeach
                         </select>
                     </div>
@@ -787,7 +793,11 @@
                         <select name="member_id" x-model="exportMemberId" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="">All Members</option>
                             @foreach($members as $m)
-                                <option value="{{ $m->id }}">{{ $m->name }}</option>
+                                @php
+                                    $mId = is_array($m) ? $m['id'] : $m->id;
+                                    $mName = is_array($m) ? $m['name'] : $m->name;
+                                @endphp
+                                <option value="{{ $mId }}">{{ $mName }}</option>
                             @endforeach
                         </select>
                     </div>
