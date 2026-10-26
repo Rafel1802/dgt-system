@@ -2331,5 +2331,77 @@ class GoogleSearchConsoleController extends Controller
             'site'    => $mappedSite,
         ]);
     }
+
+    /**
+     * Start background auto-inspection scan for a website via URL Inspection API
+     */
+    public function startAutoInspection(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->hasWebsiteAccess(), 403);
+
+        $websiteId = (int) $request->get('website_id');
+        $force = (bool) $request->boolean('force');
+
+        $website = Website::findOrFail($websiteId);
+        $mappedSite = GoogleSearchConsoleSite::where('website_id', $website->id)->first();
+        if (!$mappedSite) {
+            return response()->json(['success' => false, 'message' => 'Website is not linked with Google Search Console.'], 422);
+        }
+
+        $cacheKey = "gsc_inspecting_{$website->id}";
+        $current = Cache::get($cacheKey);
+        if ($current && !empty($current['running'])) {
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Auto-inspection scan is already in progress.',
+                'progress' => $current,
+            ]);
+        }
+
+        Cache::put($cacheKey, [
+            'running'      => true,
+            'started_at'   => now()->toIso8601String(),
+            'website_id'   => $website->id,
+            'website_name' => $website->name,
+            'processed'    => 0,
+            'total'        => 0,
+            'indexed'      => 0,
+            'not_indexed'  => 0,
+            'message'      => 'Initializing background scan...',
+        ], 3600);
+
+        // Run non-blocking background artisan command
+        $artisanPath = escapeshellarg(base_path('artisan'));
+        $phpBinary = PHP_BINARY ?: '/opt/alt/php84/usr/bin/php';
+        if (!file_exists($phpBinary)) {
+            $phpBinary = 'php';
+        }
+        $phpBinary = escapeshellcmd($phpBinary);
+        $forceFlag = $force ? '--force' : '';
+        $cmd = "{$phpBinary} {$artisanPath} gsc:auto-inspect --website={$website->id} --limit=200 {$forceFlag} > /dev/null 2>&1 &";
+
+        @shell_exec($cmd);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Live Google Search Console inspection scan started in the background for {$website->name}. It will verify all pages without slowing down the site.",
+        ]);
+    }
+
+    /**
+     * Get live background inspection progress
+     */
+    public function getInspectionScanStatus(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->hasWebsiteAccess(), 403);
+
+        $websiteId = (int) $request->get('website_id');
+        $cacheKey = "gsc_inspecting_{$websiteId}";
+        $status = Cache::get($cacheKey) ?: ['running' => false, 'message' => 'Idle'];
+
+        return response()->json(array_merge(['success' => true], $status));
+    }
 }
 

@@ -24,6 +24,9 @@ Schedule::command('system:cleanup --days=7')->daily()->name('system-cleanup-week
 // Daily Google Search Console Performance Data Sync
 Schedule::command('gsc:sync --days=30')->dailyAt('03:00')->withoutOverlapping()->name('gsc-sync-daily');
 
+// Daily Automated Google Search Console URL Inspection & Indexing Sync (Nightly quiet hours)
+Schedule::command('gsc:auto-inspect --limit=200')->dailyAt('03:30')->withoutOverlapping()->name('gsc-auto-inspect-daily');
+
 // Every 5 minutes Central Website & Blog Analytics Synchronization across Hostinger accounts
 Schedule::command('dgt:sync-websites --sync')->everyFiveMinutes()->withoutOverlapping()->name('dgt-website-sync-5m');
 

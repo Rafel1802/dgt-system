@@ -191,6 +191,52 @@ class GoogleSearchConsoleSyncService
                 $totalRecords += count($pageUpserts);
             }
 
+            // 3b. Discover all historical indexed pages (up to 16 months back - single fast batch call)
+            try {
+                $historicalStart = now()->subDays(480)->format('Y-m-d');
+                $historicalPageRows = $this->clientService->querySearchAnalytics(
+                    $site->site_url,
+                    $historicalStart,
+                    $endDate,
+                    ['page'],
+                    5000,
+                    0,
+                    'web',
+                    $site->account
+                );
+
+                if (!empty($historicalPageRows)) {
+                    $histUpserts = [];
+                    foreach ($historicalPageRows as $hRow) {
+                        $pUrl = $hRow['keys'][0] ?? '';
+                        if (empty($pUrl)) continue;
+
+                        $histUpserts[] = [
+                            'website_id'   => $site->website_id,
+                            'site_url'     => $site->site_url,
+                            'data_date'    => $endDate,
+                            'page'         => $pUrl,
+                            'page_hash'    => sha1($pUrl),
+                            'clicks'       => $hRow['clicks'],
+                            'impressions'  => $hRow['impressions'],
+                            'ctr'          => round($hRow['ctr'], 4),
+                            'position'     => round($hRow['position'], 2),
+                            'updated_at'   => now(),
+                        ];
+                    }
+
+                    foreach (array_chunk($histUpserts, 500) as $chunk) {
+                        GoogleSearchConsolePage::upsert(
+                            $chunk,
+                            ['website_id', 'data_date', 'page_hash'],
+                            ['clicks', 'impressions', 'ctr', 'position', 'updated_at']
+                        );
+                    }
+                }
+            } catch (\Throwable $histEx) {
+                Log::warning("GSC historical page discovery notice for {$site->site_url}: " . $histEx->getMessage());
+            }
+
             // 4. Sync Countries (dimensions: date, country)
             $countryRows = $this->clientService->querySearchAnalytics(
                 $site->site_url,

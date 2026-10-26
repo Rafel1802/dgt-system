@@ -2265,6 +2265,12 @@
                     </span>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button type="button" @click="startBackgroundInspection()" :disabled="scanningBackground" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-xl border border-indigo-200 dark:border-indigo-800 transition-colors shadow-xs" title="Automatically inspect and verify all pages via Google's official URL Inspection API in the background">
+                        <svg class="w-3.5 h-3.5" :class="scanningBackground ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        </svg>
+                        <span x-text="scanningBackground ? scanProgressText : 'Auto-Scan All Pages'"></span>
+                    </button>
                     <button type="button" @click="openCoverageModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-700 transition-colors shadow-xs" title="Edit official Google Search Console snapshot numbers">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                         <span>Edit GSC Snapshot</span>
@@ -4181,6 +4187,11 @@ function gscDashboard() {
             reasons_text: '',
         },
 
+        // Automated Background URL Inspection Scan State
+        scanningBackground: false,
+        scanProgressText: 'Auto-Scan All Pages',
+        scanPollTimer: null,
+
         // Live URL Inspector State
         inspectUrlInput: '',
         inspectingUrl: false,
@@ -5697,6 +5708,71 @@ function gscDashboard() {
             } finally {
                 this.coverageSaving = false;
             }
+        },
+
+        async startBackgroundInspection(force = false) {
+            if (!this.sitemapWebsiteId) return;
+            this.scanningBackground = true;
+            this.scanProgressText = 'Starting scan...';
+            try {
+                const res = await fetch('{{ route('websites.search-console.sitemaps.start-auto-inspection') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        website_id: this.sitemapWebsiteId,
+                        force: force
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.pollInspectionStatus();
+                } else {
+                    alert(data.message || 'Could not start background scan.');
+                    this.scanningBackground = false;
+                    this.scanProgressText = 'Auto-Scan All Pages';
+                }
+            } catch (err) {
+                console.error('Scan start error:', err);
+                this.scanningBackground = false;
+                this.scanProgressText = 'Auto-Scan All Pages';
+            }
+        },
+
+        pollInspectionStatus() {
+            if (this.scanPollTimer) clearInterval(this.scanPollTimer);
+            this.scanPollTimer = setInterval(async () => {
+                if (!this.sitemapWebsiteId) {
+                    clearInterval(this.scanPollTimer);
+                    this.scanPollTimer = null;
+                    return;
+                }
+                try {
+                    const res = await fetch(`{{ route('websites.search-console.sitemaps.inspection-status') }}?website_id=${this.sitemapWebsiteId}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+                    if (data.running) {
+                        this.scanningBackground = true;
+                        if (data.total > 0) {
+                            this.scanProgressText = `Scanning ${data.processed}/${data.total} (${data.indexed || 0} indexed)`;
+                        } else {
+                            this.scanProgressText = data.message || 'Scanning...';
+                        }
+                    } else {
+                        clearInterval(this.scanPollTimer);
+                        this.scanPollTimer = null;
+                        this.scanningBackground = false;
+                        this.scanProgressText = 'Auto-Scan All Pages';
+                        await this.loadIndexStatus(1, true);
+                    }
+                } catch (err) {
+                    console.error('Poll status error:', err);
+                }
+            }, 3000);
         },
 
         async inspectSingleUrl(targetUrl) {

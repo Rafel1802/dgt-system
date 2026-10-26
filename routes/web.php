@@ -128,6 +128,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/websites/google-search-console/inspect-url', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'inspectUrl'])->name('websites.search-console.inspect-url');
             Route::post('/websites/google-search-console/test-live-url', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'testLiveUrl'])->name('websites.search-console.test-live-url');
             Route::post('/websites/google-search-console/sitemaps/update-coverage', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'updateCoverageSnapshot'])->name('websites.search-console.sitemaps.update-coverage');
+            Route::post('/websites/google-search-console/sitemaps/start-auto-inspection', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'startAutoInspection'])->name('websites.search-console.sitemaps.start-auto-inspection');
+            Route::get('/websites/google-search-console/sitemaps/inspection-status', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'getInspectionScanStatus'])->name('websites.search-console.sitemaps.inspection-status');
             Route::get('/websites/google-search-console/export/sitemaps-csv', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'exportSitemapsCsv'])->name('websites.search-console.export.sitemaps-csv');
 
             Route::get('/websites/dashboard', [\App\Http\Controllers\WebsitesDashboardController::class, 'index'])->name('websites.dashboard');
