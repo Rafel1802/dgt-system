@@ -70,6 +70,18 @@ class CleanupNonSmmWorkflowCardsCommand extends Command
                         ->first();
                 }
 
+                if (!$planningTwin) {
+                    // Fallback: match by title on any non-workflow board
+                    $planningTwin = Card::where('title', $card->title)
+                        ->where('id', '!=', $card->id)
+                        ->whereHas('board', function ($q) {
+                            $q->where('name', 'not like', '%Workflow%')
+                              ->where('type', '!=', 'workflow');
+                        })
+                        ->with('board', 'boardList')
+                        ->first();
+                }
+
                 if ($planningTwin) {
                     $this->info("  -> Twin card #{$planningTwin->id} already exists on Planning Board '{$planningTwin->board?->name}' (List: '{$planningTwin->boardList?->name}').");
                     $this->info("  -> Removing duplicate copy #{$card->id} from Workflow Board '{$board->name}'...");
