@@ -138,6 +138,7 @@ class Card extends Model
 
         Card::where('board_list_id', $targetListId)->increment('position');
         $replica = $this->replicate();
+        $replica->unsetRelations();
         $replica->board_id = $targetBoardId;
         $replica->board_list_id = $targetListId;
         $replica->title = $newTitle;

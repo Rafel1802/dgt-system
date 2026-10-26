@@ -229,6 +229,198 @@ class BoardWorkflowService
         }
     }
 
+    /**
+     * Automatically copy a card from a Planning Board to the appropriate Workflow Board (Team A or Team B)
+     * when all checklist items are 100% completed.
+     * Destination list: "Draft" (or "Drafts").
+     */
+    public function autoCopyCompletedPlanningCardToWorkflow(Card $card): ?Card
+    {
+        // 1. Must be on a Planning Board
+        $planningBoard = $card->board ?? Board::find($card->board_id);
+        if (!$planningBoard) {
+            return null;
+        }
+
+        $boardName = strtolower($planningBoard->name ?? '');
+        $isPlanningBoard = str_contains($boardName, 'planning')
+            || $planningBoard->type === 'smm'
+            || !empty($planningBoard->is_active_smm);
+
+        if (!$isPlanningBoard) {
+            return null;
+        }
+
+        // 2. Must have at least 1 checklist item, and ALL items must be 100% completed
+        $checklists = $card->relationLoaded('checklists') 
+            ? $card->checklists 
+            : $card->checklists()->with('items')->get();
+
+        if ($checklists->isEmpty()) {
+            return null;
+        }
+
+        $allItems = $checklists->flatMap(function ($cl) {
+            return $cl->relationLoaded('items') ? $cl->items : $cl->items()->get();
+        });
+
+        if ($allItems->isEmpty()) {
+            return null;
+        }
+
+        // Must be 100% complete
+        if ($allItems->contains(fn($item) => ! (bool) $item->is_completed)) {
+            return null;
+        }
+
+        // 3. Determine target team:
+        // Rule:
+        // - if members from team A -> copy to team A
+        // - if members from team B -> copy to team B
+        // - if have both team A & B -> copy to team A!
+        $assignees = $card->relationLoaded('assignees') ? $card->assignees : $card->assignees()->get();
+        $hasTeamA = false;
+        $hasTeamB = false;
+
+        foreach ($assignees as $member) {
+            $mTeam = $member->getDigitalTeam($planningBoard->workspace_id);
+            if ($mTeam === 'A') $hasTeamA = true;
+            if ($mTeam === 'B') $hasTeamB = true;
+        }
+
+        if ($hasTeamA && $hasTeamB) {
+            $targetTeam = 'A';
+        } elseif ($hasTeamA) {
+            $targetTeam = 'A';
+        } elseif ($hasTeamB) {
+            $targetTeam = 'B';
+        } else {
+            $detected = strtoupper(trim((string)($card->team ?: $card->detectTeam())));
+            if ($detected === 'B') {
+                $targetTeam = 'B';
+            } else {
+                $targetTeam = 'A';
+            }
+        }
+
+        // 4. Find matching Workflow Board for the month & target team
+        $monthYear = null;
+        if (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i', $planningBoard->name ?? '', $matches)) {
+            $monthYear = $matches[0];
+        } elseif (preg_match('/(January|February|March|April|May|June|July|August|September|October|November|December)/i', $planningBoard->name ?? '', $matches)) {
+            $monthYear = $matches[1];
+        }
+
+        $teamKey = 'team ' . strtolower($targetTeam);
+
+        // Search within same workspace first
+        $targetBoard = Board::where('workspace_id', $planningBoard->workspace_id)
+            ->where('is_archived', false)
+            ->where(function ($q) {
+                $q->where('name', 'like', '%Workflow%')
+                  ->orWhere('type', 'workflow');
+            })
+            ->where(function ($q) use ($teamKey) {
+                $q->where('name', 'like', "%{$teamKey}%")
+                  ->orWhere('slug', 'like', "%{$teamKey}%");
+            })
+            ->when($monthYear, function ($q) use ($monthYear) {
+                $q->where('name', 'like', "%{$monthYear}%");
+            })
+            ->first();
+
+        if (!$targetBoard) {
+            $targetBoard = Board::where('is_archived', false)
+                ->where(function ($q) {
+                    $q->where('name', 'like', '%Workflow%')
+                      ->orWhere('type', 'workflow');
+                })
+                ->where('name', 'like', "%{$teamKey}%")
+                ->when($monthYear, function ($q) use ($monthYear) {
+                    $q->where('name', 'like', "%{$monthYear}%");
+                })
+                ->first();
+        }
+
+        if (!$targetBoard) {
+            $targetBoard = Board::where('is_archived', false)
+                ->where(function ($q) {
+                    $q->where('name', 'like', '%Workflow%')
+                      ->orWhere('type', 'workflow');
+                })
+                ->where('name', 'like', "%{$teamKey}%")
+                ->first();
+        }
+
+        if (!$targetBoard) {
+            \Log::warning("autoCopyCompletedPlanningCardToWorkflow: Could not find workflow board for Team {$targetTeam} from planning board {$planningBoard->id}");
+            return null;
+        }
+
+        // 5. Find or create list "Draft"
+        $draftList = $targetBoard->lists()
+            ->where(function ($q) {
+                $q->whereRaw('LOWER(name) = ?', ['draft'])
+                  ->orWhere('name', 'like', '%Draft%');
+            })
+            ->orderBy('position')
+            ->first();
+
+        if (!$draftList) {
+            $draftList = $targetBoard->lists()->create([
+                'name' => 'Draft',
+                'position' => 0,
+            ]);
+        }
+
+        // 6. Idempotency check: Ensure sync_group_id and avoid duplicate copy on target board
+        if (!$card->sync_group_id) {
+            $card->sync_group_id = (string) Str::uuid();
+            $card->saveQuietly();
+        }
+
+        $existingCopy = Card::where('board_id', $targetBoard->id)
+            ->where(function ($q) use ($card) {
+                $q->where('sync_group_id', $card->sync_group_id)
+                  ->orWhere('title', $card->title);
+            })
+            ->first();
+
+        if ($existingCopy) {
+            return $existingCopy;
+        }
+
+        // 7. Replicate card into Target Workflow Board on list "Draft"
+        $copy = $card->replicateRelationally($targetBoard->id, $draftList->id, $card->title, $card->created_by, true);
+        $copy->updateQuietly(['team' => $targetTeam]);
+
+        // System comment on the source planning card
+        try {
+            app(\App\Http\Controllers\Board\CardController::class)->addSystemComment(
+                $card,
+                "All checklist items completed (100%). Card automatically copied to **{$targetBoard->name}** (List: Draft)."
+            );
+        } catch (\Throwable $e) {}
+
+        // System comment on the newly created workflow card
+        try {
+            $actor = auth()->user();
+            $actorName = $actor?->name ?? 'Checklist Automation';
+            $copy->comments()->create([
+                'user_id' => $actor?->id ?? $card->created_by ?? 1,
+                'content' => "Card automatically copied from **{$planningBoard->name}** (List: " . ($card->boardList?->name ?? 'Planning') . ") into Draft after 100% checklist completion.",
+                'is_system' => true,
+            ]);
+            app(\App\Http\Controllers\Board\CardController::class)->logCardActivity(
+                $copy,
+                'copied',
+                "copied this card from **" . ($card->boardList?->name ?? 'list') . "** on **{$planningBoard->name}** to **Draft**"
+            );
+        } catch (\Throwable $e) {}
+
+        return $copy;
+    }
+
     public function triggerPlanningToWorkflowCopy(Card $card)
     {
         if ($card->hasIncompleteChecklist()) {

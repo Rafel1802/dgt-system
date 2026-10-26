@@ -67,6 +67,19 @@ class CardChecklistController extends Controller
             'created_at'   => now(),
         ]);
 
+        // Automation: If card is on a Planning Board and all checklist items are now 100% completed,
+        // automatically copy to the appropriate Workflow Board (Team A or Team B) into list "Draft".
+        if ($item->is_completed) {
+            try {
+                $freshCard = $card->fresh(['checklists.items', 'assignees', 'board']);
+                if ($freshCard && !$freshCard->hasIncompleteChecklist()) {
+                    app(\App\Services\BoardWorkflowService::class)->autoCopyCompletedPlanningCardToWorkflow($freshCard);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning("autoCopyCompletedPlanningCardToWorkflow error on kanban toggle: " . $e->getMessage());
+            }
+        }
+
         return response()->json([
             'success' => true,
             'item'    => $item->fresh(),
