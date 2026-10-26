@@ -452,7 +452,7 @@ class WebsiteSyncService
                 'db'   => 'u355625773_Construz',
                 'user' => 'u355625773_Con',
                 'pass' => '1Rollercompactor.orgmail',
-                'query'=> "SELECT id, title, slug, excerpt, image as featured_image, published_at, author FROM blog_posts WHERE status = 'published' OR status IS NULL OR status = '' ORDER BY published_at DESC",
+                'query'=> "SELECT id, title, slug, excerpt, image as featured_image, published_at, views, author FROM blog_posts WHERE status = 'published' OR status IS NULL OR status = '' ORDER BY published_at DESC",
                 'url'  => 'https://groundripper.com/blog/',
                 'src'  => 'native_database'
             ],
@@ -461,7 +461,7 @@ class WebsiteSyncService
                 'db'   => 'u355625773_kuvuo',
                 'user' => 'u355625773_ku',
                 'pass' => '1Rollercompactor.orgmail',
-                'query'=> "SELECT id, title, slug, excerpt, featured_image, published_at FROM posts WHERE status = 'published' OR status IS NULL OR status = '' ORDER BY published_at DESC",
+                'query'=> "SELECT id, title, slug, excerpt, featured_image, published_at, views FROM posts WHERE status = 'published' OR status IS NULL OR status = '' ORDER BY published_at DESC",
                 'url'  => 'https://kuvuo.net/blog/',
                 'src'  => 'native_database'
             ],
@@ -470,7 +470,7 @@ class WebsiteSyncService
                 'db'   => 'u355625773_machine2u',
                 'user' => 'u355625773_machine2u',
                 'pass' => 'Machine2u',
-                'query'=> "SELECT id, title, excerpt, date as published_at, author, image as featured_image FROM blogs ORDER BY date DESC",
+                'query'=> "SELECT id, title, excerpt, date as published_at, author, image as featured_image, views FROM blogs ORDER BY date DESC",
                 'url'  => 'https://machine2u.com/blog/',
                 'src'  => 'native_database'
             ],
@@ -479,7 +479,7 @@ class WebsiteSyncService
                 'db'   => 'u355625773_mvillage',
                 'user' => 'u355625773_mvillage',
                 'pass' => 'xlkKlX9TelpFFJoxS10vjGkN',
-                'query'=> "SELECT id, title, slug, excerpt, cover_image as featured_image, created_at as published_at FROM posts WHERE published = 1 ORDER BY created_at DESC",
+                'query'=> "SELECT id, title, slug, excerpt, cover_image as featured_image, created_at as published_at, views FROM posts WHERE published = 1 ORDER BY created_at DESC",
                 'url'  => 'https://machineryvillage.com/blog/',
                 'src'  => 'native_database'
             ],
@@ -521,6 +521,107 @@ class WebsiteSyncService
             } catch (Throwable $e) {
                 // Continue to next site
             }
+        }
+
+        // 4. Happy Machinery (ID: 39) via live JSON API & Real View Tracker
+        try {
+            $site39 = Website::with('integration')->find(39);
+            if ($site39) {
+                $postsResp = Http::timeout(8)->get('https://happymachinery.com/api/content.php?key=blog-posts');
+                $viewsResp = Http::timeout(6)->get('https://happymachinery.com/api/content.php?action=get-blog-views');
+                if ($postsResp->successful()) {
+                    $json = $postsResp->json();
+                    $rawPosts = $json['value'] ?? (is_array($json) && isset($json[0]) ? $json : []);
+                    $viewsData = $viewsResp->successful() ? ($viewsResp->json()['views'] ?? []) : [];
+                    $posts = [];
+                    foreach ($rawPosts as $idx => $hp) {
+                        $pId = (string) ($hp['id'] ?? ($idx + 1));
+                        $slug = $hp['slug'] ?? \Illuminate\Support\Str::slug($hp['title'] ?? 'post-' . $pId);
+                        $pViews = (int) ($viewsData[$pId] ?? ($viewsData[$slug] ?? 0));
+                        $posts[] = [
+                            'external_id'        => $pId,
+                            'title'              => $hp['title'] ?? 'Untitled',
+                            'slug'               => $slug,
+                            'excerpt'            => $hp['excerpt'] ?? '',
+                            'featured_image_url' => $hp['image'] ?? null,
+                            'canonical_url'      => 'https://happymachinery.com/blog/' . $slug,
+                            'published_at'       => !empty($hp['date']) ? date('c', strtotime($hp['date'])) : now(),
+                            'cumulative_views'   => $pViews,
+                            'author_name'        => $hp['author'] ?? 'Happy Machinery Team',
+                            'status'             => 'published',
+                            'analytics_source'   => 'native_database',
+                        ];
+                    }
+                    if (!empty($posts)) {
+                        $ing = $this->ingestPosts($site39, $posts, 'auto_sync_happymachinery');
+                        $totalSynced += $ing['items_synced'];
+                        $totalUpdated += $ing['items_updated'];
+                        $syncedSites[] = 'happymachinery.com';
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            Log::warning('syncAllIntegratedNetworkSites happymachinery error: ' . $e->getMessage());
+        }
+
+        // 5. American Loader (ID: 34) via live SQLite Sync API
+        try {
+            $site34 = Website::with('integration')->find(34);
+            if ($site34) {
+                $alResp = Http::timeout(8)->get('https://americanloader.com/api/dgt-sync.php');
+                if ($alResp->successful()) {
+                    $alData = $alResp->json();
+                    $posts = $alData['posts'] ?? [];
+                    if (!empty($posts)) {
+                        $ing = $this->ingestPosts($site34, $posts, 'auto_sync_americanloader');
+                        $totalSynced += $ing['items_synced'];
+                        $totalUpdated += $ing['items_updated'];
+                        $syncedSites[] = 'americanloader.com';
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            Log::warning('syncAllIntegratedNetworkSites americanloader error: ' . $e->getMessage());
+        }
+
+        // 6. Konstructz (ID: 62) via live Sync API
+        try {
+            $site62 = Website::with('integration')->find(62);
+            if ($site62) {
+                $kzResp = Http::timeout(8)->get('https://konstructz.com/api/dgt-sync.php?format=json');
+                if ($kzResp->successful()) {
+                    $kzData = $kzResp->json();
+                    $posts = $kzData['posts'] ?? [];
+                    if (!empty($posts)) {
+                        $ing = $this->ingestPosts($site62, $posts, 'auto_sync_konstructz');
+                        $totalSynced += $ing['items_synced'];
+                        $totalUpdated += $ing['items_updated'];
+                        $syncedSites[] = 'konstructz.com';
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            Log::warning('syncAllIntegratedNetworkSites konstructz error: ' . $e->getMessage());
+        }
+
+        // 7. MachineryEU (ID: 46) via live Sync API
+        try {
+            $site46 = Website::with('integration')->find(46);
+            if ($site46) {
+                $meuResp = Http::timeout(8)->get('https://machineryeu.com/api/dgt-sync.php?format=json');
+                if ($meuResp->successful()) {
+                    $meuData = $meuResp->json();
+                    $posts = $meuData['posts'] ?? [];
+                    if (!empty($posts)) {
+                        $ing = $this->ingestPosts($site46, $posts, 'auto_sync_machineryeu');
+                        $totalSynced += $ing['items_synced'];
+                        $totalUpdated += $ing['items_updated'];
+                        $syncedSites[] = 'machineryeu.com';
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            Log::warning('syncAllIntegratedNetworkSites machineryeu error: ' . $e->getMessage());
         }
 
         // 4. Server 1 WordPress Websites
@@ -630,7 +731,28 @@ class WebsiteSyncService
             }
         }
 
-        // 5. Update last_synced_at on all active posts across the network
+        // 9. Remote WordPress Sites (Server 2 & Server 3 via active connectors)
+        $remoteWpIds = [
+            26, 22, 30, 37, 28, 32, // Server 2
+            63, 47, 68, 69, 10, 9, 24, 20, 11, 23, 18, 8 // Server 3
+        ];
+        foreach ($remoteWpIds as $rSiteId) {
+            try {
+                $rSite = Website::with('integration')->find($rSiteId);
+                if ($rSite && $rSite->integration && $rSite->integration->is_active) {
+                    $pullRes = $this->pullPostsFromConnector($rSite, 'auto_sync_network');
+                    if (!empty($pullRes['success'])) {
+                        $totalSynced += ($pullRes['items_synced'] ?? 0);
+                        $totalUpdated += ($pullRes['items_updated'] ?? 0);
+                        $syncedSites[] = $rSite->domain ?? $rSite->name;
+                    }
+                }
+            } catch (Throwable $e) {
+                // Continue to next site
+            }
+        }
+
+        // 10. Update last_synced_at on all active posts across the network
         WebsitePost::whereHas('website', function ($q) {
             $q->where('is_archived', false);
         })->update(['last_synced_at' => now()]);
