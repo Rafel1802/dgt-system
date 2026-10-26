@@ -916,17 +916,29 @@ class GoogleSearchConsoleController extends Controller
                 }
             }
 
+            // Fallback to existing websites if still not set
+            if (!$siteAId) {
+                $siteAId = (int) (Website::query()->value('id') ?? 0);
+            }
+            if (!$siteBId) {
+                $siteBId = (int) (Website::query()->where('id', '!=', $siteAId)->value('id') ?? $siteAId);
+            }
+
             $compareIds = array_filter(array_unique([$siteAId, $siteBId]));
             $comparison = $this->analyticsService->getWebsitesComparison($compareIds, $dateRange['start'], $dateRange['end']);
 
             $siteA = Website::with('handler')->find($siteAId);
             $siteB = Website::with('handler')->find($siteBId);
 
-            $metricsA = collect($comparison['websites'])->firstWhere('website_id', $siteAId) ?? [];
-            $metricsB = collect($comparison['websites'])->firstWhere('website_id', $siteBId) ?? [];
+            $comparisonWebsites = collect($comparison['websites'] ?? []);
+            $metricsA = $comparisonWebsites->firstWhere('website_id', $siteAId) ?? [];
+            $metricsB = $comparisonWebsites->firstWhere('website_id', $siteBId) ?? [];
 
-            $queriesA = $metricsA['top_queries'] ?? [];
-            $queriesB = $metricsB['top_queries'] ?? [];
+            $metricsA = is_array($metricsA) ? $metricsA : (array) $metricsA;
+            $metricsB = is_array($metricsB) ? $metricsB : (array) $metricsB;
+
+            $queriesA = array_map(fn($item) => (array) $item, (array) ($metricsA['top_queries'] ?? []));
+            $queriesB = array_map(fn($item) => (array) $item, (array) ($metricsB['top_queries'] ?? []));
 
             $dailyComparison = [];
             $dates = $comparison['chart_dates'] ?? [];
@@ -938,10 +950,10 @@ class GoogleSearchConsoleController extends Controller
             foreach ($dates as $idx => $d) {
                 $dailyComparison[] = [
                     'date'     => $d,
-                    'clicks_a' => $dailyClicksA[$idx] ?? 0,
-                    'clicks_b' => $dailyClicksB[$idx] ?? 0,
-                    'impr_a'   => $dailyImprA[$idx] ?? 0,
-                    'impr_b'   => $dailyImprB[$idx] ?? 0,
+                    'clicks_a' => (int) ($dailyClicksA[$idx] ?? 0),
+                    'clicks_b' => (int) ($dailyClicksB[$idx] ?? 0),
+                    'impr_a'   => (int) ($dailyImprA[$idx] ?? 0),
+                    'impr_b'   => (int) ($dailyImprB[$idx] ?? 0),
                 ];
             }
 

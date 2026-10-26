@@ -201,17 +201,17 @@
             <td width="35%">
                 <span class="meta-label">Site A (Primary):</span><br>
                 <span class="meta-val">
-                    <span class="badge badge-site-a">{{ $siteA->name ?? 'Site A' }}</span><br>
-                    <span style="font-size: 9px; color: #64748b; font-family: monospace;">{{ $siteA->clean_domain ?? $siteA->url ?? '' }}</span>
-                    <span style="font-size: 9px; color: #64748b;">&bull; Class: {{ $siteA->category ?? 'General' }} &bull; Handler: {{ $siteA->handler->name ?? 'Unassigned' }}</span>
+                    <span class="badge badge-site-a">{{ $siteA?->name ?? 'Site A' }}</span><br>
+                    <span style="font-size: 9px; color: #64748b; font-family: monospace;">{{ $siteA?->clean_domain ?? $siteA?->url ?? '' }}</span>
+                    <span style="font-size: 9px; color: #64748b;">&bull; Class: {{ $siteA?->category ?? 'General' }} &bull; Handler: {{ $siteA?->handler?->name ?? 'Unassigned' }}</span>
                 </span>
             </td>
             <td width="35%">
                 <span class="meta-label">Site B (Benchmark):</span><br>
                 <span class="meta-val">
-                    <span class="badge badge-site-b">{{ $siteB->name ?? 'Site B' }}</span><br>
-                    <span style="font-size: 9px; color: #64748b; font-family: monospace;">{{ $siteB->clean_domain ?? $siteB->url ?? '' }}</span>
-                    <span style="font-size: 9px; color: #64748b;">&bull; Class: {{ $siteB->category ?? 'General' }} &bull; Handler: {{ $siteB->handler->name ?? 'Unassigned' }}</span>
+                    <span class="badge badge-site-b">{{ $siteB?->name ?? 'Site B' }}</span><br>
+                    <span style="font-size: 9px; color: #64748b; font-family: monospace;">{{ $siteB?->clean_domain ?? $siteB?->url ?? '' }}</span>
+                    <span style="font-size: 9px; color: #64748b;">&bull; Class: {{ $siteB?->category ?? 'General' }} &bull; Handler: {{ $siteB?->handler?->name ?? 'Unassigned' }}</span>
                 </span>
             </td>
         </tr>
@@ -227,18 +227,20 @@
                 <table class="site-split" cellpadding="0" cellspacing="0">
                     <tr>
                         <td width="50%" style="text-align: center; border-right: 1px solid #e2e8f0;">
-                            <div class="site-label" style="color: #2563eb;">{{ $siteA->name ?? 'Site A' }}</div>
-                            <div class="site-val" style="color: #2563eb;">{{ number_format($metricsA['clicks'] ?? 0) }}</div>
+                            <div class="site-label" style="color: #2563eb;">{{ $siteA?->name ?? 'Site A' }}</div>
+                            <div class="site-val" style="color: #2563eb;">{{ number_format((int) data_get($metricsA, 'clicks', 0)) }}</div>
                         </td>
                         <td width="50%" style="text-align: center;">
-                            <div class="site-label" style="color: #16a34a;">{{ $siteB->name ?? 'Site B' }}</div>
-                            <div class="site-val" style="color: #16a34a;">{{ number_format($metricsB['clicks'] ?? 0) }}</div>
+                            <div class="site-label" style="color: #16a34a;">{{ $siteB?->name ?? 'Site B' }}</div>
+                            <div class="site-val" style="color: #16a34a;">{{ number_format((int) data_get($metricsB, 'clicks', 0)) }}</div>
                         </td>
                     </tr>
                 </table>
                 @php
-                    $clicksDiff = ($metricsA['clicks'] ?? 0) - ($metricsB['clicks'] ?? 0);
-                    $clicksWinner = $clicksDiff > 0 ? ($siteA->name ?? 'Site A') : ($clicksDiff < 0 ? ($siteB->name ?? 'Site B') : 'Tied');
+                    $clicksA = (int) data_get($metricsA, 'clicks', 0);
+                    $clicksB = (int) data_get($metricsB, 'clicks', 0);
+                    $clicksDiff = $clicksA - $clicksB;
+                    $clicksWinner = $clicksDiff > 0 ? ($siteA?->name ?? 'Site A') : ($clicksDiff < 0 ? ($siteB?->name ?? 'Site B') : 'Tied');
                 @endphp
                 <div class="winner-tag">
                     Leader: {{ $clicksWinner }} ({{ $clicksDiff > 0 ? '+' : '' }}{{ number_format($clicksDiff) }})
@@ -251,18 +253,20 @@
                 <table class="site-split" cellpadding="0" cellspacing="0">
                     <tr>
                         <td width="50%" style="text-align: center; border-right: 1px solid #e2e8f0;">
-                            <div class="site-label" style="color: #2563eb;">{{ $siteA->name ?? 'Site A' }}</div>
-                            <div class="site-val" style="color: #2563eb;">{{ number_format($metricsA['impressions'] ?? 0) }}</div>
+                            <div class="site-label" style="color: #2563eb;">{{ $siteA?->name ?? 'Site A' }}</div>
+                            <div class="site-val" style="color: #2563eb;">{{ number_format((int) data_get($metricsA, 'impressions', 0)) }}</div>
                         </td>
                         <td width="50%" style="text-align: center;">
-                            <div class="site-label" style="color: #16a34a;">{{ $siteB->name ?? 'Site B' }}</div>
-                            <div class="site-val" style="color: #16a34a;">{{ number_format($metricsB['impressions'] ?? 0) }}</div>
+                            <div class="site-label" style="color: #16a34a;">{{ $siteB?->name ?? 'Site B' }}</div>
+                            <div class="site-val" style="color: #16a34a;">{{ number_format((int) data_get($metricsB, 'impressions', 0)) }}</div>
                         </td>
                     </tr>
                 </table>
                 @php
-                    $imprDiff = ($metricsA['impressions'] ?? 0) - ($metricsB['impressions'] ?? 0);
-                    $imprWinner = $imprDiff > 0 ? ($siteA->name ?? 'Site A') : ($imprDiff < 0 ? ($siteB->name ?? 'Site B') : 'Tied');
+                    $imprA = (int) data_get($metricsA, 'impressions', 0);
+                    $imprB = (int) data_get($metricsB, 'impressions', 0);
+                    $imprDiff = $imprA - $imprB;
+                    $imprWinner = $imprDiff > 0 ? ($siteA?->name ?? 'Site A') : ($imprDiff < 0 ? ($siteB?->name ?? 'Site B') : 'Tied');
                 @endphp
                 <div class="winner-tag">
                     Leader: {{ $imprWinner }} ({{ $imprDiff > 0 ? '+' : '' }}{{ number_format($imprDiff) }})
@@ -275,18 +279,20 @@
                 <table class="site-split" cellpadding="0" cellspacing="0">
                     <tr>
                         <td width="50%" style="text-align: center; border-right: 1px solid #e2e8f0;">
-                            <div class="site-label" style="color: #2563eb;">{{ $siteA->name ?? 'Site A' }}</div>
-                            <div class="site-val" style="color: #2563eb;">{{ number_format($metricsA['ctr'] ?? 0, 2) }}%</div>
+                            <div class="site-label" style="color: #2563eb;">{{ $siteA?->name ?? 'Site A' }}</div>
+                            <div class="site-val" style="color: #2563eb;">{{ number_format((float) data_get($metricsA, 'ctr', 0), 2) }}%</div>
                         </td>
                         <td width="50%" style="text-align: center;">
-                            <div class="site-label" style="color: #16a34a;">{{ $siteB->name ?? 'Site B' }}</div>
-                            <div class="site-val" style="color: #16a34a;">{{ number_format($metricsB['ctr'] ?? 0, 2) }}%</div>
+                            <div class="site-label" style="color: #16a34a;">{{ $siteB?->name ?? 'Site B' }}</div>
+                            <div class="site-val" style="color: #16a34a;">{{ number_format((float) data_get($metricsB, 'ctr', 0), 2) }}%</div>
                         </td>
                     </tr>
                 </table>
                 @php
-                    $ctrDiff = round(($metricsA['ctr'] ?? 0) - ($metricsB['ctr'] ?? 0), 2);
-                    $ctrWinner = $ctrDiff > 0 ? ($siteA->name ?? 'Site A') : ($ctrDiff < 0 ? ($siteB->name ?? 'Site B') : 'Tied');
+                    $ctrA = (float) data_get($metricsA, 'ctr', 0);
+                    $ctrB = (float) data_get($metricsB, 'ctr', 0);
+                    $ctrDiff = round($ctrA - $ctrB, 2);
+                    $ctrWinner = $ctrDiff > 0 ? ($siteA?->name ?? 'Site A') : ($ctrDiff < 0 ? ($siteB?->name ?? 'Site B') : 'Tied');
                 @endphp
                 <div class="winner-tag">
                     Leader: {{ $ctrWinner }} ({{ $ctrDiff > 0 ? '+' : '' }}{{ $ctrDiff }}%)
@@ -299,20 +305,20 @@
                 <table class="site-split" cellpadding="0" cellspacing="0">
                     <tr>
                         <td width="50%" style="text-align: center; border-right: 1px solid #e2e8f0;">
-                            <div class="site-label" style="color: #2563eb;">{{ $siteA->name ?? 'Site A' }}</div>
-                            <div class="site-val" style="color: #2563eb;">#{{ number_format($metricsA['position'] ?? 0, 1) }}</div>
+                            <div class="site-label" style="color: #2563eb;">{{ $siteA?->name ?? 'Site A' }}</div>
+                            <div class="site-val" style="color: #2563eb;">#{{ number_format((float) data_get($metricsA, 'position', 0), 1) }}</div>
                         </td>
                         <td width="50%" style="text-align: center;">
-                            <div class="site-label" style="color: #16a34a;">{{ $siteB->name ?? 'Site B' }}</div>
-                            <div class="site-val" style="color: #16a34a;">#{{ number_format($metricsB['position'] ?? 0, 1) }}</div>
+                            <div class="site-label" style="color: #16a34a;">{{ $siteB?->name ?? 'Site B' }}</div>
+                            <div class="site-val" style="color: #16a34a;">#{{ number_format((float) data_get($metricsB, 'position', 0), 1) }}</div>
                         </td>
                     </tr>
                 </table>
                 @php
-                    $posA = $metricsA['position'] ?? 0;
-                    $posB = $metricsB['position'] ?? 0;
+                    $posA = (float) data_get($metricsA, 'position', 0);
+                    $posB = (float) data_get($metricsB, 'position', 0);
                     // Lower position is better in SEO
-                    $posWinner = ($posA > 0 && ($posA < $posB || $posB == 0)) ? ($siteA->name ?? 'Site A') : (($posB > 0 && ($posB < $posA || $posA == 0)) ? ($siteB->name ?? 'Site B') : 'Tied');
+                    $posWinner = ($posA > 0 && ($posA < $posB || $posB == 0)) ? ($siteA?->name ?? 'Site A') : (($posB > 0 && ($posB < $posA || $posA == 0)) ? ($siteB?->name ?? 'Site B') : 'Tied');
                 @endphp
                 <div class="winner-tag">
                     Leader: {{ $posWinner }}
@@ -328,7 +334,7 @@
             {{-- Site A Queries --}}
             <td width="48%" style="vertical-align: top;">
                 <div style="font-weight: bold; color: #1d4ed8; margin-bottom: 4px;">
-                    {{ $siteA->name ?? 'Site A' }} Top Queries
+                    {{ $siteA?->name ?? 'Site A' }} Top Queries
                 </div>
                 <table class="data-table" cellpadding="0" cellspacing="0">
                     <thead>
@@ -342,10 +348,10 @@
                     <tbody>
                         @forelse(collect($queriesA ?? [])->take(10) as $q)
                         <tr>
-                            <td>{{ $q['query'] ?? $q->query ?? '' }}</td>
-                            <td class="num"><strong>{{ number_format($q['clicks'] ?? $q->clicks ?? 0) }}</strong></td>
-                            <td class="num">{{ number_format($q['impressions'] ?? $q->impressions ?? 0) }}</td>
-                            <td class="num">{{ number_format($q['position'] ?? $q->position ?? 0, 1) }}</td>
+                            <td>{{ data_get($q, 'query', '') }}</td>
+                            <td class="num"><strong>{{ number_format((int) data_get($q, 'clicks', 0)) }}</strong></td>
+                            <td class="num">{{ number_format((int) data_get($q, 'impressions', 0)) }}</td>
+                            <td class="num">{{ number_format((float) data_get($q, 'position', 0), 1) }}</td>
                         </tr>
                         @empty
                         <tr><td colspan="4" style="text-align: center; color: #94a3b8;">No query data</td></tr>
@@ -359,7 +365,7 @@
             {{-- Site B Queries --}}
             <td width="48%" style="vertical-align: top;">
                 <div style="font-weight: bold; color: #15803d; margin-bottom: 4px;">
-                    {{ $siteB->name ?? 'Site B' }} Top Queries
+                    {{ $siteB?->name ?? 'Site B' }} Top Queries
                 </div>
                 <table class="data-table" cellpadding="0" cellspacing="0">
                     <thead>
@@ -373,10 +379,10 @@
                     <tbody>
                         @forelse(collect($queriesB ?? [])->take(10) as $q)
                         <tr>
-                            <td>{{ $q['query'] ?? $q->query ?? '' }}</td>
-                            <td class="num"><strong>{{ number_format($q['clicks'] ?? $q->clicks ?? 0) }}</strong></td>
-                            <td class="num">{{ number_format($q['impressions'] ?? $q->impressions ?? 0) }}</td>
-                            <td class="num">{{ number_format($q['position'] ?? $q->position ?? 0, 1) }}</td>
+                            <td>{{ data_get($q, 'query', '') }}</td>
+                            <td class="num"><strong>{{ number_format((int) data_get($q, 'clicks', 0)) }}</strong></td>
+                            <td class="num">{{ number_format((int) data_get($q, 'impressions', 0)) }}</td>
+                            <td class="num">{{ number_format((float) data_get($q, 'position', 0), 1) }}</td>
                         </tr>
                         @empty
                         <tr><td colspan="4" style="text-align: center; color: #94a3b8;">No query data</td></tr>
@@ -394,20 +400,20 @@
         <thead>
             <tr>
                 <th width="16%">Date</th>
-                <th width="21%" class="num" style="color: #93c5fd;">{{ $siteA->name ?? 'Site A' }} Clicks</th>
-                <th width="21%" class="num" style="color: #86efac;">{{ $siteB->name ?? 'Site B' }} Clicks</th>
-                <th width="21%" class="num" style="color: #93c5fd;">{{ $siteA->name ?? 'Site A' }} Impr</th>
-                <th width="21%" class="num" style="color: #86efac;">{{ $siteB->name ?? 'Site B' }} Impr</th>
+                <th width="21%" class="num" style="color: #93c5fd;">{{ $siteA?->name ?? 'Site A' }} Clicks</th>
+                <th width="21%" class="num" style="color: #86efac;">{{ $siteB?->name ?? 'Site B' }} Clicks</th>
+                <th width="21%" class="num" style="color: #93c5fd;">{{ $siteA?->name ?? 'Site A' }} Impr</th>
+                <th width="21%" class="num" style="color: #86efac;">{{ $siteB?->name ?? 'Site B' }} Impr</th>
             </tr>
         </thead>
         <tbody>
             @foreach(collect($dailyComparison ?? [])->take(20) as $day)
             <tr>
-                <td><strong>{{ $day['date'] }}</strong></td>
-                <td class="num">{{ number_format($day['clicks_a']) }}</td>
-                <td class="num">{{ number_format($day['clicks_b']) }}</td>
-                <td class="num">{{ number_format($day['impr_a']) }}</td>
-                <td class="num">{{ number_format($day['impr_b']) }}</td>
+                <td><strong>{{ data_get($day, 'date', '') }}</strong></td>
+                <td class="num">{{ number_format((int) data_get($day, 'clicks_a', 0)) }}</td>
+                <td class="num">{{ number_format((int) data_get($day, 'clicks_b', 0)) }}</td>
+                <td class="num">{{ number_format((int) data_get($day, 'impr_a', 0)) }}</td>
+                <td class="num">{{ number_format((int) data_get($day, 'impr_b', 0)) }}</td>
             </tr>
             @endforeach
         </tbody>

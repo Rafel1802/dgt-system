@@ -870,7 +870,15 @@ class GoogleSearchConsoleAnalyticsService
                 ->orderByDesc('clicks')
                 ->limit(8)
                 ->selectRaw('query, COALESCE(SUM(clicks), 0) as clicks, COALESCE(SUM(impressions), 0) as impressions, COALESCE(SUM(clicks) / NULLIF(SUM(impressions), 0) * 100, 0) as ctr, COALESCE(SUM(position * impressions) / NULLIF(SUM(impressions), 0), 0) as position')
-                ->get();
+                ->get()
+                ->map(fn($r) => [
+                    'query'       => $r->query,
+                    'clicks'      => (int) $r->clicks,
+                    'impressions' => (int) $r->impressions,
+                    'ctr'         => round((float) $r->ctr, 2),
+                    'position'    => round((float) $r->position, 1),
+                ])
+                ->all();
 
             $handler = $w->handler;
 
