@@ -18,6 +18,9 @@ class WebsitePost extends Model
     const STATUS_SCHEDULED = 'scheduled';
     const STATUS_ARCHIVED  = 'archived';
 
+    const SOURCE_DGT_TRACKER        = 'dgt_tracker';
+    const SOURCE_ELEMENTOR          = 'elementor_views';
+    const SOURCE_NATIVE_DB          = 'native_database';
     const SOURCE_WP_POSTVIEWS       = 'wp_postviews';
     const SOURCE_JETPACK            = 'jetpack';
     const SOURCE_POST_VIEWS_COUNTER = 'post_views_counter';
@@ -97,6 +100,7 @@ class WebsitePost extends Model
             $data['cumulative_views'] ?? 0,
             $data['period_views'] ?? 0,
             $data['page_views'] ?? 0,
+            $data['analytics_source'] ?? '',
         ]));
     }
 }

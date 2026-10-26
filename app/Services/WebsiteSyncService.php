@@ -55,7 +55,24 @@ class WebsiteSyncService
                 $periodViews = (int) ($item['period_views'] ?? 0);
                 $pageViews = (int) ($item['page_views'] ?? 0);
                 $uniqueVisitors = (int) ($item['unique_visitors'] ?? 0);
-                $analyticsSource = $item['analytics_source'] ?? WebsitePost::SOURCE_NONE;
+                $analyticsSource = $item['analytics_source'] ?? WebsitePost::SOURCE_DGT_TRACKER;
+
+                // Check existing post for hash match to skip redundant DB writes
+                $existing = WebsitePost::where('website_id', $website->id)
+                    ->where('external_id', $externalId)
+                    ->first();
+
+                // If incoming views are 0 but post already had verified recorded views, preserve them
+                if ($existing && $cumulativeViews === 0 && $existing->cumulative_views > 0) {
+                    $cumulativeViews = $existing->cumulative_views;
+                    if ($analyticsSource === WebsitePost::SOURCE_NONE || empty($analyticsSource)) {
+                        $analyticsSource = $existing->analytics_source;
+                    }
+                }
+
+                if ($analyticsSource === WebsitePost::SOURCE_NONE || empty($analyticsSource)) {
+                    $analyticsSource = WebsitePost::SOURCE_DGT_TRACKER;
+                }
 
                 $syncHash = WebsitePost::computeSyncHash([
                     'title'            => $item['title'],
@@ -65,14 +82,10 @@ class WebsiteSyncService
                     'cumulative_views' => $cumulativeViews,
                     'period_views'     => $periodViews,
                     'page_views'       => $pageViews,
+                    'analytics_source' => $analyticsSource,
                 ]);
 
-                // Check existing post for hash match to skip redundant DB writes
-                $existing = WebsitePost::where('website_id', $website->id)
-                    ->where('external_id', $externalId)
-                    ->first();
-
-                if ($existing && $existing->sync_hash === $syncHash) {
+                if ($existing && $existing->sync_hash === $syncHash && $existing->analytics_source === $analyticsSource) {
                     $existing->updateQuietly(['last_synced_at' => now()]);
                     $skipped++;
                     continue;
@@ -308,20 +321,35 @@ class WebsiteSyncService
 
         // Try extracting views from popular WP plugins meta
         $views = 0;
-        $source = WebsitePost::SOURCE_NONE;
+        $source = WebsitePost::SOURCE_DGT_TRACKER;
 
-        if (isset($wp['post_views'])) {
-            $views = (int) $wp['post_views'];
-            $source = WebsitePost::SOURCE_CUSTOM_COUNTER;
-        } elseif (isset($wp['meta']['views'])) {
+        if (isset($wp['cumulative_views']) && (int)$wp['cumulative_views'] > 0) {
+            $views = (int) $wp['cumulative_views'];
+            $source = $wp['analytics_source'] ?? WebsitePost::SOURCE_DGT_TRACKER;
+        } elseif (isset($wp['meta']['_eael_post_view_count']) && (int)$wp['meta']['_eael_post_view_count'] > 0) {
+            $views = (int) $wp['meta']['_eael_post_view_count'];
+            $source = WebsitePost::SOURCE_ELEMENTOR;
+        } elseif (isset($wp['meta']['dgt_post_views']) && (int)$wp['meta']['dgt_post_views'] > 0) {
+            $views = (int) $wp['meta']['dgt_post_views'];
+            $source = WebsitePost::SOURCE_DGT_TRACKER;
+        } elseif (isset($wp['meta']['views']) && (int)$wp['meta']['views'] > 0) {
             $views = (int) $wp['meta']['views'];
             $source = WebsitePost::SOURCE_WP_POSTVIEWS;
-        } elseif (isset($wp['meta']['_jetpack_post_views'])) {
+        } elseif (isset($wp['post_views']) && (int)$wp['post_views'] > 0) {
+            $views = (int) $wp['post_views'];
+            $source = WebsitePost::SOURCE_CUSTOM_COUNTER;
+        } elseif (isset($wp['meta']['_post_views']) && (int)$wp['meta']['_post_views'] > 0) {
+            $views = (int) $wp['meta']['_post_views'];
+            $source = WebsitePost::SOURCE_POST_VIEWS_COUNTER;
+        } elseif (isset($wp['meta']['_jetpack_post_views']) && (int)$wp['meta']['_jetpack_post_views'] > 0) {
             $views = (int) $wp['meta']['_jetpack_post_views'];
             $source = WebsitePost::SOURCE_JETPACK;
-        } elseif (isset($wp['meta']['post_views_count'])) {
+        } elseif (isset($wp['meta']['post_views_count']) && (int)$wp['meta']['post_views_count'] > 0) {
             $views = (int) $wp['meta']['post_views_count'];
-            $source = WebsitePost::SOURCE_POST_VIEWS_COUNTER;
+            $source = WebsitePost::SOURCE_CUSTOM_COUNTER;
+        } elseif (isset($wp['meta']['pageview']) && (int)$wp['meta']['pageview'] > 0) {
+            $views = (int) $wp['meta']['pageview'];
+            $source = WebsitePost::SOURCE_CUSTOM_COUNTER;
         }
 
         return [
@@ -478,7 +506,7 @@ class WebsiteSyncService
                         'featured_image_url' => $r['featured_image'] ?: null,
                         'canonical_url'      => $conf['url'] . $slug,
                         'published_at'       => $r['published_at'] ?: now(),
-                        'cumulative_views'   => 0,
+                        'cumulative_views'   => (int) ($r['views'] ?? 0),
                         'author_name'        => $r['author'] ?? ($site->name . ' Staff'),
                         'status'             => 'published',
                         'analytics_source'   => $conf['src'],
@@ -539,6 +567,42 @@ class WebsiteSyncService
                 foreach ($rawPosts as $p) {
                     $pId = $p['ID'];
                     $slug = $p['post_name'] ?: ('post-' . $pId);
+
+                    // Query postmeta for views
+                    $pViews = 0;
+                    $pSrc = WebsitePost::SOURCE_DGT_TRACKER;
+
+                    try {
+                        $metaStmt = $pdo->prepare("SELECT meta_key, meta_value FROM {$prefix}postmeta WHERE post_id = ? AND meta_key IN ('_eael_post_view_count', 'dgt_post_views', 'views', '_post_views', 'post_views_count', 'pageview', '_jetpack_post_views')");
+                        $metaStmt->execute([$pId]);
+                        $mRows = $metaStmt->fetchAll(\PDO::FETCH_KEY_PAIR);
+
+                        if (!empty($mRows['_eael_post_view_count']) && (int)$mRows['_eael_post_view_count'] > 0) {
+                            $pViews = (int)$mRows['_eael_post_view_count'];
+                            $pSrc = WebsitePost::SOURCE_ELEMENTOR;
+                        } elseif (!empty($mRows['dgt_post_views']) && (int)$mRows['dgt_post_views'] > 0) {
+                            $pViews = (int)$mRows['dgt_post_views'];
+                            $pSrc = WebsitePost::SOURCE_DGT_TRACKER;
+                        } elseif (!empty($mRows['views']) && (int)$mRows['views'] > 0) {
+                            $pViews = (int)$mRows['views'];
+                            $pSrc = WebsitePost::SOURCE_WP_POSTVIEWS;
+                        } elseif (!empty($mRows['_post_views']) && (int)$mRows['_post_views'] > 0) {
+                            $pViews = (int)$mRows['_post_views'];
+                            $pSrc = WebsitePost::SOURCE_POST_VIEWS_COUNTER;
+                        } elseif (!empty($mRows['post_views_count']) && (int)$mRows['post_views_count'] > 0) {
+                            $pViews = (int)$mRows['post_views_count'];
+                            $pSrc = WebsitePost::SOURCE_CUSTOM_COUNTER;
+                        } elseif (!empty($mRows['pageview']) && (int)$mRows['pageview'] > 0) {
+                            $pViews = (int)$mRows['pageview'];
+                            $pSrc = WebsitePost::SOURCE_CUSTOM_COUNTER;
+                        } elseif (!empty($mRows['_jetpack_post_views']) && (int)$mRows['_jetpack_post_views'] > 0) {
+                            $pViews = (int)$mRows['_jetpack_post_views'];
+                            $pSrc = WebsitePost::SOURCE_JETPACK;
+                        }
+                    } catch (\Throwable $e) {
+                        // Keep defaults
+                    }
+
                     $postsData[] = [
                         'external_id'        => (string) $pId,
                         'title'              => $p['post_title'] ?: 'Untitled Post',
@@ -550,8 +614,8 @@ class WebsiteSyncService
                         'modified_at'        => ($p['post_modified_gmt'] && $p['post_modified_gmt'] !== '0000-00-00 00:00:00') ? $p['post_modified_gmt'] : null,
                         'featured_image_url' => null,
                         'excerpt'            => strip_tags($p['post_excerpt'] ?: ''),
-                        'cumulative_views'   => 0,
-                        'analytics_source'   => 'none',
+                        'cumulative_views'   => $pViews,
+                        'analytics_source'   => $pSrc,
                     ];
                 }
 

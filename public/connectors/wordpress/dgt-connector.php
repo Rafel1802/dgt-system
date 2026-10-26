@@ -14,6 +14,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('DGT_Website_Connector')) {
+
 class DGT_Website_Connector {
     const OPTION_DGT_URL    = 'dgt_connector_platform_url';
     const OPTION_API_KEY    = 'dgt_connector_api_key';
@@ -26,6 +28,8 @@ class DGT_Website_Connector {
         add_action('admin_menu', [$this, 'register_admin_menu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('dgt_connector_cron_sync', [$this, 'perform_background_sync']);
+        add_action('template_redirect', [$this, 'track_single_post_view']);
+        add_action('wp_footer', [$this, 'render_tracking_script']);
 
         // Schedule cron if enabled
         if (!wp_next_scheduled('dgt_connector_cron_sync')) {
@@ -34,9 +38,10 @@ class DGT_Website_Connector {
     }
 
     /**
-     * Expose REST API endpoint for DGT platform pull mode:
+     * Expose REST API endpoints:
      * GET /wp-json/dgt/v1/posts
      * GET /wp-json/dgt/v1/health
+     * POST|GET /wp-json/dgt/v1/track
      */
     public function register_rest_routes() {
         register_rest_route('dgt/v1', '/posts', [
@@ -48,6 +53,12 @@ class DGT_Website_Connector {
         register_rest_route('dgt/v1', '/health', [
             'methods'             => 'GET',
             'callback'            => [$this, 'rest_get_health'],
+            'permission_callback' => '__return_true',
+        ]);
+
+        register_rest_route('dgt/v1', '/track', [
+            'methods'             => ['POST', 'GET'],
+            'callback'            => [$this, 'rest_track_view'],
             'permission_callback' => '__return_true',
         ]);
     }
@@ -155,34 +166,157 @@ class DGT_Website_Connector {
     }
 
     /**
-     * Detect view count from popular WordPress analytics and counter plugins.
+     * Frontend view tracker: called on single post requests.
+     */
+    public function track_single_post_view() {
+        if (!is_singular('post')) {
+            return;
+        }
+
+        // Avoid counting search bots, feeds, or preview
+        if (is_robots() || is_feed() || is_trackback() || is_preview()) {
+            return;
+        }
+
+        $postId = get_the_ID();
+        if (!$postId) {
+            return;
+        }
+
+        // 2-hour cookie debounce to avoid inflating counts on page refresh
+        $cookieName = 'dgt_pv_' . $postId;
+        if (isset($_COOKIE[$cookieName])) {
+            return;
+        }
+
+        if (!headers_sent()) {
+            @setcookie($cookieName, '1', time() + 7200, COOKIEPATH ?: '/', COOKIE_DOMAIN);
+        }
+
+        $this->increment_post_view($postId);
+    }
+
+    /**
+     * Render asynchronous non-blocking tracker beacon in footer for cached pages (LiteSpeed/Cloudflare).
+     */
+    public function render_tracking_script() {
+        if (!is_singular('post')) {
+            return;
+        }
+        $postId = get_the_ID();
+        if (!$postId) return;
+        $trackUrl = esc_url(rest_url('dgt/v1/track'));
+        ?>
+        <script id="dgt-analytics-tracker">
+        (function(){
+            try {
+                var k = 'dgt_ss_view_<?php echo (int)$postId; ?>';
+                if (!sessionStorage.getItem(k)) {
+                    sessionStorage.setItem(k, '1');
+                    var fd = new FormData();
+                    fd.append('post_id', '<?php echo (int)$postId; ?>');
+                    if (navigator.sendBeacon) {
+                        navigator.sendBeacon('<?php echo $trackUrl; ?>', fd);
+                    } else {
+                        fetch('<?php echo $trackUrl; ?>', {method: 'POST', body: fd, keepalive: true});
+                    }
+                }
+            } catch(e){}
+        })();
+        </script>
+        <?php
+    }
+
+    /**
+     * REST endpoint for client-side beacon hits: /wp-json/dgt/v1/track
+     */
+    public function rest_track_view($request) {
+        $postId = (int)$request->get_param('post_id');
+        if (!$postId || get_post_type($postId) !== 'post') {
+            return rest_ensure_response(['success' => false, 'message' => 'Invalid post ID']);
+        }
+
+        $newViews = $this->increment_post_view($postId);
+        return rest_ensure_response(['success' => true, 'post_id' => $postId, 'views' => $newViews]);
+    }
+
+    /**
+     * Increment post views across DGT tracker and standard WordPress keys.
+     */
+    public function increment_post_view($postId) {
+        $views = (int) get_post_meta($postId, 'dgt_post_views', true);
+        if ($views <= 0) {
+            // Check if post already has views from Elementor or WP-PostViews to continue counting from baseline
+            $eael = get_post_meta($postId, '_eael_post_view_count', true);
+            $wpv  = get_post_meta($postId, 'views', true);
+            $base = 0;
+            if (is_numeric($eael) && (int)$eael > $base) $base = (int)$eael;
+            if (is_numeric($wpv) && (int)$wpv > $base) $base = (int)$wpv;
+            $views = $base;
+        }
+
+        $views++;
+        update_post_meta($postId, 'dgt_post_views', $views);
+        update_post_meta($postId, 'views', $views);
+        update_post_meta($postId, 'post_views_count', $views);
+
+        // Keep Elementor view counter in sync if present
+        $eael = get_post_meta($postId, '_eael_post_view_count', true);
+        if ($eael !== '' && is_numeric($eael)) {
+            update_post_meta($postId, '_eael_post_view_count', max((int)$eael, $views));
+        }
+
+        return $views;
+    }
+
+    /**
+     * Detect view count from popular WordPress analytics and counter plugins, plus DGT Tracker.
      */
     private function detect_post_views($postId) {
-        // 1. WP-PostViews plugin ('views' meta)
+        // 1. Essential Addons for Elementor post view count
+        $eaelViews = get_post_meta($postId, '_eael_post_view_count', true);
+        if ($eaelViews !== '' && is_numeric($eaelViews) && (int)$eaelViews > 0) {
+            return ['views' => (int)$eaelViews, 'source' => 'elementor_views'];
+        }
+
+        // 2. DGT Native Post Views
+        $dgtViews = get_post_meta($postId, 'dgt_post_views', true);
+        if ($dgtViews !== '' && is_numeric($dgtViews) && (int)$dgtViews > 0) {
+            return ['views' => (int)$dgtViews, 'source' => 'dgt_tracker'];
+        }
+
+        // 3. WP-PostViews plugin ('views' meta)
         $views = get_post_meta($postId, 'views', true);
-        if ($views !== '' && is_numeric($views)) {
+        if ($views !== '' && is_numeric($views) && (int)$views > 0) {
             return ['views' => (int)$views, 'source' => 'wp_postviews'];
         }
 
-        // 2. Post Views Counter plugin
+        // 4. Post Views Counter plugin
         $pvcViews = get_post_meta($postId, '_post_views', true);
-        if ($pvcViews !== '' && is_numeric($pvcViews)) {
+        if ($pvcViews !== '' && is_numeric($pvcViews) && (int)$pvcViews > 0) {
             return ['views' => (int)$pvcViews, 'source' => 'post_views_counter'];
         }
 
-        // 3. Jetpack Stats
+        // 5. Jetpack Stats
         $jetpackViews = get_post_meta($postId, '_jetpack_post_views', true);
-        if ($jetpackViews !== '' && is_numeric($jetpackViews)) {
+        if ($jetpackViews !== '' && is_numeric($jetpackViews) && (int)$jetpackViews > 0) {
             return ['views' => (int)$jetpackViews, 'source' => 'jetpack'];
         }
 
-        // 4. Custom meta 'post_views_count'
+        // 6. Custom meta 'post_views_count'
         $customViews = get_post_meta($postId, 'post_views_count', true);
-        if ($customViews !== '' && is_numeric($customViews)) {
+        if ($customViews !== '' && is_numeric($customViews) && (int)$customViews > 0) {
             return ['views' => (int)$customViews, 'source' => 'custom_counter'];
         }
 
-        return ['views' => 0, 'source' => 'none'];
+        // 7. Generic pageview meta
+        $pv = get_post_meta($postId, 'pageview', true);
+        if ($pv !== '' && is_numeric($pv) && (int)$pv > 0) {
+            return ['views' => (int)$pv, 'source' => 'custom_counter'];
+        }
+
+        // DGT Connector is active on this website, tracking is ready/active
+        return ['views' => 0, 'source' => 'dgt_tracker'];
     }
 
     /**
@@ -347,3 +481,5 @@ class DGT_Website_Connector {
 }
 
 new DGT_Website_Connector();
+
+} // end if (!class_exists)

@@ -542,6 +542,52 @@
             </div>
         </div>
 
+        <!-- Analytics Source Filter Dropdown -->
+        <div class="relative" x-data="{
+            open: false,
+            selected: '{{ $source }}',
+            options: [
+                { value: 'all', label: 'All Trackers' },
+                { value: 'dgt_tracker', label: 'DGT Tracker' },
+                { value: 'elementor_views', label: 'Elementor Views' },
+                { value: 'native_database', label: 'Native DB' },
+                { value: 'sqlite_database', label: 'SQLite DB' },
+                { value: 'wp_postviews', label: 'WP-PostViews' },
+                { value: 'ga4', label: 'GA4' }
+            ],
+            get currentLabel() {
+                const found = this.options.find(o => o.value === this.selected);
+                return found ? found.label : 'All Trackers';
+            },
+            select(val) {
+                this.selected = val;
+                this.open = false;
+                this.$refs.sourceInput.value = val;
+                this.$refs.sourceInput.form.submit();
+            }
+        }" @keydown.window.escape="open = false">
+            <input type="hidden" name="source" x-ref="sourceInput" value="{{ $source }}">
+            <button type="button" @click="open = !open"
+                    class="flex items-center justify-between gap-2 px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500 transition min-w-[140px]">
+                <div class="flex items-center gap-2 overflow-hidden text-left">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span class="font-bold text-xs truncate" x-text="currentLabel"></span>
+                </div>
+                <svg class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div x-show="open" @click.outside="open = false" x-cloak
+                 class="absolute right-0 z-50 mt-1.5 w-52 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden p-1.5 ring-1 ring-black/5">
+                <template x-for="opt in options" :key="opt.value">
+                    <button type="button" @click="select(opt.value)"
+                            class="w-full text-left px-3 py-2 rounded-xl text-xs transition flex items-center justify-between"
+                            :class="selected === opt.value ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-900 dark:text-indigo-200 font-bold' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/70 font-medium'">
+                        <span x-text="opt.label"></span>
+                        <span x-show="selected === opt.value" class="text-indigo-600 dark:text-indigo-400 font-bold">✓</span>
+                    </button>
+                </template>
+            </div>
+        </div>
+
         <!-- Sort Dropdown -->
         <div class="relative" x-data="{
             open: false,
@@ -694,20 +740,45 @@
 
                             <!-- Analytics Source -->
                             <td class="py-3.5 px-3">
-                                @if($post->analytics_source === 'none')
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700" title="WordPress website has no view counter plugin installed yet (0 views recorded)">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                        No Tracker (0 Views)
+                                @if($post->analytics_source === 'dgt_tracker')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" title="DGT Real-Time Tracker Active">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        DGT Tracker
+                                    </span>
+                                @elseif($post->analytics_source === 'elementor_views')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800" title="Elementor Real-Time View Counter">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+                                        Elementor Views
+                                    </span>
+                                @elseif($post->analytics_source === 'native_database' || $post->analytics_source === 'native_posts_table')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800" title="Native CMS Database View Counter">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                        Native DB
+                                    </span>
+                                @elseif(str_starts_with($post->analytics_source, 'sqlite'))
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800" title="SQLite Database View Counter">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                        SQLite DB
+                                    </span>
+                                @elseif($post->analytics_source === 'wp_postviews')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800" title="WP-PostViews Counter">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                        WP-PostViews
                                     </span>
                                 @elseif($post->analytics_source === 'ga4')
                                     <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-600 border border-sky-200">
                                         <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
                                         GA4
                                     </span>
+                                @elseif($post->analytics_source === 'none')
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800" title="Awaiting first visitor tracking event">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                        Awaiting Visits (0 Views)
+                                    </span>
                                 @else
                                     <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 border border-emerald-200">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                        {{ str_replace('_', ' ', $post->analytics_source) }}
+                                        {{ ucwords(str_replace('_', ' ', $post->analytics_source)) }}
                                     </span>
                                 @endif
                             </td>
