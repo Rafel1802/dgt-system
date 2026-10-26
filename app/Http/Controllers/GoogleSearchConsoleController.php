@@ -2436,12 +2436,12 @@ class GoogleSearchConsoleController extends Controller
         // Match GoogleSearchConsoleSite or Website
         $site = GoogleSearchConsoleSite::where('site_url', 'like', "%{$clean}%")
             ->orWhereHas('website', function ($q) use ($clean) {
-                $q->where('url', 'like', "%{$clean}%")->orWhere('domain', 'like', "%{$clean}%");
+                $q->where('url', 'like', "%{$clean}%")->orWhere('name', 'like', "%{$clean}%");
             })
             ->first();
 
         if (!$site) {
-            $website = Website::where('url', 'like', "%{$clean}%")->orWhere('domain', 'like', "%{$clean}%")->first();
+            $website = Website::where('url', 'like', "%{$clean}%")->orWhere('name', 'like', "%{$clean}%")->first();
             if ($website) {
                 $site = GoogleSearchConsoleSite::firstOrCreate(
                     ['website_id' => $website->id],
