@@ -2197,11 +2197,12 @@
                 {{-- Status Pills --}}
                 <div class="flex flex-wrap items-center gap-2">
                     <template x-if="isSelectedWebsiteMapped">
-                        <div class="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 text-xs font-bold">
+                        <a :href="'https://search.google.com/search-console/index?resource_id=' + encodeURIComponent(selectedSitemapProperty || selectedSitemapWebsite?.site_url || '')" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 text-xs font-bold transition-all shadow-xs group" title="Click to open this property directly in Google Search Console">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             <span>Linked in GSC:</span>
-                            <code class="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 rounded text-[11px]" x-text="selectedSitemapWebsite?.site_url"></code>
-                        </div>
+                            <code class="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/60 rounded text-[11px] group-hover:underline" x-text="selectedSitemapWebsite?.site_url"></code>
+                            <svg class="w-3.5 h-3.5 opacity-70 group-hover:opacity-100 ml-0.5 transition-opacity" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                        </a>
                     </template>
                     <template x-if="!isSelectedWebsiteMapped">
                         <div class="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-200 text-xs font-bold">
@@ -2264,7 +2265,11 @@
                         • Auto-synced live from Google Search Console (sitemaps, indexing & inspections)
                     </span>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <a :href="'https://search.google.com/search-console/index?resource_id=' + encodeURIComponent(selectedSitemapProperty || selectedSitemapWebsite?.site_url || '')" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-xl border border-blue-200 dark:border-blue-800 transition-colors shadow-xs" title="Open this exact property directly in Google Search Console">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                        <span>Open GSC ↗</span>
+                    </a>
                     <button type="button" @click="startBackgroundInspection()" :disabled="scanningBackground" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-xl border border-indigo-200 dark:border-indigo-800 transition-colors shadow-xs" title="Automatically inspect and verify all pages via Google's official URL Inspection API in the background">
                         <svg class="w-3.5 h-3.5" :class="scanningBackground ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />

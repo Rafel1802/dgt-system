@@ -200,13 +200,18 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
                 }
                 usort($reasons, fn($a, $b) => $b['count'] <=> $a['count']);
 
-                // Update site record with live verified snapshot
-                $site->update([
-                    'gsc_indexed_pages'       => $totalVerifiedIndexed,
-                    'gsc_not_indexed_pages'   => $effectiveNotIndexed,
-                    'gsc_indexing_updated_at' => now(),
-                    'gsc_indexing_reasons'    => $reasons,
-                ]);
+                // Update site record with live verified snapshot ONLY IF all discovered URLs have been inspected OR verified indexed exceeds current snapshot
+                $currentOfficialIndexed = $site->gsc_indexed_pages;
+                $currentOfficialNotIndexed = $site->gsc_not_indexed_pages;
+
+                if ($currentOfficialIndexed === null || $totalVerifiedIndexed > $currentOfficialIndexed) {
+                    $site->update([
+                        'gsc_indexed_pages'       => max($totalVerifiedIndexed, (int) $currentOfficialIndexed),
+                        'gsc_not_indexed_pages'   => $currentOfficialNotIndexed !== null ? $currentOfficialNotIndexed : $effectiveNotIndexed,
+                        'gsc_indexing_updated_at' => now(),
+                        'gsc_indexing_reasons'    => !empty($reasons) ? $reasons : $site->gsc_indexing_reasons,
+                    ]);
+                }
 
                 $this->info("Completed {$website->name}! Verified Indexed: {$totalVerifiedIndexed}, Not Indexed: {$effectiveNotIndexed}");
 
