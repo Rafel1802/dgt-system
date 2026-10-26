@@ -58,3 +58,12 @@ Route::prefix('v1/connector')
         Route::post('/sync/posts', [\App\Http\Controllers\Api\V1\WebsiteConnectorController::class, 'syncPosts'])->name('api.v1.connector.sync.posts');
     });
 
+// ─── Universal Direct View Tracker (v1) ─────────────────────────────────────
+Route::prefix('v1')
+    ->middleware(['throttle:120,1'])
+    ->group(function () {
+        Route::post('/track', [\App\Http\Controllers\Api\V1\UniversalTrackController::class, 'track'])->name('api.v1.track');
+        Route::get('/track.gif', [\App\Http\Controllers\Api\V1\UniversalTrackController::class, 'pixel'])->name('api.v1.track.pixel');
+    });
+
+

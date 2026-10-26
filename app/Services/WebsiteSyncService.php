@@ -57,20 +57,38 @@ class WebsiteSyncService
                 $uniqueVisitors = (int) ($item['unique_visitors'] ?? 0);
                 $analyticsSource = $item['analytics_source'] ?? WebsitePost::SOURCE_DGT_TRACKER;
 
-                // Check existing post for hash match to skip redundant DB writes
+                // Check existing post by external_id or slug for maximum resilience across framework redeploys
+                $postSlug = $item['slug'] ?? null;
                 $existing = WebsitePost::where('website_id', $website->id)
-                    ->where('external_id', $externalId)
+                    ->where(function ($q) use ($externalId, $postSlug) {
+                        $q->where('external_id', $externalId);
+                        if (!empty($postSlug)) {
+                            $q->orWhere('slug', $postSlug);
+                        }
+                    })
                     ->first();
 
-                // If incoming views are 0 but post already had verified recorded views, preserve them
-                if ($existing && $cumulativeViews === 0 && $existing->cumulative_views > 0) {
-                    $cumulativeViews = $existing->cumulative_views;
-                    if ($analyticsSource === WebsitePost::SOURCE_NONE || empty($analyticsSource)) {
-                        $analyticsSource = $existing->analytics_source;
+                // Monotonic preservation: NEVER lose recorded historical views or analytics source
+                // even if an external framework redeploys, resets its database, or sends lower/zero views
+                if ($existing) {
+                    if ($cumulativeViews < $existing->cumulative_views) {
+                        $cumulativeViews = $existing->cumulative_views;
+                    }
+                    if ($pageViews < $existing->page_views) {
+                        $pageViews = $existing->page_views;
+                    }
+                    if ($periodViews < $existing->period_views && $periodViews === 0) {
+                        $periodViews = $existing->period_views;
+                    }
+                    if ($uniqueVisitors < $existing->unique_visitors && $uniqueVisitors === 0) {
+                        $uniqueVisitors = $existing->unique_visitors;
+                    }
+                    if ($analyticsSource === WebsitePost::SOURCE_NONE || empty($analyticsSource) || $analyticsSource === 'none') {
+                        $analyticsSource = $existing->analytics_source ?: WebsitePost::SOURCE_DGT_TRACKER;
                     }
                 }
 
-                if ($analyticsSource === WebsitePost::SOURCE_NONE || empty($analyticsSource)) {
+                if ($analyticsSource === WebsitePost::SOURCE_NONE || empty($analyticsSource) || $analyticsSource === 'none') {
                     $analyticsSource = WebsitePost::SOURCE_DGT_TRACKER;
                 }
 
@@ -390,16 +408,20 @@ class WebsiteSyncService
                     $viewsMap = $data['views'] ?? [];
                     if (!empty($viewsMap)) {
                         foreach ($viewsMap as $slug => $views) {
-                            WebsitePost::where('website_id', 66)
+                            $targetPost = WebsitePost::where('website_id', 66)
                                 ->where(function ($q) use ($slug) {
                                     $q->where('slug', $slug)
                                       ->orWhere('external_id', (string) $slug);
-                                })
-                                ->update([
-                                    'cumulative_views' => (int) $views,
-                                    'analytics_source' => 'sqlite_site_db',
+                                })->first();
+                            if ($targetPost) {
+                                $safeViews = max((int)$views, (int)$targetPost->cumulative_views);
+                                $targetPost->updateQuietly([
+                                    'cumulative_views' => $safeViews,
+                                    'page_views'       => max((int)$views, (int)$targetPost->page_views),
+                                    'analytics_source' => $targetPost->analytics_source ?: 'sqlite_site_db',
                                     'last_synced_at'   => now(),
                                 ]);
+                            }
                         }
                         $syncedSites[] = 'heavyequipment.wiki';
                     }
