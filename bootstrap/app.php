@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhook/*',
             'auth/google/callback',
             'profile/google/link',
+            'websites/google-search-console/sync-browser-data',
         ]);
 
         // ── Named middleware aliases ──────────────────────────────────────

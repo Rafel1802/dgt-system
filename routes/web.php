@@ -131,6 +131,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/websites/google-search-console/sitemaps/start-auto-inspection', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'startAutoInspection'])->name('websites.search-console.sitemaps.start-auto-inspection');
             Route::get('/websites/google-search-console/sitemaps/inspection-status', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'getInspectionScanStatus'])->name('websites.search-console.sitemaps.inspection-status');
             Route::get('/websites/google-search-console/export/sitemaps-csv', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'exportSitemapsCsv'])->name('websites.search-console.export.sitemaps-csv');
+            Route::match(['get', 'post', 'options'], '/websites/google-search-console/sync-browser-data', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'syncBrowserData'])->name('websites.search-console.sync-browser-data');
 
             Route::get('/websites/dashboard', [\App\Http\Controllers\WebsitesDashboardController::class, 'index'])->name('websites.dashboard');
             Route::get('/websites/dashboard/export', [\App\Http\Controllers\WebsitesDashboardController::class, 'export'])->name('websites.dashboard.export');

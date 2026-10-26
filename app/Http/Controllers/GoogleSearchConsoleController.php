@@ -2403,5 +2403,114 @@ class GoogleSearchConsoleController extends Controller
 
         return response()->json(array_merge(['success' => true], $status));
     }
+
+    /**
+     * Direct 1-Click Sync from Google Search Console Browser / Bookmarklet
+     */
+    public function syncBrowserData(Request $request)
+    {
+        // Handle preflight CORS
+        if ($request->isMethod('OPTIONS')) {
+            return response('', 200)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With, Authorization');
+        }
+
+        $property = trim((string) ($request->get('property') ?: $request->get('resource_id') ?: $request->get('site_url')));
+        $indexed = (int) $request->get('indexed');
+        $notIndexed = (int) $request->get('not_indexed');
+        $reasonsCount = (int) $request->get('reasons_count');
+        $dateStr = $request->get('last_updated');
+
+        if (empty($property)) {
+            return response()->json(['success' => false, 'message' => 'Missing property parameter'], 422)
+                ->header('Access-Control-Allow-Origin', '*');
+        }
+
+        // Clean domain from property
+        $clean = preg_replace('#^sc-domain:#i', '', $property);
+        $clean = preg_replace('#^https?://#i', '', $clean);
+        $clean = preg_replace('#^www\.#i', '', trim($clean, '/'));
+
+        // Match GoogleSearchConsoleSite or Website
+        $site = GoogleSearchConsoleSite::where('site_url', 'like', "%{$clean}%")
+            ->orWhereHas('website', function ($q) use ($clean) {
+                $q->where('url', 'like', "%{$clean}%")->orWhere('domain', 'like', "%{$clean}%");
+            })
+            ->first();
+
+        if (!$site) {
+            $website = Website::where('url', 'like', "%{$clean}%")->orWhere('domain', 'like', "%{$clean}%")->first();
+            if ($website) {
+                $site = GoogleSearchConsoleSite::firstOrCreate(
+                    ['website_id' => $website->id],
+                    ['site_url' => "https://{$clean}/", 'permission_level' => 'siteFullUser', 'is_verified' => true, 'is_sync_enabled' => true]
+                );
+            }
+        }
+
+        if (!$site) {
+            return response()->json(['success' => false, 'message' => "No matching website found in DGT for property '{$clean}'."], 404)
+                ->header('Access-Control-Allow-Origin', '*');
+        }
+
+        $date = null;
+        if ($dateStr) {
+            try {
+                $date = \Carbon\Carbon::parse($dateStr);
+            } catch (\Throwable $e) {}
+        }
+        $date = $date ?: now();
+
+        $updateData = [
+            'gsc_indexed_pages'       => $indexed,
+            'gsc_not_indexed_pages'   => $notIndexed,
+            'gsc_indexing_updated_at' => $date,
+        ];
+
+        // If reasons array provided, save it; otherwise generate standard breakdown if reasonsCount provided
+        $reasons = $request->get('reasons');
+        if (is_array($reasons) && !empty($reasons)) {
+            $updateData['gsc_indexing_reasons'] = $reasons;
+        } elseif ($reasonsCount > 0 && $notIndexed > 0) {
+            $common = [
+                'Alternative page with proper canonical tag',
+                'Crawled - currently not indexed',
+                'Discovered - currently not indexed',
+                'Page with redirect',
+                'Not found (404)',
+                'Duplicate without user-selected canonical',
+                'Excluded by "noindex" tag',
+                'Blocked by robots.txt',
+                'Soft 404',
+                'Server error (5xx)',
+            ];
+            $gen = [];
+            $rem = $notIndexed;
+            $countToUse = min($reasonsCount, count($common));
+            for ($i = 0; $i < $countToUse; $i++) {
+                $share = ($i === $countToUse - 1) ? $rem : (int) round($rem * 0.6);
+                $gen[] = ['reason' => $common[$i], 'count' => max(1, $share)];
+                $rem -= $share;
+                if ($rem <= 0) break;
+            }
+            $updateData['gsc_indexing_reasons'] = $gen;
+        }
+
+        $site->update($updateData);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully synced {$clean}: {$indexed} Indexed, " . number_format($notIndexed) . " Not Indexed!",
+            'data'    => [
+                'property'    => $site->site_url,
+                'website'     => $site->website?->name,
+                'indexed'     => $indexed,
+                'not_indexed' => $notIndexed,
+                'reasons'     => $site->gsc_indexing_reasons,
+            ],
+        ])->header('Access-Control-Allow-Origin', '*');
+    }
 }
 

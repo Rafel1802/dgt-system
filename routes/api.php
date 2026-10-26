@@ -66,4 +66,8 @@ Route::prefix('v1')
         Route::get('/track.gif', [\App\Http\Controllers\Api\V1\UniversalTrackController::class, 'pixel'])->name('api.v1.track.pixel');
     });
 
+// ─── Direct Google Search Console Bookmarklet / Browser Sync ─────────────────
+Route::match(['get', 'post', 'options'], '/gsc/sync-browser-data', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'syncBrowserData'])->name('api.gsc.sync-browser-data');
+
+
 

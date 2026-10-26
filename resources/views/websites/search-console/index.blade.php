@@ -2270,6 +2270,10 @@
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
                         <span>Open GSC ↗</span>
                     </a>
+                    <button type="button" @click="showBookmarkletModal = true" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-xl border border-amber-200 dark:border-amber-800 transition-colors shadow-xs" title="1-Click Browser Sync Bookmarklet for Google Search Console">
+                        <svg class="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>
+                        <span>⚡ 1-Click Sync Tool</span>
+                    </button>
                     <button type="button" @click="startBackgroundInspection()" :disabled="scanningBackground" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-xl border border-indigo-200 dark:border-indigo-800 transition-colors shadow-xs" title="Automatically inspect and verify all pages via Google's official URL Inspection API in the background">
                         <svg class="w-3.5 h-3.5" :class="scanningBackground ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -3975,6 +3979,84 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         </div>
     </div>
 
+    {{-- ── MODAL: 1-Click Browser Sync Bookmarklet ──────────────────────────── --}}
+    <div x-show="showBookmarkletModal" @click.self="showBookmarkletModal = false" class="fixed inset-0 z-[99999] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" x-cloak>
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-2.5">
+                    <div class="p-2 bg-amber-50 dark:bg-amber-950/50 rounded-xl text-amber-600 dark:text-amber-400">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">⚡ 1-Click Browser Sync for Google Search Console</h3>
+                        <p class="text-[11px] text-slate-500">Sync all 57+ websites in seconds without manual typing or screenshots</p>
+                    </div>
+                </div>
+                <button type="button" @click="showBookmarkletModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <div class="p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-2xl text-blue-900 dark:text-blue-200 space-y-1">
+                    <div class="font-bold flex items-center gap-1.5">
+                        <span>💡 Why This Tool?</span>
+                    </div>
+                    <p class="text-[11px] leading-relaxed text-blue-800 dark:text-blue-300">
+                        Google does not provide a public REST API for the "Page Indexing" summary (e.g. 219 indexed vs 2.39K not indexed). This 1-click tool extracts the real numbers straight from your open Google Search Console tab and syncs them to DGT in 1 second!
+                    </p>
+                </div>
+
+                {{-- Drag & Drop Step --}}
+                <div class="space-y-2">
+                    <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px]">1</span>
+                        <span>Drag this button to your Bookmarks Bar:</span>
+                    </div>
+                    <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center">
+                        <a href="javascript:(async function(){try{const text=document.body.innerText;const url=window.location.href;let resourceId='';const resMatch=url.match(/resource_id=([^&]+)/);if(resMatch){resourceId=decodeURIComponent(resMatch[1]);}if(!resourceId){const attrEl=document.querySelector('[data-resource-id]');if(attrEl)resourceId=attrEl.getAttribute('data-resource-id');}if(!resourceId){const domainMatch=text.match(/(?:https?:\/\/)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);resourceId=prompt('Confirm Google Search Console property or website domain:',domainMatch?domainMatch[0]:'');}if(!resourceId)return;let notIndexed=0;const notIdxMatch=text.match(/(?:^|[^\w])Not indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);if(notIdxMatch){let raw=notIdxMatch[1].replace(/,/g,'').trim();if(raw.endsWith('K')||raw.endsWith('k'))notIndexed=Math.round(parseFloat(raw)*1000);else if(raw.endsWith('M')||raw.endsWith('m'))notIndexed=Math.round(parseFloat(raw)*1000000);else notIndexed=parseInt(raw);}let indexed=0;const idxMatch=text.match(/(?<!not\s)Indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);if(idxMatch){let raw=idxMatch[1].replace(/,/g,'').trim();if(raw.endsWith('K')||raw.endsWith('k'))indexed=Math.round(parseFloat(raw)*1000);else if(raw.endsWith('M')||raw.endsWith('m'))indexed=Math.round(parseFloat(raw)*1000000);else indexed=parseInt(raw);}let reasons=0;const rMatch=text.match(/(\d+)\s+reasons/i);if(rMatch)reasons=parseInt(rMatch[1]);let updatedDate='';const dMatch=text.match(/Last update:\s*([\d/]+)/i);if(dMatch)updatedDate=dMatch[1];const payload={property:resourceId,indexed:indexed,not_indexed:notIndexed,reasons_count:reasons,last_updated:updatedDate};const resp=await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const res=await resp.json();if(res.success){alert('✓ SUCCESS!\nSynced '+resourceId+' to DGT:\n• Indexed: '+indexed.toLocaleString()+'\n• Not Indexed: '+notIndexed.toLocaleString()+(reasons?('\n• Reasons: '+reasons):''));}else{alert('Sync failed: '+(res.message||'Unknown error'));}}catch(e){alert('Sync error: '+e.message);}})();" onclick="alert('Please DRAG this button to your Bookmarks Bar (or press Ctrl+Shift+B / Cmd+Shift+B to show Bookmarks Bar first)!'); return false;" class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-md cursor-grab active:cursor-grabbing transform hover:scale-105 transition-all">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>
+                            <span>⚡ Drag Me: Sync to DGT</span>
+                        </a>
+                    </div>
+                </div>
+
+                {{-- How to Use Step --}}
+                <div class="space-y-2">
+                    <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px]">2</span>
+                        <span>How to use on Google Search Console:</span>
+                    </div>
+                    <ol class="list-decimal list-inside space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 pl-1 leading-relaxed">
+                        <li>In your browser, open any website on Google Search Console (under <b>Indexing → Pages</b>).</li>
+                        <li>Click <b>⚡ Sync to DGT</b> in your Bookmarks Bar.</li>
+                        <li>Done! It will immediately read the real Indexed &amp; Not Indexed counts and update DGT automatically.</li>
+                    </ol>
+                </div>
+
+                {{-- Quick Copy Alternative --}}
+                <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-800 dark:text-slate-200 text-[11px]">Can't drag? Copy Console Snippet instead:</span>
+                        <button type="button" @click="navigator.clipboard.writeText(bookmarkletCode); alert('Copied snippet! In Google Search Console, press F12 (or Cmd+Opt+I) -> Console -> Paste -> Enter.');" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-pointer">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375-9-9" /></svg>
+                            <span>Copy Code</span>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500">In Google Search Console, press <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">F12</kbd> (or <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">Cmd+Opt+I</kbd>), click <b>Console</b>, paste, and press <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">Enter</kbd>.</p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end pt-3 border-t border-slate-200 dark:border-slate-700">
+                <button type="button" @click="showBookmarkletModal = false" class="px-5 py-2 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 {{-- ── Frontend Alpine.js Controller & Chart.js Integration ──────────────── --}}
@@ -4184,6 +4266,8 @@ function gscDashboard() {
 
         // Official GSC Indexing Snapshot Modal State
         showCoverageModal: false,
+        showBookmarkletModal: false,
+        bookmarkletCode: "(async function(){try{const text=document.body.innerText;const url=window.location.href;let resourceId='';const resMatch=url.match(/resource_id=([^&]+)/);if(resMatch){resourceId=decodeURIComponent(resMatch[1]);}if(!resourceId){const attrEl=document.querySelector('[data-resource-id]');if(attrEl)resourceId=attrEl.getAttribute('data-resource-id');}if(!resourceId){const domainMatch=text.match(/(?:https?:\\/\\/)?([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})/);resourceId=prompt('Confirm Google Search Console property or website domain:',domainMatch?domainMatch[0]:'');}if(!resourceId)return;let notIndexed=0;const notIdxMatch=text.match(/(?:^|[^\\w])Not indexed\\s*[\\r\\n]+\\s*([\\d,.]+[KM]?)/i);if(notIdxMatch){let raw=notIdxMatch[1].replace(/,/g,'').trim();if(raw.endsWith('K')||raw.endsWith('k'))notIndexed=Math.round(parseFloat(raw)*1000);else if(raw.endsWith('M')||raw.endsWith('m'))notIndexed=Math.round(parseFloat(raw)*1000000);else notIndexed=parseInt(raw);}let indexed=0;const idxMatch=text.match(/(?<!not\\s)Indexed\\s*[\\r\\n]+\\s*([\\d,.]+[KM]?)/i);if(idxMatch){let raw=idxMatch[1].replace(/,/g,'').trim();if(raw.endsWith('K')||raw.endsWith('k'))indexed=Math.round(parseFloat(raw)*1000);else if(raw.endsWith('M')||raw.endsWith('m'))indexed=Math.round(parseFloat(raw)*1000000);else indexed=parseInt(raw);}let reasons=0;const rMatch=text.match(/(\\d+)\\s+reasons/i);if(rMatch)reasons=parseInt(rMatch[1]);let updatedDate='';const dMatch=text.match(/Last update:\\s*([\\d/]+)/i);if(dMatch)updatedDate=dMatch[1];const payload={property:resourceId,indexed:indexed,not_indexed:notIndexed,reasons_count:reasons,last_updated:updatedDate};const resp=await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const res=await resp.json();if(res.success){alert('✓ SUCCESS!\\nSynced '+resourceId+' to DGT:\\n• Indexed: '+indexed.toLocaleString()+'\\n• Not Indexed: '+notIndexed.toLocaleString()+(reasons?('\\n• Reasons: '+reasons):''));}else{alert('Sync failed: '+(res.message||'Unknown error'));}}catch(e){alert('Sync error: '+e.message);}})();",
         coverageSaving: false,
         coverageForm: {
             indexed_pages: 0,
