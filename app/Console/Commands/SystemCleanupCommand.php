@@ -38,9 +38,15 @@ class SystemCleanupCommand extends Command
         $this->info("Starting system cleanup...");
         $this->info("Deleting logs older than {$cutoffDate->format('Y-m-d')}");
 
-        // 1. Database Logs
+        // 1. Database Logs (preserving card and board activities)
         try {
-            $activityCount = ActivityLog::where('created_at', '<', $cutoffDate)->delete();
+            $activityCount = ActivityLog::where('created_at', '<', $cutoffDate)
+                ->where('module', '!=', 'kanban')
+                ->where(function ($q) {
+                    $q->whereNull('subject_type')
+                      ->orWhere('subject_type', '!=', \App\Models\Card::class);
+                })
+                ->delete();
             $this->info("Deleted {$activityCount} old Activity Logs.");
         } catch (\Exception $e) {}
 

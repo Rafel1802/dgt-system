@@ -38,18 +38,12 @@ class SecurityController extends Controller
             ->paginate(10, ['*'], 'ip_page')
             ->withQueryString();
 
-        // ── Auto-clear retention (1 week = 7 days) and start from today ───────
-        if (! \Illuminate\Support\Facades\Cache::has('security_activity_reset_from_today_done')) {
-            try {
-                ActivityLog::where('created_at', '<', now()->startOfDay())->delete();
-                \Illuminate\Support\Facades\Cache::forever('security_activity_reset_from_today_done', true);
-            } catch (\Throwable $e) {}
-        }
-
-        // Opportunistic daily cleanup of logs older than 7 days (1 week)
+        // Opportunistic daily cleanup of auth/security logs older than 7 days (1 week)
         \Illuminate\Support\Facades\Cache::remember('security_logs_weekly_cleanup', 86400, function () {
             try {
-                ActivityLog::where('created_at', '<', now()->subDays(7))->delete();
+                ActivityLog::whereIn('module', ['auth', 'security'])
+                    ->where('created_at', '<', now()->subDays(7))
+                    ->delete();
                 LoginAttempt::where('attempted_at', '<', now()->subDays(7))->delete();
             } catch (\Throwable $e) {}
             return true;

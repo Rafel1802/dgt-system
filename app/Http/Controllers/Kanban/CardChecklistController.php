@@ -56,6 +56,17 @@ class CardChecklistController extends Controller
             'completed_at' => ! $item->is_completed ? now() : null,
         ]);
 
+        $status = $item->is_completed ? 'completed' : 'uncompleted';
+        \App\Models\ActivityLog::create([
+            'user_id'      => auth()->id() ?? $card->created_by ?? 1,
+            'action'       => 'card.checklist_item_toggled',
+            'module'       => 'kanban',
+            'description'  => "marked item **{$item->content}** as {$status}",
+            'subject_type' => Card::class,
+            'subject_id'   => $card->id,
+            'created_at'   => now(),
+        ]);
+
         return response()->json([
             'success' => true,
             'item'    => $item->fresh(),

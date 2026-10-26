@@ -6392,6 +6392,7 @@ window.trelloBoard = function(config) {
         if (res.file) {
           const idx = card.files.findIndex(f => f.id === tempId);
           if (idx !== -1) card.files.splice(idx, 1, res.file);
+          this.refreshCardActivities();
         } else {
           card.files = card.files.filter(f => f.id !== tempId);
           window.showToast?.(res.error || 'Failed to attach link', 'error');
@@ -6442,6 +6443,7 @@ window.trelloBoard = function(config) {
           if (idx !== -1) this.activeCard.files.splice(idx, 1, res.file);
           am.editingFileId = null;
           window.showToast('Attachment updated successfully.');
+          this.refreshCardActivities();
         }
       } finally {
         am.editSaving = false;
@@ -6476,6 +6478,7 @@ window.trelloBoard = function(config) {
           }
           am.editingFileId = null;
           window.showToast('File replaced.');
+          this.refreshCardActivities();
         }
       } finally {
         am.editSaving = false;
@@ -6504,6 +6507,9 @@ window.trelloBoard = function(config) {
       window.showToast('Attachment removed.');
 
       this.api(`/boards/cards/${this.activeCard.id}/files/${file.id}`, 'DELETE')
+        .then(() => {
+          this.refreshCardActivities();
+        })
         .catch(() => {
           this.activeCard.files = original;
           this.lists.forEach(l => {

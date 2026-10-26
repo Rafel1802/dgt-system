@@ -59,29 +59,52 @@ class CardController extends Controller
             'boardList:id,name',
         ]);
 
+        // Auto-heal missing activity logs (review marks, completed toggles, attachments/videos, creation)
+        $this->autoHealCardActivities($card);
+
+        // Fetch activities across current card and any synced twin cards
+        $cardIds = [$card->id];
+        if ($card->sync_group_id) {
+            $twinIds = Card::where('sync_group_id', $card->sync_group_id)->pluck('id')->all();
+            $cardIds = array_unique(array_merge($cardIds, $twinIds));
+        }
+
         $activities = ActivityLog::with('user')
             ->where('subject_type', Card::class)
-            ->where('subject_id', $card->id)
+            ->whereIn('subject_id', $cardIds)
             ->whereNotIn('action', ['card_reordered', 'reordered', 'card.reordered'])
             ->where('description', 'not like', '%reordered%')
             ->orderByDesc('created_at')
-            ->limit(50)
-            ->get()
-            ->map(fn($log) => [
-                'id'          => $log->id,
-                'user_name'   => $log->user?->name ?? 'System',
-                'user_avatar' => $log->user?->avatar_url ?? $this->defaultAvatar(),
-                'user_initials' => $log->user?->avatar_initials ?? 'SY',
-                'user_avatar_color' => $log->user?->avatar_color ?? '#64748b',
-                'description' => preg_replace(
-                    ['/\bbulk\s+copied\b/i', '/\bbulk\s+moved\b/i', '/^copied\s+from\s+card\b/i', '/^Copied\s+From\s+Card\b/'],
-                    ['copied', 'moved', 'copied this card from', 'copied this card from'],
-                    $log->description
-                ),
-                'action'      => $log->action,
-                'created_at'  => $log->created_at?->toISOString(),
-                'time_ago'    => $log->created_at ? $log->created_at->format('M j, Y, g:i A') : 'N/A',
-            ]);
+            ->limit(100)
+            ->get();
+
+        $seen = [];
+        $uniqueActivities = $activities->filter(function ($log) use (&$seen) {
+            $cleanDesc = trim(strtolower(preg_replace('/\s+/', ' ', strip_tags((string)$log->description))));
+            $timeSlot = $log->created_at ? $log->created_at->format('Y-m-d H') : '';
+            $key = ($log->user_id ?? 0) . '|' . $log->action . '|' . $cleanDesc . '|' . $timeSlot;
+            if (isset($seen[$key])) {
+                return false;
+            }
+            $seen[$key] = true;
+            return true;
+        })->values();
+
+        $activitiesPayload = $uniqueActivities->map(fn($log) => [
+            'id'          => $log->id,
+            'user_name'   => $log->user?->name ?? 'System',
+            'user_avatar' => $log->user?->avatar_url ?? $this->defaultAvatar(),
+            'user_initials' => $log->user?->avatar_initials ?? 'SY',
+            'user_avatar_color' => $log->user?->avatar_color ?? '#64748b',
+            'description' => preg_replace(
+                ['/\bbulk\s+copied\b/i', '/\bbulk\s+moved\b/i', '/^copied\s+from\s+card\b/i', '/^Copied\s+From\s+Card\b/'],
+                ['copied', 'moved', 'copied this card from', 'copied this card from'],
+                $log->description
+            ),
+            'action'      => $log->action,
+            'created_at'  => $log->created_at?->toISOString(),
+            'time_ago'    => $log->created_at ? $log->created_at->format('M j, Y, g:i A') : 'N/A',
+        ]);
 
         // Build a clean card payload with correct avatar URLs
         $cardData = $card->toArray();
@@ -136,7 +159,7 @@ class CardController extends Controller
         return response()->json([
             'card'       => $cardData,
             'progress'   => $card->checklistProgress(),
-            'activities' => $activities,
+            'activities' => $activitiesPayload,
         ]);
     }
 
@@ -1908,7 +1931,10 @@ class CardController extends Controller
                 if ($globalFolderName) {
                     $this->logCardActivity($card, 'folder_attached', "attached folder **{$globalFolderName}** (" . count($uploadedCardFiles) . " files)");
                 } elseif (count($uploadedCardFiles) === 1) {
-                    $this->logCardActivity($card, 'file_attached', "attached file **{$uploadedCardFiles[0]->display_name}**");
+                    $firstFile = $uploadedCardFiles[0];
+                    $verb = $firstFile->is_video ? 'attached video' : ($firstFile->is_image ? 'attached image' : 'attached file');
+                    $act = $firstFile->is_video ? 'video_attached' : ($firstFile->is_image ? 'image_attached' : 'file_attached');
+                    $this->logCardActivity($card, $act, "{$verb} **{$firstFile->display_name}**");
                 } else {
                     $this->logCardActivity($card, 'files_attached', "attached **" . count($uploadedCardFiles) . " files**");
                 }
@@ -1916,7 +1942,9 @@ class CardController extends Controller
                 // Notify assignees
                 dispatch(function () use ($card, $uploadedCardFiles, $globalFolderName) {
                     $count = count($uploadedCardFiles);
-                    $msgDetail = $globalFolderName ? "folder '{$globalFolderName}' ({$count} files)" : ($count === 1 ? "a file" : "{$count} files");
+                    $first = $uploadedCardFiles[0] ?? null;
+                    $itemType = ($first && $first->is_video) ? 'video' : (($first && $first->is_image) ? 'image' : 'file');
+                    $msgDetail = $globalFolderName ? "folder '{$globalFolderName}' ({$count} files)" : ($count === 1 ? "a {$itemType}" : "{$count} files");
                     foreach ($card->assignees as $assignee) {
                         if ($assignee->id !== auth()->id()) {
                             $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
@@ -1955,10 +1983,13 @@ class CardController extends Controller
                 'size'          => 0,
             ]);
 
-            $this->logCardActivity($card, 'link_attached', "attached link **{$request->link_name}**");
+            $verb = $cardFile->is_video ? 'attached video' : ($cardFile->is_image ? 'attached image' : ($cardFile->is_canva ? 'attached Canva design' : ($cardFile->is_google_drive ? 'attached Google Drive' : 'attached link')));
+            $act = $cardFile->is_video ? 'video_attached' : ($cardFile->is_image ? 'image_attached' : 'link_attached');
+            $this->logCardActivity($card, $act, "{$verb} **{$request->link_name}**");
 
             // Notify assignees
-            dispatch(function () use ($card) {
+            dispatch(function () use ($card, $cardFile, $request) {
+                $itemType = $cardFile->is_video ? 'video' : ($cardFile->is_image ? 'image' : 'link');
                 foreach ($card->assignees as $assignee) {
                     if ($assignee->id !== auth()->id()) {
                         $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
@@ -1966,7 +1997,7 @@ class CardController extends Controller
                             'actor_name'   => auth()->user()->name,
                             'actor_avatar' => auth()->user()->avatar_url,
                             'module'       => 'digital',
-                            'message'      => auth()->user()->name . " added a link to card '{$card->title}'",
+                            'message'      => auth()->user()->name . " added a {$itemType} to card '{$card->title}'",
                             'link'         => route('boards.show', $card->board->slug),
                         ]));
                     }
@@ -2845,7 +2876,7 @@ class CardController extends Controller
             // Transfer ID: delete old record, keep the new one
             $file->delete();
 
-
+            $this->logCardActivity($card, 'file_updated', "replaced attachment **{$oldName}** with **{$newFile->display_name}**");
 
             return response()->json([
                 'success' => true,
@@ -2866,8 +2897,7 @@ class CardController extends Controller
 
         if (!empty($updates)) {
             $file->update($updates);
-
-
+            $this->logCardActivity($card, 'file_updated', "updated attachment **{$file->display_name}**");
         }
 
         return response()->json([
@@ -2921,10 +2951,13 @@ class CardController extends Controller
     {
         $this->assertCardFile($card, $file);
 
+        $fileName = $file->display_name ?: $file->original_name;
+        $verb = $file->is_video ? 'removed video' : ($file->is_image ? 'removed image' : ($file->disk === 'url' ? 'removed link' : 'removed file'));
+
         $kanbanService = app(\App\Services\KanbanService::class);
         $kanbanService->deleteFile($file, auth()->user());
 
-        $this->logCardActivity($card, 'file_removed', "removed file **{$file->original_name}**");
+        $this->logCardActivity($card, 'file_removed', "{$verb} **{$fileName}**");
 
         return response()->json(['success' => true]);
     }
@@ -3028,10 +3061,217 @@ class CardController extends Controller
         return $imgs ? "{$text} [IMG:{$imgs}]" : $text;
     }
 
+    /**
+     * Auto-heal / reconstruct missing activity logs from current card state
+     * (e.g. if logs were cleared or actions took place before activity logging).
+     */
+    public function autoHealCardActivities(Card $card): void
+    {
+        try {
+            $cardIds = [$card->id];
+            if ($card->sync_group_id) {
+                $twinIds = Card::where('sync_group_id', $card->sync_group_id)->pluck('id')->all();
+                $cardIds = array_unique(array_merge($cardIds, $twinIds));
+            }
+
+            // Fetch existing logs on these cards to know what is already recorded
+            $existingLogs = ActivityLog::where('subject_type', Card::class)
+                ->whereIn('subject_id', $cardIds)
+                ->get();
+
+            $existingDescriptions = $existingLogs->pluck('description')->map(fn($d) => strtolower(strip_tags((string)$d)))->toArray();
+            $existingActions = $existingLogs->pluck('action')->toArray();
+
+            $allCards = Card::whereIn('id', $cardIds)->with(['checklists.items', 'files'])->get();
+
+            // 1. Auto-heal card creation
+            if (!in_array('card.created', $existingActions, true)) {
+                $earliestCard = $allCards->sortBy('created_at')->first() ?? $card;
+                ActivityLog::create([
+                    'user_id'      => $earliestCard->created_by ?? 1,
+                    'action'       => 'card.created',
+                    'module'       => 'kanban',
+                    'description'  => 'created this card',
+                    'subject_type' => Card::class,
+                    'subject_id'   => $card->id,
+                    'created_at'   => $earliestCard->created_at ?? now(),
+                ]);
+            }
+
+            // 2. Auto-heal checklist review marks and toggles
+            foreach ($allCards as $c) {
+                foreach ($c->checklists as $cl) {
+                    foreach ($cl->items as $item) {
+                        $contentLower = strtolower(trim((string)$item->content));
+                        if (empty($contentLower)) continue;
+
+                        // Review mark
+                        if ($item->is_marked && $item->marked_by) {
+                            $alreadyLogged = false;
+                            foreach ($existingDescriptions as $desc) {
+                                if (str_contains($desc, $contentLower) && (str_contains($desc, 'marked approved') || str_contains($desc, 'review mark') || str_contains($desc, 'approved'))) {
+                                    $alreadyLogged = true;
+                                    break;
+                                }
+                            }
+                            if (!$alreadyLogged) {
+                                $reviewDesc = "marked approved item **{$item->content}**";
+                                ActivityLog::create([
+                                    'user_id'      => $item->marked_by,
+                                    'action'       => 'card.checklist_item_reviewed',
+                                    'module'       => 'kanban',
+                                    'description'  => $reviewDesc,
+                                    'subject_type' => Card::class,
+                                    'subject_id'   => $card->id,
+                                    'created_at'   => $item->marked_at ?? $item->updated_at ?? now(),
+                                ]);
+                                $existingDescriptions[] = strtolower($reviewDesc);
+                            }
+                        }
+
+                        // Completed toggle
+                        if ($item->is_completed && $item->completed_by) {
+                            $alreadyLogged = false;
+                            foreach ($existingDescriptions as $desc) {
+                                if (str_contains($desc, $contentLower) && str_contains($desc, 'completed')) {
+                                    $alreadyLogged = true;
+                                    break;
+                                }
+                            }
+                            if (!$alreadyLogged) {
+                                $completedDesc = "marked item **{$item->content}** as completed";
+                                ActivityLog::create([
+                                    'user_id'      => $item->completed_by,
+                                    'action'       => 'card.checklist_item_toggled',
+                                    'module'       => 'kanban',
+                                    'description'  => $completedDesc,
+                                    'subject_type' => Card::class,
+                                    'subject_id'   => $card->id,
+                                    'created_at'   => $item->completed_at ?? $item->updated_at ?? now(),
+                                ]);
+                                $existingDescriptions[] = strtolower($completedDesc);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Auto-heal files & attachments (video, image, link, file)
+            $seenFiles = [];
+            foreach ($allCards as $c) {
+                foreach ($c->files as $file) {
+                    if ($file->is_comment_image) continue;
+                    $fileName = $file->display_name ?: $file->original_name;
+                    $fileNameLower = strtolower(trim((string)$fileName));
+                    if (empty($fileNameLower) || isset($seenFiles[$fileNameLower])) continue;
+                    $seenFiles[$fileNameLower] = true;
+
+                    $alreadyLogged = false;
+                    foreach ($existingDescriptions as $desc) {
+                        if (str_contains($desc, $fileNameLower)) {
+                            $alreadyLogged = true;
+                            break;
+                        }
+                    }
+
+                    if (!$alreadyLogged) {
+                        // Check if file or any twin file is a video
+                        $isVideo = (bool)$file->is_video;
+                        if (!$isVideo) {
+                            foreach ($allCards as $ac) {
+                                foreach ($ac->files as $tf) {
+                                    if ($tf->is_video && (($file->sync_id && $tf->sync_id === $file->sync_id) || strtolower(trim((string)($tf->display_name ?: $tf->original_name))) === $fileNameLower)) {
+                                        $isVideo = true;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                        if (!$isVideo && preg_match('/\b(video|mp4|mov|webm|avi|mkv|short|reel|clip|501 pro|502 pro)\b/i', $fileName)) {
+                            $isVideo = true;
+                        }
+
+                        $verb = $isVideo ? 'attached video' : ($file->is_image ? 'attached image' : ($file->disk === 'url' ? 'attached link' : 'attached file'));
+                        $act = $isVideo ? 'card.video_attached' : ($file->is_image ? 'card.image_attached' : ($file->disk === 'url' ? 'card.link_attached' : 'card.file_attached'));
+
+                        $fileDesc = "{$verb} **{$fileName}**";
+                        ActivityLog::create([
+                            'user_id'      => $file->uploaded_by ?? $card->created_by ?? 1,
+                            'action'       => $act,
+                            'module'       => 'kanban',
+                            'description'  => $fileDesc,
+                            'subject_type' => Card::class,
+                            'subject_id'   => $card->id,
+                            'created_at'   => $file->created_at ?? now(),
+                        ]);
+                        $existingDescriptions[] = strtolower($fileDesc);
+                    } else {
+                        // Upgrade existing log if it was recorded as generic link/file but is a video
+                        $isVideo = (bool)$file->is_video;
+                        if (!$isVideo) {
+                            foreach ($allCards as $ac) {
+                                foreach ($ac->files as $tf) {
+                                    if ($tf->is_video && (($file->sync_id && $tf->sync_id === $file->sync_id) || strtolower(trim((string)($tf->display_name ?: $tf->original_name))) === $fileNameLower)) {
+                                        $isVideo = true;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                        if (!$isVideo && preg_match('/\b(video|mp4|mov|webm|avi|mkv|short|reel|clip|501 pro|502 pro)\b/i', $fileName)) {
+                            $isVideo = true;
+                        }
+                        if ($isVideo) {
+                            ActivityLog::where('subject_type', Card::class)
+                                ->whereIn('subject_id', $cardIds)
+                                ->where(function ($q) use ($fileName) {
+                                    $q->where('description', 'like', "%attached link **{$fileName}**%")
+                                      ->orWhere('description', 'like', "%attached file **{$fileName}**%");
+                                })
+                                ->update([
+                                    'action' => 'card.video_attached',
+                                    'description' => "attached video **{$fileName}**",
+                                ]);
+                        }
+                    }
+                }
+            }
+
+            // 4. Auto-heal legacy system comments (e.g. "Card automatically created from...", "Card automatically synced to...")
+            $systemComments = CardComment::whereIn('card_id', $cardIds)->where('is_system', true)->get();
+            foreach ($systemComments as $sysComm) {
+                $bodyLower = strtolower(strip_tags((string)$sysComm->content));
+                if (empty($bodyLower)) continue;
+                $alreadyLogged = false;
+                $subBody = substr($bodyLower, 0, 40);
+                foreach ($existingDescriptions as $desc) {
+                    if (str_contains($desc, $subBody)) {
+                        $alreadyLogged = true;
+                        break;
+                    }
+                }
+                if (!$alreadyLogged) {
+                    ActivityLog::create([
+                        'user_id'      => $sysComm->user_id ?? 1,
+                        'action'       => 'card.system_action',
+                        'module'       => 'kanban',
+                        'description'  => $sysComm->content,
+                        'subject_type' => Card::class,
+                        'subject_id'   => $card->id,
+                        'created_at'   => $sysComm->created_at ?? now(),
+                    ]);
+                    $existingDescriptions[] = $bodyLower;
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("autoHealCardActivities failed on Card #{$card->id}: " . $e->getMessage());
+        }
+    }
+
     private function logCardActivity(Card $card, string $action, string $description, bool $notify = true): void
     {
         $logData = [
-            'user_id'      => auth()->id(),
+            'user_id'      => auth()->id() ?? $card->created_by ?? 1,
             'action'       => "card.{$action}",
             'module'       => 'kanban',
             'description'  => $description,
