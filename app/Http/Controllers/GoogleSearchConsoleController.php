@@ -2409,12 +2409,15 @@ class GoogleSearchConsoleController extends Controller
      */
     public function syncBrowserData(Request $request)
     {
+        $origin = $request->header('Origin') ?: '*';
+
         // Handle preflight CORS
         if ($request->isMethod('OPTIONS')) {
             return response('', 200)
-                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Origin', $origin)
                 ->header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-                ->header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With, Authorization');
+                ->header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With, Authorization')
+                ->header('Access-Control-Allow-Credentials', 'true');
         }
 
         $property = trim((string) ($request->get('property') ?: $request->get('resource_id') ?: $request->get('site_url')));
@@ -2425,7 +2428,8 @@ class GoogleSearchConsoleController extends Controller
 
         if (empty($property)) {
             return response()->json(['success' => false, 'message' => 'Missing property parameter'], 422)
-                ->header('Access-Control-Allow-Origin', '*');
+                ->header('Access-Control-Allow-Origin', $origin)
+                ->header('Access-Control-Allow-Credentials', 'true');
         }
 
         // Clean domain from property
@@ -2452,7 +2456,8 @@ class GoogleSearchConsoleController extends Controller
 
         if (!$site) {
             return response()->json(['success' => false, 'message' => "No matching website found in DGT for property '{$clean}'."], 404)
-                ->header('Access-Control-Allow-Origin', '*');
+                ->header('Access-Control-Allow-Origin', $origin)
+                ->header('Access-Control-Allow-Credentials', 'true');
         }
 
         $date = null;
@@ -2510,7 +2515,8 @@ class GoogleSearchConsoleController extends Controller
                 'not_indexed' => $notIndexed,
                 'reasons'     => $site->gsc_indexing_reasons,
             ],
-        ])->header('Access-Control-Allow-Origin', '*');
+        ])->header('Access-Control-Allow-Origin', $origin)
+          ->header('Access-Control-Allow-Credentials', 'true');
     }
 
     /**
@@ -2518,11 +2524,14 @@ class GoogleSearchConsoleController extends Controller
      */
     public function getPropertiesListForRobot(Request $request)
     {
+        $origin = $request->header('Origin') ?: '*';
+
         if ($request->isMethod('OPTIONS')) {
             return response('', 200)
-                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Origin', $origin)
                 ->header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-                ->header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With, Authorization');
+                ->header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With, Authorization')
+                ->header('Access-Control-Allow-Credentials', 'true');
         }
 
         $sites = GoogleSearchConsoleSite::where('is_sync_enabled', true)
@@ -2549,7 +2558,8 @@ class GoogleSearchConsoleController extends Controller
             'success' => true,
             'total'   => count($list),
             'sites'   => $list,
-        ])->header('Access-Control-Allow-Origin', '*');
+        ])->header('Access-Control-Allow-Origin', $origin)
+          ->header('Access-Control-Allow-Credentials', 'true');
     }
 }
 
