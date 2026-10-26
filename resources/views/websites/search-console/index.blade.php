@@ -2265,6 +2265,10 @@
                     </span>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button type="button" @click="openCoverageModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-700 transition-colors shadow-xs" title="Edit official Google Search Console snapshot numbers">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                        <span>Edit GSC Snapshot</span>
+                    </button>
                     <button type="button" @click="autoSyncGscIndexing()" :disabled="indexationLoading" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl shadow-xs transition-all disabled:opacity-50">
                         <svg class="w-3.5 h-3.5" :class="indexationLoading ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -3892,6 +3896,62 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         </div>
     </div>
 
+    {{-- ── MODAL: Update Official Google Search Console Indexing Snapshot ── --}}
+    <div x-show="showCoverageModal" @click.self="showCoverageModal = false" class="fixed inset-0 z-[99999] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" x-cloak>
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-2.5">
+                    <div class="p-2 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl text-emerald-600 dark:text-emerald-400">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">Update GSC Page Indexing Snapshot</h3>
+                        <p class="text-[11px] text-slate-500" x-text="'Target: ' + (selectedSitemapWebsite?.name || 'Website')"></p>
+                    </div>
+                </div>
+                <button type="button" @click="showCoverageModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="space-y-3.5">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-emerald-700 dark:text-emerald-400 mb-1">Indexed Pages (in GSC)</label>
+                        <input type="number" min="0" x-model="coverageForm.indexed_pages" class="w-full text-sm font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-amber-700 dark:text-amber-400 mb-1">Not Indexed / Excluded</label>
+                        <input type="number" min="0" x-model="coverageForm.not_indexed_pages" class="w-full text-sm font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Snapshot Date (Date shown in GSC)</label>
+                    <input type="date" x-model="coverageForm.updated_date" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Exclusion Reasons Breakdown (Optional - one per line: [count] [reason])</label>
+                    <textarea x-model="coverageForm.reasons_text" rows="4" placeholder="38120 Alternative page with proper canonical tag&#10;1240 Crawled - currently not indexed&#10;640 Discovered - currently not indexed" class="w-full text-xs font-mono bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                    <p class="text-[10px] text-slate-400 mt-1">Copy and paste or type the numbers directly as displayed in your Google Search Console Page Indexing report.</p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+                <button type="button" @click="showCoverageModal = false" class="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors">
+                    Cancel
+                </button>
+                <button type="button" @click="saveCoverageSnapshot()" :disabled="coverageSaving" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl shadow-xs transition-all disabled:opacity-50">
+                    <svg class="w-3.5 h-3.5" :class="coverageSaving ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <span x-text="coverageSaving ? 'Saving...' : 'Save &amp; Sync Snapshot'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 {{-- ── Frontend Alpine.js Controller & Chart.js Integration ──────────────── --}}
@@ -4098,6 +4158,16 @@ function gscDashboard() {
         indexationPerPage: 20,
         indexationFilter: 'all',
         indexationSearch: '',
+
+        // Official GSC Indexing Snapshot Modal State
+        showCoverageModal: false,
+        coverageSaving: false,
+        coverageForm: {
+            indexed_pages: 0,
+            not_indexed_pages: 0,
+            updated_date: '',
+            reasons_text: '',
+        },
 
         // Live URL Inspector State
         inspectUrlInput: '',
@@ -5569,6 +5639,51 @@ function gscDashboard() {
                 console.error('Error auto-syncing GSC indexation:', err);
             } finally {
                 this.indexationLoading = false;
+            }
+        },
+
+        openCoverageModal() {
+            this.coverageForm = {
+                indexed_pages: this.indexationSummary.total_indexed || 0,
+                not_indexed_pages: this.indexationSummary.total_not_indexed || 0,
+                updated_date: this.indexationSummary.gsc_last_updated || new Date().toISOString().split('T')[0],
+                reasons_text: Array.isArray(this.indexationSummary.gsc_reasons)
+                    ? this.indexationSummary.gsc_reasons.map(r => `${r.count || ''} ${r.reason || ''}`.trim()).join('\n')
+                    : ''
+            };
+            this.showCoverageModal = true;
+        },
+
+        async saveCoverageSnapshot() {
+            if (!this.sitemapWebsiteId) return;
+            this.coverageSaving = true;
+            try {
+                const res = await fetch('{{ route('websites.search-console.sitemaps.update-coverage') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        website_id: this.sitemapWebsiteId,
+                        indexed_pages: parseInt(this.coverageForm.indexed_pages, 10) || 0,
+                        not_indexed_pages: parseInt(this.coverageForm.not_indexed_pages, 10) || 0,
+                        updated_date: this.coverageForm.updated_date,
+                        reasons_text: this.coverageForm.reasons_text,
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.showCoverageModal = false;
+                    await this.loadIndexStatus(1, true);
+                } else {
+                    alert('Failed to save snapshot: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Save error: ' + err.message);
+            } finally {
+                this.coverageSaving = false;
             }
         },
 
