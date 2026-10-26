@@ -68,6 +68,7 @@ Route::prefix('v1')
 
 // ─── Direct Google Search Console Bookmarklet / Browser Sync ─────────────────
 Route::match(['get', 'post', 'options'], '/gsc/sync-browser-data', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'syncBrowserData'])->name('api.gsc.sync-browser-data');
+Route::match(['get', 'options'], '/gsc/properties-list', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'getPropertiesListForRobot'])->name('api.gsc.properties-list');
 
 
 

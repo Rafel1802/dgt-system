@@ -2512,5 +2512,44 @@ class GoogleSearchConsoleController extends Controller
             ],
         ])->header('Access-Control-Allow-Origin', '*');
     }
+
+    /**
+     * Get list of all connected GSC properties for background robot automation
+     */
+    public function getPropertiesListForRobot(Request $request)
+    {
+        if ($request->isMethod('OPTIONS')) {
+            return response('', 200)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With, Authorization');
+        }
+
+        $sites = GoogleSearchConsoleSite::where('is_sync_enabled', true)
+            ->with('website:id,name,url')
+            ->get(['id', 'website_id', 'site_url', 'gsc_indexed_pages', 'gsc_not_indexed_pages', 'gsc_indexing_updated_at']);
+
+        $list = $sites->map(function ($s) {
+            $name = $s->website?->name ?: $s->site_url;
+            $clean = preg_replace('#^(sc-domain:|https?://(www\.)?)#i', '', rtrim($s->site_url, '/'));
+            return [
+                'id'              => $s->id,
+                'website_id'      => $s->website_id,
+                'name'            => $name,
+                'clean_domain'    => $clean,
+                'site_url'        => $s->site_url,
+                'gsc_url'         => 'https://search.google.com/search-console/index?resource_id=' . urlencode($s->site_url),
+                'indexed'         => $s->gsc_indexed_pages,
+                'not_indexed'     => $s->gsc_not_indexed_pages,
+                'last_updated'    => $s->gsc_indexing_updated_at?->format('m/d/Y'),
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'total'   => count($list),
+            'sites'   => $list,
+        ])->header('Access-Control-Allow-Origin', '*');
+    }
 }
 
