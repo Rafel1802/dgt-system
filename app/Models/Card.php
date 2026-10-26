@@ -466,6 +466,38 @@ class Card extends Model
     }
 
     /**
+     * Check if this card has an SMM label (smm class, smm team, smm cluster, attached label with SMM, or smm in title/label).
+     */
+    public function hasSmmLabel(): bool
+    {
+        if (!empty($this->smm_class_label) || !empty($this->smm_team_label) || !empty($this->smm_cluster_label)) {
+            return true;
+        }
+
+        $labels = $this->relationLoaded('labels') ? $this->labels : $this->labels()->get();
+        if ($labels && $labels->isNotEmpty()) {
+            foreach ($labels as $label) {
+                $lName = strtolower(trim($label->name ?? ''));
+                if ($lName === 'smm' || str_contains($lName, 'smm')) {
+                    return true;
+                }
+            }
+        }
+
+        $strLabel = strtolower(trim($this->label ?? ''));
+        $strSubLabel = strtolower(trim($this->sub_label ?? ''));
+        if ($strLabel === 'smm' || str_contains($strLabel, 'smm') || $strSubLabel === 'smm' || str_contains($strSubLabel, 'smm')) {
+            return true;
+        }
+
+        if (preg_match('/\bSMM\b/i', $this->title ?? '')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Check if the card is considered approved or completed,
      * checking approved_at, block_completed_at, status enum, list names,
      * 100% checklists, or connected sync twin cards on workflow boards.

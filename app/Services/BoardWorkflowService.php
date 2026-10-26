@@ -251,6 +251,12 @@ class BoardWorkflowService
             return null;
         }
 
+        // 1b. Card MUST have an SMM label to be auto-copied to the workflow board
+        if (!$card->hasSmmLabel()) {
+            \Log::info("autoCopyCompletedPlanningCardToWorkflow: Card #{$card->id} ('{$card->title}') ignored because it does not have an SMM label.");
+            return null;
+        }
+
         // 2. Must have at least 1 checklist item, and ALL items must be 100% completed
         $checklists = $card->relationLoaded('checklists') 
             ? $card->checklists 

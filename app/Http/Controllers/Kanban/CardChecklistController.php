@@ -67,12 +67,12 @@ class CardChecklistController extends Controller
             'created_at'   => now(),
         ]);
 
-        // Automation: If card is on a Planning Board and all checklist items are now 100% completed,
+        // Automation: If card is on a Planning Board, has an SMM label, and all checklist items are now 100% completed,
         // automatically copy to the appropriate Workflow Board (Team A or Team B) into list "Draft".
         if ($item->is_completed) {
             try {
-                $freshCard = $card->fresh(['checklists.items', 'assignees', 'board']);
-                if ($freshCard && !$freshCard->hasIncompleteChecklist()) {
+                $freshCard = $card->fresh(['checklists.items', 'assignees', 'board', 'labels']);
+                if ($freshCard && !$freshCard->hasIncompleteChecklist() && $freshCard->hasSmmLabel()) {
                     app(\App\Services\BoardWorkflowService::class)->autoCopyCompletedPlanningCardToWorkflow($freshCard);
                 }
             } catch (\Throwable $e) {

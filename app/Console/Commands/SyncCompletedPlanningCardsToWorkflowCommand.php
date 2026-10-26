@@ -71,6 +71,10 @@ class SyncCompletedPlanningCardsToWorkflowCommand extends Command
                     continue; // Checklist not 100% completed
                 }
 
+                if (!$card->hasSmmLabel()) {
+                    continue; // Card has no SMM label
+                }
+
                 $copiedCard = $workflowService->autoCopyCompletedPlanningCardToWorkflow($card);
                 if ($copiedCard) {
                     $copiedCard->unsetRelations();
