@@ -238,7 +238,9 @@ class WebsiteSyncService
         $connectorType = $integration->connector_type;
 
         $targetUrl = rtrim($validatedBaseUrl, '/');
-        if ($connectorType === WebsiteIntegration::CONNECTOR_WP_PLUGIN) {
+        if (str_contains($targetUrl, '.php')) {
+            // Explicit script endpoint (e.g. /api/dgt-sync.php or /api/blog-views.php)
+        } elseif ($connectorType === WebsiteIntegration::CONNECTOR_WP_PLUGIN) {
             $targetUrl .= '/wp-json/dgt/v1/posts';
         } elseif ($connectorType === WebsiteIntegration::CONNECTOR_WP_REST) {
             $targetUrl .= '/wp-json/wp/v2/posts?_embed=1&per_page=50';
@@ -644,6 +646,26 @@ class WebsiteSyncService
             }
         } catch (Throwable $e) {
             Log::warning('syncAllIntegratedNetworkSites machineryeu error: ' . $e->getMessage());
+        }
+
+        // 8. StoneKrusher (ID: 38) via live Sync API
+        try {
+            $site38 = Website::with('integration')->find(38);
+            if ($site38) {
+                $skResp = Http::timeout(8)->get('https://stonekrusher.com/api/dgt-sync.php?format=json');
+                if ($skResp->successful()) {
+                    $skData = $skResp->json();
+                    $posts = $skData['posts'] ?? [];
+                    if (!empty($posts)) {
+                        $ing = $this->ingestPosts($site38, $posts, 'auto_sync_stonekrusher');
+                        $totalSynced += $ing['items_synced'];
+                        $totalUpdated += $ing['items_updated'];
+                        $syncedSites[] = 'stonekrusher.com';
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            Log::warning('syncAllIntegratedNetworkSites stonekrusher error: ' . $e->getMessage());
         }
 
         // 4. Server 1 WordPress Websites
