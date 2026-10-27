@@ -214,6 +214,14 @@ class WebsiteSyncService
     }
 
     /**
+     * Pull posts from a connector (alias for pullPostsFromRemote).
+     */
+    public function pullPostsFromConnector(Website $website, string $triggeredBy = 'scheduled', ?int $userId = null): array
+    {
+        return $this->pullPostsFromRemote($website, $triggeredBy, $userId);
+    }
+
+    /**
      * Pull posts from a remote website via its REST API (outbound pull mode).
      *
      * @param Website $website
@@ -222,6 +230,7 @@ class WebsiteSyncService
      * @return array
      */
     public function pullPostsFromRemote(Website $website, string $triggeredBy = 'scheduled', ?int $userId = null): array
+
     {
         $integration = $website->integration;
         if (!$integration) {
@@ -648,25 +657,110 @@ class WebsiteSyncService
             Log::warning('syncAllIntegratedNetworkSites machineryeu error: ' . $e->getMessage());
         }
 
-        // 8. StoneKrusher (ID: 38) via live Sync API
+        // 8. StoneKrusher (ID: 38) via Multi-Tier Resilient Sync
+        // Tier 1: /api/dgt-sync.php
+        // Tier 2: /api/blog-posts.php (Core framework route, survives redeployments)
         try {
             $site38 = Website::with('integration')->find(38);
             if ($site38) {
-                $skResp = Http::timeout(8)->get('https://stonekrusher.com/api/dgt-sync.php?format=json');
-                if ($skResp->successful()) {
-                    $skData = $skResp->json();
-                    $posts = $skData['posts'] ?? [];
-                    if (!empty($posts)) {
-                        $ing = $this->ingestPosts($site38, $posts, 'auto_sync_stonekrusher');
-                        $totalSynced += $ing['items_synced'];
-                        $totalUpdated += $ing['items_updated'];
-                        $syncedSites[] = 'stonekrusher.com';
+                $posts = [];
+                // Tier 1: Dedicated DGT connector
+                try {
+                    $skResp = Http::timeout(8)->get('https://stonekrusher.com/api/dgt-sync.php?format=json');
+                    if ($skResp->successful()) {
+                        $posts = $skResp->json()['posts'] ?? [];
                     }
+                } catch (\Throwable $e) {}
+
+                // Tier 2 Fallback: Core public API (built into framework repo)
+                if (empty($posts)) {
+                    try {
+                        $skFallback = Http::timeout(8)->get('https://stonekrusher.com/api/blog-posts.php');
+                        if ($skFallback->successful()) {
+                            $posts = $skFallback->json()['posts'] ?? [];
+                        }
+                    } catch (\Throwable $e) {}
+                }
+
+                if (!empty($posts)) {
+                    $ing = $this->ingestPosts($site38, $posts, 'auto_sync_stonekrusher');
+                    $totalSynced += $ing['items_synced'];
+                    $totalUpdated += $ing['items_updated'];
+                    $syncedSites[] = 'stonekrusher.com';
                 }
             }
         } catch (Throwable $e) {
             Log::warning('syncAllIntegratedNetworkSites stonekrusher error: ' . $e->getMessage());
         }
+
+        // 9. Server 3 Framework Sites (Next.js / MariaDB)
+        $frameworkSites = [
+            5  => [
+                'name'     => 'thunderdump.com',
+                'endpoint' => 'https://thunderdump.com/api/posts',
+                'type'     => 'nextjs_posts'
+            ],
+            6  => [
+                'name'     => 'americanexcavators.org',
+                'endpoint' => 'https://americanexcavators.org/api/dgt-sync.php',
+                'type'     => 'dgt_sync'
+            ],
+            13 => [
+                'name'     => 'skidsteers.us',
+                'endpoint' => 'https://skidsteers.us/api/dgt-sync.php',
+                'type'     => 'dgt_sync'
+            ],
+            58 => [
+                'name'     => 'stunningmachinery.com',
+                'endpoint' => 'https://stunningmachinery.com/api/dgt-sync.php',
+                'type'     => 'dgt_sync'
+            ],
+            56 => [
+                'name'     => 'machinery.org',
+                'endpoint' => 'https://machinery.org/api/dgt-sync.php',
+                'type'     => 'dgt_sync'
+            ],
+        ];
+
+        foreach ($frameworkSites as $fSiteId => $fConf) {
+            try {
+                $fSite = Website::with('integration')->find($fSiteId);
+                if (!$fSite) continue;
+
+                $fResp = Http::timeout(8)->get($fConf['endpoint']);
+                if ($fResp->successful()) {
+                    $fJson = $fResp->json();
+                    $fRawPosts = $fJson['posts'] ?? [];
+                    if (!empty($fRawPosts)) {
+                        $fPosts = [];
+                        foreach ($fRawPosts as $p) {
+                            $slug = $p['slug'] ?? ('post-' . ($p['id'] ?? ''));
+                            $fPosts[] = [
+                                'external_id'        => (string) ($p['id'] ?? $slug),
+                                'title'              => $p['title'] ?? 'Untitled',
+                                'slug'               => $slug,
+                                'excerpt'            => $p['excerpt'] ?? '',
+                                'featured_image_url' => $p['featured_image_url'] ?? ($p['featured_image'] ?? ($p['image'] ?? null)),
+                                'canonical_url'      => $p['canonical_url'] ?? (rtrim($fSite->url, '/') . '/blog/' . $slug),
+                                'published_at'       => $p['published_at'] ?? ($p['publishedAt'] ?? ($p['created_at'] ?? now())),
+                                'cumulative_views'   => (int) ($p['cumulative_views'] ?? ($p['views'] ?? 0)),
+                                'author_name'        => $p['author_name'] ?? ($p['author'] ?? ($fSite->name . ' Team')),
+                                'status'             => 'published',
+                                'analytics_source'   => $p['analytics_source'] ?? 'native_database',
+                            ];
+                        }
+
+                        $ing = $this->ingestPosts($fSite, $fPosts, 'auto_sync_framework');
+                        $totalSynced += $ing['items_synced'];
+                        $totalUpdated += $ing['items_updated'];
+                        $syncedSites[] = $fConf['name'];
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning("syncAllIntegratedNetworkSites {$fConf['name']} error: " . $e->getMessage());
+            }
+        }
+
 
         // 4. Server 1 WordPress Websites
         $wpSites = [
@@ -784,7 +878,7 @@ class WebsiteSyncService
             try {
                 $rSite = Website::with('integration')->find($rSiteId);
                 if ($rSite && $rSite->integration && $rSite->integration->is_active) {
-                    $pullRes = $this->pullPostsFromConnector($rSite, 'auto_sync_network');
+                    $pullRes = $this->pullPostsFromRemote($rSite, 'auto_sync_network');
                     if (!empty($pullRes['success'])) {
                         $totalSynced += ($pullRes['items_synced'] ?? 0);
                         $totalUpdated += ($pullRes['items_updated'] ?? 0);
