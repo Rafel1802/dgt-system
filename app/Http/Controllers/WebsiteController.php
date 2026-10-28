@@ -217,7 +217,16 @@ class WebsiteController extends Controller
             $groupedWebsites->put('Uncategorized', $uncategorized);
         }
 
-        $users = User::role(['digital-team', 'boss'])->orderBy('name')->get();
+        $users = User::where(function($q) {
+            $q->whereHas('roles', function($rq) {
+                $rq->whereIn('name', ['digital-team', 'boss', 'admin-digital', 'super-admin', 'admin', 'social_qc']);
+            })
+            ->orWhere('team_role', 'like', '%QC%')
+            ->orWhere('team_role', 'like', '%Supervisor%')
+            ->orWhereIn('id', function($sub) {
+                $sub->select('user_id')->from('website_members');
+            });
+        })->orderBy('name')->get();
         WebsiteMember::whereDoesntHave('user')->delete();
         $websiteMembers = WebsiteMember::with('user')->whereHas('user')->get();
         $memberRolesMap = $websiteMembers->pluck('role', 'user_id')->toArray();
@@ -225,8 +234,9 @@ class WebsiteController extends Controller
         $websiteTeamMembers = User::whereIn('id', function($q) {
             $q->select('user_id')
               ->from('website_members')
-              ->whereIn('role', ['Developer', 'QC']);
-        })->orderBy('name')->get();
+              ->whereIn('role', ['Developer', 'QC', 'Supervisor']);
+        })->orWhere('team_role', 'like', '%QC%')
+          ->orderBy('name')->get();
 
         $currentUser = auth()->user();
         if ($currentUser) {
@@ -1186,7 +1196,8 @@ class WebsiteController extends Controller
         if ($memberId) {
             if ($isQcReport) {
                 $query->where(function ($q) use ($memberId, $filterStart, $filterEnd) {
-                    $q->whereHas('activityLogs', function($logQ) use ($memberId, $filterStart, $filterEnd) {
+                    $q->where('handled_by', $memberId)
+                    ->orWhereHas('activityLogs', function($logQ) use ($memberId, $filterStart, $filterEnd) {
                         $logQ->where('user_id', $memberId);
                         if ($filterStart) $logQ->where('created_at', '>=', $filterStart);
                         if ($filterEnd)   $logQ->where('created_at', '<=', $filterEnd);

@@ -177,10 +177,15 @@
                 <option value="">All Members</option>
                 @php
                     $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
-                    $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
+                    $activeUsers = $users->filter(function($u) use ($memberUserIds) {
+                        return in_array($u->id, $memberUserIds) || $u->isQc();
+                    })->sortBy('name')->values();
                 @endphp
                 @foreach($activeUsers as $u)
-                    <option value="{{ $u->id }}">{{ $u->name }}</option>
+                    @php
+                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                    @endphp
+                    <option value="{{ $u->id }}">{{ $u->name }}{{ $uRole ? ' (' . $uRole . ')' : '' }}</option>
                 @endforeach
             </select>
         </div>
@@ -2472,7 +2477,9 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                 </div>
                 @php
                     $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
-                    $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
+                    $activeUsers = $users->filter(function($u) use ($memberUserIds) {
+                        return in_array($u->id, $memberUserIds) || $u->isQc();
+                    })->sortBy('name')->values();
                 @endphp
                 <div x-data="{ openCreateAssignedTo: false }">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Assigned To</label>
@@ -2490,9 +2497,17 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                     </div>
                                 </template>
                                 @foreach($activeUsers as $u)
+                                    @php
+                                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                    @endphp
                                     <div x-show="createFormHandledBy == '{{ $u->id }}'" class="flex items-center gap-2.5 truncate" x-cloak>
                                         <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
                                         <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
+                                        @if($uRole)
+                                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ $uRole === 'QC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300/60' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 border border-cyan-300/60' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300') }}">
+                                                {{ $uRole }}
+                                            </span>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>
@@ -2507,11 +2522,21 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                     <span class="font-medium text-slate-500">Select member</span>
                                 </li>
                                 @foreach($activeUsers as $u)
-                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center gap-2.5"
+                                @php
+                                    $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                @endphp
+                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center justify-between gap-2.5"
                                     :class="{ 'bg-indigo-50 dark:bg-slate-700/80 font-bold': createFormHandledBy == '{{ $u->id }}' }"
                                     @click="createFormHandledBy = '{{ $u->id }}'; openCreateAssignedTo = false">
-                                    <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
-                                    <span class="font-medium text-slate-800 dark:text-slate-100">{{ $u->name }}</span>
+                                    <div class="flex items-center gap-2.5 truncate min-w-0">
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                        <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
+                                    </div>
+                                    @if($uRole)
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 {{ $uRole === 'QC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-700' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300') }}">
+                                            {{ $uRole }}
+                                        </span>
+                                    @endif
                                 </li>
                                 @endforeach
                             </ul>
@@ -2574,7 +2599,9 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                 </div>
                 @php
                     $memberUserIds = $websiteMembers->pluck('user_id')->unique()->toArray();
-                    $activeUsers = $users->filter(fn($u) => in_array($u->id, $memberUserIds));
+                    $activeUsers = $users->filter(function($u) use ($memberUserIds) {
+                        return in_array($u->id, $memberUserIds) || $u->isQc();
+                    })->sortBy('name')->values();
                 @endphp
                 <div x-data="{ openEditAssignedTo: false }">
                     <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Assigned To</label>
@@ -2592,9 +2619,17 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                     </div>
                                 </template>
                                 @foreach($activeUsers as $u)
+                                    @php
+                                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                    @endphp
                                     <div x-show="editForm.handled_by == '{{ $u->id }}'" class="flex items-center gap-2.5 truncate" x-cloak>
                                         <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
                                         <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
+                                        @if($uRole)
+                                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ $uRole === 'QC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300/60' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 border border-cyan-300/60' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300') }}">
+                                                {{ $uRole }}
+                                            </span>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>
@@ -2609,11 +2644,21 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                     <span class="font-medium text-slate-500">Select member</span>
                                 </li>
                                 @foreach($activeUsers as $u)
-                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center gap-2.5"
+                                @php
+                                    $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                @endphp
+                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center justify-between gap-2.5"
                                     :class="{ 'bg-indigo-50 dark:bg-slate-700/80 font-bold': editForm.handled_by == '{{ $u->id }}' }"
                                     @click="editForm.handled_by = '{{ $u->id }}'; openEditAssignedTo = false">
-                                    <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
-                                    <span class="font-medium text-slate-800 dark:text-slate-100">{{ $u->name }}</span>
+                                    <div class="flex items-center gap-2.5 truncate min-w-0">
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                                        <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
+                                    </div>
+                                    @if($uRole)
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 {{ $uRole === 'QC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-700' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300') }}">
+                                            {{ $uRole }}
+                                        </span>
+                                    @endif
                                 </li>
                                 @endforeach
                             </ul>
