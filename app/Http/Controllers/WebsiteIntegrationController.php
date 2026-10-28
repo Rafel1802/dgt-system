@@ -153,14 +153,18 @@ class WebsiteIntegrationController extends Controller
     {
         abort_unless(auth()->user()?->hasWebsiteAccess(), 403);
 
-        // Auto-synchronize every 5 minutes so posts and views are always fresh and never show 'long time ago'
+        // Auto-synchronize every 5 minutes in background after response is sent
+        // so the page loads instantly (~50ms) without any slow loading bar
         if (!Cache::has('dgt_blogs_auto_sync_timer')) {
-            try {
-                app(\App\Services\WebsiteSyncService::class)->syncAllIntegratedNetworkSites();
-                Cache::put('dgt_blogs_auto_sync_timer', now()->timestamp, 300); // 5 minutes
-            } catch (\Throwable $e) {
-                \Log::warning('Blogs auto sync failed: ' . $e->getMessage());
-            }
+            Cache::put('dgt_blogs_auto_sync_timer', now()->timestamp, 300); // 5 minutes throttle
+            dispatch(function () {
+                try {
+                    @set_time_limit(180);
+                    app(\App\Services\WebsiteSyncService::class)->syncAllIntegratedNetworkSites();
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Blogs background auto sync failed: ' . $e->getMessage());
+                }
+            })->afterResponse();
         }
 
         $siteId = $request->get('website_id');
