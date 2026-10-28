@@ -183,7 +183,8 @@
                 @endphp
                 @foreach($activeUsers as $u)
                     @php
-                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'Developer Head' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                        if ($uRole === 'QC') { $uRole = 'Developer Head'; }
                     @endphp
                     <option value="{{ $u->id }}">{{ $u->name }}{{ $uRole ? ' (' . $uRole . ')' : '' }}</option>
                 @endforeach
@@ -2224,15 +2225,17 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
 
                                 @if(isset($memberRolesMap[$u->id]))
                                     @php
-                                        $badgeStyle = match($memberRolesMap[$u->id]) {
-                                            'QC' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+                                        $roleText = $memberRolesMap[$u->id];
+                                        $dispRole = $roleText === 'QC' ? 'Developer Head' : $roleText;
+                                        $badgeStyle = match($roleText) {
+                                            'QC', 'Developer Head' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800',
                                             'Supervisor' => 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800',
                                             'Developer' => 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
                                             default => 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
                                         };
                                     @endphp
                                     <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border {{ $badgeStyle }} shrink-0">
-                                        ✓ {{ $memberRolesMap[$u->id] }}
+                                        ✓ {{ $dispRole }}
                                     </span>
                                 @endif
                             </label>
@@ -2262,7 +2265,7 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                     <span class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">Builds & edits websites</span>
                                 </button>
 
-                                {{-- QC --}}
+                                {{-- Developer Head (QC) --}}
                                 <button type="button" @click="memberForm.role = 'QC'"
                                         class="flex flex-col items-start p-2.5 rounded-xl border text-left transition-all relative overflow-hidden"
                                         :class="memberForm.role === 'QC'
@@ -2271,11 +2274,11 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                     <div class="flex items-center justify-between w-full mb-1">
                                         <span class="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z"/></svg>
-                                            QC
+                                            Developer Head
                                         </span>
                                         <span x-show="memberForm.role === 'QC'" class="w-2 h-2 rounded-full bg-amber-500"></span>
                                     </div>
-                                    <span class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">Reviews & logs errors</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">Reviews & leads developers</span>
                                 </button>
 
                                 {{-- Supervisor --}}
@@ -2374,14 +2377,15 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                 <td class="py-3 px-4">
                                     {{-- Display Mode --}}
                                     @php
+                                        $dispRole = $m->role === 'QC' ? 'Developer Head' : $m->role;
                                         $roleBadge = match($m->role) {
-                                            'QC' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200/80 dark:border-amber-800',
+                                            'QC', 'Developer Head' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200/80 dark:border-amber-800',
                                             'Supervisor' => 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300 border-cyan-200/80 dark:border-cyan-800',
                                             'Developer' => 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800',
                                             default => 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700',
                                         };
                                         $roleDot = match($m->role) {
-                                            'QC' => 'bg-amber-500',
+                                            'QC', 'Developer Head' => 'bg-amber-500',
                                             'Supervisor' => 'bg-cyan-500',
                                             'Developer' => 'bg-indigo-500',
                                             default => 'bg-slate-400',
@@ -2389,16 +2393,16 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                     @endphp
                                     <span x-show="editingMemberId !== {{ $m->id }}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border {{ $roleBadge }}">
                                         <span class="w-1.5 h-1.5 rounded-full {{ $roleDot }}"></span>
-                                        {{ $m->role }}
+                                        {{ $dispRole }}
                                     </span>
 
                                     {{-- Inline Edit Mode --}}
                                     <form x-show="editingMemberId === {{ $m->id }}" action="{{ route('websites.members.store') }}" method="POST" class="flex items-center gap-2" style="display: none;" data-turbo="false" @submit.prevent="submitMemberForm($event)">
                                         @csrf
                                         <input type="hidden" name="user_ids[]" value="{{ $m->user_id }}">
-                                        <select name="role" x-model="editingMemberRole" required class="form-select text-xs py-1 px-2.5 rounded-lg border-indigo-300 dark:border-indigo-600 focus:ring-indigo-500 h-8 w-32 font-semibold">
+                                        <select name="role" x-model="editingMemberRole" required class="form-select text-xs py-1 px-2.5 rounded-lg border-indigo-300 dark:border-indigo-600 focus:ring-indigo-500 h-8 w-36 font-semibold">
                                             <option value="Developer">Developer</option>
-                                            <option value="QC">QC</option>
+                                            <option value="QC">Developer Head</option>
                                             <option value="Supervisor">Supervisor</option>
                                             <option value="Viewer">Viewer</option>
                                         </select>
@@ -2449,28 +2453,36 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
 </div>
 
 {{-- Create Website Modal --}}
-<div id="show-create-modal" x-show="showCreateModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
-    <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
-        <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-            <h3 class="font-bold text-slate-800 dark:text-slate-100">Add New Website</h3>
-            <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600">
+<div id="show-create-modal" x-show="showCreateModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-8 backdrop-blur-xs" style="display:none; background:rgba(0,0,0,0.6)">
+    <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-2xl lg:max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl transition-all duration-200" @click.stop>
+        <div class="px-6 py-5 sm:px-8 sm:py-6 border-b border-slate-100 dark:border-slate-700/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">Add New Website</h3>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Register a new website into the management directory</p>
+                </div>
+            </div>
+            <button @click="showCreateModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form action="{{ route('websites.store') }}" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitAjaxForm($event, 'showCreateModal')">
+        <form action="{{ route('websites.store') }}" method="POST" enctype="multipart/form-data" class="p-6 sm:p-8 space-y-6" data-no-processing="true" @submit.prevent="submitAjaxForm($event, 'showCreateModal')">
             @csrf
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-5 sm:gap-6">
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Website Name *</label>
-                    <input type="text" name="name" required class="form-input w-full rounded-xl text-sm" placeholder="My Website">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Website Name *</label>
+                    <input type="text" name="name" required class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all" placeholder="My Website">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">URL *</label>
-                    <input type="url" name="url" required class="form-input w-full rounded-xl text-sm" placeholder="https://example.com">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">URL *</label>
+                    <input type="url" name="url" required class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all" placeholder="https://example.com">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Class</label>
-                    <select name="category" class="form-select w-full rounded-xl text-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Class</label>
+                    <select name="category" class="form-select w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
                         <option value="">None / Uncategorized</option>
                         @foreach($orderArray as $cat)<option value="{{ $cat }}">{{ $cat }}</option>@endforeach
                     </select>
@@ -2482,11 +2494,11 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     })->sortBy('name')->values();
                 @endphp
                 <div x-data="{ openCreateAssignedTo: false }">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Assigned To</label>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Assigned To</label>
                     <input type="hidden" name="handled_by" x-model="createFormHandledBy">
                     <div class="relative">
                         <button type="button" @click="openCreateAssignedTo = !openCreateAssignedTo" @click.outside="openCreateAssignedTo = false"
-                                class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 py-2">
+                                class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 py-2.5 px-3.5 hover:border-slate-300 dark:hover:border-slate-600 transition-all cursor-pointer">
                             <div class="flex items-center gap-2 truncate">
                                 <template x-if="!createFormHandledBy">
                                     <div class="flex items-center gap-2 text-slate-400">
@@ -2498,13 +2510,14 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                 </template>
                                 @foreach($activeUsers as $u)
                                     @php
-                                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'Developer Head' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                        if ($uRole === 'QC') { $uRole = 'Developer Head'; }
                                     @endphp
                                     <div x-show="createFormHandledBy == '{{ $u->id }}'" class="flex items-center gap-2.5 truncate" x-cloak>
                                         <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
                                         <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
                                         @if($uRole)
-                                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ $uRole === 'QC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300/60' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 border border-cyan-300/60' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300') }}">
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 {{ in_array($uRole, ['Developer Head', 'QC']) ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-300 border border-cyan-300/80 dark:border-cyan-700' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600') }}">
                                                 {{ $uRole }}
                                             </span>
                                         @endif
@@ -2512,9 +2525,9 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                 @endforeach
                             </div>
                         </button>
-                        <div x-show="openCreateAssignedTo" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        <div x-show="openCreateAssignedTo" x-cloak class="absolute z-50 w-full mt-1.5 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-64 overflow-y-auto divide-y divide-slate-100/60 dark:divide-slate-800/60">
                             <ul class="py-1">
-                                <li class="px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-2.5"
+                                <li class="px-3.5 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center gap-2.5 transition-colors"
                                     @click="createFormHandledBy = ''; openCreateAssignedTo = false">
                                     <div class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-xs shrink-0">
                                         <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -2523,17 +2536,18 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                 </li>
                                 @foreach($activeUsers as $u)
                                 @php
-                                    $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                    $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'Developer Head' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                    if ($uRole === 'QC') { $uRole = 'Developer Head'; }
                                 @endphp
-                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center justify-between gap-2.5"
-                                    :class="{ 'bg-indigo-50 dark:bg-slate-700/80 font-bold': createFormHandledBy == '{{ $u->id }}' }"
+                                <li class="px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50/70 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between gap-3 transition-colors"
+                                    :class="{ 'bg-indigo-50 dark:bg-slate-800/90 font-bold': createFormHandledBy == '{{ $u->id }}' }"
                                     @click="createFormHandledBy = '{{ $u->id }}'; openCreateAssignedTo = false">
                                     <div class="flex items-center gap-2.5 truncate min-w-0">
                                         <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
                                         <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
                                     </div>
                                     @if($uRole)
-                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 {{ $uRole === 'QC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-700' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300') }}">
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 {{ in_array($uRole, ['Developer Head', 'QC']) ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-300 border border-cyan-300/80 dark:border-cyan-700' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600') }}">
                                             {{ $uRole }}
                                         </span>
                                     @endif
@@ -2544,55 +2558,63 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Start Date</label>
-                    <input type="date" name="start_date" class="form-input w-full rounded-xl text-sm">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Start Date</label>
+                    <input type="date" name="start_date" class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Deadline</label>
-                    <input type="date" name="deadline" class="form-input w-full rounded-xl text-sm">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Deadline</label>
+                    <input type="date" name="deadline" class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Logo URL (optional)</label>
-                    <input type="url" name="logo_url" class="form-input w-full rounded-xl text-sm" placeholder="https://...logo.png">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Logo URL (optional)</label>
+                    <input type="url" name="logo_url" class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all" placeholder="https://...logo.png">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Notes</label>
-                    <textarea name="notes" rows="3" class="form-textarea w-full rounded-xl text-sm p-3 resize-none" placeholder="Project notes..."></textarea>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Notes</label>
+                    <textarea name="notes" rows="4" class="form-textarea w-full rounded-xl text-sm p-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 resize-y min-h-[110px] transition-all" placeholder="Project notes..."></textarea>
                 </div>
             </div>
-            <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showCreateModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm">Create Website</button>
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700/80">
+                <button type="button" @click="showCreateModal = false" class="btn btn-cancel btn-secondary text-sm px-5 py-2.5 rounded-xl font-medium">Cancel</button>
+                <button type="submit" class="btn btn-primary text-sm px-6 py-2.5 rounded-xl font-semibold shadow-sm hover:shadow transition-all">Create Website</button>
             </div>
         </form>
     </div>
 </div>
 
 {{-- Edit Website Modal --}}
-<div id="show-edit-modal" x-show="showEditModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4" style="display:none; background:rgba(0,0,0,0.5)">
-    <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto" @click.stop>
-        <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-            <h3 class="font-bold text-slate-800 dark:text-slate-100">Edit Website</h3>
-            <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600">
+<div id="show-edit-modal" x-show="showEditModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-8 backdrop-blur-xs" style="display:none; background:rgba(0,0,0,0.6)">
+    <div class="card border border-slate-200 dark:border-slate-700 w-full max-w-2xl lg:max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl transition-all duration-200" @click.stop>
+        <div class="px-6 py-5 sm:px-8 sm:py-6 border-b border-slate-100 dark:border-slate-700/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">Edit Website</h3>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Update website information, assigned developer, schedule and notes</p>
+                </div>
+            </div>
+            <button @click="showEditModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form :action="editModalAction" method="POST" enctype="multipart/form-data" class="p-5 space-y-4" data-no-processing="true" @submit.prevent="submitAjaxForm($event, 'showEditModal')">
+        <form :action="editModalAction" method="POST" enctype="multipart/form-data" class="p-6 sm:p-8 space-y-6" data-no-processing="true" @submit.prevent="submitAjaxForm($event, 'showEditModal')">
             @csrf
             @method('PUT')
             <input type="hidden" name="return_tab" value="{{ $tab }}">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-5 sm:gap-6">
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Website Name *</label>
-                    <input type="text" name="name" x-model="editForm.name" required class="form-input w-full rounded-xl text-sm" placeholder="My Website">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Website Name *</label>
+                    <input type="text" name="name" x-model="editForm.name" required class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all" placeholder="My Website">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">URL *</label>
-                    <input type="url" name="url" x-model="editForm.url" required class="form-input w-full rounded-xl text-sm" placeholder="https://example.com">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">URL *</label>
+                    <input type="url" name="url" x-model="editForm.url" required class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all" placeholder="https://example.com">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Class</label>
-                    <select name="category" x-model="editForm.category" class="form-select w-full rounded-xl text-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Class</label>
+                    <select name="category" x-model="editForm.category" class="form-select w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
                         <option value="">None / Uncategorized</option>
                         @foreach($orderArray as $cat)<option value="{{ $cat }}">{{ $cat }}</option>@endforeach
                     </select>
@@ -2604,11 +2626,11 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     })->sortBy('name')->values();
                 @endphp
                 <div x-data="{ openEditAssignedTo: false }">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Assigned To</label>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Assigned To</label>
                     <input type="hidden" name="handled_by" x-model="editForm.handled_by">
                     <div class="relative">
                         <button type="button" @click="openEditAssignedTo = !openEditAssignedTo" @click.outside="openEditAssignedTo = false"
-                                class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 py-2">
+                                class="form-select w-full rounded-xl text-sm text-left flex justify-between items-center bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 py-2.5 px-3.5 hover:border-slate-300 dark:hover:border-slate-600 transition-all cursor-pointer">
                             <div class="flex items-center gap-2 truncate">
                                 <template x-if="!editForm.handled_by">
                                     <div class="flex items-center gap-2 text-slate-400">
@@ -2620,13 +2642,14 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                 </template>
                                 @foreach($activeUsers as $u)
                                     @php
-                                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                        $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'Developer Head' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                        if ($uRole === 'QC') { $uRole = 'Developer Head'; }
                                     @endphp
                                     <div x-show="editForm.handled_by == '{{ $u->id }}'" class="flex items-center gap-2.5 truncate" x-cloak>
                                         <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
                                         <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
                                         @if($uRole)
-                                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ $uRole === 'QC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300/60' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 border border-cyan-300/60' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300') }}">
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 {{ in_array($uRole, ['Developer Head', 'QC']) ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-300 border border-cyan-300/80 dark:border-cyan-700' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600') }}">
                                                 {{ $uRole }}
                                             </span>
                                         @endif
@@ -2634,28 +2657,29 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                 @endforeach
                             </div>
                         </button>
-                        <div x-show="openEditAssignedTo" x-cloak class="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        <div x-show="openEditAssignedTo" x-cloak class="absolute z-50 w-full mt-1.5 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-64 overflow-y-auto divide-y divide-slate-100/60 dark:divide-slate-800/60">
                             <ul class="py-1">
-                                <li class="px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer flex items-center gap-2.5"
+                                <li class="px-3.5 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center gap-2.5 transition-colors"
                                     @click="editForm.handled_by = ''; openEditAssignedTo = false">
                                     <div class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-xs shrink-0">
-                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                     </div>
                                     <span class="font-medium text-slate-500">Select member</span>
                                 </li>
                                 @foreach($activeUsers as $u)
                                 @php
-                                    $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'QC' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                    $uRole = $memberRolesMap[$u->id] ?? ($u->isQc() ? 'Developer Head' : ($u->hasRole('digital-team') ? 'Developer' : null));
+                                    if ($uRole === 'QC') { $uRole = 'Developer Head'; }
                                 @endphp
-                                <li class="px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700/70 cursor-pointer flex items-center justify-between gap-2.5"
-                                    :class="{ 'bg-indigo-50 dark:bg-slate-700/80 font-bold': editForm.handled_by == '{{ $u->id }}' }"
+                                <li class="px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-indigo-50/70 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-between gap-3 transition-colors"
+                                    :class="{ 'bg-indigo-50 dark:bg-slate-800/90 font-bold': editForm.handled_by == '{{ $u->id }}' }"
                                     @click="editForm.handled_by = '{{ $u->id }}'; openEditAssignedTo = false">
                                     <div class="flex items-center gap-2.5 truncate min-w-0">
                                         <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}" class="w-7 h-7 rounded-full object-cover object-top shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
                                         <span class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ $u->name }}</span>
                                     </div>
                                     @if($uRole)
-                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 {{ $uRole === 'QC' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-700' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300') }}">
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 {{ in_array($uRole, ['Developer Head', 'QC']) ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700' : ($uRole === 'Supervisor' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-300 border border-cyan-300/80 dark:border-cyan-700' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600') }}">
                                             {{ $uRole }}
                                         </span>
                                     @endif
@@ -2666,25 +2690,25 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Start Date</label>
-                    <input type="date" name="start_date" x-model="editForm.start_date" class="form-input w-full rounded-xl text-sm">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Start Date</label>
+                    <input type="date" name="start_date" x-model="editForm.start_date" class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Deadline</label>
-                    <input type="date" name="deadline" x-model="editForm.deadline" class="form-input w-full rounded-xl text-sm">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Deadline</label>
+                    <input type="date" name="deadline" x-model="editForm.deadline" class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Logo URL (optional)</label>
-                    <input type="url" name="logo_url" x-model="editForm.logo_url" class="form-input w-full rounded-xl text-sm" placeholder="https://...logo.png">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Logo URL (optional)</label>
+                    <input type="url" name="logo_url" x-model="editForm.logo_url" class="form-input w-full rounded-xl text-sm py-2.5 px-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all" placeholder="https://...logo.png">
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Notes</label>
-                    <textarea name="notes" x-model="editForm.notes" rows="3" class="form-textarea w-full rounded-xl text-sm p-3 resize-none" placeholder="Project notes..."></textarea>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Notes</label>
+                    <textarea name="notes" x-model="editForm.notes" rows="4" class="form-textarea w-full rounded-xl text-sm p-3.5 border-slate-200 dark:border-slate-700 dark:bg-slate-800/90 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 resize-y min-h-[110px] transition-all" placeholder="Project notes..."></textarea>
                 </div>
             </div>
-            <div class="flex items-center justify-end gap-3 pt-2">
-                <button type="button" @click="showEditModal = false" class="btn btn-cancel btn-secondary text-sm">Cancel</button>
-                <button type="submit" class="btn btn-primary text-sm">Save Changes</button>
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700/80">
+                <button type="button" @click="showEditModal = false" class="btn btn-cancel btn-secondary text-sm px-5 py-2.5 rounded-xl font-medium">Cancel</button>
+                <button type="submit" class="btn btn-primary text-sm px-6 py-2.5 rounded-xl font-semibold shadow-sm hover:shadow transition-all">Save Changes</button>
             </div>
         </form>
     </div>
@@ -3694,7 +3718,7 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                                 @endif
                                             </div>
                                             <div class="text-[11px] text-slate-400 dark:text-slate-500 truncate">
-                                                {{ $memberRolesMap[$u->id] ?? ($u->hasRole('digital-team') ? 'Developer' : ($u->role_display ?? 'Member')) }} • {{ $u->email }}
+                                                {{ (($memberRolesMap[$u->id] ?? null) === 'QC' ? 'Developer Head' : ($memberRolesMap[$u->id] ?? ($u->hasRole('digital-team') ? 'Developer' : ($u->role_display ?? 'Member')))) }} • {{ $u->email }}
                                             </div>
                                         </div>
                                     </div>
@@ -3759,7 +3783,7 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                                                 @endif
                                             </div>
                                             <div class="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                                                {{ $memberRolesMap[$u->id] ?? ($u->hasRole('digital-team') ? 'Developer' : ($u->role_display ?? 'Member')) }} • {{ $u->email }}
+                                                {{ (($memberRolesMap[$u->id] ?? null) === 'QC' ? 'Developer Head' : ($memberRolesMap[$u->id] ?? ($u->hasRole('digital-team') ? 'Developer' : ($u->role_display ?? 'Member')))) }} • {{ $u->email }}
                                             </div>
                                         </div>
                                     </div>

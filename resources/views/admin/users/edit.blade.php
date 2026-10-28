@@ -77,7 +77,7 @@
           <option value="Graphic Head" {{ old('team_role', $user->team_role) === 'Graphic Head' ? 'selected' : '' }}>Graphic Head</option>
           <option value="Listing Head" {{ old('team_role', $user->team_role) === 'Listing Head' ? 'selected' : '' }}>Listing Head</option>
           <option value="Video Head" {{ old('team_role', $user->team_role) === 'Video Head' ? 'selected' : '' }}>Video Head</option>
-          <option value="QC" {{ old('team_role', $user->team_role) === 'QC' ? 'selected' : '' }}>QC</option>
+          <option value="QC" {{ old('team_role', $user->team_role) === 'QC' ? 'selected' : '' }}>Developer Head</option>
           <option value="Supervisor" {{ old('team_role', $user->team_role) === 'Supervisor' ? 'selected' : '' }}>Supervisor</option>
         </select>
         <p class="text-xs text-slate-500 mt-1">Used for automatic assignment in Board Automations.</p>
