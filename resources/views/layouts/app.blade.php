@@ -545,8 +545,109 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         })();
     </script>
     <!-- Custom Flatpickr UI -->
-    <!-- Custom Flatpickr UI -->
     <style>
+        /* ── Top Navigation Bar Tabs ── */
+        .nav-pill-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1.15rem;
+            border-radius: 0.85rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            line-height: 1.25;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1.5px solid #cbd5e1;
+            background: #ffffff;
+            color: #1e293b;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .nav-pill-btn svg {
+            width: 1rem;
+            height: 1rem;
+            color: #475569;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+        .nav-pill-btn:hover {
+            border-color: #6366f1;
+            background: #f8faff;
+            color: #4338ca;
+            box-shadow: 0 3px 10px rgba(99, 102, 241, 0.15);
+            transform: translateY(-1px);
+        }
+        .nav-pill-btn:hover svg {
+            color: #4f46e5;
+            transform: scale(1.08);
+        }
+        .nav-pill-btn.active {
+            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%) !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.45) !important;
+        }
+        .nav-pill-btn.active svg {
+            color: #ffffff !important;
+        }
+
+        /* Dark Theme */
+        [data-theme="dark"] .nav-pill-btn,
+        html.dark .nav-pill-btn {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+        }
+        [data-theme="dark"] .nav-pill-btn svg,
+        html.dark .nav-pill-btn svg {
+            color: #94a3b8 !important;
+        }
+        [data-theme="dark"] .nav-pill-btn:hover,
+        html.dark .nav-pill-btn:hover {
+            background: #334155 !important;
+            border-color: #818cf8 !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.28) !important;
+        }
+        [data-theme="dark"] .nav-pill-btn:hover svg,
+        html.dark .nav-pill-btn:hover svg {
+            color: #c7d2fe !important;
+        }
+
+        /* Neon Theme (Active on User's System) */
+        [data-theme="neon"] .nav-pill-btn {
+            background: rgba(8, 24, 60, 0.9) !important;
+            border: 1.5px solid rgba(0, 160, 255, 0.35) !important;
+            color: #f0f9ff !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+            backdrop-filter: blur(10px);
+        }
+        [data-theme="neon"] .nav-pill-btn svg {
+            color: #38bdf8 !important;
+        }
+        [data-theme="neon"] .nav-pill-btn:hover {
+            background: rgba(14, 40, 96, 0.95) !important;
+            border-color: rgba(56, 189, 248, 0.85) !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.35), 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+            transform: translateY(-1px);
+        }
+        [data-theme="neon"] .nav-pill-btn:hover svg {
+            color: #7dd3fc !important;
+        }
+        [data-theme="neon"] .nav-pill-btn.active {
+            background: linear-gradient(135deg, #4f46e5 0%, #2563eb 50%, #0284c7 100%) !important;
+            color: #ffffff !important;
+            border: 1.5px solid rgba(125, 211, 252, 0.7) !important;
+            box-shadow: 0 0 22px rgba(59, 130, 246, 0.55), 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+        }
+        [data-theme="neon"] .nav-pill-btn.active svg {
+            color: #ffffff !important;
+        }
+
         .flatpickr-calendar {
             font-family: inherit !important;
             border-radius: 12px !important;
