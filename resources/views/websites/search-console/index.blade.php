@@ -5174,7 +5174,9 @@ function gscDashboard() {
             this.loading = true;
             try {
                 const isCustom = (this.filters.range === 'custom');
+                const targetTab = (this.activeView === 'rankings') ? 'rankings' : (this.activeView === 'overview' ? 'overview' : 'all');
                 const params = new URLSearchParams({
+                    tab: targetTab,
                     range: this.filters.range,
                     start_date: isCustom ? (this.filters.start_date || '') : '',
                     end_date: isCustom ? (this.filters.end_date || '') : '',
@@ -5195,20 +5197,28 @@ function gscDashboard() {
                         this.filters.start_date = data.date_range.start;
                         this.filters.end_date = data.date_range.end;
                     }
-                    this.kpi = data.kpi_summary;
-                    this.trendData = data.daily_trend;
-                    this.keywordsList = data.keywords.data;
-                    this.keywordsTotal = data.keywords.total;
-                    this.keywordsPages = data.keywords.pages;
-                    this.keywordsCurrentPage = data.keywords.current_page;
-                    this.topPagesList = data.top_pages.data;
-                    this.topPagesTotal = data.top_pages.total;
-                    this.countriesList = data.countries;
-                    this.devicesList = data.devices;
-                    this.websiteBreakdown = data.website_breakdown;
-                    this.websiteRankings = data.website_breakdown;
+                    if (data.kpi_summary) this.kpi = data.kpi_summary;
+                    if (data.daily_trend) this.trendData = data.daily_trend;
+                    if (data.keywords) {
+                        this.keywordsList = data.keywords.data || [];
+                        this.keywordsTotal = data.keywords.total || 0;
+                        this.keywordsPages = data.keywords.pages || 0;
+                        this.keywordsCurrentPage = data.keywords.current_page || 1;
+                    }
+                    if (data.top_pages) {
+                        this.topPagesList = data.top_pages.data || [];
+                        this.topPagesTotal = data.top_pages.total || 0;
+                    }
+                    if (data.countries) this.countriesList = data.countries;
+                    if (data.devices) this.devicesList = data.devices;
+                    if (data.website_breakdown) {
+                        this.websiteBreakdown = data.website_breakdown;
+                        this.websiteRankings = data.website_breakdown;
+                    }
 
-                    this.renderChart();
+                    if (this.activeView === 'overview' && data.daily_trend) {
+                        this.renderChart();
+                    }
                 }
             } catch (err) {
                 console.error('Filter update error', err);
@@ -5386,17 +5396,53 @@ function gscDashboard() {
             }
         },
 
+        loadingRankings: false,
+        async fetchRankings() {
+            this.loadingRankings = true;
+            try {
+                const isCustom = (this.filters.range === 'custom');
+                const params = new URLSearchParams({
+                    tab: 'rankings',
+                    range: this.filters.range,
+                    start_date: isCustom ? (this.filters.start_date || '') : '',
+                    end_date: isCustom ? (this.filters.end_date || '') : '',
+                    websites: this.filters.websites || '',
+                    members: this.filters.members || '',
+                    class: (this.filters.class && this.filters.class !== 'all') ? this.filters.class : '',
+                });
+
+                const res = await fetch(`{{ route('websites.search-console.data') }}?${params.toString()}`);
+                const data = await res.json();
+                if (data.success && data.website_breakdown) {
+                    this.websiteBreakdown = data.website_breakdown;
+                    this.websiteRankings = data.website_breakdown;
+                }
+            } catch (err) {
+                console.error('Fetch rankings error', err);
+            } finally {
+                this.loadingRankings = false;
+            }
+        },
+
         setView(view) {
             this.activeView = view;
             const url = new URL(window.location);
             url.searchParams.set('view', view);
             window.history.pushState({}, '', url);
 
-            if (view === 'compare') {
-                this.$nextTick(async () => {
-                    await this.ensureChartJs();
-                    requestAnimationFrame(() => this.renderCompareChart());
-                });
+            if (view === 'rankings') {
+                if (!this.websiteRankings || this.websiteRankings.length === 0) {
+                    this.fetchRankings();
+                }
+            } else if (view === 'compare') {
+                if (!this.comparisonData || !this.comparisonData.websites || this.comparisonData.websites.length === 0) {
+                    this.fetchComparison();
+                } else {
+                    this.$nextTick(async () => {
+                        await this.ensureChartJs();
+                        requestAnimationFrame(() => this.renderCompareChart());
+                    });
+                }
             } else if (view === 'properties') {
                 if (this.batchMatches.length === 0) {
                     this.loadAutoMatchData();
@@ -5404,10 +5450,14 @@ function gscDashboard() {
             } else if (view === 'sitemaps') {
                 this.onSitemapWebsiteChange(this.sitemapWebsiteId);
             } else if (view === 'overview') {
-                this.$nextTick(async () => {
-                    await this.ensureChartJs();
-                    requestAnimationFrame(() => this.renderChart());
-                });
+                if (!this.keywordsList || this.keywordsList.length === 0) {
+                    this.onFilterChange();
+                } else {
+                    this.$nextTick(async () => {
+                        await this.ensureChartJs();
+                        requestAnimationFrame(() => this.renderChart());
+                    });
+                }
             }
         },
 

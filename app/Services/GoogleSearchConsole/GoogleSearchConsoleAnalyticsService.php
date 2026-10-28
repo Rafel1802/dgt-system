@@ -443,10 +443,15 @@ class GoogleSearchConsoleAnalyticsService
                 COALESCE(SUM(position * impressions) / NULLIF(SUM(impressions), 0), 0) as position
             ');
 
-        // Total count of distinct queries
-        $total = DB::table(DB::raw("({$query->toSql()}) as sub"))
-            ->mergeBindings($query)
-            ->count();
+        // Fast indexed count of distinct queries
+        $countQuery = DB::table('google_search_console_search_queries')
+            ->whereIn('website_id', $websiteIds)
+            ->whereDate('data_date', '>=', $startDate)
+            ->whereDate('data_date', '<=', $endDate);
+        if (!empty($searchTerm)) {
+            $countQuery->where('query', 'LIKE', '%' . $searchTerm . '%');
+        }
+        $total = $countQuery->distinct()->count('query_hash');
 
         $rows = $query->orderBy($sortBy, $sortDir)
             ->offset(($page - 1) * $perPage)
@@ -557,9 +562,15 @@ class GoogleSearchConsoleAnalyticsService
                 COALESCE(SUM(position * impressions) / NULLIF(SUM(impressions), 0), 0) as position
             ');
 
-        $total = DB::table(DB::raw("({$query->toSql()}) as sub"))
-            ->mergeBindings($query)
-            ->count();
+        // Fast indexed count of distinct landing pages
+        $countQuery = DB::table('google_search_console_pages')
+            ->whereIn('website_id', $websiteIds)
+            ->whereDate('data_date', '>=', $startDate)
+            ->whereDate('data_date', '<=', $endDate);
+        if (!empty($searchTerm)) {
+            $countQuery->where('page', 'LIKE', '%' . $searchTerm . '%');
+        }
+        $total = $countQuery->distinct()->count('page_hash');
 
         $rows = $query->orderBy($sortBy, $sortDir)
             ->offset(($page - 1) * $perPage)
@@ -921,7 +932,7 @@ class GoogleSearchConsoleAnalyticsService
     /**
      * Default empty KPI array
      */
-    protected function emptyKpiMetrics(): array
+    public function emptyKpiMetrics(): array
     {
         return [
             'clicks'      => ['current' => 0, 'previous' => 0, 'diff' => 0, 'percent' => 0, 'trend' => 'up'],

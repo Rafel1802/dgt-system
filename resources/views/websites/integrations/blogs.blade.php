@@ -108,25 +108,8 @@
             this.syncBtnText = 'Sync Failed';
             setTimeout(() => { this.syncBtnText = 'Sync Now'; }, 3000);
         });
-    },
-    initAutoSync() {
-        // Automatic background synchronization every 5 minutes (300,000 ms)
-        setInterval(() => {
-            fetch('{{ route('websites.blogs.sync-now') }}', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(() => {
-                window.location.reload();
-            })
-            .catch(() => {});
-        }, 300000);
     }
-}" x-init="initAutoSync()" @keydown.escape.window="exportModalOpen = false">
+}" @keydown.escape.window="exportModalOpen = false">
 
     <!-- ── Top Navigation Bar ── -->
     <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">

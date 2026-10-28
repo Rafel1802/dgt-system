@@ -225,10 +225,13 @@ class WebsiteIntegrationController extends Controller
             default          => $query->orderBy('cumulative_views', 'desc'),
         };
 
-        // Top 5 Ranking Posts
-        $topRanked = (clone $query)->take(5)->get();
-
+        // Paginate results with eager-loaded website and handler
         $posts = $query->paginate(30)->withQueryString();
+
+        // Top 5 Ranking Posts: reuse page 1 items on default sort to eliminate duplicate SQL query
+        $topRanked = ($sort === 'views_desc' && $posts->currentPage() === 1)
+            ? $posts->take(5)
+            : WebsitePost::with(['website.handler'])->orderBy('cumulative_views', 'desc')->take(5)->get();
 
         // Cached collections as pure arrays for fast dropdown filters, zero serialization bugs, and smooth tab switching
         $allWebsites = Cache::remember('dgt_active_websites_array', 300, function () {

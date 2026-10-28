@@ -133,78 +133,80 @@ class GoogleSearchConsoleController extends Controller
         $dateRange = $this->analyticsService->resolveDateRange($preset, $customStart, $customEnd, $latestGoogleDataDate);
         $resolvedWebsiteIds = $this->analyticsService->resolveWebsiteIds($user, $selectedWebsites, $selectedMembers, $selectedClass);
 
-        // Fetch KPI Metrics
-        $kpiSummary = $this->analyticsService->getKpiSummary(
-            $resolvedWebsiteIds,
-            $dateRange['start'],
-            $dateRange['end'],
-            $dateRange['prev_start'],
-            $dateRange['prev_end']
-        );
-
-        // Fetch Trend Series for Chart.js
-        $dailyTrend = $this->analyticsService->getDailyTrend(
-            $resolvedWebsiteIds,
-            $dateRange['start'],
-            $dateRange['end'],
-            $dateRange['prev_start'],
-            $dateRange['prev_end']
-        );
-
-        // Fetch Initial Search Keywords Table (page 1, 25 items)
-        $keywords = $this->analyticsService->getSearchKeywords(
-            $resolvedWebsiteIds,
-            $dateRange['start'],
-            $dateRange['end'],
-            $request->get('keyword_search'),
-            $request->get('sort_by', 'clicks'),
-            $request->get('sort_dir', 'desc'),
-            (int) $request->get('page', 1),
-            25
-        );
-
-        // Fetch Top Pages
-        $topPages = $this->analyticsService->getTopPages(
-            $resolvedWebsiteIds,
-            $dateRange['start'],
-            $dateRange['end'],
-            $request->get('page_search'),
-            'clicks',
-            'desc',
-            1,
-            25
-        );
-
-        // Fetch Countries & Devices
-        $countries = $this->analyticsService->getCountries($resolvedWebsiteIds, $dateRange['start'], $dateRange['end']);
-        $devices = $this->analyticsService->getDevices($resolvedWebsiteIds, $dateRange['start'], $dateRange['end']);
-
-        // Website comparison breakdown & rankings (sorted by impressions descending)
-        $websiteBreakdown = !empty($resolvedWebsiteIds)
-            ? $this->analyticsService->getWebsiteBreakdown($resolvedWebsiteIds, $dateRange['start'], $dateRange['end'], $dateRange['prev_start'], $dateRange['prev_end'])
-            : [];
-
-        $websiteRankings = $websiteBreakdown;
-        usort($websiteRankings, fn($a, $b) => ($b['impressions'] ?? 0) <=> ($a['impressions'] ?? 0));
-
-        // Initial comparison dataset (first 2 websites in scope)
-        $compareIds = array_slice($resolvedWebsiteIds, 0, 2);
-        $initialComparison = !empty($compareIds)
-            ? $this->analyticsService->getWebsitesComparison($compareIds, $dateRange['start'], $dateRange['end'])
-            : ['websites' => [], 'chart_dates' => [], 'datasets_clicks' => [], 'datasets_impressions' => []];
-
         $currentView = $request->get('view', 'overview');
 
-        // Recent sync logs for administrator inspection
-        $recentSyncLogs = GoogleSearchConsoleSyncLog::with('website')
-            ->orderByDesc('started_at')
-            ->limit(10)
-            ->get();
+        // Defaults for lazy/on-demand section loading
+        $kpiSummary = $this->analyticsService->emptyKpiMetrics();
+        $dailyTrend = ['dates' => [], 'clicks' => [], 'impressions' => [], 'ctr' => [], 'position' => []];
+        $keywords = ['data' => [], 'total' => 0, 'pages' => 0, 'current_page' => 1, 'per_page' => 25];
+        $topPages = ['data' => [], 'total' => 0, 'pages' => 0, 'current_page' => 1, 'per_page' => 25];
+        $countries = [];
+        $devices = [];
+        $websiteBreakdown = [];
+        $websiteRankings = [];
+        $initialComparison = ['websites' => [], 'chart_dates' => [], 'datasets_clicks' => [], 'datasets_impressions' => []];
+        $recentSyncLogs = collect();
+        $availableProperties = [];
+        $initialBatchMatches = [];
 
-        // Available properties and batch auto-mapper data from connected Google account
-        $autoMatchData = $this->getAutoMatchData($account);
-        $availableProperties = $autoMatchData['properties'];
-        $initialBatchMatches = $autoMatchData['matches'];
+        // Load data strictly for the open section
+        if ($currentView === 'overview') {
+            $kpiSummary = $this->analyticsService->getKpiSummary(
+                $resolvedWebsiteIds,
+                $dateRange['start'],
+                $dateRange['end'],
+                $dateRange['prev_start'],
+                $dateRange['prev_end']
+            );
+
+            $dailyTrend = $this->analyticsService->getDailyTrend(
+                $resolvedWebsiteIds,
+                $dateRange['start'],
+                $dateRange['end'],
+                $dateRange['prev_start'],
+                $dateRange['prev_end']
+            );
+
+            $keywords = $this->analyticsService->getSearchKeywords(
+                $resolvedWebsiteIds,
+                $dateRange['start'],
+                $dateRange['end'],
+                $request->get('keyword_search'),
+                $request->get('sort_by', 'clicks'),
+                $request->get('sort_dir', 'desc'),
+                (int) $request->get('page', 1),
+                25
+            );
+
+            $topPages = $this->analyticsService->getTopPages(
+                $resolvedWebsiteIds,
+                $dateRange['start'],
+                $dateRange['end'],
+                $request->get('page_search'),
+                'clicks',
+                'desc',
+                1,
+                25
+            );
+
+            $countries = $this->analyticsService->getCountries($resolvedWebsiteIds, $dateRange['start'], $dateRange['end']);
+            $devices = $this->analyticsService->getDevices($resolvedWebsiteIds, $dateRange['start'], $dateRange['end']);
+        } elseif ($currentView === 'rankings') {
+            $websiteBreakdown = !empty($resolvedWebsiteIds)
+                ? $this->analyticsService->getWebsiteBreakdown($resolvedWebsiteIds, $dateRange['start'], $dateRange['end'], $dateRange['prev_start'], $dateRange['prev_end'])
+                : [];
+            $websiteRankings = $websiteBreakdown;
+            usort($websiteRankings, fn($a, $b) => ($b['impressions'] ?? 0) <=> ($a['impressions'] ?? 0));
+        } elseif ($currentView === 'compare') {
+            $compareIds = array_slice($resolvedWebsiteIds, 0, 2);
+            $initialComparison = !empty($compareIds)
+                ? $this->analyticsService->getWebsitesComparison($compareIds, $dateRange['start'], $dateRange['end'])
+                : ['websites' => [], 'chart_dates' => [], 'datasets_clicks' => [], 'datasets_impressions' => []];
+        } elseif ($currentView === 'properties') {
+            $autoMatchData = $this->getAutoMatchData($account);
+            $availableProperties = $autoMatchData['properties'];
+            $initialBatchMatches = $autoMatchData['matches'];
+        }
 
         // Security authorization check: Only Mr. Dara can disconnect Google Search Console
         $userEmail = strtolower(trim($user?->email ?? ''));
@@ -265,65 +267,79 @@ class GoogleSearchConsoleController extends Controller
         $dateRange = $this->analyticsService->resolveDateRange($preset, $customStart, $customEnd, $latestGoogleDataDate);
         $resolvedWebsiteIds = $this->analyticsService->resolveWebsiteIds($user, $selectedWebsites, $selectedMembers, $selectedClass);
 
-        $tab = $request->get('tab', 'overview');
+        $tab = $request->get('tab', 'all');
 
-        $kpiSummary = $this->analyticsService->getKpiSummary(
-            $resolvedWebsiteIds,
-            $dateRange['start'],
-            $dateRange['end'],
-            $dateRange['prev_start'],
-            $dateRange['prev_end']
-        );
+        $kpiSummary = null;
+        $dailyTrend = null;
+        $keywords = null;
+        $topPages = null;
+        $countries = null;
+        $devices = null;
+        $websiteBreakdown = null;
 
-        $dailyTrend = $this->analyticsService->getDailyTrend(
-            $resolvedWebsiteIds,
-            $dateRange['start'],
-            $dateRange['end'],
-            $dateRange['prev_start'],
-            $dateRange['prev_end']
-        );
+        if ($tab === 'all' || $tab === 'overview') {
+            $kpiSummary = $this->analyticsService->getKpiSummary(
+                $resolvedWebsiteIds,
+                $dateRange['start'],
+                $dateRange['end'],
+                $dateRange['prev_start'],
+                $dateRange['prev_end']
+            );
 
-        $keywords = $this->analyticsService->getSearchKeywords(
-            $resolvedWebsiteIds,
-            $dateRange['start'],
-            $dateRange['end'],
-            $request->get('keyword_search'),
-            $request->get('sort_by', 'clicks'),
-            $request->get('sort_dir', 'desc'),
-            (int) $request->get('page', 1),
-            (int) $request->get('per_page', 25)
-        );
+            $dailyTrend = $this->analyticsService->getDailyTrend(
+                $resolvedWebsiteIds,
+                $dateRange['start'],
+                $dateRange['end'],
+                $dateRange['prev_start'],
+                $dateRange['prev_end']
+            );
 
-        $topPages = $this->analyticsService->getTopPages(
-            $resolvedWebsiteIds,
-            $dateRange['start'],
-            $dateRange['end'],
-            $request->get('page_search'),
-            $request->get('page_sort_by', 'clicks'),
-            $request->get('page_sort_dir', 'desc'),
-            (int) $request->get('pages_page', 1),
-            25
-        );
+            $keywords = $this->analyticsService->getSearchKeywords(
+                $resolvedWebsiteIds,
+                $dateRange['start'],
+                $dateRange['end'],
+                $request->get('keyword_search'),
+                $request->get('sort_by', 'clicks'),
+                $request->get('sort_dir', 'desc'),
+                (int) $request->get('page', 1),
+                (int) $request->get('per_page', 25)
+            );
 
-        $countries = $this->analyticsService->getCountries($resolvedWebsiteIds, $dateRange['start'], $dateRange['end']);
-        $devices = $this->analyticsService->getDevices($resolvedWebsiteIds, $dateRange['start'], $dateRange['end']);
+            $topPages = $this->analyticsService->getTopPages(
+                $resolvedWebsiteIds,
+                $dateRange['start'],
+                $dateRange['end'],
+                $request->get('page_search'),
+                $request->get('page_sort_by', 'clicks'),
+                $request->get('page_sort_dir', 'desc'),
+                (int) $request->get('pages_page', 1),
+                25
+            );
 
-        $websiteBreakdown = (!empty($resolvedWebsiteIds))
-            ? $this->analyticsService->getWebsiteBreakdown($resolvedWebsiteIds, $dateRange['start'], $dateRange['end'], $dateRange['prev_start'], $dateRange['prev_end'])
-            : [];
+            $countries = $this->analyticsService->getCountries($resolvedWebsiteIds, $dateRange['start'], $dateRange['end']);
+            $devices = $this->analyticsService->getDevices($resolvedWebsiteIds, $dateRange['start'], $dateRange['end']);
+        }
 
-        return response()->json([
+        if ($tab === 'all' || $tab === 'rankings') {
+            $websiteBreakdown = (!empty($resolvedWebsiteIds))
+                ? $this->analyticsService->getWebsiteBreakdown($resolvedWebsiteIds, $dateRange['start'], $dateRange['end'], $dateRange['prev_start'], $dateRange['prev_end'])
+                : [];
+        }
+
+        $res = [
             'success'             => true,
             'date_range'          => $dateRange,
             'website_ids'         => $resolvedWebsiteIds,
-            'kpi_summary'         => $kpiSummary,
-            'daily_trend'         => $dailyTrend,
-            'keywords'            => $keywords,
-            'top_pages'           => $topPages,
-            'countries'           => $countries,
-            'devices'             => $devices,
-            'website_breakdown'   => $websiteBreakdown,
-        ]);
+        ];
+        if ($kpiSummary !== null) $res['kpi_summary'] = $kpiSummary;
+        if ($dailyTrend !== null) $res['daily_trend'] = $dailyTrend;
+        if ($keywords !== null) $res['keywords'] = $keywords;
+        if ($topPages !== null) $res['top_pages'] = $topPages;
+        if ($countries !== null) $res['countries'] = $countries;
+        if ($devices !== null) $res['devices'] = $devices;
+        if ($websiteBreakdown !== null) $res['website_breakdown'] = $websiteBreakdown;
+
+        return response()->json($res);
     }
 
     /**
