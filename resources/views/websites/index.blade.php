@@ -3100,12 +3100,13 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                     'fifth': '5', '5th': '5',
                     'sixth': '6', '6th': '6',
                     'seventh': '7', '7th': '7',
-                    'eighth': '8', '8th': '8'
+                    'eighth': '8', '8th': '8',
+                    'ninth': '9', '9th': '9'
                 };
                 for (const [key, val] of Object.entries(wordMap)) {
                     if (cat.includes(key)) return val;
                 }
-                const match = cat.match(/([1-8])/);
+                const match = cat.match(/([1-9])/);
                 return match ? match[1] : '';
             },
             selectWebsite(item, id, name, category, blogClass) {

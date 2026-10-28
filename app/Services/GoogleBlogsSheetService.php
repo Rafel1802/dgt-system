@@ -26,6 +26,7 @@ class GoogleBlogsSheetService
         '6' => ['class' => 'AC', 'doc' => 'AD', 'public' => 'AE', 'date' => 'AF', 'website' => 'AG'],
         '7' => ['class' => 'AJ', 'doc' => 'AK', 'public' => 'AL', 'date' => 'AM', 'website' => 'AN'],
         '8' => ['class' => 'AQ', 'doc' => 'AR', 'public' => 'AS', 'date' => 'AT', 'website' => 'AU'],
+        '9' => ['class' => 'AX', 'doc' => 'AY', 'public' => 'AZ', 'date' => 'BA', 'website' => 'BB'],
     ];
 
     /**
@@ -37,7 +38,7 @@ class GoogleBlogsSheetService
     }
 
     /**
-     * Auto-detect the class number (e.g. "5") from a website category string (e.g. "5th Class", "Class 5", "Fifth Class").
+     * Auto-detect the class number (e.g. "5", "9") from a website category string (e.g. "9th Class", "Class 9", "Ninth Class").
      */
     public static function extractClassFromCategory(?string $category): ?string
     {
@@ -56,6 +57,7 @@ class GoogleBlogsSheetService
             'sixth' => '6', '6th' => '6',
             'seventh' => '7', '7th' => '7',
             'eighth' => '8', '8th' => '8',
+            'ninth' => '9', '9th' => '9',
         ];
 
         foreach ($wordMap as $key => $num) {
@@ -64,11 +66,11 @@ class GoogleBlogsSheetService
             }
         }
 
-        if (preg_match('/\b([1-8])\b/', $cat, $matches)) {
+        if (preg_match('/\b([1-9])\b/', $cat, $matches)) {
             return $matches[1];
         }
 
-        if (preg_match('/([1-8])/', $cat, $matches)) {
+        if (preg_match('/([1-9])/', $cat, $matches)) {
             return $matches[1];
         }
 

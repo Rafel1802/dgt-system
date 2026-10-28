@@ -368,6 +368,52 @@ class WebsiteFollowUpTest extends TestCase
         ]);
     }
 
+    public function test_store_followup_supports_class_9_and_syncs_to_sheet(): void
+    {
+        config([
+            'services.google_blogs.apps_script_url' => 'https://script.google.com/test',
+            'services.google_blogs.api_secret' => 'test-secret',
+        ]);
+
+        $this->assertArrayHasKey('9', GoogleBlogsSheetService::CLASS_BLOCKS);
+
+        Http::fake([
+            'https://script.google.com/test' => function (\Illuminate\Http\Client\Request $request) {
+                $payload = $request->data();
+                $this->assertEquals('9', $payload['class'] ?? null);
+                $this->assertEquals('Oct Blogs', $payload['sheet_tab'] ?? null);
+                $this->assertEquals('10/28/2026', $payload['date'] ?? null);
+                return Http::response([
+                    'success' => true,
+                    'message' => 'Blog successfully synchronized into row 5.',
+                    'sheet' => 'Oct Blogs',
+                    'row' => 5,
+                ], 200);
+            },
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('websites.followups.store'), [
+            'type' => 'blog_post',
+            'created_at' => '2026-10-28',
+            'items' => [
+                [
+                    'website_id' => $this->website->id,
+                    'blog_sheet_class' => '9',
+                    'url' => 'https://americanloader.com/blog/class-9-post',
+                ]
+            ]
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('website_follow_ups', [
+            'website_id' => $this->website->id,
+            'blog_sheet_class' => '9',
+            'google_sheet_status' => 'synced',
+        ]);
+    }
+
     public function test_extract_class_from_category_detects_all_formats(): void
     {
         $this->assertEquals('1', GoogleBlogsSheetService::extractClassFromCategory('1st Class'));
@@ -378,10 +424,13 @@ class WebsiteFollowUpTest extends TestCase
         $this->assertEquals('6', GoogleBlogsSheetService::extractClassFromCategory('6th Class'));
         $this->assertEquals('7', GoogleBlogsSheetService::extractClassFromCategory('7th Class'));
         $this->assertEquals('8', GoogleBlogsSheetService::extractClassFromCategory('8th Class'));
+        $this->assertEquals('9', GoogleBlogsSheetService::extractClassFromCategory('9th Class'));
 
         // Alternate formats
         $this->assertEquals('5', GoogleBlogsSheetService::extractClassFromCategory('Class 5'));
         $this->assertEquals('5', GoogleBlogsSheetService::extractClassFromCategory('Fifth Class'));
+        $this->assertEquals('9', GoogleBlogsSheetService::extractClassFromCategory('Class 9'));
+        $this->assertEquals('9', GoogleBlogsSheetService::extractClassFromCategory('Ninth Class'));
         $this->assertEquals('1', GoogleBlogsSheetService::extractClassFromCategory('First Class'));
         $this->assertEquals('2', GoogleBlogsSheetService::extractClassFromCategory('Second Class'));
 

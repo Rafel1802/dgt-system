@@ -7,16 +7,16 @@
  *
  *  SHEET STRUCTURE:
  *    Tabs: "Sep Blogs", "Oct Blogs", "Nov Blogs", "Dec Blogs", "Blogs"
- *    Row 1: Group Headers: "Class 3th & 4th", "Class 2nd", "Class 1st", "Class 5th", "Class 6th", "Class 7th", "Class 8th"
+ *    Row 1: Group Headers: "Class 3th & 4th", "Class 2nd", "Class 1st", "Class 5th", "Class 6th", "Class 7th", "Class 8th", "Class 9th"
  *    Row 2: Column Headers: "Class", "Doc Link", "Public Link", "Dated", "Website link", "Writer"
  *
  *    Each 7-column class block layout:
- *      +0 = Class        (Col A=0,  H=7,  O=14, V=21, AC=28, AJ=35, AQ=42)
- *      +1 = Doc Link     (Col B=1,  I=8,  P=15, W=22, AD=29, AK=36, AR=43)  — NEVER modified
- *      +2 = Public Link  (Col C=2,  J=9,  Q=16, X=23, AE=30, AL=37, AS=44)  — Updated with Blog URL
- *      +3 = Dated        (Col D=3,  K=10, R=17, Y=24, AF=31, AM=38, AT=45)  — Updated with MM/DD Date
- *      +4 = Website link (Col E=4,  L=11, S=18, Z=25, AG=32, AN=39, AU=46)  — Preserved
- *      +5 = Writer       (Col F=5,  M=12, T=19, AA=26, AH=33, AO=40, AV=47) — Preserved
+ *      +0 = Class        (Col A=0,  H=7,  O=14, V=21, AC=28, AJ=35, AQ=42, AX=49)
+ *      +1 = Doc Link     (Col B=1,  I=8,  P=15, W=22, AD=29, AK=36, AR=43, AY=50) — NEVER modified
+ *      +2 = Public Link  (Col C=2,  J=9,  Q=16, X=23, AE=30, AL=37, AS=44, AZ=51) — Updated with Blog URL
+ *      +3 = Dated        (Col D=3,  K=10, R=17, Y=24, AF=31, AM=38, AT=45, BA=52) — Updated with MM/DD Date
+ *      +4 = Website link (Col E=4,  L=11, S=18, Z=25, AG=32, AN=39, AU=46, BB=53) — Preserved
+ *      +5 = Writer       (Col F=5,  M=12, T=19, AA=26, AH=33, AO=40, AV=47, BC=54) — Preserved
  *      +6 = Spacer / Blank
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -561,7 +561,8 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
     '5': 21,
     '6': 28,
     '7': 35,
-    '8': 42
+    '8': 42,
+    '9': 49
   };
 
   // Dynamically locate subheader row (contains Link, Public, Doc, Date, etc.)
@@ -623,7 +624,7 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
   }
 
   if (classColIndices.length === 0) {
-    classColIndices = [0, 7, 14, 21, 28, 35, 42];
+    classColIndices = [0, 7, 14, 21, 28, 35, 42, 49];
   }
 
   // 2. Build block configurations
