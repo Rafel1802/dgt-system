@@ -1051,7 +1051,7 @@
         {{-- 4 Trophy / Podium Highlight Cards --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {{-- 1. Most Impressions Champion --}}
-            <div class="p-5 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-400/40 dark:border-amber-700/50 rounded-2xl bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden">
+            <div class="p-5 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-400/40 dark:border-amber-700/50 rounded-2xl bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div class="absolute -right-3 -bottom-3 text-amber-500/10 dark:text-amber-400/10 pointer-events-none text-7xl font-black">
                     #1
                 </div>
@@ -1062,12 +1062,38 @@
                     <span class="text-xs font-bold text-amber-600 dark:text-amber-400" x-text="(topRankedByImpressions?.impressions_share || 0) + '% Share'"></span>
                 </div>
                 <template x-if="topRankedByImpressions">
-                    <div>
-                        <div class="text-base font-extrabold text-slate-900 dark:text-slate-100 truncate" x-text="topRankedByImpressions.name"></div>
-                        <div class="text-xs font-mono text-blue-600 dark:text-blue-400 truncate mt-0.5" x-text="cleanDomain(topRankedByImpressions.clean_domain)"></div>
-                        <div class="mt-3 flex items-baseline gap-2">
-                            <span class="text-2xl font-black text-amber-600 dark:text-amber-400" x-text="formatNumber(topRankedByImpressions.impressions)"></span>
-                            <span class="text-xs text-slate-500">impressions</span>
+                    <div class="flex items-start gap-3.5 pt-0.5 relative z-10">
+                        {{-- Left column: Handler Profile & Name --}}
+                        <div class="flex flex-col items-center shrink-0 w-20 text-center">
+                            <template x-if="topRankedByImpressions.handler_avatar">
+                                <img :src="topRankedByImpressions.handler_avatar" 
+                                     :alt="topRankedByImpressions.handler_name"
+                                     class="w-11 h-11 rounded-full object-cover ring-2 ring-amber-400/50 shadow-sm">
+                            </template>
+                            <template x-if="!topRankedByImpressions.handler_avatar">
+                                <div class="w-11 h-11 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/30 flex items-center justify-center font-bold text-xs shadow-sm">
+                                    <span x-text="(topRankedByImpressions.handler_name || 'U').substring(0, 2).toUpperCase()"></span>
+                                </div>
+                            </template>
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words" 
+                                  :title="topRankedByImpressions.handler_name || 'Unassigned'"
+                                  x-text="topRankedByImpressions.handler_name || 'Unassigned'"></span>
+                            <span class="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mt-0.5">Handler</span>
+                        </div>
+
+                        {{-- Vertical Divider --}}
+                        <div class="w-px self-stretch bg-slate-200/70 dark:bg-slate-700/70 my-0.5"></div>
+
+                        {{-- Right Column: Website & Metric --}}
+                        <div class="min-w-0 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate" :title="topRankedByImpressions.name" x-text="topRankedByImpressions.name"></div>
+                                <a :href="'https://' + cleanDomain(topRankedByImpressions.clean_domain)" target="_blank" rel="noopener" class="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline truncate block mt-0.5" :title="cleanDomain(topRankedByImpressions.clean_domain)" x-text="cleanDomain(topRankedByImpressions.clean_domain)"></a>
+                            </div>
+                            <div class="mt-2.5 flex items-baseline gap-1.5">
+                                <span class="text-2xl font-black text-amber-600 dark:text-amber-400" x-text="formatNumber(topRankedByImpressions.impressions)"></span>
+                                <span class="text-xs text-slate-500">impressions</span>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -1077,7 +1103,7 @@
             </div>
 
             {{-- 2. Most Clicks Champion --}}
-            <div class="p-5 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent border border-blue-400/40 dark:border-blue-700/50 rounded-2xl bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden">
+            <div class="p-5 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent border border-blue-400/40 dark:border-blue-700/50 rounded-2xl bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div class="absolute -right-3 -bottom-3 text-blue-500/10 dark:text-blue-400/10 pointer-events-none text-7xl font-black">
                     #1
                 </div>
@@ -1088,12 +1114,38 @@
                     <span class="text-xs font-bold text-blue-600 dark:text-blue-400" x-text="(topRankedByClicks?.clicks_share || 0) + '% Share'"></span>
                 </div>
                 <template x-if="topRankedByClicks">
-                    <div>
-                        <div class="text-base font-extrabold text-slate-900 dark:text-slate-100 truncate" x-text="topRankedByClicks.name"></div>
-                        <div class="text-xs font-mono text-blue-600 dark:text-blue-400 truncate mt-0.5" x-text="cleanDomain(topRankedByClicks.clean_domain)"></div>
-                        <div class="mt-3 flex items-baseline gap-2">
-                            <span class="text-2xl font-black text-blue-600 dark:text-blue-400" x-text="formatNumber(topRankedByClicks.clicks)"></span>
-                            <span class="text-xs text-slate-500">clicks</span>
+                    <div class="flex items-start gap-3.5 pt-0.5 relative z-10">
+                        {{-- Left column: Handler Profile & Name --}}
+                        <div class="flex flex-col items-center shrink-0 w-20 text-center">
+                            <template x-if="topRankedByClicks.handler_avatar">
+                                <img :src="topRankedByClicks.handler_avatar" 
+                                     :alt="topRankedByClicks.handler_name"
+                                     class="w-11 h-11 rounded-full object-cover ring-2 ring-blue-400/50 shadow-sm">
+                            </template>
+                            <template x-if="!topRankedByClicks.handler_avatar">
+                                <div class="w-11 h-11 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400/30 flex items-center justify-center font-bold text-xs shadow-sm">
+                                    <span x-text="(topRankedByClicks.handler_name || 'U').substring(0, 2).toUpperCase()"></span>
+                                </div>
+                            </template>
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words" 
+                                  :title="topRankedByClicks.handler_name || 'Unassigned'"
+                                  x-text="topRankedByClicks.handler_name || 'Unassigned'"></span>
+                            <span class="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mt-0.5">Handler</span>
+                        </div>
+
+                        {{-- Vertical Divider --}}
+                        <div class="w-px self-stretch bg-slate-200/70 dark:bg-slate-700/70 my-0.5"></div>
+
+                        {{-- Right Column: Website & Metric --}}
+                        <div class="min-w-0 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate" :title="topRankedByClicks.name" x-text="topRankedByClicks.name"></div>
+                                <a :href="'https://' + cleanDomain(topRankedByClicks.clean_domain)" target="_blank" rel="noopener" class="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline truncate block mt-0.5" :title="cleanDomain(topRankedByClicks.clean_domain)" x-text="cleanDomain(topRankedByClicks.clean_domain)"></a>
+                            </div>
+                            <div class="mt-2.5 flex items-baseline gap-1.5">
+                                <span class="text-2xl font-black text-blue-600 dark:text-blue-400" x-text="formatNumber(topRankedByClicks.clicks)"></span>
+                                <span class="text-xs text-slate-500">clicks</span>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -1103,7 +1155,7 @@
             </div>
 
             {{-- 3. Highest CTR Performer --}}
-            <div class="p-5 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-400/40 dark:border-emerald-700/50 rounded-2xl bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden">
+            <div class="p-5 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-400/40 dark:border-emerald-700/50 rounded-2xl bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div class="absolute -right-3 -bottom-3 text-emerald-500/10 dark:text-emerald-400/10 pointer-events-none text-7xl font-black">
                     %
                 </div>
@@ -1113,12 +1165,38 @@
                     </span>
                 </div>
                 <template x-if="topRankedByCtr">
-                    <div>
-                        <div class="text-base font-extrabold text-slate-900 dark:text-slate-100 truncate" x-text="topRankedByCtr.name"></div>
-                        <div class="text-xs font-mono text-blue-600 dark:text-blue-400 truncate mt-0.5" x-text="cleanDomain(topRankedByCtr.clean_domain)"></div>
-                        <div class="mt-3 flex items-baseline gap-2">
-                            <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400" x-text="(topRankedByCtr.ctr || 0) + '%'"></span>
-                            <span class="text-xs text-slate-500">click rate</span>
+                    <div class="flex items-start gap-3.5 pt-0.5 relative z-10">
+                        {{-- Left column: Handler Profile & Name --}}
+                        <div class="flex flex-col items-center shrink-0 w-20 text-center">
+                            <template x-if="topRankedByCtr.handler_avatar">
+                                <img :src="topRankedByCtr.handler_avatar" 
+                                     :alt="topRankedByCtr.handler_name"
+                                     class="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-400/50 shadow-sm">
+                            </template>
+                            <template x-if="!topRankedByCtr.handler_avatar">
+                                <div class="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-400/30 flex items-center justify-center font-bold text-xs shadow-sm">
+                                    <span x-text="(topRankedByCtr.handler_name || 'U').substring(0, 2).toUpperCase()"></span>
+                                </div>
+                            </template>
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words" 
+                                  :title="topRankedByCtr.handler_name || 'Unassigned'"
+                                  x-text="topRankedByCtr.handler_name || 'Unassigned'"></span>
+                            <span class="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mt-0.5">Handler</span>
+                        </div>
+
+                        {{-- Vertical Divider --}}
+                        <div class="w-px self-stretch bg-slate-200/70 dark:bg-slate-700/70 my-0.5"></div>
+
+                        {{-- Right Column: Website & Metric --}}
+                        <div class="min-w-0 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate" :title="topRankedByCtr.name" x-text="topRankedByCtr.name"></div>
+                                <a :href="'https://' + cleanDomain(topRankedByCtr.clean_domain)" target="_blank" rel="noopener" class="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline truncate block mt-0.5" :title="cleanDomain(topRankedByCtr.clean_domain)" x-text="cleanDomain(topRankedByCtr.clean_domain)"></a>
+                            </div>
+                            <div class="mt-2.5 flex items-baseline gap-1.5">
+                                <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400" x-text="(topRankedByCtr.ctr || 0) + '%'"></span>
+                                <span class="text-xs text-slate-500">click rate</span>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -1128,7 +1206,7 @@
             </div>
 
             {{-- 4. Best Search Position --}}
-            <div class="p-5 bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-transparent border border-purple-400/40 dark:border-purple-700/50 rounded-2xl bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden">
+            <div class="p-5 bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-transparent border border-purple-400/40 dark:border-purple-700/50 rounded-2xl bg-white dark:bg-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div class="absolute -right-3 -bottom-3 text-purple-500/10 dark:text-purple-400/10 pointer-events-none text-7xl font-black">
                     #
                 </div>
@@ -1138,12 +1216,38 @@
                     </span>
                 </div>
                 <template x-if="topRankedByPosition">
-                    <div>
-                        <div class="text-base font-extrabold text-slate-900 dark:text-slate-100 truncate" x-text="topRankedByPosition.name"></div>
-                        <div class="text-xs font-mono text-blue-600 dark:text-blue-400 truncate mt-0.5" x-text="cleanDomain(topRankedByPosition.clean_domain)"></div>
-                        <div class="mt-3 flex items-baseline gap-2">
-                            <span class="text-2xl font-black text-purple-600 dark:text-purple-400" x-text="'#' + (topRankedByPosition.position || 0)"></span>
-                            <span class="text-xs text-slate-500">Google Rank</span>
+                    <div class="flex items-start gap-3.5 pt-0.5 relative z-10">
+                        {{-- Left column: Handler Profile & Name --}}
+                        <div class="flex flex-col items-center shrink-0 w-20 text-center">
+                            <template x-if="topRankedByPosition.handler_avatar">
+                                <img :src="topRankedByPosition.handler_avatar" 
+                                     :alt="topRankedByPosition.handler_name"
+                                     class="w-11 h-11 rounded-full object-cover ring-2 ring-purple-400/50 shadow-sm">
+                            </template>
+                            <template x-if="!topRankedByPosition.handler_avatar">
+                                <div class="w-11 h-11 rounded-full bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 ring-2 ring-purple-400/30 flex items-center justify-center font-bold text-xs shadow-sm">
+                                    <span x-text="(topRankedByPosition.handler_name || 'U').substring(0, 2).toUpperCase()"></span>
+                                </div>
+                            </template>
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words" 
+                                  :title="topRankedByPosition.handler_name || 'Unassigned'"
+                                  x-text="topRankedByPosition.handler_name || 'Unassigned'"></span>
+                            <span class="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mt-0.5">Handler</span>
+                        </div>
+
+                        {{-- Vertical Divider --}}
+                        <div class="w-px self-stretch bg-slate-200/70 dark:bg-slate-700/70 my-0.5"></div>
+
+                        {{-- Right Column: Website & Metric --}}
+                        <div class="min-w-0 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate" :title="topRankedByPosition.name" x-text="topRankedByPosition.name"></div>
+                                <a :href="'https://' + cleanDomain(topRankedByPosition.clean_domain)" target="_blank" rel="noopener" class="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline truncate block mt-0.5" :title="cleanDomain(topRankedByPosition.clean_domain)" x-text="cleanDomain(topRankedByPosition.clean_domain)"></a>
+                            </div>
+                            <div class="mt-2.5 flex items-baseline gap-1.5">
+                                <span class="text-2xl font-black text-purple-600 dark:text-purple-400" x-text="'#' + (topRankedByPosition.position || 0)"></span>
+                                <span class="text-xs text-slate-500">Google Rank</span>
+                            </div>
                         </div>
                     </div>
                 </template>
