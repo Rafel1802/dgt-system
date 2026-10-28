@@ -1664,7 +1664,7 @@
               <div class="flex gap-3 mb-6">
                 <img src="{{ auth()->user()->avatar_url }}" alt="{{ auth()->user()->name }}"
                      class="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-sm flex-shrink-0 select-none mt-1">
-                <div class="flex-1" x-data="{ commentFocused: false, quickReplies: ['Ready', 'Team approved', 'Production approved', 'Production approved SMM', 'Approved', 'Blocked'] }">
+                <div class="flex-1" x-data="{ commentFocused: false, commentDragging: false, quickReplies: ['Ready', 'Team approved', 'Production approved', 'Production approved SMM', 'Approved', 'Blocked'] }">
                   {{-- Paste multi-image preview --}}
                   <template x-if="(pastedImages && pastedImages.length > 0) || pastedImage">
                     <div class="mb-3 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-slate-50/70 dark:bg-slate-800/60">
@@ -1673,7 +1673,13 @@
                           📷 <span x-text="(pastedImages && pastedImages.length > 1) ? pastedImages.length + ' Screenshots ready' : '1 Screenshot ready'"></span>
                         </span>
                         <div class="flex items-center gap-2">
-                          <span class="text-[10px] text-slate-400 font-medium">⌘+V to paste more</span>
+                          <button type="button" @click.stop="$refs.commentImageInput.click()" class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-0.5">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                            Add more
+                          </button>
+                          <span class="text-slate-300 dark:text-slate-600">•</span>
+                          <span class="text-[10px] text-slate-400 font-medium">⌘+V to paste</span>
+                          <span class="text-slate-300 dark:text-slate-600">•</span>
                           <button type="button" @click.stop="clearPastedImages()" class="text-[10px] text-rose-500 hover:text-rose-700 font-bold hover:underline">Clear all</button>
                         </div>
                       </div>
@@ -1692,13 +1698,26 @@
                   </template>
 
                   <div class="relative">
-                    <textarea x-ref="commentInput" x-model="newComment" rows="4" placeholder="Write a comment… or paste a screenshot (⌘+V)"
-                              class="w-full p-3 pr-10 text-xs bg-white border border-slate-200 focus:bg-white rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none transition-all shadow-sm resize-none kanban-comment-bubble kanban-comment-text"
+                    {{-- Hidden file input for uploading screenshot/image --}}
+                    <input type="file" 
+                           x-ref="commentImageInput" 
+                           accept="image/*" 
+                           multiple 
+                           class="hidden" 
+                           @change="handleImageUpload($event)">
+
+                    <textarea x-ref="commentInput" x-model="newComment" rows="4" 
+                              placeholder="Write a comment… paste (⌘+V) or upload screenshot"
+                              class="w-full p-3 pr-16 text-xs bg-white border border-slate-200 focus:bg-white rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:outline-none transition-all shadow-sm resize-none kanban-comment-bubble kanban-comment-text"
+                              :class="{ 'ring-2 ring-indigo-500 border-indigo-400 bg-indigo-50/20': commentDragging }"
                               @keydown.ctrl.enter="submitComment()"
                               @keydown.meta.enter="((pastedImages && pastedImages.length > 0) || pastedImage) ? sendScreenshot() : submitComment()"
                               @focus="commentFocused = true"
                               @blur="commentFocused = false; setTimeout(() => { if(typeof mentionState !== 'undefined') mentionState.show = false }, 200)"
                               @paste="handlePaste($event)"
+                              @dragover.prevent="commentDragging = true"
+                              @dragleave.prevent="commentDragging = false"
+                              @drop.prevent="commentDragging = false; handleCommentDrop($event)"
                               @input="if(typeof handleCommentInput === 'function') handleCommentInput($event)"
                               @keydown="if(typeof handleCommentKeydown === 'function') handleCommentKeydown($event)"></textarea>
                     
@@ -1722,8 +1741,21 @@
                       </div>
                     </div>
 
-                    <div class="absolute right-2.5 bottom-2.5 text-slate-300 text-[10px] select-none" x-show="!newComment.trim() && !((pastedImages && pastedImages.length > 0) || pastedImage)">
-                      ⌘↵
+                    {{-- Upload image icon button & shortcut hint at the right side end --}}
+                    <div class="absolute right-2.5 bottom-2.5 flex items-center gap-1.5 z-10">
+                      <button type="button" 
+                              @click.stop="$refs.commentImageInput.click()" 
+                              class="p-1 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer group flex items-center justify-center"
+                              title="Upload screenshot or image">
+                        <svg class="w-4 h-4 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                        </svg>
+                      </button>
+
+                      <span class="text-slate-300 dark:text-slate-600 text-[10px] select-none font-mono pr-0.5" 
+                            x-show="!newComment.trim() && !((pastedImages && pastedImages.length > 0) || pastedImage)">
+                        ⌘↵
+                      </span>
                     </div>
 
                     {{-- Quick Replies Dropdown --}}

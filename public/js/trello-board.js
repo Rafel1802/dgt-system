@@ -7699,6 +7699,10 @@ window.trelloBoard = function(config) {
           URL.revokeObjectURL(url);
           resolve(canvas.toDataURL('image/jpeg', quality));
         };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
         img.src = url;
       });
     },
@@ -7736,6 +7740,37 @@ window.trelloBoard = function(config) {
         const total = this.pastedImages.length;
         window.showToast(total > 1 ? `${total} screenshots ready! Press ⌘+V to paste more` : 'Screenshot attached! Press ⌘+V to paste more 📸', 'info');
       }
+    },
+
+    async handleImageUpload(event) {
+      const files = event.target?.files || (event.dataTransfer?.files);
+      if (!files || !files.length) return;
+      if (!this.pastedImages) this.pastedImages = [];
+      let added = 0;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type && file.type.indexOf('image') !== -1) {
+          const compressed = await this.compressImage(file, 1200, 900, 0.80);
+          if (compressed) {
+            this.pastedImages.push(compressed);
+            this.pastedImage = this.pastedImages[0];
+            added++;
+          }
+        }
+      }
+      if (event.target && event.target.value !== undefined) {
+        event.target.value = '';
+      }
+      if (added > 0) {
+        const total = this.pastedImages.length;
+        window.showToast(total > 1 ? `${total} screenshots ready! 📸` : 'Screenshot attached! 📸', 'info');
+      }
+    },
+
+    async handleCommentDrop(event) {
+      const files = event.dataTransfer?.files;
+      if (!files || !files.length) return;
+      await this.handleImageUpload(event);
     },
 
     removePastedImage(index) {
