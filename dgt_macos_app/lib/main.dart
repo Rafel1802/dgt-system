@@ -357,12 +357,27 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
           document.documentElement.classList.add('dgt-macos-app');
           window.dispatchEvent(new CustomEvent('dgt-macos-app-ready'));
           
-          // Remove scrollbars without layout thrashing
+          // Remove scrollbars without layout thrashing and enable Metal GPU compositing
           const style = document.createElement('style');
           style.innerHTML = `
+            * {
+              -webkit-font-smoothing: antialiased;
+              -moz-osx-font-smoothing: grayscale;
+            }
             ::-webkit-scrollbar { display: none; }
             html:not([data-theme="dark"]):not([data-theme="neon"]) body { background-color: #f4f7fb !important; }
             body { -ms-overflow-style: none; scrollbar-width: none; }
+            /* Silky smooth 60fps/120fps ProMotion scrolling layers */
+            html, body {
+              -webkit-overflow-scrolling: touch;
+              scroll-behavior: smooth;
+              overscroll-behavior-y: none;
+            }
+            .overflow-y-auto, .overflow-auto, main, [role="main"] {
+              transform: translateZ(0);
+              -webkit-transform: translateZ(0);
+              will-change: scroll-position;
+            }
           `;
           document.head.appendChild(style);
 
@@ -662,7 +677,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                         ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1 DGTSystemiOSApp'
                         : (Platform.isAndroid
                             ? 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36 DGTSystemAndroidApp'
-                            : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 DGTSystemMacOSApp'),
+                            : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15 DGTSystemMacOSApp'),
                     javaScriptEnabled: true,
                     javaScriptCanOpenWindowsAutomatically: true,
                     transparentBackground: false,
@@ -671,6 +686,10 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     useOnDownloadStart: true,
                     allowsBackForwardNavigationGestures: true,
                     isInspectable: false,
+                    // High-performance macOS WebKit tuning:
+                    allowsLinkPreview: false,
+                    suppressesIncrementalRendering: false,
+                    underPageBackgroundColor: const Color(0xFFF4F7FB),
                     // Media & caption capabilities for WebKit
                     allowsInlineMediaPlayback: true,
                     mediaPlaybackRequiresUserGesture: false,
