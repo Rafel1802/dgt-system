@@ -216,11 +216,12 @@ body.is-dragging-card * { cursor: grabbing !important; }
 	@media (max-width: 1023px) {
 		.is-board-page .topbar,
 		html:has(.board-wrap) .topbar {
-			padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
-			padding-bottom: 8px !important;
+			padding-top: env(safe-area-inset-top, 0px) !important;
+			padding-bottom: 0px !important;
 			padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
 			padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
-			min-height: calc(44px + max(calc(env(safe-area-inset-top, 0px) + 8px), 16px)) !important;
+			height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+			min-height: calc(44px + env(safe-area-inset-top, 0px)) !important;
 			border-bottom: none !important;
 			margin-bottom: 0 !important;
 			background: transparent !important;
@@ -341,10 +342,10 @@ body.is-dragging-card * { cursor: grabbing !important; }
 		.is-board-page .topbar,
 		.main-wrapper:has(.board-wrap) .topbar {
 			flex: 0 0 auto !important;
-			height: auto !important;
-			min-height: 0 !important;
-			padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
-			padding-bottom: 8px !important;
+			height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+			min-height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+			padding-top: env(safe-area-inset-top, 0px) !important;
+			padding-bottom: 0px !important;
 			padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
 			padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
 		}

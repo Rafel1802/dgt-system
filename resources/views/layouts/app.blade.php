@@ -502,12 +502,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             html.dgt-mobile-app .topbar {
                 flex: 0 0 auto;
-                height: auto !important;
-                min-height: calc(56px + max(calc(env(safe-area-inset-top, 0px) + 8px), 16px)) !important;
-                padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
-                padding-bottom: 8px !important;
-                padding-left: max(1rem, env(safe-area-inset-left, 16px)) !important;
-                padding-right: max(1rem, env(safe-area-inset-right, 16px)) !important;
+                height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+                min-height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+                padding-top: env(safe-area-inset-top, 0px) !important;
+                padding-bottom: 0px !important;
+                padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
+                padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
             }
 
             html.dgt-mobile-app .page-content {
@@ -517,7 +517,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
                 overscroll-behavior-y: contain;
-                padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+                padding-bottom: calc(52px + max(calc(env(safe-area-inset-bottom, 0px) - 8px), 8px)) !important;
             }
 
             /* 100% Native Mobile App UX Enhancements */
@@ -2342,7 +2342,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         <img src="{{ auth()->user()?->avatar_url }}"
                              alt="{{ auth()->user()?->name }}"
                              onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()?->name ?? 'User', auth()->user()?->avatar_color ?? '#64748b') }}';"
-                             class="w-7.5 h-7.5 rounded-full object-cover">
+                             class="w-7 h-7 rounded-full object-cover">
                     </button>
 
                     @php

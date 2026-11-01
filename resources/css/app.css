@@ -2356,18 +2356,18 @@
     border-top: 0.5px solid rgba(0, 0, 0, 0.1);
     box-shadow: 0 -1px 8px rgba(0, 0, 0, 0.03);
     width: 100%;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) - 10px), 3px);
     transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   [data-theme="dark"] .mobile-bottom-nav {
-    background: rgba(15, 23, 42, 0.88);
+    background: rgba(15, 23, 42, 0.92);
     border-top: 0.5px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.35);
   }
 
   [data-theme="neon"] .mobile-bottom-nav {
-    background: rgba(3, 13, 34, 0.92);
+    background: rgba(3, 13, 34, 0.95);
     border-top: 0.5px solid rgba(0, 240, 255, 0.35);
     box-shadow: 0 -4px 25px rgba(0, 150, 255, 0.25);
   }
@@ -2376,11 +2376,11 @@
     display: flex;
     align-items: center;
     justify-content: space-around;
-    height: 52px;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
+    height: 48px;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
     position: relative;
-    max-width: 520px;
+    max-width: 500px;
     margin: 0 auto;
     box-sizing: border-box;
   }
@@ -2390,10 +2390,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 1.5px;
     flex: 1;
     height: 100%;
-    padding: 2px 0;
+    padding: 1px 0;
     text-decoration: none;
     background: none;
     border: none;
@@ -2414,22 +2414,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .mobile-nav-icon svg,
   .mobile-nav-icon img {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     color: #8e8e93;
     transition: color 0.15s ease, transform 0.15s ease;
   }
 
   .mobile-nav-label {
-    font-size: 10px;
-    font-weight: 500;
+    font-size: 9.5px;
+    font-weight: 550;
     color: #8e8e93;
     transition: color 0.15s ease;
     line-height: 1;
@@ -2523,10 +2523,10 @@
   .mobile-page-content,
   .page-content,
   .page-content.mobile-page-content {
-    padding-left: max(1rem, env(safe-area-inset-left, 16px)) !important;
-    padding-right: max(1rem, env(safe-area-inset-right, 16px)) !important;
-    padding-top: 0.875rem !important;
-    padding-bottom: calc(84px + env(safe-area-inset-bottom, 16px)) !important;
+    padding-left: max(0.875rem, env(safe-area-inset-left, 14px)) !important;
+    padding-right: max(0.875rem, env(safe-area-inset-right, 14px)) !important;
+    padding-top: 0.625rem !important;
+    padding-bottom: calc(52px + max(calc(env(safe-area-inset-bottom, 0px) - 8px), 8px)) !important;
   }
 
   /* Keep full-bleed for the board canvas only */
@@ -2631,6 +2631,13 @@
       max-width: 100%;
     }
 
+    /* ─ Prevent double stacked whitespace voids at bottom of pages on mobile ─ */
+    .pb-28,
+    .pb-24,
+    .pb-20 {
+      padding-bottom: 1.25rem !important;
+    }
+
     /* ─ Grid/flex overflows: allow horizontal scroll only on specific containers ─ */
     .mobile-scroll-x {
       display: flex;
@@ -2715,7 +2722,7 @@
     }
 
     .mobile-bottom-nav-inner {
-      height: 50px !important;
+      height: 48px !important;
       padding-left: 2px !important;
       padding-right: 2px !important;
     }
@@ -2849,12 +2856,12 @@
 
   /* ── Native iOS Navigation Bar (Header) ── */
   .topbar {
-    height: calc(48px + env(safe-area-inset-top, 0px)) !important;
-    min-height: calc(48px + env(safe-area-inset-top, 0px)) !important;
+    height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(44px + env(safe-area-inset-top, 0px)) !important;
     padding-top: env(safe-area-inset-top, 0px) !important;
     padding-bottom: 0px !important;
-    padding-left: max(0.875rem, env(safe-area-inset-left, 14px)) !important;
-    padding-right: max(0.875rem, env(safe-area-inset-right, 14px)) !important;
+    padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
+    padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
     backdrop-filter: blur(25px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
     border-bottom: 0.5px solid rgba(0, 0, 0, 0.08) !important;
@@ -2925,7 +2932,7 @@
   /* ── Apple HIG Dynamic Island / Capsule Pill Session Alert ── */
   .ios-alert-wrapper {
     position: sticky !important;
-    top: calc(48px + env(safe-area-inset-top, 0px) + 6px) !important;
+    top: calc(44px + env(safe-area-inset-top, 0px) + 6px) !important;
     z-index: 38 !important;
     pointer-events: none !important;
   }

@@ -1240,10 +1240,11 @@ body[data-theme="neon"] .cms-handler-chip {
    ══════════════════════════════════════════════════════════════ */
 @media (max-width: 1023px) {
     .cms-hub-hero {
-        padding: 16px 18px !important;
+        padding: 12px 14px !important;
         flex-direction: column !important;
         align-items: stretch !important;
-        gap: 14px !important;
+        gap: 10px !important;
+        border-radius: 16px !important;
     }
     .cms-hub-hero > div:last-child {
         width: 100% !important;
@@ -1251,20 +1252,21 @@ body[data-theme="neon"] .cms-handler-chip {
     .cms-btn-new-blog {
         width: 100% !important;
         justify-content: center !important;
-        padding: 12px 18px !important;
-        font-size: 14px !important;
+        padding: 9px 16px !important;
+        font-size: 13px !important;
+        border-radius: 12px !important;
     }
     .cms-top-header-row {
         position: relative !important;
         flex-direction: column !important;
         align-items: stretch !important;
-        gap: 12px !important;
-        padding: 12px 14px !important;
-        margin-bottom: 12px !important;
+        gap: 8px !important;
+        padding: 10px 12px !important;
+        margin-bottom: 8px !important;
         background: var(--cms-bg-card) !important;
-        border-radius: 18px !important;
+        border-radius: 16px !important;
         border: 1px solid var(--cms-border) !important;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03) !important;
     }
     .cms-header-left {
         width: 100% !important;
@@ -1848,24 +1850,24 @@ body[data-theme="neon"] .cms-handler-chip {
     window.DGT_SELECTED_SITE_ID = @json($selectedWebsiteId);
 </script>
 
-<div class="space-y-6" :class="currentScreen === 'editor' ? 'pb-2' : 'pb-20'" x-data="blogPostCmsApp()">
+<div class="space-y-3.5 sm:space-y-6" :class="currentScreen === 'editor' ? 'pb-2' : 'pb-4 sm:pb-8'" x-data="blogPostCmsApp()">
 
     <!-- ══════════════════════════════════════════════════════════════
          SCREEN 1: FRONT PAGE (LATEST 10 BLOG POSTS HUB)
          Default view when entering "Blog post". Image 2 is hidden until user clicks "New Blog" or "Edit".
          ══════════════════════════════════════════════════════════════ -->
-    <div x-show="currentScreen === 'list'" x-cloak class="space-y-6" :style="currentScreen !== 'list' ? 'display: none !important;' : ''">
+    <div x-show="currentScreen === 'list'" x-cloak class="space-y-3.5 sm:space-y-6" :style="currentScreen !== 'list' ? 'display: none !important;' : ''">
 
         <!-- ── Top Hero Header with [New Blog] Action ── -->
         <div class="cms-hub-hero">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/25 shrink-0">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <div class="flex items-center gap-3 sm:gap-4">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-lg sm:text-xl shadow-md sm:shadow-lg shadow-blue-500/25 shrink-0">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 </div>
                 <div>
-                    <div class="flex items-center gap-2.5">
-                        <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Blog Posts</h1>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Blog Posts</h1>
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping"></span>
                             Multi-Website CMS
                         </span>
@@ -1879,7 +1881,7 @@ body[data-theme="neon"] .cms-handler-chip {
             <div class="flex items-center gap-3">
                 <!-- Primary NEW BLOG Button (Requested by User) -->
                 <button type="button" @click="startNewPost()" class="cms-btn-new-blog" id="btn-new-blog" title="Launch New Blog Post Studio">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
                     <span>New Blog</span>
                 </button>
             </div>
@@ -1966,10 +1968,10 @@ body[data-theme="neon"] .cms-handler-chip {
         </div>
 
         <!-- ── Search, Filter & Tabs Toolbar ── -->
-        <div class="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-            <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+        <div class="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 p-2.5 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 flex-1 w-full min-w-0 sm:min-w-[280px]">
                 <!-- Search Input -->
-                <div class="relative flex-1 min-w-[220px]">
+                <div class="relative flex-1 w-full min-w-0 sm:min-w-[220px]">
                     <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                     <input type="text"
                            x-model="latestSearchQuery"
@@ -1979,11 +1981,11 @@ body[data-theme="neon"] .cms-handler-chip {
                 </div>
 
                 <!-- Custom Searchable Website Filter Dropdown with Icon, Handler Profile & Class -->
-                <div class="relative" @click.away="siteFilterDropdownOpen = false">
+                <div class="relative w-full sm:w-auto" @click.away="siteFilterDropdownOpen = false">
                     <!-- Trigger Button -->
                     <button type="button"
                             @click="siteFilterDropdownOpen = !siteFilterDropdownOpen; if (siteFilterDropdownOpen) { $nextTick(() => $refs.siteFilterSearchInput && $refs.siteFilterSearchInput.focus()); }"
-                            class="inline-flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 transition-all cursor-pointer shadow-xs min-w-[210px] max-w-[360px]"
+                            class="inline-flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 transition-all cursor-pointer shadow-xs w-full sm:w-auto min-w-0 sm:min-w-[210px] max-w-full sm:max-w-[360px]"
                             title="Filter posts by website">
                         <!-- All Integrated Websites Selected -->
                         <div x-show="latestWebsiteFilter === 'all'" class="flex items-center gap-2 truncate">
@@ -2035,7 +2037,7 @@ body[data-theme="neon"] .cms-handler-chip {
                          x-transition:leave="transition ease-in duration-100"
                          x-transition:leave-start="opacity-100 scale-100 translate-y-0"
                          x-transition:leave-end="opacity-0 scale-95 -translate-y-2"
-                         class="absolute left-0 mt-1.5 w-80 sm:w-96 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-2.5 z-50 backdrop-blur-xl"
+                         class="absolute left-0 mt-1.5 w-[calc(100vw-2.5rem)] sm:w-96 max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-2.5 z-50 backdrop-blur-xl"
                          style="display: none;">
                         
                         <!-- Search Box inside Dropdown -->
@@ -2124,11 +2126,11 @@ body[data-theme="neon"] .cms-handler-chip {
                 </div>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
                 <!-- Status Filter Tabs (Pub / Draft / Scheduled / All) -->
-                <div class="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold">
+                <div class="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[11px] sm:text-xs font-bold w-full sm:w-auto justify-between sm:justify-start">
                     <button type="button" @click="setLatestStatusFilter('all')"
-                            class="px-3 py-1 rounded-lg transition-all"
+                            class="px-2.5 sm:px-3 py-1 flex-1 sm:flex-none text-center rounded-lg transition-all"
                             :class="latestStatusFilter === 'all' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
                         All
                     </button>
@@ -2428,7 +2430,7 @@ body[data-theme="neon"] .cms-handler-chip {
         </div>
 
         <!-- ── Mobile Screen Segmented Tab Switcher (Phones & Tablets) ── -->
-        <div class="lg:hidden flex items-center p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 mb-4 shadow-xs">
+        <div class="lg:hidden flex items-center p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 mb-2.5 sm:mb-4 shadow-xs">
             <button type="button" @click="mobileStudioTab = 'content'"
                     class="flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer"
                     :class="mobileStudioTab === 'content' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'">
