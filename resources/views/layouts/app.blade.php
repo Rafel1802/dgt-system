@@ -1759,7 +1759,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             <!-- Top Navigation Bar -->
             <header class="topbar" role="banner">
-                <div class="flex items-center gap-3">
+                <div class="topbar-left flex items-center gap-2 flex-shrink-0">
                     <!-- Toggle/Expand Sidebar Button (Desktop) -->
                     <button type="button"
                             x-show="$store.sidebar.collapsed"
@@ -1820,11 +1820,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </div>
 
                 <!-- Page Title: Mathematically Centered on Mobile (Apple HIG), Left-aligned on Desktop -->
-                <div class="mobile-topbar-title">
+                <div class="mobile-topbar-title flex-1 min-w-0 px-2 flex items-center justify-center lg:justify-start overflow-hidden">
                     <p class="mobile-topbar-title-text">@yield('title', 'DIGITAL SYSTEM')</p>
                 </div>
 
-                <div class="topbar-actions ml-auto">
+                <div class="topbar-actions ml-auto flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
 
                     <!-- Cambodia Clock & Live Latency Indicator -->
                     <div x-data="cambodiaClock()" x-init="start()" class="hidden md:flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 mr-4 select-none">
