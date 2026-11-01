@@ -926,14 +926,16 @@
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800" x-text="wb.class || 'Unclassified'"></span>
                                 </td>
                                 <td class="py-3 px-4">
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 select-none group/avatar cursor-pointer"
+                                         @dblclick.stop="wb.handler_avatar ? openAvatarPreview(wb.handler_avatar, wb.handler_name, 'Team Handler • ' + wb.name) : null"
+                                         :title="wb.handler_avatar ? 'Double-click to view photo full screen' : (wb.handler_name || 'Unassigned')">
                                         <template x-if="wb.handler_avatar">
-                                            <img :src="wb.handler_avatar" :alt="wb.handler_name" class="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-700">
+                                            <img :src="wb.handler_avatar" :alt="wb.handler_name" class="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-700 cursor-zoom-in transition-transform duration-200 group-hover/avatar:scale-125">
                                         </template>
                                         <template x-if="!wb.handler_avatar">
                                             <div class="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300" x-text="(wb.handler_name || 'U').charAt(0).toUpperCase()"></div>
                                         </template>
-                                        <span class="text-xs font-medium text-slate-700 dark:text-slate-200" x-text="wb.handler_name || 'Unassigned'"></span>
+                                        <span class="text-xs font-medium text-slate-700 dark:text-slate-200 group-hover/avatar:text-blue-600 transition-colors" x-text="wb.handler_name || 'Unassigned'"></span>
                                     </div>
                                 </td>
                                 <td class="py-3 px-4 text-right font-medium text-slate-700 dark:text-slate-300" x-text="formatNumber(wb.clicks)"></td>
@@ -1064,18 +1066,22 @@
                 <template x-if="topRankedByImpressions">
                     <div class="flex items-start gap-3.5 pt-0.5 relative z-10">
                         {{-- Left column: Handler Profile & Name --}}
-                        <div class="flex flex-col items-center shrink-0 w-20 text-center">
+                        <div class="flex flex-col items-center shrink-0 w-20 text-center select-none cursor-pointer group/avatar"
+                             @dblclick.stop="topRankedByImpressions.handler_avatar ? openAvatarPreview(topRankedByImpressions.handler_avatar, topRankedByImpressions.handler_name, 'Handler • #1 Most Impressions') : null"
+                             :title="topRankedByImpressions.handler_avatar ? 'Double-click to view photo full screen' : (topRankedByImpressions.handler_name || 'Unassigned')">
                             <template x-if="topRankedByImpressions.handler_avatar">
-                                <img :src="topRankedByImpressions.handler_avatar" 
-                                     :alt="topRankedByImpressions.handler_name"
-                                     class="w-11 h-11 rounded-full object-cover ring-2 ring-amber-400/50 shadow-sm">
+                                <div class="relative">
+                                    <img :src="topRankedByImpressions.handler_avatar" 
+                                         :alt="topRankedByImpressions.handler_name"
+                                         class="w-11 h-11 rounded-full object-cover ring-2 ring-amber-400/50 shadow-sm cursor-zoom-in transition-transform duration-200 group-hover/avatar:scale-110">
+                                </div>
                             </template>
                             <template x-if="!topRankedByImpressions.handler_avatar">
                                 <div class="w-11 h-11 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/30 flex items-center justify-center font-bold text-xs shadow-sm">
                                     <span x-text="(topRankedByImpressions.handler_name || 'U').substring(0, 2).toUpperCase()"></span>
                                 </div>
                             </template>
-                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words" 
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words group-hover/avatar:text-amber-600 dark:group-hover/avatar:text-amber-400 transition-colors" 
                                   :title="topRankedByImpressions.handler_name || 'Unassigned'"
                                   x-text="topRankedByImpressions.handler_name || 'Unassigned'"></span>
                             <span class="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mt-0.5">Handler</span>
@@ -1116,18 +1122,22 @@
                 <template x-if="topRankedByClicks">
                     <div class="flex items-start gap-3.5 pt-0.5 relative z-10">
                         {{-- Left column: Handler Profile & Name --}}
-                        <div class="flex flex-col items-center shrink-0 w-20 text-center">
+                        <div class="flex flex-col items-center shrink-0 w-20 text-center select-none cursor-pointer group/avatar"
+                             @dblclick.stop="topRankedByClicks.handler_avatar ? openAvatarPreview(topRankedByClicks.handler_avatar, topRankedByClicks.handler_name, 'Handler • #1 Top Clicks') : null"
+                             :title="topRankedByClicks.handler_avatar ? 'Double-click to view photo full screen' : (topRankedByClicks.handler_name || 'Unassigned')">
                             <template x-if="topRankedByClicks.handler_avatar">
-                                <img :src="topRankedByClicks.handler_avatar" 
-                                     :alt="topRankedByClicks.handler_name"
-                                     class="w-11 h-11 rounded-full object-cover ring-2 ring-blue-400/50 shadow-sm">
+                                <div class="relative">
+                                    <img :src="topRankedByClicks.handler_avatar" 
+                                         :alt="topRankedByClicks.handler_name"
+                                         class="w-11 h-11 rounded-full object-cover ring-2 ring-blue-400/50 shadow-sm cursor-zoom-in transition-transform duration-200 group-hover/avatar:scale-110">
+                                </div>
                             </template>
                             <template x-if="!topRankedByClicks.handler_avatar">
                                 <div class="w-11 h-11 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400/30 flex items-center justify-center font-bold text-xs shadow-sm">
                                     <span x-text="(topRankedByClicks.handler_name || 'U').substring(0, 2).toUpperCase()"></span>
                                 </div>
                             </template>
-                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words" 
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words group-hover/avatar:text-blue-600 dark:group-hover/avatar:text-blue-400 transition-colors" 
                                   :title="topRankedByClicks.handler_name || 'Unassigned'"
                                   x-text="topRankedByClicks.handler_name || 'Unassigned'"></span>
                             <span class="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mt-0.5">Handler</span>
@@ -1167,18 +1177,22 @@
                 <template x-if="topRankedByCtr">
                     <div class="flex items-start gap-3.5 pt-0.5 relative z-10">
                         {{-- Left column: Handler Profile & Name --}}
-                        <div class="flex flex-col items-center shrink-0 w-20 text-center">
+                        <div class="flex flex-col items-center shrink-0 w-20 text-center select-none cursor-pointer group/avatar"
+                             @dblclick.stop="topRankedByCtr.handler_avatar ? openAvatarPreview(topRankedByCtr.handler_avatar, topRankedByCtr.handler_name, 'Handler • Highest CTR') : null"
+                             :title="topRankedByCtr.handler_avatar ? 'Double-click to view photo full screen' : (topRankedByCtr.handler_name || 'Unassigned')">
                             <template x-if="topRankedByCtr.handler_avatar">
-                                <img :src="topRankedByCtr.handler_avatar" 
-                                     :alt="topRankedByCtr.handler_name"
-                                     class="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-400/50 shadow-sm">
+                                <div class="relative">
+                                    <img :src="topRankedByCtr.handler_avatar" 
+                                         :alt="topRankedByCtr.handler_name"
+                                         class="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-400/50 shadow-sm cursor-zoom-in transition-transform duration-200 group-hover/avatar:scale-110">
+                                </div>
                             </template>
                             <template x-if="!topRankedByCtr.handler_avatar">
                                 <div class="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-400/30 flex items-center justify-center font-bold text-xs shadow-sm">
                                     <span x-text="(topRankedByCtr.handler_name || 'U').substring(0, 2).toUpperCase()"></span>
                                 </div>
                             </template>
-                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words" 
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words group-hover/avatar:text-emerald-600 dark:group-hover/avatar:text-emerald-400 transition-colors" 
                                   :title="topRankedByCtr.handler_name || 'Unassigned'"
                                   x-text="topRankedByCtr.handler_name || 'Unassigned'"></span>
                             <span class="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mt-0.5">Handler</span>
@@ -1218,18 +1232,22 @@
                 <template x-if="topRankedByPosition">
                     <div class="flex items-start gap-3.5 pt-0.5 relative z-10">
                         {{-- Left column: Handler Profile & Name --}}
-                        <div class="flex flex-col items-center shrink-0 w-20 text-center">
+                        <div class="flex flex-col items-center shrink-0 w-20 text-center select-none cursor-pointer group/avatar"
+                             @dblclick.stop="topRankedByPosition.handler_avatar ? openAvatarPreview(topRankedByPosition.handler_avatar, topRankedByPosition.handler_name, 'Handler • Top Avg Position') : null"
+                             :title="topRankedByPosition.handler_avatar ? 'Double-click to view photo full screen' : (topRankedByPosition.handler_name || 'Unassigned')">
                             <template x-if="topRankedByPosition.handler_avatar">
-                                <img :src="topRankedByPosition.handler_avatar" 
-                                     :alt="topRankedByPosition.handler_name"
-                                     class="w-11 h-11 rounded-full object-cover ring-2 ring-purple-400/50 shadow-sm">
+                                <div class="relative">
+                                    <img :src="topRankedByPosition.handler_avatar" 
+                                         :alt="topRankedByPosition.handler_name"
+                                         class="w-11 h-11 rounded-full object-cover ring-2 ring-purple-400/50 shadow-sm cursor-zoom-in transition-transform duration-200 group-hover/avatar:scale-110">
+                                </div>
                             </template>
                             <template x-if="!topRankedByPosition.handler_avatar">
                                 <div class="w-11 h-11 rounded-full bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 ring-2 ring-purple-400/30 flex items-center justify-center font-bold text-xs shadow-sm">
                                     <span x-text="(topRankedByPosition.handler_name || 'U').substring(0, 2).toUpperCase()"></span>
                                 </div>
                             </template>
-                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words" 
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight w-full mt-1.5 break-words group-hover/avatar:text-purple-600 dark:group-hover/avatar:text-purple-400 transition-colors" 
                                   :title="topRankedByPosition.handler_name || 'Unassigned'"
                                   x-text="topRankedByPosition.handler_name || 'Unassigned'"></span>
                             <span class="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mt-0.5">Handler</span>
@@ -1365,11 +1383,18 @@
 
                                 {{-- Handler --}}
                                 <td class="py-3.5 px-4">
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 select-none group/avatar cursor-pointer"
+                                         @dblclick.stop="ws.handler_avatar ? openAvatarPreview(ws.handler_avatar, ws.handler_name, 'Team Handler • ' + ws.name) : null"
+                                         :title="ws.handler_avatar ? 'Double-click to view photo full screen' : (ws.handler_name || 'Unassigned')">
                                         <template x-if="ws.handler_avatar">
-                                            <img :src="ws.handler_avatar" class="w-5 h-5 rounded-full object-cover">
+                                            <img :src="ws.handler_avatar" :alt="ws.handler_name" class="w-5 h-5 rounded-full object-cover ring-1 ring-slate-300 dark:ring-slate-600 cursor-zoom-in transition-transform duration-200 group-hover/avatar:scale-125">
                                         </template>
-                                        <span class="text-xs text-slate-700 dark:text-slate-300" x-text="ws.handler_name || 'Unassigned'"></span>
+                                        <template x-if="!ws.handler_avatar">
+                                            <div class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[9px] font-bold text-slate-600 dark:text-slate-300">
+                                                <span x-text="(ws.handler_name || 'U').charAt(0).toUpperCase()"></span>
+                                            </div>
+                                        </template>
+                                        <span class="text-xs text-slate-700 dark:text-slate-300 group-hover/avatar:text-blue-600 transition-colors" x-text="ws.handler_name || 'Unassigned'"></span>
                                     </div>
                                 </td>
 
@@ -4198,6 +4223,86 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         </div>
     </div>
 
+    {{-- ── FULLSCREEN AVATAR / IMAGE PREVIEW MODAL ─────────────────── --}}
+    <div x-show="avatarPreview.open"
+         x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 backdrop-blur-none"
+         x-transition:enter-end="opacity-100 backdrop-blur-md"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 backdrop-blur-md"
+         x-transition:leave-end="opacity-0 backdrop-blur-none"
+         class="fixed inset-0 z-[100000] flex flex-col items-center justify-center bg-slate-950/85 p-3 sm:p-6 select-none"
+         @keydown.escape.window="closeAvatarPreview()"
+         @click.self="closeAvatarPreview()">
+
+        <div class="relative flex flex-col w-full max-w-2xl max-h-[90vh] bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+             @click.stop>
+            
+            {{-- Header Bar --}}
+            <div class="flex items-center justify-between px-5 py-3.5 bg-slate-800/90 border-b border-slate-700/70 backdrop-blur-sm">
+                <div class="flex items-center gap-3 min-w-0">
+                    <img :src="avatarPreview.url" :alt="avatarPreview.title" class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500/50 shadow-sm shrink-0">
+                    <div class="min-w-0">
+                        <h4 class="text-sm font-black text-white truncate" x-text="avatarPreview.title"></h4>
+                        <p class="text-[11px] font-semibold text-slate-400 truncate" x-text="avatarPreview.subtitle"></p>
+                    </div>
+                </div>
+
+                {{-- Action Controls --}}
+                <div class="flex items-center gap-1.5 shrink-0">
+                    {{-- Zoom Toggle Button --}}
+                    <button type="button" 
+                            @click="toggleAvatarZoom()"
+                            class="px-2.5 py-1.5 rounded-xl bg-slate-700/70 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                            :title="avatarPreview.zoom === 100 ? 'Zoom In (or double-click image)' : 'Reset Zoom'">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
+                        </svg>
+                        <span x-text="avatarPreview.zoom + '%'"></span>
+                    </button>
+
+                    {{-- Open original in new tab --}}
+                    <a :href="avatarPreview.url" target="_blank" rel="noopener"
+                       class="p-2 rounded-xl bg-slate-700/70 hover:bg-slate-700 text-slate-200 text-xs transition cursor-pointer"
+                       title="Open original image in new tab">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                        </svg>
+                    </a>
+
+                    {{-- Close button --}}
+                    <button type="button" 
+                            @click="closeAvatarPreview()" 
+                            class="p-2 rounded-xl bg-slate-700/70 hover:bg-rose-600/80 text-slate-300 hover:text-white transition cursor-pointer ml-1"
+                            title="Close (Esc)">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Image Preview Display Area --}}
+            <div class="relative flex-1 flex items-center justify-center p-4 sm:p-8 bg-slate-950/90 overflow-auto min-h-[300px] max-h-[75vh]"
+                 @dblclick="toggleAvatarZoom()">
+                <div class="relative transition-transform duration-200 ease-out"
+                     :style="'transform: scale(' + (avatarPreview.zoom / 100) + ');'">
+                    <img :src="avatarPreview.url" 
+                         :alt="avatarPreview.title"
+                         class="max-h-[65vh] max-w-full rounded-2xl object-contain shadow-2xl ring-1 ring-white/10"
+                         :class="avatarPreview.zoom > 100 ? 'cursor-zoom-out' : 'cursor-zoom-in'"
+                         draggable="false">
+                </div>
+            </div>
+
+            {{-- Footer Hint --}}
+            <div class="px-5 py-2.5 bg-slate-900/90 border-t border-slate-800 text-center text-[11px] text-slate-400">
+                <span>Double-click image to zoom in/out &bull; Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[10px]">Esc</kbd> to close</span>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 {{-- ── Frontend Alpine.js Controller & Chart.js Integration ──────────────── --}}
@@ -4213,6 +4318,36 @@ function gscDashboard() {
         activeTab: 'keywords',
         activeMetric: 'clicks_impressions',
         activeView: '{{ $currentView ?? 'overview' }}',
+
+        // Avatar / User Image Fullscreen Preview State
+        avatarPreview: {
+            open: false,
+            url: '',
+            title: '',
+            subtitle: '',
+            zoom: 100,
+        },
+
+        openAvatarPreview(url, name = 'User profile', subtitle = 'Team Handler') {
+            if (!url) return;
+            this.avatarPreview.url = url;
+            this.avatarPreview.title = name || 'User profile';
+            this.avatarPreview.subtitle = subtitle || 'Team Handler';
+            this.avatarPreview.zoom = 100;
+            this.avatarPreview.open = true;
+        },
+
+        closeAvatarPreview() {
+            this.avatarPreview.open = false;
+            this.avatarPreview.url = '';
+            this.avatarPreview.title = '';
+            this.avatarPreview.subtitle = '';
+            this.avatarPreview.zoom = 100;
+        },
+
+        toggleAvatarZoom() {
+            this.avatarPreview.zoom = (this.avatarPreview.zoom === 100) ? 175 : 100;
+        },
 
         // Rankings Leaderboard State
         websiteRankings: @json($websiteRankings ?? []),
@@ -4410,7 +4545,7 @@ function gscDashboard() {
         showBookmarkletModal: false,
         syncModalTab: 'robot',
         bookmarkletCode: "(async function(){try{if(!window.location.hostname.includes('search.google.com')){alert('⚠️ Please switch to your Google Search Console tab (search.google.com) first!');return;}const text=document.body.innerText;const url=window.location.href;let resourceId='';const resMatch=url.match(/resource_id=([^&]+)/);if(resMatch){resourceId=decodeURIComponent(resMatch[1]);}if(!resourceId){const attrEl=document.querySelector('[data-resource-id]');if(attrEl)resourceId=attrEl.getAttribute('data-resource-id');}if(!resourceId){const domainMatch=text.match(/(?:https?:\\/\\/)?([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})/);resourceId=prompt('Confirm Google Search Console property or website domain:',domainMatch?domainMatch[0]:'');}if(!resourceId)return;let notIndexed=0;const notIdxMatch=text.match(/(?:^|[^\\w])Not indexed\\s*[\\r\\n]+\\s*([\\d,.]+[KM]?)/i);if(notIdxMatch){let raw=notIdxMatch[1].replace(/,/g,'').trim();if(raw.endsWith('K')||raw.endsWith('k'))notIndexed=Math.round(parseFloat(raw)*1000);else if(raw.endsWith('M')||raw.endsWith('m'))notIndexed=Math.round(parseFloat(raw)*1000000);else notIndexed=parseInt(raw);}let indexed=0;const idxMatch=text.match(/(?<!not\\s)Indexed\\s*[\\r\\n]+\\s*([\\d,.]+[KM]?)/i);if(idxMatch){let raw=idxMatch[1].replace(/,/g,'').trim();if(raw.endsWith('K')||raw.endsWith('k'))indexed=Math.round(parseFloat(raw)*1000);else if(raw.endsWith('M')||raw.endsWith('m'))indexed=Math.round(parseFloat(raw)*1000000);else indexed=parseInt(raw);}let reasons=0;const rMatch=text.match(/(\\d+)\\s+reasons/i);if(rMatch)reasons=parseInt(rMatch[1]);let updatedDate='';const dMatch=text.match(/Last update:\\s*([\\d/]+)/i);if(dMatch)updatedDate=dMatch[1];const payload={property:resourceId,indexed:indexed,not_indexed:notIndexed,reasons_count:reasons,last_updated:updatedDate};const resp=await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const res=await resp.json();if(res.success){alert('✓ SUCCESS!\\nSynced '+resourceId+' to DGT:\\n• Indexed: '+indexed.toLocaleString()+'\\n• Not Indexed: '+notIndexed.toLocaleString()+(reasons?('\\n• Reasons: '+reasons):''));}else{alert('Sync failed: '+(res.message||'Unknown error'));}}catch(e){alert('Sync error: '+e.message);}})();",
-        robotCode: "(async function(){try{if(!window.location.hostname.includes(\"search.google.com\")){alert(\"⚠️ Please switch to your Google Search Console tab (search.google.com) first!\\n\\nThe Robot must run inside Google Search Console so it has access to your logged-in Google data.\");return;}const oldHud=document.getElementById(\"dgt-robot-hud\");if(oldHud)oldHud.remove();const hud=document.createElement(\"div\");hud.id=\"dgt-robot-hud\";hud.style.cssText=\"position:fixed;bottom:24px;right:24px;z-index:999999;width:420px;background:#0f172a;color:#f8fafc;border-radius:18px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);font-family:system-ui,-apple-system,sans-serif;font-size:12px;padding:16px;border:1px solid #334155;\";const topRow=document.createElement(\"div\");topRow.style.cssText=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;\";const titleBox=document.createElement(\"div\");titleBox.style.cssText=\"display:flex;align-items:center;gap:8px;\";const iconSpan=document.createElement(\"span\");iconSpan.style.fontSize=\"18px\";iconSpan.textContent=\"🤖\";const titleSpan=document.createElement(\"span\");titleSpan.style.cssText=\"font-weight:800;font-size:13px;color:#f1f5f9;\";titleSpan.textContent=\"DGT Auto-Sync Robot\";titleBox.appendChild(iconSpan);titleBox.appendChild(titleSpan);const stopBtn=document.createElement(\"button\");stopBtn.id=\"dgt-robot-stop\";stopBtn.style.cssText=\"background:#ef4444;color:#fff;border:none;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;\";stopBtn.textContent=\"Stop\";topRow.appendChild(titleBox);topRow.appendChild(stopBtn);hud.appendChild(topRow);const statusEl=document.createElement(\"div\");statusEl.id=\"dgt-robot-status\";statusEl.style.cssText=\"color:#94a3b8;font-size:11px;margin-bottom:8px;\";statusEl.textContent=\"Connecting to DGT...\";hud.appendChild(statusEl);const progWrap=document.createElement(\"div\");progWrap.style.cssText=\"background:#1e293b;border-radius:8px;height:8px;overflow:hidden;margin-bottom:10px;\";const progBar=document.createElement(\"div\");progBar.id=\"dgt-robot-bar\";progBar.style.cssText=\"background:#10b981;height:100%;width:0%;transition:width 0.3s;\";progWrap.appendChild(progBar);hud.appendChild(progWrap);const logEl=document.createElement(\"div\");logEl.id=\"dgt-robot-log\";logEl.style.cssText=\"max-height:140px;overflow-y:auto;background:#020617;border-radius:10px;padding:8px;font-family:monospace;font-size:11px;line-height:1.5;color:#cbd5e1;\";hud.appendChild(logEl);document.body.appendChild(hud);let isStopped=false;stopBtn.onclick=()=>{isStopped=true;statusEl.textContent=\"⛔ Stopped by user.\";};function log(m,c=\"#cbd5e1\"){const el=document.getElementById(\"dgt-robot-log\");if(!el)return;const p=document.createElement(\"div\");p.style.color=c;p.textContent=m;el.appendChild(p);el.scrollTop=el.scrollHeight;}log(\"Fetching websites from DGT...\");const res=await fetch(\"https://lightcyan-weasel-711536.hostingersite.com/api/gsc/properties-list\");const data=await res.json();if(!data.success||!Array.isArray(data.sites)||data.sites.length===0){log(\"Failed to fetch websites.\",\"#f87171\");return;}const sites=data.sites;log(\"Found \"+sites.length+\" websites. Opening worker tab...\",\"#38bdf8\");const worker=window.open(\"about:blank\",\"dgt_robot_tab\",\"width=1100,height=750,left=100,top=100\");if(!worker){alert(\"Popup blocked! Please allow popups for search.google.com in your Chrome address bar to let the Robot run.\");return;}for(let i=0;i<sites.length;i++){if(isStopped)break;const site=sites[i];const pct=Math.round(((i+1)/sites.length)*100);progBar.style.width=pct+\"%\";statusEl.textContent=\"[\"+(i+1)+\"/\"+sites.length+\"] \"+site.clean_domain+\" (\"+pct+\"%)\";log(\"[\"+(i+1)+\"/\"+sites.length+\"] Loading \"+site.clean_domain+\"...\");worker.location.href=site.gsc_url;let found=false;let retries=0;let indexed=0;let notIndexed=0;let reasons=0;let date=\"\";let lastErr=\"\";let isProcessing=false;await new Promise(r=>setTimeout(r,1200));while(!found&&retries<20&&!isStopped){await new Promise(r=>setTimeout(r,600));retries++;try{if(!worker||worker.closed){lastErr=\"Worker window closed\";break;}const text=worker.document?.body?.innerText||\"\";if(!text||text.length<30)continue;if(text.includes(\"Processing data, please check again\")||text.includes(\"Processing data\")){isProcessing=true;found=true;break;}const notIdxMatch=text.match(/(?:^|[^\\w])Not indexed[\\s\\r\\n]+([\\d,.]+[KM]?)/i);const idxMatch=text.match(/(?<!not[\\s\\r\\n]+)Indexed[\\s\\r\\n]+([\\d,.]+[KM]?)/i);if(notIdxMatch&&idxMatch){let rawN=notIdxMatch[1].replace(/,/g,\"\").trim();if(rawN.endsWith(\"K\")||rawN.endsWith(\"k\"))notIndexed=Math.round(parseFloat(rawN)*1000);else if(rawN.endsWith(\"M\")||rawN.endsWith(\"m\"))notIndexed=Math.round(parseFloat(rawN)*1000000);else notIndexed=parseInt(rawN);let rawI=idxMatch[1].replace(/,/g,\"\").trim();if(rawI.endsWith(\"K\")||rawI.endsWith(\"k\"))indexed=Math.round(parseFloat(rawI)*1000);else if(rawI.endsWith(\"M\")||rawI.endsWith(\"m\"))indexed=Math.round(parseFloat(rawI)*1000000);else indexed=parseInt(rawI);const rMatch=text.match(/(\\d+)\\s+reasons/i);if(rMatch)reasons=parseInt(rMatch[1]);const dMatch=text.match(/Last update:\\s*([\\d/]+)/i);if(dMatch)date=dMatch[1];found=true;}}catch(e){lastErr=e.message;}}if(isProcessing){log(\"ℹ️ \"+site.clean_domain+\": Google processing data (pending)\",\"#94a3b8\");}else if(found){try{await fetch(\"https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data\",{method:\"POST\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify({property:site.site_url,indexed:indexed,not_indexed:notIndexed,reasons_count:reasons,last_updated:date})});log(\"✓ \"+site.clean_domain+\": \"+indexed.toLocaleString()+\" Indexed, \"+notIndexed.toLocaleString()+\" Not Indexed\",\"#34d399\");}catch(apiErr){log(\"⚠️ \"+site.clean_domain+\": parsed (\"+indexed+\"/\"+notIndexed+\") but save failed: \"+apiErr.message,\"#fbbf24\");}}else{log(\"⚠️ \"+site.clean_domain+\": \"+(lastErr||\"Skipped or not loaded in time\"),\"#fbbf24\");}await new Promise(r=>setTimeout(r,600));}if(worker&&!worker.closed)worker.close();statusEl.textContent=\"🎉 All websites finished syncing!\";log(\"SUCCESS: All websites updated in DGT! Refresh DGT to see results.\",\"#10b981\");}catch(err){alert(\"Robot error: \"+err.message);}})();",
+        robotCode: "(async function(){try{if(!window.location.hostname.includes("search.google.com")){alert("⚠️ Please switch to your Google Search Console tab (search.google.com) first!\n\nThe Robot must run inside Google Search Console so it has access to your logged-in Google data.");return;}const oldHud=document.getElementById("dgt-robot-hud");if(oldHud)oldHud.remove();const hud=document.createElement("div");hud.id="dgt-robot-hud";hud.style.cssText="position:fixed;bottom:24px;right:24px;z-index:999999;width:440px;background:#0f172a;color:#f8fafc;border-radius:18px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);font-family:system-ui,-apple-system,sans-serif;font-size:12px;padding:16px;border:1px solid #334155;";const topRow=document.createElement("div");topRow.style.cssText="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;";const titleBox=document.createElement("div");titleBox.style.cssText="display:flex;align-items:center;gap:8px;";const iconSpan=document.createElement("span");iconSpan.style.fontSize="18px";iconSpan.textContent="🤖";const titleSpan=document.createElement("span");titleSpan.style.cssText="font-weight:800;font-size:13px;color:#f1f5f9;";titleSpan.textContent="DGT Auto-Sync Robot";titleBox.appendChild(iconSpan);titleBox.appendChild(titleSpan);const stopBtn=document.createElement("button");stopBtn.id="dgt-robot-stop";stopBtn.style.cssText="background:#ef4444;color:#fff;border:none;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;";stopBtn.textContent="Stop";topRow.appendChild(titleBox);topRow.appendChild(stopBtn);hud.appendChild(topRow);const statusEl=document.createElement("div");statusEl.id="dgt-robot-status";statusEl.style.cssText="color:#94a3b8;font-size:11px;margin-bottom:8px;";statusEl.textContent="Connecting to DGT...";hud.appendChild(statusEl);const progWrap=document.createElement("div");progWrap.style.cssText="background:#1e293b;border-radius:8px;height:8px;overflow:hidden;margin-bottom:10px;";const progBar=document.createElement("div");progBar.id="dgt-robot-bar";progBar.style.cssText="background:#10b981;height:100%;width:0%;transition:width 0.3s;";progWrap.appendChild(progBar);hud.appendChild(progWrap);const logEl=document.createElement("div");logEl.id="dgt-robot-log";logEl.style.cssText="max-height:150px;overflow-y:auto;background:#020617;border-radius:10px;padding:8px;font-family:monospace;font-size:11px;line-height:1.5;color:#cbd5e1;";hud.appendChild(logEl);document.body.appendChild(hud);let isStopped=false;stopBtn.onclick=()=>{isStopped=true;statusEl.textContent="⛔ Stopped by user.";};function log(m,c="#cbd5e1"){const el=document.getElementById("dgt-robot-log");if(!el)return;const p=document.createElement("div");p.style.color=c;p.textContent=m;el.appendChild(p);el.scrollTop=el.scrollHeight;}log("Fetching websites from DGT...");const res=await fetch("https://lightcyan-weasel-711536.hostingersite.com/api/gsc/properties-list");const data=await res.json();if(!data.success||!Array.isArray(data.sites)||data.sites.length===0){log("Failed to fetch websites.","#f87171");return;}const sites=data.sites;log("Found "+sites.length+" websites. Opening worker tab...","#38bdf8");log("ℹ️ Keep worker popup open until sync reaches 100%!","#94a3b8");let worker=window.open("about:blank","dgt_robot_tab","width=1100,height=750,left=100,top=100");if(!worker){alert("Popup blocked! Please allow popups for search.google.com in your Chrome address bar.");return;}for(let i=0;i<sites.length;i++){if(isStopped)break;const site=sites[i];const pct=Math.round(((i+1)/sites.length)*100);progBar.style.width=pct+"%";statusEl.textContent="["+(i+1)+"/"+sites.length+"] "+site.clean_domain+" ("+pct+"%)";log("["+(i+1)+"/"+sites.length+"] Loading "+site.clean_domain+"...");if(!worker||worker.closed){log("🔄 Worker window was closed. Automatically re-opening...","#38bdf8");worker=window.open("about:blank","dgt_robot_tab","width=1100,height=750,left=100,top=100");if(!worker){log("❌ Popup blocked by Chrome. Please allow popups.","#ef4444");break;}await new Promise(r=>setTimeout(r,1200));}worker.location.href=site.gsc_url;let found=false;let retries=0;let indexed=0;let notIndexed=0;let reasons=0;let date="";let lastErr="";let isProcessing=false;await new Promise(r=>setTimeout(r,1400));while(!found&&retries<25&&!isStopped){await new Promise(r=>setTimeout(r,600));retries++;try{if(!worker||worker.closed){log("🔄 Window closed, re-opening for "+site.clean_domain+"...","#f59e0b");worker=window.open(site.gsc_url,"dgt_robot_tab","width=1100,height=750,left=100,top=100");await new Promise(r=>setTimeout(r,1800));continue;}const text=worker.document?.body?.innerText||"";if(!text||text.length<30)continue;if(text.includes("Processing data, please check again")||text.includes("Processing data")){isProcessing=true;found=true;break;}const notIdxMatch=text.match(/(?:^|[^\w])Not indexed[\s\r\n]+([\d,.]+[KM]?)/i);const idxMatch=text.match(/(?<!not[\s\r\n]+)Indexed[\s\r\n]+([\d,.]+[KM]?)/i);if(notIdxMatch&&idxMatch){let rawN=notIdxMatch[1].replace(/,/g,"").trim();if(rawN.endsWith("K")||rawN.endsWith("k"))notIndexed=Math.round(parseFloat(rawN)*1000);else if(rawN.endsWith("M")||rawN.endsWith("m"))notIndexed=Math.round(parseFloat(rawN)*1000000);else notIndexed=parseInt(rawN);let rawI=idxMatch[1].replace(/,/g,"").trim();if(rawI.endsWith("K")||rawI.endsWith("k"))indexed=Math.round(parseFloat(rawI)*1000);else if(rawI.endsWith("M")||rawI.endsWith("m"))indexed=Math.round(parseFloat(rawI)*1000000);else indexed=parseInt(rawI);const rMatch=text.match(/(\d+)\s+reasons/i);if(rMatch)reasons=parseInt(rMatch[1]);const dMatch=text.match(/Last update:\s*([\d\/]+)/i);if(dMatch)date=dMatch[1];found=true;}}catch(e){lastErr=e.message;}}if(isProcessing){log("ℹ️ "+site.clean_domain+": Google processing data (pending)","#94a3b8");}else if(found){try{await fetch("https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({property:site.site_url,indexed:indexed,not_indexed:notIndexed,reasons_count:reasons,last_updated:date})});log("✓ "+site.clean_domain+": "+indexed.toLocaleString()+" Indexed, "+notIndexed.toLocaleString()+" Not Indexed","#34d399");}catch(apiErr){log("⚠️ "+site.clean_domain+": parsed ("+indexed+"/"+notIndexed+") but save failed: "+apiErr.message,"#fbbf24");}}else{log("⚠️ "+site.clean_domain+": "+(lastErr||"Skipped or not loaded in time"),"#fbbf24");}await new Promise(r=>setTimeout(r,600));}if(worker&&!worker.closed)worker.close();statusEl.textContent="🎉 All websites finished syncing!";log("SUCCESS: All websites updated in DGT! Refresh DGT to see results.","#10b981");}catch(err){alert("Robot error: "+err.message);}})();",
         coverageSaving: false,
         coverageForm: {
             indexed_pages: 0,
