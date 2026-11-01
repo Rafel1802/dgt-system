@@ -937,33 +937,14 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 document.getElementById('dgt-app-wrapper').classList.add('sidebar-is-collapsed');
             }
         </script>
-        <!-- Mobile overlay backdrop -->
-        <div
-            x-show="$store.sidebar.mobileOpen && !$store.sidebar.isDesktop"
-            x-transition:enter="transition ease-out duration-75"
-            x-transition:enter-start="opacity-0"
-            x-transition:enter-end="opacity-100"
-            x-transition:leave="transition ease-in duration-100"
-            x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0"
-            class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
-            @click="$store.sidebar.close()"
-            x-cloak
-        ></div>
-
-        <!-- ── Sidebar ────────────────────────────────────────────────── -->
+        <!-- ── Sidebar (Desktop Only) ─────────────────────────────────── -->
         {{-- data-turbo-permanent: keep sidebar DOM across menu clicks so Turbo
              does not re-paint the full nav on every navigation. Active item
-             is updated in JS on turbo:load. Its open/collapsed/mobileOpen
-             state lives in the global $store.sidebar (resources/js/app.js),
-             not a local x-data — #dgt-app-wrapper itself is NOT permanent and
-             gets fully recreated by Turbo on every navigation, so a local
-             component here would reinitialize (and its state briefly flash
-             back to defaults, and its listeners re-stack on the permanent
-             aside below) on every single click. --}}
+             is updated in JS on turbo:load. On mobile (< 1024px), DGT System uses
+             the Native iOS Bottom Tab Bar & iOS Bottom Sheet App Hub. --}}
         <aside
             :class="{ 'open': $store.sidebar.mobileOpen }"
-            class="sidebar"
+            class="sidebar hidden lg:flex"
             id="sidebar"
             data-turbo-permanent
             aria-label="Main navigation"
@@ -1792,17 +1773,34 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
 
-                    <!-- Hamburger Button (Mobile) -->
-                    <button type="button"
-                            @click="$store.sidebar.toggleMobile()"
-                            class="mobile-menu-btn lg:hidden"
-                            title="Toggle menu"
-                            aria-label="Toggle menu">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                        </svg>
-                    </button>
+                    <!-- Mobile iOS Navigation Bar Controls -->
+                    <div class="lg:hidden flex items-center">
+                        @if(!View::hasSection('hide_back') && !request()->routeIs('dashboard'))
+                        <button type="button"
+                                @if(View::hasSection('back_url'))
+                                    onclick="window.Turbo ? Turbo.visit('@yield('back_url')') : window.location.href='@yield('back_url')'"
+                                @else
+                                    onclick="window.history.length > 1 ? window.history.back() : (window.Turbo ? Turbo.visit('{{ route('dashboard') }}') : window.location.href='{{ route('dashboard') }}')"
+                                @endif
+                                class="ios-nav-back-btn flex items-center gap-0.5 text-indigo-600 dark:text-sky-400 font-semibold active:opacity-60 transition-opacity select-none py-1 px-1.5 -ml-2 rounded-lg"
+                                aria-label="Back">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                            </svg>
+                            <span class="text-[15px] font-semibold tracking-tight">Back</span>
+                        </button>
+                        @else
+                        <button type="button"
+                                @click="$store.mobileHub.toggle()"
+                                class="ios-nav-brand-btn flex items-center gap-2 active:scale-95 transition-transform -ml-1 select-none"
+                                aria-label="Open Hub">
+                            <img src="{{ $appIconAsset }}" alt="DGT" class="w-7 h-7 rounded-lg object-contain shadow-xs">
+                            <span class="text-xs font-black tracking-wider uppercase bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">DGT</span>
+                        </button>
+                        @endif
+                    </div>
 
+                    <!-- Desktop Back Button (if applicable) -->
                     @if(!View::hasSection('hide_back'))
                     <button type="button"
                             @if(View::hasSection('back_url'))
@@ -1810,13 +1808,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             @else
                                 onclick="window.history.length > 1 ? window.history.back() : (window.Turbo ? Turbo.visit('{{ route('boards.workspaces') }}') : window.location.href='{{ route('boards.workspaces') }}')"
                             @endif
-                            class="mobile-back-btn"
+                            class="mobile-back-btn hidden lg:inline-flex"
                             title="Back"
                             aria-label="Back to previous page">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                         </svg>
-                        <span class="hidden sm:inline text-xs font-bold">Back</span>
+                        <span class="text-xs font-bold">Back</span>
                     </button>
                     @endif
                     <!-- Page Title (visible on all screens) -->
@@ -2335,6 +2333,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
 
 
+                    <!-- Mobile iOS Profile Avatar Touchpoint -->
+                    <button type="button"
+                            @click="$store.mobileHub.toggle()"
+                            class="lg:hidden flex-shrink-0 relative active:scale-90 transition-transform p-0.5 rounded-full ring-2 ring-indigo-500/20 dark:ring-sky-400/30"
+                            aria-label="Account Hub">
+                        <img src="{{ auth()->user()?->avatar_url }}"
+                             alt="{{ auth()->user()?->name }}"
+                             onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()?->name ?? 'User', auth()->user()?->avatar_color ?? '#64748b') }}';"
+                             class="w-7.5 h-7.5 rounded-full object-cover">
+                    </button>
+
                     @php
                         // CRM removed — no pending handler confirmations needed.
                         $pendingHandlerConfirmations = collect();
@@ -2460,11 +2469,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         </div>
     </div>
 
-    <!-- ── Mobile Bottom Navigation Bar ──────────────────────────────────── -->
+    <!-- ── Apple HIG Standard 5-Tab Mobile Navigation Bar ────────────── -->
     <nav class="mobile-bottom-nav lg:hidden" id="mobile-bottom-nav" aria-label="Mobile navigation">
         <div class="mobile-bottom-nav-inner">
 
-            <!-- Home (Everyone) -->
+            <!-- 1. Home -->
             @can('dashboard.view')
             <a href="{{ route('dashboard') }}"
                data-turbo-preload
@@ -2481,9 +2490,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </a>
             @endcan
 
-            <!-- Boards (Everyone) -->
+            <!-- 2. Boards -->
             @can('kanban.view')
             <a href="{{ route('boards.workspaces') }}"
+               data-turbo-preload
                class="mobile-nav-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                aria-label="Boards">
                 <span class="mobile-nav-icon">
@@ -2496,50 +2506,28 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </a>
             @endcan
 
-
-
-            @if(isset($userPlanningBoards) && $userPlanningBoards->isNotEmpty())
-                @php
-                    $mobileTasksCount = $userPlanningBoards->sum('user_tasks_count');
-                    $mobileHasDueTomorrow = $userPlanningBoards->sum('due_tomorrow_count') > 0;
-                @endphp
-                <!-- Tasks Count -->
-                <a href="{{ route('tasks.count') }}"
-                   data-turbo-preload
-                   class="mobile-nav-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
-                   aria-label="Tasks Count">
-                    <span class="mobile-nav-icon relative">
-                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
-                        </svg>
-                        @if($mobileTasksCount > 0)
-                            <span class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full {{ $mobileHasDueTomorrow ? 'bg-amber-500' : 'bg-indigo-600' }} text-white text-[9px] font-bold flex items-center justify-center">{{ $mobileTasksCount }}</span>
-                        @endif
-                    </span>
-                    <span class="mobile-nav-label">Tasks</span>
-                    <span class="mobile-nav-indicator"></span>
-                </a>
-            @endif
-
-            <!-- Reels / Social Media (Boss, super-admin, Digital Team) -->
-            @if(auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
-            <a href="{{ route('social-media.dashboard') }}"
+            <!-- 3. Tasks -->
+            @php
+                $mobileTasksCount = isset($userPlanningBoards) ? $userPlanningBoards->sum('user_tasks_count') : 0;
+                $mobileHasDueTomorrow = isset($userPlanningBoards) && $userPlanningBoards->sum('due_tomorrow_count') > 0;
+            @endphp
+            <a href="{{ route('tasks.count') }}"
                data-turbo-preload
-               class="mobile-nav-item {{ request()->routeIs('social-media.*') ? 'active' : '' }}"
-               aria-label="Reels">
-                <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
-                        <rect x="3" y="4" width="18" height="16" rx="4" stroke-width="1.8" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m3 9 4.5-5M8 9l4.5-5M13 9l4.5-5M18 9l3-3.3" />
-                        <path fill="currentColor" stroke="none" d="m10.5 12 5 3-5 3v-6Z" />
+               class="mobile-nav-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
+               aria-label="Tasks">
+                <span class="mobile-nav-icon relative">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
                     </svg>
+                    @if($mobileTasksCount > 0)
+                        <span class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full {{ $mobileHasDueTomorrow ? 'bg-amber-500' : 'bg-rose-500' }} text-white text-[9px] font-bold flex items-center justify-center">{{ $mobileTasksCount }}</span>
+                    @endif
                 </span>
-                <span class="mobile-nav-label">Reels</span>
+                <span class="mobile-nav-label">Tasks</span>
                 <span class="mobile-nav-indicator"></span>
             </a>
-            @endif
 
-            <!-- Websites (Boss, super-admin, admin-digital, or authorized website users) -->
+            <!-- 4. Websites / Content -->
             @if(auth()->user()?->hasWebsiteAccess() || auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team']))
             <a href="{{ route('websites.posts.index') }}"
                data-turbo-preload
@@ -2553,39 +2541,377 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <span class="mobile-nav-label">Websites</span>
                 <span class="mobile-nav-indicator"></span>
             </a>
-            @endif
-
-            <!-- Notes -->
+            @else
             <a href="{{ route('notes.private') }}"
                data-turbo-preload
                class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
-               aria-label="Note">
+               aria-label="Notes">
                 <span class="mobile-nav-icon">
                     <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                     </svg>
                 </span>
-                <span class="mobile-nav-label">Note</span>
+                <span class="mobile-nav-label">Notes</span>
                 <span class="mobile-nav-indicator"></span>
             </a>
+            @endif
 
-            <!-- Profile / More trigger -->
+            <!-- 5. iOS App Hub Trigger -->
             <button type="button"
-                    class="mobile-nav-item {{ request()->routeIs('admin.*') || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
-                    @click="$store.sidebar.toggleMobile()"
-                    aria-label="Profile">
+                    class="mobile-nav-item"
+                    :class="{ 'active': $store.mobileHub.open }"
+                    @click="$store.mobileHub.toggle()"
+                    aria-label="App Hub">
                 <span class="mobile-nav-icon">
                     <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
-                        <circle cx="12" cy="8" r="4" stroke-width="1.8" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+                        <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
+                        <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
+                        <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
+                        <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
                     </svg>
                 </span>
-                <span class="mobile-nav-label">Profile</span>
+                <span class="mobile-nav-label">Hub</span>
                 <span class="mobile-nav-indicator"></span>
             </button>
 
         </div>
     </nav>
+
+    <!-- ── iOS Native App Hub Bottom Sheet ──────────────────────────────── -->
+    <div x-cloak
+         x-show="$store.mobileHub.open"
+         class="fixed inset-0 z-[60] lg:hidden"
+         role="dialog"
+         aria-modal="true"
+         aria-label="App Hub">
+
+        <!-- Frosted Backdrop with iOS fade -->
+        <div x-show="$store.mobileHub.open"
+             x-transition:enter="transition-opacity ease-out duration-250"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             @click="$store.mobileHub.close()"
+             class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"></div>
+
+        <!-- iOS Bottom Sheet Container -->
+        <div x-show="$store.mobileHub.open"
+             x-transition:enter="transition cubic-bezier(0.32, 0.72, 0, 1) duration-300 transform"
+             x-transition:enter-start="translate-y-full"
+             x-transition:enter-end="translate-y-0"
+             x-transition:leave="transition cubic-bezier(0.32, 0.72, 0, 1) duration-220 transform"
+             x-transition:leave-start="translate-y-0"
+             x-transition:leave-end="translate-y-full"
+             class="fixed inset-x-0 bottom-0 z-[70] max-h-[85vh] flex flex-col rounded-t-[32px] bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-white/40 dark:border-slate-800/80 shadow-[0_-10px_40px_rgba(0,0,0,0.35)] overflow-hidden">
+
+            <!-- Sheet Grab Handle (iOS Standard) -->
+            <div class="pt-3 pb-2 flex-shrink-0 flex items-center justify-center cursor-pointer select-none"
+                 @click="$store.mobileHub.close()">
+                <div class="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+            </div>
+
+            <!-- Header / User Card -->
+            <div class="px-5 pb-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/70 flex-shrink-0">
+                <a href="{{ route('profile.show') }}"
+                   @click="$store.mobileHub.close()"
+                   class="flex items-center gap-3 min-w-0 group active:scale-[0.98] transition-transform">
+                    <div class="relative flex-shrink-0">
+                        <img src="{{ auth()->user()?->avatar_url }}"
+                             alt="{{ auth()->user()?->name }}"
+                             onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()?->name ?? 'User', auth()->user()?->avatar_color ?? '#64748b') }}';"
+                             class="w-11 h-11 rounded-full object-cover ring-2 ring-indigo-500/30 dark:ring-sky-400/30">
+                        <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900"></span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-bold text-slate-900 dark:text-white truncate">{{ auth()->user()?->name }}</h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-sky-400 border border-indigo-500/20 uppercase tracking-wider">{{ auth()->user()?->role_display ?? 'User' }}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ auth()->user()?->email }}</p>
+                    </div>
+                </a>
+                <button type="button"
+                        @click="$store.mobileHub.close()"
+                        class="w-8 h-8 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center active:scale-90 transition-transform"
+                        aria-label="Close Hub">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Scrollable Content with iOS Inset Groups -->
+            <div class="overflow-y-auto overscroll-contain flex-1 px-4 py-4 space-y-4 pb-safe-bottom"
+                 style="-webkit-overflow-scrolling: touch;">
+
+                <!-- Appearance: iOS Segmented Theme Switch -->
+                <div class="ios-hub-card">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 py-1.5">
+                        Appearance
+                    </div>
+                    <div class="p-1.5 bg-slate-200/60 dark:bg-slate-800/80 rounded-2xl flex items-center gap-1">
+                        <!-- Light Button -->
+                        <button type="button"
+                                @click="setTheme('light'); if (neonMode) toggleNeonTheme();"
+                                :class="theme === 'light' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-bold' : 'text-slate-500 dark:text-slate-400 font-medium'"
+                                class="flex-1 py-2 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95">
+                            <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+                            </svg>
+                            <span>Light</span>
+                        </button>
+                        <!-- Dark Button -->
+                        <button type="button"
+                                @click="setTheme('dark'); if (neonMode) toggleNeonTheme();"
+                                :class="theme === 'dark' && !isNeon ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-bold' : 'text-slate-500 dark:text-slate-400 font-medium'"
+                                class="flex-1 py-2 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95">
+                            <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+                            </svg>
+                            <span>Dark</span>
+                        </button>
+                        <!-- Neon Button -->
+                        <button type="button"
+                                @click="if (!isNeon) toggleNeonTheme();"
+                                :class="isNeon ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30' : 'text-slate-500 dark:text-slate-400 font-medium'"
+                                class="flex-1 py-2 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95">
+                            <svg class="w-4 h-4 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                            </svg>
+                            <span>Neon</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Section: Digital Operations (SMM & Reels) -->
+                @if(auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))
+                <div class="ios-hub-card">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 py-1.5">
+                        Digital Operations
+                    </div>
+                    <div class="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/60 shadow-xs border border-slate-200/60 dark:border-slate-800/80">
+                        <a href="{{ route('social-media.dashboard') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <rect x="3" y="4" width="18" height="16" rx="4" stroke-width="2" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m3 9 4.5-5M8 9l4.5-5M13 9l4.5-5M18 9l3-3.3" />
+                                    <path fill="currentColor" stroke="none" d="m10.5 12 5 3-5 3v-6Z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Reels & SMM Hub</p>
+                                <p class="text-[11px] text-slate-400 truncate">Video production and performance</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        <a href="{{ route('smm-boards.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-blue-500 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v7.5" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">SMM Planning</p>
+                                <p class="text-[11px] text-slate-400 truncate">Content calendar and schedules</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                    </div>
+                </div>
+                @endif
+
+                <!-- Section: Websites & SEO -->
+                @if(auth()->user()?->hasWebsiteAccess() || auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team']))
+                <div class="ios-hub-card">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 py-1.5">
+                        Websites & SEO
+                    </div>
+                    <div class="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/60 shadow-xs border border-slate-200/60 dark:border-slate-800/80">
+                        <a href="{{ route('websites.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Websites Portfolio</p>
+                                <p class="text-[11px] text-slate-400 truncate">Domain statuses and building health</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        <a href="{{ route('websites.posts.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Posts & CMS</p>
+                                <p class="text-[11px] text-slate-400 truncate">WordPress articles and content publishing</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        <a href="{{ route('websites.search-console.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-500 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Google Search Console</p>
+                                <p class="text-[11px] text-slate-400 truncate">Search clicks, impressions and keywords</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        <a href="{{ route('websites.integrations.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Connectors & Keys</p>
+                                <p class="text-[11px] text-slate-400 truncate">API keys and remote sync connectors</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                    </div>
+                </div>
+                @endif
+
+                <!-- Section: Productivity & Notes -->
+                <div class="ios-hub-card">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 py-1.5">
+                        Notes & Team
+                    </div>
+                    <div class="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/60 shadow-xs border border-slate-200/60 dark:border-slate-800/80">
+                        <a href="{{ route('notes.team') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Team Notes</p>
+                                <p class="text-[11px] text-slate-400 truncate">Shared documentation and quick records</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        <a href="{{ route('notes.private') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-600 to-slate-800 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Private Notes</p>
+                                <p class="text-[11px] text-slate-400 truncate">Personal encrypted scratchpad</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        @can('users.manage')
+                        <a href="{{ route('admin.users.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Team Members</p>
+                                <p class="text-[11px] text-slate-400 truncate">Manage roles, permissions, and accounts</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        @endcan
+                    </div>
+                </div>
+
+                <!-- Section: Preferences & Actions -->
+                <div class="ios-hub-card">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 py-1.5">
+                        Account & System
+                    </div>
+                    <div class="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/60 shadow-xs border border-slate-200/60 dark:border-slate-800/80">
+                        <a href="{{ route('profile.show') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Account Profile</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        <a href="{{ route('settings') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87l.22.127c.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992v.255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124l-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87l-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991v-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124l.22-.128c.332-.183.582-.495.644-.869l.214-1.28Z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Settings</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        <a href="{{ route('downloads.mac-app') }}"
+                           @click="$store.mobileHub.close()"
+                           class="ios-hub-row">
+                            <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">Desktop App (Mac)</p>
+                            </div>
+                            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </a>
+                        <form method="POST" action="{{ route('logout') }}" data-turbo="false">
+                            @csrf
+                            <button type="submit" class="ios-hub-row w-full text-left text-rose-600 dark:text-rose-400 group">
+                                <div class="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+                                    </svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-rose-600 dark:text-rose-400">Sign Out</p>
+                                </div>
+                                <svg class="w-4 h-4 text-rose-300 dark:text-rose-800" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
 
     {{-- Global Toast Container --}}
     <div id="toast-container" class="fixed top-5 right-5 z-[9999] space-y-3 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-sm"></div>

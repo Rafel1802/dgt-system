@@ -112,6 +112,31 @@ document.addEventListener('DOMContentLoaded', () => {
 // of all the previous ones, forever, for the life of the tab. A store is
 // registered once when Alpine starts and never reinitialized by DOM churn,
 // which fixes both problems at once.
+// Native iOS Mobile App Hub Store
+Alpine.store('mobileHub', {
+    open: false,
+
+    init() {
+        document.addEventListener('turbo:visit', () => {
+            this.open = false;
+        });
+        window.addEventListener('popstate', () => {
+            this.open = false;
+        });
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) this.open = false;
+        });
+    },
+
+    toggle() {
+        this.open = !this.open;
+    },
+
+    close() {
+        this.open = false;
+    }
+});
+
 Alpine.store('sidebar', {
     mobileOpen: false,
     collapsed: false,
@@ -130,7 +155,13 @@ Alpine.store('sidebar', {
 
         // Listen for the bottom nav "More" button to open sidebar on mobile
         window.addEventListener('open-mobile-sidebar', () => {
-            if (! this.isDesktop) this.mobileOpen = true;
+            if (! this.isDesktop) {
+                if (Alpine.store('mobileHub')) {
+                    Alpine.store('mobileHub').open = true;
+                } else {
+                    this.mobileOpen = true;
+                }
+            }
         });
 
         // Stores have no $nextTick (that's a component/element concept) — the
@@ -145,15 +176,26 @@ Alpine.store('sidebar', {
             return;
         }
 
-        this.mobileOpen = !this.mobileOpen;
+        if (Alpine.store('mobileHub')) {
+            Alpine.store('mobileHub').toggle();
+        } else {
+            this.mobileOpen = !this.mobileOpen;
+        }
     },
 
     toggleMobile() {
-        this.mobileOpen = !this.mobileOpen;
+        if (Alpine.store('mobileHub')) {
+            Alpine.store('mobileHub').toggle();
+        } else {
+            this.mobileOpen = !this.mobileOpen;
+        }
     },
 
     close() {
         this.mobileOpen = false;
+        if (Alpine.store('mobileHub')) {
+            Alpine.store('mobileHub').close();
+        }
     },
 
     toggleCollapse() {

@@ -2347,37 +2347,32 @@
     border-color: var(--color-primary-dark) !important;
   }
 
-  /* ── Mobile Bottom Navigation Bar (Reference UI) ────────────────────── */
+  /* ── Mobile Bottom Navigation Bar (Apple HIG Standard 5-Tab Bar) ── */
   .mobile-bottom-nav {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 45;
-    background: rgba(255, 255, 255, 0.94);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(226, 232, 240, 0.85);
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -1px 8px rgba(0, 0, 0, 0.03);
     width: 100%;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   [data-theme="dark"] .mobile-bottom-nav {
-    background: rgba(15, 23, 42, 0.94);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(51, 65, 85, 0.7);
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+    background: rgba(15, 23, 42, 0.88);
+    border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.35);
   }
 
   [data-theme="neon"] .mobile-bottom-nav {
-    background: rgba(3, 13, 34, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(0, 240, 255, 0.35);
+    background: rgba(3, 13, 34, 0.92);
+    border-top: 0.5px solid rgba(0, 240, 255, 0.35);
     box-shadow: 0 -4px 25px rgba(0, 150, 255, 0.25);
   }
 
@@ -2385,12 +2380,11 @@
     display: flex;
     align-items: center;
     justify-content: space-around;
-    padding-top: 4px;
-    padding-bottom: max(4px, calc(env(safe-area-inset-bottom, 0px) - 22px));
-    padding-left: 0.25rem;
-    padding-right: 0.25rem;
+    height: 52px;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
     position: relative;
-    max-width: 500px;
+    max-width: 520px;
     margin: 0 auto;
     box-sizing: border-box;
   }
@@ -2400,9 +2394,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1px;
+    gap: 2px;
     flex: 1;
-    padding: 2px 2px 0px;
+    height: 100%;
+    padding: 2px 0;
     text-decoration: none;
     background: none;
     border: none;
@@ -2411,11 +2406,11 @@
     z-index: 1;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .mobile-nav-item:active {
-    transform: scale(0.88) !important;
+    transform: scale(0.9) !important;
     transition: transform 0.06s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
   }
 
@@ -2423,23 +2418,23 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .mobile-nav-icon svg,
   .mobile-nav-icon img {
-    width: 22px;
-    height: 22px;
-    color: #64748b;
+    width: 24px;
+    height: 24px;
+    color: #8e8e93;
     transition: color 0.15s ease, transform 0.15s ease;
   }
 
   .mobile-nav-label {
     font-size: 10px;
-    font-weight: 600;
-    color: #64748b;
+    font-weight: 500;
+    color: #8e8e93;
     transition: color 0.15s ease;
     line-height: 1;
     text-align: center;
@@ -2448,11 +2443,11 @@
 
   /* Rounded horizontal indicator bar under active tab */
   .mobile-nav-indicator {
-    width: 16px;
-    height: 2.5px;
+    width: 14px;
+    height: 2px;
     border-radius: 9999px;
-    background: #0ea5e9;
-    margin-top: 2px;
+    background: #007aff;
+    margin-top: 1px;
     opacity: 0;
     transform: scaleX(0.2);
     transition: opacity 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -2461,33 +2456,28 @@
 
   /* Inactive & Hover state */
   .mobile-nav-item:hover .mobile-nav-icon svg {
-    color: #0ea5e9;
-    transform: translateY(-2px);
+    color: #007aff;
   }
 
   .mobile-nav-item:hover .mobile-nav-label {
-    color: #0ea5e9;
+    color: #007aff;
   }
 
-  /* Active state (Matches user's reference UI) */
-  .mobile-nav-item.active .mobile-nav-icon {
-    transform: translateY(-1px);
-  }
-
+  /* Active state */
   .mobile-nav-item.active .mobile-nav-icon svg {
-    color: #0ea5e9;
+    color: #007aff;
   }
 
   .mobile-nav-item.active .mobile-nav-label {
-    color: #0ea5e9;
-    font-weight: 700;
+    color: #007aff;
+    font-weight: 600;
   }
 
   .mobile-nav-item.active .mobile-nav-indicator {
     opacity: 1;
     transform: scaleX(1);
-    background: #0ea5e9;
-    box-shadow: 0 1px 6px rgba(14, 165, 233, 0.4);
+    background: #007aff;
+    box-shadow: 0 1px 6px rgba(0, 122, 255, 0.4);
   }
 
   /* Dark Theme Overrides */
@@ -2537,16 +2527,17 @@
   .mobile-page-content,
   .page-content,
   .page-content.mobile-page-content {
-    padding-left: max(1.25rem, env(safe-area-inset-left, 20px)) !important;
-    padding-right: max(1.25rem, env(safe-area-inset-right, 20px)) !important;
-    padding-top: 1rem !important;
-    padding-bottom: calc(56px + max(4px, calc(env(safe-area-inset-bottom, 0px) - 18px))) !important;
+    padding-left: max(1rem, env(safe-area-inset-left, 16px)) !important;
+    padding-right: max(1rem, env(safe-area-inset-right, 16px)) !important;
+    padding-top: 0.875rem !important;
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 16px)) !important;
   }
 
   /* Keep full-bleed for the board canvas only */
   .is-board-page .page-content,
   .page-content:has(.board-wrap) {
     padding: 0 !important;
+    padding-bottom: 0 !important;
   }
 
   /* ── ULTRA-FAST MOBILE TOUCH & ZERO TAP DELAY (Immediate Tap Response) ── */
@@ -2591,7 +2582,6 @@
 
     /* Hardware-accelerated fixed bars */
     .sidebar,
-    .mobile-bottom-nav,
     .topbar {
       transform: translateZ(0);
       -webkit-transform: translateZ(0);
@@ -2841,39 +2831,81 @@
 /* Cache bust 1787370103 */
 
 
-/* ── Mobile Overrides ───────────────────────────────────────────── */
+/* ── Mobile Overrides (Native iOS Application Standard) ────────── */
 @media (max-width: 1023px) {
   .main-wrapper {
     margin-left: 0;
   }
 
-  /* Mobile topbar: generous horizontal padding away from bezels & safe area */
+  /* ── Native iOS Navigation Bar (Header) ── */
   .topbar {
-    height: calc(64px + env(safe-area-inset-top, 0px));
-    padding-top: calc(8px + env(safe-area-inset-top, 0px));
-    padding-bottom: 8px;
-    padding-left: max(1.25rem, env(safe-area-inset-left, 20px)) !important;
-    padding-right: max(1.25rem, env(safe-area-inset-right, 20px)) !important;
+    height: calc(48px + env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(48px + env(safe-area-inset-top, 0px)) !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    padding-bottom: 0px !important;
+    padding-left: max(0.875rem, env(safe-area-inset-left, 14px)) !important;
+    padding-right: max(0.875rem, env(safe-area-inset-right, 14px)) !important;
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    border-bottom: 0.5px solid rgba(0, 0, 0, 0.08) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 40 !important;
+  }
+
+  [data-theme="dark"] .topbar {
+    border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(15, 23, 42, 0.85) !important;
+  }
+
+  [data-theme="neon"] .topbar {
+    border-bottom: 0.5px solid rgba(0, 240, 255, 0.25) !important;
+    background: rgba(2, 10, 30, 0.9) !important;
   }
 
   /* Mobile flash messages */
   .mx-6 {
-    margin-left: max(1.25rem, env(safe-area-inset-left, 20px)) !important;
-    margin-right: max(1.25rem, env(safe-area-inset-right, 20px)) !important;
-  }
-}
-
-/* ── Sidebar Mobile Slide (Left) ────────────────────────────────── */
-@media (max-width: 1023px) {
-  .sidebar {
-    transform: translate3d(-100%, 0, 0);
-    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease !important;
-    will-change: transform;
+    margin-left: max(1rem, env(safe-area-inset-left, 16px)) !important;
+    margin-right: max(1rem, env(safe-area-inset-right, 16px)) !important;
   }
 
-  .sidebar.open {
-    transform: translate3d(0, 0, 0) !important;
-    box-shadow: 0 0 40px rgba(15, 23, 42, 0.4);
+  /* ── Strictly Disable Desktop Sidebar on Mobile (Real iOS App Hub) ── */
+  .sidebar,
+  #sidebar {
+    display: none !important;
+  }
+
+  /* ── Native iOS App Hub Sheet Styles ── */
+  .ios-hub-card {
+    margin-bottom: 0.75rem;
+  }
+
+  .ios-hub-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0.875rem;
+    text-decoration: none;
+    transition: background-color 0.12s ease, transform 0.08s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .ios-hub-row:active {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+    transform: scale(0.985);
+  }
+
+  [data-theme="dark"] .ios-hub-row:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  [data-theme="neon"] .ios-hub-row:active {
+    background-color: rgba(0, 240, 255, 0.1) !important;
+  }
+
+  .pb-safe-bottom {
+    padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem)) !important;
   }
 }
 
