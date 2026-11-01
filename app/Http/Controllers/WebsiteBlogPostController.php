@@ -146,6 +146,97 @@ class WebsiteBlogPostController extends Controller
     }
 
     /**
+     * Render an authentic public blog post preview in a new tab without saving to database.
+     */
+    public function previewStaging(Request $request)
+    {
+        abort_unless(auth()->user()?->hasWebsiteAccess(), 403, 'Access denied.');
+
+        $websiteId = $request->input('website_id');
+        $website = $websiteId ? Website::find($websiteId) : null;
+
+        $title = trim((string) $request->input('title', 'Untitled Article'));
+        if (empty($title)) {
+            $title = 'Untitled Article';
+        }
+
+        $slug = $request->input('slug') ?: \Illuminate\Support\Str::slug($title);
+        $contentHtml = (string) $request->input('content_html', '');
+        $rawContent = (string) $request->input('raw_content', '');
+
+        if (empty($contentHtml) && !empty($rawContent)) {
+            $contentHtml = $this->blogPostService->formatMarkdownContent($rawContent);
+        }
+
+        if (empty($contentHtml)) {
+            $contentHtml = '<p class="text-slate-500 italic">No article content written yet. Write content in the editor to see your live preview here.</p>';
+        }
+
+        $featuredImageUrl = $request->input('featured_image_url');
+        if (empty($featuredImageUrl)) {
+            preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $contentHtml, $m);
+            if (!empty($m[1])) {
+                $featuredImageUrl = $m[1];
+            }
+        }
+
+        // Deduplicate leading image if featured image matches
+        if ($featuredImageUrl) {
+            $contentHtml = preg_replace('/<p[^>]*>\s*<img[^>]+src=["\']' . preg_quote($featuredImageUrl, '/') . '["\'][^>]*>\s*<\/p>/i', '', $contentHtml, 1);
+        }
+
+        $post = new WebsitePost([
+            'website_id'         => $website?->id,
+            'title'              => $title,
+            'slug'               => $slug,
+            'content_html'       => $contentHtml,
+            'raw_content'        => $rawContent,
+            'featured_image_url' => $featuredImageUrl,
+            'category'           => $request->input('category', 'General'),
+            'author_name'        => $request->input('author_name', $website?->name ?: auth()->user()->name),
+            'meta_title'         => $request->input('meta_title', $title),
+            'meta_description'   => $request->input('meta_description', \Illuminate\Support\Str::limit(strip_tags($contentHtml), 155)),
+            'tag_keywords'       => $request->input('tag_keywords'),
+            'status'             => 'preview',
+            'published_at'       => now(),
+        ]);
+
+        if ($website) {
+            $post->setRelation('website', $website);
+        }
+
+        $siteName = $website ? ($website->name ?: $website->clean_domain) : 'DGT Media';
+        $siteUrl = $website ? $website->url : url('/');
+        $authorName = $post->author_name ?: $siteName;
+
+        $wordCount = str_word_count(strip_tags($contentHtml));
+        $readingMinutes = max(1, (int) ceil($wordCount / 200));
+
+        $relatedPosts = $website
+            ? WebsitePost::where('website_id', $website->id)
+                ->whereIn('status', [WebsitePost::STATUS_PUBLISHED, 'publish', 'public'])
+                ->latest('id')
+                ->take(3)
+                ->get()
+            : collect();
+
+        $isPreview = true;
+
+        return view('public.blog.show', compact(
+            'post',
+            'website',
+            'contentHtml',
+            'siteName',
+            'siteUrl',
+            'authorName',
+            'readingMinutes',
+            'wordCount',
+            'relatedPosts',
+            'isPreview'
+        ));
+    }
+
+    /**
      * Store or update a blog post via AJAX from the CMS editor.
      */
     public function store(Request $request): JsonResponse

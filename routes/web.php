@@ -44,12 +44,21 @@ Route::middleware(['auth', 'ensure.active', 'role:super-admin'])->get('/debug-lo
 Route::post('/export/download-pdf-base64', [RouteClosureController::class, 'downloadPdfBase64'])->name('export.download-pdf-base64')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
 Route::post('/export/save-pdf-temp', [RouteClosureController::class, 'savePdfTemp'])->name('export.save-pdf-temp')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
 
+// ── Public Blog Reader Routes (Instant, Zero-Lag, Branded Reader for Any Fleet Post) ──
+Route::get('/blog/{domain}/{slug}', [\App\Http\Controllers\PublicBlogViewController::class, 'showByDomainSlug'])->name('public.blog.show');
+Route::get('/view/blog/{post}', [\App\Http\Controllers\PublicBlogViewController::class, 'showById'])->name('public.blog.view');
+Route::get('/api/v1/public/posts/{domain}', [\App\Http\Controllers\PublicBlogViewController::class, 'apiPosts'])->name('public.blog.api');
+
 // Ultra-lightweight latency ping endpoint (0-db, un-cached)
 Route::get('/ping', function () {
     return response('pong', 200)
         ->header('Content-Type', 'text/plain')
         ->header('Cache-Control', 'no-cache, no-store, must-revalidate');
 })->name('ping');
+
+// Direct connector package & SDK file downloads (publicly accessible with proper attachment headers)
+Route::get('/connectors/download/{type}', [\App\Http\Controllers\WebsiteIntegrationController::class, 'downloadConnector'])->name('websites.connectors.download');
+Route::get('/websites/connectors/download/{type}', [\App\Http\Controllers\WebsiteIntegrationController::class, 'downloadConnector'])->name('websites.connectors.download.alias');
 
 Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
@@ -133,8 +142,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/websites/google-search-console/export/sitemaps-csv', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'exportSitemapsCsv'])->name('websites.search-console.export.sitemaps-csv');
             Route::match(['get', 'post', 'options'], '/websites/google-search-console/sync-browser-data', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'syncBrowserData'])->name('websites.search-console.sync-browser-data');
 
-            Route::get('/websites/dashboard', [\App\Http\Controllers\WebsitesDashboardController::class, 'index'])->name('websites.dashboard');
-            Route::get('/websites/dashboard/export', [\App\Http\Controllers\WebsitesDashboardController::class, 'export'])->name('websites.dashboard.export');
+            // Executive Dashboard was removed — keep old URLs working by redirecting.
+            Route::redirect('/websites/dashboard', '/websites')->name('websites.dashboard');
 
             // ── Central Website Integration Platform & Blog Analytics ──
             Route::get('/websites/integrations', [\App\Http\Controllers\WebsiteIntegrationController::class, 'index'])->name('websites.integrations.index');
@@ -142,6 +151,16 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/websites/blogs/export/csv', [\App\Http\Controllers\WebsiteIntegrationController::class, 'exportBlogsCsv'])->name('websites.blogs.export.csv');
             Route::get('/websites/blogs/export/pdf', [\App\Http\Controllers\WebsiteIntegrationController::class, 'exportBlogsPdf'])->name('websites.blogs.export.pdf');
             Route::post('/websites/blogs/sync-now', [\App\Http\Controllers\WebsiteIntegrationController::class, 'syncBlogsNow'])->name('websites.blogs.sync-now');
+
+            // ── Blog Post CMS & Multi-Website Publishing ──
+            Route::get('/websites/posts', [\App\Http\Controllers\WebsiteBlogPostController::class, 'index'])->name('websites.posts.index');
+            Route::post('/websites/posts', [\App\Http\Controllers\WebsiteBlogPostController::class, 'store'])->name('websites.posts.store');
+            Route::post('/websites/posts/batch', [\App\Http\Controllers\WebsiteBlogPostController::class, 'batchStore'])->name('websites.posts.batch');
+            Route::post('/websites/posts/preview-staging', [\App\Http\Controllers\WebsiteBlogPostController::class, 'previewStaging'])->name('websites.posts.preview-staging');
+            Route::get('/websites/posts/latest-10', [\App\Http\Controllers\WebsiteBlogPostController::class, 'latest10'])->name('websites.posts.latest10');
+            Route::get('/websites/posts/{post}', [\App\Http\Controllers\WebsiteBlogPostController::class, 'show'])->name('websites.posts.show');
+            Route::delete('/websites/posts/{post}', [\App\Http\Controllers\WebsiteBlogPostController::class, 'destroy'])->name('websites.posts.destroy');
+            Route::get('/websites/blog-posts', fn() => redirect()->route('websites.posts.index'))->name('websites.blog-posts.alias');
             Route::post('/websites/{website}/integration', [\App\Http\Controllers\WebsiteIntegrationController::class, 'saveIntegration'])->name('websites.integration.save');
             Route::post('/websites/{website}/integration/test', [\App\Http\Controllers\WebsiteIntegrationController::class, 'testConnection'])->name('websites.integration.test');
             Route::post('/websites/{website}/integration/sync', [\App\Http\Controllers\WebsiteIntegrationController::class, 'syncNow'])->name('websites.integration.sync');
@@ -550,7 +569,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         Route::patch('/posts/{post}/complete', [SocialMediaPostController::class, 'markCompleted'])->name('posts.complete');
 
                         // Reports
-                        Route::middleware('role:super-admin|admin-digital|supervisor|social_qc')->group(function () {
+                        Route::middleware('role:super-admin|admin-digital|supervisor|social_qc|social-qc|social_admin|social-admin')->group(function () {
                             Route::get('/reports', [SocialMediaReportController::class, 'index'])->name('reports.index');
                             // Route::get('/reports/export/csv', [SocialMediaReportController::class, 'exportCsv'])->name('reports.export.csv');
                             // Route::get('/reports/export/pdf', [SocialMediaReportController::class, 'exportPdf'])->name('reports.export.pdf');
@@ -558,7 +577,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                         });
                         
                         // Analytics View/Download/Store
-                        Route::middleware('role:super-admin|admin-digital|social_admin|social_qc|boss|digital-team|supervisor')->group(function () {
+                        Route::middleware('role:super-admin|admin-digital|social_admin|social-admin|social_qc|social-qc|boss|digital-team|supervisor')->group(function () {
                             Route::get('/analytics', [SocialMediaAnalyticsController::class, 'index'])->name('analytics.index');
                             Route::get('/analytics/{analytic}/download', [SocialMediaAnalyticsController::class, 'download'])->name('analytics.download');
                             Route::get('/analytics/{analytic}/preview', [SocialMediaAnalyticsController::class, 'preview'])->name('analytics.preview');
@@ -570,7 +589,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                     });
 
                 // Admin/QC actions (excluding Boss)
-                Route::middleware('role:super-admin|admin-digital|social_qc')->group(function () {
+                Route::middleware('role:super-admin|admin-digital|social_qc|social-qc|social_admin|social-admin')->group(function () {
                     Route::patch('/posts/{post}/check', [SocialMediaPostController::class, 'markChecked'])->name('posts.check');
                     Route::patch('/posts/{post}/unlock', [SocialMediaPostController::class, 'unlock'])->name('posts.unlock');
                 });
@@ -578,8 +597,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 // Quick create SMM Class from Board
                 Route::post('/classes/quick-create', [\App\Http\Controllers\SocialMedia\SocialMediaClassController::class, 'quickStore'])->name('classes.quick-store');
 
-                // Class & Item Management — platform admins and Social QC only
-                Route::middleware('role:super-admin|admin-digital|social_qc')->group(function () {
+                // Class & Item Management — platform admins, Social QC, and Social Admin
+                Route::middleware('role:super-admin|admin-digital|social_qc|social-qc|social_admin|social-admin')->group(function () {
                     // Class
                     Route::get('/manage', [SocialMediaClassController::class, 'index'])->name('manage');
                     Route::post('/classes', [SocialMediaClassController::class, 'store'])->name('classes.store');

@@ -878,6 +878,44 @@ HTML;
         $response->assertDontSee('+ + Add More');
     }
 
+    public function test_preview_staging_opens_authentic_blog_view_in_new_tab(): void
+    {
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'super-admin']);
+
+        $user = User::factory()->create([
+            'username' => 'previewuser',
+            'name'     => 'Preview Tester',
+            'email'    => 'preview@test.com',
+            'is_active'=> true,
+        ]);
+        $user->assignRole('super-admin');
+
+        $website = Website::create([
+            'name'        => 'Preview Test Site',
+            'url'         => 'https://preview-site.com',
+            'category'    => '1st Class',
+            'handler_id'  => $user->id,
+            'is_archived' => false,
+        ]);
+
+        $response = $this->actingAs($user)->post('/websites/posts/preview-staging', [
+            'website_id'         => $website->id,
+            'title'              => 'Live Staging Article Preview Title',
+            'slug'               => 'live-staging-article-preview-title',
+            'content_html'       => '<p>This is live staging article preview text rendered in new tab.</p>',
+            'featured_image_url' => 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
+            'category'           => 'Technology',
+            'author_name'        => 'Preview Tester',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertSee('Live Staging Article Preview Title');
+        $response->assertSee('This is live staging article preview text rendered in new tab.');
+        $response->assertSee('LIVE BLOG PREVIEW');
+        $response->assertSee('Preview Test Site');
+        $response->assertSee('Close Preview ✕');
+    }
+
     public function test_blog_post_can_store_and_post_specification_table_across_all_websites()
     {
         \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'super-admin']);
