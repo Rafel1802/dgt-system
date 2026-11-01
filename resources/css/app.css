@@ -1364,6 +1364,8 @@
     background-color: transparent !important;
   }
 
+  [data-theme="dark"] .trello-card-modal .card-detail-title,
+  [data-theme="dark"] .trello-card-modal textarea.card-detail-title,
   [data-theme="dark"] .trello-card-modal input.card-detail-title {
     color: var(--text-primary) !important;
   }
@@ -2834,7 +2836,7 @@
 }
 
 @import './kanban.css';
-/* Cache bust 1787370800 */
+/* Cache bust 1787371500 */
 
 
 /* ══════════════════════════════════════════════════════════════════

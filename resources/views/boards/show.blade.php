@@ -84,7 +84,8 @@ body.is-dragging-card * { cursor: grabbing !important; }
 .kanban-card-label{height:.6rem;width:3.25rem;border-radius:999px}
 .kanban-card-avatar{width:2rem;height:2rem}
 .trello-card-modal{font-size:.95rem;line-height:1.5}
-.trello-card-modal .card-detail-title{font-size:1.45rem!important;line-height:1.28!important;padding-top:.35rem!important;padding-bottom:.35rem!important}
+.trello-card-modal .card-detail-title, .trello-card-modal textarea.card-detail-title{font-size:1.4rem!important;line-height:1.32!important;padding-top:.35rem!important;padding-bottom:.35rem!important}
+@media (max-width: 639px){.trello-card-modal .card-detail-title, .trello-card-modal textarea.card-detail-title{font-size:1.15rem!important;line-height:1.38!important;padding-top:.2rem!important;padding-bottom:.2rem!important}}
 .trello-card-modal .text-xs{font-size:.875rem!important;line-height:1.45!important}
 .trello-card-modal .text-\[10px\]{font-size:.75rem!important;line-height:1.35!important}
 .trello-card-modal .text-\[11px\]{font-size:.8125rem!important;line-height:1.4!important}
@@ -214,7 +215,16 @@ body.is-dragging-card * { cursor: grabbing !important; }
 	/* ── Mobile Board App-Grade Experience (Trello Resource Standard - Scoped to Board Only) ── */
 	@media (max-width: 1023px) {
 		.is-board-page .topbar,
-		html:has(.board-wrap) .topbar { padding: 4px 8px !important; min-height: 40px !important; border-bottom: none !important; margin-bottom: 0 !important; background: transparent !important; }
+		html:has(.board-wrap) .topbar {
+			padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
+			padding-bottom: 8px !important;
+			padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
+			padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
+			min-height: calc(44px + max(calc(env(safe-area-inset-top, 0px) + 8px), 16px)) !important;
+			border-bottom: none !important;
+			margin-bottom: 0 !important;
+			background: transparent !important;
+		}
 		.is-board-page .topbar .mobile-topbar-title-text,
 		html:has(.board-wrap) .topbar .mobile-topbar-title-text { display: none; }
 		.is-board-page .page-content,
@@ -308,15 +318,16 @@ body.is-dragging-card * { cursor: grabbing !important; }
 			height: 1.45rem !important;
 		}
 
-		/* Full viewport lock on mobile board view: eliminates window bounce & lag */
+		/* Full viewport lock on mobile board view: eliminates window bounce & lag without breaking viewport anchoring */
 		html.is-board-page,
 		body.is-board-page,
 		html:has(.board-wrap),
 		body:has(.board-wrap) {
-			height: 100dvh !important;
-			max-height: 100dvh !important;
+			height: 100% !important;
+			min-height: 100% !important;
+			max-height: 100% !important;
 			overflow: hidden !important;
-			position: fixed !important;
+			overscroll-behavior: none !important;
 			width: 100% !important;
 		}
 		.is-board-page .main-wrapper,
@@ -332,7 +343,10 @@ body.is-dragging-card * { cursor: grabbing !important; }
 			flex: 0 0 auto !important;
 			height: auto !important;
 			min-height: 0 !important;
-			padding: 4px 8px !important;
+			padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
+			padding-bottom: 8px !important;
+			padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
+			padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
 		}
 		.is-board-page .page-content,
 		.page-content:has(.board-wrap) {

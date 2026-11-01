@@ -149,11 +149,11 @@
 
   {{-- Scrollable Container for Card Modal Box --}}
   <div id="card-modal-scroll-container"
-       class="fixed inset-0 flex items-start justify-center p-2 pt-12 pb-24 sm:p-4 sm:pt-16 sm:pb-32 lg:pb-16 overflow-y-auto overscroll-contain z-[75]"
+       class="fixed inset-0 flex items-start justify-center p-0 sm:p-4 sm:pt-16 sm:pb-32 lg:pb-16 overflow-y-auto overscroll-contain z-[75]"
        style="-webkit-overflow-scrolling: touch; touch-action: pan-y;"
        @click.self="closeCard()">
 
-  <div class="trello-card-modal bg-white rounded-2xl shadow-2xl w-full max-w-4xl mb-8 overflow-hidden border border-slate-100 flex flex-col"
+  <div class="trello-card-modal bg-white dark:bg-slate-900 rounded-none sm:rounded-2xl shadow-2xl w-full max-w-4xl min-h-full sm:min-h-0 sm:mb-8 overflow-hidden border-0 sm:border border-slate-100 dark:border-slate-800 flex flex-col"
        x-show="activeCard"
        x-transition:enter="transition ease-out duration-75"
        x-transition:enter-start=" scale-95"
@@ -167,22 +167,79 @@
     <div x-show="!cardLoading && activeCard" class="flex flex-col h-full">
 
       {{-- Header section --}}
-      <div class="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-slate-100 bg-slate-50/50">
-        <div class="flex items-start gap-4">
-          <span class="text-2xl mt-1 select-none">💳</span>
+      <div class="p-3.5 sm:p-6 pb-3 sm:pb-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/60">
+        
+        {{-- Mobile Top Bar: Counter, Prev, Next, Close (sm:hidden) --}}
+        <div class="flex items-center justify-between sm:hidden pb-2.5 mb-2.5 border-b border-slate-200/60 dark:border-slate-800/80">
+          <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 select-none">
+            <span class="text-base">💳</span>
+            <span class="font-bold text-slate-700 dark:text-slate-200">Card Details</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            {{-- Order Counter: e.g. 5 / 40 --}}
+            <div x-show="totalCardsInActiveList() > 0" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold text-slate-600 dark:text-slate-300 select-none mr-0.5">
+              <span x-text="(getActiveCardIndex() + 1)"></span>
+              <span class="text-slate-400 font-normal">/</span>
+              <span x-text="totalCardsInActiveList()"></span>
+            </div>
+
+            {{-- Prev Button (Above) --}}
+            <button type="button"
+                    @click="prevCard()"
+                    :disabled="!hasPrevCard()"
+                    :class="hasPrevCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-xs bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 active:scale-95' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
+                    class="w-8 h-8 rounded-lg transition-all flex items-center justify-center touch-manipulation"
+                    :title="getPrevCard() ? (getActiveCardIndex() === 0 ? 'Previous card (wrap to last): ' + getPrevCard().title + ' [← / ↑]' : 'Previous card (above): ' + getPrevCard().title + ' [← / ↑]') : 'Only 1 card in this list'">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+
+            {{-- Next Button (Below) --}}
+            <button type="button"
+                    @click="nextCard()"
+                    :disabled="!hasNextCard()"
+                    :class="hasNextCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-xs bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 active:scale-95' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
+                    class="w-8 h-8 rounded-lg transition-all flex items-center justify-center touch-manipulation"
+                    :title="getNextCard() ? (getActiveCardIndex() === totalCardsInActiveList() - 1 ? 'Next card (wrap to first): ' + getNextCard().title + ' [→ / ↓]' : 'Next card (below): ' + getNextCard().title + ' [→ / ↓]') : 'Only 1 card in this list'">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+
+            <div class="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
+            {{-- Close Button --}}
+            <button @click="closeCard()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-all active:scale-95 touch-manipulation cursor-pointer" title="Close (Esc)">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {{-- Main Title & Meta Row --}}
+        <div class="flex items-start gap-3 sm:gap-4">
+          <span class="text-2xl mt-1 select-none hidden sm:inline-block">💳</span>
           <div class="flex-1 min-w-0">
-            <input type="text" :value="activeCard?.title"
-                   @change="updateCardField({ title: $event.target.value })"
-                   @keydown.enter="$event.target.blur()"
-                   class="card-detail-title font-display font-bold text-slate-800 text-xl w-full bg-transparent border-0 rounded px-2 -ml-2 py-0.5 transition-all truncate focus:ring-2 focus:ring-indigo-500/20 focus:bg-white">
+            <textarea x-ref="cardTitleInput"
+                      :value="activeCard?.title"
+                      x-effect="if (activeCard) { $nextTick(() => { $el.style.height = 'auto'; $el.style.height = ($el.scrollHeight) + 'px'; }); }"
+                      @input="$el.style.height = 'auto'; $el.style.height = ($el.scrollHeight) + 'px'"
+                      @change="updateCardField({ title: $event.target.value.trim() })"
+                      @keydown.enter.prevent="$event.target.blur()"
+                      rows="1"
+                      class="card-detail-title font-display font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl w-full bg-transparent border-0 rounded px-1 sm:px-2 -ml-1 sm:-ml-2 py-0.5 transition-all resize-none overflow-hidden focus:ring-2 focus:ring-indigo-500/20 focus:bg-white dark:focus:bg-slate-800 leading-snug break-words"
+                      placeholder="Card title..."
+                      style="min-height: 2rem;"></textarea>
             
             {{-- Stage/List selector dropdown trigger --}}
-            <div class="flex items-center gap-1.5 text-xs text-slate-400 mt-1.5 flex-wrap" x-data="{ openListSelect: false }">
+            <div class="flex items-center gap-1.5 text-xs text-slate-400 mt-1 flex-wrap" x-data="{ openListSelect: false }">
               <span>in list</span>
               <div class="relative">
                 <button @click="if (isCardChecklistIncomplete(activeCard)) { showChecklistIncompleteModal('move', activeCard); return; } openListSelect = !openListSelect"
                         data-ctx-panel="move"
-                        class="font-bold text-indigo-600 hover:text-indigo-800 underline focus:outline-none transition-colors"
+                        class="font-bold text-indigo-600 hover:text-indigo-800 dark:text-sky-400 dark:hover:text-sky-300 underline focus:outline-none transition-colors"
                         x-text="activeCard?.board_list_name">
                 </button>
                 
@@ -230,7 +287,9 @@
               </template>
             </div>
           </div>
-          <div class="flex items-center gap-1.5 flex-shrink-0 mt-1">
+
+          {{-- Desktop Controls (Counter, Prev, Next, Close) (hidden sm:flex) --}}
+          <div class="hidden sm:flex items-center gap-1.5 flex-shrink-0 mt-1">
             {{-- Order Counter: e.g. 5 / 40 --}}
             <div x-show="totalCardsInActiveList() > 0" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-bold text-slate-600 dark:text-slate-300 select-none mr-0.5">
               <span x-text="(getActiveCardIndex() + 1)"></span>
@@ -596,6 +655,72 @@
             </div>
           </div>
         </div>
+      </div>
+
+      {{-- Mobile Quick Actions Ribbon (< md screens only) --}}
+      <div class="md:hidden px-4 py-2.5 bg-slate-100/70 dark:bg-slate-800/60 border-b border-slate-200/70 dark:border-slate-700/60 flex items-center gap-2 overflow-x-auto hide-scrollbar select-none">
+        <button type="button" @click="openMemberPicker(activeCard)" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 transition-all">
+          <span>👤</span>
+          <span>Members</span>
+          <template x-if="activeCard?.assignees?.length">
+            <span class="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-[10px] font-black px-1.5 py-0.2 rounded-md" x-text="activeCard.assignees.length"></span>
+          </template>
+        </button>
+
+        <button type="button" @click="openLabelPicker(activeCard)" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 transition-all">
+          <span>🏷️</span>
+          <span>Labels</span>
+        </button>
+
+        {{-- Team Popover on Mobile --}}
+        <div class="relative shrink-0" x-data="{ openTeamMobile: false }">
+          <button type="button" @click="openTeamMobile = !openTeamMobile" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 transition-all">
+            <span>👥</span>
+            <span>Team</span>
+            <template x-if="activeCard?.team">
+              <span class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-black px-1.5 py-0.2 rounded-md" x-text="activeCard.team === 'Both' ? 'A&B' : activeCard.team"></span>
+            </template>
+          </button>
+          <div x-show="openTeamMobile" @click.outside="openTeamMobile = false" x-cloak
+               class="absolute left-0 top-full mt-1.5 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-2 space-y-1">
+            <p class="text-[10px] uppercase font-black tracking-wider text-slate-400 px-2 py-1 select-none">Assign Production Team</p>
+            <button type="button" @click="setCardTeam('A'); openTeamMobile = false" class="w-full flex items-center justify-between p-2 rounded-xl text-xs text-left hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors font-bold text-slate-800 dark:text-slate-200">
+              <span class="flex items-center gap-2"><span class="w-5 h-5 rounded bg-blue-600 text-white font-black text-[10px] flex items-center justify-center">A</span> Team A</span>
+              <span x-show="!isCardBothTeams(activeCard) && activeCard?.team === 'A'" class="text-blue-600 font-bold">✓</span>
+            </button>
+            <button type="button" @click="setCardTeam('B'); openTeamMobile = false" class="w-full flex items-center justify-between p-2 rounded-xl text-xs text-left hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors font-bold text-slate-800 dark:text-slate-200">
+              <span class="flex items-center gap-2"><span class="w-5 h-5 rounded bg-emerald-600 text-white font-black text-[10px] flex items-center justify-center">B</span> Team B</span>
+              <span x-show="!isCardBothTeams(activeCard) && activeCard?.team === 'B'" class="text-emerald-600 font-bold">✓</span>
+            </button>
+            <button type="button" @click="setCardTeam('Both'); openTeamMobile = false" class="w-full flex items-center justify-between p-2 rounded-xl text-xs text-left hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors font-bold text-slate-800 dark:text-slate-200">
+              <span class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-indigo-600 text-white font-black text-[9px]">A&B</span> Joint (Both)</span>
+              <span x-show="isCardBothTeams(activeCard)" class="text-indigo-600 font-bold">✓</span>
+            </button>
+            <template x-if="activeCard?.team">
+              <button type="button" @click="setCardTeam(null); openTeamMobile = false" class="w-full text-center py-1.5 text-[11px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg">Remove Team</button>
+            </template>
+          </div>
+        </div>
+
+        <button type="button" @click="openChecklistModal(activeCard)" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 transition-all">
+          <span>☑️</span>
+          <span>Checklist</span>
+        </button>
+
+        <button type="button" @click="openDatePicker(activeCard)" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 transition-all">
+          <span>📅</span>
+          <span>Dates</span>
+        </button>
+
+        <button type="button" @click="openAttachmentModal(activeCard)" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 transition-all">
+          <span>📎</span>
+          <span>Attach</span>
+        </button>
+
+        <button type="button" @click="openCardTransferModal(activeCard)" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 transition-all">
+          <span>➡️</span>
+          <span>Move</span>
+        </button>
       </div>
 
       {{-- Grid Body --}}
@@ -1082,7 +1207,7 @@
 
                         {{-- 3. Checklist Text --}}
                         <label class="flex-1 min-w-0 cursor-pointer" @dblclick="openEditChecklistItemModal(cl, item)">
-                          <span class="text-xs truncate block" :class="item.is_completed ? 'line-through text-slate-400 font-medium' : 'text-slate-700'"
+                          <span class="text-xs break-words block leading-relaxed" :class="item.is_completed ? 'line-through text-slate-400 font-medium' : 'text-slate-700 dark:text-slate-200'"
                                 x-text="item.title || item.content"></span>
                         </label>
                       </div>
