@@ -15,7 +15,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         $isMobile = $isIosApp || $isAndroidApp || preg_match('/Mobile/i', $userAgent);
     @endphp
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full overflow-x-hidden {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }} {{ $isMobile ? 'dgt-mobile-app' : '' }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full overflow-x-hidden {{ $isMacDesktopApp ? 'dgt-macos-app' : '' }} {{ $isMobile ? 'dgt-mobile-app' : '' }} {{ $isIosApp ? 'dgt-ios-app' : '' }} {{ $isAndroidApp ? 'dgt-android-app' : '' }}">
 <head>
     <script>localStorage.removeItem('dgt_font_scale');</script>
     <meta charset="UTF-8">
@@ -205,16 +205,25 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         window.Turbo = Turbo;
         Turbo.setProgressBarDelay(window.innerWidth < 1024 ? 100 : 400);
 
-        // Trigger Turbo prefetch on touch devices (exclude /boards/ so boards mount cleanly without double-render)
+        // Turbo 8 Speculative Instant Preload: Preloads pages on desktop hover and touch
+        // Makes switching menus feel instantaneous with zero loading delay!
+        let _preloadTimeout = null;
+        document.addEventListener('mouseover', (e) => {
+            const link = e.target.closest('a[href]');
+            if (link && link.href && link.origin === window.location.origin && link.getAttribute('data-turbo') !== 'false' && !link.href.includes('/boards/')) {
+                clearTimeout(_preloadTimeout);
+                _preloadTimeout = setTimeout(() => {
+                    if (!link.hasAttribute('data-turbo-preload')) {
+                        link.setAttribute('data-turbo-preload', 'true');
+                    }
+                }, 40);
+            }
+        }, { passive: true });
+
         document.addEventListener('touchstart', (e) => {
             const link = e.target.closest('a[href]');
             if (link && link.href && link.origin === window.location.origin && link.getAttribute('data-turbo') !== 'false' && !link.href.includes('/boards/')) {
-                const event = new MouseEvent('mouseenter', {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true
-                });
-                link.dispatchEvent(event);
+                link.setAttribute('data-turbo-preload', 'true');
             }
         }, { passive: true });
     </script>
@@ -492,7 +501,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             }
 
             html.dgt-mobile-app .topbar {
-                flex: 0 0 64px;
+                flex: 0 0 auto;
+                height: auto !important;
+                min-height: calc(56px + max(calc(env(safe-area-inset-top, 0px) + 8px), 16px)) !important;
+                padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
+                padding-bottom: 8px !important;
+                padding-left: max(1rem, env(safe-area-inset-left, 16px)) !important;
+                padding-right: max(1rem, env(safe-area-inset-right, 16px)) !important;
             }
 
             html.dgt-mobile-app .page-content {
@@ -500,7 +515,37 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 min-height: 0;
                 overflow-x: hidden;
                 overflow-y: auto;
-                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-y: contain;
+                padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+
+            /* 100% Native Mobile App UX Enhancements */
+            @media (max-width: 768px) {
+                /* Prevent iOS auto-zoom on input focus */
+                input, select, textarea, .form-input, .form-select {
+                    font-size: 16px !important;
+                }
+
+                /* Native tap micro-interactions */
+                button, a, .mobile-nav-item, [role="button"] {
+                    -webkit-tap-highlight-color: transparent !important;
+                    touch-action: manipulation;
+                }
+
+                button:active:not(:disabled),
+                .mobile-nav-item:active,
+                .touch-active:active {
+                    transform: scale(0.96) !important;
+                    transition: transform 0.06s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+                }
+
+                /* Disable text callouts and browser text selection on UI controls */
+                .mobile-bottom-nav, .topbar, button, nav {
+                    -webkit-user-select: none;
+                    user-select: none;
+                    -webkit-touch-callout: none;
+                }
             }
         </style>
     @endif
@@ -1086,11 +1131,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                class="sidebar-submenu-item {{ request()->routeIs('smm-boards.*') ? 'active' : '' }}" data-tooltip="SMM Planning Board">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-                                </svg>
                                 <span>SMM Planning Board</span>
                             </a>
-                            
-
                         </div>
                     </div>
                 </div>
@@ -1098,13 +1140,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 @if(auth()->user()->hasWebsiteAccess())
                 @php
-                    $sidebarWebsiteErrorsCount = \App\Models\Website::where('is_archived', false)
-                        ->whereIn('status', [
-                            \App\Models\Website::STATUS_QC_ERROR,
-                            \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR,
-                            \App\Models\Website::STATUS_SUPERVISOR_ERROR,
-                            \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR,
-                        ])->count();
+                    $sidebarWebsiteErrorsCount = \Illuminate\Support\Facades\Cache::remember('sidebar_website_errors_count', 60, function() {
+                        return \App\Models\Website::where('is_archived', false)
+                            ->whereIn('status', [
+                                \App\Models\Website::STATUS_QC_ERROR,
+                                \App\Models\Website::STATUS_MAINTENANCE_QC_ERROR,
+                                \App\Models\Website::STATUS_SUPERVISOR_ERROR,
+                                \App\Models\Website::STATUS_MAINTENANCE_SUPERVISOR_ERROR,
+                            ])->count();
+                    });
+                    $sidebarMaintModules = \Illuminate\Support\Facades\Cache::remember('active_maintenance_modules_list', 15, function() {
+                        $val = \App\Models\Setting::where('key', 'maintenance_modules')->value('value');
+                        return $val ? (json_decode($val, true) ?: []) : [];
+                    });
+                    $isAllWebsitesMaint = in_array('all_websites', $sidebarMaintModules, true);
                 @endphp
                 {{-- All Websites accordion sub-menu --}}
                 <div x-data="{ wsOpen: localStorage.getItem('dgt-websites-menu-open') === 'true' || {{ request()->routeIs('websites.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
@@ -1118,6 +1167,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
                             </svg>
                             <span>All Websites</span>
+                            @if($isAllWebsitesMaint)
+                                <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-red-500/15 text-red-400 border border-red-500/30 shrink-0 ml-1.5" title="All Websites Under Maintenance">Maint</span>
+                            @endif
                             @if($sidebarWebsiteErrorsCount > 0)
                                 <span x-show="!wsOpen" class="w-2 h-2 rounded-full bg-red-500 animate-pulse ml-1.5 shrink-0" title="{{ $sidebarWebsiteErrorsCount }} website error(s) flagged"></span>
                             @endif
@@ -1153,6 +1205,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         @php
                             $wsStatusTabs = ['build','build-progress','live','maintenance','qc-error','supervisor-error'];
                             $isOnStatusTab = request()->routeIs('websites.index') && in_array(request()->get('tab','build'), $wsStatusTabs);
+                            $isWsStatusMaint = $isAllWebsitesMaint || in_array('websites_status', $sidebarMaintModules, true);
                         @endphp
                         <a href="{{ route('websites.index', ['tab' => $sidebarWebsiteErrorsCount > 0 ? 'qc-error' : 'build']) }}"
                            class="sidebar-submenu-item flex items-center justify-between {{ $isOnStatusTab ? 'active' : '' }}"
@@ -1166,31 +1219,53 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 </svg>
                                 <span>Website Status</span>
                             </div>
-                            @if($sidebarWebsiteErrorsCount > 0)
-                                <span class="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black text-white bg-red-600 rounded-full shadow-sm ring-2 ring-red-400/50 dark:ring-red-900 animate-pulse" title="{{ $sidebarWebsiteErrorsCount }} website error(s) flagged">
-                                    {{ $sidebarWebsiteErrorsCount }}
-                                </span>
-                            @endif
+                            <div class="flex items-center gap-1.5">
+                                @if($isWsStatusMaint)
+                                    <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
+                                @endif
+                                @if($sidebarWebsiteErrorsCount > 0)
+                                    <span class="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black text-white bg-red-600 rounded-full shadow-sm ring-2 ring-red-400/50 dark:ring-red-900 animate-pulse" title="{{ $sidebarWebsiteErrorsCount }} website error(s) flagged">
+                                        {{ $sidebarWebsiteErrorsCount }}
+                                    </span>
+                                @endif
+                            </div>
                         </a>
                         {{-- 2. Follow Up --}}
+                        @php
+                            $isFollowUpMaint = $isAllWebsitesMaint || in_array('websites_followup', $sidebarMaintModules, true);
+                        @endphp
                         <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
-                           class="sidebar-submenu-item {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
+                           class="sidebar-submenu-item flex items-center justify-between {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
                            id="nav-websites-followup" data-tooltip="Follow Up">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 14 2 2 4-4" /></svg>
-                            <span>Follow Up</span>
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 14 2 2 4-4" /></svg>
+                                <span>Follow Up</span>
+                            </div>
+                            @if($isFollowUpMaint)
+                                <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
+                            @endif
                         </a>
                         {{-- 3. Google Search Console --}}
+                        @php
+                            $isGscMaint = $isAllWebsitesMaint || in_array('google_search_console', $sidebarMaintModules, true);
+                        @endphp
                         <a href="{{ route('websites.search-console.index') }}"
                            class="sidebar-submenu-item flex items-center justify-between {{ request()->routeIs('websites.search-console.*') ? 'active' : '' }}"
                            id="nav-websites-search-console" data-tooltip="Google Search Console">
                             <div class="flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125Z" />
                                 </svg>
                                 <span>Google Search Console</span>
                             </div>
+                            @if($isGscMaint)
+                                <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
+                            @endif
                         </a>
                         {{-- 4. Central Connectors --}}
+                        @php
+                            $isConnectorsMaint = $isAllWebsitesMaint || in_array('websites_central_connectors', $sidebarMaintModules, true);
+                        @endphp
                         @if(auth()->user()?->canAccessCentralConnectors())
                         <a href="{{ route('websites.integrations.index') }}"
                            class="sidebar-submenu-item flex items-center justify-between {{ request()->routeIs('websites.integrations.*') ? 'active' : '' }}"
@@ -1201,9 +1276,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 </svg>
                                 <span>Central Connectors</span>
                             </div>
+                            @if($isConnectorsMaint)
+                                <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
+                            @endif
                         </a>
                         @endif
                         {{-- 5. Blog Analytics --}}
+                        @php
+                            $isBlogAnalyticsMaint = $isAllWebsitesMaint || in_array('websites_blog_analytics', $sidebarMaintModules, true);
+                        @endphp
                         <a href="{{ route('websites.blogs.index') }}"
                            class="sidebar-submenu-item flex items-center justify-between {{ request()->routeIs('websites.blogs.*') ? 'active' : '' }}"
                            id="nav-websites-blogs" data-tooltip="Blog Analytics">
@@ -1212,6 +1293,29 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                                 </svg>
                                 <span>Blog Analytics</span>
+                            </div>
+                            @if($isBlogAnalyticsMaint)
+                                <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
+                            @endif
+                        </a>
+                        {{-- 6. Blog Post --}}
+                        @php
+                            $isBlogPostMaint = $isAllWebsitesMaint || in_array('websites_blog_post', $sidebarMaintModules, true);
+                        @endphp
+                        <a href="{{ route('websites.posts.index') }}"
+                           class="sidebar-submenu-item flex items-center justify-between {{ request()->routeIs('websites.posts.*') ? 'active' : '' }}"
+                           id="nav-websites-blog-posts" data-tooltip="Blog Post">
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                </svg>
+                                <span>Blog Post</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                @if($isBlogPostMaint)
+                                    <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
+                                @endif
+                                <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">CMS</span>
                             </div>
                         </a>
                     </div>
@@ -2435,9 +2539,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </a>
             @endif
 
-            <!-- Websites (Boss + super-admin) -->
-            @if(auth()->user()?->hasAnyRole(['boss', 'super-admin']))
-            <a href="{{ route('websites.dashboard') }}"
+            <!-- Websites (Boss, super-admin, admin-digital, or authorized website users) -->
+            @if(auth()->user()?->hasWebsiteAccess() || auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team']))
+            <a href="{{ route('websites.posts.index') }}"
                data-turbo-preload
                class="mobile-nav-item {{ request()->routeIs('websites.*') ? 'active' : '' }}"
                aria-label="Websites">
@@ -2468,8 +2572,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <!-- Profile / More trigger -->
             <button type="button"
                     class="mobile-nav-item {{ request()->routeIs('admin.*') || request()->routeIs('reports.*') || request()->routeIs('profile.*') ? 'active' : '' }}"
-                    x-data
-                    @click="$dispatch('open-mobile-sidebar')"
+                    @click="$store.sidebar.toggleMobile()"
                     aria-label="Profile">
                 <span class="mobile-nav-icon">
                     <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
