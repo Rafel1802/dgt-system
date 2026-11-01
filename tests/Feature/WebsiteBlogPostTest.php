@@ -916,6 +916,59 @@ HTML;
         $response->assertSee('Close Preview ✕');
     }
 
+    public function test_preview_generates_shareable_link_valid_for_10_minutes_and_expires(): void
+    {
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'super-admin']);
+
+        $user = User::factory()->create([
+            'username' => 'tokenpreviewuser',
+            'name'     => 'Token Tester',
+            'email'    => 'token@test.com',
+            'is_active'=> true,
+        ]);
+        $user->assignRole('super-admin');
+
+        $website = Website::create([
+            'name'        => 'Ten Minute Preview Site',
+            'url'         => 'https://tenmin-site.com',
+            'category'    => '1st Class',
+            'handler_id'  => $user->id,
+            'is_archived' => false,
+        ]);
+
+        // 1. Generate 10-minute preview token via AJAX
+        $postResponse = $this->actingAs($user)->postJson('/websites/posts/preview-token', [
+            'website_id'         => $website->id,
+            'title'              => '10 Minute Preview Title',
+            'slug'               => '10-minute-preview-title',
+            'content_html'       => '<p>Special content visible for 10 minutes before expiring.</p>',
+            'featured_image_url' => 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
+            'category'           => 'Technology',
+            'author_name'        => 'Token Tester',
+        ]);
+
+        $postResponse->assertStatus(200);
+        $postResponse->assertJsonStructure(['success', 'token', 'preview_url', 'expires_at', 'expires_in']);
+        $token = $postResponse->json('token');
+        $this->assertNotEmpty($token);
+
+        // 2. Open public preview link without login (unauthenticated visitor / share link)
+        $previewResponse = $this->get('/blog/preview/' . $token);
+        $previewResponse->assertStatus(200);
+        $previewResponse->assertSee('10 Minute Preview Title');
+        $previewResponse->assertSee('Special content visible for 10 minutes before expiring.');
+        $previewResponse->assertSee('Expires in:');
+        $previewResponse->assertSee('Copy 10m Link');
+        $previewResponse->assertSee('Ten Minute Preview Site');
+
+        // 3. Expire token and verify 410 expired page
+        \Illuminate\Support\Facades\Cache::forget("blog_preview_{$token}");
+        $expiredResponse = $this->get('/blog/preview/' . $token);
+        $expiredResponse->assertStatus(410);
+        $expiredResponse->assertSee('Preview Link Expired');
+        $expiredResponse->assertSee('10-Minute Limit Reached');
+    }
+
     public function test_blog_post_can_store_and_post_specification_table_across_all_websites()
     {
         \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'super-admin']);

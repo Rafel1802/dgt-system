@@ -5085,7 +5085,7 @@ function blogPostCmsApp() {
             }
         },
 
-        openPreviewInNewTab() {
+        async openPreviewInNewTab() {
             this.syncArticle0FromLegacyFields();
             const art = this.articles[0] || {};
 
@@ -5101,38 +5101,66 @@ function blogPostCmsApp() {
             const metaTitle = this.metaTitle || art.metaTitle || title;
             const tags = this.tagKeywords || art.tagKeywords || '';
 
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '{{ route("websites.posts.preview-staging") }}';
-            form.target = '_blank';
-            form.style.display = 'none';
-
-            const fields = {
-                _token: '{{ csrf_token() }}',
-                website_id: websiteId,
-                title: title,
-                slug: slug,
-                content_html: contentHtml,
-                raw_content: contentRaw,
-                featured_image_url: featuredImage,
-                category: category,
-                author_name: author,
-                meta_title: metaTitle,
-                meta_description: metaDescription,
-                tag_keywords: tags,
-            };
-
-            for (const [key, val] of Object.entries(fields)) {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = val ?? '';
-                form.appendChild(input);
+            // Open window synchronously to avoid popup blockers
+            const previewWin = window.open('about:blank', '_blank');
+            if (previewWin) {
+                previewWin.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head><title>Loading 10-Minute Blog Preview...</title></head>
+                    <body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0b0f17;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;">
+                        <div style="text-align:center;padding:20px;max-width:400px;">
+                            <div style="font-size:36px;margin-bottom:12px;">⏳</div>
+                            <h3 style="margin:0 0 8px 0;font-size:18px;font-weight:700;">Generating 10-Minute Preview</h3>
+                            <p style="margin:0;font-size:13px;color:#94a3b8;">Creating secure temporary preview link...</p>
+                        </div>
+                    </body>
+                    </html>
+                `);
             }
 
-            document.body.appendChild(form);
-            form.submit();
-            setTimeout(() => { form.remove(); }, 1500);
+            try {
+                const response = await fetch('{{ route("websites.posts.preview-token") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        website_id: websiteId,
+                        title: title,
+                        slug: slug,
+                        content_html: contentHtml,
+                        raw_content: contentRaw,
+                        featured_image_url: featuredImage,
+                        category: category,
+                        author_name: author,
+                        meta_title: metaTitle,
+                        meta_description: metaDescription,
+                        tag_keywords: tags,
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success && data.preview_url) {
+                    if (previewWin && !previewWin.closed) {
+                        previewWin.location.href = data.preview_url;
+                    } else {
+                        window.open(data.preview_url, '_blank');
+                    }
+                    if (this.showToast) {
+                        this.showToast('10-Minute preview link generated successfully!', 'success');
+                    }
+                } else {
+                    if (previewWin && !previewWin.closed) previewWin.close();
+                    alert(data.message || 'Could not generate preview link.');
+                }
+            } catch (err) {
+                console.error('Preview token error:', err);
+                if (previewWin && !previewWin.closed) previewWin.close();
+                alert('Failed to generate preview: ' + err.message);
+            }
         },
 
         getFormattedPreviewDate() {

@@ -177,15 +177,30 @@
     <div id="reading-progress"></div>
 
     @if(!empty($isPreview))
-    <!-- ── Staging Preview Notification Banner ── -->
+    <!-- ── Staging Preview Notification Banner (10-Minute Expiring Link) ── -->
     <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white text-xs font-bold py-2.5 px-4 shadow-lg sticky top-0 z-50 border-b border-white/15">
-        <div class="max-w-4xl mx-auto flex items-center justify-between gap-3">
+        <div class="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2.5">
                 <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/20 text-white text-xs font-black">👁</span>
-                <span class="tracking-tight"><strong>LIVE BLOG PREVIEW:</strong> This is an authentic preview of how your article will look when published on <u>{{ $siteName }}</u>.</span>
+                <span class="tracking-tight"><strong>LIVE BLOG PREVIEW:</strong> Previewing article for <u>{{ $siteName }}</u>.</span>
             </div>
-            <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 rounded bg-black/25 text-[10px] uppercase tracking-wider font-black border border-white/20">Staging Mode</span>
+            <div class="flex items-center flex-wrap gap-2">
+                <!-- 10-Minute Countdown Badge -->
+                <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/35 border border-white/20 text-white font-mono text-[11px] shadow-inner">
+                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="opacity-90">Expires in:</span>
+                    <span id="preview-countdown" class="font-extrabold text-amber-300">10:00</span>
+                </div>
+
+                @if(!empty($previewShareUrl))
+                <!-- Copy 10m Share Link Button -->
+                <button type="button" onclick="copyPreviewLink()" id="btn-copy-preview"
+                        class="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    <span id="btn-copy-preview-text">Copy 10m Link</span>
+                </button>
+                @endif
+
                 <button type="button" onclick="window.close()" class="px-3 py-1 rounded-lg bg-white text-slate-900 hover:bg-slate-100 text-[11px] font-black transition-all cursor-pointer shadow-sm">
                     Close Preview ✕
                 </button>
@@ -417,6 +432,47 @@
                 }, 3000);
             });
         }
+
+        @if(!empty($isPreview) && !empty($previewExpiresAt))
+        // ── 10-Minute Expiring Preview Timer ──
+        const previewExpiresAtMs = {{ (int) $previewExpiresAt }} * 1000;
+        function updatePreviewCountdown() {
+            const now = Date.now();
+            const remaining = Math.max(0, Math.floor((previewExpiresAtMs - now) / 1000));
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            const el = document.getElementById('preview-countdown');
+            if (el) {
+                el.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                if (remaining <= 60) {
+                    el.classList.remove('text-amber-300');
+                    el.classList.add('text-red-300', 'animate-pulse');
+                }
+            }
+            if (remaining <= 0) {
+                clearInterval(previewTimerInterval);
+                if (el) el.textContent = 'Expired';
+                setTimeout(() => { window.location.reload(); }, 2000);
+            }
+        }
+        const previewTimerInterval = setInterval(updatePreviewCountdown, 1000);
+        updatePreviewCountdown();
+
+        function copyPreviewLink() {
+            const url = "{{ $previewShareUrl ?? '' }}";
+            if (!url) return;
+            navigator.clipboard.writeText(url).then(() => {
+                const txt = document.getElementById('btn-copy-preview-text');
+                if (txt) {
+                    const old = txt.textContent;
+                    txt.textContent = '✓ Copied!';
+                    setTimeout(() => { txt.textContent = old; }, 2000);
+                }
+            }).catch(() => {
+                prompt('Copy 10-minute preview link:', url);
+            });
+        }
+        @endif
     </script>
 </body>
 </html>

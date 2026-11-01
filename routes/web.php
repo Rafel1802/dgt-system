@@ -45,6 +45,7 @@ Route::post('/export/download-pdf-base64', [RouteClosureController::class, 'down
 Route::post('/export/save-pdf-temp', [RouteClosureController::class, 'savePdfTemp'])->name('export.save-pdf-temp')->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
 
 // ── Public Blog Reader Routes (Instant, Zero-Lag, Branded Reader for Any Fleet Post) ──
+Route::get('/blog/preview/{token}', [\App\Http\Controllers\WebsiteBlogPostController::class, 'showPreviewByToken'])->name('public.blog.preview');
 Route::get('/blog/{domain}/{slug}', [\App\Http\Controllers\PublicBlogViewController::class, 'showByDomainSlug'])->name('public.blog.show');
 Route::get('/view/blog/{post}', [\App\Http\Controllers\PublicBlogViewController::class, 'showById'])->name('public.blog.view');
 Route::get('/api/v1/public/posts/{domain}', [\App\Http\Controllers\PublicBlogViewController::class, 'apiPosts'])->name('public.blog.api');
@@ -157,6 +158,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/websites/posts', [\App\Http\Controllers\WebsiteBlogPostController::class, 'store'])->name('websites.posts.store');
             Route::post('/websites/posts/batch', [\App\Http\Controllers\WebsiteBlogPostController::class, 'batchStore'])->name('websites.posts.batch');
             Route::post('/websites/posts/preview-staging', [\App\Http\Controllers\WebsiteBlogPostController::class, 'previewStaging'])->name('websites.posts.preview-staging');
+            Route::post('/websites/posts/preview-token', [\App\Http\Controllers\WebsiteBlogPostController::class, 'generatePreviewToken'])->name('websites.posts.preview-token');
             Route::get('/websites/posts/latest-10', [\App\Http\Controllers\WebsiteBlogPostController::class, 'latest10'])->name('websites.posts.latest10');
             Route::get('/websites/posts/{post}', [\App\Http\Controllers\WebsiteBlogPostController::class, 'show'])->name('websites.posts.show');
             Route::delete('/websites/posts/{post}', [\App\Http\Controllers\WebsiteBlogPostController::class, 'destroy'])->name('websites.posts.destroy');
