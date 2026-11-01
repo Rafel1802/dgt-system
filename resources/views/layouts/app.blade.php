@@ -1817,10 +1817,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         <span class="text-xs font-bold">Back</span>
                     </button>
                     @endif
-                    <!-- Page Title (visible on all screens) -->
-                    <div class="mobile-topbar-title">
-                        <p class="mobile-topbar-title-text">@yield('title', 'DIGITAL SYSTEM')</p>
-                    </div>
+                </div>
+
+                <!-- Page Title: Mathematically Centered on Mobile (Apple HIG), Left-aligned on Desktop -->
+                <div class="mobile-topbar-title">
+                    <p class="mobile-topbar-title-text">@yield('title', 'DIGITAL SYSTEM')</p>
                 </div>
 
                 <div class="topbar-actions ml-auto">
@@ -2438,25 +2439,25 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 </div>
             </header>
 
-            <!-- Flash Messages -->
+            <!-- Flash Messages (Apple Dynamic Island / Pill Style on Mobile) -->
             @if (session('success'))
-                <div class="mx-6 mt-4">
-                    <div class="alert alert-success animate-fade-in" role="alert">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 flex-shrink-0">
+                <div class="ios-alert-wrapper mx-4 sm:mx-6 mt-3 sm:mt-4">
+                    <div class="alert alert-success ios-session-alert animate-fade-in" role="alert">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 flex-shrink-0 text-emerald-500">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd"/>
                         </svg>
-                        {{ session('success') }}
+                        <span class="flex-1 font-medium">{{ session('success') }}</span>
                     </div>
                 </div>
             @endif
 
             @if (session('error'))
-                <div class="mx-6 mt-4">
-                    <div class="alert alert-error animate-fade-in" role="alert">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 flex-shrink-0">
+                <div class="ios-alert-wrapper mx-4 sm:mx-6 mt-3 sm:mt-4">
+                    <div class="alert alert-error ios-session-alert animate-fade-in" role="alert">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 flex-shrink-0 text-rose-500">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-1.5-9.5a1.5 1.5 0 1 1 3 0v4a1.5 1.5 0 0 1-3 0v-4Zm1.5 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>
                         </svg>
-                        {{ session('error') }}
+                        <span class="flex-1 font-medium">{{ session('error') }}</span>
                     </div>
                 </div>
             @endif
@@ -2598,22 +2599,54 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
         <!-- iOS Bottom Sheet Container -->
         <div x-show="$store.mobileHub.open"
+             x-data="{
+                 touchStartY: 0,
+                 dragOffset: 0,
+                 isDragging: false,
+                 handleTouchStart(e) {
+                     this.touchStartY = e.touches[0].clientY;
+                     this.isDragging = true;
+                 },
+                 handleTouchMove(e) {
+                     if (!this.isDragging) return;
+                     const delta = e.touches[0].clientY - this.touchStartY;
+                     if (delta > 0) {
+                         this.dragOffset = delta;
+                     } else {
+                         this.dragOffset = 0;
+                     }
+                 },
+                 handleTouchEnd() {
+                     if (this.dragOffset > 80) {
+                         $store.mobileHub.close();
+                     }
+                     this.dragOffset = 0;
+                     this.isDragging = false;
+                 }
+             }"
+             :style="dragOffset > 0 ? 'transform: translateY(' + dragOffset + 'px); transition: none;' : ''"
              x-transition:enter="transition cubic-bezier(0.32, 0.72, 0, 1) duration-300 transform"
              x-transition:enter-start="translate-y-full"
              x-transition:enter-end="translate-y-0"
              x-transition:leave="transition cubic-bezier(0.32, 0.72, 0, 1) duration-220 transform"
              x-transition:leave-start="translate-y-0"
              x-transition:leave-end="translate-y-full"
-             class="fixed inset-x-0 bottom-0 z-[70] max-h-[85vh] flex flex-col rounded-t-[32px] bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-white/40 dark:border-slate-800/80 shadow-[0_-10px_40px_rgba(0,0,0,0.35)] overflow-hidden">
+             class="fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] max-w-lg mx-auto flex flex-col rounded-t-[32px] bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-white/40 dark:border-slate-800/80 shadow-[0_-12px_45px_rgba(0,0,0,0.4)] overflow-hidden">
 
-            <!-- Sheet Grab Handle (iOS Standard) -->
-            <div class="pt-3 pb-2 flex-shrink-0 flex items-center justify-center cursor-pointer select-none"
+            <!-- Sheet Grab Handle (iOS Standard with touch drag) -->
+            <div class="pt-3 pb-2 flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+                 @touchstart="handleTouchStart($event)"
+                 @touchmove="handleTouchMove($event)"
+                 @touchend="handleTouchEnd()"
                  @click="$store.mobileHub.close()">
                 <div class="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
             </div>
 
             <!-- Header / User Card -->
-            <div class="px-5 pb-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/70 flex-shrink-0">
+            <div class="px-4 sm:px-5 pb-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/70 flex-shrink-0"
+                 @touchstart="handleTouchStart($event)"
+                 @touchmove="handleTouchMove($event)"
+                 @touchend="handleTouchEnd()">
                 <a href="{{ route('profile.show') }}"
                    @click="$store.mobileHub.close()"
                    class="flex items-center gap-3 min-w-0 group active:scale-[0.98] transition-transform">
@@ -2643,21 +2676,132 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </div>
 
             <!-- Scrollable Content with iOS Inset Groups -->
-            <div class="overflow-y-auto overscroll-contain flex-1 px-4 py-4 space-y-4 pb-safe-bottom"
+            <div class="overflow-y-auto overscroll-contain flex-1 px-3 sm:px-4 py-3 sm:py-3.5 space-y-3 sm:space-y-3.5 pb-safe-bottom"
                  style="-webkit-overflow-scrolling: touch;">
+
+                <!-- Quick App Launcher Grid (Apple iOS SpringBoard / App Library Style) -->
+                <div class="ios-hub-card">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1 py-1 mb-1">
+                        Quick Launch
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 sm:gap-3">
+                        <!-- App 1: Home Dashboard -->
+                        <a href="{{ route('dashboard') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-blue-600 via-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/25">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
+                                    <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
+                                </svg>
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Home</span>
+                        </a>
+
+                        <!-- App 2: Boards / Workspaces -->
+                        <a href="{{ route('boards.workspaces') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-purple-600 via-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-500/25">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z"/>
+                                </svg>
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Boards</span>
+                        </a>
+
+                        <!-- App 3: Tasks Count (with live badge) -->
+                        <a href="{{ route('tasks.count') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group relative">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-500/25 relative">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                                </svg>
+                                @if($mobileTasksCount > 0)
+                                <span class="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900">{{ $mobileTasksCount }}</span>
+                                @endif
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Tasks</span>
+                        </a>
+
+                        <!-- App 4: Reels / SMM -->
+                        <a href="{{ route('social-media.dashboard') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-pink-500 via-rose-500 to-red-500 text-white flex items-center justify-center shadow-md shadow-pink-500/25">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <rect x="3" y="4" width="18" height="16" rx="4" stroke-width="1.8" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m3 9 4.5-5M8 9l4.5-5M13 9l4.5-5M18 9l3-3.3" />
+                                    <path fill="currentColor" stroke="none" d="m10.5 12 5 3-5 3v-6Z" />
+                                </svg>
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Reels</span>
+                        </a>
+
+                        <!-- App 5: Websites -->
+                        <a href="{{ route('websites.posts.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/25">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
+                                </svg>
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Websites</span>
+                        </a>
+
+                        <!-- App 6: Search Console -->
+                        <a href="{{ route('websites.search-console.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-sky-400 via-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-500/25">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+                                </svg>
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">GSC SEO</span>
+                        </a>
+
+                        <!-- App 7: Notes -->
+                        <a href="{{ route('notes.team') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-amber-400 to-amber-600 text-white flex items-center justify-center shadow-md shadow-amber-500/25">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                </svg>
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Notes</span>
+                        </a>
+
+                        <!-- App 8: Settings -->
+                        <a href="{{ route('settings') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-slate-600 to-slate-800 text-white flex items-center justify-center shadow-md shadow-slate-600/25">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87l.22.127c.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992v.255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124l-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87l-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991v-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124l.22-.128c.332-.183.582-.495.644-.869l.214-1.28Z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                                </svg>
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Settings</span>
+                        </a>
+                    </div>
+                </div>
 
                 <!-- Appearance: iOS Segmented Theme Switch -->
                 <div class="ios-hub-card">
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 py-1.5">
-                        Appearance
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1 py-1 mb-1">
+                        Theme
                     </div>
-                    <div class="p-1.5 bg-slate-200/60 dark:bg-slate-800/80 rounded-2xl flex items-center gap-1">
+                    <div class="p-1 sm:p-1.5 bg-slate-200/60 dark:bg-slate-800/80 rounded-2xl flex items-center gap-1">
                         <!-- Light Button -->
                         <button type="button"
                                 @click="setTheme('light'); if (neonMode) toggleNeonTheme();"
                                 :class="theme === 'light' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-bold' : 'text-slate-500 dark:text-slate-400 font-medium'"
-                                class="flex-1 py-2 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95">
-                            <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                class="flex-1 py-1.5 sm:py-2 px-1 sm:px-2 rounded-xl text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 transition-all active:scale-95">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
                             </svg>
                             <span>Light</span>
@@ -2666,8 +2810,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         <button type="button"
                                 @click="setTheme('dark'); if (neonMode) toggleNeonTheme();"
                                 :class="theme === 'dark' && !isNeon ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-bold' : 'text-slate-500 dark:text-slate-400 font-medium'"
-                                class="flex-1 py-2 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95">
-                            <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                class="flex-1 py-1.5 sm:py-2 px-1 sm:px-2 rounded-xl text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 transition-all active:scale-95">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
                             </svg>
                             <span>Dark</span>
@@ -2676,14 +2820,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         <button type="button"
                                 @click="if (!isNeon) toggleNeonTheme();"
                                 :class="isNeon ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30' : 'text-slate-500 dark:text-slate-400 font-medium'"
-                                class="flex-1 py-2 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95">
-                            <svg class="w-4 h-4 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                class="flex-1 py-1.5 sm:py-2 px-1 sm:px-2 rounded-xl text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 transition-all active:scale-95">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
                             </svg>
                             <span>Neon</span>
                         </button>
                     </div>
                 </div>
+
 
                 <!-- Section: Digital Operations (SMM & Reels) -->
                 @if(auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team', 'social_qc', 'social_admin']))

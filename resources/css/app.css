@@ -2705,21 +2705,37 @@
     }
   }
 
-  /* ── Very small phones ── */
+  /* ── Very small phones (320px–375px: iPhone SE, mini, compact Androids) ── */
   @media (max-width: 375px) {
+    .mobile-topbar-title {
+      left: 56px !important;
+      right: 56px !important;
+    }
+
     .mobile-topbar-title-text {
-      max-width: calc(100vw - 180px);
-      font-size: 0.875rem;
+      font-size: 0.875rem !important;
+      max-width: 100% !important;
     }
 
     .topbar {
-      padding-left: max(1rem, env(safe-area-inset-left, 16px));
-      padding-right: max(1rem, env(safe-area-inset-right, 16px));
+      padding-left: max(0.625rem, env(safe-area-inset-left, 10px)) !important;
+      padding-right: max(0.625rem, env(safe-area-inset-right, 10px)) !important;
     }
 
-    .mobile-menu-btn {
-      width: 36px;
-      height: 36px;
+    .mobile-bottom-nav-inner {
+      height: 50px !important;
+      padding-left: 2px !important;
+      padding-right: 2px !important;
+    }
+
+    .mobile-nav-icon svg {
+      width: 22px !important;
+      height: 22px !important;
+    }
+
+    .mobile-nav-label {
+      font-size: 9.5px !important;
+      letter-spacing: -0.02em !important;
     }
   }
 
@@ -2831,10 +2847,12 @@
 /* Cache bust 1787370103 */
 
 
-/* ── Mobile Overrides (Native iOS Application Standard) ────────── */
+/* ══════════════════════════════════════════════════════════════════
+   REAL NATIVE iOS APPLICATION EXPERIENCE (All Sections & Mobile Views)
+   ══════════════════════════════════════════════════════════════════ */
 @media (max-width: 1023px) {
   .main-wrapper {
-    margin-left: 0;
+    margin-left: 0 !important;
   }
 
   /* ── Native iOS Navigation Bar (Header) ── */
@@ -2851,22 +2869,223 @@
     position: sticky !important;
     top: 0 !important;
     z-index: 40 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
   }
 
   [data-theme="dark"] .topbar {
     border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
-    background: rgba(15, 23, 42, 0.85) !important;
+    background: rgba(15, 23, 42, 0.88) !important;
   }
 
   [data-theme="neon"] .topbar {
     border-bottom: 0.5px solid rgba(0, 240, 255, 0.25) !important;
-    background: rgba(2, 10, 30, 0.9) !important;
+    background: rgba(2, 10, 30, 0.92) !important;
   }
 
-  /* Mobile flash messages */
-  .mx-6 {
-    margin-left: max(1rem, env(safe-area-inset-left, 16px)) !important;
-    margin-right: max(1rem, env(safe-area-inset-right, 16px)) !important;
+  /* ── Mathematically Centered Apple UINavigationBar Title ── */
+  .mobile-topbar-title {
+    position: absolute !important;
+    left: 70px !important;
+    right: 70px !important;
+    top: env(safe-area-inset-top, 0px) !important;
+    bottom: 0 !important;
+    margin: auto 0 !important;
+    height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+    text-align: center !important;
+  }
+
+  .mobile-topbar-title-text {
+    max-width: 100% !important;
+    font-size: 15.5px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.015em !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    color: var(--text-primary) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", sans-serif !important;
+  }
+
+  /* ── Apple HIG Dynamic Island / Capsule Pill Session Alert ── */
+  .ios-alert-wrapper {
+    position: sticky !important;
+    top: calc(48px + env(safe-area-inset-top, 0px) + 6px) !important;
+    z-index: 38 !important;
+    pointer-events: none !important;
+  }
+
+  .ios-session-alert {
+    pointer-events: auto !important;
+    border-radius: 9999px !important;
+    padding: 0.625rem 1.125rem !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.16), 0 2px 6px -1px rgba(0, 0, 0, 0.08) !important;
+    max-width: min(92vw, 420px) !important;
+    margin: 0 auto !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.625rem !important;
+    animation: iosPillSpring 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  @keyframes iosPillSpring {
+    0% { transform: translateY(-16px) scale(0.92); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  .alert-success.ios-session-alert {
+    background: rgba(236, 253, 245, 0.94) !important;
+    border: 0.5px solid rgba(16, 185, 129, 0.35) !important;
+    color: #065f46 !important;
+  }
+
+  [data-theme="dark"] .alert-success.ios-session-alert {
+    background: rgba(6, 78, 59, 0.9) !important;
+    border: 0.5px solid rgba(52, 211, 153, 0.35) !important;
+    color: #a7f3d0 !important;
+  }
+
+  [data-theme="neon"] .alert-success.ios-session-alert {
+    background: rgba(4, 30, 48, 0.94) !important;
+    border: 0.5px solid rgba(0, 240, 255, 0.5) !important;
+    color: #00f0ff !important;
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.3) !important;
+  }
+
+  .alert-error.ios-session-alert {
+    background: rgba(255, 241, 242, 0.94) !important;
+    border: 0.5px solid rgba(244, 63, 94, 0.35) !important;
+    color: #9f1239 !important;
+  }
+
+  [data-theme="dark"] .alert-error.ios-session-alert {
+    background: rgba(136, 19, 55, 0.9) !important;
+    border: 0.5px solid rgba(251, 113, 133, 0.35) !important;
+    color: #fecdd3 !important;
+  }
+
+  /* ── Apple HIG Inset Grouped Cards for ALL Sections ── */
+  .card,
+  .bento-card,
+  .bento-card-primary,
+  .dash-glass,
+  .liquid-glass,
+  .cms-hub-hero,
+  .ios-hub-card {
+    border-radius: 18px !important;
+    padding: 1.125rem !important;
+    border: 0.5px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.04), 0 1px 3px -1px rgba(0, 0, 0, 0.02) !important;
+  }
+
+  [data-theme="dark"] .card,
+  [data-theme="dark"] .bento-card,
+  [data-theme="dark"] .dash-glass,
+  [data-theme="dark"] .liquid-glass,
+  [data-theme="dark"] .cms-hub-hero {
+    border: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  [data-theme="neon"] .card,
+  [data-theme="neon"] .bento-card,
+  [data-theme="neon"] .dash-glass,
+  [data-theme="neon"] .liquid-glass,
+  [data-theme="neon"] .cms-hub-hero {
+    border: 0.5px solid rgba(0, 210, 255, 0.35) !important;
+    box-shadow: 0 4px 20px -4px rgba(0, 140, 255, 0.3), inset 0 1px 0 rgba(0, 220, 255, 0.2) !important;
+  }
+
+  /* ── Native iOS Health / Widget 2-Column Stat Cards ── */
+  .stat-card {
+    border-radius: 16px !important;
+    padding: 0.875rem 1rem !important;
+    border: 0.5px solid rgba(0, 0, 0, 0.07) !important;
+    transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .stat-card:active {
+    transform: scale(0.975) !important;
+  }
+
+  [data-theme="dark"] .stat-card {
+    border: 0.5px solid rgba(255, 255, 255, 0.07) !important;
+  }
+
+  /* ── Native iOS Responsive Tables ── */
+  .table-responsive-wrapper,
+  .overflow-x-auto:has(table) {
+    border-radius: 16px !important;
+    border: 0.5px solid rgba(0, 0, 0, 0.07) !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  [data-theme="dark"] .table-responsive-wrapper,
+  [data-theme="dark"] .overflow-x-auto:has(table) {
+    border: 0.5px solid rgba(255, 255, 255, 0.07) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  /* ── Kanban Board Horizontal Momentum Snap Scroll ── */
+  .board-wrap,
+  .kanban-board-wrapper,
+  .is-board-page .overflow-x-auto {
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+    scroll-snap-type: x proximity;
+  }
+
+  .board-list,
+  .kanban-column {
+    scroll-snap-align: start;
+    border-radius: 18px !important;
+  }
+
+  /* ── Form Controls Native iOS Anti-Zoom & Feel ── */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  input[type="url"],
+  input[type="tel"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Critical: Stops iOS Safari auto-zoom */
+    border-radius: 12px !important;
+    -webkit-appearance: none !important;
+  }
+
+  /* ── Buttons Tactile Native Press Feedback ── */
+  button,
+  .btn,
+  a[role="button"],
+  .ios-hub-row,
+  .mobile-nav-item {
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+
+  button:active,
+  .btn:active,
+  a.btn:active {
+    transform: scale(0.97) !important;
+    transition: transform 0.06s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
   /* ── Strictly Disable Desktop Sidebar on Mobile (Real iOS App Hub) ── */
@@ -2906,6 +3125,39 @@
 
   .pb-safe-bottom {
     padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem)) !important;
+  }
+}
+
+/* ── Mobile Landscape Orientation & Foldables (Short Heights) ── */
+@media (max-width: 1023px) and (orientation: landscape) and (max-height: 520px) {
+  .topbar {
+    height: calc(42px + env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(42px + env(safe-area-inset-top, 0px)) !important;
+    padding-left: max(1rem, env(safe-area-inset-left, 16px)) !important;
+    padding-right: max(1rem, env(safe-area-inset-right, 16px)) !important;
+  }
+
+  .mobile-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  }
+
+  .mobile-bottom-nav-inner {
+    height: 44px !important;
+    max-width: 520px !important;
+  }
+
+  .mobile-nav-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .mobile-nav-label {
+    font-size: 9px !important;
+  }
+
+  .mobile-page-content,
+  .page-content {
+    padding-bottom: calc(58px + env(safe-area-inset-bottom, 12px)) !important;
   }
 }
 
