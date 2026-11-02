@@ -1211,22 +1211,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 @endif
                             </div>
                         </a>
-                        {{-- 2. Follow Up --}}
-                        @php
-                            $isFollowUpMaint = $isAllWebsitesMaint || in_array('websites_followup', $sidebarMaintModules, true);
-                        @endphp
-                        <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
-                           class="sidebar-submenu-item flex items-center justify-between {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
-                           id="nav-websites-followup" data-tooltip="Follow Up">
-                            <div class="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 14 2 2 4-4" /></svg>
-                                <span>Follow Up</span>
-                            </div>
-                            @if($isFollowUpMaint)
-                                <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
-                            @endif
-                        </a>
-                        {{-- 3. Google Search Console --}}
+                        {{-- 2. Google Search Console --}}
                         @php
                             $isGscMaint = $isAllWebsitesMaint || in_array('google_search_console', $sidebarMaintModules, true);
                         @endphp
@@ -1243,7 +1228,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
                             @endif
                         </a>
-                        {{-- 4. Central Connectors --}}
+                        {{-- 3. Central Connectors --}}
                         @php
                             $isConnectorsMaint = $isAllWebsitesMaint || in_array('websites_central_connectors', $sidebarMaintModules, true);
                         @endphp
@@ -1262,7 +1247,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             @endif
                         </a>
                         @endif
-                        {{-- 5. Blog Analytics --}}
+                        {{-- 4. Blog Analytics --}}
                         @php
                             $isBlogAnalyticsMaint = $isAllWebsitesMaint || in_array('websites_blog_analytics', $sidebarMaintModules, true);
                         @endphp
@@ -1279,7 +1264,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
                             @endif
                         </a>
-                        {{-- 6. Blog Post --}}
+                        {{-- 5. Blog Post --}}
                         @php
                             $isBlogPostMaint = $isAllWebsitesMaint || in_array('websites_blog_post', $sidebarMaintModules, true);
                         @endphp
@@ -1298,6 +1283,21 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 @endif
                                 <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">CMS</span>
                             </div>
+                        </a>
+                        {{-- 6. Follow Up --}}
+                        @php
+                            $isFollowUpMaint = $isAllWebsitesMaint || in_array('websites_followup', $sidebarMaintModules, true);
+                        @endphp
+                        <a href="{{ route('websites.index', ['tab' => 'follow-up']) }}"
+                           class="sidebar-submenu-item flex items-center justify-between {{ request()->routeIs('websites.index') && request()->get('tab') === 'follow-up' ? 'active' : '' }}"
+                           id="nav-websites-followup" data-tooltip="Follow Up">
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 14 2 2 4-4" /></svg>
+                                <span>Follow Up</span>
+                            </div>
+                            @if($isFollowUpMaint)
+                                <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0" title="Under Maintenance">Maint</span>
+                            @endif
                         </a>
                     </div>
                 </div>
