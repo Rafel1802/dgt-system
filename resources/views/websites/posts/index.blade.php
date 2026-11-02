@@ -1866,7 +1866,7 @@ body[data-theme="neon"] .cms-handler-chip {
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h1 class="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Blog Posts</h1>
+                        <h1 class="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Blog Post CMS</h1>
                         <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping"></span>
                             Multi-Website CMS
@@ -3172,6 +3172,47 @@ body[data-theme="neon"] .cms-handler-chip {
                             </select>
                         </div>
 
+                        <!-- Blog Post Date (for Sheets & Follow-up) -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="cms-field-label-sm" style="margin: 0;">Blog Post Date</label>
+                                <span class="text-[10.5px] text-indigo-500 font-semibold flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                                    Follow-up &amp; Sheets
+                                </span>
+                            </div>
+                            <input type="date" x-model="postDate" class="cms-editor-select font-bold text-xs" />
+                        </div>
+
+                        <!-- Target Website & Sheet Class Integration Pill -->
+                        <div class="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/20 p-2.5 text-xs space-y-1.5" x-show="selectedWebsite">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400 font-medium">Website:</span>
+                                <strong class="text-slate-800 dark:text-slate-100 font-bold truncate max-w-[150px]" x-text="selectedWebsite?.name || '–'"></strong>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400 font-medium">Handler:</span>
+                                <span class="inline-flex items-center gap-1 font-semibold text-indigo-700 dark:text-indigo-300">
+                                    <template x-if="selectedWebsite?.handler_avatar">
+                                        <img :src="selectedWebsite.handler_avatar" class="w-3.5 h-3.5 rounded-full object-cover shrink-0">
+                                    </template>
+                                    <span x-text="selectedWebsite?.handler_name || 'Unassigned'"></span>
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400 font-medium">Sheet Class:</span>
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-black bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300" 
+                                      x-text="getBlogClassLabel(selectedWebsite?.category)"></span>
+                            </div>
+                            <div class="pt-1.5 border-t border-indigo-100/80 dark:border-indigo-900/30 flex items-center justify-between text-[11px]">
+                                <label class="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300 font-medium">
+                                    <input type="checkbox" x-model="syncSheetImmediately" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5">
+                                    <span>Sync Sheets now</span>
+                                </label>
+                                <span class="text-[10px] text-slate-400" x-text="syncSheetImmediately ? 'Immediate' : 'Upon QC Approve'"></span>
+                            </div>
+                        </div>
+
                         <!-- Scheduled Post Date/Time Box -->
                         <div x-show="postStatus === 'scheduled'" x-transition class="cms-scheduled-box space-y-1">
                             <label class="cms-field-label-sm" style="color: #b45309;">Schedule Date &amp; Time</label>
@@ -3586,6 +3627,8 @@ function blogPostCmsApp() {
         slugManuallyEdited: false,
         contentRaw: '',
         postStatus: 'published',
+        postDate: new Date().toISOString().split('T')[0],
+        syncSheetImmediately: false,
         scheduledAt: '',
         authorName: '',
         postCategory: '',
@@ -3670,6 +3713,7 @@ function blogPostCmsApp() {
                 slugManuallyEdited: Boolean(initialData.slug),
                 contentRaw: initialContent,
                 status: initialData.status ? this.normalizeStatus(initialData.status) : 'published',
+                post_date: initialData.post_date || (initialData.published_at ? initialData.published_at.substring(0, 10) : new Date().toISOString().split('T')[0]),
                 scheduled_at: initialData.scheduled_at || '',
                 author_name: defaultAuthor,
                 category: defaultCategory,
@@ -3766,6 +3810,7 @@ function blogPostCmsApp() {
             this.slugManuallyEdited = art.slugManuallyEdited;
             this.contentRaw = art.contentRaw;
             this.postStatus = art.status;
+            this.postDate = art.post_date || (art.published_at ? art.published_at.substring(0, 10) : (this.postDate || new Date().toISOString().split('T')[0]));
             this.scheduledAt = art.scheduled_at;
             this.authorName = art.author_name;
             this.postCategory = art.category;
@@ -4712,6 +4757,7 @@ function blogPostCmsApp() {
                 a0.slug = this.postSlug;
                 a0.contentRaw = this.contentRaw;
                 a0.status = statusToSave || this.postStatus;
+                a0.post_date = this.postDate;
                 a0.scheduled_at = this.scheduledAt;
                 a0.author_name = this.authorName;
                 a0.category = this.postCategory;
@@ -4737,7 +4783,10 @@ function blogPostCmsApp() {
                 content_html: this.renderContentToHtml(art.contentRaw || this.contentRaw),
                 raw_content: art.contentRaw || this.contentRaw,
                 status: statusToSave || art.status || this.postStatus || 'published',
+                post_date: art.post_date || this.postDate || new Date().toISOString().split('T')[0],
+                published_at: art.post_date || this.postDate || null,
                 scheduled_at: (statusToSave === 'scheduled' || art.status === 'scheduled') ? (art.scheduled_at || this.scheduledAt) : null,
+                sync_sheet_now: Boolean(this.syncSheetImmediately),
                 author_name: art.author_name || this.authorName || (this.getWebsiteProfile(art.website_id)?.default_author || 'Editorial Team'),
                 category: art.category || this.postCategory || 'General',
                 playlist: (art.playlist && art.playlist !== 'None (Standalone Article)') ? art.playlist : null,
@@ -4834,6 +4883,28 @@ function blogPostCmsApp() {
         // ════════════════════════════════════════════════════════════════════════
         // FLEET WEBSITES & TAXONOMY HELPERS
         // ════════════════════════════════════════════════════════════════════════
+
+        getBlogClassLabel(category) {
+            if (!category) return 'Class 1st';
+            const cat = category.toLowerCase().trim();
+            const wordMap = {
+                'first': '1', '1st': '1',
+                'second': '2', '2nd': '2',
+                'third': '3', '3rd': '3',
+                'fourth': '4', '4th': '4',
+                'fifth': '5', '5th': '5',
+                'sixth': '6', '6th': '6',
+                'seventh': '7', '7th': '7',
+                'eighth': '8', '8th': '8',
+                'ninth': '9', '9th': '9'
+            };
+            for (const [key, num] of Object.entries(wordMap)) {
+                if (cat.includes(key)) return `Class ${num} (Sheet)`;
+            }
+            const match = cat.match(/\b([1-9])\b/) || cat.match(/([1-9])/);
+            if (match) return `Class ${match[1]} (Sheet)`;
+            return category;
+        },
 
         getWebsite(siteId) {
             return this.websites.find(w => w.id == siteId) || null;
@@ -6465,6 +6536,8 @@ function blogPostCmsApp() {
                         slug: p.slug || '',
                         contentRaw: content,
                         status: this.normalizeStatus(p.status || 'draft'),
+                        post_date: p.published_at ? p.published_at.substring(0, 10) : (p.created_at ? p.created_at.substring(0, 10) : new Date().toISOString().split('T')[0]),
+                        published_at: p.published_at || '',
                         scheduled_at: p.scheduled_at || '',
                         author_name: p.author_name || '',
                         category: p.category || '',

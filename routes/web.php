@@ -213,7 +213,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::resource('websites', \App\Http\Controllers\WebsiteController::class)->except(['create', 'show', 'edit']);
 
             // Follow Ups
+            Route::post('/websites/follow-ups/batch-qc', [\App\Http\Controllers\WebsiteFollowUpController::class, 'batchQc'])->name('websites.followups.batch-qc');
             Route::post('/websites/follow-ups/{websiteFollowUp}/qc', [\App\Http\Controllers\WebsiteFollowUpController::class, 'qcCheck'])->name('websites.followups.qc');
+            Route::post('/websites/follow-ups/{websiteFollowUp}/sync-sheet', [\App\Http\Controllers\WebsiteFollowUpController::class, 'syncSheet'])->name('websites.followups.sync-sheet');
             Route::post('/websites/follow-ups/{websiteFollowUp}/retry-sheet-sync', [\App\Http\Controllers\WebsiteFollowUpController::class, 'retrySheetSync'])->name('websites.followups.retry-sheet-sync');
             Route::resource('websites/follow-ups', \App\Http\Controllers\WebsiteFollowUpController::class, [
                 'as'        => 'websites',

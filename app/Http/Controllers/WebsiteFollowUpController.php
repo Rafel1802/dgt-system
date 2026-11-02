@@ -416,8 +416,9 @@ class WebsiteFollowUpController extends Controller
         abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES) || auth()->user()?->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->whereIn('role', ['QC', 'Supervisor'])->exists(), 403);
 
         $validated = $request->validate([
-            'qc_status' => 'required|in:checked,approved',
-            'qc_note'   => 'nullable|string|max:1000',
+            'qc_status'  => 'required|in:checked,approved',
+            'qc_note'    => 'nullable|string|max:1000',
+            'sync_sheet' => 'nullable|boolean',
         ]);
 
         $websiteFollowUp->update([
@@ -426,10 +427,261 @@ class WebsiteFollowUpController extends Controller
             'qc_checked_at' => now(),
         ]);
 
-        $this->logActivity('followup_qc_checked', "Follow-up QC marked as {$validated['qc_status']} for website \"{$websiteFollowUp->website?->name}\".");
+        $sheetSynced = false;
+        $sheetMsg = null;
+
+        // Auto-sync to Google Sheet upon approval if it's a blog post and not yet synced
+        if ($websiteFollowUp->type === 'blog_post' && !empty($websiteFollowUp->url) && !empty(config('services.google_blogs.apps_script_url'))) {
+            $blogClass = $websiteFollowUp->blog_sheet_class;
+            if (empty($blogClass) && $websiteFollowUp->website?->category) {
+                $blogClass = GoogleBlogsSheetService::extractClassFromCategory($websiteFollowUp->website->category);
+                if ($blogClass) {
+                    $websiteFollowUp->updateQuietly(['blog_sheet_class' => $blogClass]);
+                }
+            }
+
+            if (!empty($blogClass) && ($websiteFollowUp->google_sheet_status !== 'synced' || $request->boolean('sync_sheet'))) {
+                $tDate = $websiteFollowUp->created_at ? Carbon::parse($websiteFollowUp->created_at) : now();
+                $month = $tDate->month;
+                $sheetTab = match ($month) {
+                    1  => 'Jan Blogs', 2 => 'Feb Blogs', 3 => 'Mar Blogs', 4 => 'Apr Blogs',
+                    5  => 'May Blogs', 6 => 'Jun Blogs', 7 => 'Jul Blogs', 8 => 'Aug Blogs',
+                    9  => 'Sep Blogs', 10 => 'Oct Blogs', 11 => 'Nov Blogs', 12 => 'Dec Blogs',
+                    default => 'Blogs',
+                };
+                $dateForSheet = $tDate->format('m/d/Y');
+
+                try {
+                    $googleService = new GoogleBlogsSheetService();
+                    $res = $googleService->syncBlogFollowUp(
+                        (string) $blogClass,
+                        $websiteFollowUp->url,
+                        $dateForSheet,
+                        $websiteFollowUp->website?->name ?? 'Unknown',
+                        true,
+                        $sheetTab
+                    );
+
+                    if ($res['success']) {
+                        $sheetSynced = true;
+                        $sheetMsg = "Synced to Google Sheet ({$sheetTab} / Row #" . ($res['row'] ?? '?') . ").";
+                        $websiteFollowUp->updateQuietly([
+                            'google_sheet_status'    => 'synced',
+                            'google_sheet_row'       => $res['row'] ?? null,
+                            'google_sheet_synced_at' => now(),
+                            'google_sheet_error'     => null,
+                        ]);
+                    } else {
+                        $sheetMsg = "Sheet note: " . ($res['error'] ?? $res['message'] ?? 'Failed to sync');
+                        $websiteFollowUp->updateQuietly([
+                            'google_sheet_status' => 'failed',
+                            'google_sheet_error'  => $sheetMsg,
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    $sheetMsg = "Google Sheet error: " . $e->getMessage();
+                    $websiteFollowUp->updateQuietly([
+                        'google_sheet_status' => 'failed',
+                        'google_sheet_error'  => $sheetMsg,
+                    ]);
+                }
+            }
+        }
+
+        $this->logActivity('followup_qc_checked', "Follow-up QC marked as {$validated['qc_status']} for website \"{$websiteFollowUp->website?->name}\"." . ($sheetSynced ? " {$sheetMsg}" : ""));
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success'             => true,
+                'qc_status'           => $websiteFollowUp->qc_status,
+                'qc_checked_by_name'  => auth()->user()->name,
+                'qc_checked_at_text'  => now()->format('d M, Y'),
+                'google_sheet_status' => $websiteFollowUp->google_sheet_status,
+                'google_sheet_row'    => $websiteFollowUp->google_sheet_row,
+                'sheet_synced'        => $sheetSynced,
+                'sheet_message'       => $sheetMsg,
+                'message'             => "Follow-up marked as " . ucfirst($validated['qc_status']) . "." . ($sheetMsg ? " " . $sheetMsg : ""),
+            ]);
+        }
 
         return redirect()->route('websites.index', ['tab' => 'follow-up'])
-            ->with('success', "Follow-up QC status updated to " . ucfirst($validated['qc_status']) . ".");
+            ->with('success', "Follow-up QC status updated to " . ucfirst($validated['qc_status']) . "." . ($sheetMsg ? " " . $sheetMsg : ""));
+    }
+
+    // ── BATCH QC CHECK (MARK MULTIPLE APPROVED) ───────────────────────────────
+    public function batchQc(Request $request)
+    {
+        abort_unless(auth()->user()?->hasAnyRole(self::ADMIN_ROLES) || auth()->user()?->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->whereIn('role', ['QC', 'Supervisor'])->exists(), 403);
+
+        $validated = $request->validate([
+            'ids'       => 'required|array|min:1',
+            'ids.*'     => 'required|integer|exists:website_follow_ups,id',
+            'qc_status' => 'required|in:checked,approved',
+        ]);
+
+        $status = $validated['qc_status'];
+        $ids = $validated['ids'];
+        $followUps = WebsiteFollowUp::whereIn('id', $ids)->with('website')->get();
+
+        $approvedCount = 0;
+        $sheetSyncedCount = 0;
+        $sheetErrors = [];
+        $googleService = !empty(config('services.google_blogs.apps_script_url')) ? new GoogleBlogsSheetService() : null;
+
+        foreach ($followUps as $fu) {
+            $fu->update([
+                'qc_status'     => $status,
+                'qc_checked_by' => auth()->id(),
+                'qc_checked_at' => now(),
+            ]);
+            $approvedCount++;
+
+            // If it's a blog post and needs sheet sync
+            if ($fu->type === 'blog_post' && !empty($fu->url) && $googleService) {
+                $blogClass = $fu->blog_sheet_class;
+                if (empty($blogClass) && $fu->website?->category) {
+                    $blogClass = GoogleBlogsSheetService::extractClassFromCategory($fu->website->category);
+                    if ($blogClass) {
+                        $fu->updateQuietly(['blog_sheet_class' => $blogClass]);
+                    }
+                }
+
+                if (!empty($blogClass) && $fu->google_sheet_status !== 'synced') {
+                    if ($sheetSyncedCount > 0) {
+                        usleep(350000); // 0.35s pause for Google Apps Script lock
+                    }
+
+                    $tDate = $fu->created_at ? Carbon::parse($fu->created_at) : now();
+                    $month = $tDate->month;
+                    $sheetTab = match ($month) {
+                        1  => 'Jan Blogs', 2 => 'Feb Blogs', 3 => 'Mar Blogs', 4 => 'Apr Blogs',
+                        5  => 'May Blogs', 6 => 'Jun Blogs', 7 => 'Jul Blogs', 8 => 'Aug Blogs',
+                        9  => 'Sep Blogs', 10 => 'Oct Blogs', 11 => 'Nov Blogs', 12 => 'Dec Blogs',
+                        default => 'Blogs',
+                    };
+                    $dateForSheet = $tDate->format('m/d/Y');
+
+                    try {
+                        $res = $googleService->syncBlogFollowUp(
+                            (string) $blogClass,
+                            $fu->url,
+                            $dateForSheet,
+                            $fu->website?->name ?? 'Unknown',
+                            true,
+                            $sheetTab
+                        );
+
+                        if ($res['success']) {
+                            $sheetSyncedCount++;
+                            $fu->updateQuietly([
+                                'google_sheet_status'    => 'synced',
+                                'google_sheet_row'       => $res['row'] ?? null,
+                                'google_sheet_synced_at' => now(),
+                                'google_sheet_error'     => null,
+                            ]);
+                        } else {
+                            $fu->updateQuietly([
+                                'google_sheet_status' => 'failed',
+                                'google_sheet_error'  => $res['error'] ?? $res['message'] ?? 'Sync failed',
+                            ]);
+                            $sheetErrors[] = ($fu->website?->name ?: "Item #{$fu->id}") . ": " . ($res['error'] ?? $res['message'] ?? 'Sync failed');
+                        }
+                    } catch (\Throwable $e) {
+                        $fu->updateQuietly([
+                            'google_sheet_status' => 'failed',
+                            'google_sheet_error'  => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+        }
+
+        $this->logActivity('followup_batch_qc', "Batch QC marked {$approvedCount} follow-ups as {$status}. ({$sheetSyncedCount} synced to Google Sheets).");
+
+        $message = "Successfully marked {$approvedCount} item(s) as " . ucfirst($status) . "!";
+        if ($sheetSyncedCount > 0) {
+            $message .= " ({$sheetSyncedCount} synced to Google Sheets)";
+        }
+        if (!empty($sheetErrors)) {
+            $message .= " Note: Some sheet sync issues occurred.";
+        }
+
+        return response()->json([
+            'success'            => true,
+            'approved_count'     => $approvedCount,
+            'updated_count'      => $approvedCount,
+            'sheet_synced_count' => $sheetSyncedCount,
+            'synced_count'       => $sheetSyncedCount,
+            'message'            => $message,
+        ]);
+    }
+
+    // ── DIRECT SYNC TO GOOGLE SHEET ───────────────────────────────────────────
+    public function syncSheet(Request $request, WebsiteFollowUp $websiteFollowUp)
+    {
+        abort_unless($this->canManageFollowUp(auth()->user()), 403);
+        abort_unless(!empty(config('services.google_blogs.apps_script_url')), 422, 'Google Blogs Sheet is not configured.');
+
+        if ($websiteFollowUp->type !== 'blog_post' || empty($websiteFollowUp->url)) {
+            return response()->json(['success' => false, 'message' => 'Only blog posts with URLs can sync to Google Sheet.'], 422);
+        }
+
+        $blogClass = $websiteFollowUp->blog_sheet_class;
+        if (empty($blogClass) && $websiteFollowUp->website?->category) {
+            $blogClass = GoogleBlogsSheetService::extractClassFromCategory($websiteFollowUp->website->category);
+            if ($blogClass) {
+                $websiteFollowUp->updateQuietly(['blog_sheet_class' => $blogClass]);
+            }
+        }
+
+        if (empty($blogClass)) {
+            return response()->json(['success' => false, 'message' => 'No blog class found for this website.'], 422);
+        }
+
+        $tDate = $websiteFollowUp->created_at ? Carbon::parse($websiteFollowUp->created_at) : now();
+        $month = $tDate->month;
+        $sheetTab = match ($month) {
+            1  => 'Jan Blogs', 2 => 'Feb Blogs', 3 => 'Mar Blogs', 4 => 'Apr Blogs',
+            5  => 'May Blogs', 6 => 'Jun Blogs', 7 => 'Jul Blogs', 8 => 'Aug Blogs',
+            9  => 'Sep Blogs', 10 => 'Oct Blogs', 11 => 'Nov Blogs', 12 => 'Dec Blogs',
+            default => 'Blogs',
+        };
+        $dateForSheet = $tDate->format('m/d/Y');
+
+        $googleService = new GoogleBlogsSheetService();
+        $res = $googleService->syncBlogFollowUp(
+            (string) $blogClass,
+            $websiteFollowUp->url,
+            $dateForSheet,
+            $websiteFollowUp->website?->name ?? 'Unknown',
+            true,
+            $sheetTab
+        );
+
+        if ($res['success']) {
+            $websiteFollowUp->updateQuietly([
+                'google_sheet_status'    => 'synced',
+                'google_sheet_row'       => $res['row'] ?? null,
+                'google_sheet_synced_at' => now(),
+                'google_sheet_error'     => null,
+            ]);
+            return response()->json([
+                'success' => true,
+                'row'     => $res['row'] ?? null,
+                'sheet'   => $sheetTab,
+                'message' => "Synced successfully to {$sheetTab} (Row #" . ($res['row'] ?? '?') . ").",
+            ]);
+        }
+
+        $websiteFollowUp->updateQuietly([
+            'google_sheet_status' => 'failed',
+            'google_sheet_error'  => $res['error'] ?? $res['message'] ?? 'Sync failed',
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => $res['error'] ?? $res['message'] ?? 'Sync failed',
+        ], 422);
     }
 
     // ── RETRY GOOGLE SHEET SYNC ───────────────────────────────────────────────

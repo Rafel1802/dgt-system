@@ -630,5 +630,141 @@ class WebsiteFollowUpTest extends TestCase
             'google_sheet_status' => 'synced',
         ]);
     }
+
+    public function test_blog_post_service_automatically_creates_follow_up_entry(): void
+    {
+        $this->website->update(['category' => '4th Class', 'handled_by' => $this->user->id]);
+
+        $service = app(\App\Services\WebsiteBlogPostService::class);
+        $result = $service->saveBlogPost([
+            'website_id' => $this->website->id,
+            'title' => 'Innovative Wheel Loaders in 2026',
+            'slug' => 'innovative-wheel-loaders-in-2026',
+            'content' => '<p>Modern machinery blog content.</p>',
+            'status' => 'published',
+            'author_id' => $this->user->id,
+            'post_date' => '2026-11-05',
+        ]);
+
+        $this->assertTrue($result['success']);
+        $this->assertNotNull($result['follow_up_id']);
+
+        $followUp = WebsiteFollowUp::find($result['follow_up_id']);
+        $this->assertNotNull($followUp);
+        $this->assertEquals($this->website->id, $followUp->website_id);
+        $this->assertEquals('4', $followUp->blog_sheet_class);
+        $this->assertEquals('pending', $followUp->qc_status);
+        $this->assertEquals('pending', $followUp->google_sheet_status);
+        $this->assertEquals('2026-11-05', $followUp->created_at->format('Y-m-d'));
+        $this->assertStringContainsString('innovative-wheel-loaders-in-2026', $followUp->url);
+    }
+
+    public function test_qc_check_approves_and_syncs_blog_post_to_google_sheet(): void
+    {
+        $this->user->update(['name' => 'QC Specialist']);
+
+        config([
+            'services.google_blogs.apps_script_url' => 'https://script.google.com/test',
+            'services.google_blogs.api_secret' => 'test-secret',
+        ]);
+
+        Http::fake([
+            'https://script.google.com/test' => Http::response([
+                'success' => true,
+                'message' => 'Blog successfully synchronized.',
+                'sheet' => 'Nov Blogs',
+                'row' => 25,
+            ], 200),
+        ]);
+
+        $followUp = WebsiteFollowUp::create([
+            'website_id' => $this->website->id,
+            'assigned_to' => $this->user->id,
+            'type' => 'blog_post',
+            'blog_sheet_class' => '1',
+            'url' => 'https://americanloader.com/blog/test-qc-sync',
+            'qc_status' => 'pending',
+            'google_sheet_status' => 'pending',
+            'created_at' => '2026-11-02 10:00:00',
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('websites.followups.qc', $followUp), [
+            'qc_status' => 'approved',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'qc_status' => 'approved',
+            'google_sheet_status' => 'synced',
+            'google_sheet_row' => 25,
+        ]);
+
+        $followUp->refresh();
+        $this->assertEquals('approved', $followUp->qc_status);
+        $this->assertEquals('synced', $followUp->google_sheet_status);
+        $this->assertEquals(25, $followUp->google_sheet_row);
+    }
+
+    public function test_batch_qc_approves_and_syncs_multiple_follow_ups(): void
+    {
+        $this->user->update(['name' => 'QC Lead']);
+
+        config([
+            'services.google_blogs.apps_script_url' => 'https://script.google.com/test',
+            'services.google_blogs.api_secret' => 'test-secret',
+        ]);
+
+        Http::fake([
+            'https://script.google.com/test' => Http::response([
+                'success' => true,
+                'message' => 'Blog successfully synchronized.',
+                'sheet' => 'Nov Blogs',
+                'row' => 30,
+            ], 200),
+        ]);
+
+        $fu1 = WebsiteFollowUp::create([
+            'website_id' => $this->website->id,
+            'assigned_to' => $this->user->id,
+            'type' => 'blog_post',
+            'blog_sheet_class' => '1',
+            'url' => 'https://americanloader.com/blog/batch-1',
+            'qc_status' => 'pending',
+            'google_sheet_status' => 'pending',
+            'created_at' => '2026-11-02',
+        ]);
+
+        $fu2 = WebsiteFollowUp::create([
+            'website_id' => $this->website->id,
+            'assigned_to' => $this->user->id,
+            'type' => 'blog_post',
+            'blog_sheet_class' => '1',
+            'url' => 'https://americanloader.com/blog/batch-2',
+            'qc_status' => 'pending',
+            'google_sheet_status' => 'pending',
+            'created_at' => '2026-11-02',
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('websites.followups.batch-qc'), [
+            'ids' => [$fu1->id, $fu2->id],
+            'qc_status' => 'approved',
+            'sync_sheet' => true,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'updated_count' => 2,
+            'synced_count' => 2,
+        ]);
+
+        $fu1->refresh();
+        $fu2->refresh();
+        $this->assertEquals('approved', $fu1->qc_status);
+        $this->assertEquals('approved', $fu2->qc_status);
+        $this->assertEquals('synced', $fu1->google_sheet_status);
+        $this->assertEquals('synced', $fu2->google_sheet_status);
+    }
 }
 

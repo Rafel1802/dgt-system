@@ -1782,6 +1782,15 @@
                 </select>
             </div>
             <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">QC Status</label>
+                <select name="fu_qc" class="form-select text-sm rounded-lg py-1.5 min-w-[130px]" @change="$el.form.requestSubmit()">
+                    <option value="">All Statuses</option>
+                    <option value="pending" {{ ($followUpFilter['fu_qc'] ?? '') === 'pending' ? 'selected' : '' }}>Pending QC</option>
+                    <option value="checked" {{ ($followUpFilter['fu_qc'] ?? '') === 'checked' ? 'selected' : '' }}>Checked</option>
+                    <option value="approved" {{ ($followUpFilter['fu_qc'] ?? '') === 'approved' ? 'selected' : '' }}>Approved</option>
+                </select>
+            </div>
+            <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
                 <input type="date" name="fu_date" value="{{ $followUpFilter['fu_date'] ?? now()->format('Y-m-d') }}" 
                     @change="$el.form.requestSubmit()" 
@@ -1803,213 +1812,420 @@
         <p class="text-slate-500 text-sm">Add your first follow-up entry above.</p>
     </div>
     @else
-        @php $fuItems = $followUps instanceof \Illuminate\Pagination\LengthAwarePaginator ? $followUps->getCollection() : $followUps; @endphp
-        <div class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-8" x-init="filterMember = ''; filterClass = ''; filterApprovalStatus = '';">
-            <table class="w-full text-left border-collapse text-sm">
-                <thead>
-                    <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Website</th>
-                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">URL</th>
-                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">QC By</th>
-                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Upload by</th>
-                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
-                        <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    <tr x-cloak x-show="!hasMatchingWebsites(@js($fuItems->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()), true)">
-                        <td colspan="7" class="px-4 py-16 text-center text-slate-500">
-                            <div class="text-3xl mb-3 opacity-50">🔍</div>
-                            <p class="font-medium">No follow-ups match your search.</p>
-                            <p class="text-xs mt-1 opacity-75" x-text="searchQuery ? 'Try a different keyword.' : 'Try adjusting your filters.'"></p>
-                        </td>
-                    </tr>
-                    @foreach($followUps as $fu)
-                    <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ addslashes($fu->website?->category ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}', '{{ $fu->website?->status ?? '' }}', true)" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                        <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                            <div class="font-semibold text-slate-800 dark:text-slate-100">{{ $fu->website?->name ?? '–' }}</div>
-                            @if($fu->website?->category)
-                                <div class="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">{{ $fu->website->category }}</div>
-                            @endif
-                        </td>
-                        <td class="px-4 py-3">
-                            @php
-                                $typeColors = ['blog_post' => 'bg-blue-100 text-blue-700', 'indexed_page' => 'bg-violet-100 text-violet-700', 'website_page' => 'bg-slate-100 text-slate-700', 'other' => 'bg-stone-100 text-stone-700'];
-                            @endphp
-                            <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $typeColors[$fu->type] ?? 'bg-slate-100 text-slate-600' }}">{{ $fu->getTypeLabel() }}</span>
-                        </td>
-                        <td class="px-4 py-3 max-w-xs">
-                            <div class="flex items-start gap-3">
-                                @if($fu->image_url)
-                                    <a href="{{ $fu->url }}" target="_blank" data-turbo="false" class="flex-shrink-0">
-                                        <img src="{{ $fu->image_url }}" alt="Preview" class="w-12 h-12 object-cover rounded-md shadow-sm border border-slate-200 dark:border-slate-700 hover:scale-105 transition-transform">
-                                    </a>
-                                @endif
-                                <div class="flex-1 min-w-0">
-                                    @if($fu->url) <a href="{{ $fu->url }}" target="_blank" data-turbo="false" class="text-indigo-500 hover:text-indigo-700 text-xs truncate block">{{ Str::limit($fu->url, 40) }}</a> @endif
-                                    @if($fu->note) <p class="text-xs text-slate-400 mt-0.5 whitespace-pre-wrap">{{ Str::limit($fu->note, 60) }}</p> @endif
+        @php 
+            $fuItems = $followUps instanceof \Illuminate\Pagination\LengthAwarePaginator ? $followUps->getCollection() : $followUps; 
+            $canQc = auth()->user()->hasAnyRole(['super-admin','admin-digital','boss','supervisor']) 
+                     || auth()->user()->isQcOrSupervisor() 
+                     || str_contains(strtolower(auth()->user()->name), 'qc') 
+                     || \App\Models\WebsiteMember::where('user_id', auth()->id())->where('role', 'QC')->exists();
+        @endphp
+        
+        <div class="space-y-4" x-data="{
+            selectedFollowUps: [],
+            isBatchSubmitting: false,
+            toggleSelectAll(e) {
+                if (e.target.checked) {
+                    const cbs = document.querySelectorAll('.fu-row-checkbox:not(:disabled)');
+                    this.selectedFollowUps = Array.from(cbs).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+                } else {
+                    this.selectedFollowUps = [];
+                }
+            },
+            submitBatchQc(status = 'approved') {
+                if (!this.selectedFollowUps.length || this.isBatchSubmitting) return;
+                if (!confirm(`Are you sure you want to mark ${this.selectedFollowUps.length} follow-up(s) as Approved and sync them to Google Sheets?`)) {
+                    return;
+                }
+                this.isBatchSubmitting = true;
+                
+                fetch('{{ route('websites.followups.batch-qc') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        ids: this.selectedFollowUps,
+                        qc_status: status,
+                        sync_sheet: true
+                    })
+                })
+                .then(async res => {
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        let msg = data.message || 'Successfully updated follow-ups.';
+                        if (data.synced_count !== undefined) {
+                            msg += ` (${data.synced_count} synced to Google Sheets)`;
+                        }
+                        if (data.sync_failed_count && data.sync_failed_count > 0) {
+                            msg += ` (${data.sync_failed_count} sheet sync failed - check row status)`;
+                        }
+                        alert(msg);
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'Error occurred during batch approval.');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Network error while processing batch QC approval.');
+                })
+                .finally(() => {
+                    this.isBatchSubmitting = false;
+                });
+            },
+            syncRow(id, triggerEl) {
+                const btn = triggerEl;
+                btn.disabled = true;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = 'Syncing...';
+
+                fetch(`/websites/follow-ups/${id}/sync-sheet`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                })
+                .then(async res => {
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        const cell = btn.closest('.sheet-status-cell');
+                        if (cell) {
+                            cell.innerHTML = `
+                                <div class='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800' title='Synced to Google Sheet'>
+                                    <svg class='w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path stroke-linecap='round' stroke-linejoin='round' d='M4.5 12.75l6 6 9-13.5'/></svg>
+                                    <span>Synced</span>
+                                    ${data.google_sheet_row ? `<span class='text-[10px] font-bold opacity-75'>(Row #${data.google_sheet_row})</span>` : ''}
                                 </div>
+                            `;
+                        }
+                    } else {
+                        alert(data.message || 'Failed to sync to Google Sheets');
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error syncing to Google Sheet.');
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                });
+            }
+        }">
+            {{-- Batch Actions Floating / Sticky Bar --}}
+            <div x-show="selectedFollowUps.length > 0" x-cloak x-transition
+                 class="sticky top-20 z-20 p-3.5 bg-gradient-to-r from-indigo-900 to-slate-900 text-white rounded-2xl shadow-xl border border-indigo-700/50 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-500/30 border border-indigo-400/40 flex items-center justify-center font-bold text-sm text-indigo-200">
+                        <span x-text="selectedFollowUps.length"></span>
+                    </div>
+                    <div>
+                        <div class="text-sm font-bold text-white flex items-center gap-2">
+                            <span>Follow-up(s) Selected</span>
+                            <span class="text-xs font-normal text-indigo-200">ready for supervisor approval & sheets sync</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="selectedFollowUps = []"
+                            class="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
+                        Deselect All
+                    </button>
+
+                    @if($canQc)
+                    <button type="button" @click="submitBatchQc('approved')" :disabled="isBatchSubmitting"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/25 transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer">
+                        <template x-if="!isBatchSubmitting">
+                            <div class="flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                <span>Mark Approved & Sync Sheets (<span x-text="selectedFollowUps.length"></span>)</span>
                             </div>
-                        </td>
-                        <td class="px-4 py-3 whitespace-nowrap">
-                            <div class="flex flex-col items-start gap-1">
-                                <span class="badge-status px-2 py-0.5 rounded-full text-[10px] font-bold {{ $fu->qc_status === 'checked' ? 'bg-emerald-100 text-emerald-700' : $fu->getQcStatusBadgeClass() }} leading-none">{{ ucfirst($fu->qc_status) }}</span>
-                                @if($fu->qc_checked_at)
-                                    <div class="flex flex-col mt-0.5">
-                                        <span class="text-[10px] font-medium text-slate-500 dark:text-slate-400">{{ $fu->qcChecker?->name ?? 'System' }}</span>
-                                        <span class="text-[9px] text-slate-400">{{ $fu->qc_checked_at->format('d M, Y') }}</span>
-                                    </div>
-                                @endif
+                        </template>
+                        <template x-if="isBatchSubmitting">
+                            <div class="flex items-center gap-2">
+                                <svg class="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span>Approving & Syncing Sheets...</span>
                             </div>
-                        </td>
-                        <td class="px-4 py-3 whitespace-nowrap">
-                            @if($fu->assignee)
-                                <div class="flex items-center gap-3">
-                                    <div class="relative group cursor-pointer shrink-0" 
-                                         @click="openGenericAttachmentPreview('{{ addslashes($fu->assignee->name) }} Profile', '{{ $fu->assignee->avatar_url }}', '{{ $fu->assignee->avatar_url }}')"
-                                         title="Click to view large profile">
-                                        <img src="{{ $fu->assignee->avatar_url }}" 
-                                             alt="{{ $fu->assignee->name }}" 
-                                             class="w-12 h-12 rounded-full object-cover object-top border-2 border-white dark:border-slate-700 shadow-md ring-2 ring-indigo-500/20 dark:ring-indigo-400/30 group-hover:ring-indigo-500 group-hover:scale-105 transition-all" 
-                                             loading="lazy">
-                                        <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center">
-                                            <svg class="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <span class="text-sm font-bold text-slate-800 dark:text-slate-100 block leading-tight">{{ $fu->assignee->name }}</span>
-                                        @if($fu->assignee->email)
-                                            <span class="text-[11px] text-slate-400 dark:text-slate-500 block truncate max-w-[130px]">{{ $fu->assignee->email }}</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            @else
-                                <span class="text-xs text-slate-400 font-medium">–</span>
-                            @endif
-                        </td>
-                        <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{{ $fu->created_at->format('d M Y') }}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-right">
-                            <div class="flex items-center justify-end gap-1">
-                                @if((auth()->user()->hasAnyRole(['super-admin','admin-digital','boss','supervisor']) || auth()->user()->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->where('role', 'QC')->exists()) && !in_array($fu->qc_status, ['checked', 'approved']))
-                                <div class="inline-block" data-no-processing="true" x-data="{ 
-                                    ticked: false, 
-                                    loading: false,
-                                    submitQc() {
-                                        if (this.ticked || this.loading) return;
-                                        this.loading = true;
-                                        
-                                        let formData = new FormData();
-                                        formData.append('qc_status', 'checked');
-                                        formData.append('_token', '{{ csrf_token() }}');
-                                        
-                                        fetch('{{ route('websites.followups.qc', $fu) }}', {
-                                            method: 'POST',
-                                            body: formData,
-                                            headers: {
-                                                'Accept': 'application/json'
-                                            }
-                                        }).then(async res => {
-                                            if (res.ok) {
-                                                this.ticked = true;
-                                                const tr = $el.closest('tr');
-                                                const badge = tr.querySelector('.badge-status');
-                                                if (badge) {
-                                                    badge.textContent = 'Checked';
-                                                    badge.className = 'badge-status px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 leading-none';
-                                                    let subtext = document.createElement('div');
-                                                    subtext.className = 'flex flex-col mt-0.5';
-                                                    subtext.innerHTML = `<span class='text-[10px] font-medium text-slate-500 dark:text-slate-400'>{{ auth()->user()->name }}</span><span class='text-[9px] text-slate-400'>{{ now()->format('d M, Y') }}</span>`;
-                                                    badge.parentNode.appendChild(subtext);
-                                                }
-                                            } else {
-                                                console.error('Error submitting QC check');
-                                            }
-                                        }).catch(err => {
-                                            console.error(err);
-                                        }).finally(() => {
-                                            this.loading = false;
-                                        });
-                                    }
-                                }">
-                                    <template x-if="!ticked">
-                                        <button @click="submitQc()" :disabled="loading" type="button" class="group relative flex items-center justify-center w-7 h-7 rounded border-2 border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all cursor-pointer shadow-sm" aria-label="Approve QC">
-                                            <svg x-show="!loading" class="w-4 h-4 text-emerald-500 opacity-20 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                                            <svg x-show="loading" x-cloak class="animate-spin w-4 h-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                                Approve QC
-                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                                            </div>
-                                        </button>
-                                    </template>
-                                    
-                                    <template x-if="ticked">
-                                        <div class="relative group inline-block">
-                                            <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                                            </div>
-                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                                QC Checked
-                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                                @elseif(in_array($fu->qc_status, ['checked', 'approved']))
-                                <div class="relative group inline-block">
-                                    <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                                    </div>
-                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                        QC Checked by {{ $fu->qcChecker?->name ?? 'System' }}
-                                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                                    </div>
-                                </div>
+                        </template>
+                    </button>
+                    @endif
+                </div>
+            </div>
+
+            <div class="card overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl mb-8" x-init="filterMember = ''; filterClass = ''; filterApprovalStatus = '';">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                            <th class="p-3 w-10 text-center">
+                                <input type="checkbox" @change="toggleSelectAll($event)" :checked="selectedFollowUps.length > 0 && selectedFollowUps.length === document.querySelectorAll('.fu-row-checkbox').length" class="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer" title="Select all visible">
+                            </th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Website</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">URL</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">QC Status</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Google Sheet</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Upload by</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
+                            <th class="p-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                        <tr x-cloak x-show="!hasMatchingWebsites(@js($fuItems->map(fn($f) => ['name' => $f->website?->name ?? '', 'url' => $f->website?->url ?? '', 'handled_by' => $f->website?->handled_by ?? null])->values()), true)">
+                            <td colspan="9" class="px-4 py-16 text-center text-slate-500">
+                                <div class="text-3xl mb-3 opacity-50">🔍</div>
+                                <p class="font-medium">No follow-ups match your search.</p>
+                                <p class="text-xs mt-1 opacity-75" x-text="searchQuery ? 'Try a different keyword.' : 'Try adjusting your filters.'"></p>
+                            </td>
+                        </tr>
+                        @foreach($followUps as $fu)
+                        <tr x-show="matchesSearch('{{ addslashes($fu->website?->name ?? '') }}', '{{ addslashes($fu->website?->clean_domain ?? '') }}', '{{ addslashes($fu->website?->category ?? '') }}', '{{ $fu->website?->handled_by ?? '' }}', '{{ $fu->website?->status ?? '' }}', true)" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td class="p-3 w-10 text-center">
+                                <input type="checkbox" value="{{ $fu->id }}" x-model="selectedFollowUps" class="fu-row-checkbox rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                            </td>
+                            <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                                <div class="font-semibold text-slate-800 dark:text-slate-100">{{ $fu->website?->name ?? '–' }}</div>
+                                @if($fu->website?->category)
+                                    <div class="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">{{ $fu->website->category }}</div>
                                 @endif
-                                @if((auth()->user()->canUpdateWebsiteProgress() || auth()->user()->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->whereIn('role', ['QC', 'Developer', 'Supervisor'])->exists()) && !auth()->user()->hasRole('boss'))
-                                <button type="button" 
-                                            @click="openEditFollowUpModal({{ $fu->id }}, {{ json_encode([
-                                                'website_id' => $fu->website_id,
-                                                'type' => $fu->type,
-                                                'url' => $fu->url,
-                                                'assigned_to' => $fu->assigned_to,
-                                                'note' => $fu->note,
-                                                'created_at' => $fu->created_at->format('Y-m-d')
-                                            ]) }})"
-                                            class="group relative flex items-center justify-center w-7 h-7 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer text-indigo-500" 
-                                            aria-label="Edit">
-                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>
-                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                            Edit
-                                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </td>
+                            <td class="px-4 py-3">
+                                @php
+                                    $typeColors = ['blog_post' => 'bg-blue-100 text-blue-700', 'indexed_page' => 'bg-violet-100 text-violet-700', 'website_page' => 'bg-slate-100 text-slate-700', 'other' => 'bg-stone-100 text-stone-700'];
+                                @endphp
+                                <span class="px-2 py-0.5 rounded-full text-xs font-bold {{ $typeColors[$fu->type] ?? 'bg-slate-100 text-slate-600' }}">{{ $fu->getTypeLabel() }}</span>
+                            </td>
+                            <td class="px-4 py-3 max-w-xs">
+                                <div class="flex items-start gap-3">
+                                    @if($fu->image_url)
+                                        <a href="{{ $fu->url }}" target="_blank" data-turbo="false" class="flex-shrink-0">
+                                            <img src="{{ $fu->image_url }}" alt="Preview" class="w-12 h-12 object-cover rounded-md shadow-sm border border-slate-200 dark:border-slate-700 hover:scale-105 transition-transform">
+                                        </a>
+                                    @endif
+                                    <div class="flex-1 min-w-0">
+                                        @if($fu->url) <a href="{{ $fu->url }}" target="_blank" data-turbo="false" class="text-indigo-500 hover:text-indigo-700 text-xs truncate block font-medium">{{ Str::limit($fu->url, 40) }}</a> @endif
+                                        @if($fu->note) <p class="text-xs text-slate-400 mt-0.5 whitespace-pre-wrap">{{ Str::limit($fu->note, 60) }}</p> @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap qc-status-cell">
+                                <div class="flex flex-col items-start gap-1">
+                                    <span class="badge-status px-2 py-0.5 rounded-full text-[10px] font-bold {{ in_array($fu->qc_status, ['checked', 'approved']) ? 'bg-emerald-100 text-emerald-700' : $fu->getQcStatusBadgeClass() }} leading-none">{{ ucfirst($fu->qc_status) }}</span>
+                                    @if($fu->qc_checked_at)
+                                        <div class="flex flex-col mt-0.5 qc-subtext">
+                                            <span class="text-[10px] font-medium text-slate-500 dark:text-slate-400">{{ $fu->qcChecker?->name ?? 'System' }}</span>
+                                            <span class="text-[9px] text-slate-400">{{ $fu->qc_checked_at->format('d M, Y') }}</span>
                                         </div>
-                                    </button>
-                                    <form action="{{ route('websites.followups.destroy', $fu) }}" method="POST" data-confirm="Are you sure you want to delete this follow-up?" data-confirm-title="Delete Follow-up" class="inline-block">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="group relative flex items-center justify-center w-7 h-7 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all cursor-pointer text-rose-500" aria-label="Delete">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                                Delete
-                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                                            </div>
-                                        </button>
-                                    </form>
                                     @endif
                                 </div>
                             </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                            <td class="px-4 py-3 whitespace-nowrap sheet-status-cell">
+                                @if($fu->type === 'blog_post')
+                                    @if($fu->google_sheet_status === 'synced')
+                                        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800" title="{{ $fu->google_sheet_synced_at ? 'Synced: ' . $fu->google_sheet_synced_at->format('d M Y H:i') : 'Synced to Google Sheet' }}">
+                                            <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                            <span>Synced</span>
+                                            @if($fu->google_sheet_row)
+                                                <span class="text-[10px] font-bold opacity-75">(Row #{{ $fu->google_sheet_row }})</span>
+                                            @endif
+                                        </div>
+                                    @elseif($fu->google_sheet_status === 'failed')
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" title="{{ $fu->google_sheet_error }}">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                Failed
+                                            </span>
+                                            @if($canQc)
+                                            <button type="button" @click="syncRow({{ $fu->id }}, $el)" class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 underline cursor-pointer">
+                                                Retry
+                                            </button>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                Pending
+                                            </span>
+                                            @if($canQc)
+                                            <button type="button" @click="syncRow({{ $fu->id }}, $el)" class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 underline cursor-pointer" title="Directly sync this entry to Google Sheets">
+                                                Sync Now
+                                            </button>
+                                            @endif
+                                        </div>
+                                    @endif
+                                @else
+                                    <span class="text-xs text-slate-400 font-medium">–</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                @if($fu->assignee)
+                                    <div class="flex items-center gap-3">
+                                        <div class="relative group cursor-pointer shrink-0" 
+                                             @click="openGenericAttachmentPreview('{{ addslashes($fu->assignee->name) }} Profile', '{{ $fu->assignee->avatar_url }}', '{{ $fu->assignee->avatar_url }}')"
+                                             title="Click to view large profile">
+                                            <img src="{{ $fu->assignee->avatar_url }}" 
+                                                 alt="{{ $fu->assignee->name }}" 
+                                                 class="w-12 h-12 rounded-full object-cover object-top border-2 border-white dark:border-slate-700 shadow-md ring-2 ring-indigo-500/20 dark:ring-indigo-400/30 group-hover:ring-indigo-500 group-hover:scale-105 transition-all" 
+                                                 loading="lazy">
+                                            <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center">
+                                                <svg class="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <span class="text-sm font-bold text-slate-800 dark:text-slate-100 block leading-tight">{{ $fu->assignee->name }}</span>
+                                            @if($fu->assignee->email)
+                                                <span class="text-[11px] text-slate-400 dark:text-slate-500 block truncate max-w-[130px]">{{ $fu->assignee->email }}</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @else
+                                    <span class="text-xs text-slate-400 font-medium">–</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{{ $fu->created_at->format('d M Y') }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1">
+                                    @if($canQc && !in_array($fu->qc_status, ['checked', 'approved']))
+                                    <div class="inline-block" data-no-processing="true" x-data="{ 
+                                        ticked: false, 
+                                        loading: false,
+                                        submitQc() {
+                                            if (this.ticked || this.loading) return;
+                                            this.loading = true;
+                                            
+                                            let formData = new FormData();
+                                            formData.append('qc_status', 'approved');
+                                            formData.append('_token', '{{ csrf_token() }}');
+                                            
+                                            fetch('{{ route('websites.followups.qc', $fu) }}', {
+                                                method: 'POST',
+                                                body: formData,
+                                                headers: {
+                                                    'Accept': 'application/json'
+                                                }
+                                            }).then(async res => {
+                                                const data = await res.json();
+                                                if (res.ok && data.success) {
+                                                    this.ticked = true;
+                                                    const tr = $el.closest('tr');
+                                                    const badge = tr.querySelector('.badge-status');
+                                                    if (badge) {
+                                                        badge.textContent = 'Approved';
+                                                        badge.className = 'badge-status px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 leading-none';
+                                                        let subtext = tr.querySelector('.qc-status-cell .qc-subtext');
+                                                        if (!subtext) {
+                                                            subtext = document.createElement('div');
+                                                            subtext.className = 'flex flex-col mt-0.5 qc-subtext';
+                                                            badge.parentNode.appendChild(subtext);
+                                                        }
+                                                        subtext.innerHTML = `<span class='text-[10px] font-medium text-slate-500 dark:text-slate-400'>${data.qc_checker || '{{ auth()->user()->name }}'}</span><span class='text-[9px] text-slate-400'>${data.qc_checked_at || '{{ now()->format('d M, Y') }}'}</span>`;
+                                                    }
+                                                    if (data.google_sheet_status === 'synced') {
+                                                        const sheetCell = tr.querySelector('.sheet-status-cell');
+                                                        if (sheetCell) {
+                                                            sheetCell.innerHTML = `
+                                                                <div class='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800' title='Synced to Google Sheet'>
+                                                                    <svg class='w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path stroke-linecap='round' stroke-linejoin='round' d='M4.5 12.75l6 6 9-13.5'/></svg>
+                                                                    <span>Synced</span>
+                                                                    ${data.google_sheet_row ? `<span class='text-[10px] font-bold opacity-75'>(Row #${data.google_sheet_row})</span>` : ''}
+                                                                </div>
+                                                            `;
+                                                        }
+                                                    }
+                                                } else {
+                                                    console.error('Error submitting QC check');
+                                                    alert(data.message || 'Error updating QC status');
+                                                }
+                                            }).catch(err => {
+                                                console.error(err);
+                                            }).finally(() => {
+                                                this.loading = false;
+                                            });
+                                        }
+                                    }">
+                                        <template x-if="!ticked">
+                                            <button @click="submitQc()" :disabled="loading" type="button" class="group relative flex items-center justify-center w-7 h-7 rounded border-2 border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all cursor-pointer shadow-sm" aria-label="Approve QC">
+                                                <svg x-show="!loading" class="w-4 h-4 text-emerald-500 opacity-20 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                                <svg x-show="loading" x-cloak class="animate-spin w-4 h-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                    Approve & Sync Sheet
+                                                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                                </div>
+                                            </button>
+                                        </template>
+                                        
+                                        <template x-if="ticked">
+                                            <div class="relative group inline-block">
+                                                <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                                </div>
+                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                    Approved
+                                                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    @elseif(in_array($fu->qc_status, ['checked', 'approved']))
+                                    <div class="relative group inline-block">
+                                        <div class="flex items-center justify-center w-7 h-7 rounded bg-emerald-500 text-white cursor-default shadow-sm shadow-emerald-500/20">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                        </div>
+                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                            {{ ucfirst($fu->qc_status) }} by {{ $fu->qcChecker?->name ?? 'System' }}
+                                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                        </div>
+                                    </div>
+                                    @endif
+                                    @if((auth()->user()->canUpdateWebsiteProgress() || auth()->user()->isQcOrSupervisor() || str_contains(strtolower(auth()->user()->name), 'qc') || \App\Models\WebsiteMember::where('user_id', auth()->id())->whereIn('role', ['QC', 'Developer', 'Supervisor'])->exists()) && !auth()->user()->hasRole('boss'))
+                                    <button type="button" 
+                                                @click="openEditFollowUpModal({{ $fu->id }}, {{ json_encode([
+                                                    'website_id' => $fu->website_id,
+                                                    'type' => $fu->type,
+                                                    'url' => $fu->url,
+                                                    'assigned_to' => $fu->assigned_to,
+                                                    'note' => $fu->note,
+                                                    'created_at' => $fu->created_at->format('Y-m-d')
+                                                ]) }})"
+                                                class="group relative flex items-center justify-center w-7 h-7 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer text-indigo-500" 
+                                                aria-label="Edit">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>
+                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                Edit
+                                                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                            </div>
+                                        </button>
+                                        <form action="{{ route('websites.followups.destroy', $fu) }}" method="POST" data-confirm="Are you sure you want to delete this follow-up?" data-confirm-title="Delete Follow-up" class="inline-block">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="group relative flex items-center justify-center w-7 h-7 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all cursor-pointer text-rose-500" aria-label="Delete">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                                                    Delete
+                                                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                                                </div>
+                                            </button>
+                                        </form>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+            </div>
+            
+            @if(method_exists($followUps, 'links'))
+            <div class="px-4 pb-4">
+                {{ $followUps->appends(request()->query())->links() }}
+            </div>
+            @endif
         </div>
-        
-        @if(method_exists($followUps, 'links'))
-        <div class="px-4 pb-4">
-            {{ $followUps->appends(request()->query())->links() }}
-        </div>
-        @endif
     @endif
     </div>
 </div>

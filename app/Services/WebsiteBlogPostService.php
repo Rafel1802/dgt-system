@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\Website;
+use App\Models\WebsiteFollowUp;
 use App\Models\WebsiteIntegration;
 use App\Models\WebsitePost;
 use App\Models\WebsiteSyncLog;
+use App\Services\GoogleBlogsSheetService;
 use App\Services\Security\SafeUrlValidator;
 use Exception;
 use Illuminate\Support\Carbon;
@@ -199,7 +201,7 @@ class WebsiteBlogPostService
             throw new Exception("Blog post title is required.");
         }
 
-        $contentHtml = (string) ($data['content_html'] ?? '');
+        $contentHtml = (string) ($data['content_html'] ?? $data['content'] ?? '');
         if (empty($contentHtml)) {
             throw new Exception("Blog post content cannot be empty.");
         }
@@ -229,15 +231,22 @@ class WebsiteBlogPostService
         // Canonical URL
         $canonicalUrl = $data['canonical_url'] ?? $this->determineWebsitePostUrl($website, $slug);
 
-        // Dates
-        $now = now();
+        // Dates (support post_date explicitly for Google Sheets and Follow-up accuracy)
+        $tz = config('app.timezone', 'Asia/Phnom_Penh');
+        $now = now($tz);
+        $postDate = !empty($data['post_date'])
+            ? Carbon::parse($data['post_date'], $tz)
+            : (!empty($data['published_at'])
+                ? Carbon::parse($data['published_at'], $tz)
+                : $now);
+
         $publishedAt = null;
         $scheduledAt = null;
 
         if ($status === WebsitePost::STATUS_PUBLISHED) {
-            $publishedAt = !empty($data['published_at']) ? Carbon::parse($data['published_at']) : $now;
+            $publishedAt = $postDate;
         } elseif ($status === WebsitePost::STATUS_SCHEDULED) {
-            $scheduledAt = !empty($data['scheduled_at']) ? Carbon::parse($data['scheduled_at']) : $now->copy()->addDay();
+            $scheduledAt = !empty($data['scheduled_at']) ? Carbon::parse($data['scheduled_at'], $tz) : $postDate->copy()->addDay();
             $publishedAt = $scheduledAt;
         }
 
@@ -360,13 +369,119 @@ class WebsiteBlogPostService
             $post->updateQuietly(['canonical_url' => $finalLiveUrl]);
         }
 
+        // Automatic synchronization into Follow Up system
+        $followUp = null;
+        if (in_array($post->status, [WebsitePost::STATUS_PUBLISHED, WebsitePost::STATUS_SCHEDULED])) {
+            $followUp = $this->syncToWebsiteFollowUp(
+                $website,
+                $post,
+                $finalLiveUrl,
+                $postDate,
+                $userId,
+                !empty($data['sync_sheet_now'])
+            );
+        }
+
         return [
-            'success'        => true,
-            'post'           => $post->fresh(),
-            'remote_synced'  => $dispatchResult['synced'],
-            'remote_message' => $dispatchResult['message'],
-            'remote_url'     => $finalLiveUrl,
+            'success'          => true,
+            'post'             => $post->fresh(),
+            'remote_synced'    => $dispatchResult['synced'],
+            'remote_message'   => $dispatchResult['message'],
+            'remote_url'       => $finalLiveUrl,
+            'follow_up_id'     => $followUp?->id,
+            'follow_up_status' => $followUp?->qc_status,
         ];
+    }
+
+    /**
+     * Automatically insert or update the corresponding WebsiteFollowUp record for a published blog post.
+     * Links the post with the website, handler, sheet class, and user-specified post date.
+     */
+    public function syncToWebsiteFollowUp(
+        Website $website,
+        WebsitePost $post,
+        string $finalLiveUrl,
+        Carbon $postDate,
+        ?int $userId = null,
+        bool $syncSheetNow = false
+    ): ?WebsiteFollowUp {
+        try {
+            $blogClass = null;
+            if (!empty($website->category)) {
+                $blogClass = GoogleBlogsSheetService::extractClassFromCategory($website->category);
+            }
+
+            // Find existing follow up for this post by matching website_id and (url or title)
+            $followUp = WebsiteFollowUp::where('website_id', $website->id)
+                ->where(function ($q) use ($finalLiveUrl, $post) {
+                    $q->where('url', $finalLiveUrl)
+                      ->orWhere('title', $post->title);
+                })
+                ->first();
+
+            $isNew = false;
+            if (!$followUp) {
+                $followUp = new WebsiteFollowUp();
+                $followUp->website_id          = $website->id;
+                $followUp->type                = 'blog_post';
+                $followUp->qc_status           = 'pending';
+                $followUp->google_sheet_status = 'pending';
+                $isNew = true;
+            }
+
+            $followUp->title            = $post->title;
+            $followUp->url              = $finalLiveUrl;
+            $followUp->image_url        = $post->featured_image_url;
+            $followUp->assigned_to      = $website->handled_by ?: ($userId ?: auth()->id());
+            $followUp->created_by       = $userId ?: auth()->id();
+            $followUp->blog_sheet_class = $blogClass;
+
+            // Save and ensure created_at accurately reflects the selected blog post date
+            $followUp->timestamps = false;
+            $followUp->created_at = $postDate->copy()->startOfDay();
+            $followUp->updated_at = now();
+            $followUp->save();
+            $followUp->timestamps = true;
+
+            // If syncSheetNow is explicitly requested and sheet class/url exist
+            if ($syncSheetNow && !empty($blogClass) && !empty($finalLiveUrl) && !empty(config('services.google_blogs.apps_script_url'))) {
+                $month = $postDate->month;
+                $sheetTab = match ($month) {
+                    1  => 'Jan Blogs', 2 => 'Feb Blogs', 3 => 'Mar Blogs', 4 => 'Apr Blogs',
+                    5  => 'May Blogs', 6 => 'Jun Blogs', 7 => 'Jul Blogs', 8 => 'Aug Blogs',
+                    9  => 'Sep Blogs', 10 => 'Oct Blogs', 11 => 'Nov Blogs', 12 => 'Dec Blogs',
+                    default => 'Blogs',
+                };
+                $dateForSheet = $postDate->format('m/d/Y');
+                $googleService = new GoogleBlogsSheetService();
+                $res = $googleService->syncBlogFollowUp(
+                    (string) $blogClass,
+                    $finalLiveUrl,
+                    $dateForSheet,
+                    $website->name,
+                    true,
+                    $sheetTab
+                );
+                if ($res['success']) {
+                    $followUp->updateQuietly([
+                        'google_sheet_status'    => 'synced',
+                        'google_sheet_row'       => $res['row'] ?? null,
+                        'google_sheet_synced_at' => now(),
+                        'google_sheet_error'     => null,
+                    ]);
+                } else {
+                    $followUp->updateQuietly([
+                        'google_sheet_status' => 'failed',
+                        'google_sheet_error'  => $res['error'] ?? $res['message'] ?? 'Sync failed',
+                    ]);
+                }
+            }
+
+            return $followUp;
+        } catch (\Throwable $e) {
+            Log::warning("Failed to auto-sync blog post #{$post->id} to Follow-Up: " . $e->getMessage());
+            return null;
+        }
     }
 
     /**
