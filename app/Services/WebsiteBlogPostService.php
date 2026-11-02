@@ -219,6 +219,14 @@ class WebsiteBlogPostService
             default                          => WebsitePost::STATUS_DRAFT,
         };
 
+        // Existing post check by post_id
+        $postId = !empty($data['post_id']) ? (int) $data['post_id'] : null;
+        $existing = null;
+
+        if ($postId) {
+            $existing = WebsitePost::where('website_id', $website->id)->find($postId);
+        }
+
         // Generate / clean slug
         $slug = !empty($data['slug'])
             ? Str::slug($data['slug'])
@@ -228,13 +236,26 @@ class WebsiteBlogPostService
             $slug = 'post-' . time();
         }
 
+        // Multi-user concurrency: ensure unique slug per website to prevent duplicate key collisions
+        $baseSlug = $slug;
+        $counter = 1;
+        while (WebsitePost::where('website_id', $website->id)
+            ->where('slug', $slug)
+            ->when($postId, fn($q) => $q->where('id', '!=', $postId))
+            ->exists()) {
+            $counter++;
+            $slug = $baseSlug . '-' . $counter;
+        }
+
         // Canonical URL
         $canonicalUrl = $data['canonical_url'] ?? $this->determineWebsitePostUrl($website, $slug);
 
-        // Dates (support post_date explicitly for Google Sheets and Follow-up accuracy)
+        // Dates:
+        // post_date is specifically used for Google Sheets and Follow-Up row accuracy
+        // while the website post published_at shows the real date normally (now, or existing published timestamp)
         $tz = config('app.timezone', 'Asia/Phnom_Penh');
         $now = now($tz);
-        $postDate = !empty($data['post_date'])
+        $sheetDate = !empty($data['post_date'])
             ? Carbon::parse($data['post_date'], $tz)
             : (!empty($data['published_at'])
                 ? Carbon::parse($data['published_at'], $tz)
@@ -244,9 +265,12 @@ class WebsiteBlogPostService
         $scheduledAt = null;
 
         if ($status === WebsitePost::STATUS_PUBLISHED) {
-            $publishedAt = $postDate;
+            // Live website post date: show real date normally
+            $publishedAt = ($existing && $existing->published_at && in_array($existing->status, [WebsitePost::STATUS_PUBLISHED, 'publish', 'public']))
+                ? $existing->published_at
+                : $now;
         } elseif ($status === WebsitePost::STATUS_SCHEDULED) {
-            $scheduledAt = !empty($data['scheduled_at']) ? Carbon::parse($data['scheduled_at'], $tz) : $postDate->copy()->addDay();
+            $scheduledAt = !empty($data['scheduled_at']) ? Carbon::parse($data['scheduled_at'], $tz) : $sheetDate->copy()->addDay();
             $publishedAt = $scheduledAt;
         }
 
@@ -265,27 +289,6 @@ class WebsiteBlogPostService
         $metaTitle = $this->autoCutSeoGrammar(!empty($data['meta_title']) ? trim((string) $data['meta_title']) : $title, 60, true);
         $metaDesc = $this->autoCutSeoGrammar(!empty($data['meta_description']) ? trim((string) $data['meta_description']) : ($excerpt ?: Str::limit(strip_tags($contentHtml), 160)), 160, false);
 
-        // Existing post check by slug or external_id
-        $postId = !empty($data['post_id']) ? (int) $data['post_id'] : null;
-        $existing = null;
-
-        if ($postId) {
-            $existing = WebsitePost::where('website_id', $website->id)->find($postId);
-        }
-
-        // Multi-user concurrency: ensure unique slug per website to prevent duplicate key collisions
-        $baseSlug = $slug;
-        $counter = 1;
-        while (WebsitePost::where('website_id', $website->id)
-            ->where('slug', $slug)
-            ->when($postId, fn($q) => $q->where('id', '!=', $postId))
-            ->exists()) {
-            $counter++;
-            $slug = $baseSlug . '-' . $counter;
-        }
-
-        $canonicalUrl = $data['canonical_url'] ?? $this->determineWebsitePostUrl($website, $slug);
-
         $externalId = $existing?->external_id ?: ('dgt-cms-' . hrtime(true) . '-' . ($userId ?? 0) . '-' . Str::random(8));
 
         $cmsExtra = [
@@ -303,6 +306,7 @@ class WebsiteBlogPostService
             'product_url'      => !empty($data['product_url']) ? trim((string) $data['product_url']) : null,
             'focus_keyword'    => !empty($data['focus_keyword']) ? trim((string) $data['focus_keyword']) : (!empty($data['tag_keywords']) ? trim((string) $data['tag_keywords']) : null),
             'tag_keywords'     => !empty($data['tag_keywords']) ? trim((string) $data['tag_keywords']) : (!empty($data['focus_keyword']) ? trim((string) $data['focus_keyword']) : null),
+            'sheet_date'       => $sheetDate->format('Y-m-d'),
             'created_via'      => 'dgt_blog_post_cms',
         ];
 
@@ -376,7 +380,7 @@ class WebsiteBlogPostService
                 $website,
                 $post,
                 $finalLiveUrl,
-                $postDate,
+                $sheetDate,
                 $userId,
                 !empty($data['sync_sheet_now'])
             );

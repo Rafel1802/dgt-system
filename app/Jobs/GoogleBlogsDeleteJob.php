@@ -26,7 +26,7 @@ class GoogleBlogsDeleteJob implements ShouldQueue
 
     public function handle(GoogleBlogsSheetService $service): void
     {
-        if (empty($this->classNumber) || empty($this->sheetRow)) {
+        if (empty($this->classNumber) || (empty($this->sheetRow) && empty($this->publicLink))) {
             return;
         }
 

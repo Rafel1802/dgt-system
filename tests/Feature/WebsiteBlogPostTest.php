@@ -1717,6 +1717,100 @@ DRAFT;
         $response->assertSee('Tag Keywords', false);
         $response->assertSee('detectedExcerpt', false);
     }
+
+    /**
+     * Test that published_at shows the real date normally on the website while post_date is used for Google Sheets and Follow-Up.
+     */
+    public function test_post_creation_uses_real_date_for_website_and_post_date_for_google_sheet_followup(): void
+    {
+        $user = User::factory()->create();
+        $website = Website::create([
+            'name'     => 'Real Date Machinery',
+            'url'      => 'https://realmachinery.com',
+            'category' => 'Heavy Machinery',
+            'status'   => 'live',
+        ]);
+
+        $service = app(WebsiteBlogPostService::class);
+        $result = $service->saveBlogPost([
+            'website_id'   => $website->id,
+            'title'        => 'Excavator Hydraulic System Guide 2026',
+            'slug'         => 'excavator-hydraulic-guide-2026',
+            'content_html' => '<p>Comprehensive hydraulic fluid analysis and pressure settings.</p>',
+            'raw_content'  => '## Comprehensive hydraulic fluid analysis and pressure settings.',
+            'status'       => 'published',
+            'post_date'    => '2026-10-15', // Specific date for Google Sheet / Follow Up
+        ], $user->id);
+
+        $this->assertTrue($result['success']);
+        $post = $result['post'];
+
+        // Live website post published_at is the real normal date (today)
+        $this->assertEquals(now()->format('Y-m-d'), $post->published_at->format('Y-m-d'));
+
+        // Follow Up and Sheet date is the user-specified post_date
+        $followUp = \App\Models\WebsiteFollowUp::find($result['follow_up_id']);
+        $this->assertNotNull($followUp);
+        $this->assertEquals('2026-10-15', $followUp->created_at->format('Y-m-d'));
+    }
+
+    /**
+     * Test that deleting a blog post from the system dispatches GoogleBlogsDeleteJob and deletes follow-up.
+     */
+    public function test_post_deletion_triggers_google_sheet_delete_job_and_removes_follow_up(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake([\App\Jobs\GoogleBlogsDeleteJob::class]);
+
+        $user = User::factory()->create();
+        $website = Website::create([
+            'name'     => 'Delete Post Test Site',
+            'url'      => 'https://deletetest.com',
+            'category' => '4th Class',
+            'status'   => 'live',
+        ]);
+
+        $service = app(WebsiteBlogPostService::class);
+        $result = $service->saveBlogPost([
+            'website_id'   => $website->id,
+            'title'        => 'Test Deletion Post',
+            'slug'         => 'test-deletion-post',
+            'content_html' => '<p>Temporary content to be deleted.</p>',
+            'raw_content'  => 'Temporary content to be deleted.',
+            'status'       => 'published',
+            'post_date'    => '2026-11-02',
+        ], $user->id);
+
+        $post = $result['post'];
+        $followUpId = $result['follow_up_id'];
+
+        $this->assertDatabaseHas('website_follow_ups', ['id' => $followUpId]);
+
+        $response = $this->actingAs($user)->deleteJson("/websites/posts/{$post->id}");
+        $response->assertStatus(200);
+
+        // Verify post deleted
+        $this->assertDatabaseMissing('website_posts', ['id' => $post->id]);
+
+        // Verify follow up deleted
+        $this->assertDatabaseMissing('website_follow_ups', ['id' => $followUpId]);
+
+        // Verify GoogleBlogsDeleteJob dispatched
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\GoogleBlogsDeleteJob::class, function ($job) {
+            return $job->classNumber === '4' && str_contains($job->publicLink, 'test-deletion-post');
+        });
+    }
+
+    /**
+     * Test that the CMS blade view auto-ticks syncSheetImmediately by default.
+     */
+    public function test_blog_post_cms_view_auto_ticks_sync_sheet_by_default(): void
+    {
+        $user = User::factory()->create();
+        $response = $this->actingAs($user)->get('/websites/posts');
+
+        $response->assertStatus(200);
+        $response->assertSee('syncSheetImmediately: true,', false);
+    }
 }
 
 

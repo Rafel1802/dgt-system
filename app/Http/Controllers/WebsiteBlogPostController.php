@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\GoogleBlogsDeleteJob;
 use App\Models\Website;
+use App\Models\WebsiteFollowUp;
 use App\Models\WebsitePost;
+use App\Services\GoogleBlogsSheetService;
 use App\Services\WebsiteBlogPostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -609,6 +614,20 @@ class WebsiteBlogPostController extends Controller
             $contentHtml = nl2br($rawContent);
         }
 
+        $followUp = WebsiteFollowUp::where('website_id', $post->website_id)
+            ->where(function ($q) use ($post) {
+                if (!empty($post->canonical_url)) {
+                    $q->where('url', $post->canonical_url);
+                }
+                $q->orWhere('title', $post->title);
+            })
+            ->first();
+
+        $sheetDate = $cmsExtra['sheet_date']
+            ?? $cmsExtra['post_date']
+            ?? $followUp?->created_at?->format('Y-m-d')
+            ?? ($post->published_at ? $post->published_at->format('Y-m-d') : null);
+
         return response()->json([
             'success' => true,
             'post'    => [
@@ -620,6 +639,7 @@ class WebsiteBlogPostController extends Controller
                 'canonical_url'      => $post->canonical_url,
                 'author_name'        => $post->author_name,
                 'status'             => $post->status,
+                'post_date'          => $sheetDate,
                 'published_at'       => $post->published_at?->format('Y-m-d\TH:i'),
                 'scheduled_at'       => $post->scheduled_at?->format('Y-m-d\TH:i'),
                 'featured_image_url' => $post->featured_image_url,
@@ -653,7 +673,45 @@ class WebsiteBlogPostController extends Controller
         try {
             $this->blogPostService->deleteRemotePost($post);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("Remote post deletion warning for post #{$post->id}: " . $e->getMessage());
+            Log::warning("Remote post deletion warning for post #{$post->id}: " . $e->getMessage());
+        }
+
+        // Clean up Google Sheet public link and Follow-Up if linked
+        try {
+            $followUp = WebsiteFollowUp::where('website_id', $post->website_id)
+                ->where(function ($q) use ($post) {
+                    if (!empty($post->canonical_url)) {
+                        $q->where('url', $post->canonical_url);
+                    }
+                    $q->orWhere('title', $post->title);
+                })
+                ->first();
+
+            $website = $post->website;
+            $blogClass = $followUp?->blog_sheet_class ?: GoogleBlogsSheetService::extractClassFromCategory($website?->category);
+            $sheetRow  = $followUp?->google_sheet_row;
+            $publicUrl = $post->canonical_url ?: $followUp?->url;
+
+            $month = $post->published_at
+                ? Carbon::parse($post->published_at)->month
+                : ($followUp?->created_at ? Carbon::parse($followUp->created_at)->month : now()->month);
+
+            $sheetTab = match ($month) {
+                1  => 'Jan Blogs', 2 => 'Feb Blogs', 3 => 'Mar Blogs', 4 => 'Apr Blogs',
+                5  => 'May Blogs', 6 => 'Jun Blogs', 7 => 'Jul Blogs', 8 => 'Aug Blogs',
+                9  => 'Sep Blogs', 10 => 'Oct Blogs', 11 => 'Nov Blogs', 12 => 'Dec Blogs',
+                default => 'Blogs',
+            };
+
+            if (!empty($blogClass) && (!empty($sheetRow) || !empty($publicUrl))) {
+                dispatch(new GoogleBlogsDeleteJob((string) $blogClass, $sheetRow ?? 0, $publicUrl, $sheetTab));
+            }
+
+            if ($followUp) {
+                $followUp->delete();
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Google Sheet / Follow-up deletion error on post #{$post->id}: " . $e->getMessage());
         }
 
         $post->delete();

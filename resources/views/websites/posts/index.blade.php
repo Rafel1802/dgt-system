@@ -3629,7 +3629,7 @@ function blogPostCmsApp() {
         contentRaw: '',
         postStatus: 'published',
         postDate: new Date().toISOString().split('T')[0],
-        syncSheetImmediately: false,
+        syncSheetImmediately: true,
         scheduledAt: '',
         authorName: '',
         postCategory: '',
@@ -4875,7 +4875,7 @@ function blogPostCmsApp() {
                 raw_content: art.contentRaw || this.contentRaw,
                 status: statusToSave || art.status || this.postStatus || 'published',
                 post_date: art.post_date || this.postDate || new Date().toISOString().split('T')[0],
-                published_at: art.post_date || this.postDate || null,
+                published_at: art.published_at || null,
                 scheduled_at: (statusToSave === 'scheduled' || art.status === 'scheduled') ? (art.scheduled_at || this.scheduledAt) : null,
                 sync_sheet_now: Boolean(this.syncSheetImmediately),
                 author_name: art.author_name || this.authorName || (this.getWebsiteProfile(art.website_id)?.default_author || 'Editorial Team'),
@@ -5536,6 +5536,7 @@ function blogPostCmsApp() {
             this.postVideoUrl = '';
             this.productSku = '';
             this.productUrl = '';
+            this.syncSheetImmediately = true;
 
             this.activeViewTab = 'editor';
             this.editorMode = 'visual';
@@ -6633,7 +6634,7 @@ function blogPostCmsApp() {
                         slug: p.slug || '',
                         contentRaw: content,
                         status: this.normalizeStatus(p.status || 'draft'),
-                        post_date: p.published_at ? p.published_at.substring(0, 10) : (p.created_at ? p.created_at.substring(0, 10) : new Date().toISOString().split('T')[0]),
+                        post_date: p.post_date || (p.published_at ? p.published_at.substring(0, 10) : (p.created_at ? p.created_at.substring(0, 10) : new Date().toISOString().split('T')[0])),
                         published_at: p.published_at || '',
                         scheduled_at: p.scheduled_at || '',
                         author_name: p.author_name || '',
@@ -6656,6 +6657,7 @@ function blogPostCmsApp() {
                     this.selectedWebsite = this.getWebsite(p.website_id);
                     this.updateWebsiteProfile();
                     this.syncLegacyFieldsFromArticle0();
+                    this.syncSheetImmediately = true;
 
                     this.activeViewTab = 'editor';
                     this.editorMode = 'visual';
