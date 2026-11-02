@@ -1189,6 +1189,17 @@ class GoogleSearchConsoleSitemapService
             }
             $officialDate = now();
             $officialReasons = !empty($autoReasons) ? $autoReasons : $officialReasons;
+
+            if ($mappedSite) {
+                try {
+                    $mappedSite->update([
+                        'gsc_indexed_pages'       => $officialIndexed,
+                        'gsc_not_indexed_pages'   => $officialNotIndexed,
+                        'gsc_indexing_updated_at' => $officialDate,
+                        'gsc_indexing_reasons'    => $officialReasons,
+                    ]);
+                } catch (\Throwable $e) {}
+            }
         }
 
         $effectiveIndexed = $officialIndexed !== null ? (int) $officialIndexed : $autoIndexed;

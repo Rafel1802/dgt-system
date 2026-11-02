@@ -2521,7 +2521,7 @@ class GoogleSearchConsoleController extends Controller
 
         $site->update($updateData);
 
-        return response()->json([
+        $resp = response()->json([
             'success' => true,
             'message' => "Successfully synced {$clean}: {$indexed} Indexed, " . number_format($notIndexed) . " Not Indexed!",
             'data'    => [
@@ -2531,8 +2531,14 @@ class GoogleSearchConsoleController extends Controller
                 'not_indexed' => $notIndexed,
                 'reasons'     => $site->gsc_indexing_reasons,
             ],
-        ])->header('Access-Control-Allow-Origin', $origin)
-          ->header('Access-Control-Allow-Credentials', 'true');
+        ]);
+        if ($origin) {
+            $resp->header('Access-Control-Allow-Origin', $origin)
+                 ->header('Access-Control-Allow-Credentials', 'true');
+        } else {
+            $resp->header('Access-Control-Allow-Origin', '*');
+        }
+        return $resp;
     }
 
     /**
@@ -2540,14 +2546,19 @@ class GoogleSearchConsoleController extends Controller
      */
     public function getPropertiesListForRobot(Request $request)
     {
-        $origin = $request->header('Origin') ?: '*';
+        $origin = $request->header('Origin');
 
         if ($request->isMethod('OPTIONS')) {
-            return response('', 200)
-                ->header('Access-Control-Allow-Origin', $origin)
+            $resp = response('', 200)
                 ->header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-                ->header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With, Authorization')
-                ->header('Access-Control-Allow-Credentials', 'true');
+                ->header('Access-Control-Allow-Headers', 'Content-Type, X-Requested-With, Authorization');
+            if ($origin) {
+                $resp->header('Access-Control-Allow-Origin', $origin)
+                     ->header('Access-Control-Allow-Credentials', 'true');
+            } else {
+                $resp->header('Access-Control-Allow-Origin', '*');
+            }
+            return $resp;
         }
 
         $sites = GoogleSearchConsoleSite::where('is_sync_enabled', true)
@@ -2570,12 +2581,18 @@ class GoogleSearchConsoleController extends Controller
             ];
         })->values();
 
-        return response()->json([
+        $resp = response()->json([
             'success' => true,
             'total'   => count($list),
             'sites'   => $list,
-        ])->header('Access-Control-Allow-Origin', $origin)
-          ->header('Access-Control-Allow-Credentials', 'true');
+        ]);
+        if ($origin) {
+            $resp->header('Access-Control-Allow-Origin', $origin)
+                 ->header('Access-Control-Allow-Credentials', 'true');
+        } else {
+            $resp->header('Access-Control-Allow-Origin', '*');
+        }
+        return $resp;
     }
 }
 
