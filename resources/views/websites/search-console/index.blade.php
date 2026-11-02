@@ -1027,27 +1027,16 @@
     <div x-show="activeView === 'rankings'" style="{{ ($currentView ?? 'overview') === 'rankings' ? '' : 'display: none;' }}" class="space-y-6">
 
         {{-- Rankings Header & Quick Export --}}
-        <div class="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <div class="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-xs font-bold mb-2 border border-amber-500/30">
-                    <span>🏆 Search Console Leaderboard</span>
-                    <span>&bull;</span>
-                    <span x-text="sortedRankings.length + ' Websites Ranked'"></span>
-                </div>
-                <h2 class="text-2xl font-black tracking-tight">Website Performance Rankings</h2>
-                <p class="text-sm text-slate-300 mt-1 max-w-2xl">
-                    Real-time ranking of your authorized websites by search impressions, clicks, click-through rate, and average position from Google Search Console.
-                </p>
+        <div class="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 rounded-3xl text-white shadow-xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-xs font-bold mb-2 border border-amber-500/30">
+                <span>🏆 Search Console Leaderboard</span>
+                <span>&bull;</span>
+                <span x-text="sortedRankings.length + ' Websites Ranked'"></span>
             </div>
-
-            <div class="flex items-center gap-3">
-                <a :href="buildExportUrl('csv')" class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-slate-900 bg-white hover:bg-slate-100 rounded-xl shadow transition-all">
-                    <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                    </svg>
-                    <span>Export Rankings CSV</span>
-                </a>
-            </div>
+            <h2 class="text-2xl font-black tracking-tight">Website Performance Rankings</h2>
+            <p class="text-sm text-slate-300 mt-1 max-w-3xl">
+                Real-time ranking of your authorized websites by search impressions, clicks, click-through rate, and average position from Google Search Console.
+            </p>
         </div>
 
         {{-- 4 Trophy / Podium Highlight Cards --}}
