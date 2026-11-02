@@ -2537,16 +2537,24 @@
 
                 {{-- Submission Form --}}
                 <div class="p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Submit New Sitemap URL to Google:
-                    </label>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Submit New Sitemap URL to Google:
+                        </label>
+                        <template x-if="selectedSitemapWebsite?.domain">
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-lg">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span x-text="'Auto-detected: ' + selectedSitemapWebsite.domain"></span>
+                            </span>
+                        </template>
+                    </div>
 
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                         <div class="relative flex-1">
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" /></svg>
                             </span>
-                            <input type="url" x-model="sitemapUrlInput" placeholder="https://example.com/sitemap.xml" class="w-full pl-9 pr-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-purple-500">
+                            <input type="url" x-model="sitemapUrlInput" :placeholder="'https://' + (selectedSitemapWebsite?.domain || 'example.com') + '/sitemap.xml'" class="w-full pl-9 pr-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-purple-500">
                         </div>
 
                         {{-- Test Reachability button --}}
@@ -2742,7 +2750,15 @@
                         <label class="block text-xs font-bold text-purple-900 dark:text-purple-200">
                             Inspect URL, Test Live Reachability & Request Indexing:
                         </label>
-                        <span class="text-[11px] text-slate-400">Like Google Search Console URL Inspector</span>
+                        <div class="flex items-center gap-2">
+                            <template x-if="selectedSitemapWebsite?.domain">
+                                <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-lg">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span x-text="'Auto-detected: ' + selectedSitemapWebsite.domain"></span>
+                                </span>
+                            </template>
+                            <span class="text-[11px] text-slate-400">Like Google Search Console URL Inspector</span>
+                        </div>
                     </div>
 
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
@@ -2750,7 +2766,7 @@
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
                             </span>
-                            <input type="url" x-model="inspectUrlInput" placeholder="https://example.com/page-to-inspect" class="w-full pl-9 pr-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-purple-500">
+                            <input type="url" x-model="inspectUrlInput" :placeholder="'https://' + (selectedSitemapWebsite?.domain || 'example.com') + '/'" class="w-full pl-9 pr-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-purple-500">
                         </div>
 
                         {{-- 1. Inspect on Google API button --}}
@@ -4754,7 +4770,7 @@ function gscDashboard() {
         modalFilter: 'all',
 
         // Sitemaps & Indexation Hub State
-        sitemapWebsiteId: {{ count($resolvedWebsiteIds) > 0 ? $resolvedWebsiteIds[0] : (!empty($websitesList) ? $websitesList[0]['id'] : 'null') }},
+        sitemapWebsiteId: {{ request('website_id') ? (int) request('website_id') : (!empty($selectedWebsites) && count($selectedWebsites) === 1 ? $selectedWebsites[0] : (count($resolvedWebsiteIds) > 0 ? $resolvedWebsiteIds[0] : (!empty($websitesList) ? $websitesList[0]['id'] : 'null'))) }},
         sitemapsLoading: false,
         sitemapsList: [],
         sitemapUrlInput: '',
@@ -4850,6 +4866,14 @@ function gscDashboard() {
             this.sitemapWebsiteId = websiteId;
             this.openSitemapWebsiteDropdown = false;
             this.sitemapWebsiteSearch = '';
+
+            // Auto detect from selected website
+            const ws = (this.allWebsites || []).find(w => String(w.id) === String(websiteId));
+            if (ws && ws.domain) {
+                this.sitemapUrlInput = 'https://' + ws.domain + '/sitemap.xml';
+                this.inspectUrlInput = 'https://' + ws.domain + '/';
+            }
+
             this.onSitemapWebsiteChange(websiteId);
         },
 
@@ -5233,6 +5257,24 @@ function gscDashboard() {
 
         init() {
             window.currentGscDashboard = this;
+
+            // Initial auto-detection from selected target website
+            const initWs = this.selectedSitemapWebsite;
+            if (initWs && initWs.domain) {
+                this.sitemapUrlInput = 'https://' + initWs.domain + '/sitemap.xml';
+                this.inspectUrlInput = 'https://' + initWs.domain + '/';
+            }
+
+            // Watch for changes to target website to auto-sync both URL inputs
+            this.$watch('sitemapWebsiteId', (newId) => {
+                if (!newId) return;
+                const ws = (this.allWebsites || []).find(w => String(w.id) === String(newId));
+                if (ws && ws.domain) {
+                    this.sitemapUrlInput = 'https://' + ws.domain + '/sitemap.xml';
+                    this.inspectUrlInput = 'https://' + ws.domain + '/';
+                }
+            });
+
             this.$nextTick(async () => {
                 try {
                     if (this.activeView === 'overview') {
@@ -6100,15 +6142,11 @@ function gscDashboard() {
             this.sitemapTestResult = null;
             this.inspectionResult = null;
 
-            // Auto fill default sitemap url and inspection url if not yet set
+            // Auto detect from currently selected target website
             const ws = this.selectedSitemapWebsite;
             if (ws && ws.domain) {
-                if (!this.sitemapUrlInput) {
-                    this.sitemapUrlInput = 'https://' + ws.domain + '/sitemap.xml';
-                }
-                if (!this.inspectUrlInput) {
-                    this.inspectUrlInput = 'https://' + ws.domain + '/';
-                }
+                this.sitemapUrlInput = 'https://' + ws.domain + '/sitemap.xml';
+                this.inspectUrlInput = 'https://' + ws.domain + '/';
             }
 
             if (this.isSelectedWebsiteMapped) {
@@ -6128,6 +6166,9 @@ function gscDashboard() {
                 const data = await res.json();
                 if (data.success) {
                     this.sitemapsList = data.sitemaps || [];
+                    if (this.sitemapsList.length > 0 && this.sitemapsList[0].path) {
+                        this.sitemapUrlInput = this.sitemapsList[0].path;
+                    }
                     if (data.summary) {
                         this.indexationSummary = {
                             ...this.indexationSummary,
