@@ -2399,9 +2399,9 @@
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
                         <span>Open GSC ↗</span>
                     </a>
-                    <button type="button" @click="showBookmarkletModal = true" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-xl border border-amber-200 dark:border-amber-800 transition-colors shadow-xs" title="1-Click Browser Sync Bookmarklet for Google Search Console">
-                        <svg class="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>
-                        <span>⚡ 1-Click Sync Tool</span>
+                    <button type="button" @click="syncModalTab = 'robot'; showBookmarkletModal = true" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 rounded-xl border border-purple-200 dark:border-purple-800 transition-colors shadow-xs" title="Auto-Detect & Auto-Scan All 56 Websites via Google Search Console Robot">
+                        <span class="text-sm">🤖</span>
+                        <span>Auto-Scan All Websites (Robot)</span>
                     </button>
                     <button type="button" @click="startBackgroundInspection()" :disabled="scanningBackground" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-xl border border-indigo-200 dark:border-indigo-800 transition-colors shadow-xs" title="Automatically inspect and verify all pages via Google's official URL Inspection API in the background">
                         <svg class="w-3.5 h-3.5" :class="scanningBackground ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -4108,17 +4108,17 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         </div>
     </div>
 
-    {{-- ── MODAL: 1-Click Browser Sync Bookmarklet ──────────────────────────── --}}
+    {{-- ── MODAL: 1-Click Browser Sync & Auto-Scan Robot ────────────────────── --}}
     <div x-show="showBookmarkletModal" @click.self="showBookmarkletModal = false" class="fixed inset-0 z-[99999] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" x-cloak>
         <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-5">
             <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
                 <div class="flex items-center gap-2.5">
-                    <div class="p-2 bg-amber-50 dark:bg-amber-950/50 rounded-xl text-amber-600 dark:text-amber-400">
-                        <span class="text-xl">⚡</span>
+                    <div class="p-2 bg-purple-50 dark:bg-purple-950/50 rounded-xl text-purple-600 dark:text-purple-400">
+                        <span class="text-xl">🤖</span>
                     </div>
                     <div>
-                        <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">1-Click Google Search Console Sync</h3>
-                        <p class="text-[11px] text-slate-500">Sync current Search Console website directly to DGT with zero popups</p>
+                        <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">Google Search Console Auto-Scan Robot</h3>
+                        <p class="text-[11px] text-slate-500">Auto-detect and scan all 56 websites or sync current site directly to DGT</p>
                     </div>
                 </div>
                 <button type="button" @click="showBookmarkletModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -4126,8 +4126,71 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                 </button>
             </div>
 
-            {{-- SINGLE SITE SYNC ONLY (SAFE, NO POPUPS) --}}
-            <div class="space-y-4 text-xs">
+            {{-- Mode Toggle Tabs --}}
+            <div class="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl gap-1">
+                <button type="button" @click="syncModalTab = 'robot'" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5" :class="syncModalTab === 'robot' ? 'bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-xs' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'">
+                    <span>🤖</span>
+                    <span>Auto-Sync Robot (All 56 Sites)</span>
+                </button>
+                <button type="button" @click="syncModalTab = 'single'" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5" :class="syncModalTab === 'single' ? 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-xs' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'">
+                    <span>⚡</span>
+                    <span>Single Site Sync (1 Site)</span>
+                </button>
+            </div>
+
+            {{-- TAB 1: AUTO-SYNC ROBOT (ALL 56 SITES) --}}
+            <div x-show="syncModalTab === 'robot'" class="space-y-4 text-xs">
+                <div class="p-3.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-900/60 rounded-2xl text-purple-900 dark:text-purple-200 space-y-1">
+                    <div class="font-bold flex items-center gap-1.5 text-xs text-purple-950 dark:text-purple-100">
+                        <span>🤖 Fully Automated Multi-Site Sync:</span>
+                    </div>
+                    <p class="text-[11px] leading-relaxed text-purple-800/90 dark:text-purple-300">
+                        The Robot automatically loops through all <b>56 websites</b> in Google Search Console, reads their latest <b>Indexed</b> and <b>Not Indexed</b> pages, and updates your DGT dashboard in real-time. No manual clicks required!
+                    </p>
+                </div>
+
+                {{-- Drag Button --}}
+                <div class="space-y-2">
+                    <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black">1</span>
+                        <span>Drag this button to your Bookmarks Bar:</span>
+                    </div>
+                    <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-purple-300 dark:border-purple-800/60 flex items-center justify-center">
+                        <a :href="'javascript:' + robotCode" onclick="alert('Please DRAG this button to your Bookmarks Bar (or press Ctrl+Shift+B / Cmd+Shift+B to show your Bookmarks Bar first)!'); return false;" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/20 cursor-grab active:cursor-grabbing transform hover:scale-105 transition-all">
+                            <span class="text-base">🤖</span>
+                            <span>⚡ Drag Me: Run DGT Robot (All 56 Sites)</span>
+                        </a>
+                    </div>
+                </div>
+
+                {{-- Instructions --}}
+                <div class="space-y-2">
+                    <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black">2</span>
+                        <span>How to run:</span>
+                    </div>
+                    <ol class="list-decimal list-inside space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 pl-1 leading-relaxed">
+                        <li>In your browser, open Google Search Console (<a href="https://search.google.com/search-console" target="_blank" class="text-purple-600 font-bold hover:underline">search.google.com/search-console</a>).</li>
+                        <li>Click <b>🤖 Run DGT Robot</b> in your Bookmarks Bar (or paste into Console).</li>
+                        <li>A floating HUD will show live scanning progress (1/56 ... 56/56) and update all sites into DGT automatically!</li>
+                    </ol>
+                </div>
+
+                {{-- Copy Code Alternative --}}
+                <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-800 dark:text-slate-200 text-[11px]">Can't drag? Copy Robot Console Snippet:</span>
+                        <button type="button" @click="navigator.clipboard.writeText(robotCode); alert('Copied Robot code! In Google Search Console, press F12 (or Cmd+Opt+I) -> Console -> Paste -> Enter.');" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg transition-colors cursor-pointer">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375-9-9" /></svg>
+                            <span>Copy Robot Code</span>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500">In Google Search Console, press <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">F12</kbd> (or <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">Cmd+Opt+I</kbd>), click <b>Console</b>, paste, and press <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">Enter</kbd>.</p>
+                </div>
+            </div>
+
+            {{-- TAB 2: SINGLE SITE SYNC --}}
+            <div x-show="syncModalTab === 'single'" class="space-y-4 text-xs">
                 <div class="space-y-2">
                     <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px]">1</span>
@@ -4149,7 +4212,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                     <ol class="list-decimal list-inside space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 pl-1 leading-relaxed">
                         <li>In Google Search Console, open any website under <b>Indexing → Pages</b>.</li>
                         <li>Click <b>⚡ Sync Current Site</b> in your Bookmarks Bar.</li>
-                        <li>Instantly updates that website in DGT in 1 second! (No popup windows required).</li>
+                        <li>Instantly updates that website in DGT in 1 second!</li>
                     </ol>
                 </div>
             </div>
@@ -4245,6 +4308,184 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 </div>
 
 {{-- ── Background Sync Bookmarklet & Robot Scripts ──────────────────────── --}}
+<script type="text/plain" id="dgt-robot-code">
+(async function() {
+    try {
+        if (!window.location.hostname.includes('search.google.com')) {
+            alert('⚠️ Please open your Google Search Console tab (search.google.com) first before running the Robot!');
+            return;
+        }
+
+        let worker = window.open('about:blank', 'dgt_robot_worker', 'width=1100,height=800,left=100,top=100');
+
+        const oldHud = document.getElementById('dgt-robot-hud');
+        if (oldHud) oldHud.remove();
+
+        const hud = document.createElement('div');
+        hud.id = 'dgt-robot-hud';
+        hud.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999999;width:440px;background:#0f172a;color:#f8fafc;border-radius:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6),0 0 0 1px #334155;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:12px;padding:18px;line-height:1.4;';
+        hud.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">🤖</div><div><div style="font-weight:800;font-size:13px;color:#f8fafc;letter-spacing:-0.01em;">DGT Auto-Scan Robot</div><div id="dgt-robot-sub" style="font-size:11px;color:#94a3b8;">Scanning all 56 websites...</div></div></div><div style="display:flex;align-items:center;gap:6px;"><button id="dgt-robot-stop" style="background:#ef4444;color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Stop</button><button id="dgt-robot-close" style="background:#334155;color:#94a3b8;border:none;width:24px;height:24px;border-radius:6px;font-size:12px;cursor:pointer;line-height:1;">✕</button></div></div><div style="background:#1e293b;border-radius:9999px;height:8px;overflow:hidden;margin-bottom:12px;border:1px solid #334155;"><div id="dgt-robot-bar" style="background:linear-gradient(90deg,#8b5cf6,#3b82f6,#10b981);height:100%;width:0%;transition:width 0.4s ease;"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;"><span id="dgt-robot-current" style="color:#e2e8f0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;">Initializing connection...</span><span id="dgt-robot-counter" style="color:#a855f7;font-weight:800;font-family:monospace;">0 / 56</span></div><div id="dgt-robot-log" style="height:140px;overflow-y:auto;background:#020617;border-radius:12px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;line-height:1.6;color:#cbd5e1;border:1px solid #1e293b;"></div>';
+        document.body.appendChild(hud);
+
+        let isStopped = false;
+        document.getElementById('dgt-robot-stop').onclick = function() {
+            isStopped = true;
+            document.getElementById('dgt-robot-stop').style.display = 'none';
+            document.getElementById('dgt-robot-sub').innerText = '⛔ Stopped by user';
+            log('⛔ Stopped by user. You can close this HUD anytime.', '#ef4444');
+        };
+        document.getElementById('dgt-robot-close').onclick = function() {
+            isStopped = true;
+            hud.remove();
+            try { if (worker && !worker.closed) worker.close(); } catch(e){}
+        };
+
+        function log(msg, color) {
+            color = color || '#cbd5e1';
+            const el = document.getElementById('dgt-robot-log');
+            if (!el) return;
+            const line = document.createElement('div');
+            line.style.color = color;
+            const time = new Date().toTimeString().split(' ')[0];
+            line.innerText = '[' + time + '] ' + msg;
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        if (!worker || worker.closed) {
+            log('⚠️ Popup window was blocked by Chrome!', '#f59e0b');
+            log('👉 Please click the popup icon in your URL bar to allow popups for search.google.com, or paste into F12 Console.', '#f59e0b');
+            return;
+        }
+
+        log('🚀 Fetching 56 websites from DGT database...', '#a855f7');
+        const listResp = await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/properties-list');
+        const listData = await listResp.json();
+
+        if (!listData.success || !Array.isArray(listData.sites) || listData.sites.length === 0) {
+            log('❌ Error: Could not load properties list from DGT.', '#ef4444');
+            return;
+        }
+
+        const sites = listData.sites;
+        log('✓ Loaded ' + sites.length + ' websites! Starting auto-scan loop...', '#10b981');
+
+        function parseGscDoc(doc) {
+            if (!doc || !doc.body) return null;
+            const text = doc.body.innerText || '';
+            let notIndexed = null;
+            let indexed = null;
+            let reasons = 0;
+            let lastUpdate = '';
+
+            const notIdxMatch = text.match(/(?:^|[^\w])Not indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);
+            if (notIdxMatch) {
+                let raw = notIdxMatch[1].replace(/,/g, '').trim();
+                if (/k$/i.test(raw)) notIndexed = Math.round(parseFloat(raw) * 1000);
+                else if (/m$/i.test(raw)) notIndexed = Math.round(parseFloat(raw) * 1000000);
+                else notIndexed = parseInt(raw, 10);
+            }
+
+            const idxMatch = text.match(/(?<!not\s)Indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);
+            if (idxMatch) {
+                let raw = idxMatch[1].replace(/,/g, '').trim();
+                if (/k$/i.test(raw)) indexed = Math.round(parseFloat(raw) * 1000);
+                else if (/m$/i.test(raw)) indexed = Math.round(parseFloat(raw) * 1000000);
+                else indexed = parseInt(raw, 10);
+            }
+
+            const rMatch = text.match(/(\d+)\s+reasons/i);
+            if (rMatch) reasons = parseInt(rMatch[1], 10);
+
+            const dMatch = text.match(/Last update:\s*([\d/]+)/i);
+            if (dMatch) lastUpdate = dMatch[1];
+
+            if (indexed !== null && notIndexed !== null && !isNaN(indexed) && !isNaN(notIndexed)) {
+                return { indexed: indexed, notIndexed: notIndexed, reasons: reasons, lastUpdate: lastUpdate };
+            }
+            return null;
+        }
+
+        let successCount = 0;
+        for (let i = 0; i < sites.length; i++) {
+            if (isStopped) break;
+            const site = sites[i];
+            const pct = Math.round(((i + 1) / sites.length) * 100);
+
+            document.getElementById('dgt-robot-bar').style.width = pct + '%';
+            document.getElementById('dgt-robot-counter').innerText = (i + 1) + ' / ' + sites.length;
+            document.getElementById('dgt-robot-current').innerText = 'Scanning: ' + site.clean_domain;
+            log('[' + (i + 1) + '/' + sites.length + '] Loading ' + site.clean_domain + '...', '#38bdf8');
+
+            if (!worker || worker.closed) {
+                worker = window.open('about:blank', 'dgt_robot_worker', 'width=1100,height=800,left=100,top=100');
+            }
+
+            try {
+                worker.location.href = site.gsc_url;
+            } catch(e) {
+                log('Navigation error: ' + e.message, '#ef4444');
+            }
+
+            let found = null;
+            let retries = 0;
+            await new Promise(function(r) { setTimeout(r, 1500); });
+
+            while (!found && retries < 15 && !isStopped) {
+                retries++;
+                try {
+                    if (worker && !worker.closed && worker.document) {
+                        found = parseGscDoc(worker.document);
+                    }
+                } catch(e) {}
+                if (!found) {
+                    await new Promise(function(r) { setTimeout(r, 600); });
+                }
+            }
+
+            if (found) {
+                try {
+                    const syncResp = await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            property: site.site_url,
+                            indexed: found.indexed,
+                            not_indexed: found.notIndexed,
+                            reasons_count: found.reasons,
+                            last_updated: found.lastUpdate
+                        })
+                    });
+                    const syncJson = await syncResp.json();
+                    if (syncJson.success) {
+                        successCount++;
+                        log('✓ ' + site.clean_domain + ': ' + found.indexed.toLocaleString() + ' Indexed, ' + found.notIndexed.toLocaleString() + ' Not Indexed', '#34d399');
+                    } else {
+                        log('⚠️ ' + site.clean_domain + ': ' + syncJson.message, '#fbbf24');
+                    }
+                } catch(e) {
+                    log('⚠️ ' + site.clean_domain + ': Sync failed (' + e.message + ')', '#fbbf24');
+                }
+            } else {
+                log('⏱️ ' + site.clean_domain + ': Skipped (page did not load within 10s)', '#f97316');
+            }
+
+            await new Promise(function(r) { setTimeout(r, 400); });
+        }
+
+        try { if (worker && !worker.closed) worker.close(); } catch(e){}
+
+        if (!isStopped) {
+            document.getElementById('dgt-robot-bar').style.width = '100%';
+            document.getElementById('dgt-robot-current').innerText = '🎉 All 56 websites synced!';
+            document.getElementById('dgt-robot-sub').innerText = 'Completed: ' + successCount + '/' + sites.length + ' synced successfully';
+            log('🎉 FINISHED! Synced ' + successCount + '/' + sites.length + ' websites into DGT! Refresh DGT to view updated rankings.', '#10b981');
+        }
+    } catch(err) {
+        alert('Robot error: ' + err.message);
+    }
+})();
+</script>
 <script type="text/plain" id="dgt-bookmarklet-code">
 (async function(){try{if(!window.location.hostname.includes('search.google.com')){alert('⚠️ Please switch to your Google Search Console tab (search.google.com) first!');return;}const text=document.body.innerText;const url=window.location.href;let resourceId='';const resMatch=url.match(/resource_id=([^&]+)/);if(resMatch){resourceId=decodeURIComponent(resMatch[1]);}if(!resourceId){const attrEl=document.querySelector('[data-resource-id]');if(attrEl)resourceId=attrEl.getAttribute('data-resource-id');}if(!resourceId){const domainMatch=text.match(/(?:https?:\/\/)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);resourceId=prompt('Confirm Google Search Console property or website domain:',domainMatch?domainMatch[0]:'');}if(!resourceId)return;let notIndexed=0;const notIdxMatch=text.match(/(?:^|[^\w])Not indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);if(notIdxMatch){let raw=notIdxMatch[1].replace(/,/g,'').trim();if(raw.endsWith('K')||raw.endsWith('k'))notIndexed=Math.round(parseFloat(raw)*1000);else if(raw.endsWith('M')||raw.endsWith('m'))notIndexed=Math.round(parseFloat(raw)*1000000);else notIndexed=parseInt(raw);}let indexed=0;const idxMatch=text.match(/(?<!not\s)Indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);if(idxMatch){let raw=idxMatch[1].replace(/,/g,'').trim();if(raw.endsWith('K')||raw.endsWith('k'))indexed=Math.round(parseFloat(raw)*1000);else if(raw.endsWith('M')||raw.endsWith('m'))indexed=Math.round(parseFloat(raw)*1000000);else indexed=parseInt(raw);}let reasons=0;const rMatch=text.match(/(\d+)\s+reasons/i);if(rMatch)reasons=parseInt(rMatch[1]);let updatedDate='';const dMatch=text.match(/Last update:\s*([\d/]+)/i);if(dMatch)updatedDate=dMatch[1];const payload={property:resourceId,indexed:indexed,not_indexed:notIndexed,reasons_count:reasons,last_updated:updatedDate};const resp=await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const res=await resp.json();if(res.success){alert('✓ SUCCESS!\nSynced '+resourceId+' to DGT:\n• Indexed: '+indexed.toLocaleString()+'\n• Not Indexed: '+notIndexed.toLocaleString()+(reasons?('\n• Reasons: '+reasons):''));}else{alert('Sync failed: '+(res.message||'Unknown error'));}}catch(e){alert('Sync error: '+e.message);}})();
 </script>
@@ -4487,6 +4728,11 @@ function gscDashboard() {
         // Official GSC Indexing Snapshot Modal State
         showCoverageModal: false,
         showBookmarkletModal: false,
+        syncModalTab: 'robot',
+        get robotCode() {
+            const el = document.getElementById('dgt-robot-code');
+            return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+        },
         get bookmarkletCode() {
             const el = document.getElementById('dgt-bookmarklet-code');
             return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
