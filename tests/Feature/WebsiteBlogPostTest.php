@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Website;
 use App\Models\WebsiteIntegration;
 use App\Models\WebsitePost;
+use App\Services\WebsiteBlogPostService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -1617,6 +1618,104 @@ HTML;
         $htmlDifferent = '<figure><img src="https://example.com/uploads/other-image.jpg"></figure><p>Content.</p>';
         $cleanedDiff = $service->ensureContentCleanAndStyled($htmlDifferent, null, null, null, null, $featuredUrl);
         $this->assertStringContainsString('other-image.jpg', $cleanedDiff, 'Non-duplicate images must be preserved');
+    }
+
+    /**
+     * Test that drafts with Article Excerpt and Tag Keywords auto-fill correctly
+     * and do not leak metadata labels into the post body.
+     */
+    public function test_parse_draft_auto_fills_article_excerpt_and_tag_keywords_when_present(): void
+    {
+        $service = app(WebsiteBlogPostService::class);
+
+        $draft = <<<DRAFT
+Meta Title: Heavy Compact Excavators Guide: 2.7-Ton to 4-Ton Class | TYPHON
+Meta Description: Learn how to size, specify, and evaluate 2.7-ton to 4-ton compact excavators. Compare the TYPHON KUVUO 4.0 and KUVUO 2.7 on Kubota power, hydraulics, and protected engineering.
+Article Excerpt: Stepping up to the 2.7-to-4-ton excavator class impacts job site efficiency and operating costs. Learn how load-sensing hydraulics, Kubota engines, and protected booms set the TYPHON KUVUO 4.0 and KUVUO 2.7 apart for demanding utility, residential, and commercial jobs.
+Tag Keywords: Mini Excavators, Compact Excavator, TYPHON KUVUO, Kubota Diesel, Load-Sensing Hydraulics, Zero Tail Swing, Excavator Sizing, Construction Machinery
+
+The Ultimate Guide to Heavy Compact Excavators: Sizing, Hydraulicss, and Performance in the 2.7-Ton to 4-Ton Class
+Here is the first paragraph of the actual article body.
+DRAFT;
+
+        $parsed = $service->parsePastedDraft($draft);
+
+        $this->assertStringContainsString('Heavy Compact Excavators Guide', $parsed['meta_title']);
+        $this->assertStringContainsString('Learn how to size, specify, and evaluate', $parsed['meta_description']);
+        $this->assertStringContainsString('Stepping up to the 2.7-to-4-ton excavator class', $parsed['excerpt']);
+        $this->assertStringContainsString('Mini Excavators, Compact Excavator', $parsed['tag_keywords']);
+        $this->assertEquals('The Ultimate Guide to Heavy Compact Excavators: Sizing, Hydraulicss, and Performance in the 2.7-Ton to 4-Ton Class', $parsed['title']);
+
+        // Verify metadata lines are NOT present in the content body
+        $this->assertStringNotContainsString('Article Excerpt:', $parsed['content_raw']);
+        $this->assertStringNotContainsString('Tag Keywords:', $parsed['content_raw']);
+        $this->assertStringNotContainsString('Meta Title:', $parsed['content_raw']);
+        $this->assertStringNotContainsString('Meta Description:', $parsed['content_raw']);
+        $this->assertStringContainsString('Here is the first paragraph of the actual article body', $parsed['content_raw']);
+    }
+
+    /**
+     * Test that drafts WITHOUT Article Excerpt or Tag Keywords leave them empty
+     * and do NOT force auto-cut from the article body or meta description.
+     */
+    public function test_parse_draft_leaves_excerpt_and_keywords_empty_when_missing(): void
+    {
+        $service = app(WebsiteBlogPostService::class);
+
+        $draft = <<<DRAFT
+Meta Title: Mini Excavators Complete Guide
+Meta Description: Learn how to choose and operate mini excavators for construction.
+
+# Mini Excavators Complete Guide
+Mini excavators are versatile machines used in modern earthmoving and utility jobs.
+DRAFT;
+
+        $parsed = $service->parsePastedDraft($draft);
+
+        // Crucial requirement: if don't have, no need to fill!
+        $this->assertSame('', $parsed['excerpt'], 'Excerpt must remain empty if not provided in draft');
+        $this->assertSame('', $parsed['tag_keywords'], 'Tag Keywords must remain empty if not provided in draft');
+        $this->assertEquals('Mini Excavators Complete Guide', $parsed['title']);
+    }
+
+    /**
+     * Test that auto-detected images have generic counters (01, 02) stripped from alt text.
+     */
+    public function test_parse_draft_cleans_numeric_image_alts_01_02(): void
+    {
+        $service = app(WebsiteBlogPostService::class);
+
+        $draft = <<<DRAFT
+# Excavator Field Work
+![01](https://example.com/excavator-01.jpg)
+![02](https://example.com/excavator-02.jpg)
+<img src="https://example.com/excavator-03.jpg" alt="01">
+Here is descriptive text.
+DRAFT;
+
+        $parsed = $service->parsePastedDraft($draft);
+
+        $this->assertStringNotContainsString('![01]', $parsed['content_raw']);
+        $this->assertStringNotContainsString('![02]', $parsed['content_raw']);
+        $this->assertStringContainsString('![](https://example.com/excavator-01.jpg)', $parsed['content_raw']);
+        $this->assertStringContainsString('![](https://example.com/excavator-02.jpg)', $parsed['content_raw']);
+        $this->assertStringContainsString('<img src="https://example.com/excavator-03.jpg" alt="">', $parsed['content_raw']);
+    }
+
+    /**
+     * Test that the CMS post blade view contains the Article Excerpt and Tag Keywords auto-fill logic.
+     */
+    public function test_blog_post_cms_view_renders_excerpt_and_keywords_bindings(): void
+    {
+        $user = User::factory()->create();
+        $response = $this->actingAs($user)->get('/websites/posts');
+
+        $response->assertStatus(200);
+        $response->assertSee('x-model="postExcerpt"', false);
+        $response->assertSee('x-model="tagKeywords"', false);
+        $response->assertSee('Article Excerpt', false);
+        $response->assertSee('Tag Keywords', false);
+        $response->assertSee('detectedExcerpt', false);
     }
 }
 

@@ -3394,7 +3394,8 @@ body[data-theme="neon"] .cms-handler-chip {
                               class="cms-editor-textarea"
                               placeholder="A concise, engaging 1-2 sentence preview shown on category cards, homepage feeds, and SEO snippets..."
                               maxlength="300"
-                              x-model="postExcerpt"></textarea>
+                              x-model="postExcerpt"
+                              @input="if (articles[0]) { articles[0].excerpt = postExcerpt; }"></textarea>
                 </div>
 
                 <!-- Card 5: Attached Video (Optional) -->
@@ -3489,7 +3490,7 @@ body[data-theme="neon"] .cms-handler-chip {
                                 <label class="cms-field-label-sm" style="margin: 0;">Tag Keywords</label>
                                 <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">SEO &amp; Tags</span>
                             </div>
-                            <input type="text" class="cms-editor-input-sm" placeholder="e.g. mini excavator, machinery parts, maintenance (comma separated)" x-model="tagKeywords" />
+                            <input type="text" class="cms-editor-input-sm" placeholder="e.g. mini excavator, machinery parts, maintenance (comma separated)" x-model="tagKeywords" @input="if (articles[0]) { articles[0].tag_keywords = tagKeywords; articles[0].focus_keyword = tagKeywords; }" />
                             
                             <!-- Dynamic Tag Pills Preview -->
                             <div class="flex flex-wrap gap-1.5 mt-2" x-show="tagKeywords && tagKeywords.trim()">
@@ -3871,10 +3872,10 @@ function blogPostCmsApp() {
             const html = (event.clipboardData || window.clipboardData)?.getData('text/html') || '';
             if (!text && !html) return;
 
-            const hasDraftMarkers = /(?:Meta\s*Title|SEO\s*Title|Blog\s*Title|Article\s*Title|Post\s*Title|H1\s*Title|Focus\s*Keywords?|Tag\s*Keywords?|Keywords?|Tags?|Meta\s*Description|SEO\s*Description)\s*[\*_\s]*[:：\-]/i.test(text) ||
+            const hasDraftMarkers = /(?:Meta\s*Title|SEO\s*Title|Blog\s*Title|Article\s*Title|Post\s*Title|H1\s*Title|Focus\s*Keywords?|Tag\s*Keywords?|Keywords?|Tags?|Meta\s*Description|SEO\s*Description|Article\s*Excerpt|Post\s*Excerpt|Blog\s*Excerpt|Excerpt)\s*[\*_\s]*[:：\-]/i.test(text) ||
                                    /^[\s\-*]*#{1,3}\s+/m.test(text) ||
                                    /<h[1-3][^>]*>/i.test(text) ||
-                                   /(?:^|\n)\s*[\*_\s]*(?:Title|Description)\s*[\*_\s]*[:：\-]/i.test(text);
+                                   /(?:^|\n)\s*[\*_\s]*(?:Title|Description|Excerpt|Keywords?)\s*[\*_\s]*[:：\-]/i.test(text);
             const hasTable = (html && html.includes('<table')) || text.includes('\t') || (text.includes('|') && text.includes('\n')) || /(?:specification|specifications|features?|parameters?|dimensions?|specifications?\s*table|summary\s*comparison|comparison\s*table)/i.test(text);
             const isMultiLine = text.includes('\n');
             const isArticleEmpty = !art.title || !art.title.trim() || !art.contentRaw || art.contentRaw.trim().length < 50;
@@ -3895,10 +3896,10 @@ function blogPostCmsApp() {
             const html = (event.clipboardData || window.clipboardData)?.getData('text/html') || '';
             if (!text && !html) return;
 
-            const hasDraftMarkers = /(?:Meta\s*Title|SEO\s*Title|Blog\s*Title|Article\s*Title|Post\s*Title|H1\s*Title|Focus\s*Keywords?|Tag\s*Keywords?|Keywords?|Tags?|Meta\s*Description|SEO\s*Description)\s*[\*_\s]*[:：\-]/i.test(text) ||
+            const hasDraftMarkers = /(?:Meta\s*Title|SEO\s*Title|Blog\s*Title|Article\s*Title|Post\s*Title|H1\s*Title|Focus\s*Keywords?|Tag\s*Keywords?|Keywords?|Tags?|Meta\s*Description|SEO\s*Description|Article\s*Excerpt|Post\s*Excerpt|Blog\s*Excerpt|Excerpt)\s*[\*_\s]*[:：\-]/i.test(text) ||
                                    /^[\s\-*]*#{1,3}\s+/m.test(text) ||
                                    /<h[1-3][^>]*>/i.test(text) ||
-                                   /(?:^|\n)\s*[\*_\s]*(?:Title|Description)\s*[\*_\s]*[:：\-]/i.test(text);
+                                   /(?:^|\n)\s*[\*_\s]*(?:Title|Description|Excerpt|Keywords?)\s*[\*_\s]*[:：\-]/i.test(text);
             const hasTable = (html && html.includes('<table')) || text.includes('\t') || (text.includes('|') && text.includes('\n')) || /(?:specification|specifications|features?|parameters?|dimensions?|specifications?\s*table|summary\s*comparison|comparison\s*table)/i.test(text);
             const isMultiLine = text.includes('\n');
             const isArticleEmpty = !art.title || !art.title.trim() || !art.contentRaw || art.contentRaw.trim().length < 50;
@@ -4036,7 +4037,7 @@ function blogPostCmsApp() {
                 caption.className = 'cms-rendered-caption text-center text-xs mt-2';
                 caption.contentEditable = 'true';
                 caption.setAttribute('data-placeholder', 'CAPTION: Write caption or attribution (e.g. Photo courtesy of TechLab)');
-                caption.innerText = img.getAttribute('alt') || '';
+                caption.innerText = '';
                 figure.appendChild(caption);
                 this.syncVisualCanvasToRaw();
             }
@@ -4468,6 +4469,7 @@ function blogPostCmsApp() {
 
             let detectedMetaTitle = '';
             let detectedMetaDesc = '';
+            let detectedExcerpt = '';
             let detectedKeywords = '';
             let explicitTitle = '';
             let detectedCover = '';
@@ -4478,24 +4480,101 @@ function blogPostCmsApp() {
             const isMetaLabelLine = (line) => {
                 const clean = line.replace(/<[^>]+>/g, '').replace(/^[\s\-*#>\d\.]+\s*/, '').trim().replace(/^\*+|\*+$/g, '').trim();
                 return /^(?:Meta\s*Title|SEO\s*Title|Page\s*Title)\s*[\*_\s]*[:：\-]/i.test(clean) ||
-                       /^(?:Meta\s*Description|SEO\s*Description|SEO\s*Desc|Description)\s*[\*_\s]*[:：\-]/i.test(clean) ||
-                       /^(?:Tag\s*Keywords|Focus\s*Keywords?|Keywords?|Tags?)\s*[\*_\s]*[:：\-]/i.test(clean) ||
+                       /^(?:Meta\s*Description|SEO\s*Description|SEO\s*Desc|Meta\s*Desc|Description)\s*[\*_\s]*[:：\-]/i.test(clean) ||
+                       /^(?:Article\s*Excerpt|Post\s*Excerpt|Blog\s*Excerpt|Excerpt)\s*[\*_\s]*[:：\-]/i.test(clean) ||
+                       /^(?:Tag\s*Keywords?|Focus\s*Keywords?|Tags?\s*\/?\s*Keywords?|Post\s*Tags?|Article\s*Tags?|Keywords?|Tags?)\s*[\*_\s]*[:：\-]/i.test(clean) ||
                        /^(?:Blog\s*Title|Article\s*Title|Post\s*Title|H1\s*Title|H1|Title)\s*[\*_\s]*[:：\-]/i.test(clean);
             };
 
-            // Pass 1: Extract explicitly labelled metadata anywhere in the text
-            for (let l of lines) {
-                const clean = l.replace(/<[^>]+>/g, '').replace(/^[\s\-*#>\d\.]+\s*/, '').trim().replace(/^\*+|\*+$/g, '').trim();
+            const parseMetaHeader = (line) => {
+                const clean = line.replace(/<[^>]+>/g, '').replace(/^[\s\-*#>\d\.]+\s*/, '').trim().replace(/^\*+|\*+$/g, '').trim();
                 let m;
-                if (!detectedMetaTitle && (m = clean.match(/^(?:Meta\s*Title|SEO\s*Title|Page\s*Title)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.+)/i))) {
-                    detectedMetaTitle = m[1].replace(/[\*_\s]+$/, '').trim();
-                } else if (!detectedMetaDesc && (m = clean.match(/^(?:Meta\s*Description|SEO\s*Description|SEO\s*Desc|Description)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.+)/i))) {
-                    detectedMetaDesc = m[1].replace(/[\*_\s]+$/, '').trim();
-                } else if (!detectedKeywords && (m = clean.match(/^(?:Tag\s*Keywords|Focus\s*Keywords?|Keywords?|Tags?)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.+)/i))) {
-                    detectedKeywords = m[1].replace(/[\*_\s]+$/, '').trim();
-                } else if (!explicitTitle && (m = clean.match(/^(?:Blog\s*Title|Article\s*Title|Post\s*Title|H1\s*Title|H1|Title)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.+)/i))) {
-                    explicitTitle = m[1].replace(/[\*_\s]+$/, '').trim();
+                if ((m = clean.match(/^(?:Meta\s*Title|SEO\s*Title|Page\s*Title)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i))) {
+                    return { type: 'meta_title', value: m[1].replace(/[\*_\s]+$/, '').trim() };
                 }
+                if ((m = clean.match(/^(?:Meta\s*Description|SEO\s*Description|SEO\s*Desc|Meta\s*Desc|Description)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i))) {
+                    return { type: 'meta_desc', value: m[1].replace(/[\*_\s]+$/, '').trim() };
+                }
+                if ((m = clean.match(/^(?:Article\s*Excerpt|Post\s*Excerpt|Blog\s*Excerpt|Excerpt)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i))) {
+                    return { type: 'excerpt', value: m[1].replace(/[\*_\s]+$/, '').trim() };
+                }
+                if ((m = clean.match(/^(?:Tag\s*Keywords?|Focus\s*Keywords?|Tags?\s*\/?\s*Keywords?|Post\s*Tags?|Article\s*Tags?|Keywords?|Tags?)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i))) {
+                    return { type: 'keywords', value: m[1].replace(/[\*_\s]+$/, '').trim() };
+                }
+                if ((m = clean.match(/^(?:Blog\s*Title|Article\s*Title|Post\s*Title|H1\s*Title|H1|Title)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i))) {
+                    return { type: 'title', value: m[1].replace(/[\*_\s]+$/, '').trim() };
+                }
+                return null;
+            };
+
+            // Pass 1: Extract explicitly labelled metadata and multi-line continuations
+            const metaLineIndices = new Set();
+            let currentField = null;
+
+            for (let i = 0; i < lines.length; i++) {
+                const rawLine = lines[i];
+                const trimmed = rawLine.trim();
+
+                if (!trimmed) {
+                    currentField = null;
+                    continue;
+                }
+
+                const meta = parseMetaHeader(trimmed);
+                if (meta) {
+                    metaLineIndices.add(i);
+                    currentField = meta.type;
+                    if (meta.type === 'meta_title' && !detectedMetaTitle) {
+                        detectedMetaTitle = meta.value;
+                    } else if (meta.type === 'meta_desc' && !detectedMetaDesc) {
+                        detectedMetaDesc = meta.value;
+                    } else if (meta.type === 'excerpt' && !detectedExcerpt) {
+                        detectedExcerpt = meta.value;
+                    } else if (meta.type === 'keywords' && !detectedKeywords) {
+                        detectedKeywords = meta.value;
+                    } else if (meta.type === 'title' && !explicitTitle) {
+                        explicitTitle = meta.value;
+                    }
+                    continue;
+                }
+
+                if (currentField) {
+                    const isHeading = /^#+\s/.test(trimmed) || /<h[1-6][^>]*>/i.test(trimmed);
+                    const isImage = trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('<img') || trimmed.startsWith('![');
+                    const isTable = trimmed.startsWith('|') || trimmed.startsWith('<table');
+                    const isRule = /^[-*_]{3,}$/.test(trimmed);
+
+                    if (!isHeading && !isImage && !isTable && !isRule) {
+                        const cleanLine = trimmed.replace(/<[^>]+>/g, '').replace(/^[\*_\s]+|[\*_\s]+$/g, '').trim();
+                        if (cleanLine) {
+                            metaLineIndices.add(i);
+                            if (currentField === 'meta_title') {
+                                detectedMetaTitle = (detectedMetaTitle + ' ' + cleanLine).trim();
+                            } else if (currentField === 'meta_desc') {
+                                detectedMetaDesc = (detectedMetaDesc + ' ' + cleanLine).trim();
+                            } else if (currentField === 'excerpt') {
+                                detectedExcerpt = (detectedExcerpt + ' ' + cleanLine).trim();
+                            } else if (currentField === 'keywords') {
+                                if (detectedKeywords && !detectedKeywords.trim().endsWith(',')) {
+                                    detectedKeywords += ', ';
+                                }
+                                detectedKeywords = (detectedKeywords + ' ' + cleanLine).trim();
+                            } else if (currentField === 'title') {
+                                explicitTitle = (explicitTitle + ' ' + cleanLine).trim();
+                            }
+                            continue;
+                        }
+                    } else {
+                        currentField = null;
+                    }
+                }
+            }
+
+            if (detectedKeywords) {
+                detectedKeywords = detectedKeywords.replace(/,\s*,+/g, ', ').replace(/^\s*,\s*|\s*,\s*$/g, '').trim();
+            }
+            if (detectedExcerpt) {
+                detectedExcerpt = detectedExcerpt.replace(/\s{2,}/g, ' ').trim();
             }
 
             // Pass 2: Detect HTML <h1> tag anywhere
@@ -4538,8 +4617,8 @@ function blogPostCmsApp() {
                     continue; // Skip horizontal divider rules
                 }
 
-                // If line is metadata label, strip it from content body
-                if (isMetaLabelLine(line)) {
+                // If line is metadata label or continuation, strip it from content body
+                if (metaLineIndices.has(i) || isMetaLabelLine(line)) {
                     continue;
                 }
 
@@ -4636,18 +4715,25 @@ function blogPostCmsApp() {
                 art.meta_title = detectedMetaTitle;
             }
 
-            // Assign Meta Description & Excerpt
+            // Assign Meta Description
             if (detectedMetaDesc) {
                 art.meta_description = detectedMetaDesc;
-                if (!art.excerpt) {
-                    art.excerpt = detectedMetaDesc.slice(0, 280);
-                }
             }
 
-            // Assign Tag Keywords / Focus Keyword
+            // Assign Article Excerpt: ONLY fill if explicitly present in draft copy; if missing, do NOT auto-fill!
+            if (detectedExcerpt) {
+                art.excerpt = detectedExcerpt;
+            } else {
+                art.excerpt = '';
+            }
+
+            // Assign Tag Keywords / Focus Keyword: ONLY fill if explicitly present in draft copy; if missing, do NOT auto-fill!
             if (detectedKeywords) {
                 art.tag_keywords = detectedKeywords;
                 art.focus_keyword = detectedKeywords;
+            } else {
+                art.tag_keywords = '';
+                art.focus_keyword = '';
             }
 
             // Assign Cover Image & Video
@@ -4660,6 +4746,11 @@ function blogPostCmsApp() {
 
             // Assign Cleaned Content & Deduplicate First Image
             let finalContent = cleanedLines.join('\n').trim();
+
+            // Clear generic/numeric alts from markdown images (e.g. ![01](url) -> ![](url))
+            finalContent = finalContent.replace(/!\[\s*(\d{1,4}|image\s*\d*|img[-_\s]*\d*|photo\s*\d*|picture\s*\d*|figure\s*\d*|fig\s*\d*|untitled.*|image)\s*\]\((https?:\/\/[^\s\)]+)\)/gi, '![]($2)');
+            // Clear generic/numeric alts from HTML img tags
+            finalContent = finalContent.replace(/<img([^>]+)alt=["']\s*(\d{1,4}|image\s*\d*|img[-_\s]*\d*|photo\s*\d*|picture\s*\d*|figure\s*\d*|fig\s*\d*|untitled.*|image)\s*["']([^>]*)>/gi, '<img$1alt=""$3>');
             const coverToDedupe = art.featured_image_url || detectedCover;
             if (coverToDedupe) {
                 const dFile = coverToDedupe.split('/').pop().split('?')[0].toLowerCase();
@@ -6343,17 +6434,23 @@ function blogPostCmsApp() {
                 // 3a. Markdown image link: ![Alt Text](https://... "Optional Title")
                 const mdImg = b.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)(?:\s+["']([^"']*)["'])?\)$/i);
                 if (mdImg) {
-                    const altText = mdImg[1] || '';
+                    let altText = (mdImg[1] || '').trim();
                     const imgSrc = mdImg[2];
-                    const titleText = mdImg[3] || altText;
-                    html += `<figure class="cms-rendered-figure my-6" data-align="center" style="margin: 1.75rem auto; text-align: center; max-width: 100%; clear: both;"><img src="${imgSrc}" alt="${this.escapeHtml(altText)}" title="${this.escapeHtml(titleText)}" loading="lazy" class="rounded-xl shadow-md mx-auto max-h-[480px] object-cover" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: block; margin: 0 auto;"><figcaption class="cms-rendered-caption text-center text-xs mt-2" style="text-align: center; font-size: 12px; color: #64748b; margin-top: 8px; font-style: italic;" contenteditable="true" data-placeholder="CAPTION: Write caption or attribution (e.g. Photo courtesy of TechLab)">${this.escapeHtml(altText)}</figcaption></figure>`;
+                    const titleText = mdImg[3] || '';
+
+                    // The user requested: "for images alt when auto detect import from blogs no need alt , just be with image , no alts 01 02 etc i wil fill myselft cuz it wrong"
+                    // If alt is a generic/numeric counter (e.g. 01, 02, 1, 2, image 1, img_01, photo, etc.) or matches filename, clear it to empty
+                    const isGenericOrCounter = !altText || /^(?:\d{1,4}|image\s*\d*|img[-_\s]*\d*|photo\s*\d*|picture\s*\d*|figure\s*\d*|fig\s*\d*|untitled.*|image)$/i.test(altText);
+                    const cleanAlt = isGenericOrCounter ? '' : altText;
+
+                    html += `<figure class="cms-rendered-figure my-6" data-align="center" style="margin: 1.75rem auto; text-align: center; max-width: 100%; clear: both;"><img src="${imgSrc}" alt="${this.escapeHtml(cleanAlt)}" title="${this.escapeHtml(titleText)}" loading="lazy" class="rounded-xl shadow-md mx-auto max-h-[480px] object-cover" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: block; margin: 0 auto;"><figcaption class="cms-rendered-caption text-center text-xs mt-2" style="text-align: center; font-size: 12px; color: #64748b; margin-top: 8px; font-style: italic;" contenteditable="true" data-placeholder="CAPTION: Write caption or attribution (e.g. Photo courtesy of TechLab)"></figcaption></figure>`;
                     return;
                 }
 
                 // 3b. Bare Image URL
                 if (/^https?:\/\/[^\s<>]+\.(?:webp|png|jpe?g|gif|avif)/i.test(b)) {
-                    const filename = b.split('/').pop().replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-                    html += `<figure class="cms-rendered-figure my-6" data-align="center" style="margin: 1.75rem auto; text-align: center; max-width: 100%; clear: both;"><img src="${b}" alt="${this.escapeHtml(filename)}" loading="lazy" class="rounded-xl shadow-md mx-auto max-h-[480px] object-cover" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: block; margin: 0 auto;"><figcaption class="cms-rendered-caption text-center text-xs mt-2" style="text-align: center; font-size: 12px; color: #64748b; margin-top: 8px; font-style: italic;" contenteditable="true" data-placeholder="CAPTION: Write caption or attribution (e.g. Photo courtesy of TechLab)">${this.escapeHtml(filename)}</figcaption></figure>`;
+                    // Do not auto-generate alt from filename or numbers; keep alt="" and empty figcaption so user can fill manually
+                    html += `<figure class="cms-rendered-figure my-6" data-align="center" style="margin: 1.75rem auto; text-align: center; max-width: 100%; clear: both;"><img src="${b}" alt="" loading="lazy" class="rounded-xl shadow-md mx-auto max-h-[480px] object-cover" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: block; margin: 0 auto;"><figcaption class="cms-rendered-caption text-center text-xs mt-2" style="text-align: center; font-size: 12px; color: #64748b; margin-top: 8px; font-style: italic;" contenteditable="true" data-placeholder="CAPTION: Write caption or attribution (e.g. Photo courtesy of TechLab)"></figcaption></figure>`;
                     return;
                 }
 

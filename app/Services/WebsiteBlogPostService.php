@@ -253,7 +253,7 @@ class WebsiteBlogPostService
         // Excerpt
         $excerpt = !empty($data['excerpt'])
             ? trim((string) $data['excerpt'])
-            : Str::limit(strip_tags($contentHtml), 220);
+            : (array_key_exists('excerpt', $data) ? null : Str::limit(strip_tags($contentHtml), 220));
 
         // Featured Image
         $featuredImage = !empty($data['featured_image_url']) ? trim((string) $data['featured_image_url']) : null;
@@ -263,7 +263,7 @@ class WebsiteBlogPostService
         $category = !empty($data['category']) ? trim((string) $data['category']) : ($website->category ?: null);
         $playlist = !empty($data['playlist']) ? trim((string) $data['playlist']) : null;
         $metaTitle = $this->autoCutSeoGrammar(!empty($data['meta_title']) ? trim((string) $data['meta_title']) : $title, 60, true);
-        $metaDesc = $this->autoCutSeoGrammar(!empty($data['meta_description']) ? trim((string) $data['meta_description']) : $excerpt, 160, false);
+        $metaDesc = $this->autoCutSeoGrammar(!empty($data['meta_description']) ? trim((string) $data['meta_description']) : ($excerpt ?: Str::limit(strip_tags($contentHtml), 160)), 160, false);
 
         // Existing post check by slug or external_id
         $postId = !empty($data['post_id']) ? (int) $data['post_id'] : null;
@@ -1838,6 +1838,174 @@ HTML;
         }
 
         return $cut;
+    }
+
+    /**
+     * Parses pasted or imported blog drafts containing metadata labels.
+     * Extracts Meta Title, Meta Description, Article Excerpt, Tag Keywords, and Title.
+     *
+     * Rules:
+     * - If Article Excerpt is present, auto-fills excerpt. If not, leaves it empty (never forces auto-cut).
+     * - If Tag Keywords is present, auto-fills keywords. If not, leaves it empty.
+     * - Sanitizes auto-detected images to remove generic counters (01, 02) or filenames from alts.
+     */
+    public function parsePastedDraft(string $text): array
+    {
+        $raw = trim(str_replace(["\r\n", "\r"], "\n", $text));
+        if ($raw === '') {
+            return [
+                'title'            => '',
+                'meta_title'       => '',
+                'meta_description' => '',
+                'excerpt'          => '',
+                'tag_keywords'     => '',
+                'content_raw'      => '',
+            ];
+        }
+
+        $lines = explode("\n", $raw);
+        $detectedMetaTitle = '';
+        $detectedMetaDesc = '';
+        $detectedExcerpt = '';
+        $detectedKeywords = '';
+        $explicitTitle = '';
+
+        $isMetaHeader = function (string $line) {
+            $clean = trim(preg_replace('/^\*+|\*+$/', '', preg_replace('/^[\s\-*#>\d\.]+\s*/', '', strip_tags($line))));
+            if (preg_match('/^(?:Meta\s*Title|SEO\s*Title|Page\s*Title)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i', $clean, $m)) {
+                return ['type' => 'meta_title', 'val' => trim($m[1], "*_ \t\n\r\0\x0B")];
+            }
+            if (preg_match('/^(?:Meta\s*Description|SEO\s*Description|SEO\s*Desc|Meta\s*Desc|Description)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i', $clean, $m)) {
+                return ['type' => 'meta_desc', 'val' => trim($m[1], "*_ \t\n\r\0\x0B")];
+            }
+            if (preg_match('/^(?:Article\s*Excerpt|Post\s*Excerpt|Blog\s*Excerpt|Excerpt)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i', $clean, $m)) {
+                return ['type' => 'excerpt', 'val' => trim($m[1], "*_ \t\n\r\0\x0B")];
+            }
+            if (preg_match('/^(?:Tag\s*Keywords?|Focus\s*Keywords?|Tags?\s*\/?\s*Keywords?|Post\s*Tags?|Article\s*Tags?|Keywords?|Tags?)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i', $clean, $m)) {
+                return ['type' => 'keywords', 'val' => trim($m[1], "*_ \t\n\r\0\x0B")];
+            }
+            if (preg_match('/^(?:Blog\s*Title|Article\s*Title|Post\s*Title|H1\s*Title|H1|Title)\s*[\*_\s]*[:：\-]\s*[\*_\s]*(.*)$/i', $clean, $m)) {
+                return ['type' => 'title', 'val' => trim($m[1], "*_ \t\n\r\0\x0B")];
+            }
+            return null;
+        };
+
+        $metaLineIndices = [];
+        $currentField = null;
+
+        foreach ($lines as $idx => $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') {
+                $currentField = null;
+                continue;
+            }
+
+            $meta = $isMetaHeader($trimmed);
+            if ($meta) {
+                $metaLineIndices[$idx] = true;
+                $currentField = $meta['type'];
+                if ($meta['type'] === 'meta_title' && !$detectedMetaTitle) {
+                    $detectedMetaTitle = $meta['val'];
+                } elseif ($meta['type'] === 'meta_desc' && !$detectedMetaDesc) {
+                    $detectedMetaDesc = $meta['val'];
+                } elseif ($meta['type'] === 'excerpt' && !$detectedExcerpt) {
+                    $detectedExcerpt = $meta['val'];
+                } elseif ($meta['type'] === 'keywords' && !$detectedKeywords) {
+                    $detectedKeywords = $meta['val'];
+                } elseif ($meta['type'] === 'title' && !$explicitTitle) {
+                    $explicitTitle = $meta['val'];
+                }
+                continue;
+            }
+
+            if ($currentField) {
+                $isHeading = preg_match('/^#+\s/', $trimmed) || preg_match('/<h[1-6][^>]*>/i', $trimmed);
+                $isImage = str_starts_with($trimmed, 'http://') || str_starts_with($trimmed, 'https://') || str_starts_with($trimmed, '<img') || str_starts_with($trimmed, '![');
+                $isTable = str_starts_with($trimmed, '|') || str_starts_with($trimmed, '<table');
+                $isRule = preg_match('/^[-*_]{3,}$/', $trimmed);
+
+                if (!$isHeading && !$isImage && !$isTable && !$isRule) {
+                    $cleanVal = trim(preg_replace('/^[\*_\s]+|[\*_\s]+$/', '', strip_tags($trimmed)));
+                    if ($cleanVal !== '') {
+                        $metaLineIndices[$idx] = true;
+                        if ($currentField === 'meta_title') {
+                            $detectedMetaTitle = trim($detectedMetaTitle . ' ' . $cleanVal);
+                        } elseif ($currentField === 'meta_desc') {
+                            $detectedMetaDesc = trim($detectedMetaDesc . ' ' . $cleanVal);
+                        } elseif ($currentField === 'excerpt') {
+                            $detectedExcerpt = trim($detectedExcerpt . ' ' . $cleanVal);
+                        } elseif ($currentField === 'keywords') {
+                            $detectedKeywords = rtrim($detectedKeywords, " ,\t\n\r\0\x0B") . ', ' . $cleanVal;
+                        } elseif ($currentField === 'title') {
+                            $explicitTitle = trim($explicitTitle . ' ' . $cleanVal);
+                        }
+                        continue;
+                    }
+                } else {
+                    $currentField = null;
+                }
+            }
+        }
+
+        if ($detectedKeywords !== '') {
+            $detectedKeywords = trim(preg_replace('/,\s*,+/', ', ', preg_replace('/^\s*,\s*|\s*,\s*$/', '', $detectedKeywords)));
+        }
+        if ($detectedExcerpt !== '') {
+            $detectedExcerpt = trim(preg_replace('/\s{2,}/', ' ', $detectedExcerpt));
+        }
+
+        $cleanedLines = [];
+        $mainTitle = $explicitTitle;
+        $foundTitle = (bool) $mainTitle;
+
+        foreach ($lines as $idx => $line) {
+            $trimmed = trim($line);
+            if (isset($metaLineIndices[$idx])) {
+                continue;
+            }
+            if ($trimmed === '') {
+                $cleanedLines[] = '';
+                continue;
+            }
+            if (preg_match('/^[-*_]{3,}$/', $trimmed)) {
+                continue;
+            }
+
+            if (!$foundTitle) {
+                if (preg_match('/^#\s+([^#].*)$/', $trimmed, $m)) {
+                    $mainTitle = trim(preg_replace('/\*+/', '', strip_tags($m[1])));
+                    $foundTitle = true;
+                    continue;
+                }
+                if (preg_match('/^\*\*(.+?)\*\*$/', $trimmed, $m) && strlen($trimmed) > 5 && strlen($trimmed) < 250) {
+                    $mainTitle = trim(strip_tags($m[1]));
+                    $foundTitle = true;
+                    continue;
+                }
+                if (!str_starts_with($trimmed, 'http') && !str_starts_with($trimmed, '![') && !str_starts_with($trimmed, '|') && strlen($trimmed) >= 4 && strlen($trimmed) <= 250) {
+                    $mainTitle = trim(preg_replace('/^\*\*|\*\*$/', '', strip_tags($trimmed)));
+                    $foundTitle = true;
+                    continue;
+                }
+            }
+
+            $cleanedLines[] = $line;
+        }
+
+        $finalContent = trim(implode("\n", $cleanedLines));
+
+        // Strip generic/numeric alts (e.g. ![01](url) -> ![](url))
+        $finalContent = preg_replace('/!\[\s*(?:\d{1,4}|image\s*\d*|img[-_\s]*\d*|photo\s*\d*|picture\s*\d*|figure\s*\d*|fig\s*\d*|untitled.*|image)\s*\]\((https?:\/\/[^\s\)]+)\)/i', '![]($1)', $finalContent);
+        $finalContent = preg_replace('/<img([^>]+)alt=["\']\s*(?:\d{1,4}|image\s*\d*|img[-_\s]*\d*|photo\s*\d*|picture\s*\d*|figure\s*\d*|fig\s*\d*|untitled.*|image)\s*["\']([^>]*)>/i', '<img$1alt=""$2>', $finalContent);
+
+        return [
+            'title'            => $mainTitle,
+            'meta_title'       => $detectedMetaTitle ?: ($mainTitle ? $this->autoCutSeoGrammar($mainTitle, 60, true) : ''),
+            'meta_description' => $detectedMetaDesc,
+            'excerpt'          => $detectedExcerpt, // If not in draft, empty string (no fallback auto-fill)
+            'tag_keywords'     => $detectedKeywords, // If not in draft, empty string
+            'content_raw'      => $finalContent,
+        ];
     }
 }
 
