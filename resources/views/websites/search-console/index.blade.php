@@ -4135,7 +4135,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                         <span>Drag this button to your Bookmarks Bar:</span>
                     </div>
                     <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-purple-300 dark:border-purple-800/60 flex items-center justify-center">
-                        <a :href="robotBookmarkletHref" onclick="alert('Please DRAG this button to your Bookmarks Bar (or press Ctrl+Shift+B / Cmd+Shift+B to show your Bookmarks Bar first)!'); return false;" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/20 cursor-grab active:cursor-grabbing transform hover:scale-105 transition-all">
+                        <a :href="robotBookmarkletHref" onclick="alert('📌 Please DRAG this button to your Chrome Bookmarks Bar (press Ctrl+Shift+B or Cmd+Shift+B to show your Bookmarks Bar)!\n\nOr click \'Copy Robot Code\' below to paste directly into DevTools Console.'); return false;" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/20 cursor-grab active:cursor-grabbing transform hover:scale-105 transition-all">
                             <span class="text-base">🤖</span>
                             <span>⚡ Drag Me: Run DGT Robot (All 56 Sites)</span>
                         </a>
@@ -4163,7 +4163,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                 <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 space-y-2">
                     <div class="flex items-center justify-between">
                         <span class="font-bold text-slate-800 dark:text-slate-200 text-[11px]">Can't drag? Copy Robot Console Snippet:</span>
-                        <button type="button" @click="navigator.clipboard.writeText(robotCode); alert('Copied Robot code! In Google Search Console, press F12 (or Cmd+Opt+I) -> Console -> Paste -> Enter.');" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg transition-colors cursor-pointer">
+                        <button type="button" @click="navigator.clipboard.writeText(robotCode); alert('✓ Copied Robot code!\n\n1. In Google Search Console, press F12 (or Cmd+Opt+I)\n2. Click Console tab\n3. Paste and press Enter!');" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-lg transition-colors cursor-pointer">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375-9-9" /></svg>
                             <span>Copy Robot Code</span>
                         </button>
@@ -4176,11 +4176,11 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
             <div x-show="syncModalTab === 'single'" class="space-y-4 text-xs">
                 <div class="space-y-2">
                     <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px]">1</span>
+                        <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center text-[10px] font-black">1</span>
                         <span>Drag this button to your Bookmarks Bar:</span>
                     </div>
-                    <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center">
-                        <a :href="bookmarkletHref" onclick="alert('Please DRAG this button to your Bookmarks Bar (Ctrl+Shift+B / Cmd+Shift+B)!'); return false;" class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-md cursor-grab active:cursor-grabbing transform hover:scale-105 transition-all">
+                    <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-amber-300 dark:border-amber-700 flex items-center justify-center">
+                        <a :href="bookmarkletHref" onclick="alert('📌 Please DRAG this button to your Chrome Bookmarks Bar (press Ctrl+Shift+B or Cmd+Shift+B to show your Bookmarks Bar)!\n\nOr click \'Copy Single Site Code\' below to paste directly into DevTools Console.'); return false;" class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-md cursor-grab active:cursor-grabbing transform hover:scale-105 transition-all">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>
                             <span>⚡ Drag Me: Sync Current Site</span>
                         </a>
@@ -4189,14 +4189,26 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 
                 <div class="space-y-2">
                     <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px]">2</span>
+                        <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center text-[10px] font-black">2</span>
                         <span>How to use:</span>
                     </div>
                     <ol class="list-decimal list-inside space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 pl-1 leading-relaxed">
                         <li>In Google Search Console, open any website under <b>Indexing → Pages</b>.</li>
-                        <li>Click <b>⚡ Sync Current Site</b> in your Bookmarks Bar.</li>
+                        <li>Click <b>⚡ Sync Current Site</b> in your Bookmarks Bar (or paste console snippet).</li>
                         <li>Instantly updates that website in DGT in 1 second!</li>
                     </ol>
+                </div>
+
+                {{-- Copy Code Alternative for Single Site --}}
+                <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-800 dark:text-slate-200 text-[11px]">Can't drag? Copy Single Site Snippet:</span>
+                        <button type="button" @click="navigator.clipboard.writeText(bookmarkletCode); alert('✓ Copied Single Site code!\n\n1. Open your website in Google Search Console\n2. Press F12 (or Cmd+Opt+I) -> Console\n3. Paste and press Enter!');" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-800 rounded-lg transition-colors cursor-pointer">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375-9-9" /></svg>
+                            <span>Copy Single Site Code</span>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500">In Google Search Console, press <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">F12</kbd> (or <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">Cmd+Opt+I</kbd>), click <b>Console</b>, paste, and press <kbd class="px-1 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-mono">Enter</kbd>.</p>
                 </div>
             </div>
 
@@ -4295,7 +4307,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 (async function() {
     try {
         if (!window.location.hostname.includes('search.google.com')) {
-            if (confirm('⚠️ Google Search Console Robot must run on Google Search Console.\n\nClick OK to open Google Search Console (search.google.com) now!\nOnce loaded, click this bookmark again.')) {
+            if (confirm('Google Search Console Robot must run on Google Search Console.\n\nClick OK to open Google Search Console (search.google.com) now!\nOnce loaded, click this bookmark again.')) {
                 window.location.href = 'https://search.google.com/search-console';
             }
             return;
@@ -4309,8 +4321,64 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 
         const hud = document.createElement('div');
         hud.id = 'dgt-robot-hud';
-        hud.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999999;width:440px;background:#0f172a;color:#f8fafc;border-radius:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6),0 0 0 1px #334155;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:12px;padding:18px;line-height:1.4;';
-        hud.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">🤖</div><div><div style="font-weight:800;font-size:13px;color:#f8fafc;letter-spacing:-0.01em;">DGT Auto-Scan Robot</div><div id="dgt-robot-sub" style="font-size:11px;color:#94a3b8;">Scanning all 56 websites...</div></div></div><div style="display:flex;align-items:center;gap:6px;"><button id="dgt-robot-stop" style="background:#ef4444;color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Stop</button><button id="dgt-robot-close" style="background:#334155;color:#94a3b8;border:none;width:24px;height:24px;border-radius:6px;font-size:12px;cursor:pointer;line-height:1;">✕</button></div></div><div style="background:#1e293b;border-radius:9999px;height:8px;overflow:hidden;margin-bottom:12px;border:1px solid #334155;"><div id="dgt-robot-bar" style="background:linear-gradient(90deg,#8b5cf6,#3b82f6,#10b981);height:100%;width:0%;transition:width 0.4s ease;"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;"><span id="dgt-robot-current" style="color:#e2e8f0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;">Initializing connection...</span><span id="dgt-robot-counter" style="color:#a855f7;font-weight:800;font-family:monospace;">0 / 56</span></div><div id="dgt-robot-log" style="height:140px;overflow-y:auto;background:#020617;border-radius:12px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;line-height:1.6;color:#cbd5e1;border:1px solid #1e293b;"></div>';
+        hud.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999999;width:440px;background:#0f172a;color:#f8fafc;border-radius:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6),0 0 0 1px #334155;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:12px;padding:18px;line-height:1.4;box-sizing:border-box;';
+
+        function mkEl(tag, styles, text) {
+            const node = document.createElement(tag);
+            if (styles) node.style.cssText = styles;
+            if (text !== undefined && text !== null) node.textContent = text;
+            return node;
+        }
+
+        const header = mkEl('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;');
+
+        const headerLeft = mkEl('div', 'display:flex;align-items:center;gap:10px;');
+        const iconBox = mkEl('div', 'width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(139,92,246,0.3);flex-shrink:0;', '🤖');
+
+        const titleGroup = mkEl('div');
+        const titleText = mkEl('div', 'font-weight:800;font-size:13px;color:#f8fafc;letter-spacing:-0.01em;', 'DGT Auto-Scan Robot');
+        const subText = mkEl('div', 'font-size:11px;color:#94a3b8;', 'Scanning all 56 websites...');
+        subText.id = 'dgt-robot-sub';
+        titleGroup.appendChild(titleText);
+        titleGroup.appendChild(subText);
+
+        headerLeft.appendChild(iconBox);
+        headerLeft.appendChild(titleGroup);
+
+        const headerRight = mkEl('div', 'display:flex;align-items:center;gap:6px;');
+        const stopBtn = mkEl('button', 'background:#ef4444;color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;', 'Stop');
+        stopBtn.id = 'dgt-robot-stop';
+
+        const closeBtn = mkEl('button', 'background:#334155;color:#94a3b8;border:none;width:24px;height:24px;border-radius:6px;font-size:12px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;', '✕');
+        closeBtn.id = 'dgt-robot-close';
+
+        headerRight.appendChild(stopBtn);
+        headerRight.appendChild(closeBtn);
+
+        header.appendChild(headerLeft);
+        header.appendChild(headerRight);
+
+        const barTrack = mkEl('div', 'background:#1e293b;border-radius:9999px;height:8px;overflow:hidden;margin-bottom:12px;border:1px solid #334155;');
+        const barFill = mkEl('div', 'background:linear-gradient(90deg,#8b5cf6,#3b82f6,#10b981);height:100%;width:0%;transition:width 0.4s ease;');
+        barFill.id = 'dgt-robot-bar';
+        barTrack.appendChild(barFill);
+
+        const infoRow = mkEl('div', 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;');
+        const currentDomain = mkEl('span', 'color:#e2e8f0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;', 'Initializing connection...');
+        currentDomain.id = 'dgt-robot-current';
+        const counter = mkEl('span', 'color:#a855f7;font-weight:800;font-family:monospace;', '0 / 56');
+        counter.id = 'dgt-robot-counter';
+        infoRow.appendChild(currentDomain);
+        infoRow.appendChild(counter);
+
+        const logBox = mkEl('div', 'height:140px;overflow-y:auto;background:#020617;border-radius:12px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;line-height:1.6;color:#cbd5e1;border:1px solid #1e293b;');
+        logBox.id = 'dgt-robot-log';
+
+        hud.appendChild(header);
+        hud.appendChild(barTrack);
+        hud.appendChild(infoRow);
+        hud.appendChild(logBox);
+
         document.body.appendChild(hud);
 
         let isStopped = false;
@@ -4318,19 +4386,18 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 
         function cleanup() {
             try { const h = document.getElementById('dgt-robot-hud'); if (h) h.remove(); } catch(e){}
-            try { const p = document.getElementById('dgt-robot-preview'); if (p) p.remove(); } catch(e){}
             try { if (worker && !worker.closed) worker.close(); } catch(e){}
         }
 
-        document.getElementById('dgt-robot-stop').onclick = function() {
+        stopBtn.onclick = function() {
             isStopped = true;
-            document.getElementById('dgt-robot-stop').style.display = 'none';
-            document.getElementById('dgt-robot-sub').innerText = '⛔ Stopped by user';
+            stopBtn.style.display = 'none';
+            subText.textContent = '⛔ Stopped by user';
             log('⛔ Stopped by user. You can close this HUD anytime.', '#ef4444');
             try { if (worker && !worker.closed) worker.close(); } catch(e){}
         };
 
-        document.getElementById('dgt-robot-close').onclick = function() {
+        closeBtn.onclick = function() {
             isStopped = true;
             cleanup();
         };
@@ -4342,12 +4409,12 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
             const line = document.createElement('div');
             line.style.color = color;
             const time = new Date().toTimeString().split(' ')[0];
-            line.innerText = '[' + time + '] ' + msg;
+            line.textContent = '[' + time + '] ' + msg;
             el.appendChild(line);
             el.scrollTop = el.scrollHeight;
         }
 
-        log('🚀 Fetching 56 websites from DGT database...', '#a855f7');
+        log('🚀 Connecting to DGT database...', '#a855f7');
         const listResp = await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/properties-list');
         const listData = await listResp.json();
 
@@ -4357,19 +4424,26 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         }
 
         const sites = listData.sites;
+        counter.textContent = '0 / ' + sites.length;
+        subText.textContent = 'Scanning all ' + sites.length + ' websites...';
         log('✓ Loaded ' + sites.length + ' websites! Starting auto-scan loop...', '#10b981');
 
         function parseNum(raw) {
-            if (!raw) return null;
-            raw = String(raw).replace(/,/g, '').trim();
+            if (!raw && raw !== 0) return null;
+            raw = String(raw).replace(/[\s\u00a0,]/g, '').trim();
             if (/k$/i.test(raw)) return Math.round(parseFloat(raw) * 1000);
             if (/m$/i.test(raw)) return Math.round(parseFloat(raw) * 1000000);
             const n = parseInt(raw, 10);
             return isNaN(n) ? null : n;
         }
 
-        function parseGscDoc(doc) {
+        function parseGscDoc(doc, expectedDomain) {
             if (!doc || !doc.body) return null;
+            const docUrl = (doc.location ? doc.location.href : '') || '';
+            if (expectedDomain && docUrl && !docUrl.includes(encodeURIComponent(expectedDomain)) && !docUrl.includes(expectedDomain)) {
+                return null;
+            }
+
             const text = doc.body.innerText || '';
             if (!text || text.length < 50) return null;
 
@@ -4388,26 +4462,30 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 
             if (notIndexed === null || indexed === null) {
                 try {
-                    const cards = doc.querySelectorAll('div, button, [role="button"], [role="tab"]');
+                    const cards = doc.querySelectorAll('[aria-label], [role="tab"], [role="button"], div, button');
                     for (let el of cards) {
-                        const t = (el.innerText || '').trim();
+                        const aria = el.getAttribute('aria-label') || '';
+                        const t = (el.innerText || el.textContent || '').trim();
+                        const combined = aria + ' ' + t;
+
                         if (notIndexed === null) {
-                            const m1 = t.match(/^Not indexed[\s\r\n:]+([\d,.]+[KM]?)$/i);
+                            const m1 = combined.match(/Not indexed[\s\r\n:]+([\d,.]+[KM]?)/i);
                             if (m1) notIndexed = parseNum(m1[1]);
                         }
                         if (indexed === null) {
-                            const m2 = t.match(/^Indexed[\s\r\n:]+([\d,.]+[KM]?)$/i);
+                            const m2 = combined.match(/(?<!not\s)Indexed[\s\r\n:]+([\d,.]+[KM]?)/i);
                             if (m2) indexed = parseNum(m2[1]);
                         }
+                        if (notIndexed !== null && indexed !== null) break;
                     }
                 } catch(e) {}
             }
 
-            const rMatch = text.match(/(\d+)\s+reasons/i);
-            if (rMatch) reasons = parseInt(rMatch[1], 10);
+            const rMatch = text.match(/(\d+)\s+reasons/i) || text.match(/Why pages aren't indexed\s*\(?(\d+)?\)?/i);
+            if (rMatch && rMatch[1]) reasons = parseInt(rMatch[1], 10);
 
-            const dMatch = text.match(/Last update:\s*([\d/]+)/i);
-            if (dMatch) lastUpdate = dMatch[1];
+            const dMatch = text.match(/Last update:\s*([\d/.-]+)/i) || text.match(/Updated:\s*([\d/.-]+)/i);
+            if (dMatch && dMatch[1]) lastUpdate = dMatch[1];
 
             if (indexed !== null && notIndexed !== null) {
                 return { indexed: indexed, notIndexed: notIndexed, reasons: reasons, lastUpdate: lastUpdate };
@@ -4422,14 +4500,15 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
             const site = sites[i];
             const pct = Math.round(((i + 1) / sites.length) * 100);
 
-            document.getElementById('dgt-robot-bar').style.width = pct + '%';
-            document.getElementById('dgt-robot-counter').innerText = (i + 1) + ' / ' + sites.length;
-            document.getElementById('dgt-robot-current').innerText = 'Scanning: ' + site.clean_domain;
+            barFill.style.width = pct + '%';
+            counter.textContent = (i + 1) + ' / ' + sites.length;
+            currentDomain.textContent = 'Scanning: ' + site.clean_domain;
             log('[' + (i + 1) + '/' + sites.length + '] Scanning ' + site.clean_domain + '...', '#38bdf8');
 
             if (!worker || worker.closed) {
                 worker = window.open(site.gsc_url, 'dgt_robot_worker', 'width=1100,height=800,left=100,top=100');
                 if (!worker || worker.closed) {
+                    log('❌ Pop-up blocked! Allow pop-ups for search.google.com in URL bar.', '#ef4444');
                     alert('⚠️ Pop-up was blocked by browser!\n\nPlease click the pop-up icon in your URL bar, select "Always allow pop-ups from search.google.com", and click Run DGT Robot again.');
                     cleanup();
                     return;
@@ -4446,11 +4525,11 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
             let retries = 0;
             await new Promise(function(r) { setTimeout(r, 1500); });
 
-            while (!found && retries < 22 && !isStopped) {
+            while (!found && retries < 24 && !isStopped) {
                 retries++;
                 try {
                     if (worker && !worker.closed && worker.document) {
-                        found = parseGscDoc(worker.document);
+                        found = parseGscDoc(worker.document, site.clean_domain);
                     }
                 } catch(e) {}
                 if (!found) {
@@ -4476,13 +4555,13 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                         successCount++;
                         log('✓ ' + site.clean_domain + ': ' + found.indexed.toLocaleString() + ' Indexed, ' + found.notIndexed.toLocaleString() + ' Not Indexed', '#34d399');
                     } else {
-                        log('⚠️ ' + site.clean_domain + ': ' + syncJson.message, '#fbbf24');
+                        log('⚠️ ' + site.clean_domain + ': ' + (syncJson.message || 'Server error'), '#fbbf24');
                     }
                 } catch(e) {
                     log('⚠️ ' + site.clean_domain + ': Sync failed (' + e.message + ')', '#fbbf24');
                 }
             } else {
-                log('⏱️ ' + site.clean_domain + ': Skipped (page did not load within 12s)', '#f97316');
+                log('⏱️ ' + site.clean_domain + ': Skipped (page did not load within 13s)', '#f97316');
             }
 
             await new Promise(function(r) { setTimeout(r, 400); });
@@ -4491,9 +4570,9 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         try { if (worker && !worker.closed) worker.close(); } catch(e){}
 
         if (!isStopped) {
-            document.getElementById('dgt-robot-bar').style.width = '100%';
-            document.getElementById('dgt-robot-current').innerText = '🎉 All 56 websites synced!';
-            document.getElementById('dgt-robot-sub').innerText = 'Completed: ' + successCount + '/' + sites.length + ' synced successfully';
+            barFill.style.width = '100%';
+            currentDomain.textContent = '🎉 All ' + sites.length + ' websites scanned!';
+            subText.textContent = 'Completed: ' + successCount + '/' + sites.length + ' synced successfully';
             log('🎉 FINISHED! Synced ' + successCount + '/' + sites.length + ' websites into DGT! Refresh DGT to view updated rankings.', '#10b981');
         }
     } catch(err) {
@@ -4502,7 +4581,128 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 })();
 </script>
 <script type="text/plain" id="dgt-bookmarklet-code">
-(async function(){try{if(!window.location.hostname.includes('search.google.com')){if(confirm('⚠️ Single Site Sync must run on Google Search Console.\n\nClick OK to open Google Search Console now! Once loaded on your website\'s indexing page, click this bookmark again.')){window.location.href='https://search.google.com/search-console';}return;}const text=document.body.innerText;const url=window.location.href;let resourceId='';const resMatch=url.match(/resource_id=([^&]+)/);if(resMatch){resourceId=decodeURIComponent(resMatch[1]);}if(!resourceId){const attrEl=document.querySelector('[data-resource-id]');if(attrEl)resourceId=attrEl.getAttribute('data-resource-id');}if(!resourceId){const domainMatch=text.match(/(?:https?:\/\/)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);resourceId=prompt('Confirm Google Search Console property or website domain:',domainMatch?domainMatch[0]:'');}if(!resourceId)return;function parseNum(raw){if(!raw)return 0;raw=String(raw).replace(/,/g,'').trim();if(/k$/i.test(raw))return Math.round(parseFloat(raw)*1000);if(/m$/i.test(raw))return Math.round(parseFloat(raw)*1000000);const n=parseInt(raw,10);return isNaN(n)?0:n;}let notIndexed=0;const notIdxMatch=text.match(/(?:^|[^\w])Not indexed[\s\r\n:]+([\d,.]+[KM]?)/i)||text.match(/Not indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);if(notIdxMatch)notIndexed=parseNum(notIdxMatch[1]);let indexed=0;const idxMatch=text.match(/(?<!not\s)Indexed[\s\r\n:]+([\d,.]+[KM]?)/i)||text.match(/(?<!not\s)Indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);if(idxMatch)indexed=parseNum(idxMatch[1]);let reasons=0;const rMatch=text.match(/(\d+)\s+reasons/i);if(rMatch)reasons=parseInt(rMatch[1],10);let updatedDate='';const dMatch=text.match(/Last update:\s*([\d/]+)/i);if(dMatch)updatedDate=dMatch[1];const payload={property:resourceId,indexed:indexed,not_indexed:notIndexed,reasons_count:reasons,last_updated:updatedDate};const resp=await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const res=await resp.json();if(res.success){alert('✓ SUCCESS!\nSynced '+resourceId+' to DGT:\n• Indexed: '+indexed.toLocaleString()+'\n• Not Indexed: '+notIndexed.toLocaleString()+(reasons?('\n• Reasons: '+reasons):''));}else{alert('Sync failed: '+(res.message||'Unknown error'));}}catch(e){alert('Sync error: '+e.message);}})();
+(async function(){
+    try {
+        if (!window.location.hostname.includes('search.google.com')) {
+            if (confirm('⚠️ Single Site Sync must run on Google Search Console.\n\nClick OK to open Google Search Console now! Once loaded on your website\'s indexing page, click this bookmark again.')) {
+                window.location.href = 'https://search.google.com/search-console';
+            }
+            return;
+        }
+
+        const oldToast = document.getElementById('dgt-toast');
+        if (oldToast) oldToast.remove();
+        const toast = document.createElement('div');
+        toast.id = 'dgt-toast';
+        toast.style.cssText = 'position:fixed;top:24px;right:24px;z-index:9999999;background:#0f172a;color:#f8fafc;border-radius:12px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.5),0 0 0 1px #334155;padding:12px 18px;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;';
+        toast.textContent = '⚡ Reading Google Search Console indexing data...';
+        document.body.appendChild(toast);
+
+        const text = document.body.innerText || '';
+        const url = window.location.href;
+        let resourceId = '';
+        const resMatch = url.match(/resource_id=([^&]+)/);
+        if (resMatch) {
+            resourceId = decodeURIComponent(resMatch[1]);
+        }
+        if (!resourceId) {
+            const attrEl = document.querySelector('[data-resource-id]');
+            if (attrEl) resourceId = attrEl.getAttribute('data-resource-id');
+        }
+        if (!resourceId) {
+            const domainMatch = text.match(/(?:https?:\/\/)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+            resourceId = prompt('Confirm Google Search Console property or website domain:', domainMatch ? domainMatch[0] : '');
+        }
+        if (!resourceId) {
+            toast.remove();
+            return;
+        }
+
+        function parseNum(raw) {
+            if (!raw && raw !== 0) return 0;
+            raw = String(raw).replace(/[\s\u00a0,]/g, '').trim();
+            if (/k$/i.test(raw)) return Math.round(parseFloat(raw) * 1000);
+            if (/m$/i.test(raw)) return Math.round(parseFloat(raw) * 1000000);
+            const n = parseInt(raw, 10);
+            return isNaN(n) ? 0 : n;
+        }
+
+        let notIndexed = null;
+        let indexed = null;
+
+        const notIdxMatch = text.match(/(?:^|[^\w])Not indexed[\s\r\n:]+([\d,.]+[KM]?)/i)
+                         || text.match(/Not indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);
+        if (notIdxMatch) notIndexed = parseNum(notIdxMatch[1]);
+
+        const idxMatch = text.match(/(?<!not\s)Indexed[\s\r\n:]+([\d,.]+[KM]?)/i)
+                      || text.match(/(?<!not\s)Indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);
+        if (idxMatch) indexed = parseNum(idxMatch[1]);
+
+        if (notIndexed === null || indexed === null) {
+            try {
+                const cards = document.querySelectorAll('[aria-label], [role="tab"], [role="button"], div, button');
+                for (let el of cards) {
+                    const aria = el.getAttribute('aria-label') || '';
+                    const t = (el.innerText || el.textContent || '').trim();
+                    const combined = aria + ' ' + t;
+                    if (notIndexed === null) {
+                        const m1 = combined.match(/Not indexed[\s\r\n:]+([\d,.]+[KM]?)/i);
+                        if (m1) notIndexed = parseNum(m1[1]);
+                    }
+                    if (indexed === null) {
+                        const m2 = combined.match(/(?<!not\s)Indexed[\s\r\n:]+([\d,.]+[KM]?)/i);
+                        if (m2) indexed = parseNum(m2[1]);
+                    }
+                    if (notIndexed !== null && indexed !== null) break;
+                }
+            } catch(e) {}
+        }
+
+        notIndexed = notIndexed !== null ? notIndexed : 0;
+        indexed = indexed !== null ? indexed : 0;
+
+        let reasons = 0;
+        const rMatch = text.match(/(\d+)\s+reasons/i) || text.match(/Why pages aren't indexed\s*\(?(\d+)?\)?/i);
+        if (rMatch && rMatch[1]) reasons = parseInt(rMatch[1], 10);
+
+        let updatedDate = '';
+        const dMatch = text.match(/Last update:\s*([\d/.-]+)/i) || text.match(/Updated:\s*([\d/.-]+)/i);
+        if (dMatch && dMatch[1]) updatedDate = dMatch[1];
+
+        toast.textContent = '🚀 Syncing ' + resourceId + ' to DGT...';
+
+        const payload = {
+            property: resourceId,
+            indexed: indexed,
+            not_indexed: notIndexed,
+            reasons_count: reasons,
+            last_updated: updatedDate
+        };
+
+        const resp = await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const res = await resp.json();
+
+        if (res.success) {
+            toast.style.background = '#065f46';
+            toast.style.color = '#34d399';
+            toast.textContent = '✓ Synced ' + resourceId + ' (' + indexed.toLocaleString() + ' Indexed, ' + notIndexed.toLocaleString() + ' Not Indexed)';
+            setTimeout(function() { toast.remove(); }, 5000);
+            alert('✓ SUCCESS!\nSynced ' + resourceId + ' to DGT:\n• Indexed: ' + indexed.toLocaleString() + '\n• Not Indexed: ' + notIndexed.toLocaleString() + (reasons ? ('\n• Reasons: ' + reasons) : ''));
+        } else {
+            toast.style.background = '#7f1d1d';
+            toast.style.color = '#fca5a5';
+            toast.textContent = '❌ Sync failed: ' + (res.message || 'Unknown error');
+            setTimeout(function() { toast.remove(); }, 5000);
+            alert('Sync failed: ' + (res.message || 'Unknown error'));
+        }
+    } catch(e) {
+        alert('Sync error: ' + e.message);
+    }
+})();
 </script>
 
 {{-- ── Frontend Alpine.js Controller & Chart.js Integration ──────────────── --}}
@@ -4746,23 +4946,23 @@ function gscDashboard() {
         syncModalTab: 'robot',
         get rawRobotCode() {
             const el = document.getElementById('dgt-robot-code');
-            return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+            return el ? el.textContent.trim() : '';
         },
         get robotCode() {
             return this.rawRobotCode;
         },
         get robotBookmarkletHref() {
-            return this.rawRobotCode ? 'javascript:void(' + this.rawRobotCode + ')' : 'javascript:void(0)';
+            return this.rawRobotCode ? 'javascript:void(' + encodeURIComponent(this.rawRobotCode) + ')' : 'javascript:void(0)';
         },
         get rawBookmarkletCode() {
             const el = document.getElementById('dgt-bookmarklet-code');
-            return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+            return el ? el.textContent.trim() : '';
         },
         get bookmarkletCode() {
             return this.rawBookmarkletCode;
         },
         get bookmarkletHref() {
-            return this.rawBookmarkletCode ? 'javascript:void(' + this.rawBookmarkletCode + ')' : 'javascript:void(0)';
+            return this.rawBookmarkletCode ? 'javascript:void(' + encodeURIComponent(this.rawBookmarkletCode) + ')' : 'javascript:void(0)';
         },
         coverageSaving: false,
         coverageForm: {

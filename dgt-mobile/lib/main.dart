@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
@@ -27,6 +29,17 @@ String _resolveAppBaseUrl() {
 // ─── Entry Point ─────────────────────────────────────────────────────────────
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
+    ),
+  );
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   runApp(const DgtMobileApp());
 }
 
@@ -137,6 +150,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
         if (window.__dgtMobileReady) return;
         window.__dgtMobileReady = true;
         document.documentElement.classList.add('dgt-mobile-app');
+        if (navigator.userAgent.includes('Android') || navigator.userAgent.includes('DGTSystemAndroidApp')) {
+          document.documentElement.classList.add('dgt-android-app');
+        } else {
+          document.documentElement.classList.add('dgt-ios-app');
+        }
 
         const blurAccidentalColorPicker = () => {
           const active = document.activeElement;
@@ -164,7 +182,9 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
             child: InAppWebView(
               initialUrlRequest: URLRequest(url: WebUri(appBaseUrl)),
               initialSettings: InAppWebViewSettings(
-                userAgent: 'DGTSystemiOSApp/1.0',
+                userAgent: defaultTargetPlatform == TargetPlatform.android
+                    ? 'DGTSystemAndroidApp/1.0'
+                    : 'DGTSystemiOSApp/1.0',
                 javaScriptEnabled: true,
                 transparentBackground: false,
                 allowFileAccessFromFileURLs: true,
@@ -177,6 +197,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 useShouldOverrideUrlLoading: true,
                 useOnDownloadStart: true,
                 cacheEnabled: true,
+                supportZoom: false,
+                preferredContentMode: UserPreferredContentMode.MOBILE,
+                overScrollMode: OverScrollMode.NEVER,
+                disallowOverScroll: true,
+                allowsLinkPreview: false,
               ),
               onWebViewCreated: (webViewController) {
                 controller = webViewController;

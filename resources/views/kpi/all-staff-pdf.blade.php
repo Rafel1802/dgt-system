@@ -273,11 +273,11 @@
                 </tr>
                 <tr class="total-row">
                     <td>FINAL TOTAL SCORE:</td>
-                    <td class="center" style="color: #1e3a8a; font-size: 11px;">
-                        {{ number_format(($overallScore / 100) * 25, 1) }} / 25
+                    <td class="center" style="color: #1e3a8a; font-size: 11px; font-weight: 800;">
+                        {{ number_format(($overallScore / 20), 1) }} / 5.0
                     </td>
                     <td style="color: #15803d; font-weight: 800;">
-                        OVERALL: {{ $band }}
+                        OVERALL: {{ $band }} ({{ ($overallScore / 20) >= 4.8 ? '5 Stars' : (($overallScore / 20) >= 4.0 ? '4 Stars' : '3 Stars') }})
                     </td>
                 </tr>
             </tbody>

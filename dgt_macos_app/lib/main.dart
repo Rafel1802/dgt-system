@@ -34,8 +34,28 @@ String _resolveAppBaseUrl() {
   return appUri.toString().replaceFirst(RegExp(r'/$'), '');
 }
 
+String? _savedLastVisitedUrl;
+
+bool _isRestorableUrl(String url) {
+  final uri = Uri.tryParse(url);
+  final base = Uri.tryParse(appBaseUrl);
+  if (uri == null || base == null) return false;
+  if (uri.host != base.host) return false;
+  return !url.contains('/login') &&
+      !url.contains('/logout') &&
+      !url.contains('/auth/') &&
+      !url.contains('/preview');
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('dgt_last_visited_url');
+    if (saved != null && _isRestorableUrl(saved)) {
+      _savedLastVisitedUrl = saved;
+    }
+  } catch (_) {}
   await NativeNotificationService.requestPermission();
   if (nativeNotificationTest) {
     Future<void>.delayed(const Duration(seconds: 3), () {
@@ -120,6 +140,8 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   bool splashScreenDone = false;
   String? loadError;
   String _currentUrl = '';
+  late final String _initialTargetUrl =
+      _savedLastVisitedUrl ?? '$appBaseUrl/dashboard';
   final Set<String> shownNativeNotificationIds = <String>{};
   final Map<String, DateTime> recentNativeNotificationFingerprints =
       <String, DateTime>{};
@@ -306,11 +328,24 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       appUri: appUri,
       onNotification: _showNativeNotificationPayload,
     );
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        setState(() => splashScreenDone = true);
+    // Smooth fail-safe fade out: dismiss splash after 800ms max to reveal cached page immediately
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted && !hasLoadedFirstPage) {
+        setState(() {
+          hasLoadedFirstPage = true;
+          splashScreenDone = true;
+        });
       }
     });
+  }
+
+  Future<void> _saveLastVisitedUrl(String url) async {
+    try {
+      if (_isRestorableUrl(url)) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('dgt_last_visited_url', url);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -671,7 +706,10 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
             children: [
               Positioned.fill(
                 child: InAppWebView(
-                  initialUrlRequest: URLRequest(url: WebUri(appUri.toString())),
+                  initialUrlRequest: URLRequest(
+                    url: WebUri(_initialTargetUrl),
+                    cachePolicy: URLRequestCachePolicy.USE_PROTOCOL_CACHE_POLICY,
+                  ),
                   initialSettings: InAppWebViewSettings(
                     userAgent: Platform.isIOS
                         ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1 DGTSystemiOSApp'
@@ -681,14 +719,22 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     javaScriptEnabled: true,
                     javaScriptCanOpenWindowsAutomatically: true,
                     transparentBackground: false,
+                    // Enable full WebKit local device caching & persistent storage:
                     cacheEnabled: true,
+                    clearCache: false,
+                    domStorageEnabled: true,
+                    databaseEnabled: true,
+                    sharedCookiesEnabled: true,
+                    thirdPartyCookiesEnabled: true,
+                    hardwareAcceleration: true,
+                    suppressesIncrementalRendering: false,
+                    allowsLinkPreview: false,
+                    isFraudulentWebsiteWarningEnabled: false,
+                    selectionGranularity: SelectionGranularity.CHARACTER,
                     useShouldOverrideUrlLoading: false,
                     useOnDownloadStart: true,
                     allowsBackForwardNavigationGestures: true,
                     isInspectable: false,
-                    // High-performance macOS WebKit tuning:
-                    allowsLinkPreview: false,
-                    suppressesIncrementalRendering: false,
                     underPageBackgroundColor: const Color(0xFFF4F7FB),
                     // Media & caption capabilities for WebKit
                     allowsInlineMediaPlayback: true,
@@ -705,10 +751,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     // Prevent accidental double-tap zoom delay on mobile
                     supportZoom: !(Platform.isIOS || Platform.isAndroid),
                     // Performance: hardware acceleration
-                    hardwareAcceleration: true,
                     supportMultipleWindows: true,
-                    sharedCookiesEnabled: true,
-                    thirdPartyCookiesEnabled: true,
                     limitsNavigationsToAppBoundDomains: false,
                   ),
                   onWebViewCreated: (webViewController) {
@@ -777,7 +820,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     if (!hasLoadedFirstPage) {
                       setState(() {
                         loadingProgress = progress;
-                        if (progress >= 35) {
+                        if (progress >= 20) {
                           hasLoadedFirstPage = true;
                           splashScreenDone = true;
                         }
@@ -791,13 +834,25 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                         loadingProgress = 0;
                       }
                     });
+                    Future.delayed(const Duration(milliseconds: 350), () {
+                      if (mounted && !hasLoadedFirstPage) {
+                        setState(() {
+                          hasLoadedFirstPage = true;
+                          splashScreenDone = true;
+                        });
+                      }
+                    });
                   },
                   onLoadStop: (controller, url) async {
                     setState(() {
                       loadingProgress = 100;
                       hasLoadedFirstPage = true;
+                      splashScreenDone = true;
                       _currentUrl = url?.toString() ?? '';
                     });
+                    if (url != null) {
+                      _saveLastVisitedUrl(url.toString());
+                    }
                     await _prepareOfficialAppSurface();
                     notificationPoller.start();
                   },

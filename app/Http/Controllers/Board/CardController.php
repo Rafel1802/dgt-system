@@ -109,6 +109,9 @@ class CardController extends Controller
         // Build a clean card payload with correct avatar URLs
         $cardData = $card->toArray();
         $cardData['team'] = $card->team;
+        $cardData['due_at'] = $card->due_at?->format('Y-m-d');
+        $cardData['start_date'] = $card->start_date?->format('Y-m-d');
+        $cardData['deadline'] = $card->deadline?->format('Y-m-d');
         $cardData['content_public_date'] = $card->content_public_date?->format('Y-m-d');
         $cardData['board_list_name'] = $card->boardList?->name;
         $cardData['files'] = $card->files->map(fn($file) => $this->filePayload($file))->values()->all();
@@ -884,9 +887,10 @@ class CardController extends Controller
             ], 403);
         }
 
-        // Checklist completion enforcement: All items must be 100% completed before moving to another list
+        // Checklist completion enforcement: All items must be 100% completed before moving to another list.
+        // Exception: moving between Planning boards / week lists (e.g. fixing a wrongly distributed card).
         $isMovingList = (int) ($sourceList?->id ?? $card->board_list_id) !== (int) $targetList->id;
-        if ($isMovingList && $card->hasIncompleteChecklist()) {
+        if ($isMovingList && $card->hasIncompleteChecklist() && ! $this->isPlanningToPlanningMove($sourceList ?? $card->boardList, $targetList)) {
             return response()->json([
                 'error' => 'All checklist items must be 100% completed before moving this card to another list.',
                 'checklist_incomplete' => true,
@@ -1800,37 +1804,44 @@ class CardController extends Controller
         ]);
     }
 
-    /** Delete a comment */
+    /** Delete a comment (Silent for superadmin, no notifications) */
     public function destroyComment(Card $card, CardComment $comment): JsonResponse
     {
-        if ($comment->user_id !== auth()->id() && ! auth()->user()->hasAnyRole(['super-admin', 'admin-digital'])) {
+        $user = auth()->user();
+        $isSuperAdmin = $user && (
+            $user->hasAnyRole(['super-admin', 'superadmin', 'admin-digital']) ||
+            in_array($user->role ?? null, ['superadmin', 'super-admin'])
+        );
+
+        if ($comment->user_id !== auth()->id() && ! $isSuperAdmin) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $commentBody = trim((string) ($comment->body ?? $comment->content));
-        $shortBody = \Illuminate\Support\Str::limit($commentBody, 100);
-        $logContent = str_contains($commentBody, '![screenshot](data:image')
-            ? 'deleted a comment with a screenshot'
-            : "deleted comment: \"{$shortBody}\"";
-
         $comment->delete();
 
-        $this->logCardActivity($card, 'comment_deleted', $logContent);
+        // Silent delete: No notifications sent, no activity logged
+        // ("no alert notification and no one know")
 
-        dispatch(function () use ($card) {
-            foreach ($card->assignees as $assignee) {
-                if ($assignee->id !== auth()->id()) {
-                    $assignee->notify(new \App\Notifications\GenericDatabaseNotification([
-                        'actor_id'     => auth()->id(),
-                        'actor_name'   => auth()->user()->name,
-                        'actor_avatar' => auth()->user()->avatar_url,
-                        'module'       => 'digital',
-                        'message'      => auth()->user()->name . " deleted a comment on card '{$card->title}'",
-                        'link'         => route('boards.show', $card->board->slug) . "?card={$card->id}",
-                    ]));
-                }
-            }
-        })->afterResponse();
+        return response()->json(['success' => true]);
+    }
+
+    /** Delete an activity log (Superadmin only, completely silent) */
+    public function destroyActivity(Card $card, $activityId): JsonResponse
+    {
+        $user = auth()->user();
+        $isSuperAdmin = $user && (
+            $user->hasAnyRole(['super-admin', 'superadmin', 'admin-digital']) ||
+            in_array($user->role ?? null, ['superadmin', 'super-admin'])
+        );
+
+        if (! $isSuperAdmin) {
+            return response()->json(['error' => 'Unauthorized. Only superadmin can delete activity logs.'], 403);
+        }
+
+        $activity = ActivityLog::find($activityId);
+        if ($activity) {
+            $activity->delete();
+        }
 
         return response()->json(['success' => true]);
     }
@@ -3444,6 +3455,39 @@ class CardController extends Controller
         return str_contains(strtolower($name ?? ''), 'block');
     }
 
+    /**
+     * True when a card is moved from a Planning board list to another Planning board list
+     * (e.g. Week 1 -> Week 1 on a different board) and the target is not a workflow stage.
+     */
+    private function isPlanningToPlanningMove(?BoardList $sourceList, BoardList $targetList): bool
+    {
+        if (! $sourceList) {
+            return false;
+        }
+
+        $isPlanningBoard = function (?Board $b): bool {
+            if (! $b) return false;
+            $n = strtolower($b->name ?? '');
+            return (str_contains($n, 'planning') || $b->type === 'smm') && ! str_contains($n, 'workflow') && $b->type !== 'workflow';
+        };
+
+        $sourceList->loadMissing('board');
+        $targetList->loadMissing('board');
+
+        if (! $isPlanningBoard($sourceList->board) || ! $isPlanningBoard($targetList->board)) {
+            return false;
+        }
+
+        $t = strtolower($targetList->name ?? '');
+        foreach (['approved', 'draft', 'qc', 'supervisor', 'head', 'block', 'waiting', 'final captions', 'digital department', 'production'] as $stage) {
+            if (str_contains($t, $stage)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function bulkAction(Request $request, Board $board): JsonResponse
     {
         $user = auth()->user();
@@ -3559,7 +3603,7 @@ class CardController extends Controller
 
             try {
                 if ($action === 'move') {
-                    if ($card->hasIncompleteChecklist()) {
+                    if ($card->hasIncompleteChecklist() && ! $this->isPlanningToPlanningMove($card->boardList, $targetList)) {
                         $failed++;
                         continue;
                     }

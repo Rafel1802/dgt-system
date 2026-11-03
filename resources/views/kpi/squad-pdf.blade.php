@@ -97,7 +97,7 @@
                 <th style="text-align: center;">Quality</th>
                 <th style="text-align: center;">TAT Speed</th>
                 <th style="text-align: center;">Teamwork</th>
-                <th style="text-align: center;">Overall KPI</th>
+                <th style="text-align: center;">Overall Score</th>
                 <th style="text-align: center;">Rank</th>
             </tr>
         </thead>
@@ -106,11 +106,11 @@
             <tr>
                 <td><strong>{{ $rev->user?->name }}</strong></td>
                 <td>{{ $rev->user?->kpiSquads->firstWhere('id', $squad->id)?->pivot->role_title ?? 'Team Member' }}</td>
-                <td style="text-align: center;">{{ $rev->productivity_score }}%</td>
-                <td style="text-align: center;">{{ $rev->quality_score }}%</td>
-                <td style="text-align: center;">{{ $rev->deadline_score }}%</td>
-                <td style="text-align: center;">{{ $rev->teamwork_score }}%</td>
-                <td style="text-align: center;"><strong>{{ number_format($rev->overall_kpi, 1) }}%</strong></td>
+                <td style="text-align: center;">{{ number_format($rev->productivity_points, 1) }}</td>
+                <td style="text-align: center;">{{ number_format($rev->quality_points, 1) }}</td>
+                <td style="text-align: center;">{{ number_format($rev->deadline_points, 1) }}</td>
+                <td style="text-align: center;">{{ number_format($rev->teamwork_points, 1) }}</td>
+                <td style="text-align: center;"><strong>{{ number_format($rev->points_score, 1) }} / 5.0</strong></td>
                 <td style="text-align: center;"><span class="badge">{{ $rev->performance_band }}</span></td>
             </tr>
             @endforeach

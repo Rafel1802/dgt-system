@@ -75,10 +75,10 @@
     selectedStaffName: '',
     selectedSquadId: {{ $currentSquad?->id ?? 1 }},
     selectedReviewId: null,
-    scoreProd: 95,
-    scoreQual: 95,
-    scoreTat: 92,
-    scoreTeam: 95,
+    scoreProd: 5.0,
+    scoreQual: 5.0,
+    scoreTat: 4.8,
+    scoreTeam: 5.0,
     reviewMonth: {{ $selectedMonth ?? date('n') }},
     reviewYear: {{ $selectedYear ?? date('Y') }},
     evaluationDate: '{{ date('Y-m-d') }}',
@@ -87,14 +87,26 @@
     historyStaffName: '',
     historyRecords: [],
     get overallScore() {
-        return ((this.scoreProd * 0.35) + (this.scoreQual * 0.35) + (this.scoreTat * 0.20) + (this.scoreTeam * 0.10)).toFixed(1);
+        let p = parseFloat(this.scoreProd || 5.0);
+        let q = parseFloat(this.scoreQual || 5.0);
+        let t = parseFloat(this.scoreTat || 4.8);
+        let tm = parseFloat(this.scoreTeam || 5.0);
+        let v = (p * 0.35) + (q * 0.35) + (t * 0.20) + (tm * 0.10);
+        return Math.min(5.0, Math.max(1.0, v)).toFixed(1);
     },
     get rankBand() {
         let s = parseFloat(this.overallScore);
-        if (s >= 95.0) return 'Outstanding';
-        if (s >= 85.0) return 'Exceeds Expectations';
-        if (s >= 70.0) return 'Meets Expectations';
-        return 'Needs Improvement';
+        if (s >= 4.75) return 'Outstanding';
+        if (s >= 4.0) return 'Exceeds Expectations';
+        if (s >= 3.0) return 'Meets Expectations';
+        if (s >= 2.0) return 'Needs Improvement';
+        return 'Unsatisfactory';
+    },
+    formatPoints(val) {
+        if (val === null || val === undefined || isNaN(val)) return '5.0';
+        let n = parseFloat(val);
+        if (n > 5.0) return (n / 20.0).toFixed(1);
+        return n.toFixed(1);
     },
     formatKpiDate(val) {
         if (!val) return 'N/A';
@@ -122,10 +134,10 @@
         this.selectedUserName = '';
         this.selectedStaffName = '';
         this.selectedReviewId = null;
-        this.scoreProd = 95;
-        this.scoreQual = 95;
-        this.scoreTat = 92;
-        this.scoreTeam = 95;
+        this.scoreProd = 5.0;
+        this.scoreQual = 5.0;
+        this.scoreTat = 4.8;
+        this.scoreTeam = 5.0;
         this.reviewNotes = '';
         this.reviewStatus = 'Approved';
         this.reviewMonth = {{ $selectedMonth ?? date('n') }};
@@ -141,10 +153,14 @@
         this.rateMemberDropdownOpen = false;
         if (existingReview) {
             this.selectedReviewId = existingReview.id;
-            this.scoreQual = parseFloat(existingReview.quality_score || existingReview.score || 95);
-            this.scoreProd = parseFloat(existingReview.productivity_score || 95);
-            this.scoreTat = parseFloat(existingReview.deadline_score || 92);
-            this.scoreTeam = parseFloat(existingReview.teamwork_score || 95);
+            let q = parseFloat(existingReview.quality_score || existingReview.score || 5.0);
+            this.scoreQual = q > 5 ? parseFloat((q / 20).toFixed(1)) : q;
+            let p = parseFloat(existingReview.productivity_score || 5.0);
+            this.scoreProd = p > 5 ? parseFloat((p / 20).toFixed(1)) : p;
+            let t = parseFloat(existingReview.deadline_score || 4.8);
+            this.scoreTat = t > 5 ? parseFloat((t / 20).toFixed(1)) : t;
+            let tm = parseFloat(existingReview.teamwork_score || 5.0);
+            this.scoreTeam = tm > 5 ? parseFloat((tm / 20).toFixed(1)) : tm;
             this.reviewStatus = existingReview.status || 'Approved';
             this.reviewNotes = existingReview.manager_notes || existingReview.review_notes || '';
             if (existingReview.evaluation_date) {
@@ -162,10 +178,10 @@
             }
         } else {
             this.selectedReviewId = null;
-            this.scoreProd = 95;
-            this.scoreQual = 95;
-            this.scoreTat = 92;
-            this.scoreTeam = 95;
+            this.scoreProd = 5.0;
+            this.scoreQual = 5.0;
+            this.scoreTat = 4.8;
+            this.scoreTeam = 5.0;
             this.reviewNotes = '';
             this.reviewStatus = 'Approved';
             this.reviewMonth = {{ $selectedMonth ?? date('n') }};
@@ -190,10 +206,14 @@
         this.selectedUserName = staffName;
         this.selectedStaffName = staffName;
         this.selectedReviewId = rec.id;
-        this.scoreQual = parseFloat(rec.quality_score || rec.score || 95);
-        this.scoreProd = parseFloat(rec.productivity_score || 95);
-        this.scoreTat = parseFloat(rec.deadline_score || 92);
-        this.scoreTeam = parseFloat(rec.teamwork_score || 95);
+        let q = parseFloat(rec.quality_score || rec.score || 5.0);
+        this.scoreQual = q > 5 ? parseFloat((q / 20).toFixed(1)) : q;
+        let p = parseFloat(rec.productivity_score || 5.0);
+        this.scoreProd = p > 5 ? parseFloat((p / 20).toFixed(1)) : p;
+        let t = parseFloat(rec.deadline_score || 4.8);
+        this.scoreTat = t > 5 ? parseFloat((t / 20).toFixed(1)) : t;
+        let tm = parseFloat(rec.teamwork_score || 5.0);
+        this.scoreTeam = tm > 5 ? parseFloat((tm / 20).toFixed(1)) : tm;
         this.reviewStatus = rec.status || 'Approved';
         this.reviewNotes = rec.manager_notes || rec.review_notes || '';
         if (rec.evaluation_date) {
@@ -327,8 +347,10 @@
                 <div>
                     <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Avg Squad KPI</span>
                     <div class="flex items-baseline gap-1.5 mt-1">
-                        <span class="text-2xl font-bold text-slate-900 dark:text-white">{{ $avgKpiScore }}%</span>
-                        <span class="text-[11px] text-emerald-500 dark:text-emerald-400 font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/10">Exceeds</span>
+                        <span class="text-2xl font-bold text-slate-900 dark:text-white">{{ number_format($avgKpiScore, 1) }} / 5.0</span>
+                        <span class="text-[11px] text-emerald-500 dark:text-emerald-400 font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/10">
+                            {{ $avgKpiScore >= 4.8 ? 'Outstanding' : ($avgKpiScore >= 4.0 ? 'Exceeds' : 'Meets') }}
+                        </span>
                     </div>
                 </div>
                 <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
@@ -339,7 +361,7 @@
             </div>
             <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span class="text-slate-500 dark:text-slate-400 font-medium">Target Benchmark</span>
-                <span class="font-bold text-emerald-600 dark:text-emerald-400">90.0% Minimum</span>
+                <span class="font-bold text-emerald-600 dark:text-emerald-400">4.5 / 5.0 (90%)</span>
             </div>
         </div>
 
@@ -350,7 +372,7 @@
                     <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Top Performers</span>
                     <div class="flex items-baseline gap-1.5 mt-1">
                         <span class="text-2xl font-bold text-slate-900 dark:text-white">{{ $outstandingCount }}</span>
-                        <span class="text-[11px] text-amber-500 dark:text-amber-400 font-semibold px-1.5 py-0.5 rounded-md bg-amber-500/10">Outstanding</span>
+                        <span class="text-[11px] text-amber-500 dark:text-amber-400 font-semibold px-1.5 py-0.5 rounded-md bg-amber-500/10">Highest</span>
                     </div>
                 </div>
                 <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
@@ -360,8 +382,8 @@
                 </div>
             </div>
             <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                <span class="text-slate-500 dark:text-slate-400 font-medium">Score &ge; 90%</span>
-                <span class="font-bold text-amber-600 dark:text-amber-400">High Tier</span>
+                <span class="text-slate-500 dark:text-slate-400 font-medium">Score &ge; 4.8 / 5.0 pts</span>
+                <span class="font-bold text-amber-600 dark:text-amber-400">Top Tier</span>
             </div>
         </div>
     </div>
@@ -500,7 +522,13 @@
                     </span>
                 </h2>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Monthly KPI reviews for {{ $currentPeriod?->name ?? 'Current Period' }}. Rate scores, inspect history, or export PDF certificates.
+                    @if($selectedMonth && $selectedYear)
+                        Monthly KPI reviews for {{ date('F Y', mktime(0, 0, 0, (int)$selectedMonth, 1, (int)$selectedYear)) }}. Rate scores (up to 5.0 points), inspect history, or export PDF certificates.
+                    @elseif($selectedYear && !$selectedMonth)
+                        All Monthly KPI reviews for Year {{ $selectedYear }}. Rate scores (up to 5.0 points), inspect history, or export PDF certificates.
+                    @else
+                        Monthly KPI reviews for {{ $currentPeriod?->name ?? date('F Y') }}. Rate scores (up to 5.0 points), inspect history, or export PDF certificates.
+                    @endif
                 </p>
             </div>
         </div>
@@ -564,11 +592,16 @@
                             </div>
                         </td>
 
-                        {{-- Score --}}
+                        {{-- Score (5-Point Scale: Highest is 5.0) --}}
                         <td class="py-3 px-3.5 text-center">
                             @if($rev && $rev->overall_kpi)
-                                <div class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 font-bold text-xs sm:text-sm font-mono text-slate-900 dark:text-white shadow-xs">
-                                    <span>{{ $rev->overall_kpi }}%</span>
+                                <div class="inline-flex flex-col items-center">
+                                    <div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/70 border border-sky-300 dark:border-sky-700/80 font-black text-xs sm:text-sm font-mono text-sky-700 dark:text-sky-300 shadow-xs">
+                                        <span>{{ number_format($rev->points_score, 1) }} / 5.0</span>
+                                    </div>
+                                    <div class="text-[10px] text-amber-500 font-bold mt-0.5 tracking-tight">
+                                        {{ str_repeat('★', (int)round($rev->points_score)) }}{{ str_repeat('☆', max(0, 5 - (int)round($rev->points_score))) }}
+                                    </div>
                                 </div>
                             @else
                                 <span class="text-slate-400 italic text-xs">Not Rated</span>
@@ -662,6 +695,15 @@
                                     </svg>
                                     <span>Download PDF</span>
                                 </a>
+
+                                @if($rev && $rev->google_drive_url)
+                                <a href="{{ $rev->google_drive_url }}" target="_blank"
+                                   class="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 dark:bg-sky-500/20 dark:hover:bg-sky-500/30 border border-sky-300 dark:border-sky-500/40 text-sky-700 dark:text-sky-300 font-semibold text-xs flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                                   title="Open Official Report PDF on Google Drive">
+                                    <svg class="w-3.5 h-3.5 text-sky-500" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                                    <span>Drive</span>
+                                </a>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -875,20 +917,20 @@
 
                                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 py-3 sm:py-4">
                                     <div class="p-2.5 sm:p-3.5 rounded-2xl bg-white dark:bg-[#132244] border border-slate-200 dark:border-sky-900/50 text-center shadow-xs">
-                                        <span class="text-[10px] sm:text-xs uppercase font-extrabold text-slate-400 block tracking-wider">Overall KPI</span>
-                                        <span class="text-xl sm:text-3xl font-black text-sky-600 dark:text-sky-300 mt-1 block" x-text="rec.overall_kpi + '%'"></span>
+                                        <span class="text-[10px] sm:text-xs uppercase font-extrabold text-slate-400 block tracking-wider">Overall Score</span>
+                                        <span class="text-xl sm:text-3xl font-black text-sky-600 dark:text-sky-300 mt-1 block" x-text="formatPoints(rec.overall_kpi || rec.score) + ' / 5.0'"></span>
                                     </div>
                                     <div class="p-2.5 sm:p-3.5 rounded-2xl bg-white dark:bg-[#132244] border border-slate-200 dark:border-sky-900/50 text-center shadow-xs">
                                         <span class="text-[10px] sm:text-xs uppercase font-extrabold text-slate-400 block tracking-wider">Quality</span>
-                                        <span class="text-base sm:text-xl font-black text-emerald-600 dark:text-emerald-300 mt-1 block" x-text="(rec.quality_score || rec.score || 90) + '%'"></span>
+                                        <span class="text-base sm:text-xl font-black text-emerald-600 dark:text-emerald-300 mt-1 block" x-text="formatPoints(rec.quality_score) + ' / 5.0'"></span>
                                     </div>
                                     <div class="p-2.5 sm:p-3.5 rounded-2xl bg-white dark:bg-[#132244] border border-slate-200 dark:border-sky-900/50 text-center shadow-xs">
-                                        <span class="text-[10px] sm:text-xs uppercase font-extrabold text-slate-400 block tracking-wider">Speed</span>
-                                        <span class="text-base sm:text-xl font-black text-amber-600 dark:text-amber-300 mt-1 block" x-text="(rec.deadline_score || 90) + '%'"></span>
+                                        <span class="text-[10px] sm:text-xs uppercase font-extrabold text-slate-400 block tracking-wider">Speed / TAT</span>
+                                        <span class="text-base sm:text-xl font-black text-amber-600 dark:text-amber-300 mt-1 block" x-text="formatPoints(rec.deadline_score) + ' / 5.0'"></span>
                                     </div>
                                     <div class="p-2.5 sm:p-3.5 rounded-2xl bg-white dark:bg-[#132244] border border-slate-200 dark:border-sky-900/50 text-center shadow-xs">
                                         <span class="text-[10px] sm:text-xs uppercase font-extrabold text-slate-400 block tracking-wider">Output</span>
-                                        <span class="text-base sm:text-xl font-black text-purple-600 dark:text-purple-300 mt-1 block" x-text="(rec.productivity_score || 90) + '%'"></span>
+                                        <span class="text-base sm:text-xl font-black text-purple-600 dark:text-purple-300 mt-1 block" x-text="formatPoints(rec.productivity_score) + ' / 5.0'"></span>
                                     </div>
                                 </div>
 
@@ -1093,37 +1135,77 @@
                     </div>
                 </div>
 
-                {{-- Middle Row: Criteria Sliders & Calculated Score Banner + Notes --}}
+                {{-- Middle Row: Criteria Sliders (1.0 to 5.0 Points) & Calculated Score Banner + Notes --}}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                    {{-- Left Column: 4 Criteria Sliders --}}
+                    {{-- Left Column: 4 Criteria Sliders & Quick Buttons --}}
                     <div class="space-y-4 p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
                         <div>
-                            <div class="flex justify-between font-bold mb-2 text-sm sm:text-base">
+                            <div class="flex justify-between items-center font-bold mb-1.5 text-sm sm:text-base">
                                 <span class="text-slate-800 dark:text-slate-200">1. Quality & Accuracy (35%)</span>
-                                <span class="text-sky-600 dark:text-sky-400 font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 border border-sky-300/60 dark:border-sky-800/40 text-sm sm:text-base" x-text="scoreQual + '%'"></span>
+                                <span class="text-sky-600 dark:text-sky-400 font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 border border-sky-300/60 dark:border-sky-800/40 text-sm sm:text-base" x-text="scoreQual + ' / 5.0 pts'"></span>
                             </div>
-                            <input type="range" min="50" max="100" step="1" x-model="scoreQual" name="quality_score" class="w-full h-2.5 rounded-lg accent-sky-500 cursor-pointer">
+                            <div class="flex items-center gap-2 mb-2">
+                                <input type="range" min="1.0" max="5.0" step="0.1" x-model="scoreQual" name="quality_score" class="w-full h-2.5 rounded-lg accent-sky-500 cursor-pointer">
+                                <span class="text-xs font-bold text-slate-500 w-10 text-right" x-text="scoreQual"></span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <template x-for="p in [1, 2, 3, 4, 4.5, 5]">
+                                    <button type="button" @click="scoreQual = p" :class="scoreQual == p ? 'bg-sky-600 text-white font-bold' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'" class="px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer">
+                                        <span x-text="p == 5 ? '5 ★' : p"></span>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
                         <div>
-                            <div class="flex justify-between font-bold mb-2 text-sm sm:text-base">
+                            <div class="flex justify-between items-center font-bold mb-1.5 text-sm sm:text-base">
                                 <span class="text-slate-800 dark:text-slate-200">2. Productivity & Output (35%)</span>
-                                <span class="text-sky-600 dark:text-sky-400 font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 border border-sky-300/60 dark:border-sky-800/40 text-sm sm:text-base" x-text="scoreProd + '%'"></span>
+                                <span class="text-sky-600 dark:text-sky-400 font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 border border-sky-300/60 dark:border-sky-800/40 text-sm sm:text-base" x-text="scoreProd + ' / 5.0 pts'"></span>
                             </div>
-                            <input type="range" min="50" max="100" step="1" x-model="scoreProd" name="productivity_score" class="w-full h-2.5 rounded-lg accent-sky-500 cursor-pointer">
+                            <div class="flex items-center gap-2 mb-2">
+                                <input type="range" min="1.0" max="5.0" step="0.1" x-model="scoreProd" name="productivity_score" class="w-full h-2.5 rounded-lg accent-sky-500 cursor-pointer">
+                                <span class="text-xs font-bold text-slate-500 w-10 text-right" x-text="scoreProd"></span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <template x-for="p in [1, 2, 3, 4, 4.5, 5]">
+                                    <button type="button" @click="scoreProd = p" :class="scoreProd == p ? 'bg-sky-600 text-white font-bold' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'" class="px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer">
+                                        <span x-text="p == 5 ? '5 ★' : p"></span>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
                         <div>
-                            <div class="flex justify-between font-bold mb-2 text-sm sm:text-base">
+                            <div class="flex justify-between items-center font-bold mb-1.5 text-sm sm:text-base">
                                 <span class="text-slate-800 dark:text-slate-200">3. Timeliness & TAT (20%)</span>
-                                <span class="text-sky-600 dark:text-sky-400 font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 border border-sky-300/60 dark:border-sky-800/40 text-sm sm:text-base" x-text="scoreTat + '%'"></span>
+                                <span class="text-sky-600 dark:text-sky-400 font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 border border-sky-300/60 dark:border-sky-800/40 text-sm sm:text-base" x-text="scoreTat + ' / 5.0 pts'"></span>
                             </div>
-                            <input type="range" min="50" max="100" step="1" x-model="scoreTat" name="deadline_score" class="w-full h-2.5 rounded-lg accent-sky-500 cursor-pointer">
+                            <div class="flex items-center gap-2 mb-2">
+                                <input type="range" min="1.0" max="5.0" step="0.1" x-model="scoreTat" name="deadline_score" class="w-full h-2.5 rounded-lg accent-sky-500 cursor-pointer">
+                                <span class="text-xs font-bold text-slate-500 w-10 text-right" x-text="scoreTat"></span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <template x-for="p in [1, 2, 3, 4, 4.5, 5]">
+                                    <button type="button" @click="scoreTat = p" :class="scoreTat == p ? 'bg-sky-600 text-white font-bold' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'" class="px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer">
+                                        <span x-text="p == 5 ? '5 ★' : p"></span>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
                         <div>
-                            <div class="flex justify-between font-bold mb-2 text-sm sm:text-base">
+                            <div class="flex justify-between items-center font-bold mb-1.5 text-sm sm:text-base">
                                 <span class="text-slate-800 dark:text-slate-200">4. Collaboration & Discipline (10%)</span>
-                                <span class="text-sky-600 dark:text-sky-400 font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 border border-sky-300/60 dark:border-sky-800/40 text-sm sm:text-base" x-text="scoreTeam + '%'"></span>
+                                <span class="text-sky-600 dark:text-sky-400 font-black px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 border border-sky-300/60 dark:border-sky-800/40 text-sm sm:text-base" x-text="scoreTeam + ' / 5.0 pts'"></span>
                             </div>
-                            <input type="range" min="50" max="100" step="1" x-model="scoreTeam" name="collaboration_score" class="w-full h-2.5 rounded-lg accent-sky-500 cursor-pointer">
+                            <div class="flex items-center gap-2 mb-2">
+                                <input type="range" min="1.0" max="5.0" step="0.1" x-model="scoreTeam" name="collaboration_score" class="w-full h-2.5 rounded-lg accent-sky-500 cursor-pointer">
+                                <span class="text-xs font-bold text-slate-500 w-10 text-right" x-text="scoreTeam"></span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <template x-for="p in [1, 2, 3, 4, 4.5, 5]">
+                                    <button type="button" @click="scoreTeam = p" :class="scoreTeam == p ? 'bg-sky-600 text-white font-bold' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'" class="px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer">
+                                        <span x-text="p == 5 ? '5 ★' : p"></span>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
                     </div>
 
@@ -1133,13 +1215,17 @@
                             <div>
                                 <span class="text-xs uppercase font-extrabold text-slate-500 dark:text-slate-400 block tracking-wider">Calculated Monthly Score</span>
                                 <div class="flex items-baseline gap-2.5 mt-1">
-                                    <span class="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white" x-text="overallScore + '%'"></span>
+                                    <span class="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white" x-text="overallScore + ' / 5.0'"></span>
                                     <span class="text-xs sm:text-sm font-bold text-sky-700 dark:text-sky-300 px-3 py-1 rounded-lg bg-sky-100 dark:bg-sky-500/20 border border-sky-400/30" x-text="rankBand"></span>
                                 </div>
+                                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-medium block mt-1">Highest Possible Rating: 5.0 Points</span>
                             </div>
                             <div class="text-right">
                                 <span class="text-xs text-slate-500 dark:text-slate-400 block font-bold">5-Star Scale</span>
-                                <span class="text-lg sm:text-xl font-black text-amber-500 dark:text-amber-400" x-text="(overallScore / 20).toFixed(1) + ' ★ / 5.0'"></span>
+                                <div class="text-xl sm:text-2xl text-amber-500 dark:text-amber-400 font-black">
+                                    <span x-text="'★'.repeat(Math.round(overallScore)) + '☆'.repeat(Math.max(0, 5 - Math.round(overallScore)))"></span>
+                                </div>
+                                <span class="text-xs text-slate-400 font-bold" x-text="Math.round((overallScore / 5) * 100) + '% Equivalent'"></span>
                             </div>
                         </div>
 

@@ -70,5 +70,22 @@ Route::prefix('v1')
 Route::match(['get', 'post', 'options'], '/gsc/sync-browser-data', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'syncBrowserData'])->name('api.gsc.sync-browser-data');
 Route::match(['get', 'options'], '/gsc/properties-list', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'getPropertiesListForRobot'])->name('api.gsc.properties-list');
 
+// ─── Central Blog Post Delivery API for Framework & Remote Websites ─────────
+Route::middleware(['throttle:120,1'])->group(function () {
+    Route::get('/websites/{website}/posts', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsitePosts'])->name('api.websites.posts');
+    Route::get('/websites/{website}/posts/{slug}', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsitePostBySlug'])->name('api.websites.post.detail');
+    Route::get('/websites/{website}/feed', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsiteRssFeed'])->name('api.websites.feed');
+    Route::get('/websites/{website}/feed.xml', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsiteRssFeed'])->name('api.websites.feed.xml');
+    Route::get('/websites/{website}/rss', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsiteRssFeed'])->name('api.websites.rss');
+
+    Route::prefix('v1')->group(function () {
+        Route::get('/websites/{website}/posts', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsitePosts'])->name('api.v1.websites.posts');
+        Route::get('/websites/{website}/posts/{slug}', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsitePostBySlug'])->name('api.v1.websites.post.detail');
+        Route::get('/websites/{website}/feed', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsiteRssFeed'])->name('api.v1.websites.feed');
+        Route::get('/websites/{website}/feed.xml', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsiteRssFeed'])->name('api.v1.websites.feed.xml');
+        Route::get('/websites/{website}/rss', [\App\Http\Controllers\WebsiteBlogPostController::class, 'apiGetWebsiteRssFeed'])->name('api.v1.websites.rss');
+    });
+});
+
 
 

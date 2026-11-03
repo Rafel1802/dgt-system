@@ -10,9 +10,17 @@ class RouteClosureController extends Controller
     /**
      * Handle the root redirect.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('auth.oauth-redirect');
+        // Only render oauth-redirect view if this is an OAuth callback with tokens or errors
+        if ($request->has('access_token') || $request->has('state') || $request->has('error') || $request->has('code')) {
+            return view('auth.oauth-redirect');
+        }
+
+        // Direct, zero-latency HTTP redirect for all browser & desktop app navigation
+        return auth()->check()
+            ? redirect()->route('dashboard')
+            : redirect()->route('login');
     }
 
     /**

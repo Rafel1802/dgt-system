@@ -74,4 +74,56 @@ class KpiReview extends Model
     {
         return $this->hasMany(KpiReviewItem::class, 'review_id');
     }
+
+    /**
+     * Rating on 5-point scale (highest is 5.0).
+     * If legacy score was stored > 5 (e.g. 95%), converts to 5-point scale: 95 / 20 = 4.75 -> 4.8.
+     */
+    public function getPointsScoreAttribute(): float
+    {
+        $raw = (float)$this->overall_kpi;
+        if ($raw <= 0) return 0.0;
+        if ($raw > 5.0) {
+            return round(min(5.0, $raw / 20.0), 1);
+        }
+        return round(min(5.0, $raw), 1);
+    }
+
+    public function getPointsFormattedAttribute(): string
+    {
+        return number_format($this->points_score, 1) . ' / 5.0';
+    }
+
+    public function getQualityPointsAttribute(): float
+    {
+        $raw = (float)$this->quality_score;
+        if ($raw <= 0) return 0.0;
+        return $raw > 5.0 ? round(min(5.0, $raw / 20.0), 1) : round(min(5.0, $raw), 1);
+    }
+
+    public function getProductivityPointsAttribute(): float
+    {
+        $raw = (float)$this->productivity_score;
+        if ($raw <= 0) return 0.0;
+        return $raw > 5.0 ? round(min(5.0, $raw / 20.0), 1) : round(min(5.0, $raw), 1);
+    }
+
+    public function getDeadlinePointsAttribute(): float
+    {
+        $raw = (float)$this->deadline_score;
+        if ($raw <= 0) return 0.0;
+        return $raw > 5.0 ? round(min(5.0, $raw / 20.0), 1) : round(min(5.0, $raw), 1);
+    }
+
+    public function getTeamworkPointsAttribute(): float
+    {
+        $raw = (float)$this->teamwork_score;
+        if ($raw <= 0) return 0.0;
+        return $raw > 5.0 ? round(min(5.0, $raw / 20.0), 1) : round(min(5.0, $raw), 1);
+    }
+
+    public function getStarsCountAttribute(): int
+    {
+        return (int)round($this->points_score);
+    }
 }

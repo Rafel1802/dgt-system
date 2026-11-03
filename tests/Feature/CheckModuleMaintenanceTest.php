@@ -262,4 +262,93 @@ class CheckModuleMaintenanceTest extends TestCase
         $regularResponse->assertSee('KiuQ.com');
         $regularResponse->assertSee('All rights reserved');
     }
+
+    public function test_websites_blog_post_maintenance_blocks_posts_specifically(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['websites_blog_post'])]
+        );
+
+        $response = $this->actingAs($this->regularUser)->get(route('websites.posts.index'));
+        $response->assertStatus(503);
+        $response->assertSee('Blog Post');
+
+        $responseDara = $this->actingAs($this->daraUser)->get(route('websites.posts.index'));
+        $this->assertNotEquals(503, $responseDara->getStatusCode());
+    }
+
+    public function test_websites_blog_analytics_maintenance_blocks_blogs_specifically(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['websites_blog_analytics'])]
+        );
+
+        $response = $this->actingAs($this->regularUser)->get(route('websites.blogs.index'));
+        $response->assertStatus(503);
+        $response->assertSee('Blog Performance & Analytics');
+
+        $responseDara = $this->actingAs($this->daraUser)->get(route('websites.blogs.index'));
+        $this->assertNotEquals(503, $responseDara->getStatusCode());
+    }
+
+    public function test_websites_central_connectors_maintenance_blocks_integrations_specifically(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['websites_central_connectors'])]
+        );
+
+        $response = $this->actingAs($this->regularUser)->get(route('websites.integrations.index'));
+        $response->assertStatus(503);
+        $response->assertSee('Central Connectors');
+
+        $responseDara = $this->actingAs($this->daraUser)->get(route('websites.integrations.index'));
+        $this->assertNotEquals(503, $responseDara->getStatusCode());
+    }
+
+    public function test_websites_status_maintenance_blocks_status_tab_but_leaves_blog_posts_accessible(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['websites_status'])]
+        );
+
+        $response = $this->actingAs($this->regularUser)->get(route('websites.index', ['tab' => 'build']));
+        $response->assertStatus(503);
+        $response->assertSee('Website Status');
+
+        // Other submenus like Blog Post should NOT be blocked by websites_status
+        $responsePosts = $this->actingAs($this->regularUser)->get(route('websites.posts.index'));
+        $this->assertNotEquals(503, $responsePosts->getStatusCode());
+
+        $responseDara = $this->actingAs($this->daraUser)->get(route('websites.index', ['tab' => 'build']));
+        $this->assertNotEquals(503, $responseDara->getStatusCode());
+    }
+
+    public function test_all_websites_master_switch_locks_every_website_submenu(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['all_websites'])]
+        );
+
+        $routesToTest = [
+            route('websites.posts.index'),
+            route('websites.blogs.index'),
+            route('websites.integrations.index'),
+            route('websites.search-console.index'),
+            route('websites.index', ['tab' => 'build']),
+            route('websites.index', ['tab' => 'follow-up']),
+        ];
+
+        foreach ($routesToTest as $r) {
+            $response = $this->actingAs($this->regularUser)->get($r);
+            $response->assertStatus(503);
+
+            $responseDara = $this->actingAs($this->daraUser)->get($r);
+            $this->assertNotEquals(503, $responseDara->getStatusCode(), "Dara was blocked on {$r}");
+        }
+    }
 }

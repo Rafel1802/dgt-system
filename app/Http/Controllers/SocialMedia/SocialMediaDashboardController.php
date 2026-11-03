@@ -11,7 +11,7 @@ class SocialMediaDashboardController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $canManageClasses = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc']);
+        $canManageClasses = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_qc', 'social-qc', 'social_admin', 'social-admin']);
 
         $classes = SocialMediaClass::with(['activeItems'])
             ->withCount('activeItems as items_count')

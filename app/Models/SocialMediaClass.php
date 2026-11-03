@@ -179,7 +179,7 @@ class SocialMediaClass extends Model
      */
     public function isVisibleTo(User $user): bool
     {
-        if ($user->hasAnyRole(['super-admin', 'admin-digital', 'boss', 'digital-team', 'social_admin', 'social_qc'])) {
+        if ($user->hasAnyRole(['super-admin', 'admin-digital', 'boss', 'digital-team', 'social_admin', 'social-admin', 'social_qc', 'social-qc'])) {
             return true;
         }
         return $this->isAssignedTo($user);
@@ -191,7 +191,7 @@ class SocialMediaClass extends Model
     {
         $query = $this->posts();
 
-        if ($user && !$user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'boss'])) {
+        if ($user && !$user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social-admin', 'social_qc', 'social-qc', 'boss'])) {
             $query = $query->where('user_id', $user->id);
         }
 

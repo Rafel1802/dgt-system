@@ -1191,19 +1191,29 @@ class BoardWorkflowService
         });
 
         if ($digitalWs) {
-            // Priority: Check if unified Planning Board exists (e.g. Planning Board@KiuQ – October 2026)
+            // Unified team Planning Board (e.g. "Planning board – November 2026" or "Planning Board@KiuQ – October 2026").
+            // The month/year MUST match the SMM board's month: never copy into another month's board.
+            $isUnifiedPlanning = function ($b) {
+                if ($b->is_archived) return false;
+                $bn = strtolower($b->name);
+                return str_contains($bn, 'planning')
+                    && !str_contains($bn, 'smm')
+                    && !str_contains($bn, 'workflow')
+                    && !str_contains($bn, 'video')
+                    && !str_contains($bn, 'graphic')
+                    && !str_contains($bn, 'listing')
+                    && !str_contains($bn, 'content');
+            };
+
             if ($monthYear) {
-                $teamBoard = $digitalWs->boards->first(function ($b) use ($monthYear) {
-                    if ($b->is_archived) return false;
-                    $bn = strtolower($b->name);
-                    return str_contains($bn, 'planning') && str_contains($bn, 'kiuq') && !str_contains($bn, 'video') && !str_contains($bn, 'graphic') && !str_contains($bn, 'listing') && !str_contains($bn, 'content') && stripos($b->name, $monthYear) !== false;
+                // Prefer boards carrying the KiuQ tag, but accept any unified planning board of the same month
+                $monthBoards = $digitalWs->boards->filter(function ($b) use ($isUnifiedPlanning, $monthYear) {
+                    return $isUnifiedPlanning($b) && stripos($b->name, $monthYear) !== false;
                 });
-            }
-            if (!$teamBoard) {
-                $teamBoard = $digitalWs->boards->first(function ($b) {
-                    if ($b->is_archived) return false;
-                    $bn = strtolower($b->name);
-                    return str_contains($bn, 'planning') && str_contains($bn, 'kiuq') && !str_contains($bn, 'video') && !str_contains($bn, 'graphic') && !str_contains($bn, 'listing') && !str_contains($bn, 'content');
+                $teamBoard = $monthBoards->first(fn($b) => str_contains(strtolower($b->name), 'kiuq')) ?? $monthBoards->first();
+            } else {
+                $teamBoard = $digitalWs->boards->first(function ($b) use ($isUnifiedPlanning) {
+                    return $isUnifiedPlanning($b) && str_contains(strtolower($b->name), 'kiuq');
                 });
             }
 
@@ -1225,9 +1235,8 @@ class BoardWorkflowService
                             $bn = strtolower($b->name);
                             return str_contains($bn, $boardKeyword) && str_contains($bn, 'planning') && stripos($b->name, $monthYear) !== false;
                         });
-                    }
-                    // Try matching VideoPlanningBoard@KiuQ without month restriction
-                    if (!$teamBoard) {
+                    } else {
+                        // Only when the SMM board has no month in its name
                         $teamBoard = $digitalWs->boards->first(function ($b) use ($boardKeyword) {
                             if ($b->is_archived) return false;
                             $bn = strtolower($b->name);
@@ -1278,19 +1287,20 @@ class BoardWorkflowService
                     return $isPlanning;
                 });
 
-                if (!$teamBoard) {
+                // Month-strict: if the SMM board has a month, never fall back to another month's board
+                if (!$teamBoard && !$monthYear) {
                     $teamBoard = $targetWorkspace->boards->first(function ($board) {
                         return !$board->is_archived && stripos($board->name, 'Planning') !== false;
                     });
                 }
 
-                if (!$teamBoard) {
+                if (!$teamBoard && !$monthYear) {
                     $teamBoard = $targetWorkspace->boards->first(function ($board) {
                         return !$board->is_archived && stripos($board->name, 'Workflow') === false;
                     });
                 }
 
-                if (!$teamBoard) {
+                if (!$teamBoard && !$monthYear) {
                     $teamBoard = $targetWorkspace->boards->first(fn($b) => !$b->is_archived) ?? $targetWorkspace->boards->first();
                 }
             }

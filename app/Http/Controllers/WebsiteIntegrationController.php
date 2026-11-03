@@ -554,6 +554,8 @@ class WebsiteIntegrationController extends Controller
             'ga4_credentials_json'   => 'nullable|string',
             'sync_frequency_minutes' => 'nullable|integer|min:15|max:1440',
             'is_active'              => 'nullable|boolean',
+            'wp_username'            => 'nullable|string|max:255',
+            'wp_app_password'        => 'nullable|string|max:255',
         ]);
 
         // Validate endpoint against SSRF if supplied
@@ -570,15 +572,18 @@ class WebsiteIntegrationController extends Controller
 
         $integration = $website->integration;
 
+        $hasWpAppPass = !empty($validated['wp_username']) && !empty($validated['wp_app_password']);
+        $cleanAppPass = $hasWpAppPass ? str_replace(' ', '', trim($validated['wp_app_password'])) : null;
+
         if (!$integration) {
             $defaults = WebsiteIntegration::createDefaultCredentials();
             $integration = WebsiteIntegration::create(array_merge($validated, [
                 'website_id'             => $website->id,
-                'api_key'                => $defaults['api_key'],
-                'api_secret'             => $defaults['api_secret'],
-                'webhook_secret'         => $defaults['webhook_secret'],
+                'api_key'                => $hasWpAppPass ? trim($validated['wp_username']) : $defaults['api_key'],
+                'api_secret'             => $hasWpAppPass ? $cleanAppPass : $defaults['api_secret'],
+                'webhook_secret'         => $hasWpAppPass ? $cleanAppPass : $defaults['webhook_secret'],
                 'verification_token'     => $defaults['verification_token'],
-                'cms_status'             => WebsiteIntegration::CMS_STATUS_DISCONNECTED,
+                'cms_status'             => $hasWpAppPass ? WebsiteIntegration::CMS_STATUS_CONNECTED : WebsiteIntegration::CMS_STATUS_DISCONNECTED,
                 'analytics_status'       => !empty($validated['ga4_property_id']) ? WebsiteIntegration::ANALYTICS_STATUS_CONNECTED : WebsiteIntegration::ANALYTICS_STATUS_NOT_CONFIGURED,
                 'is_active'              => $request->boolean('is_active', true),
                 'sync_frequency_minutes' => $validated['sync_frequency_minutes'] ?? 60,
@@ -594,6 +599,13 @@ class WebsiteIntegrationController extends Controller
                 'is_active'              => $request->boolean('is_active', true),
                 'updated_by'             => auth()->id(),
             ];
+
+            if ($hasWpAppPass) {
+                $updateData['api_key'] = trim($validated['wp_username']);
+                $updateData['api_secret'] = $cleanAppPass;
+                $updateData['webhook_secret'] = $cleanAppPass;
+                $updateData['cms_status'] = WebsiteIntegration::CMS_STATUS_CONNECTED;
+            }
 
             if (!empty($validated['ga4_credentials_json'])) {
                 $updateData['ga4_credentials_json'] = $validated['ga4_credentials_json'];
@@ -820,5 +832,42 @@ class WebsiteIntegrationController extends Controller
             'success' => true,
             'logs'    => $logs,
         ]);
+    }
+
+    // ─── 12. DOWNLOAD CONNECTOR FILES & PACKAGES ──────────────────────────────
+
+    /**
+     * Download connector packages and source files directly with correct MIME types and attachment headers.
+     */
+    public function downloadConnector(string $type)
+    {
+        switch ($type) {
+            case 'wp-zip':
+            case 'wordpress-zip':
+                $file = public_path('connectors/wordpress/dgt-connector.zip');
+                abort_unless(file_exists($file), 404, 'Plugin package not found.');
+                return response()->download($file, 'dgt-connector.zip', [
+                    'Content-Type' => 'application/zip',
+                ]);
+
+            case 'wp-php':
+            case 'wordpress-php':
+                $file = public_path('connectors/wordpress/dgt-connector.php');
+                abort_unless(file_exists($file), 404, 'PHP file not found.');
+                return response()->download($file, 'dgt-connector.php', [
+                    'Content-Type' => 'text/plain; charset=utf-8',
+                ]);
+
+            case 'php-sdk':
+            case 'custom-php':
+                $file = public_path('connectors/custom-php/dgt-connector-client.php');
+                abort_unless(file_exists($file), 404, 'SDK client file not found.');
+                return response()->download($file, 'dgt-connector-client.php', [
+                    'Content-Type' => 'text/plain; charset=utf-8',
+                ]);
+
+            default:
+                abort(404, 'Invalid connector download type.');
+        }
     }
 }

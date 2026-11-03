@@ -505,12 +505,32 @@ class SystemHealthService
                 'status' => (in_array('personal_report', $maintenanceModules) || in_array('boards', $maintenanceModules)) ? 'maintenance' : 'operational',
             ],
             'all_websites' => [
-                'name' => 'All Websites & Follow Ups',
-                'status' => (in_array('all_websites', $maintenanceModules) || in_array('websites_status', $maintenanceModules)) ? 'maintenance' : 'operational',
+                'name' => 'All Websites (All)',
+                'status' => in_array('all_websites', $maintenanceModules, true) ? 'maintenance' : 'operational',
+            ],
+            'websites_status' => [
+                'name' => 'Website Status',
+                'status' => (in_array('websites_status', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) ? 'maintenance' : 'operational',
+            ],
+            'websites_followup' => [
+                'name' => 'Website Follow Up',
+                'status' => (in_array('websites_followup', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) ? 'maintenance' : 'operational',
             ],
             'google_search_console' => [
                 'name' => 'Google Search Console',
-                'status' => (in_array('google_search_console', $maintenanceModules) || in_array('all_websites', $maintenanceModules)) ? 'maintenance' : 'operational',
+                'status' => (in_array('google_search_console', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) ? 'maintenance' : 'operational',
+            ],
+            'websites_central_connectors' => [
+                'name' => 'Central Connectors',
+                'status' => (in_array('websites_central_connectors', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) ? 'maintenance' : 'operational',
+            ],
+            'websites_blog_analytics' => [
+                'name' => 'Blog Performance & Analytics',
+                'status' => (in_array('websites_blog_analytics', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) ? 'maintenance' : 'operational',
+            ],
+            'websites_blog_post' => [
+                'name' => 'Blog Post (CMS)',
+                'status' => (in_array('websites_blog_post', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) ? 'maintenance' : 'operational',
             ],
             'social_media' => [
                 'name' => 'Social Media Management',

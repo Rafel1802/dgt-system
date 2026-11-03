@@ -44,27 +44,67 @@ class CheckModuleMaintenance
 
         // Specific module routing logic
         if ($module === 'all_websites') {
-            if ($request->is('websites/google-search-console*') || $request->is('google/search-console*') || $request->routeIs('websites.search-console.*') || $request->routeIs('google.search-console.*')) {
-                if (in_array('google_search_console', $maintenanceModules) || in_array('all_websites', $maintenanceModules)) {
+            if ($request->is('websites/posts*') || $request->is('websites/blog-posts*') || $request->routeIs('websites.posts.*') || $request->routeIs('websites.blog-posts.*')) {
+                if (in_array('websites_blog_post', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
+                    $isMaintained = true;
+                    $displayModule = 'Blog Post';
+                }
+            } elseif ($request->is('websites/blogs*') || $request->routeIs('websites.blogs.*')) {
+                if (in_array('websites_blog_analytics', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
+                    $isMaintained = true;
+                    $displayModule = 'Blog Performance & Analytics';
+                }
+            } elseif ($request->is('websites/integrations*') || $request->is('websites/*/integration*') || $request->routeIs('websites.integrations.*') || $request->routeIs('websites.integration.*')) {
+                if (in_array('websites_central_connectors', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
+                    $isMaintained = true;
+                    $displayModule = 'Central Connectors';
+                }
+            } elseif ($request->is('websites/google-search-console*') || $request->is('google/search-console*') || $request->routeIs('websites.search-console.*') || $request->routeIs('google.search-console.*')) {
+                if (in_array('google_search_console', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
                     $isMaintained = true;
                     $displayModule = 'Google Search Console';
                 }
             } else {
                 $tab = $request->query('tab', 'build');
                 if ($tab === 'follow-up' || $request->is('websites/follow-ups*') || $request->routeIs('websites.followups.*')) {
-                    if (in_array('websites_followup', $maintenanceModules) || in_array('all_websites', $maintenanceModules)) {
+                    if (in_array('websites_followup', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
                         $isMaintained = true;
                         $displayModule = 'Website Follow Up';
                     }
                 } else {
-                    if (in_array('websites_status', $maintenanceModules) || in_array('all_websites', $maintenanceModules)) {
+                    if (in_array('websites_status', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
                         $isMaintained = true;
                         $displayModule = 'Website Status';
                     }
                 }
             }
+        } elseif ($module === 'websites_blog_post') {
+            if (in_array('websites_blog_post', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
+                $isMaintained = true;
+                $displayModule = 'Blog Post';
+            }
+        } elseif ($module === 'websites_blog_analytics') {
+            if (in_array('websites_blog_analytics', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
+                $isMaintained = true;
+                $displayModule = 'Blog Performance & Analytics';
+            }
+        } elseif ($module === 'websites_central_connectors') {
+            if (in_array('websites_central_connectors', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
+                $isMaintained = true;
+                $displayModule = 'Central Connectors';
+            }
+        } elseif ($module === 'websites_status') {
+            if (in_array('websites_status', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
+                $isMaintained = true;
+                $displayModule = 'Website Status';
+            }
+        } elseif ($module === 'websites_followup') {
+            if (in_array('websites_followup', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
+                $isMaintained = true;
+                $displayModule = 'Website Follow Up';
+            }
         } elseif ($module === 'google_search_console') {
-            if (in_array('google_search_console', $maintenanceModules) || in_array('all_websites', $maintenanceModules)) {
+            if (in_array('google_search_console', $maintenanceModules, true) || in_array('all_websites', $maintenanceModules, true)) {
                 $isMaintained = true;
                 $displayModule = 'Google Search Console';
             }

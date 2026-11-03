@@ -66,7 +66,21 @@ class KpiStaffEvaluationController extends Controller
         } elseif ($periodId) {
             $currentPeriod = KpiPeriod::find($periodId);
         } else {
-            $currentPeriod = $periods->firstWhere('status', 'Open') ?? $periods->first();
+            // Default to current calendar month (e.g. November 2026)
+            $nowMonth = (int)date('n');
+            $nowYear = (int)date('Y');
+            $periodName = date('F Y', mktime(0, 0, 0, $nowMonth, 1, $nowYear));
+            $startDate = date('Y-m-01', mktime(0, 0, 0, $nowMonth, 1, $nowYear));
+            $endDate = date('Y-m-t', mktime(0, 0, 0, $nowMonth, 1, $nowYear));
+            $currentPeriod = KpiPeriod::firstOrCreate(
+                ['name' => $periodName],
+                [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'status' => 'Open',
+                    'description' => "Monthly KPI Evaluation Cycle for {$periodName}."
+                ]
+            );
         }
 
         // 2. Selected Squad
@@ -151,8 +165,8 @@ class KpiStaffEvaluationController extends Controller
             ->groupBy('user_id');
 
         $evaluatedCount = $reviews->count();
-        $avgKpiScore = ($evaluatedCount > 0 && $reviews->avg('score') !== null) ? round((float)$reviews->avg('score'), 1) : 0;
-        $outstandingCount = $reviews->where('score', '>=', 90)->count();
+        $avgKpiScore = ($evaluatedCount > 0) ? round($reviews->map(fn($r) => $r->points_score)->avg(), 1) : 5.0;
+        $outstandingCount = $reviews->filter(fn($r) => $r->points_score >= 4.8)->count();
 
         return view('kpi.evaluations', compact(
             'periods',
@@ -237,21 +251,48 @@ class KpiStaffEvaluationController extends Controller
             $periodId = $period ? $period->id : 1;
         }
 
-        // Weighted KPI Score calculation:
+        // Weighted KPI Score calculation (5-Point Scale: highest is 5.0)
         // Productivity: 35%, Quality: 35%, TAT Speed: 20%, Teamwork: 10%
-        $overall = ($validated['productivity_score'] * 0.35)
-                 + ($validated['quality_score'] * 0.35)
-                 + ($validated['deadline_score'] * 0.20)
-                 + ($validated['teamwork_score'] * 0.10);
-        $overall = round($overall, 2);
+        $prodScore = (float)$validated['productivity_score'];
+        $qualScore = (float)$validated['quality_score'];
+        $deadScore = (float)$validated['deadline_score'];
+        $teamScore = (float)$validated['teamwork_score'];
 
-        $band = 'Meets Expectations';
-        if ($overall >= 95.0) {
-            $band = 'Outstanding';
-        } elseif ($overall >= 85.0) {
-            $band = 'Exceeds Expectations';
-        } elseif ($overall < 70.0) {
-            $band = 'Needs Improvement';
+        $isFivePoint = ($prodScore <= 5.0 && $qualScore <= 5.0 && $deadScore <= 5.0 && $teamScore <= 5.0);
+
+        if ($isFivePoint) {
+            $overall = ($prodScore * 0.35)
+                     + ($qualScore * 0.35)
+                     + ($deadScore * 0.20)
+                     + ($teamScore * 0.10);
+            $overall = round(min(5.0, $overall), 2);
+
+            $band = 'Meets Expectations';
+            if ($overall >= 4.75) {
+                $band = 'Outstanding';
+            } elseif ($overall >= 4.0) {
+                $band = 'Exceeds Expectations';
+            } elseif ($overall < 3.0) {
+                $band = 'Needs Improvement';
+            }
+            if ($overall < 2.0) {
+                $band = 'Unsatisfactory';
+            }
+        } else {
+            $overall = ($prodScore * 0.35)
+                     + ($qualScore * 0.35)
+                     + ($deadScore * 0.20)
+                     + ($teamScore * 0.10);
+            $overall = round($overall, 2);
+
+            $band = 'Meets Expectations';
+            if ($overall >= 95.0) {
+                $band = 'Outstanding';
+            } elseif ($overall >= 85.0) {
+                $band = 'Exceeds Expectations';
+            } elseif ($overall < 70.0) {
+                $band = 'Needs Improvement';
+            }
         }
 
         $evalDate = !empty($validated['evaluation_date']) ? $validated['evaluation_date'] : date('Y-m-d');

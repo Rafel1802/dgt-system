@@ -34,6 +34,7 @@
           $allModuleKeys = [
             'dashboard', 'members', 'boards', 'tasks_count', 'personal_report', 
             'all_websites', 'websites_status', 'websites_followup', 'google_search_console', 
+            'websites_central_connectors', 'websites_blog_analytics', 'websites_blog_post',
             'social_media', 'social_media_analytics', 'social_media_planning', 
             'notes', 'kpi', 'reports', 'approvals'
           ];
@@ -119,6 +120,24 @@
           'desc'  => 'GSC analytics, keyword queries, sync, and property metrics',
           'color' => 'teal',
           'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125Z" />',
+        ],
+        'websites_central_connectors' => [
+          'name'  => '- Central Connectors',
+          'desc'  => 'Central Connectors platform, fleet sync, and server connectors',
+          'color' => 'teal',
+          'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />',
+        ],
+        'websites_blog_analytics' => [
+          'name'  => '- Blog Performance & Analytics',
+          'desc'  => 'Cross-website blog analytics, view metrics, and reports',
+          'color' => 'emerald',
+          'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />',
+        ],
+        'websites_blog_post' => [
+          'name'  => '- Blog Post (CMS)',
+          'desc'  => 'Central Blog Post Publisher, drafts, scheduler, and sync',
+          'color' => 'emerald',
+          'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />',
         ],
         'social_media' => [
           'name'  => 'Social Media Team (All)',

@@ -123,6 +123,25 @@ class GoogleAuthController extends Controller
             return $this->errorResponse($request, 'Your user account has been deactivated. Please contact an administrator.', 403);
         }
 
+        // Check if user has Two-Factor Authentication enabled
+        if ($user->hasEnabledTwoFactor()) {
+            $request->session()->put([
+                'login.2fa.user_id'    => $user->id,
+                'login.2fa.remember'   => true,
+                'login.2fa.expires_at' => now()->addMinutes(10)->timestamp,
+            ]);
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success'    => true,
+                    'two_factor' => true,
+                    'redirect'   => route('login.2fa'),
+                ]);
+            }
+
+            return redirect()->route('login.2fa');
+        }
+
         // Log the user in
         Auth::login($user, true);
         $request->session()->regenerate();

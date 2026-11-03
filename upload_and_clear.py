@@ -37,27 +37,37 @@ def wait_for_ssh(host=SSH_HOST, port=SSH_PORT, interval=5):
 def verify_and_resolve_password():
     """Verify stored password or test fallback passwords."""
     global SSH_PASSWORD
+    seen = set()
     candidates = []
     if os.environ.get("SSH_PASSWORD"):
         candidates.append(os.environ.get("SSH_PASSWORD"))
-    candidates.extend(["Digital@KiuQ$#!2030%", "Digital@PhnomPenh#!2027"])
+        seen.add(os.environ.get("SSH_PASSWORD"))
+    for p in ["Digital@KiuQ$#!2030%", "Digital@PhnomPenh#!2027"]:
+        if p not in seen:
+            candidates.append(p)
+            seen.add(p)
 
     print("[+] Verifying SSH authentication with Hostinger...")
     for candidate in candidates:
-        test_cmd = [
-            SSHPASS, "-p", candidate,
-            "ssh", "-o", "StrictHostKeyChecking=no", "-o", "PubkeyAuthentication=no",
-            "-o", "ConnectTimeout=10", "-p", str(SSH_PORT),
-            f"{SSH_USER}@{SSH_HOST}", "echo AUTH_SUCCESS"
-        ]
-        try:
-            res = subprocess.run(test_cmd, capture_output=True, text=True, timeout=15)
-            if res.returncode == 0 and "AUTH_SUCCESS" in res.stdout:
-                SSH_PASSWORD = candidate
-                print(f"[✓] SSH authentication verified successfully.\n")
-                return True
-        except Exception:
-            pass
+        for attempt in range(1, 4):
+            test_cmd = [
+                SSHPASS, "-p", candidate,
+                "ssh", "-o", "StrictHostKeyChecking=no", "-o", "PubkeyAuthentication=no",
+                "-o", "ConnectTimeout=15", "-p", str(SSH_PORT),
+                f"{SSH_USER}@{SSH_HOST}", "echo AUTH_SUCCESS"
+            ]
+            try:
+                res = subprocess.run(test_cmd, capture_output=True, text=True, timeout=20)
+                if res.returncode == 0 and "AUTH_SUCCESS" in res.stdout:
+                    SSH_PASSWORD = candidate
+                    print(f"[✓] SSH authentication verified successfully.\n")
+                    return True
+                elif res.returncode == 255:
+                    time.sleep(5)
+                else:
+                    break
+            except Exception:
+                time.sleep(5)
 
     print("[!] None of the default passwords authenticated.")
     if sys.stdin.isatty():
@@ -73,7 +83,7 @@ def verify_and_resolve_password():
 def run_cmd(cmd_args, allow_fail=False):
     global SSH_PASSWORD
     print(f"Running: {' '.join(cmd_args)}")
-    time.sleep(1.5)  # Avoid SSH connection burst throttling on Hostinger
+    time.sleep(2.5)  # Avoid SSH connection burst throttling on Hostinger
 
     if "--interactive" in sys.argv or not SSH_PASSWORD:
         proc = subprocess.run(cmd_args)
@@ -86,9 +96,10 @@ def run_cmd(cmd_args, allow_fail=False):
             print(f"Command failed with exit code {proc.returncode} (non-fatal, proceeding...)")
             return
 
-        for attempt in range(1, 4):
-            print(f"\n[!] Command returned exit code {proc.returncode}. Retrying in 4s (attempt {attempt}/3)...")
-            time.sleep(4)
+        for attempt in range(1, 5):
+            print(f"\n[!] Command returned exit code {proc.returncode}. Hostinger SSH cooldown in progress (attempt {attempt}/4)...")
+            time.sleep(10)
+            wait_for_ssh()
             if "--interactive" in sys.argv or not SSH_PASSWORD:
                 proc = subprocess.run(cmd_args)
             else:
@@ -410,8 +421,8 @@ if __name__ == "__main__":
         "    \\\\App\\\\Models\\\\BoardList::firstOrCreate(['board_id' => \\$smmBoard->id, 'name' => \\$lname], ['position' => (\\$pos + 1) * 1000]); "
         "} "
         # 7. Keep only the 3 October boards visible in Digital Department, keep older month boards hidden in Hidden Boards (never delete)
-        "\\\\App\\\\Models\\\\Board::where('workspace_id', \\$ws->id)->whereNotIn('id', [\\$wfA->id, \\$wfB->id, \\$plan->id])->update(['is_hidden' => true]); "
-        "\\\\App\\\\Models\\\\Board::where('workspace_id', \\$smmWs->id)->where('id', '!=', \\$smmBoard->id)->update(['is_hidden' => true]); "
+        "\\\\App\\\\Models\\\\Board::where('workspace_id', \\$ws->id)->whereNotIn('id', [\\$wfA->id, \\$wfB->id, \\$plan->id])->where('name', 'not like', '%' . date('F Y') . '%')->where('name', 'not like', '%' . date('F Y', strtotime('first day of next month')) . '%')->update(['is_hidden' => true]); "
+        "\\\\App\\\\Models\\\\Board::where('workspace_id', \\$smmWs->id)->where('id', '!=', \\$smmBoard->id)->where('name', 'not like', '%' . date('F Y') . '%')->where('name', 'not like', '%' . date('F Y', strtotime('first day of next month')) . '%')->update(['is_hidden' => true]); "
         "\\$wfA->update(['position' => 1, 'is_hidden' => false]); "
         "\\$wfB->update(['position' => 2, 'is_hidden' => false]); "
         "\\$plan->update(['position' => 10, 'is_hidden' => false]); "
@@ -426,6 +437,14 @@ if __name__ == "__main__":
         "    \\\\App\\\\Models\\\\Board::where('workspace_id', \\$ow->id)->update(['is_hidden' => true, 'is_archived' => false]); "
         "} "
         "echo 'Deployment updates applied successfully!\n';"
+        '" && '
+    )
+
+    tinker_fix_post_statuses = (
+        PHP + ' artisan tinker --execute="'
+        "\\\\App\\\\Models\\\\WebsitePost::whereIn('status', ['publish', 'public'])->update(['status' => 'published']); "
+        "\\\\App\\\\Models\\\\WebsitePost::whereIn('status', ['future'])->update(['status' => 'scheduled']); "
+        "echo 'Normalized website_posts statuses in remote database\\n';"
         '" && '
     )
 
@@ -461,6 +480,7 @@ if __name__ == "__main__":
             + tinker_setup_october_planning
             + PHP + " artisan cards:sync-checklists && "
             + PHP + " artisan app:setup-blog-report-permission && "
+            + tinker_fix_post_statuses
             + PHP + " artisan view:cache && "
             + PHP + " artisan storage:link && "
             + PHP + ' artisan tinker --execute="App\\\\Models\\\\User::where(\'name\', \'like\', \'%Dara%\')->first()->assignRole(\'admin-digital\');"'

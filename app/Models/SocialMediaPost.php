@@ -89,11 +89,11 @@ class SocialMediaPost extends Model
     {
         if ($this->is_checked) {
             // Only admin-level can unlock
-            return $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin']);
+            return $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social-admin', 'social_qc', 'social-qc']);
         }
         // Owner or admin
         return $this->user_id === $user->id
-            || $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin']);
+            || $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social-admin', 'social_qc', 'social-qc']);
     }
 
     public function getQcStatusLabelAttribute(): string

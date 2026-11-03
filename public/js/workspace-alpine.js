@@ -3,7 +3,7 @@ window.workspacePage = function() {
     showCreateBoard: false,
     showCreateWorkspace: false,
     editWorkspaceModal: {
-      open: false, id: null, name: '', color: '#6366f1', icon_text: ''
+      open: false, id: null, name: '', color: '#6366f1', icon_text: '', logo: ''
     },
     editBoardModal: {
       open: false, id: null, name: '', bgType: 'color', customColor: '#6366f1', customImage: '',
@@ -66,11 +66,12 @@ window.workspacePage = function() {
       this.showCreateBoard = true;
     },
 
-    openEditWorkspace(id, name, color, icon_text) {
+    openEditWorkspace(id, name, color, icon_text, logo = '') {
       this.editWorkspaceModal.id = id;
       this.editWorkspaceModal.name = name;
       this.editWorkspaceModal.color = color || '#6366f1';
       this.editWorkspaceModal.icon_text = icon_text || '';
+      this.editWorkspaceModal.logo = logo || '';
       this.editWorkspaceModal.open = true;
     },
 

@@ -208,7 +208,7 @@ class WebsiteBlogPostService
         $sku = !empty($data['product_sku']) ? trim((string) $data['product_sku']) : null;
         $prodUrl = !empty($data['product_url']) ? trim((string) $data['product_url']) : null;
         $featuredUrl = !empty($data['featured_image_url']) ? trim((string) $data['featured_image_url']) : null;
-        $contentHtml = $this->ensureContentCleanAndStyled($contentHtml, null, $website, $sku, $prodUrl, $featuredUrl);
+        $contentHtml = $this->ensureContentCleanAndStyled($contentHtml, null, $website, $sku, $prodUrl, $featuredUrl, $title);
 
         $rawContent = (string) ($data['raw_content'] ?? '');
 
@@ -265,10 +265,18 @@ class WebsiteBlogPostService
         $scheduledAt = null;
 
         if ($status === WebsitePost::STATUS_PUBLISHED) {
-            // Live website post date: show real date normally
-            $publishedAt = ($existing && $existing->published_at && in_array($existing->status, [WebsitePost::STATUS_PUBLISHED, 'publish', 'public']))
-                ? $existing->published_at
-                : $now;
+            // Live website post date: preserve original publication date
+            if ($existing && $existing->published_at) {
+                $publishedAt = $existing->published_at;
+            } elseif (!empty($data['published_at'])) {
+                $publishedAt = Carbon::parse($data['published_at'], $tz);
+            } elseif (!empty($data['post_date'])) {
+                $publishedAt = Carbon::parse($data['post_date'], $tz);
+            } elseif ($existing && $existing->created_at) {
+                $publishedAt = $existing->created_at;
+            } else {
+                $publishedAt = $now;
+            }
         } elseif ($status === WebsitePost::STATUS_SCHEDULED) {
             $scheduledAt = !empty($data['scheduled_at']) ? Carbon::parse($data['scheduled_at'], $tz) : $sheetDate->copy()->addDay();
             $publishedAt = $scheduledAt;
@@ -508,7 +516,8 @@ class WebsiteBlogPostService
             'content'            => $styledContent,
             'excerpt'            => $post->excerpt,
             'status'             => $post->status,
-            'date'               => $post->published_at?->toIso8601String() ?: ($post->scheduled_at?->toIso8601String() ?: date('c')),
+            'date'               => $post->published_at?->toIso8601String()
+                ?: ($post->created_at?->toIso8601String() ?: ($post->scheduled_at?->toIso8601String() ?: date('c'))),
             'category'           => $post->category,
             'playlist'           => $post->playlist,
             'featured_image_url' => $post->featured_image_url,
@@ -739,6 +748,23 @@ class WebsiteBlogPostService
                         );
                         shell_exec($updateCmd);
 
+                        // Attach or update featured image in WordPress Media Library
+                        if (!empty($post->featured_image_url)) {
+                            try {
+                                $importCmd = sprintf(
+                                    "%s media import %s --post_id=%d --featured_image --path=%s --allow-root 2>&1",
+                                    escapeshellcmd($wpCliBinary),
+                                    escapeshellarg($post->featured_image_url),
+                                    (int) $existingWpId,
+                                    escapeshellarg($wpPath)
+                                );
+                                shell_exec($importCmd);
+                            } catch (\Throwable $e) {}
+                        }
+
+                        // Flush WordPress cache so changes appear immediately
+                        shell_exec(sprintf("%s cache flush --path=%s --allow-root 2>/dev/null", escapeshellcmd($wpCliBinary), escapeshellarg($wpPath)));
+
                         $post->updateQuietly(['canonical_url' => $liveWpUrl]);
 
                         return [
@@ -761,6 +787,20 @@ class WebsiteBlogPostService
                         );
                         $newId = trim((string) shell_exec($createCmd));
                         if (is_numeric($newId)) {
+                            // Attach featured image in WordPress Media Library
+                            if (!empty($post->featured_image_url)) {
+                                try {
+                                    $importCmd = sprintf(
+                                        "%s media import %s --post_id=%d --featured_image --path=%s --allow-root 2>&1",
+                                        escapeshellcmd($wpCliBinary),
+                                        escapeshellarg($post->featured_image_url),
+                                        (int) $newId,
+                                        escapeshellarg($wpPath)
+                                    );
+                                    shell_exec($importCmd);
+                                } catch (\Throwable $e) {}
+                            }
+
                             $post->updateQuietly(['canonical_url' => $liveWpUrl]);
 
                             // Flush WordPress cache so changes appear immediately
@@ -1588,8 +1628,8 @@ class WebsiteBlogPostService
     }
 
     /**
-     * Ensure all headings (H1-H4), tables, and key content blocks have clean,
-     * inline styling for consistent and beautiful rendering across all destination websites.
+     * Ensure all headings (H1-H4), tables, images, and key content blocks have clean,
+     * semantic inline styling and structure for consistent, beautiful rendering across all destination websites.
      */
     public function ensureContentCleanAndStyled(
         string $html,
@@ -1597,7 +1637,8 @@ class WebsiteBlogPostService
         ?Website $website = null,
         ?string $sku = null,
         ?string $prodUrl = null,
-        ?string $featuredUrlOverride = null
+        ?string $featuredUrlOverride = null,
+        ?string $titleOverride = null
     ): string
     {
         if (trim($html) === '') {
@@ -1606,127 +1647,157 @@ class WebsiteBlogPostService
 
         $styled = $html;
 
-        // 0. Remove duplicate leading hero image if post featured_image_url is present
-        $featuredUrl = $featuredUrlOverride
-            ?: ($post?->featured_image_url ?: ($post?->metrics_data['cms_extra']['featured_image_url'] ?? null));
-        if ($featuredUrl) {
-            $parsedPath = parse_url($featuredUrl, PHP_URL_PATH);
-            $featuredFile = strtolower(basename($parsedPath ?: $featuredUrl));
-            if (strlen($featuredFile) > 3) {
-                // Match leading wrapper + figure / p / div + img matching the featured image
-                $patternFigure = '/^\s*(?:<p>(?:&nbsp;|\s|<br\s*\/?>)*<\/p>\s*)*(?:<div[^>]*>\s*)*(?:<figure[^>]*>|<p[^>]*>|<div[^>]*>)?\s*(?:<a[^>]*>\s*)?<img[^>]+src=["\']([^"\']+)["\'][^>]*>(?:\s*<\/a>)?\s*(?:<figcaption[^>]*>.*?<\/figcaption>)?\s*(?:<\/figure>|<\/p>|<\/div>)?(?:\s*<\/div>)?/is';
-                if (preg_match($patternFigure, $styled, $matches)) {
-                    $matchedSrc = $matches[1] ?? '';
-                    $matchedFile = strtolower(basename(parse_url($matchedSrc, PHP_URL_PATH) ?: $matchedSrc));
-                    if ($matchedFile === $featuredFile || str_contains($matchedSrc, $featuredFile) || str_contains($featuredUrl, $matchedFile)) {
-                        $styled = trim(preg_replace($patternFigure, '', $styled, 1));
-                    }
-                }
-            }
-        }
 
-        // 1. Ensure Table Styling
+        // 1. Ensure Table Styling (Use neutral, theme-friendly borders without hardcoded text colors)
         $styled = preg_replace_callback('/<table(?![^>]*class=["\'][^"\']*cms-rendered-table)([^>]*)>([\s\S]*?)<\/table>/i', function ($matches) {
             $inner = $matches[2] ?? '';
-            $tableTag = '<table class="cms-rendered-table w-full text-xs" border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 0; border: 1px solid #cbd5e1; font-size: 14px; text-align: left; background: #ffffff;">';
-            $inner = preg_replace('/<th(?![^>]*style=)/i', '<th style="padding: 10px 14px; border: 1px solid #cbd5e1; font-weight: 700; text-align: left; background: #f1f5f9; color: #0f172a;">', $inner);
-            $inner = preg_replace('/<td(?![^>]*style=)/i', '<td style="padding: 9px 14px; border: 1px solid #e2e8f0; color: #334155; vertical-align: top;">', $inner);
+            $tableTag = '<table class="cms-rendered-table w-full text-xs" border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 0; border: 1px solid #cbd5e1; font-size: 14px; text-align: left;">';
+            $inner = preg_replace('/<th(?![^>]*style=)/i', '<th style="padding: 10px 14px; border: 1px solid #cbd5e1; font-weight: 700; text-align: left; background: rgba(0,0,0,0.03);">', $inner);
+            $inner = preg_replace('/<td(?![^>]*style=)/i', '<td style="padding: 9px 14px; border: 1px solid #e2e8f0; vertical-align: top;">', $inner);
 
             return '<div class="cms-table-container overflow-x-auto my-6" style="margin: 1.5rem 0; overflow-x: auto; -webkit-overflow-scrolling: touch;">' . $tableTag . $inner . '</table></div>';
         }, $styled);
 
-        // 2. Heading inline styles definition
-        $h1Style = 'font-size: 1.85rem; font-weight: 900; color: #0f172a; margin-top: 2.25rem; margin-bottom: 1rem; line-height: 1.25; border-bottom: 2px solid #cbd5e1; padding-bottom: 0.6rem; letter-spacing: -0.02em; clear: both; display: block;';
-        $h2Style = 'font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-top: 2rem; margin-bottom: 0.85rem; line-height: 1.3; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; letter-spacing: -0.015em; clear: both; display: block;';
-        $h3Style = 'font-size: 1.25rem; font-weight: 700; color: #1e293b; margin-top: 1.6rem; margin-bottom: 0.65rem; line-height: 1.35; letter-spacing: -0.01em; clear: both; display: block;';
-        $h4Style = 'font-size: 1.1rem; font-weight: 700; color: #334155; margin-top: 1.25rem; margin-bottom: 0.5rem; line-height: 1.4; clear: both; display: block;';
-
-        // 3. Promote standalone paragraph headings: <p><strong>Heading</strong></p>
-        $styled = preg_replace_callback('/<p(\s+[^>]*)?>\s*<(?:strong|b)>\s*(#{1,4}\s+)?([^<>\n]{3,95}?)\s*<\/(?:strong|b)>\s*<\/p>/i', function ($m) use ($h1Style, $h2Style, $h3Style, $h4Style) {
+        // 2. Promote paragraph headings with <br> after bold heading: <p><strong>Heading</strong><br>Body...</p>
+        $styled = preg_replace_callback('/<p(\s+[^>]*)?>\s*<(?:strong|b)(?:\s+[^>]*)?>\s*(?:<span(?:\s+[^>]*)?>\s*)?(#{1,4}\s+)?([^<>\n]{3,120}?)(?:\s*<\/span>)?\s*<\/(?:strong|b)>\s*(?:<br\s*\/?>|\n)+([\s\S]+?)<\/p>/i', function ($m) {
             $clean = trim($m[3]);
-            if (str_ends_with($clean, '.') || str_ends_with($clean, ',') || str_ends_with($clean, ';') || str_contains($clean, 'http://') || str_contains($clean, 'https://')) {
+            if (str_contains($clean, 'http://') || str_contains($clean, 'https://')) {
                 return $m[0];
             }
-            $level = 2;
-            if (!empty($m[2])) {
-                $level = strlen(trim($m[2]));
-            } elseif (preg_match('/^(?:fixed vs|mini excavator|key difference|pros and cons|vs\b)/i', $clean) || strlen($clean) < 35) {
-                $level = 3;
+            $cleanTrimmed = rtrim($clean, " \t\n\r\0\x0B:");
+            if (empty($cleanTrimmed)) return $m[0];
+
+            // Protect callouts and inline metadata from becoming headings
+            if (preg_match('/^(?:key takeaway|note|tip|warning|caution|important|best suited for|source|author|disclaimer)\b/i', $cleanTrimmed)) {
+                return $m[0];
             }
-            $style = match ($level) {
-                1 => $h1Style,
-                3 => $h3Style,
-                4 => $h4Style,
-                default => $h2Style,
-            };
-            $cls = match ($level) {
-                1 => 'text-2xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2',
-                3 => 'text-lg font-bold text-slate-900 dark:text-white mt-6 mb-3',
-                4 => 'text-base font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2',
-                default => 'text-xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2',
-            };
-            return "<h{$level} class=\"{$cls}\" style=\"{$style}\">{$clean}</h{$level}>";
+
+            $level = !empty($m[2]) ? strlen(trim($m[2])) : 2;
+            $rest = trim($m[4]);
+            return "<h{$level} class=\"wp-block-heading\"><strong>{$cleanTrimmed}</strong></h{$level}>\n<p{$m[1]} style=\"text-align: justify;\">{$rest}</p>";
+        }, $styled);
+
+        // 3. Promote standalone paragraph headings: <p><strong>Heading</strong></p>
+        $styled = preg_replace_callback('/<p(\s+[^>]*)?>\s*<(?:strong|b)(?:\s+[^>]*)?>\s*(?:<span(?:\s+[^>]*)?>\s*)?(#{1,4}\s+)?([^<>\n]{3,120}?)(?:\s*<\/span>)?\s*<\/(?:strong|b)>\s*<\/p>/i', function ($m) {
+            $clean = trim($m[3]);
+            if (str_contains($clean, 'http://') || str_contains($clean, 'https://')) {
+                return $m[0];
+            }
+            $cleanTrimmed = rtrim($clean, " \t\n\r\0\x0B:");
+            if (empty($cleanTrimmed)) return $m[0];
+
+            // Protect callouts and inline metadata from becoming headings
+            if (preg_match('/^(?:key takeaway|note|tip|warning|caution|important|best suited for|source|author|disclaimer)\b/i', $cleanTrimmed)) {
+                return $m[0];
+            }
+
+            $level = !empty($m[2]) ? strlen(trim($m[2])) : 2;
+            return "<h{$level} class=\"wp-block-heading\"><strong>{$cleanTrimmed}</strong></h{$level}>";
         }, $styled);
 
         // 4. Promote standalone paragraph headings with hashes: <p>## Heading</p>
-        $styled = preg_replace_callback('/<p(\s+[^>]*)?>\s*(#{1,4})\s+([^<>\n]{3,95}?)\s*<\/p>/i', function ($m) use ($h1Style, $h2Style, $h3Style, $h4Style) {
+        $styled = preg_replace_callback('/<p(\s+[^>]*)?>\s*(#{1,4})\s+([^<>\n]{3,120}?)\s*<\/p>/i', function ($m) {
             $clean = trim($m[3]);
             $level = strlen($m[2]);
-            $style = match ($level) {
-                1 => $h1Style,
-                3 => $h3Style,
-                4 => $h4Style,
-                default => $h2Style,
-            };
-            $cls = match ($level) {
-                1 => 'text-2xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2',
-                3 => 'text-lg font-bold text-slate-900 dark:text-white mt-6 mb-3',
-                4 => 'text-base font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2',
-                default => 'text-xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2',
-            };
-            return "<h{$level} class=\"{$cls}\" style=\"{$style}\">{$clean}</h{$level}>";
+            return "<h{$level} class=\"wp-block-heading\"><strong>{$clean}</strong></h{$level}>";
         }, $styled);
 
-        // 5. Style existing <h1-h4> tags that lack inline styles or border
-        $styled = preg_replace_callback('/<h1(\s+[^>]*)?>([\s\S]*?)<\/h1>/i', function ($m) use ($h1Style) {
-            $attrs = $m[1] ?? '';
-            if (!str_contains($attrs, 'style=')) {
-                return "<h1{$attrs} style=\"{$h1Style}\">{$m[2]}</h1>";
-            } elseif (!str_contains($attrs, 'border-bottom') || !str_contains($attrs, 'font-weight')) {
-                return preg_replace('/style="([^"]*)"/i', "style=\"$1; {$h1Style}\"", $m[0]);
+        // 5. Promote major section H3 tags to H2 so article has consistent, clean section hierarchy
+        $styled = preg_replace_callback('/<h3(\s+[^>]*)?>([\s\S]*?)<\/h3>/i', function ($m) {
+            $clean = trim(strip_tags($m[2]));
+            if (preg_match('/^(?:dust and environmental|heating, air|visibility and|comfort during|maintenance and|conclusion|frequently asked|faq|summary|key differences|safety|operating|overview|features|specifications)/i', $clean)
+                || (!str_contains(strtolower($clean), 'sub') && strlen($clean) <= 65 && !preg_match('/^\d+\.\d+/', $clean))) {
+                $cleanInner = preg_replace('/^<strong[^>]*>([\s\S]*?)<\/strong>$/i', '$1', trim($m[2]));
+                return "<h2 class=\"wp-block-heading\"><strong>{$cleanInner}</strong></h2>";
             }
             return $m[0];
         }, $styled);
 
-        $styled = preg_replace_callback('/<h2(\s+[^>]*)?>([\s\S]*?)<\/h2>/i', function ($m) use ($h2Style) {
+        // 6. Ensure all <h1-h6> tags use clean native website UI:
+        // Strip hardcoded inline styles (color, font-size, font-family, letter-spacing, line-height, border)
+        // and Tailwind color/size classes (text-slate-*, dark:text-*, font-black, etc.),
+        // and strip nested spans/inline styling from headings,
+        // so every website completely controls heading styles, colors, and typography via its own theme.
+        $styled = preg_replace_callback('/<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>/i', function ($m) {
+            $tag = $m[1];
+            $content = trim($m[3]);
+            $cleanInner = preg_replace('/^<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>$/i', '$1', $content);
+            $cleanText = strip_tags($cleanInner, '<a>');
+            $cleanText = trim(preg_replace('/\s+/', ' ', $cleanText));
+            return "<h{$tag} class=\"wp-block-heading\"><strong>{$cleanText}</strong></h{$tag}>";
+        }, $styled);
+        $styled = preg_replace('/(<\/h[1-6]>\s*)<hr[^>]*>/i', '$1', $styled);
+
+        // 7. Ensure Main H1 Title is Present at the Very Beginning of the Article
+        $postTitle = $titleOverride ?: ($post?->title ?: null);
+        if ($postTitle && !preg_match('/<h1[\s>]/i', $styled)) {
+            $h1Tag = "<h1 class=\"cms-article-main-title wp-block-heading\"><strong>" . htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') . "</strong></h1>\n";
+            $styled = $h1Tag . $styled;
+        }
+
+        // 8. Clean paragraphs to remove hardcoded colors/sizes so destination theme styles them naturally
+        $styled = preg_replace_callback('/<p(\s+[^>]*)?>/i', function ($m) {
             $attrs = $m[1] ?? '';
-            if (!str_contains($attrs, 'style=')) {
-                return "<h2{$attrs} style=\"{$h2Style}\">{$m[2]}</h2>";
-            } elseif (!str_contains($attrs, 'border-bottom') || !str_contains($attrs, 'font-weight')) {
-                return preg_replace('/style="([^"]*)"/i', "style=\"$1; {$h2Style}\"", $m[0]);
+            $attrs = preg_replace('/\b(?:text-slate-[0-9]+|dark:text-[a-z0-9-]+|font-normal|text-\[[^\]]+\])\b/i', '', $attrs);
+            if (preg_match('/style="([^"]*)"/i', $attrs, $sm)) {
+                $s = $sm[1];
+                $s = preg_replace('/\b(?:color|font-size|font-family)\s*:[^;"]+;?/i', '', $s);
+                $s = trim(preg_replace('/;{2,}/', ';', $s));
+                $s = trim(preg_replace('/\s*;\s*/', '; ', $s), " ;\t\n\r\0\x0B");
+                if (!str_contains($s, 'text-align')) {
+                    $s = ($s !== '' ? $s . '; ' : '') . 'text-align: justify;';
+                }
+                $attrs = preg_replace('/style="([^"]*)"/i', "style=\"{$s}\"", $attrs);
+            } else {
+                $attrs .= ' style="text-align: justify;"';
+            }
+            if (preg_match('/class="([^"]*)"/i', $attrs, $cm)) {
+                $c = trim(preg_replace('/\s+/', ' ', $cm[1]));
+                $attrs = $c !== '' ? preg_replace('/class="([^"]*)"/i', "class=\"{$c}\"", $attrs) : preg_replace('/\s*class="[^"]*"/i', '', $attrs);
+            }
+            $attrs = trim($attrs);
+            return "<p" . ($attrs !== '' ? ' ' . $attrs : '') . ">";
+        }, $styled);
+
+        // 9. Ensure First / Featured Image is Present in Content (with duplicate protection)
+        $featuredUrl = $featuredUrlOverride
+            ?: ($post?->featured_image_url ?: ($post?->metrics_data['cms_extra']['featured_image_url'] ?? null));
+        if ($featuredUrl) {
+            $parsedPath = parse_url($featuredUrl, PHP_URL_PATH);
+            $featuredFilename = basename($parsedPath ?: $featuredUrl);
+            $baseNameClean = preg_replace('/(-\d+)?\.(webp|jpg|jpeg|png|gif)$/i', '', $featuredFilename);
+            $hasExistingImage = preg_match('/<img[\s>]/i', $styled);
+            $hasMatchingImage = str_contains($styled, $featuredFilename) || (strlen($baseNameClean) > 3 && str_contains($styled, $baseNameClean));
+
+            if (!$hasExistingImage && !$hasMatchingImage) {
+                $altText = htmlspecialchars($postTitle ?: ($post?->title ?: 'Blog Image'), ENT_QUOTES, 'UTF-8');
+                $heroFig = "<figure class=\"cms-rendered-figure my-6\" data-align=\"center\" style=\"margin: 1.75rem auto; text-align: center; max-width: 100%; clear: both;\"><img src=\"{$featuredUrl}\" alt=\"{$altText}\" loading=\"lazy\" class=\"rounded-xl shadow-md mx-auto max-h-[480px] object-cover\" style=\"max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: block; margin: 0 auto;\"></figure>\n";
+                if (preg_match('/(<h1[^>]*>.*?<\/h1>\s*)/is', $styled, $h1Match)) {
+                    $styled = preg_replace('/(<h1[^>]*>.*?<\/h1>\s*)/is', "$1" . $heroFig, $styled, 1);
+                } else {
+                    $styled = $heroFig . $styled;
+                }
+            }
+        }
+
+        // 10. Deduplicate consecutive identical/sibling figure images if present
+        $styled = preg_replace_callback('/(<figure[^>]*>[\s\S]*?<img[^>]+src=["\']([^"\']+)["\'][^>]*>[\s\S]*?<\/figure>\s*){2,}/i', function ($m) {
+            // Find all image URLs within this block
+            preg_match_all('/<img[^>]+src=["\']([^"\']+)["\']/i', $m[0], $srcMatches);
+            $srcs = $srcMatches[1] ?? [];
+            if (count($srcs) >= 2) {
+                $base1 = preg_replace('/(-\d+)?\.(webp|jpg|jpeg|png|gif)$/i', '', basename(parse_url($srcs[0], PHP_URL_PATH) ?: $srcs[0]));
+                $base2 = preg_replace('/(-\d+)?\.(webp|jpg|jpeg|png|gif)$/i', '', basename(parse_url($srcs[1], PHP_URL_PATH) ?: $srcs[1]));
+                if ($base1 === $base2 || str_contains($base1, $base2) || str_contains($base2, $base1)) {
+                    // Keep only the first figure
+                    preg_match('/<figure[^>]*>[\s\S]*?<\/figure>/i', $m[0], $singleFig);
+                    return ($singleFig[0] ?? '') . "\n";
+                }
             }
             return $m[0];
         }, $styled);
 
-        $styled = preg_replace_callback('/<h3(\s+[^>]*)?>([\s\S]*?)<\/h3>/i', function ($m) use ($h3Style) {
-            $attrs = $m[1] ?? '';
-            if (!str_contains($attrs, 'style=')) {
-                return "<h3{$attrs} style=\"{$h3Style}\">{$m[2]}</h3>";
-            } elseif (!str_contains($attrs, 'font-size') || !str_contains($attrs, 'font-weight')) {
-                return preg_replace('/style="([^"]*)"/i', "style=\"$1; {$h3Style}\"", $m[0]);
-            }
-            return $m[0];
-        }, $styled);
-
-        $styled = preg_replace_callback('/<h4(\s+[^>]*)?>([\s\S]*?)<\/h4>/i', function ($m) use ($h4Style) {
-            $attrs = $m[1] ?? '';
-            if (!str_contains($attrs, 'style=')) {
-                return "<h4{$attrs} style=\"{$h4Style}\">{$m[2]}</h4>";
-            }
-            return $m[0];
-        }, $styled);
-
-        // 6. Inject Tailored Equipment CTA Card if product info is available and not already present
+        // 9. Inject Tailored Equipment CTA Card if product info is available and not already present
         if (!str_contains($styled, 'cms-equipment-cta')) {
             $productSku = $sku ?: ($post?->product_sku ?: ($post?->metrics_data['cms_extra']['product_sku'] ?? null));
             $productUrl = $prodUrl ?: ($post?->product_url ?: ($post?->metrics_data['cms_extra']['product_url'] ?? null));
@@ -1750,6 +1821,86 @@ HTML;
         }
 
         return $styled;
+    }
+
+    /**
+     * Convert markdown or raw formatted text into clean HTML content.
+     */
+    public function formatMarkdownContent(string $raw): string
+    {
+        if (trim($raw) === '') {
+            return '';
+        }
+
+        if (str_contains($raw, '<p>') && str_contains($raw, '</p>')) {
+            return $this->ensureContentCleanAndStyled($raw);
+        }
+
+        $lines = preg_split('/\r\n|\r|\n/', $raw);
+        $blocks = [];
+        $currentBlock = [];
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') {
+                if (!empty($currentBlock)) {
+                    $blocks[] = implode("\n", $currentBlock);
+                    $currentBlock = [];
+                }
+            } else {
+                $currentBlock[] = $line;
+            }
+        }
+        if (!empty($currentBlock)) {
+            $blocks[] = implode("\n", $currentBlock);
+        }
+
+        $htmlBlocks = [];
+        foreach ($blocks as $b) {
+            $trimmed = trim($b);
+            if (empty($trimmed)) continue;
+
+            if (str_starts_with($trimmed, '# ')) {
+                $t = htmlspecialchars(trim(substr($trimmed, 2)), ENT_QUOTES, 'UTF-8');
+                $htmlBlocks[] = "<h1 class=\"wp-block-heading\"><strong>{$t}</strong></h1>";
+                continue;
+            }
+            if (str_starts_with($trimmed, '## ')) {
+                $t = htmlspecialchars(trim(substr($trimmed, 3)), ENT_QUOTES, 'UTF-8');
+                $htmlBlocks[] = "<h2 class=\"wp-block-heading\"><strong>{$t}</strong></h2>";
+                continue;
+            }
+            if (str_starts_with($trimmed, '### ')) {
+                $t = htmlspecialchars(trim(substr($trimmed, 4)), ENT_QUOTES, 'UTF-8');
+                $htmlBlocks[] = "<h3 class=\"wp-block-heading\"><strong>{$t}</strong></h3>";
+                continue;
+            }
+
+            if (preg_match('/^\*\*([^*]+)\*\*$/', $trimmed, $bm) && strlen($trimmed) < 120) {
+                $t = htmlspecialchars(trim($bm[1]), ENT_QUOTES, 'UTF-8');
+                $htmlBlocks[] = "<h2 class=\"wp-block-heading\"><strong>{$t}</strong></h2>";
+                continue;
+            }
+
+            if (preg_match('/^!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)$/', $trimmed, $im)) {
+                $alt = htmlspecialchars($im[1], ENT_QUOTES, 'UTF-8');
+                $src = $im[2];
+                $htmlBlocks[] = "<figure class=\"cms-rendered-figure my-6\" data-align=\"center\" style=\"margin: 1.75rem auto; text-align: center; max-width: 100%; clear: both;\"><img src=\"{$src}\" alt=\"{$alt}\" loading=\"lazy\" class=\"rounded-xl shadow-md mx-auto max-h-[480px] object-cover\" style=\"max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: block; margin: 0 auto;\"></figure>";
+                continue;
+            }
+
+            if (preg_match('/^https?:\/\/[^\s<>]+\.(?:webp|png|jpe?g|gif|avif)$/i', $trimmed)) {
+                $htmlBlocks[] = "<figure class=\"cms-rendered-figure my-6\" data-align=\"center\" style=\"margin: 1.75rem auto; text-align: center; max-width: 100%; clear: both;\"><img src=\"{$trimmed}\" alt=\"\" loading=\"lazy\" class=\"rounded-xl shadow-md mx-auto max-h-[480px] object-cover\" style=\"max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: block; margin: 0 auto;\"></figure>";
+                continue;
+            }
+
+            $formattedPara = nl2br(htmlspecialchars($trimmed, ENT_QUOTES, 'UTF-8'));
+            $formattedPara = preg_replace('/\*\*([^*]+)\*\*/', '<strong>$1</strong>', $formattedPara);
+            $formattedPara = preg_replace('/\*([^*]+)\*/', '<em>$1</em>', $formattedPara);
+            $htmlBlocks[] = '<p style="text-align: justify;">' . $formattedPara . '</p>';
+        }
+
+        return implode("\n", $htmlBlocks);
     }
 
     /**

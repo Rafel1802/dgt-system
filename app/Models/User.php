@@ -36,6 +36,7 @@ class User extends Authenticatable
         'two_factor_secret',
         'two_factor_enabled',
         'two_factor_confirmed_at',
+        'two_factor_recovery_codes',
         'last_login_at',
         'last_login_ip',
         'failed_login_count',
@@ -82,6 +83,7 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -97,12 +99,77 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'locked_until' => 'datetime',
             'two_factor_enabled' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
             'is_active' => 'boolean',
             'lunch_alarm_enabled' => 'boolean',
             'dashboard_appearance' => 'array',
             'password' => 'hashed',
             'board_backgrounds' => 'array',
         ];
+    }
+
+    /**
+     * Determine if Two-Factor Authentication is active for this user.
+     */
+    public function hasEnabledTwoFactor(): bool
+    {
+        return (bool) ($this->two_factor_enabled && $this->two_factor_confirmed_at && !empty($this->two_factor_secret));
+    }
+
+    /**
+     * Generate a fresh set of recovery codes.
+     */
+    public function generateTwoFactorRecoveryCodes(): array
+    {
+        $codes = [];
+        for ($i = 0; $i < 8; $i++) {
+            $codes[] = strtoupper(\Illuminate\Support\Str::random(5)) . '-' . strtoupper(\Illuminate\Support\Str::random(5));
+        }
+        $this->two_factor_recovery_codes = $codes;
+        if ($this->exists) {
+            $this->save();
+        }
+
+        return $codes;
+    }
+
+    /**
+     * Consume a recovery code during login.
+     * Uses constant-time hash_equals to protect against timing attacks.
+     */
+    public function consumeRecoveryCode(string $code): bool
+    {
+        $codes = $this->two_factor_recovery_codes ?? [];
+        if (!is_array($codes) || empty($codes)) {
+            return false;
+        }
+
+        $cleanCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', trim($code)));
+        if (strlen($cleanCode) < 8) {
+            return false;
+        }
+
+        $matchedIndex = null;
+        foreach ($codes as $index => $candidate) {
+            $candidateClean = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $candidate));
+            if (hash_equals($candidateClean, $cleanCode)) {
+                $matchedIndex = $index;
+                break;
+            }
+        }
+
+        if ($matchedIndex === null) {
+            return false;
+        }
+
+        unset($codes[$matchedIndex]);
+        $this->two_factor_recovery_codes = array_values($codes);
+        if ($this->exists) {
+            $this->save();
+        }
+
+        return true;
     }
 
     public function setPhoneAttribute(?string $value): void
@@ -284,11 +351,23 @@ SVG;
      */
     public function getRoleDisplayAttribute(): string
     {
+        if ($this->hasRole('super-admin')) {
+            return 'Super Admin';
+        }
+        if ($this->hasRole('admin-digital')) {
+            return 'Admin Digital';
+        }
+        if ($this->hasRole('social_admin') || $this->hasRole('social-admin')) {
+            return 'Social Admin';
+        }
+        if ($this->hasRole('social_qc') || $this->hasRole('social-qc')) {
+            return 'Social QC';
+        }
         if ($this->hasRole('digital-team')) {
             return 'Digital Team';
         }
-        $role = $this->roles->first(fn($r) => strpos($r->name, 'social_') !== 0);
-        return $role ? $role->display_name ?? ucwords(str_replace(['-', '_'], ' ', $role->name)) : 'No Role';
+        $role = $this->roles->first();
+        return $role ? ($role->display_name ?? ucwords(str_replace(['-', '_'], ' ', $role->name))) : 'No Role';
     }
 
     /**
@@ -925,7 +1004,7 @@ SVG;
      */
     public function canPinNotifications(): bool
     {
-        $allowedRoles = ['super-admin', 'admin-digital', 'social_qc', 'boss', 'supervisor', 'admin'];
+        $allowedRoles = ['super-admin', 'admin-digital', 'social_qc', 'social_admin', 'social-admin', 'boss', 'supervisor', 'admin'];
         $userRole = strtolower($this->role ?? '');
 
         if (in_array($userRole, $allowedRoles, true) || str_contains($userRole, 'qc')) {
@@ -1028,7 +1107,7 @@ SVG;
             if ($this->hasRole('super-admin')) {
                 return true;
             }
-            if ($this->isQc() || $this->hasRole('social_qc')) {
+            if ($this->isQc() || $this->hasRole('social_qc') || $this->hasRole('social_admin') || $this->hasRole('social-admin')) {
                 return true;
             }
         } catch (\Throwable $e) {}

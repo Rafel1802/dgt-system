@@ -88,6 +88,22 @@ class AuthService
             // Clear rate limiter on success
             RateLimiter::clear($rateLimiterKey);
 
+            // ── Check if user has Two-Factor Authentication enabled ───
+            if ($user->hasEnabledTwoFactor()) {
+                Auth::logout();
+                $request->session()->put([
+                    'login.2fa.user_id'    => $user->id,
+                    'login.2fa.remember'   => (bool) config('auth.remember_users_by_default', true) || $request->boolean('remember'),
+                    'login.2fa.expires_at' => now()->addMinutes(10)->timestamp,
+                ]);
+
+                return [
+                    'success'    => true,
+                    'two_factor' => true,
+                    'user'       => $user,
+                ];
+            }
+
             // Update login tracking fields
             $user->update([
                 'last_login_at' => now(),

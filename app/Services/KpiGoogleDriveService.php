@@ -57,18 +57,24 @@ class KpiGoogleDriveService
         }
 
         // 3. Determine Year, Month, Staff Name and File Name
-        $date = $review->evaluation_date ? Carbon::parse($review->evaluation_date) : ($review->created_at ?: Carbon::now());
+        $year = (string)date('Y');
+        $monthName = date('F');
 
-        $year = (string)$date->format('Y');
-        $monthName = $date->format('F');
-
-        if ($review->period && $review->period->name) {
-            if (preg_match('/\b(20\d\d)\b/', $review->period->name, $matches)) {
-                $year = (string)$matches[1];
-            }
+        if ($review->period && $review->period->name && !str_starts_with($review->period->name, 'Year ')) {
             if (preg_match('/^(January|February|March|April|May|June|July|August|September|October|November|December)/i', $review->period->name, $matches)) {
                 $monthName = ucfirst(strtolower($matches[1]));
             }
+            if (preg_match('/\b(20\d\d)\b/', $review->period->name, $matches)) {
+                $year = (string)$matches[1];
+            }
+        } elseif ($review->evaluation_date) {
+            $dt = Carbon::parse($review->evaluation_date);
+            $year = (string)$dt->format('Y');
+            $monthName = $dt->format('F');
+        } elseif ($review->created_at) {
+            $dt = Carbon::parse($review->created_at);
+            $year = (string)$dt->format('Y');
+            $monthName = $dt->format('F');
         }
 
         $staffName = $review->user ? $review->user->name : 'Staff';
@@ -101,7 +107,7 @@ class KpiGoogleDriveService
             'file_data' => base64_encode($pdfContent),
             'mime_type' => 'application/pdf',
             'staff_name' => $staffName,
-            'overall_kpi' => $review->overall_kpi,
+            'overall_kpi' => $review->points_score,
             'performance_band' => $review->performance_band,
         ];
 

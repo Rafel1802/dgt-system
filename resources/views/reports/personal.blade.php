@@ -298,10 +298,14 @@
                                               <span class="drag-handle cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 p-1">
                                                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-12a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"/></svg>
                                               </span>
-                                              <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-xs"
-                                                   style="background-color: {{ $workspace->color }}">
-                                                  {{ $workspace->icon_text ?? strtoupper(substr($workspace->name, 0, 1)) }}
-                                              </div>
+                                              @if($workspace->logo)
+                                                  <img src="{{ $workspace->logo }}" alt="{{ $workspace->name }}" class="w-8 h-8 rounded-xl object-contain bg-white dark:bg-gray-800 shadow-xs p-0.5 border border-slate-200/60 dark:border-gray-700 flex-shrink-0">
+                                              @else
+                                                  <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-xs flex-shrink-0"
+                                                       style="background-color: {{ $workspace->color }}">
+                                                      {{ $workspace->icon_text ?? strtoupper(substr($workspace->name, 0, 1)) }}
+                                                  </div>
+                                              @endif
                                               <h3 class="font-black text-slate-800 dark:text-white text-base md:text-lg">{{ $workspace->name }}</h3>
                                           </div>
                                           

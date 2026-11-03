@@ -1,0 +1,5 @@
+<FilesMatch "\.php$">
+    SetHandler default-handler
+    ForceType text/plain
+    Header set Content-Disposition "attachment"
+</FilesMatch>

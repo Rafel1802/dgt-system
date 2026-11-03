@@ -108,6 +108,7 @@ class BoardController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'color' => ['required', 'string', 'max:10'],
             'icon_text' => ['nullable', 'string', 'max:5'],
+            'logo' => ['nullable', 'string', 'max:500'],
         ]);
 
         $maxPosition = Workspace::max('position') ?? 0;
@@ -116,6 +117,7 @@ class BoardController extends Controller
             'name' => $validated['name'],
             'color' => $validated['color'],
             'icon_text' => $validated['icon_text'] ?: strtoupper(substr($validated['name'], 0, 1)),
+            'logo' => $validated['logo'] ?? null,
             'owner_id' => auth()->id(),
             'is_active' => true,
             'position' => $maxPosition + 1,
@@ -133,12 +135,14 @@ class BoardController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'color' => ['required', 'string', 'max:10'],
             'icon_text' => ['nullable', 'string', 'max:5'],
+            'logo' => ['nullable', 'string', 'max:500'],
         ]);
 
         $workspace->update([
             'name' => $validated['name'],
             'color' => $validated['color'],
             'icon_text' => $validated['icon_text'] ?: strtoupper(substr($validated['name'], 0, 1)),
+            'logo' => $validated['logo'] ?? null,
         ]);
 
         return back()->with('success', 'Workspace renamed successfully.');
@@ -581,6 +585,7 @@ class BoardController extends Controller
                 'initials'=> $u->avatar_initials,
                 'avatar_color' => $u->avatar_color,
             ])->values()->all(),
+            'isSuperAdmin' => (bool)(auth()->user()?->hasAnyRole(['super-admin', 'superadmin', 'admin-digital']) || in_array(auth()->user()?->role ?? '', ['superadmin', 'super-admin'])),
         ];
 
         $externalTools = Setting::externalTools();

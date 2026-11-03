@@ -438,4 +438,38 @@ class SocialMediaAnalyticsMultiClassTest extends TestCase
         $response->assertViewHas('latestAnalytic');
         $this->assertEquals($analytic->id, $response->viewData('latestAnalytic')->id);
     }
+
+    public function test_social_admin_can_access_dashboard_reports_and_manage_routes_without_403(): void
+    {
+        Storage::fake('local');
+        config(['app.url' => 'http://localhost']);
+
+        $user = User::factory()->create(['name' => 'Ms. Sor', 'is_active' => true]);
+        Role::firstOrCreate(['name' => 'digital-team', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'social_admin', 'guard_name' => 'web']);
+        $user->assignRole(['digital-team', 'social_admin']);
+
+        // 1. Verify role_display shows Social Admin, not generic Digital Team
+        $this->assertEquals('Social Admin', $user->role_display);
+
+        // 2. Verify dashboard access
+        $this->actingAs($user)
+            ->get(route('social-media.dashboard'))
+            ->assertOk();
+
+        // 3. Verify reports index access (previously failed with 403)
+        $this->actingAs($user)
+            ->get(route('social-media.reports.index'))
+            ->assertOk();
+
+        // 4. Verify manage classes access (previously failed with 403)
+        $this->actingAs($user)
+            ->get(route('social-media.manage'))
+            ->assertOk();
+
+        // 5. Verify analytics index access
+        $this->actingAs($user)
+            ->get(route('social-media.analytics.index'))
+            ->assertOk();
+    }
 }

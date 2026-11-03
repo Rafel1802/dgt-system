@@ -54,7 +54,21 @@ class KpiDashboardController extends Controller
         } elseif ($periodId) {
             $currentPeriod = KpiPeriod::find($periodId);
         } else {
-            $currentPeriod = $periods->firstWhere('status', 'Open') ?? $periods->first();
+            // Default to current calendar month (e.g. November 2026)
+            $nowMonth = (int)date('n');
+            $nowYear = (int)date('Y');
+            $periodName = date('F Y', mktime(0, 0, 0, $nowMonth, 1, $nowYear));
+            $startDate = date('Y-m-01', mktime(0, 0, 0, $nowMonth, 1, $nowYear));
+            $endDate = date('Y-m-t', mktime(0, 0, 0, $nowMonth, 1, $nowYear));
+            $currentPeriod = KpiPeriod::firstOrCreate(
+                ['name' => $periodName],
+                [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'status' => 'Open',
+                    'description' => "Monthly KPI Evaluation Cycle for {$periodName}."
+                ]
+            );
         }
 
         // 2. Squads query
@@ -141,8 +155,8 @@ class KpiDashboardController extends Controller
         // Metrics
         $totalStaffCount = $squads->sum(fn($s) => $s->members->count());
         $evaluatedCount = $reviews->whereIn('status', ['Submitted', 'Approved', 'Finalized'])->count();
-        $avgKpiScore = $reviews->count() > 0 ? round($reviews->avg('overall_kpi'), 1) : 94.5;
-        $outstandingCount = $reviews->where('performance_band', 'Outstanding')->count();
+        $avgKpiScore = $reviews->count() > 0 ? round($reviews->map(fn($r) => $r->points_score)->avg(), 1) : 5.0;
+        $outstandingCount = $reviews->filter(fn($r) => $r->points_score >= 4.8)->count();
 
         // Supervisor Reports
         $reports = KpiSupervisorReport::with(['squad', 'submittedBy'])

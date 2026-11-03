@@ -37,9 +37,18 @@ class WebsitePost extends Model
         'author_name',
         'status',
         'published_at',
+        'scheduled_at',
         'modified_at',
         'featured_image_url',
         'excerpt',
+        'content_html',
+        'raw_content',
+        'meta_title',
+        'meta_description',
+        'tag_keywords',
+        'focus_keyword',
+        'category',
+        'playlist',
         'cumulative_views',
         'period_views',
         'page_views',
@@ -55,6 +64,7 @@ class WebsitePost extends Model
     {
         return [
             'published_at'       => 'datetime',
+            'scheduled_at'       => 'datetime',
             'modified_at'        => 'datetime',
             'last_synced_at'     => 'datetime',
             'cumulative_views'   => 'integer',
@@ -63,6 +73,31 @@ class WebsitePost extends Model
             'unique_visitors'    => 'integer',
             'metrics_data'       => 'array',
         ];
+    }
+
+    public function getContentHtmlAttribute(?string $value): ?string
+    {
+        return !empty($value) ? $value : ($this->metrics_data['cms_extra']['content_html'] ?? null);
+    }
+
+    public function getMetaTitleAttribute(?string $value): ?string
+    {
+        return !empty($value) ? $value : ($this->metrics_data['cms_extra']['meta_title'] ?? null);
+    }
+
+    public function getMetaDescriptionAttribute(?string $value): ?string
+    {
+        return !empty($value) ? $value : ($this->metrics_data['cms_extra']['meta_description'] ?? null);
+    }
+
+    public function getCategoryAttribute(?string $value): ?string
+    {
+        return !empty($value) ? $value : ($this->metrics_data['cms_extra']['category'] ?? null);
+    }
+
+    public function getPlaylistAttribute(?string $value): ?string
+    {
+        return !empty($value) ? $value : ($this->metrics_data['cms_extra']['playlist'] ?? null);
     }
 
     public function website(): BelongsTo
@@ -76,9 +111,45 @@ class WebsitePost extends Model
             ->orderByDesc('snapshot_date');
     }
 
+    /**
+     * Normalize any incoming or legacy status string to strictly one of:
+     * 'published', 'scheduled', or 'draft'.
+     */
+    public static function normalizeStatus(?string $status): string
+    {
+        $s = strtolower(trim((string) $status));
+        if (in_array($s, [self::STATUS_PUBLISHED, 'publish', 'public'], true)) {
+            return self::STATUS_PUBLISHED;
+        }
+        if (in_array($s, [self::STATUS_SCHEDULED, 'future'], true)) {
+            return self::STATUS_SCHEDULED;
+        }
+        return self::STATUS_DRAFT;
+    }
+
+    public function setStatusAttribute($value): void
+    {
+        $this->attributes['status'] = self::normalizeStatus($value);
+    }
+
+    public function getStatusAttribute(?string $value): string
+    {
+        return self::normalizeStatus($value);
+    }
+
     public function scopePublished($query)
     {
-        return $query->where('status', self::STATUS_PUBLISHED);
+        return $query->whereIn('status', [self::STATUS_PUBLISHED, 'publish', 'public']);
+    }
+
+    public function scopeScheduled($query)
+    {
+        return $query->whereIn('status', [self::STATUS_SCHEDULED, 'future']);
+    }
+
+    public function scopeDraft($query)
+    {
+        return $query->whereNotIn('status', [self::STATUS_PUBLISHED, 'publish', 'public', self::STATUS_SCHEDULED, 'future']);
     }
 
     public function scopeTopViewed($query)

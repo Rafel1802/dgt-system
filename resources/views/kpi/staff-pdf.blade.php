@@ -233,36 +233,36 @@
         <tbody>
             <tr>
                 <td>1. Work Quality &amp; Accuracy</td>
-                <td class="center">{{ number_format($review->quality_score / 20, 1) }}</td>
-                <td>Output standard &amp; detail accuracy</td>
+                <td class="center">{{ number_format($review->quality_points, 1) }}</td>
+                <td>Output standard &amp; detail accuracy (Max 5.0)</td>
             </tr>
             <tr>
                 <td>2. Productivity &amp; Timeliness</td>
-                <td class="center">{{ number_format($review->productivity_score / 20, 1) }}</td>
-                <td>Task speed &amp; meeting deadlines</td>
+                <td class="center">{{ number_format($review->productivity_points, 1) }}</td>
+                <td>Task speed &amp; meeting deadlines (Max 5.0)</td>
             </tr>
             <tr>
                 <td>3. Communication &amp; Teamwork</td>
-                <td class="center">{{ number_format($review->teamwork_score / 20, 1) }}</td>
-                <td>Collaboration, responsiveness &amp; attitude</td>
+                <td class="center">{{ number_format($review->teamwork_points, 1) }}</td>
+                <td>Collaboration, responsiveness &amp; attitude (Max 5.0)</td>
             </tr>
             <tr>
                 <td>4. Initiative &amp; Problem Solving</td>
-                <td class="center">{{ number_format((($review->productivity_score + $review->quality_score) / 2) / 20, 1) }}</td>
-                <td>Proactivity &amp; handling challenges</td>
+                <td class="center">{{ number_format(($review->productivity_points + $review->quality_points) / 2, 1) }}</td>
+                <td>Proactivity &amp; handling challenges (Max 5.0)</td>
             </tr>
             <tr>
                 <td>5. Discipline &amp; Responsibility</td>
-                <td class="center">{{ number_format($review->deadline_score / 20, 1) }}</td>
-                <td>Attendance, consistency &amp; ownership</td>
+                <td class="center">{{ number_format($review->deadline_points, 1) }}</td>
+                <td>Attendance, consistency &amp; ownership (Max 5.0)</td>
             </tr>
             <tr class="total-row">
                 <td>FINAL TOTAL SCORE:</td>
-                <td class="center" style="color: #1e3a8a; font-size: 11px;">
-                    {{ number_format(($review->overall_kpi / 100) * 25, 1) }} / 25
+                <td class="center" style="color: #1e3a8a; font-size: 11px; font-weight: 800;">
+                    {{ number_format($review->points_score, 1) }} / 5.0
                 </td>
                 <td style="color: #15803d; font-weight: 800;">
-                    OVERALL: {{ $review->performance_band ?? 'Exceeds Expectations' }}
+                    OVERALL: {{ $review->performance_band ?? 'Outstanding' }} ({{ $review->points_score >= 4.8 ? '5 Stars' : ($review->points_score >= 4.0 ? '4 Stars' : '3 Stars') }})
                 </td>
             </tr>
         </tbody>

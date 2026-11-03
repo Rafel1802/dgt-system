@@ -70,6 +70,8 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
     Route::middleware('guest')->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login'])->name('login.submit');
+        Route::get('/login/two-factor', [\App\Http\Controllers\Auth\TwoFactorController::class, 'showChallenge'])->name('login.2fa');
+        Route::post('/login/two-factor', [\App\Http\Controllers\Auth\TwoFactorController::class, 'verifyChallenge'])->name('login.2fa.verify');
     });
 
     // Authenticated routes
@@ -317,6 +319,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/cards/{card}/comments', [BoardCardController::class, 'storeComment'])->name('cards.comments.store');
             Route::patch('/cards/{card}/comments/{comment}', [BoardCardController::class, 'updateComment'])->name('cards.comments.update');
             Route::delete('/cards/{card}/comments/{comment}', [BoardCardController::class, 'destroyComment'])->name('cards.comments.destroy');
+            Route::delete('/cards/{card}/activities/{activity}', [BoardCardController::class, 'destroyActivity'])->name('cards.activities.destroy');
             Route::post('/cards/comments/{comment}/react', [\App\Http\Controllers\Board\CommentReactionController::class, 'toggle'])->name('cards.comments.react');
 
             // File uploads — Trello Board
@@ -544,6 +547,13 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
         Route::put('/settings/password', [App\Http\Controllers\Auth\ProfileController::class, 'updatePassword'])->name('settings.password');
         Route::post('/profile/google/link', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'link'])->name('profile.google.link');
         Route::post('/profile/google/unlink', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'unlink'])->name('profile.google.unlink');
+
+        // ── Two-Factor Authentication (2FA) ────────────────────────────────
+        Route::post('/profile/two-factor/setup', [\App\Http\Controllers\Auth\TwoFactorController::class, 'setup'])->name('profile.two-factor.setup');
+        Route::post('/profile/two-factor/confirm', [\App\Http\Controllers\Auth\TwoFactorController::class, 'confirm'])->name('profile.two-factor.confirm');
+        Route::post('/profile/two-factor/disable', [\App\Http\Controllers\Auth\TwoFactorController::class, 'disable'])->name('profile.two-factor.disable');
+        Route::post('/profile/two-factor/recovery-codes', [\App\Http\Controllers\Auth\TwoFactorController::class, 'recoveryCodes'])->name('profile.two-factor.recovery-codes');
+        Route::post('/profile/two-factor/regenerate-recovery-codes', [\App\Http\Controllers\Auth\TwoFactorController::class, 'regenerateRecoveryCodes'])->name('profile.two-factor.regenerate-recovery-codes');
 
         // ── Notifications ─────────────────────────────────────────────────
         Route::get('/notifications', [App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('notifications.index');

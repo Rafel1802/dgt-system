@@ -1508,7 +1508,7 @@ body.is-dragging-card * { cursor: grabbing !important; }
                 :class="!filterCategory ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs dark:bg-indigo-600 dark:!text-white dark:border-indigo-500' : 'bg-white/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'">
           All
         </button>
-        <template x-for="cat in ['Video', 'Graphic', 'Listing', 'Content', 'SMM']" :key="cat">
+        <template x-for="cat in ['Video', 'Video No SMM', 'Graphic', 'Listing', 'Content', 'SMM', 'No SMM']" :key="cat">
           <button type="button" @click="filterCategory = (filterCategory === cat ? '' : cat)"
                   class="px-3.5 py-1.5 min-h-[34px] sm:min-h-0 rounded-full font-bold transition-all text-xs sm:text-[11px] border flex items-center gap-1 active:scale-95 whitespace-nowrap touch-manipulation"
                   :class="filterCategory === cat 
@@ -2197,11 +2197,16 @@ body.is-dragging-card * { cursor: grabbing !important; }
 <script src="{{ asset('js/trello-board.js') }}?v={{ $trelloBoardVersion }}"></script>
 <script src="{{ asset('js/drag-scroll.js') }}?v={{ $dragScrollVersion }}"></script>
 <script>
+window.isSuperAdmin = {{ (auth()->user()?->hasAnyRole(['super-admin', 'superadmin', 'admin-digital']) || in_array(auth()->user()?->role ?? '', ['superadmin', 'super-admin'])) ? 'true' : 'false' }};
 document.addEventListener('DOMContentLoaded', () => {
     if (window.trelloBoard) {
         const _orig = window.trelloBoard;
         window.trelloBoard = function(config) {
+            if (config && typeof config === 'object') {
+                config.isSuperAdmin = window.isSuperAdmin;
+            }
             const data = _orig(config);
+            data.isSuperAdmin = window.isSuperAdmin;
             if (!data.bulkDeleteCards) {
                 data.bulkDeleting = false;
                 data.bulkDeleteCards = async function() {

@@ -41,6 +41,9 @@ class LoginController extends Controller
                 ->withErrors(['email' => $result['message']]);
         }
 
+        if (! empty($result['two_factor'])) {
+            return redirect()->route('login.2fa');
+        }
 
         return redirect()->intended(route('dashboard'))
             ->with('success', 'Welcome back, ' . $result['user']->name . '!');

@@ -82,6 +82,13 @@ class DgtConnectorClient {
     }
 
     /**
+     * Pull published blog posts for this website from DGT Central CMS API.
+     */
+    public function fetchWebsitePosts(int $websiteId, int $limit = 10): array {
+        return $this->request('GET', '/api/v1/websites/' . $websiteId . '/posts?limit=' . $limit);
+    }
+
+    /**
      * Execute signed HTTP request with HMAC SHA-256.
      */
     private function request(string $method, string $path, array $data = []): array {

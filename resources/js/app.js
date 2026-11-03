@@ -405,6 +405,18 @@ Alpine.data('dropdown', () => ({
     open: false,
     toggle() { this.open = !this.open; },
     close() { this.open = false; },
+    init() {
+        const dismiss = () => { this.open = false; };
+        window.addEventListener('turbo:before-visit', dismiss);
+        window.addEventListener('turbo:visit', dismiss);
+        window.addEventListener('turbo:load', dismiss);
+        window.addEventListener('turbo:before-cache', dismiss);
+        window.addEventListener('popstate', dismiss);
+        window.addEventListener('dgt:close-dropdowns', dismiss);
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.open) dismiss();
+        });
+    },
 }));
 
 // ── Kanban Board ──────────────────────────────────────────────────────────

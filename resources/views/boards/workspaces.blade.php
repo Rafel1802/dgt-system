@@ -60,10 +60,14 @@
       {{-- Workspace header --}}
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-4">
         <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-               style="background-color: {{ $workspace->color }}">
-            {{ $workspace->icon_text ?? strtoupper(substr($workspace->name, 0, 1)) }}
-          </div>
+          @if($workspace->logo)
+            <img src="{{ $workspace->logo }}" alt="{{ $workspace->name }}" class="w-8 h-8 rounded-lg object-contain bg-white shadow-2xs flex-shrink-0 p-0.5 border border-slate-200/80 dark:border-slate-700/80">
+          @else
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                 style="background-color: {{ $workspace->color }}">
+              {{ $workspace->icon_text ?? strtoupper(substr($workspace->name, 0, 1)) }}
+            </div>
+          @endif
           <h2 class="font-display font-bold text-slate-700 text-base sm:text-lg break-words min-w-0">{{ $workspace->name }}</h2>
         </div>
         
@@ -115,7 +119,7 @@
           @endif
 
           @if(auth()->user()->hasAnyRole(['super-admin', 'admin', 'admin-digital']) || $workspace->owner_id === auth()->id())
-            <button @click="openEditWorkspace({{ $workspace->id }}, '{{ addslashes($workspace->name) }}', '{{ $workspace->color }}', '{{ addslashes($workspace->icon_text ?? '') }}')" class="flex-shrink-0 text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-indigo-50">
+            <button @click="openEditWorkspace({{ $workspace->id }}, '{{ addslashes($workspace->name) }}', '{{ $workspace->color }}', '{{ addslashes($workspace->icon_text ?? '') }}', '{{ addslashes($workspace->logo ?? '') }}')" class="flex-shrink-0 text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-indigo-50">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
             </button>
           @endif
@@ -433,6 +437,12 @@
           <p class="text-xs text-slate-500 mt-1">Leave empty to auto-use the first letter.</p>
         </div>
 
+        <div>
+          <label class="form-label">Workspace Logo URL (Optional)</label>
+          <input type="url" name="logo" class="form-input" placeholder="https://.../logo.webp">
+          <p class="text-xs text-slate-500 mt-1">If provided, this image will be displayed instead of the letter icon.</p>
+        </div>
+
         <div class="flex gap-3 pt-3">
           <button type="button" @click="showCreateWorkspace = false" class="btn btn-cancel btn-secondary flex-1 py-2.5 touch-manipulation active:scale-95 font-bold">Cancel</button>
           <button type="submit" class="btn btn-primary flex-1 py-2.5 touch-manipulation active:scale-95 font-bold">Create Workspace</button>
@@ -468,6 +478,12 @@
           <label class="form-label">Icon Text (Optional)</label>
           <input type="text" name="icon_text" x-model="editWorkspaceModal.icon_text" class="form-input" maxlength="5">
           <p class="text-xs text-slate-500 mt-1">Leave empty to auto-use the first letter.</p>
+        </div>
+
+        <div>
+          <label class="form-label">Workspace Logo URL (Optional)</label>
+          <input type="url" name="logo" x-model="editWorkspaceModal.logo" class="form-input" placeholder="https://.../logo.webp">
+          <p class="text-xs text-slate-500 mt-1">If provided, this image will be displayed instead of the letter icon.</p>
         </div>
 
         <div class="flex gap-3 pt-3">
@@ -670,9 +686,14 @@
                x-transition:enter-start="opacity-0 scale-98"
                x-transition:enter-end="opacity-100 scale-100">
             <div class="flex items-center gap-4">
-              <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-inner"
-                   style="{{ $hb->backgroundStyle() }}">
-                <span class="drop-shadow-md">{{ strtoupper(substr($hb->name, 0, 1)) }}</span>
+              @php
+                $hbHasCoverImage = $hb->getDefaultCoverImage() || ($hb->cover_type === 'image' && $hb->cover_value);
+              @endphp
+              <div class="w-20 h-12 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-inner ring-1 ring-black/10 overflow-hidden"
+                   style="{{ $hb->coverStyle() }}">
+                @unless($hbHasCoverImage)
+                  <span class="drop-shadow-md">{{ strtoupper(substr($hb->name, 0, 1)) }}</span>
+                @endunless
               </div>
               <div>
                 <h4 class="font-bold text-slate-800 dark:text-slate-100 text-base mb-0.5">{{ $hb->name }}</h4>

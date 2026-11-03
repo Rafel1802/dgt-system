@@ -46,9 +46,16 @@ class WebsiteSyncService
                     continue;
                 }
 
+                // Security Shield: Reject any casino / gambling / bot spam
+                if (self::isSpamOrScamPost($item)) {
+                    Log::warning("WebsiteSyncService: Blocked spam/scam post '{$item['title']}' for website ID {$website->id}");
+                    $skipped++;
+                    continue;
+                }
+
                 $externalId = (string) $item['external_id'];
                 $canonicalUrl = $item['canonical_url'] ?? ($item['url'] ?? $website->url);
-                $publishedAt = !empty($item['published_at']) ? Carbon::parse($item['published_at']) : now();
+                $publishedAt = !empty($item['published_at']) ? Carbon::parse($item['published_at']) : null;
                 $modifiedAt = !empty($item['modified_at']) ? Carbon::parse($item['modified_at']) : null;
 
                 $cumulativeViews = (int) ($item['cumulative_views'] ?? ($item['views'] ?? 0));
@@ -71,18 +78,11 @@ class WebsiteSyncService
                 // Monotonic preservation: NEVER lose recorded historical views or analytics source
                 // even if an external framework redeploys, resets its database, or sends lower/zero views
                 if ($existing) {
-                    if ($cumulativeViews < $existing->cumulative_views) {
-                        $cumulativeViews = $existing->cumulative_views;
-                    }
-                    if ($pageViews < $existing->page_views) {
-                        $pageViews = $existing->page_views;
-                    }
-                    if ($periodViews < $existing->period_views && $periodViews === 0) {
-                        $periodViews = $existing->period_views;
-                    }
-                    if ($uniqueVisitors < $existing->unique_visitors && $uniqueVisitors === 0) {
-                        $uniqueVisitors = $existing->unique_visitors;
-                    }
+                    $cumulativeViews = max((int) $cumulativeViews, (int) $existing->cumulative_views);
+                    $pageViews       = max((int) $pageViews, (int) $existing->page_views);
+                    $periodViews     = max((int) $periodViews, (int) $existing->period_views);
+                    $uniqueVisitors  = max((int) $uniqueVisitors, (int) $existing->unique_visitors);
+
                     if ($analyticsSource === WebsitePost::SOURCE_NONE || empty($analyticsSource) || $analyticsSource === 'none') {
                         $analyticsSource = $existing->analytics_source ?: WebsitePost::SOURCE_DGT_TRACKER;
                     }
@@ -92,10 +92,39 @@ class WebsiteSyncService
                     $analyticsSource = WebsitePost::SOURCE_DGT_TRACKER;
                 }
 
+                $contentHtml = $item['content_html'] ?? $item['content'] ?? null;
+                $featuredImageUrl = $item['featured_image_url'] ?? $item['featured_image'] ?? null;
+                $authorName = $item['author_name'] ?? $item['author'] ?? null;
+                $excerpt = $item['excerpt'] ?? null;
+                $rawContent = $item['raw_content'] ?? null;
+
+                // Permanent Content Shield: NEVER overwrite existing rich content/images with empty values on external code redeploys
+                if ($existing) {
+                    if (empty($contentHtml) && !empty($existing->content_html)) {
+                        $contentHtml = $existing->content_html;
+                    }
+                    if (empty($featuredImageUrl) && !empty($existing->featured_image_url)) {
+                        $featuredImageUrl = $existing->featured_image_url;
+                    }
+                    if (empty($authorName) && !empty($existing->author_name)) {
+                        $authorName = $existing->author_name;
+                    }
+                    if (empty($excerpt) && !empty($existing->excerpt)) {
+                        $excerpt = $existing->excerpt;
+                    }
+                    if (empty($rawContent) && !empty($existing->raw_content)) {
+                        $rawContent = $existing->raw_content;
+                    }
+                }
+
+                if (!$publishedAt) {
+                    $publishedAt = $existing?->published_at ?: ($existing?->created_at ?: now());
+                }
+
                 $syncHash = WebsitePost::computeSyncHash([
                     'title'            => $item['title'],
                     'canonical_url'    => $canonicalUrl,
-                    'status'           => $item['status'] ?? WebsitePost::STATUS_PUBLISHED,
+                    'status'           => WebsitePost::normalizeStatus($item['status'] ?? WebsitePost::STATUS_PUBLISHED),
                     'published_at'     => $publishedAt->toIso8601String(),
                     'cumulative_views' => $cumulativeViews,
                     'period_views'     => $periodViews,
@@ -111,14 +140,16 @@ class WebsiteSyncService
 
                 $payload = [
                     'title'              => $item['title'],
-                    'slug'               => $item['slug'] ?? null,
+                    'slug'               => $item['slug'] ?? ($existing?->slug ?? null),
                     'canonical_url'      => $canonicalUrl,
-                    'author_name'        => $item['author_name'] ?? null,
-                    'status'             => $item['status'] ?? WebsitePost::STATUS_PUBLISHED,
+                    'author_name'        => $authorName,
+                    'status'             => WebsitePost::normalizeStatus($item['status'] ?? ($existing?->status ?? WebsitePost::STATUS_PUBLISHED)),
                     'published_at'       => $publishedAt,
                     'modified_at'        => $modifiedAt,
-                    'featured_image_url' => $item['featured_image_url'] ?? null,
-                    'excerpt'            => $item['excerpt'] ?? null,
+                    'featured_image_url' => $featuredImageUrl,
+                    'excerpt'            => $excerpt,
+                    'content_html'       => $contentHtml,
+                    'raw_content'        => $rawContent,
                     'cumulative_views'   => $cumulativeViews,
                     'period_views'       => $periodViews,
                     'page_views'         => $pageViews,
@@ -387,7 +418,7 @@ class WebsiteSyncService
             'slug'               => $wp['slug'] ?? null,
             'canonical_url'      => $wp['link'] ?? ($website->url . '/' . ($wp['slug'] ?? '')),
             'author_name'        => $wp['_embedded']['author'][0]['name'] ?? null,
-            'status'             => $wp['status'] ?? WebsitePost::STATUS_PUBLISHED,
+            'status'             => WebsitePost::normalizeStatus($wp['status'] ?? WebsitePost::STATUS_PUBLISHED),
             'published_at'       => $wp['date_gmt'] ?? ($wp['date'] ?? now()),
             'modified_at'        => $wp['modified_gmt'] ?? ($wp['modified'] ?? null),
             'featured_image_url' => $featuredUrl,
@@ -908,5 +939,69 @@ class WebsiteSyncService
             'total_posts'  => WebsitePost::count(),
             'synced_at'    => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Check if an incoming post contains spam, casino, or gambling keywords.
+     */
+    public static function isSpamOrScamPost(array $item): bool
+    {
+        $title = (string) ($item['title'] ?? '');
+        $slug = (string) ($item['slug'] ?? '');
+        $author = (string) ($item['author_name'] ?? ($item['author'] ?? ''));
+
+        $image = (string) ($item['featured_image_url'] ?? ($item['featured_image'] ?? ''));
+        $text = strtolower($title . ' ' . $slug . ' ' . $author . ' ' . $image);
+
+        $spamKeywords = [
+            'casino',
+            'free spins',
+            'spinstar',
+            'bettyspin',
+            'liraspin',
+            'coolzino',
+            'casoola',
+            'spino gambino',
+            'pistolo casino',
+            'tortuga casino',
+            'royal vincit',
+            'wild robin casino',
+            'stone vegas casino',
+            'wonderluck casino',
+            'vasy casino',
+            'spin fin casino',
+            'spintropolis',
+            'slott casino',
+            'spingranny',
+            'cosmobet',
+            'jackpot bob',
+            'rockyspin',
+            'verde casino',
+            'ivybet',
+            'casinozer',
+            'monaco jack',
+            'casinolo',
+            'greenluck',
+            'staxino',
+            'roulette',
+            'hansa hood',
+            'me nas',
+            'michael cerrick',
+            'monita en',
+            'john vicas',
+            'universal heavy machinery',
+            'fleet safety board',
+            'fleet integration verification',
+            'diagnostic fleet connectivity',
+            '1579829366248',
+        ];
+
+        foreach ($spamKeywords as $kw) {
+            if (str_contains($text, $kw)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

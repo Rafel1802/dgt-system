@@ -73,6 +73,42 @@
     @endif
   </div>
 
+  {{-- Two-Factor Authentication (2FA) --}}
+  <div class="card">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-semibold text-slate-700 dark:text-slate-200">Two-Factor Authentication (2FA)</h3>
+            @if($user->hasEnabledTwoFactor())
+              <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500 text-white">Active</span>
+            @else
+              <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Disabled</span>
+            @endif
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">
+            @if($user->hasEnabledTwoFactor())
+              Secured with authenticator PIN. Prompted at each sign in.
+            @else
+              Require a 6-digit TOTP code from Google Authenticator or Apple Passwords at login.
+            @endif
+          </p>
+        </div>
+      </div>
+      <div>
+        <a href="{{ route('profile.show') }}#two-factor-section" class="btn btn-primary text-xs inline-flex items-center gap-1.5 whitespace-nowrap">
+          <span>{{ $user->hasEnabledTwoFactor() ? 'Manage 2FA' : 'Enable 2FA' }}</span>
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
   {{-- Account Info (read-only) --}}
   <div class="card">
     <h3 class="font-semibold text-slate-700 mb-4">Account Information</h3>

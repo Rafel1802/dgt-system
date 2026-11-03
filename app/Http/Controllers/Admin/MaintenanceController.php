@@ -80,6 +80,7 @@ class MaintenanceController extends Controller
             ['key' => 'maintenance_modules'],
             ['value' => json_encode(array_keys($modules))]
         );
+        \Illuminate\Support\Facades\Cache::forget('active_maintenance_modules_list');
 
         $titlePreset = $validated['title_preset'] ?? 'Under Maintenance';
         $titleCustom = trim($validated['title_custom'] ?? '');

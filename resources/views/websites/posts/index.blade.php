@@ -1512,8 +1512,7 @@ body[data-theme="neon"] .cms-handler-chip {
     margin-top: 2.25rem;
     margin-bottom: 1rem;
     line-height: 1.25;
-    border-bottom: 2px solid #cbd5e1;
-    padding-bottom: 0.6rem;
+    border-bottom: none;
     clear: both;
 }
 #cms-visual-editor h2 {
@@ -1523,8 +1522,7 @@ body[data-theme="neon"] .cms-handler-chip {
     margin-top: 2rem;
     margin-bottom: 0.85rem;
     line-height: 1.3;
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 0.5rem;
+    border-bottom: none;
     clear: both;
 }
 #cms-visual-editor h3 {
@@ -4281,8 +4279,8 @@ function blogPostCmsApp() {
                         let node = sel.anchorNode;
                         while (node && node !== visualEl) {
                             if (node.nodeName && node.nodeName.toLowerCase() === 'h' + level) {
-                                const style = level === 1 ? this.H1_STYLE : (level === 2 ? this.H2_STYLE : (level === 3 ? this.H3_STYLE : this.H4_STYLE));
-                                node.setAttribute('style', style);
+                                node.className = 'wp-block-heading';
+                                node.removeAttribute('style');
                                 break;
                             }
                             node = node.parentNode;
@@ -4337,32 +4335,15 @@ function blogPostCmsApp() {
             const first = this.extractFirstImage(art.contentRaw);
             if (first) {
                 art.featured_image_url = first;
-                this.deduplicateLeadingImage(art, first);
-                this.showToast('First image set as Featured Cover Image (duplicate removed from body)!');
+                this.showToast('First image set as Featured Cover Image!');
             } else {
                 alert('No image URL found in article content yet.');
             }
         },
 
         deduplicateLeadingImage(art, imgUrl) {
-            if (!art || !art.contentRaw || !imgUrl) return;
-            const file = imgUrl.split('/').pop().split('?')[0].toLowerCase();
-            if (file.length <= 3) return;
-            const leadImgRegex = new RegExp('^\\s*(?:#(?:[^\\n]+)\\n+)?(?:<(?:div|figure|p)[^>]*>\\s*)*(?:<img[^>]+src=["\']([^"\']+)["\'][^>]*>|!\\[[^\\]]*\\]\\((https?:\\/\\/[^\\s\\)]+)\\)|(https?:\\/\\/[^\\s<>]+\\.(?:webp|png|jpe?g|gif|avif)))(?:[\\s\\S]*?<\\/(?:figure|p|div)>)?(?:\\s*<figcaption[^>]*>.*?<\\/figcaption>)?', 'i');
-            const m = art.contentRaw.match(leadImgRegex);
-            if (m) {
-                const matchedSrc = m[1] || m[2] || m[3] || '';
-                const mFile = matchedSrc.split('/').pop().split('?')[0].toLowerCase();
-                if (mFile === file || matchedSrc.includes(file) || imgUrl.includes(mFile)) {
-                    const headingMatch = art.contentRaw.match(/^\s*(#[^\n]+\n+)/);
-                    const headingPrefix = headingMatch ? headingMatch[1] : '';
-                    art.contentRaw = headingPrefix + art.contentRaw.replace(leadImgRegex, '').trim();
-                    this.syncVisualCanvasForArticle(art, true);
-                    if (this.articles[0] && this.articles[0].uid === art.uid) {
-                        this.syncLegacyFieldsFromArticle0();
-                    }
-                }
-            }
+            // Keep first image in content body so all destination websites render it properly
+            return;
         },
 
         handleArticleCoverUpload(event, art) {
@@ -4659,14 +4640,16 @@ function blogPostCmsApp() {
                     if (!isUrl && !isImage && !isBullet && !isTableLine && line.length >= 4 && line.length <= 250) {
                         mainTitle = line.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/<[^>]+>/g, '').trim();
                         foundTitle = true;
+                        // Keep the title as markdown H1 so it's preserved in the article body
+                        cleanedLines.push('# ' + mainTitle);
                         continue;
                     }
                 }
 
-                // If this line matches the main title exactly, don't duplicate it at the top of the body
+                // If this line matches the main title exactly and title is already at the top, avoid duplicate
                 if (mainTitle) {
                     const cleanL = line.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').replace(/<[^>]+>/g, '').trim();
-                    if (cleanL === mainTitle && cleanedLines.filter(l => l.trim()).length === 0) {
+                    if (cleanL === mainTitle && cleanedLines.length > 0 && cleanedLines[0].includes(mainTitle)) {
                         continue;
                     }
                 }
@@ -4675,6 +4658,8 @@ function blogPostCmsApp() {
                 if (!foundCover && (line.startsWith('http://') || line.startsWith('https://')) && /\.(webp|png|jpe?g|avif|gif)/i.test(line)) {
                     detectedCover = line.trim();
                     foundCover = true;
+                    // Preserve the image URL in content body so all websites render it
+                    cleanedLines.push(rawLine);
                     continue;
                 }
 
@@ -4744,27 +4729,33 @@ function blogPostCmsApp() {
                 art.video_url = detectedVideo;
             }
 
-            // Assign Cleaned Content & Deduplicate First Image
+            // Assign Cleaned Content (ensure leading image and H1 are NEVER lost)
             let finalContent = cleanedLines.join('\n').trim();
 
             // Clear generic/numeric alts from markdown images (e.g. ![01](url) -> ![](url))
             finalContent = finalContent.replace(/!\[\s*(\d{1,4}|image\s*\d*|img[-_\s]*\d*|photo\s*\d*|picture\s*\d*|figure\s*\d*|fig\s*\d*|untitled.*|image)\s*\]\((https?:\/\/[^\s\)]+)\)/gi, '![]($2)');
             // Clear generic/numeric alts from HTML img tags
             finalContent = finalContent.replace(/<img([^>]+)alt=["']\s*(\d{1,4}|image\s*\d*|img[-_\s]*\d*|photo\s*\d*|picture\s*\d*|figure\s*\d*|fig\s*\d*|untitled.*|image)\s*["']([^>]*)>/gi, '<img$1alt=""$3>');
-            const coverToDedupe = art.featured_image_url || detectedCover;
-            if (coverToDedupe) {
-                const dFile = coverToDedupe.split('/').pop().split('?')[0].toLowerCase();
-                if (dFile.length > 3) {
-                    const leadImgRegex = new RegExp('^\\s*(?:#(?:[^\\n]+)\\n+)?(?:<(?:div|figure|p)[^>]*>\\s*)*(?:<img[^>]+src=["\']([^"\']+)["\'][^>]*>|!\\[[^\\]]*\\]\\((https?:\\/\\/[^\\s\\)]+)\\)|(https?:\\/\\/[^\\s<>]+\\.(?:webp|png|jpe?g|gif|avif)))(?:[\\s\\S]*?<\\/(?:figure|p|div)>)?(?:\\s*<figcaption[^>]*>.*?<\\/figcaption>)?', 'i');
-                    const m = finalContent.match(leadImgRegex);
-                    if (m) {
-                        const matchedSrc = m[1] || m[2] || m[3] || '';
-                        const mFile = matchedSrc.split('/').pop().split('?')[0].toLowerCase();
-                        if (mFile === dFile || matchedSrc.includes(dFile) || coverToDedupe.includes(mFile)) {
-                            const headingMatch = finalContent.match(/^\s*(#[^\n]+\n+)/);
-                            const headingPrefix = headingMatch ? headingMatch[1] : '';
-                            finalContent = headingPrefix + finalContent.replace(leadImgRegex, '').trim();
+
+            // Ensure H1 title is at the beginning of article body
+            if (mainTitle && !finalContent.startsWith('# ') && !/^<h1[\s>]/i.test(finalContent)) {
+                finalContent = `# ${mainTitle}\n\n` + finalContent;
+            }
+
+            // Ensure first / cover image is present in content body
+            const coverToKeep = art.featured_image_url || detectedCover;
+            if (coverToKeep) {
+                const cFile = coverToKeep.split('/').pop().split('?')[0];
+                if (cFile.length > 3 && !finalContent.includes(cFile)) {
+                    if (finalContent.startsWith('# ')) {
+                        const firstLineEnd = finalContent.indexOf('\n');
+                        if (firstLineEnd !== -1) {
+                            finalContent = finalContent.slice(0, firstLineEnd) + `\n\n${coverToKeep}\n` + finalContent.slice(firstLineEnd);
+                        } else {
+                            finalContent = finalContent + `\n\n${coverToKeep}\n`;
                         }
+                    } else {
+                        finalContent = `${coverToKeep}\n\n` + finalContent;
                     }
                 }
             }
@@ -5420,22 +5411,7 @@ function blogPostCmsApp() {
         },
 
         renderPreviewContentHtml(raw) {
-            let html = this.renderContentToHtml(raw || this.contentRaw || '');
-            if (this.featuredImageUrl && html) {
-                const fFile = this.featuredImageUrl.split('/').pop().split('?')[0].toLowerCase();
-                if (fFile.length > 3) {
-                    const leadImgRegex = new RegExp('^\\s*(?:<p>(?:&nbsp;|\\s|<br\\s*\\/?>)*<\\/p>\\s*)*(?:<div[^>]*>\\s*)*(?:<figure[^>]*>|<p[^>]*>|<div[^>]*>)?\\s*(?:<a[^>]*>\\s*)?<img[^>]+src=["\']([^"\']+)["\'][^>]*>(?:\\s*<\\/a>)?\\s*(?:<figcaption[^>]*>.*?<\\/figcaption>)?\\s*(?:<\\/figure>|<\\/p>|<\\/div>)?(?:\\s*<\\/div>)?', 'is');
-                    const m = html.match(leadImgRegex);
-                    if (m) {
-                        const matchedSrc = m[1] || '';
-                        const mFile = matchedSrc.split('/').pop().split('?')[0].toLowerCase();
-                        if (mFile === fFile || matchedSrc.includes(fFile) || this.featuredImageUrl.includes(mFile)) {
-                            html = html.replace(leadImgRegex, '').trim();
-                        }
-                    }
-                }
-            }
-            return html;
+            return this.renderContentToHtml(raw || this.contentRaw || '');
         },
 
         openAddMoreModal() {
@@ -6234,16 +6210,18 @@ function blogPostCmsApp() {
             return styled;
         },
 
-        H1_STYLE: 'font-size: 1.85rem; font-weight: 900; color: #0f172a; margin-top: 2.25rem; margin-bottom: 1rem; line-height: 1.25; border-bottom: 2px solid #cbd5e1; padding-bottom: 0.6rem; letter-spacing: -0.02em; clear: both; display: block;',
-        H2_STYLE: 'font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-top: 2rem; margin-bottom: 0.85rem; line-height: 1.3; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; letter-spacing: -0.015em; clear: both; display: block;',
-        H3_STYLE: 'font-size: 1.25rem; font-weight: 700; color: #1e293b; margin-top: 1.6rem; margin-bottom: 0.65rem; line-height: 1.35; letter-spacing: -0.01em; clear: both; display: block;',
-        H4_STYLE: 'font-size: 1.1rem; font-weight: 700; color: #334155; margin-top: 1.25rem; margin-bottom: 0.5rem; line-height: 1.4; clear: both; display: block;',
 
         isHeadingLine(line) {
-            const l = (line || '').trim();
+            let l = (line || '').trim();
             if (!l || l.length > 95 || l.length < 3) return false;
             if (l.startsWith('http://') || l.startsWith('https://') || l.startsWith('![')) return false;
-            if (l.startsWith('|') || l.startsWith('- ') || l.startsWith('* ') || l.startsWith('1. ') || l.startsWith('> ')) return false;
+            if (l.startsWith('|') || l.startsWith('- ') || l.startsWith('* ') || l.startsWith('> ')) return false;
+
+            // Strip trailing colon if any (e.g. "Key Safety Considerations:")
+            if (l.endsWith(':')) {
+                l = l.slice(0, -1).trim();
+            }
+
             if (l.endsWith('.') || l.endsWith(',') || l.endsWith(';')) return false;
 
             // Has markdown hashes: # ## ### ####
@@ -6252,14 +6230,22 @@ function blogPostCmsApp() {
             // Is wrapped in bold: **Title**
             if (/^\*\*([^*]+)\*\*$/.test(l)) return true;
 
+            // Numbered heading: e.g. "1. Inspection and Maintenance"
+            if (/^\d+[\.\)]\s+[A-Z0-9]/.test(l) && l.length <= 80) return true;
+
             // Common structural keywords
             if (/^(?:Executive Summary|Technical Spotlight|Powertrain|Summary Comparison|Key Differences?|Specifications?|Features?|Maintenance|Hydraulic System|Overview|Performance|Conclusion|FAQ|Safety Guide|Section \d+|Step \d+):?/i.test(l)) {
                 return true;
             }
 
-            // Title Case detection for headings without hashes
+            // Word-based heading detection (Title Case or short sentence case without ending punctuation)
             const words = l.split(/\s+/).filter(Boolean);
             if (words.length >= 1 && words.length <= 15) {
+                // Short standalone title line (e.g. 1 to 10 words, <= 80 chars, starts with capital/number)
+                if (/^[A-Z0-9]/.test(l) && words.length <= 10 && l.length <= 80) {
+                    return true;
+                }
+
                 const ignoreList = new Set(["of","in","vs","vs.","on","for","and","the","a","an","to","with","at","by","from","as"]);
                 let titleWords = 0;
                 let totalNonIgnore = 0;
@@ -6271,7 +6257,7 @@ function blogPostCmsApp() {
                         titleWords++;
                     }
                 }
-                if (totalNonIgnore > 0 && (titleWords / totalNonIgnore >= 0.65)) {
+                if (totalNonIgnore > 0 && (titleWords / totalNonIgnore >= 0.5)) {
                     return true;
                 }
             }
@@ -6285,7 +6271,7 @@ function blogPostCmsApp() {
             });
         },
 
-        ensureHtmlContentStyled(html) {
+        ensureHtmlContentStyled(html, titleOverride = null) {
             if (!html || !html.trim()) return '';
             let styled = html;
 
@@ -6293,77 +6279,90 @@ function blogPostCmsApp() {
             styled = this.ensureHtmlTablesStyled(styled);
 
             // 2. Promote standalone paragraph headings: <p><strong>Heading Title</strong></p>
-            styled = styled.replace(/<p(\s+[^>]*)?>\s*<(?:strong|b)>\s*(#{1,4}\s+)?([^<>\n]{3,95}?)\s*<\/(?:strong|b)>\s*<\/p>/gi, (match, pAttrs, hashes, titleText) => {
-                const clean = titleText.trim();
-                if (clean.endsWith('.') || clean.endsWith(',') || clean.endsWith(';') || clean.startsWith('http://') || clean.startsWith('https://')) {
+            styled = styled.replace(/<p(\s+[^>]*)?>\s*<(?:strong|b)(?:\s+[^>]*)?>\s*(?:<span(?:\s+[^>]*)?>\s*)?(#{1,4}\s+)?([^<>\n]{3,120}?)(?:\s*<\/span>)?\s*<\/(?:strong|b)>\s*<\/p>/gi, (match, pAttrs, hashes, titleText) => {
+                const clean = titleText.trim().replace(/^[:\s]+|[:\s]+$/g, '');
+                if (clean.startsWith('http://') || clean.startsWith('https://')) {
+                    return match;
+                }
+                if (/^(?:key takeaway|note|tip|warning|caution|important|best suited for|source|author|disclaimer)\b/i.test(clean)) {
                     return match;
                 }
                 let level = 2;
                 if (hashes) {
                     level = hashes.trim().length;
-                } else if (/^(?:fixed vs|mini excavator|key difference|pros and cons|vs\b)/i.test(clean) || clean.length < 35) {
+                } else if (/^(?:fixed vs|mini excavator|key difference|pros and cons|vs\b)/i.test(clean)) {
                     level = 3;
                 }
-                const style = level === 1 ? this.H1_STYLE : (level === 3 ? this.H3_STYLE : (level === 4 ? this.H4_STYLE : this.H2_STYLE));
-                const cls = level === 1 ? 'text-2xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2' : (level === 3 ? 'text-lg font-bold text-slate-900 dark:text-white mt-6 mb-3' : (level === 4 ? 'text-base font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2' : 'text-xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2'));
-                return `<h${level} class="${cls}" style="${style}">${clean}</h${level}>`;
+                return `<h${level} class="wp-block-heading"><strong>${clean}</strong></h${level}>`;
+            });
+
+            // 2b. Promote headings inside paragraph with line break: <p><strong>Heading Title</strong><br>Body text...</p>
+            styled = styled.replace(/<p(\s+[^>]*)?>\s*<(?:strong|b)(?:\s+[^>]*)?>\s*(?:<span(?:\s+[^>]*)?>\s*)?(#{1,4}\s+)?([^<>\n]{3,120}?)(?:\s*<\/span>)?\s*<\/(?:strong|b)>\s*(?:<br\s*\/?>|\n)+([\s\S]+?)<\/p>/gi, (match, pAttrs, hashes, titleText, rest) => {
+                const clean = titleText.trim().replace(/^[:\s]+|[:\s]+$/g, '');
+                if (clean.startsWith('http')) {
+                    return match;
+                }
+                if (/^(?:key takeaway|note|tip|warning|caution|important|best suited for|source|author|disclaimer)\b/i.test(clean)) {
+                    return match;
+                }
+                let level = hashes ? hashes.trim().length : 2;
+                return `<h${level} class="wp-block-heading"><strong>${clean}</strong></h${level}>\n<p style="text-align: justify;">${rest.trim()}</p>`;
             });
 
             // 3. Promote standalone paragraph headings with hashes: <p>## Heading</p>
-            styled = styled.replace(/<p(\s+[^>]*)?>\s*(#{1,4})\s+([^<>\n]{3,95}?)\s*<\/p>/gi, (match, pAttrs, hashes, titleText) => {
+            styled = styled.replace(/<p(\s+[^>]*)?>\s*(#{1,4})\s+([^<>\n]{3,120}?)\s*<\/p>/gi, (match, pAttrs, hashes, titleText) => {
                 const clean = titleText.trim();
                 const level = hashes.length;
-                const style = level === 1 ? this.H1_STYLE : (level === 3 ? this.H3_STYLE : (level === 4 ? this.H4_STYLE : this.H2_STYLE));
-                const cls = level === 1 ? 'text-2xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2' : (level === 3 ? 'text-lg font-bold text-slate-900 dark:text-white mt-6 mb-3' : (level === 4 ? 'text-base font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2' : 'text-xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2'));
-                return `<h${level} class="${cls}" style="${style}">${clean}</h${level}>`;
+                return `<h${level} class="wp-block-heading"><strong>${clean}</strong></h${level}>`;
             });
 
-            // 4. Style existing <h1-h4> tags that lack inline styles or border
-            styled = styled.replace(/<h1(\s+[^>]*)?>([\s\S]*?)<\/h1>/gi, (match, attrs, content) => {
-                attrs = attrs || '';
-                if (!attrs.includes('style=')) {
-                    return `<h1${attrs} style="${this.H1_STYLE}">${content}</h1>`;
-                } else if (!attrs.includes('border-bottom') || !attrs.includes('font-weight')) {
-                    return match.replace(/style="([^"]*)"/i, `style="$1; ${this.H1_STYLE}"`);
-                }
-                return match;
+            // 4. Ensure all <h1-h6> tags use clean native website UI
+            styled = styled.replace(/<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>/gi, (match, tag, attrs, content) => {
+                let cleanInner = content.trim().replace(/^<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>$/i, '$1').trim();
+                cleanInner = cleanInner.replace(/<\/?(?:span|font|b|strong)[^>]*>/gi, '').trim();
+                cleanInner = cleanInner.replace(/\s+/g, ' ');
+                return `<h${tag} class="wp-block-heading"><strong>${cleanInner}</strong></h${tag}>`;
             });
+            styled = styled.replace(/(<\/h[1-6]>\s*)<hr[^>]*>/gi, '$1');
 
-            styled = styled.replace(/<h2(\s+[^>]*)?>([\s\S]*?)<\/h2>/gi, (match, attrs, content) => {
-                attrs = attrs || '';
-                if (!attrs.includes('style=')) {
-                    return `<h2${attrs} style="${this.H2_STYLE}">${content}</h2>`;
-                } else if (!attrs.includes('border-bottom') || !attrs.includes('font-weight')) {
-                    return match.replace(/style="([^"]*)"/i, `style="$1; ${this.H2_STYLE}"`);
-                }
-                return match;
-            });
+            // 5. Ensure Main H1 Title is Present
+            const mainT = titleOverride || this.postTitle || (this.articles && this.articles[0] ? this.articles[0].title : '');
+            if (mainT && !/<h1[\s>]/i.test(styled)) {
+                styled = `<h1 class="cms-article-main-title wp-block-heading"><strong>${this.escapeHtml(mainT)}</strong></h1>\n` + styled;
+            }
 
-            styled = styled.replace(/<h3(\s+[^>]*)?>([\s\S]*?)<\/h3>/gi, (match, attrs, content) => {
-                attrs = attrs || '';
-                if (!attrs.includes('style=')) {
-                    return `<h3${attrs} style="${this.H3_STYLE}">${content}</h3>`;
-                } else if (!attrs.includes('font-size') || !attrs.includes('font-weight')) {
-                    return match.replace(/style="([^"]*)"/i, `style="$1; ${this.H3_STYLE}"`);
+            // 6. Clean paragraphs
+            styled = styled.replace(/<p(\s+[^>]*)?>/gi, (match, attrs) => {
+                let a = attrs || '';
+                a = a.replace(/\b(?:text-slate-[0-9]+|dark:text-[a-z0-9-]+|font-normal|text-\[[^\]]+\])\b/gi, '');
+                if (/style="([^"]*)"/i.test(a)) {
+                    a = a.replace(/style="([^"]*)"/i, (sm, s) => {
+                        s = s.replace(/\b(?:color|font-size|font-family)\s*:[^;"]+;?/gi, '');
+                        s = s.replace(/;{2,}/g, ';').replace(/\s*;\s*/g, '; ').trim();
+                        s = s.replace(/^[;\s]+|[;\s]+$/g, '');
+                        if (!s.includes('text-align')) {
+                            s = (s ? s + '; ' : '') + 'text-align: justify;';
+                        }
+                        return `style="${s}"`;
+                    });
+                } else {
+                    a += ' style="text-align: justify;"';
                 }
-                return match;
-            });
-
-            styled = styled.replace(/<h4(\s+[^>]*)?>([\s\S]*?)<\/h4>/gi, (match, attrs, content) => {
-                attrs = attrs || '';
-                if (!attrs.includes('style=')) {
-                    return `<h4${attrs} style="${this.H4_STYLE}">${content}</h4>`;
-                }
-                return match;
+                a = a.replace(/class="([^"]*)"/i, (cm, c) => {
+                    const cleanC = c.trim().replace(/\s+/g, ' ');
+                    return cleanC ? `class="${cleanC}"` : '';
+                });
+                a = a.trim();
+                return `<p${a ? ' ' + a : ''}>`;
             });
 
             return styled;
         },
 
-        renderContentToHtml(raw) {
+        renderContentToHtml(raw, titleOverride = null) {
             if (!raw || !raw.trim()) return '';
             if ((raw.includes('<p>') || raw.includes('<p ')) && raw.includes('</p>')) {
-                return this.ensureHtmlContentStyled(raw);
+                return this.ensureHtmlContentStyled(raw, titleOverride);
             }
 
             // Ensure any unformatted sequential or TSV tables are converted into pipe tables
@@ -6479,28 +6478,28 @@ function blogPostCmsApp() {
                 // 7. Section Headings: ####
                 if (b.startsWith('#### ')) {
                     const headingText = b.slice(5).replace(/^\*\*(.*)\*\*$/, '$1').trim();
-                    html += `<h4 class="text-base font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2" style="${this.H4_STYLE}">` + this.formatInlineMarkdown(headingText) + '</h4>';
+                    html += `<h4 class="wp-block-heading"><strong>` + this.formatInlineMarkdown(headingText) + '</strong></h4>';
                     return;
                 }
 
                 // Section Headings: ###
                 if (b.startsWith('### ')) {
                     const headingText = b.slice(4).replace(/^\*\*(.*)\*\*$/, '$1').trim();
-                    html += `<h3 class="text-lg font-bold text-slate-900 dark:text-white mt-6 mb-3" style="${this.H3_STYLE}">` + this.formatInlineMarkdown(headingText) + '</h3>';
+                    html += `<h3 class="wp-block-heading"><strong>` + this.formatInlineMarkdown(headingText) + '</strong></h3>';
                     return;
                 }
 
                 // Section Headings: ##
                 if (b.startsWith('## ')) {
                     const headingText = b.slice(3).replace(/^\*\*(.*)\*\*$/, '$1').trim();
-                    html += `<h2 class="text-xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2" style="${this.H2_STYLE}">` + this.formatInlineMarkdown(headingText) + '</h2>';
+                    html += `<h2 class="wp-block-heading"><strong>` + this.formatInlineMarkdown(headingText) + '</strong></h2>';
                     return;
                 }
 
                 // Section Headings: #
                 if (b.startsWith('# ')) {
                     const headingText = b.slice(2).replace(/^\*\*(.*)\*\*$/, '$1').trim();
-                    html += `<h1 class="text-2xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2" style="${this.H1_STYLE}">` + this.formatInlineMarkdown(headingText) + '</h1>';
+                    html += `<h1 class="wp-block-heading"><strong>` + this.formatInlineMarkdown(headingText) + '</strong></h1>';
                     return;
                 }
 
@@ -6508,30 +6507,32 @@ function blogPostCmsApp() {
                 const boldHeadingMatch = b.match(/^\*\*([^*]+)\*\*$/);
                 if (boldHeadingMatch && b.length < 95 && !b.endsWith('.') && !b.endsWith(',')) {
                     const cleanTitle = boldHeadingMatch[1].trim();
-                    const isSub = cleanTitle.length < 35 || /^(?:fixed vs|mini excavator|key differences|vs\b)/i.test(cleanTitle);
+                    const isSub = /^(?:fixed vs|mini excavator|key differences|vs\b)/i.test(cleanTitle);
                     const tag = isSub ? 'h3' : 'h2';
-                    const style = isSub ? this.H3_STYLE : this.H2_STYLE;
-                    const cls = isSub ? 'text-lg font-bold text-slate-900 dark:text-white mt-6 mb-3' : 'text-xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2';
-                    html += `<${tag} class="${cls}" style="${style}">` + this.formatInlineMarkdown(cleanTitle) + `</${tag}>`;
+                    html += `<${tag} class="wp-block-heading"><strong>` + this.formatInlineMarkdown(cleanTitle) + `</strong></${tag}>`;
                     return;
                 }
 
                 // Standalone heading lines without markdown hashes
                 if (!b.includes('\n') && b.length < 90 && !b.endsWith('.') && !b.endsWith(',') && !b.endsWith(';') && !b.startsWith('http') && !b.startsWith('![')) {
                     if (this.isHeadingLine(b)) {
-                        const isSub = b.length < 35 || /^(?:fixed vs|mini excavator|key differences|vs\b)/i.test(b);
+                        const isSub = /^(?:fixed vs|mini excavator|key differences|vs\b)/i.test(b);
                         const tag = isSub ? 'h3' : 'h2';
-                        const style = isSub ? this.H3_STYLE : this.H2_STYLE;
-                        const cls = isSub ? 'text-lg font-bold text-slate-900 dark:text-white mt-6 mb-3' : 'text-xl font-black text-slate-900 dark:text-white mt-8 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2';
-                        html += `<${tag} class="${cls}" style="${style}">` + this.formatInlineMarkdown(b) + `</${tag}>`;
+                        html += `<${tag} class="wp-block-heading"><strong>` + this.formatInlineMarkdown(b) + `</strong></${tag}>`;
                         return;
                     }
                 }
 
                 // Normal Paragraph
                 const paragraphContent = b.split('\n').map(line => this.formatInlineMarkdown(line.trim())).filter(Boolean).join('<br>');
-                html += '<p class="text-slate-800 dark:text-slate-100 mb-4 leading-relaxed font-normal text-[15px]" style="margin-bottom: 1.15rem; line-height: 1.75; font-size: 15px; color: #334155;">' + paragraphContent + '</p>';
+                html += '<p style="text-align: justify;">' + paragraphContent + '</p>';
             });
+
+            // Ensure Main H1 Title is Present
+            const mainT = titleOverride || this.postTitle || (this.articles && this.articles[0] ? this.articles[0].title : '');
+            if (mainT && !/<h1[\s>]/i.test(html)) {
+                html = `<h1 class="cms-article-main-title wp-block-heading"><strong>${this.escapeHtml(mainT)}</strong></h1>\n` + html;
+            }
 
             return html;
         },

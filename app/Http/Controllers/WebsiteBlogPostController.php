@@ -185,10 +185,7 @@ class WebsiteBlogPostController extends Controller
             }
         }
 
-        // Deduplicate leading image if featured image matches
-        if ($featuredImageUrl) {
-            $contentHtml = preg_replace('/<p[^>]*>\s*<img[^>]+src=["\']' . preg_quote($featuredImageUrl, '/') . '["\'][^>]*>\s*<\/p>/i', '', $contentHtml, 1);
-        }
+
 
         $post = new WebsitePost([
             'website_id'         => $website?->id,
@@ -274,9 +271,7 @@ class WebsiteBlogPostController extends Controller
             }
         }
 
-        if ($featuredImageUrl) {
-            $contentHtml = preg_replace('/<p[^>]*>\s*<img[^>]+src=["\']' . preg_quote($featuredImageUrl, '/') . '["\'][^>]*>\s*<\/p>/i', '', $contentHtml, 1);
-        }
+
 
         $token = Str::random(40);
         $expiresAt = now()->addMinutes(10);

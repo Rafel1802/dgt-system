@@ -77,6 +77,12 @@
         transform: translateY(-3px) translateZ(0);
         box-shadow: 0 16px 35px -10px rgba(79, 70, 229, 0.12), inset 0 1px 0 rgba(255,255,255,0.8);
     }
+    
+    @media (max-width: 768px) {
+        .bento-card, .bento-card-primary {
+            border-radius: 1.25rem !important;
+        }
+    }
 
     [data-theme="dark"] .bento-card {
         background: rgba(30, 41, 59, 0.92);
@@ -284,7 +290,7 @@
             </div>
 
             {{-- Stat Cards matching the user's uploaded images --}}
-            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 sm:gap-3 w-full md:w-auto">
                 {{-- Total Tasks Card --}}
                 <a href="{{ route('tasks.count') }}" class="bg-white dark:bg-slate-900/90 rounded-2xl px-5 py-3.5 flex items-center gap-4 shadow-sm border border-slate-200/80 dark:border-slate-700 hover:scale-[1.02] transition-transform min-w-[8.5rem]">
                     <div class="flex flex-col">

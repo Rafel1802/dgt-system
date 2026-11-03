@@ -527,6 +527,7 @@ window.trelloBoard = function(config) {
     previewOriginCardId: null,
     lastPreviewClosedAt: 0,
     khTimeZone: 'Asia/Phnom_Penh',
+    isSuperAdmin: Boolean(config?.isSuperAdmin || window.isSuperAdmin),
     realtimeBound: false,
     realtimeTimer: null,
     realtimePollTimer: null,
@@ -1252,7 +1253,8 @@ window.trelloBoard = function(config) {
     openCardTransferModal(mode, card, list) {
       const normalizedMode = mode === 'copy' ? 'copy' : 'move';
       const targetCard = card || this.activeCard;
-      if (this.isCardChecklistIncomplete(targetCard)) {
+      const planningMoveAllowed = normalizedMode === 'move' && this.isPlanningMoveExempt(null, null);
+      if (!planningMoveAllowed && this.isCardChecklistIncomplete(targetCard)) {
         this.showChecklistIncompleteModal(normalizedMode, targetCard);
         return;
       }
@@ -1535,7 +1537,8 @@ window.trelloBoard = function(config) {
       const sourceCard = sourceList?.cards?.find(c => c.id === cardId) || null;
       const targetCard = sourceCard || this.findCard(cardId) || this.activeCard;
 
-      if (this.isCardChecklistIncomplete(targetCard)) {
+      const planningMoveAllowed = mode === 'move' && this.isPlanningMoveExempt(targetBoard, targetList);
+      if (!planningMoveAllowed && this.isCardChecklistIncomplete(targetCard)) {
         this.closeCardTransferModal();
         this.showChecklistIncompleteModal(mode === 'copy' ? 'copy' : 'move', targetCard);
         return;
@@ -1657,8 +1660,8 @@ window.trelloBoard = function(config) {
       dp.cardId    = card.id;
       dp.useStart  = !!card.start_date;
       dp.useDue    = !!card.due_at;
-      dp.startDate = card.start_date  ? String(card.start_date).substring(0,10) : '';
-      dp.dueDate   = card.due_at      ? String(card.due_at).substring(0,10)     : '';
+      dp.startDate = card.start_date  ? this.formatInputDate(card.start_date) : '';
+      dp.dueDate   = card.due_at      ? this.formatInputDate(card.due_at)     : '';
       dp.dueTime   = card.due_time    ? String(card.due_time).substring(0,5)    : '';
       dp.reminder  = card.reminder    != null ? String(card.reminder)            : '';
       dp.recurring = card.recurring   || 'none';
@@ -2413,16 +2416,44 @@ window.trelloBoard = function(config) {
           }
         }
 
-        // Category filter (Video, Graphic, Listing, Content, SMM)
+        // Category filter (Video, Video No SMM, Graphic, Listing, Content, SMM, No SMM)
         if (this.filterCategory) {
-          const cat = this.filterCategory.toLowerCase();
-          const matchLabel = c.labels && c.labels.some(l => (l.name || '').toLowerCase().includes(cat));
-          const matchClass = (c.smm_class_label || '').toLowerCase().includes(cat);
-          const matchTeam = (c.smm_team_label || '').toLowerCase().includes(cat);
-          const matchCardLabel = (c.label || '').toLowerCase().includes(cat);
-          const matchSubLabel = (c.sub_label || '').toLowerCase().includes(cat);
-          const matchTitle = (c.title || '').toLowerCase().includes(cat);
-          if (!matchLabel && !matchClass && !matchTeam && !matchCardLabel && !matchSubLabel && !matchTitle) return false;
+          const cat = this.filterCategory.toLowerCase().trim();
+
+          const hasSmmLabel = Boolean(
+            (c.labels && c.labels.some(l => {
+              const ln = (l.name || '').toLowerCase().trim();
+              return ln === 'smm' || ln.includes('smm');
+            })) ||
+            (c.smm_class_label && c.smm_class_label.trim() !== '') ||
+            (c.smm_team_label && c.smm_team_label.trim() !== '') ||
+            (c.smm_cluster_label && c.smm_cluster_label.trim() !== '') ||
+            ((c.label || '').toLowerCase().includes('smm')) ||
+            ((c.sub_label || '').toLowerCase().includes('smm')) ||
+            (/\bSMM\b/i.test(c.title || ''))
+          );
+
+          if (cat === 'video no smm' || cat === 'video (no smm)' || cat === 'videonosmm') {
+            const matchVideo = Boolean(
+              (c.labels && c.labels.some(l => (l.name || '').toLowerCase().includes('video'))) ||
+              (c.smm_class_label || '').toLowerCase().includes('video') ||
+              (c.smm_team_label || '').toLowerCase().includes('video') ||
+              (c.label || '').toLowerCase().includes('video') ||
+              (c.sub_label || '').toLowerCase().includes('video') ||
+              (c.title || '').toLowerCase().includes('video')
+            );
+            if (!matchVideo || hasSmmLabel) return false;
+          } else if (cat === 'no smm' || cat === 'nosmm') {
+            if (hasSmmLabel) return false;
+          } else {
+            const matchLabel = c.labels && c.labels.some(l => (l.name || '').toLowerCase().includes(cat));
+            const matchClass = (c.smm_class_label || '').toLowerCase().includes(cat);
+            const matchTeam = (c.smm_team_label || '').toLowerCase().includes(cat);
+            const matchCardLabel = (c.label || '').toLowerCase().includes(cat);
+            const matchSubLabel = (c.sub_label || '').toLowerCase().includes(cat);
+            const matchTitle = (c.title || '').toLowerCase().includes(cat);
+            if (!matchLabel && !matchClass && !matchTeam && !matchCardLabel && !matchSubLabel && !matchTitle) return false;
+          }
         }
 
         // Search text (matches title, description, public date, due date, start date, assignees, labels)
@@ -3148,33 +3179,57 @@ window.trelloBoard = function(config) {
       if (!dateStr) return null;
 
       const rawDate = String(dateStr).trim();
-      const dateMatch = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      const timeMatch = String(dueTime || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-
-      if (dateMatch && timeMatch) {
-        const year = parseInt(dateMatch[1], 10);
-        const month = parseInt(dateMatch[2], 10);
-        const day = parseInt(dateMatch[3], 10);
-        const hour = parseInt(timeMatch[1], 10);
-        const minute = parseInt(timeMatch[2], 10);
-        const second = parseInt(timeMatch[3] || '0', 10);
-        return new Date(Date.UTC(year, month - 1, day, hour - 7, minute, second));
-      }
+      let year, month, day;
 
       if (rawDate.includes('T')) {
         const parsed = new Date(rawDate);
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
+        if (Number.isNaN(parsed.getTime())) return null;
+
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: this.khTimeZone || 'Asia/Phnom_Penh',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          second: 'numeric',
+          hour12: false
+        });
+        const parts = Object.fromEntries(formatter.formatToParts(parsed).map(p => [p.type, p.value]));
+        year = parseInt(parts.year, 10);
+        month = parseInt(parts.month, 10);
+        day = parseInt(parts.day, 10);
+
+        if (!dueTime) {
+          let hour = parseInt(parts.hour, 10) || 0;
+          if (hour === 24) hour = 0;
+          const minute = parseInt(parts.minute, 10) || 0;
+          const second = parseInt(parts.second, 10) || 0;
+          return new Date(Date.UTC(year, month - 1, day, hour - 7, minute, second));
+        }
+      } else {
+        const dateMatch = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (dateMatch) {
+          year = parseInt(dateMatch[1], 10);
+          month = parseInt(dateMatch[2], 10);
+          day = parseInt(dateMatch[3], 10);
+        } else {
+          const parsed = new Date(rawDate);
+          return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
       }
 
-      if (dateMatch) {
-        const year = parseInt(dateMatch[1], 10);
-        const month = parseInt(dateMatch[2], 10);
-        const day = parseInt(dateMatch[3], 10);
-        return new Date(Date.UTC(year, month - 1, day, -7, 0, 0));
+      const timeMatch = String(dueTime || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+      let hour = 0;
+      let minute = 0;
+      let second = 0;
+      if (timeMatch) {
+        hour = parseInt(timeMatch[1], 10);
+        minute = parseInt(timeMatch[2], 10);
+        second = parseInt(timeMatch[3] || '0', 10);
       }
 
-      const parsed = new Date(rawDate);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
+      return new Date(Date.UTC(year, month - 1, day, hour - 7, minute, second));
     },
 
     formatDateShort(dateStr) {
@@ -3184,28 +3239,25 @@ window.trelloBoard = function(config) {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
-        timeZone: this.khTimeZone,
+        timeZone: this.khTimeZone || 'Asia/Phnom_Penh',
       });
     },
 
     formatInputDate(dateStr) {
+      if (!dateStr) return '';
+      const raw = String(dateStr).trim();
+      const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (m && !raw.includes('T')) return m[1];
+
       const d = this.parseCardDate(dateStr);
       if (!d) return '';
-      const formatter = new Intl.DateTimeFormat('en-US', {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-        timeZone: this.khTimeZone
+        timeZone: this.khTimeZone || 'Asia/Phnom_Penh'
       });
-      const parts = formatter.formatToParts(d);
-      const year = parts.find(p => p.type === 'year')?.value;
-      const month = parts.find(p => p.type === 'month')?.value;
-      const day = parts.find(p => p.type === 'day')?.value;
-      if (year && month && day) {
-        return `${year}-${month}-${day}`;
-      }
-      // Fallback
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return formatter.format(d);
     },
 
     formatDueBadge(dateStr, dueTime = '', status = '') {
@@ -3216,7 +3268,7 @@ window.trelloBoard = function(config) {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
-        timeZone: this.khTimeZone,
+        timeZone: this.khTimeZone || 'Asia/Phnom_Penh',
       });
 
       const rawDate = String(dateStr || '').trim();
@@ -3232,7 +3284,7 @@ window.trelloBoard = function(config) {
           hour: '2-digit',
           minute: '2-digit',
           hour12: true,
-          timeZone: this.khTimeZone,
+          timeZone: this.khTimeZone || 'Asia/Phnom_Penh',
         }).toLowerCase();
       }
 
@@ -5182,6 +5234,20 @@ window.trelloBoard = function(config) {
     isCardChecklistIncomplete(card = this.activeCard) {
       const progress = this.getCardChecklistProgress(card);
       return Boolean(progress && progress.hasChecklist && progress.isIncomplete);
+    },
+
+    // Moving a card between Planning boards / week lists is allowed even with an incomplete checklist
+    // (workflow stages such as Draft/QC/Approved/Block still require 100%).
+    isPlanningMoveExempt(targetBoard, targetList) {
+      const isPlanningName = (b) => {
+        const n = String(b?.name || '').toLowerCase();
+        return (n.includes('planning') || b?.type === 'smm') && !n.includes('workflow') && b?.type !== 'workflow';
+      };
+      const currentBoard = this.board || null;
+      if (!isPlanningName(currentBoard) || !isPlanningName(targetBoard || currentBoard)) return false;
+      const t = String(targetList?.name || '').toLowerCase();
+      return !['approved', 'draft', 'qc', 'supervisor', 'head', 'block', 'waiting', 'final captions', 'digital department', 'production']
+        .some(stage => t.includes(stage));
     },
 
     showChecklistIncompleteModal(action = 'proceed', card = this.activeCard) {
@@ -7466,8 +7532,7 @@ window.trelloBoard = function(config) {
       this.api(`/boards/cards/${this.activeCard.id}/comments/${commentId}`, 'DELETE')
         .then(res => {
           if (res.success || res.message) {
-            window.showToast('Comment deleted.');
-            this.refreshCardActivities();
+            // Deleted silently without extra notification alert
           } else {
             this.activeCard.comments = originalComments;
             this.lists.forEach(l => {
@@ -7484,6 +7549,26 @@ window.trelloBoard = function(config) {
           });
           window.showToast?.('Network error', 'error');
         });
+    },
+
+    async deleteActivity(activityId) {
+      if (!activityId || !this.activeCard) return;
+      if (!await window.confirmModal("Remove this activity log permanently?")) return;
+
+      const rawId = String(activityId).replace(/^act_/, '');
+      const originalActivities = [...(this.cardActivities || [])];
+      this.cardActivities = (this.cardActivities || []).filter(a => String(a.id) !== String(rawId));
+
+      try {
+        const res = await this.api(`/boards/cards/${this.activeCard.id}/activities/${rawId}`, 'DELETE');
+        if (!res || (!res.success && !res.message)) {
+          this.cardActivities = originalActivities;
+          window.showToast?.('Failed to delete activity', 'error');
+        }
+      } catch (e) {
+        this.cardActivities = originalActivities;
+        window.showToast?.('Failed to delete activity', 'error');
+      }
     },
 
     insertMarkdown(tag) {
