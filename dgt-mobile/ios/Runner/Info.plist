@@ -42,14 +42,24 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
-	<!-- Camera & Photo Library permissions needed for file uploads -->
+	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>KIUQ SYSTEM needs camera access to upload photos.</string>
+	<string>KIUQ SYSTEM needs camera access when you capture photos or videos to upload to boards, chat, or profile settings.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>KIUQ SYSTEM needs access to your photos to upload files.</string>
+	<string>KIUQ SYSTEM needs photo library access when you select images or videos to attach and upload.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>KIUQ SYSTEM needs permission to save downloaded images and attachments to your photo library.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>KIUQ SYSTEM needs microphone access for video uploads.</string>
+	<string>KIUQ SYSTEM needs microphone access when recording audio or video attachments.</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

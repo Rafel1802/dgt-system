@@ -2342,7 +2342,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
 
-                    <div class="relative notif-bell-wrapper" x-data="notificationSystem()" x-init="initNotifications()" @kiuq:realtime-notification.window="open = false">
+                    <div class="relative notif-bell-wrapper" x-data="notificationSystem()" x-init="initNotifications()" @dgt:mute-changed.window="notificationsMuted = Boolean($event.detail && $event.detail.muted)">
                         <button class="btn btn-secondary btn-icon notif-bell-btn relative hover:!bg-blue-600 hover:!text-white hover:!border-blue-600 transition-all duration-75"
                                 @click="toggleOpen()"
                                 aria-label="Open notifications"
@@ -3678,7 +3678,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </div>
 
     {{-- Global Toast Container --}}
-    <div id="toast-container" class="fixed top-5 right-5 z-[9999] space-y-3 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-sm"></div>
+    <div id="toast-container"
+         class="fixed right-3 sm:right-5 z-[9999] space-y-3 pointer-events-none max-w-[calc(100vw-1.5rem)] sm:max-w-sm"
+         style="top: max(1.25rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.625rem));"></div>
 
     <script>
     window.dgtInitialsAvatar = function(name = 'User', color = '#4f46e5') {
@@ -4034,6 +4036,44 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }
     });
 
+    window.dgtClearAllNotificationPopups = function() {
+        const audio = document.getElementById('notif-sound');
+        if (audio) {
+            try {
+                audio.pause();
+                audio.currentTime = 0;
+            } catch (e) {}
+        }
+        const container = document.getElementById('toast-container');
+        if (container) {
+            container.querySelectorAll('.dgt-notification-toast, .dgt-chat-toast').forEach((node) => {
+                if (node.dataset.systemFeedback === '1') return;
+                node.classList.add('translate-x-8', 'opacity-0');
+                setTimeout(() => node.remove(), 180);
+            });
+        }
+        if (typeof window.closeLunchAlarm === 'function') {
+            try { window.closeLunchAlarm(); } catch (e) {}
+        }
+        if (typeof window.__dgtClosePopupAd === 'function') {
+            try { window.__dgtClosePopupAd(); } catch (e) {}
+        }
+    };
+
+    window.dgtSetNotificationsMuted = function(muted, showFeedback = true) {
+        const nextMuted = Boolean(muted);
+        try {
+            localStorage.setItem('dgt_notifications_muted', nextMuted ? 'true' : 'false');
+        } catch (e) {}
+        if (nextMuted) {
+            window.dgtClearAllNotificationPopups();
+        }
+        window.dispatchEvent(new CustomEvent('dgt:mute-changed', { detail: { muted: nextMuted } }));
+        if (showFeedback && typeof window.showToast === 'function') {
+            window.showToast(nextMuted ? 'In-app popups & sounds muted' : 'In-app popups enabled', 'success');
+        }
+    };
+
     window.playNotificationSound = function() {
         if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
         const audio = document.getElementById('notif-sound');
@@ -4050,6 +4090,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         if (!container) return;
 
         const toast = document.createElement('div');
+        toast.dataset.systemFeedback = '1';
         toast.className = `dgt-notification-toast flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold text-white pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-75 border border-white/10 backdrop-blur-xl ${
             type === 'success' ? 'bg-slate-950/90' : type === 'error' ? 'bg-rose-950/90' : 'bg-slate-900/90'
         }`;
@@ -4109,14 +4150,17 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                    <p class="toast-actor truncate text-sm font-black text-slate-900">${window.dgtEscapeHtml(actorName)}</p>
+                    <p class="toast-actor truncate text-sm font-black text-slate-900 dark:text-slate-100">${window.dgtEscapeHtml(actorName)}</p>
                     <span class="toast-time ml-auto text-[10px] font-bold text-slate-500">${window.dgtEscapeHtml(time)}</span>
                 </div>
-                <p class="toast-body mt-2 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(actionRaw)}">${window.dgtEscapeHtml(actionText)}</p>
-                ${subject && !data.card_title ? `<span class="toast-badge mt-2 inline-flex max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700">${window.dgtEscapeHtml(subject)}</span>` : cardTitleMarkup}
+                <p class="toast-body mt-2 text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 line-clamp-2" title="${window.dgtEscapeHtml(actionRaw)}">${window.dgtEscapeHtml(actionText)}</p>
+                <div class="mt-2 flex items-center justify-between gap-2 flex-wrap">
+                    ${subject && !data.card_title ? `<span class="toast-badge inline-flex max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-black text-slate-700">${window.dgtEscapeHtml(subject)}</span>` : cardTitleMarkup}
+                    <button type="button" class="toast-mute-btn ml-auto inline-flex items-center gap-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors" title="Mute all popups">Mute</button>
+                </div>
             </div>
-            <button class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all" aria-label="Close">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            <button type="button" class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-all touch-manipulation" aria-label="Close">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         `;
         
@@ -4125,13 +4169,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             closeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 toast.classList.add('translate-x-8', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
+                setTimeout(() => toast.remove(), 250);
+            });
+        }
+        const muteBtn = toast.querySelector('.toast-mute-btn');
+        if (muteBtn) {
+            muteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.dgtSetNotificationsMuted?.(true);
             });
         }
         
         if (data.link) {
             toast.addEventListener('click', (e) => {
-                if (!e.target.closest('.toast-close-btn')) {
+                if (!e.target.closest('.toast-close-btn') && !e.target.closest('.toast-mute-btn')) {
                     const targetUrl = new URL(data.link, window.location.origin);
                     if (data.card_id && window.location.pathname === targetUrl.pathname) {
                         window.dispatchEvent(new CustomEvent('kiuq:open-card', { detail: { cardId: data.card_id } }));
@@ -4225,13 +4276,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                    <p class="toast-actor truncate text-sm font-black text-slate-900">${window.dgtEscapeHtml(actorName)}</p>
+                    <p class="toast-actor truncate text-sm font-black text-slate-900 dark:text-slate-100">${window.dgtEscapeHtml(actorName)}</p>
                     <span class="toast-time ml-auto text-[10px] font-bold text-slate-500">now</span>
                 </div>
-                <p class="toast-body mt-1.5 text-sm font-semibold leading-snug text-slate-600 line-clamp-2" title="${window.dgtEscapeHtml(data.message || 'New update')}">${window.dgtEscapeHtml(shortMessage)}</p>
+                <p class="toast-body mt-1.5 text-sm font-semibold leading-snug text-slate-600 dark:text-slate-300 line-clamp-2" title="${window.dgtEscapeHtml(data.message || 'New update')}">${window.dgtEscapeHtml(shortMessage)}</p>
+                <div class="mt-2 flex items-center justify-end">
+                    <button type="button" class="toast-mute-btn inline-flex items-center gap-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors" title="Mute all popups">Mute</button>
+                </div>
             </div>
-            <button class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all" aria-label="Close">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            <button type="button" class="toast-close-btn flex-shrink-0 ml-1 -mt-1 -mr-1 w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-all touch-manipulation" aria-label="Close">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         `;
 
@@ -4240,13 +4294,20 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             closeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 card.classList.add('translate-x-8', 'opacity-0');
-                setTimeout(() => card.remove(), 300);
+                setTimeout(() => card.remove(), 250);
+            });
+        }
+        const muteBtn = card.querySelector('.toast-mute-btn');
+        if (muteBtn) {
+            muteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.dgtSetNotificationsMuted?.(true);
             });
         }
 
         if (data.link) {
             card.addEventListener('click', (e) => {
-                if (!e.target.closest('.toast-close-btn')) {
+                if (!e.target.closest('.toast-close-btn') && !e.target.closest('.toast-mute-btn')) {
                     window.location.href = data.link;
                 }
             });
@@ -4259,10 +4320,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             window.playNotificationSound?.();
         }, 50);
 
-        // Deliberately no auto-dismiss timer — stays until the user closes it.
+        setTimeout(() => {
+            if (card.isConnected) {
+                card.classList.add('translate-x-8', 'opacity-0');
+                setTimeout(() => card.remove(), 250);
+            }
+        }, 8000);
     };
 
     window.sendBrowserNotification = function(title, body, iconUrl = null, linkUrl = null, cardId = null) {
+        if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
         if (!("Notification" in window)) return;
         const audioSrc = document.getElementById('notif-sound')?.src;
         
@@ -4325,13 +4392,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <span class="text-[10px] text-slate-400 font-medium ml-auto">now</span>
                 </div>
                 <p class="mt-1 text-xs text-slate-300 leading-snug line-clamp-2 font-normal">${window.dgtEscapeHtml ? window.dgtEscapeHtml(preview) : preview}</p>
-                <div class="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300">
-                    <span>Reply now</span>
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+                <div class="mt-2 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300">
+                        <span>Reply now</span>
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+                    </div>
+                    <button type="button" class="toast-mute-btn inline-flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 px-2.5 py-0.5 text-[10px] font-bold text-slate-300 hover:text-white transition-colors" title="Mute popups">Mute</button>
                 </div>
             </div>
-            <button class="toast-close-btn shrink-0 -mt-1 -mr-1 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" aria-label="Close">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            <button type="button" class="toast-close-btn shrink-0 -mt-1 -mr-1 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/15 transition-colors touch-manipulation" aria-label="Close">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
             </button>
         `;
 
@@ -4343,9 +4413,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 setTimeout(() => toast.remove(), 250);
             });
         }
+        const muteBtn = toast.querySelector('.toast-mute-btn');
+        if (muteBtn) {
+            muteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.dgtSetNotificationsMuted?.(true);
+            });
+        }
 
         toast.addEventListener('click', (e) => {
-            if (!e.target.closest('.toast-close-btn')) {
+            if (!e.target.closest('.toast-close-btn') && !e.target.closest('.toast-mute-btn')) {
                 toast.classList.add('translate-x-8', 'opacity-0');
                 setTimeout(() => toast.remove(), 250);
                 window.location.href = link;
@@ -4368,6 +4445,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
     // Out-of-system (Device / Desktop) Chat Notification
     window.sendBrowserChatNotification = function(data) {
+        if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
         const senderName = data.sender_name || 'DGT Chat';
         const preview = data.message || 'Sent a message';
         const rawAvatar = data.sender_avatar || '';
@@ -4720,8 +4798,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             toggleMute() {
                 this.notificationsMuted = !this.notificationsMuted;
-                localStorage.setItem('dgt_notifications_muted', this.notificationsMuted);
-                window.showToast(this.notificationsMuted ? "In-app popups muted" : "In-app popups enabled");
+                if (typeof window.dgtSetNotificationsMuted === 'function') {
+                    window.dgtSetNotificationsMuted(this.notificationsMuted, true);
+                } else {
+                    localStorage.setItem('dgt_notifications_muted', this.notificationsMuted);
+                    window.showToast(this.notificationsMuted ? "In-app popups muted" : "In-app popups enabled");
+                }
             },
 
             async fetchData(isInitialLoad = false) {
@@ -5229,44 +5311,67 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     </div>
 
     <!-- Popup Ads Manager -->
-    <div x-data="popupAdManager" x-init="init()" class="relative z-[999999]">
+    <div x-data="popupAdManager"
+         x-init="init()"
+         @keydown.window.escape="if (showModal) closeModal(true)"
+         @dgt:mute-changed.window="if ($event.detail && $event.detail.muted) closeModal(true)"
+         class="relative z-[999999]">
         <!-- Modal -->
         <div x-show="showModal" 
              x-transition.opacity.duration.300ms
-             class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-[999999]"
-             style="display: none;">
+             class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center px-4 overflow-y-auto z-[999999]"
+             style="display: none; padding-top: max(1rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.75rem)); padding-bottom: max(1rem, calc(var(--dgt-safe-bottom, env(safe-area-inset-bottom, 0px)) + 0.75rem));">
             <div x-show="showModal"
-                 @click.outside="closeModal()"
+                 @click.outside="closeModal(true)"
                  x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 scale-95 translate-y-8"
                  x-transition:enter-end="opacity-100 scale-100 translate-y-0"
                  x-transition:leave="transition ease-in duration-200"
                  x-transition:leave-start="opacity-100 scale-100 translate-y-0"
                  x-transition:leave-end="opacity-0 scale-95 translate-y-8"
-                 class="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden w-full max-w-2xl relative border border-slate-200 dark:border-slate-800 flex flex-col">
+                 class="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-y-auto max-h-[85dvh] w-full max-w-2xl relative border border-slate-200 dark:border-slate-800 flex flex-col">
                 
-                <button @click="closeModal()" class="absolute top-4 right-4 p-2 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-colors z-20 shadow-sm">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+                <div class="sticky top-0 right-0 z-30 flex items-center justify-end gap-2 p-3 pointer-events-none">
+                    <button type="button"
+                            @click.stop="mutePopups()"
+                            class="pointer-events-auto inline-flex items-center gap-1 px-3 h-9 bg-black/55 hover:bg-black/80 backdrop-blur-md rounded-full text-white text-xs font-bold transition-colors shadow-sm touch-manipulation cursor-pointer">
+                        <span>Mute</span>
+                    </button>
+                    <button type="button"
+                            @click.stop="closeModal(true)"
+                            aria-label="Close popup"
+                            class="pointer-events-auto w-10 h-10 flex items-center justify-center bg-black/55 hover:bg-black/80 backdrop-blur-md rounded-full text-white transition-colors shadow-sm touch-manipulation cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
 
                 <template x-if="ad?.image_url">
-                    <div class="w-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center overflow-hidden">
-                        <img :src="ad.image_url" class="w-full h-auto object-contain max-h-[65vh]">
+                    <div class="-mt-16 w-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center overflow-hidden">
+                        <img :src="ad.image_url" class="w-full h-auto object-contain max-h-[48vh]">
                     </div>
                 </template>
 
-                <div class="p-8 sm:p-10 text-center flex-1 bg-white dark:bg-slate-900 flex flex-col items-center justify-center relative">
+                <div class="p-6 sm:p-10 text-center flex-1 bg-white dark:bg-slate-900 flex flex-col items-center justify-center relative">
                     <div class="absolute inset-0 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-[2rem] -z-10 blur-3xl"></div>
                     
-                    <h3 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-tight" x-text="ad?.title"></h3>
+                    <h3 class="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white mb-3 sm:mb-4 tracking-tight leading-tight" x-text="ad?.title"></h3>
                     <template x-if="ad?.body_text">
-                        <p class="text-slate-500 dark:text-slate-400 text-lg mb-8 max-w-xl mx-auto leading-relaxed" x-text="ad.body_text"></p>
+                        <p class="text-slate-500 dark:text-slate-400 text-base sm:text-lg mb-6 sm:mb-8 max-w-xl mx-auto leading-relaxed" x-text="ad.body_text"></p>
                     </template>
                     
-                    <button @click="clickAd()" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base font-bold text-white transition-all bg-indigo-600 rounded-xl hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800 shadow-xl shadow-indigo-200 dark:shadow-none hover:-translate-y-1 w-full max-w-sm">
-                        <span x-text="ad?.button_text || 'Click Here'"></span>
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
-                    </button>
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md">
+                        <template x-if="ad?.button_link">
+                            <button type="button" @click="clickAd()" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm sm:text-base font-bold text-white transition-all bg-indigo-600 rounded-xl hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-800 shadow-xl shadow-indigo-200 dark:shadow-none w-full">
+                                <span x-text="ad?.button_text || 'Open'"></span>
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                            </button>
+                        </template>
+                        <button type="button"
+                                @click="closeModal(true)"
+                                class="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm sm:text-base font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-all w-full">
+                            <span>Close</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -5284,17 +5389,29 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     // Only check if user is logged in
                     if (!document.querySelector('meta[name="csrf-token"]')) return;
 
-                    // Clean up any existing timer from previous SPA visit
+                    window.__dgtClosePopupAd = () => this.closeModal(true);
+
+                    // Clean up any existing singleton timer from previous SPA visit
+                    if (window.__dgtPopupAdTimer) {
+                        clearTimeout(window.__dgtPopupAdTimer);
+                        window.__dgtPopupAdTimer = null;
+                    }
                     if (this.checkInterval) {
                         clearTimeout(this.checkInterval);
                         this.checkInterval = null;
                     }
 
+                    if (localStorage.getItem('dgt_notifications_muted') === 'true') {
+                        return;
+                    }
+
                     // Quick client-side check against localStorage before hitting API
                     const lastActiveId = localStorage.getItem('dgt_popup_ad_last_active_id');
                     if (lastActiveId) {
-                        // If user has already clicked this ad, never show it again
-                        if (localStorage.getItem('dgt_popup_ad_clicked_' + lastActiveId) === 'true') {
+                        if (
+                            localStorage.getItem('dgt_popup_ad_clicked_' + lastActiveId) === 'true' ||
+                            localStorage.getItem('dgt_popup_ad_dismissed_' + lastActiveId) === 'true'
+                        ) {
                             return;
                         }
 
@@ -5303,7 +5420,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         const elapsedMs = Date.now() - lastShown;
                         const intervalMs = intervalMins * 60 * 1000;
 
-                        // If interval has not passed yet, set timer for remaining time and avoid popping up prematurely
                         if (lastShown > 0 && elapsedMs < intervalMs) {
                             const remainingMs = intervalMs - elapsedMs;
                             this.startTimerMs(remainingMs);
@@ -5315,6 +5431,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 },
                 
                 async checkAd() {
+                    if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
                     try {
                         const response = await fetch('/api/popup-ads/check', {
                             headers: {
@@ -5329,12 +5446,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             const adId = ad.id;
                             localStorage.setItem('dgt_popup_ad_last_active_id', adId.toString());
 
-                            // If user clicked it in localStorage, do not show
-                            if (localStorage.getItem('dgt_popup_ad_clicked_' + adId) === 'true') {
+                            if (
+                                localStorage.getItem('dgt_popup_ad_clicked_' + adId) === 'true' ||
+                                localStorage.getItem('dgt_popup_ad_dismissed_' + adId) === 'true'
+                            ) {
                                 return;
                             }
 
-                            // Check localStorage interval to prevent 5s re-popups on SPA navigation
                             const lastShown = parseInt(localStorage.getItem('dgt_popup_ad_last_shown_' + adId) || '0', 10);
                             const intervalMins = Math.max(1, parseInt(ad.interval_minutes, 10) || 5);
                             localStorage.setItem('dgt_popup_ad_interval_' + adId, intervalMins.toString());
@@ -5349,7 +5467,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                             this.showAd(ad);
                         } else {
-                            // No ad available right now. Check again in 5 mins
                             this.startTimer(5);
                         }
                     } catch (error) {
@@ -5359,29 +5476,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 },
                 
                 showAd(ad) {
+                    if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
                     this.ad = ad;
                     const adId = ad.id;
                     const intervalMins = Math.max(1, parseInt(ad.interval_minutes, 10) || 5);
 
-                    // Record last shown timestamp in localStorage
                     localStorage.setItem('dgt_popup_ad_last_shown_' + adId, Date.now().toString());
                     localStorage.setItem('dgt_popup_ad_interval_' + adId, intervalMins.toString());
 
                     this.showModal = true;
                     
-                    // Show notification toast if it has text
-                    if (ad.notification_text && window.Notyf) {
-                        const notyf = new Notyf({
-                            duration: 5000,
-                            position: { x: 'right', y: 'top' },
-                        });
-                        notyf.success({
-                            message: `<b>${ad.notification_icon || '🔔'} ${ad.notification_text}</b>`,
-                            background: '#4f46e5'
-                        });
-                    }
-                    
-                    // Mark as shown in DB
                     const token = document.querySelector('meta[name="csrf-token"]')?.content;
                     fetch('/api/popup-ads/mark-shown', {
                         method: 'POST',
@@ -5395,14 +5499,46 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     }).catch(err => console.error('Error marking ad shown:', err));
                 },
                 
-                closeModal() {
-                    this.showModal = false;
-                    const intervalMins = this.ad ? (Math.max(1, parseInt(this.ad.interval_minutes, 10) || 5)) : 5;
-                    if (this.ad) {
-                        localStorage.setItem('dgt_popup_ad_last_shown_' + this.ad.id, Date.now().toString());
+                mutePopups() {
+                    if (typeof window.dgtSetNotificationsMuted === 'function') {
+                        window.dgtSetNotificationsMuted(true, true);
+                    } else {
+                        localStorage.setItem('dgt_notifications_muted', 'true');
                     }
-                    // Start timer to check again based on interval
-                    this.startTimer(intervalMins);
+                    this.closeModal(true);
+                },
+
+                closeModal(dismissForever = true) {
+                    const currentAd = this.ad;
+                    this.showModal = false;
+                    if (this.checkInterval) {
+                        clearTimeout(this.checkInterval);
+                        this.checkInterval = null;
+                    }
+                    if (window.__dgtPopupAdTimer) {
+                        clearTimeout(window.__dgtPopupAdTimer);
+                        window.__dgtPopupAdTimer = null;
+                    }
+                    if (currentAd) {
+                        const adId = currentAd.id;
+                        localStorage.setItem('dgt_popup_ad_last_shown_' + adId, Date.now().toString());
+                        if (dismissForever) {
+                            localStorage.setItem('dgt_popup_ad_dismissed_' + adId, 'true');
+                            localStorage.setItem('dgt_popup_ad_clicked_' + adId, 'true');
+                            const token = document.querySelector('meta[name="csrf-token"]')?.content;
+                            fetch('/api/popup-ads/mark-clicked', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': token,
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: JSON.stringify({ ad_id: adId })
+                            }).catch(() => {});
+                        }
+                    }
+                    this.ad = null;
                 },
                 
                 clickAd() {
@@ -5410,22 +5546,23 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     const adId = this.ad.id;
                     const link = this.ad.button_link;
 
-                    // 1. Permanently record clicked state in localStorage so it NEVER shows again in this browser
                     localStorage.setItem('dgt_popup_ad_clicked_' + adId, 'true');
+                    localStorage.setItem('dgt_popup_ad_dismissed_' + adId, 'true');
 
-                    // 2. Hide modal and clear interval immediately
                     this.showModal = false;
                     if (this.checkInterval) {
                         clearTimeout(this.checkInterval);
                         this.checkInterval = null;
                     }
+                    if (window.__dgtPopupAdTimer) {
+                        clearTimeout(window.__dgtPopupAdTimer);
+                        window.__dgtPopupAdTimer = null;
+                    }
 
-                    // 3. Open link synchronously in click handler to prevent browser popup blockers
                     if (link) {
                         window.open(link, '_blank', 'noopener,noreferrer');
                     }
 
-                    // 4. Mark as clicked in DB
                     const token = document.querySelector('meta[name="csrf-token"]')?.content;
                     fetch('/api/popup-ads/mark-clicked', {
                         method: 'POST',
@@ -5443,9 +5580,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 
                 startTimerMs(ms) {
                     if (this.checkInterval) clearTimeout(this.checkInterval);
+                    if (window.__dgtPopupAdTimer) clearTimeout(window.__dgtPopupAdTimer);
                     this.checkInterval = setTimeout(() => {
                         this.checkAd();
                     }, Math.max(1000, ms));
+                    window.__dgtPopupAdTimer = this.checkInterval;
                 },
 
                 startTimer(minutes) {

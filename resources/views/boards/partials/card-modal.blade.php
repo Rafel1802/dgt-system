@@ -154,20 +154,24 @@
        @click.self="closeCard()">
 
   <div class="trello-card-modal bg-white dark:bg-slate-900 rounded-none sm:rounded-2xl shadow-2xl w-full max-w-4xl min-h-full sm:min-h-0 sm:mb-8 overflow-hidden border-0 sm:border border-slate-100 dark:border-slate-800 flex flex-col"
+       style="padding-bottom: max(0px, var(--dgt-safe-bottom, env(safe-area-inset-bottom, 0px)));"
        x-show="activeCard"
        x-transition:enter="transition ease-out duration-75"
        x-transition:enter-start=" scale-95"
        x-transition:enter-end=" scale-100">
 
     {{-- Loading spinner --}}
-    <div x-show="cardLoading" class="flex items-center justify-center py-20">
+    <div x-show="cardLoading"
+         class="flex items-center justify-center py-20"
+         style="padding-top: calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 4rem);">
       <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
     </div>
 
     <div x-show="!cardLoading && activeCard" class="flex flex-col h-full">
 
       {{-- Header section --}}
-      <div class="p-3.5 sm:p-6 pb-3 sm:pb-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/60">
+      <div class="sticky top-0 z-30 p-3.5 sm:p-6 pb-3 sm:pb-4 border-b border-slate-100 dark:border-slate-800/80 bg-white/95 sm:bg-slate-50/50 dark:bg-slate-900/95 sm:dark:bg-slate-900/60 backdrop-blur-xl sm:backdrop-blur-none"
+           style="padding-top: max(0.875rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.625rem));">
         
         {{-- Mobile Top Bar: Counter, Prev, Next, Close (sm:hidden) --}}
         <div class="flex items-center justify-between sm:hidden pb-2.5 mb-2.5 border-b border-slate-200/60 dark:border-slate-800/80">
@@ -188,7 +192,7 @@
                     @click="prevCard()"
                     :disabled="!hasPrevCard()"
                     :class="hasPrevCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-xs bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 active:scale-95' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
-                    class="w-8 h-8 rounded-lg transition-all flex items-center justify-center touch-manipulation"
+                    class="w-9 h-9 rounded-xl transition-all flex items-center justify-center touch-manipulation"
                     :title="getPrevCard() ? (getActiveCardIndex() === 0 ? 'Previous card (wrap to last): ' + getPrevCard().title + ' [← / ↑]' : 'Previous card (above): ' + getPrevCard().title + ' [← / ↑]') : 'Only 1 card in this list'">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -200,7 +204,7 @@
                     @click="nextCard()"
                     :disabled="!hasNextCard()"
                     :class="hasNextCard() ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700 cursor-pointer shadow-xs bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 active:scale-95' : 'text-slate-300 dark:text-slate-600 opacity-40 cursor-not-allowed pointer-events-none bg-slate-50 dark:bg-slate-800/40 border border-transparent'"
-                    class="w-8 h-8 rounded-lg transition-all flex items-center justify-center touch-manipulation"
+                    class="w-9 h-9 rounded-xl transition-all flex items-center justify-center touch-manipulation"
                     :title="getNextCard() ? (getActiveCardIndex() === totalCardsInActiveList() - 1 ? 'Next card (wrap to first): ' + getNextCard().title + ' [→ / ↓]' : 'Next card (below): ' + getNextCard().title + ' [→ / ↓]') : 'Only 1 card in this list'">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -210,8 +214,8 @@
             <div class="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
             {{-- Close Button --}}
-            <button @click="closeCard()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-all active:scale-95 touch-manipulation cursor-pointer" title="Close (Esc)">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+            <button type="button" @click.stop="closeCard()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white transition-all active:scale-95 touch-manipulation cursor-pointer ring-1 ring-slate-200/80 dark:ring-slate-700" aria-label="Close card" title="Close (Esc)">
+              <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
               </svg>
             </button>

@@ -36,8 +36,9 @@
      x-cloak
      @keydown.window.escape="close()"
      @lunch-alarm-toggle.window="userEnabled = $event.detail.enabled"
-     class="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
-     style="display: none;">
+     @dgt:mute-changed.window="if ($event.detail && $event.detail.muted) { close(); }"
+     class="fixed inset-0 z-[99999] flex items-center justify-center px-4 sm:px-6 overflow-y-auto"
+     style="display: none; padding-top: max(1rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.75rem)); padding-bottom: max(1rem, calc(var(--dgt-safe-bottom, env(safe-area-inset-bottom, 0px)) + 0.75rem));">
 
     {{-- Backdrop with blur --}}
     <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-md transition-opacity duration-300 ease-out"
@@ -52,7 +53,7 @@
     </div>
 
     {{-- Modal Card (White Theme) --}}
-    <div class="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border transition-all transform duration-300 ease-out z-10 p-6 sm:p-8 bg-white text-slate-800"
+    <div class="relative w-full max-w-lg max-h-[calc(100dvh-var(--dgt-safe-top,0px)-2.5rem)] rounded-3xl overflow-y-auto shadow-2xl border transition-all transform duration-300 ease-out z-10 p-5 sm:p-8 bg-white text-slate-800"
          :class="{
              'border-amber-200 shadow-amber-500/10 ring-1 ring-amber-300/30': mode === 'lunch',
              'border-emerald-200 shadow-emerald-500/10 ring-1 ring-emerald-300/30': mode === 'offwork' || mode === 'sat_offwork',
@@ -65,7 +66,7 @@
          x-transition:leave="ease-in duration-200"
          x-transition:leave-start="opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="opacity-0 scale-90 translate-y-4"
-         @click.stop="if (autoplayBlocked) { playRingtone(); }">
+         @click.stop>
 
         {{-- Background Ambient Radial Glows --}}
         <div class="absolute -top-24 -left-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-60"
@@ -81,15 +82,27 @@
                  'bg-purple-100': mode === 'meeting'
              }"></div>
 
-        {{-- Top Right Close Button --}}
-        <button type="button"
-                @click="close()"
-                class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300"
-                title="Close and stop sound (Esc)">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
+        {{-- Top Right Mute & Close Controls --}}
+        <div class="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5">
+            <button type="button"
+                    @click.stop="muteAllAndClose()"
+                    class="inline-flex items-center gap-1 px-2.5 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 text-[11px] font-bold transition-colors touch-manipulation cursor-pointer"
+                    title="Mute popups & close">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                </svg>
+                <span>Mute</span>
+            </button>
+            <button type="button"
+                    @click.stop="close()"
+                    class="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-slate-800 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300 touch-manipulation cursor-pointer"
+                    aria-label="Close alarm"
+                    title="Close and stop sound (Esc)">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
 
         {{-- Autoplay Blocked Tap to Play Prompt --}}
         <div x-show="autoplayBlocked" 
@@ -446,10 +459,17 @@ function registerLunchAlarmModal() {
                     this.broadcastChannel.onmessage = (e) => {
                         if (!e || !e.data) return;
                         if (e.data.type === 'trigger') {
+                            if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
                             this.mode = e.data.mode || 'lunch';
+                            if (e.data.meetingData) {
+                                this.meetingData = e.data.meetingData;
+                            }
                             this.isOpen = true;
                             this.updateClock();
                         } else if (e.data.type === 'close') {
+                            if (e.data.meetingId) {
+                                try { localStorage.setItem('dgt_meeting_alarm_' + e.data.meetingId, 'dismissed'); } catch (err) {}
+                            }
                             this.close(false, e.data.mode); // Close without re-broadcasting
                         }
                     };
@@ -457,7 +477,7 @@ function registerLunchAlarmModal() {
             } catch (e) {}
 
             // Restore / Show active alarm pop-up across any page in the system
-            if (this.userEnabled) {
+            if (this.userEnabled && localStorage.getItem('dgt_notifications_muted') !== 'true') {
                 const pp = this.getPhnomPenhParts();
                 const isWeekday = pp.dayOfWeek >= 1 && pp.dayOfWeek <= 5;
                 const isSaturday = pp.dayOfWeek === 6;
@@ -725,7 +745,7 @@ function registerLunchAlarmModal() {
                 }
             }
 
-            if (!this.userEnabled) return;
+            if (!this.userEnabled || localStorage.getItem('dgt_notifications_muted') === 'true') return;
 
             // Monday to Friday:
             if (isWeekday) {
@@ -776,6 +796,7 @@ function registerLunchAlarmModal() {
         },
 
         checkMeetingTriggers() {
+            if (!this.userEnabled || localStorage.getItem('dgt_notifications_muted') === 'true') return;
             if (!this.upcomingMeetings || this.upcomingMeetings.length === 0) return;
 
             // Calculate current Phnom Penh wall-clock Date object
@@ -940,6 +961,7 @@ function registerLunchAlarmModal() {
         },
 
         playWebAudioBeep(durationMs = null) {
+            this.stopWebAudioNodes();
             const finalMs = durationMs || (this.shiftAlarmDuration || 15) * 1000;
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -951,7 +973,11 @@ function registerLunchAlarmModal() {
                 window.__dgtAudioContext = ctx;
                 const now = ctx.currentTime;
                 const bursts = Math.max(3, Math.round(finalMs / 1000));
-                
+                const masterGain = ctx.createGain();
+                masterGain.gain.setValueAtTime(1.0, now);
+                masterGain.connect(ctx.destination);
+                const nodes = [];
+
                 for (let b = 0; b < bursts; b++) {
                     const burstStart = now + b * 1.0;
                     const osc = ctx.createOscillator();
@@ -961,12 +987,34 @@ function registerLunchAlarmModal() {
                     gain.gain.setValueAtTime(0.3, burstStart);
                     gain.gain.exponentialRampToValueAtTime(0.001, burstStart + 0.6);
                     osc.connect(gain);
-                    gain.connect(ctx.destination);
+                    gain.connect(masterGain);
                     osc.start(burstStart);
                     osc.stop(burstStart + 0.6);
+                    nodes.push({ osc, gain });
                 }
+                window.__dgtActiveAlarmAudio = { ctx, masterGain, nodes };
             } catch (err) {
                 console.log('Web Audio chime error:', err);
+            }
+        },
+
+        stopWebAudioNodes() {
+            const active = window.__dgtActiveAlarmAudio;
+            if (!active) return;
+            window.__dgtActiveAlarmAudio = null;
+            try {
+                if (active.masterGain && active.ctx) {
+                    active.masterGain.gain.cancelScheduledValues(active.ctx.currentTime);
+                    active.masterGain.gain.setValueAtTime(0, active.ctx.currentTime);
+                    active.masterGain.disconnect();
+                }
+            } catch (e) {}
+            if (Array.isArray(active.nodes)) {
+                active.nodes.forEach(({ osc, gain }) => {
+                    try { osc.stop(); } catch (e) {}
+                    try { osc.disconnect(); } catch (e) {}
+                    try { gain.disconnect(); } catch (e) {}
+                });
             }
         },
 
@@ -1009,6 +1057,7 @@ function registerLunchAlarmModal() {
         stopRingtone() {
             this.isRinging = false;
             this.autoplayBlocked = false;
+            this.stopWebAudioNodes();
             if (this.countdownTimer) {
                 clearInterval(this.countdownTimer);
                 this.countdownTimer = null;
@@ -1020,6 +1069,7 @@ function registerLunchAlarmModal() {
             const audio = document.getElementById('lunch-alarm-sound');
             if (audio) {
                 audio.loop = false;
+                audio.muted = true;
                 audio.pause();
                 audio.currentTime = 0;
             }
@@ -1027,8 +1077,18 @@ function registerLunchAlarmModal() {
             // The pop up still shows on screen until the user manually clicks Close / Got It.
         },
 
+        muteAllAndClose() {
+            if (typeof window.dgtSetNotificationsMuted === 'function') {
+                window.dgtSetNotificationsMuted(true);
+            } else {
+                try { localStorage.setItem('dgt_notifications_muted', 'true'); } catch (e) {}
+            }
+            this.close(true);
+        },
+
         close(shouldBroadcast = true, forceMode = null) {
             const currentMode = forceMode || this.mode;
+            const dismissedMeetingId = (this.meetingData && this.meetingData.id) ? this.meetingData.id : null;
             this.stopRingtone();
             this.stopTitleFlashing();
             this.isOpen = false;
@@ -1050,17 +1110,17 @@ function registerLunchAlarmModal() {
                 localStorage.setItem('dgt_alarm_dismissed_offwork_' + pp.dateKey, 'true');
             } else if (currentMode === 'sat_offwork') {
                 localStorage.setItem('dgt_alarm_dismissed_sat11_' + pp.dateKey, 'true');
-            } else if (currentMode === 'meeting' && this.meetingData && this.meetingData.id) {
-                localStorage.setItem('dgt_meeting_alarm_' + this.meetingData.id, 'dismissed');
+            } else if (currentMode === 'meeting' && dismissedMeetingId) {
+                localStorage.setItem('dgt_meeting_alarm_' + dismissedMeetingId, 'dismissed');
             }
-
-            try {
-                sessionStorage.removeItem('dgt_active_alarm_modal');
-            } catch (e) {}
 
             if (shouldBroadcast && this.broadcastChannel) {
                 try {
-                    this.broadcastChannel.postMessage({ type: 'close', mode: currentMode });
+                    this.broadcastChannel.postMessage({
+                        type: 'close',
+                        mode: currentMode,
+                        meetingId: dismissedMeetingId
+                    });
                 } catch (e) {}
             }
 

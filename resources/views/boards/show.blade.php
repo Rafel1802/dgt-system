@@ -1036,7 +1036,8 @@ body.is-dragging-card * { cursor: grabbing !important; }
         </svg>
       </button>
       <div x-show="searchOpen" @click.outside="searchOpen = false" x-cloak
-           class="fixed inset-x-3 top-16 md:absolute md:inset-auto md:right-0 md:top-auto md:mt-2 md:w-80 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-2xl z-[70]"
+           class="fixed inset-x-3 md:absolute md:inset-auto md:right-0 md:top-auto md:mt-2 md:w-80 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-2xl z-[70]"
+           style="top: calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 3.75rem);"
            x-transition:enter="transition ease-out duration-100"
            x-transition:enter-start="opacity-0 scale-95"
            x-transition:enter-end="opacity-100 scale-100">
@@ -1924,7 +1925,7 @@ body.is-dragging-card * { cursor: grabbing !important; }
 
 
 {{-- ── Board Activity Feed Side Drawer ────────────────────────────────── --}}
-<div x-show="activityOpen" class="fixed inset-0 z-50 overflow-hidden" x-cloak>
+<div x-show="activityOpen" class="fixed inset-0 z-[65] overflow-hidden" x-cloak>
   <!-- Backdrop overlay -->
   <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" 
        @click="activityOpen = false"
@@ -1945,13 +1946,14 @@ body.is-dragging-card * { cursor: grabbing !important; }
          x-transition:leave="transform transition ease-in duration-200"
          x-transition:leave-start="translate-x-0"
          x-transition:leave-end="translate-x-full">
-      <div class="h-full flex flex-col bg-white shadow-2xl border-l border-slate-200">
+      <div class="h-full flex flex-col bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800">
         <!-- Drawer Header -->
-        <div class="p-6 bg-slate-50 border-b border-slate-200/60 flex items-center justify-between">
-          <h2 class="text-sm font-black text-slate-800 flex items-center gap-2">
+        <div class="px-5 pb-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/60 dark:border-slate-800 flex items-center justify-between"
+             style="padding-top: max(1rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.625rem));">
+          <h2 class="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <span>📜 Board Activity Log</span>
           </h2>
-          <button @click="activityOpen = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+          <button type="button" @click="activityOpen = false" class="w-9 h-9 rounded-full bg-slate-200/60 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-300 transition-colors touch-manipulation cursor-pointer" aria-label="Close activity log">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>

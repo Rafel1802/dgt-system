@@ -914,7 +914,7 @@
      @click="closeImagePreview()">
 
   <div class="flex items-center justify-between border-b border-white/10 px-4 sm:px-6 pb-3 text-white bg-slate-900/90 backdrop-blur-md flex-shrink-0 w-full"
-       style="padding-top: calc(14px + env(safe-area-inset-top, 0px));"
+       style="padding-top: calc(14px + var(--dgt-safe-top, env(safe-area-inset-top, 0px)));"
        @click.stop>
     <div class="flex items-center gap-3 min-w-0">
       <p class="truncate text-sm sm:text-base font-extrabold tracking-wide text-white" x-text="imagePreview.title"></p>
@@ -1227,7 +1227,8 @@ function imageZoomHandler() {
        @click.stop>
     
     {{-- Header --}}
-    <div class="flex items-center justify-between border-b border-white/10 px-4 py-2.5 text-white bg-slate-900/90 backdrop-blur-md gap-3 flex-shrink-0 z-20">
+    <div class="flex items-center justify-between border-b border-white/10 px-4 pb-2.5 text-white bg-slate-900/90 backdrop-blur-md gap-3 flex-shrink-0 z-20"
+         style="padding-top: max(0.625rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.5rem));">
       
       {{-- Left: Logo & Title --}}
       <div class="flex items-center gap-2.5 truncate min-w-0 flex-1">
@@ -1431,7 +1432,8 @@ function imageZoomHandler() {
      @keydown.escape.window="if(googleDocsPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeGoogleDocsPreview(); }">
 
   {{-- Header bar --}}
-  <div class="flex items-center gap-3 px-4 py-3 bg-[#1a1f2e]/90 border-b border-white/10 flex-shrink-0 shadow-xl">
+  <div class="flex items-center gap-3 px-4 pb-3 bg-[#1a1f2e]/90 border-b border-white/10 flex-shrink-0 shadow-xl"
+       style="padding-top: max(0.75rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.5rem));">
 
     {{-- Google colours icon --}}
     <div class="flex items-center gap-1.5 flex-shrink-0">

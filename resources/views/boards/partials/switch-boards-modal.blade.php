@@ -4,8 +4,8 @@
   Methods: openSwitchBoardsModal(), closeSwitchBoardsModal(), sbmFilteredBoards(), switchToBoard()
 --}}
 <div x-show="switchBoardsModal.open" x-cloak
-     class="fixed inset-0 flex items-start justify-center px-3 py-6 sm:px-5 sm:py-10"
-     style="z-index: 70;"
+     class="fixed inset-0 flex items-start justify-center px-3 sm:px-5 sm:py-10"
+     style="z-index: 70; padding-top: max(1.25rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.625rem)); padding-bottom: max(1rem, var(--dgt-safe-bottom, env(safe-area-inset-bottom, 0px)));"
      @keydown.escape.window="if(switchBoardsModal?.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeSwitchBoardsModal(); }">
 
   <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"

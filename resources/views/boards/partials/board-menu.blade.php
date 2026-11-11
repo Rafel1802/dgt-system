@@ -64,7 +64,8 @@
          @click.stop>
 
     {{-- ── Drawer Header ────────────────────────────────────────────────── --}}
-    <header class="flex h-14 sm:h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/80 backdrop-blur-md px-4 sm:px-5">
+    <header class="flex flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/80 backdrop-blur-md px-4 sm:px-5"
+            style="padding-top: var(--dgt-safe-top, env(safe-area-inset-top, 0px)); min-height: calc(3.5rem + var(--dgt-safe-top, env(safe-area-inset-top, 0px)));">
       <div class="flex items-center gap-2 min-w-0">
         <button type="button"
                 x-show="boardMenu.view !== 'menu'"
