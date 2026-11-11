@@ -2,7 +2,7 @@ name: dgt_mobile_app
 description: "KIUQ SYSTEM iOS & Android mobile app - WebView wrapper."
 publish_to: 'none'
 
-version: 1.0.7+8
+version: 1.0.9+10
 
 environment:
   sdk: ^3.12.2

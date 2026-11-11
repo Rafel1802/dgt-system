@@ -66,13 +66,16 @@ class RouteClosureController extends Controller
      */
     public function downloadIosApp()
     {
-        $version = '1.0.6';
+        $version = '1.0.9';
         $filename = "KIUQ-SYSTEM-IOS-{$version}.ipa";
         $candidates = [
             public_path("downloads/{$filename}"),
             base_path("public/downloads/{$filename}"),
             base_path("downloads/{$filename}"),
             public_path("downloads/KIUQ-SYSTEM.ipa"),
+            public_path("downloads/KIUQ-SYSTEM-IOS-1.0.8.ipa"),
+            public_path("downloads/KIUQ-SYSTEM-IOS-1.0.7.ipa"),
+            public_path("downloads/KIUQ-SYSTEM-IOS-1.0.6.ipa"),
         ];
         foreach ($candidates as $filePath) {
             if (file_exists($filePath)) {

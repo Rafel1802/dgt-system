@@ -56,6 +56,16 @@ Route::prefix('v1/connector')
         Route::post('/verify', [\App\Http\Controllers\Api\V1\WebsiteConnectorController::class, 'verify'])->name('api.v1.connector.verify');
         Route::post('/ping', [\App\Http\Controllers\Api\V1\WebsiteConnectorController::class, 'ping'])->name('api.v1.connector.ping');
         Route::post('/sync/posts', [\App\Http\Controllers\Api\V1\WebsiteConnectorController::class, 'syncPosts'])->name('api.v1.connector.sync.posts');
+        Route::post('/inquiries', [\App\Http\Controllers\Api\V1\WebsiteInquiryApiController::class, 'store'])->name('api.v1.connector.inquiries.store');
+        Route::get('/inquiries/ping', [\App\Http\Controllers\Api\V1\WebsiteInquiryApiController::class, 'ping'])->name('api.v1.connector.inquiries.ping');
+    });
+
+// ─── Centralized Inquiries API (v1) ──────────────────────────────────────────
+Route::prefix('v1/inquiries')
+    ->middleware(['check.ip.ban', 'auth.connector', 'throttle:60,1'])
+    ->group(function () {
+        Route::post('/', [\App\Http\Controllers\Api\V1\WebsiteInquiryApiController::class, 'store'])->name('api.v1.inquiries.store');
+        Route::get('/ping', [\App\Http\Controllers\Api\V1\WebsiteInquiryApiController::class, 'ping'])->name('api.v1.inquiries.ping');
     });
 
 // ─── Universal Direct View Tracker (v1) ─────────────────────────────────────

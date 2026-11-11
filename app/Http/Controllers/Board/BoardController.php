@@ -1856,6 +1856,8 @@ class BoardController extends Controller
         $displayName = null;
         $roleTitle = null;
 
+        static $cachedLeadUsers = [];
+
         // 1. Team A / Mr. Dara (Production Team A)
         if (
             str_contains($listName, 'production team a') ||
@@ -1864,7 +1866,7 @@ class BoardController extends Controller
             (str_contains($listName, 'qc') && !str_contains($listName, 'team b'))
         ) {
             if (!str_contains($listName, 'team b')) {
-                $leadUser = \App\Models\User::find(12) ?? \App\Models\User::where('name', 'like', '%Dara%')->first();
+                $leadUser = $cachedLeadUsers['dara'] ??= (\App\Models\User::find(12) ?? \App\Models\User::where('name', 'like', '%Dara%')->first());
                 $displayName = 'Mr. Dara';
                 $roleTitle = 'Team A QC / Lead';
             }
@@ -1877,7 +1879,7 @@ class BoardController extends Controller
             str_contains($listName, 'kim') ||
             str_contains($listName, 'head review')
         )) {
-            $leadUser = \App\Models\User::find(13) ?? \App\Models\User::where('name', 'like', '%Kim%')->first();
+            $leadUser = $cachedLeadUsers['kim'] ??= (\App\Models\User::find(13) ?? \App\Models\User::where('name', 'like', '%Kim%')->first());
             $displayName = 'Mr. Kim';
             $roleTitle = 'Team B Head';
         }
@@ -1888,7 +1890,7 @@ class BoardController extends Controller
             str_contains($listName, 'supervisor') ||
             str_contains($listName, 'somalika')
         )) {
-            $leadUser = \App\Models\User::find(2) ?? \App\Models\User::where('name', 'like', '%Somalika%')->orWhere('name', 'like', '%Supervisor%')->first();
+            $leadUser = $cachedLeadUsers['supervisor'] ??= (\App\Models\User::find(2) ?? \App\Models\User::where('name', 'like', '%Somalika%')->orWhere('name', 'like', '%Supervisor%')->first());
             $displayName = 'Supervisor';
             $roleTitle = 'Digital Supervisor';
         }
@@ -2372,30 +2374,33 @@ class BoardController extends Controller
     /** Helper to get all workspaces and boards a user can access. */
     private function getAuthorizedWorkspaces(\App\Models\User $user)
     {
+        static $workspacesCache = [];
+        if (isset($workspacesCache[$user->id])) {
+            return $workspacesCache[$user->id];
+        }
+
         $userId = $user->id;
         $isQc = str_contains(strtolower($user->team_role ?? ''), 'qc');
         $isHead = str_contains(strtolower($user->team_role ?? ''), 'head');
         $canSeeSMM = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'supervisor', 'boss', 'digital-team']) || $isQc || $isHead;
 
+        $eagerRelations = [
+            'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'type', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by', 'created_at'),
+            'boards.members:id,name,avatar,team_role',
+            'boards.activeLists:id,board_id,name,position',
+            'boards.creator:id,name,avatar,team_role',
+            'members:id,name,avatar,team_role',
+        ];
+
         if ($user->hasAnyRole(['super-admin', 'admin-digital'])) {
-            $workspaces = Workspace::with([
-                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'type', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by', 'created_at'),
-                'boards.members:id,name,avatar,team_role',
-                'boards.creator:id,name,avatar,team_role',
-                'members:id,name,avatar,team_role',
-            ])
+            $workspaces = Workspace::with($eagerRelations)
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
                 ->orderBy('position')
                 ->orderBy('id')
                 ->get();
         } else {
-            $allActiveWorkspaces = Workspace::with([
-                'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'type', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by', 'created_at'),
-                'boards.members:id,name,avatar,team_role',
-                'boards.creator:id,name,avatar,team_role',
-                'members:id,name,avatar,team_role',
-            ])
+            $allActiveWorkspaces = Workspace::with($eagerRelations)
                 ->where('is_active', true)
                 ->when(!$canSeeSMM, fn($q) => $q->where('name', '!=', 'Social Media Management'))
                 ->orderBy('position')
@@ -2440,7 +2445,7 @@ class BoardController extends Controller
             return $ws->boards->isNotEmpty();
         })->values();
 
-        return $workspaces;
+        return $workspacesCache[$user->id] = $workspaces;
     }
 
     /** Create a label for this board directly from the UI. */

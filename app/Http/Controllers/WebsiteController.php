@@ -44,7 +44,7 @@ class WebsiteController extends Controller
         };
 
         // --- OPTIMIZATION: Fetch lightweight stats and counts via DB grouping ---
-        $statusCounts = Website::where('is_archived', false)
+        $statusCounts = Website::active()
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->get()
@@ -75,7 +75,7 @@ class WebsiteController extends Controller
         $liveWebsites = collect();
         $maintenanceWebsites = collect();
 
-        $activeQuery = Website::where('is_archived', false)->orderBy('name')->with($tabRelations);
+        $activeQuery = Website::active()->orderBy('name')->with($tabRelations);
 
         switch ($tab) {
             case 'build':

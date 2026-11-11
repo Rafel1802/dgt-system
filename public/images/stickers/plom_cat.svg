@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <g filter="url(#sh)">
+    <!-- Cat Ears -->
+    <polygon points="62,60 78,30 92,58" fill="#fdba74" stroke="#ffffff" stroke-width="3"/>
+    <polygon points="108,58 122,30 138,60" fill="#fdba74" stroke="#ffffff" stroke-width="3"/>
+    <!-- Cat Face -->
+    <ellipse cx="100" cy="90" rx="44" ry="38" fill="#fed7aa" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="85" cy="85" r="5" fill="#18181b"/>
+    <circle cx="115" cy="85" r="5" fill="#18181b"/>
+    <polygon points="100,94 96,90 104,90" fill="#f43f5e"/>
+    <!-- Watch gesture -->
+    <rect x="75" y="120" width="50" height="12" rx="4" fill="#6366f1" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="100" cy="126" r="10" fill="#ffffff" stroke="#6366f1" stroke-width="2"/>
+    <rect x="40" y="148" width="120" height="36" rx="18" fill="#6366f1" stroke="#ffffff" stroke-width="3"/>
+    <text x="100" y="172" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="#ffffff" text-anchor="middle">Plom? ⏰</text>
+  </g>
+</svg>

@@ -1839,6 +1839,199 @@ body[data-theme="neon"] .cms-handler-chip {
     color: #ffffff;
     background: #1e293b;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   WORDPRESS & SEO SUITE ENHANCEMENTS (TOC, FAQ, Callout, SERP, Audit)
+   ══════════════════════════════════════════════════════════════ */
+.dgt-toc-container {
+    background: rgba(99, 102, 241, 0.05);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin: 24px 0;
+}
+.dgt-toc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #4338ca;
+    margin-bottom: 10px;
+}
+.dark .dgt-toc-header {
+    color: #a5b4fc;
+}
+.dgt-toc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.dgt-toc-item {
+    font-size: 13px;
+    line-height: 1.4;
+}
+.dgt-toc-item a {
+    color: #4f46e5;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+.dgt-toc-item a:hover {
+    color: #312e81;
+    text-decoration: underline;
+}
+.dark .dgt-toc-item a {
+    color: #818cf8;
+}
+.dark .dgt-toc-item a:hover {
+    color: #c7d2fe;
+}
+.dgt-toc-depth-3 {
+    padding-left: 20px;
+    font-size: 12px;
+}
+
+/* FAQ Accordion Block (Schema.org compatible) */
+.dgt-faq-block {
+    margin: 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.dgt-faq-item {
+    border: 1px solid var(--cms-border);
+    border-radius: 12px;
+    background: var(--cms-bg-card);
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+}
+.dgt-faq-item:hover {
+    border-color: #94a3b8;
+}
+.dgt-faq-question {
+    width: 100%;
+    text-align: left;
+    padding: 13px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    background: var(--cms-bg-input);
+    color: var(--cms-text-primary);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.dgt-faq-answer {
+    padding: 14px 16px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--cms-text-secondary);
+    background: var(--cms-bg-card);
+    border-top: 1px solid var(--cms-border);
+}
+
+/* Callout Box Patterns */
+.dgt-callout {
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    border-left: 4px solid;
+}
+.dgt-callout-tip {
+    background: rgba(16, 185, 129, 0.08);
+    border-left-color: #10b981;
+    color: #064e3b;
+}
+.dark .dgt-callout-tip {
+    background: rgba(16, 185, 129, 0.12);
+    color: #a7f3d0;
+}
+.dgt-callout-warning {
+    background: rgba(245, 158, 11, 0.08);
+    border-left-color: #f59e0b;
+    color: #78350f;
+}
+.dark .dgt-callout-warning {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fde68a;
+}
+.dgt-callout-takeaway {
+    background: rgba(99, 102, 241, 0.08);
+    border-left-color: #6366f1;
+    color: #312e81;
+}
+.dark .dgt-callout-takeaway {
+    background: rgba(99, 102, 241, 0.12);
+    color: #c7d2fe;
+}
+.dgt-callout-quote {
+    background: rgba(139, 92, 246, 0.08);
+    border-left-color: #8b5cf6;
+    color: #4c1d95;
+}
+.dark .dgt-callout-quote {
+    background: rgba(139, 92, 246, 0.12);
+    color: #ddd6fe;
+}
+.dgt-callout-title {
+    font-size: 13.5px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.dgt-callout-body {
+    font-size: 12.5px;
+    line-height: 1.55;
+    opacity: 0.95;
+}
+
+/* Live Metrics Bar */
+.cms-metrics-bar {
+    border-bottom: 1px solid var(--cms-border);
+    background: rgba(248, 250, 252, 0.7);
+}
+.dark .cms-metrics-bar {
+    background: rgba(15, 23, 42, 0.6);
+}
+
+/* SEO Score Progress & Checklist */
+.dgt-seo-check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 11.5px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+}
+.dgt-seo-check-item:hover {
+    background: rgba(148, 163, 184, 0.08);
+}
+
+/* SERP Device Switcher Tabs */
+.dgt-serp-tab {
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    color: var(--cms-text-secondary);
+    background: transparent;
+}
+.dgt-serp-tab.active {
+    background: var(--cms-bg-card);
+    border-color: var(--cms-border);
+    color: var(--cms-text-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
 </style>
 
 <script>
@@ -2478,6 +2671,13 @@ body[data-theme="neon"] .cms-handler-chip {
                                placeholder="custom-article-slug"
                                x-model="postSlug"
                                @input="slugManuallyEdited = true" />
+                        <button type="button"
+                                @click="optimizeSlug()"
+                                class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 dark:hover:bg-indigo-900/80 border border-indigo-200 dark:border-indigo-800 transition-all flex items-center gap-1 shrink-0 ml-1.5 cursor-pointer shadow-xs"
+                                title="Optimize slug: removes English stop words (the, a, in, on, etc.) for high-ranking SEO permalink">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            <span>Optimize Slug</span>
+                        </button>
                     </div>
                 </div>
 
@@ -2549,6 +2749,9 @@ body[data-theme="neon"] .cms-handler-chip {
                         <button type="button" @click="promptInsertImage()" class="cms-tool-pill-btn" title="Insert Image Link">
                             <span>🖼️ Image</span>
                         </button>
+                        <button type="button" @click="promptInsertLink()" class="cms-tool-pill-btn" title="Insert Internal / External Link (Ctrl+K)">
+                            <span>🔗 Link</span>
+                        </button>
                         <button type="button" @click="promptInsertYoutube()" class="cms-tool-pill-btn" title="Insert YouTube Video Embed">
                             <span>▶ YouTube</span>
                         </button>
@@ -2556,8 +2759,64 @@ body[data-theme="neon"] .cms-handler-chip {
                             <span>⊞ Table</span>
                         </button>
 
+                        <span class="cms-tool-divider"></span>
+
+                        <!-- WordPress / Yoast & Gutenberg Tools -->
+                        <button type="button" @click="openInternalLinkAssistant()" class="cms-tool-pill-btn font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/50" title="WordPress Link Whisper: Search & link to published fleet articles (Ctrl+Shift+K)">
+                            <span>🧭 Internal Links</span>
+                        </button>
+                        <button type="button" @click="insertTableOfContents()" class="cms-tool-pill-btn font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50" title="Auto-generate responsive Table of Contents from H2/H3 headings">
+                            <span>📑 Table of Contents</span>
+                        </button>
+                        <button type="button" @click="openFaqBuilderModal()" class="cms-tool-pill-btn font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50" title="Build & insert Schema.org FAQPage accordion block">
+                            <span>❓ FAQ Block</span>
+                        </button>
+                        <button type="button" @click="openCalloutModal()" class="cms-tool-pill-btn font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50" title="Insert Gutenberg Callout / Pro Tip / Key Takeaway box">
+                            <span>💡 Callout</span>
+                        </button>
+
                         <div class="ml-auto flex items-center gap-2 text-xs text-slate-400 font-medium">
                             <span x-text="wordCountText()"></span>
+                        </div>
+                    </div>
+
+                    <!-- Real-Time Article & SEO Metrics Bar -->
+                    <div class="cms-metrics-bar px-3.5 py-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 flex flex-wrap items-center justify-between gap-2 text-xs" x-show="editorMode !== 'preview'">
+                        <div class="flex items-center flex-wrap gap-2 text-[11px]">
+                            <!-- Words & Reading Time -->
+                            <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs font-semibold text-slate-700 dark:text-slate-300">
+                                <span>📝</span>
+                                <span x-text="getWordMetrics().words + ' words'"></span>
+                                <span class="text-slate-300 dark:text-slate-600">•</span>
+                                <span class="text-slate-500 dark:text-slate-400" x-text="'~' + getWordMetrics().readingTime + ' min read'"></span>
+                            </div>
+
+                            <!-- Headings Count -->
+                            <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs text-slate-600 dark:text-slate-400">
+                                <span class="font-bold text-slate-700 dark:text-slate-200">Headings:</span>
+                                <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400" x-text="'H2: ' + getHeadingMetrics().h2"></span>
+                                <span class="text-slate-300 dark:text-slate-600">•</span>
+                                <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400" x-text="'H3: ' + getHeadingMetrics().h3"></span>
+                            </div>
+
+                            <!-- Media & Links Count -->
+                            <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs text-slate-600 dark:text-slate-400">
+                                <span>🖼️</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-300" x-text="getImageMetrics().count + ' images'"></span>
+                                <span class="text-slate-300 dark:text-slate-600">•</span>
+                                <span>🔗</span>
+                                <span class="font-semibold text-slate-700 dark:text-slate-300" x-text="getLinkMetrics().total + ' links (' + getLinkMetrics().internal + ' in / ' + getLinkMetrics().external + ' ext)'"></span>
+                            </div>
+                        </div>
+
+                        <!-- Live SEO Score Pill -->
+                        <div class="flex items-center gap-2 cursor-pointer" @click="activeSidebarTab = 'seo'; scrollToSeoCard()" title="Click to view full SEO audit checklist">
+                            <span class="text-[10.5px] font-bold text-slate-400">Yoast/RankMath Score:</span>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black shadow-xs transition-transform hover:scale-105"
+                                  :class="getSeoAuditScore().badgeClass">
+                                <span class="w-2 h-2 rounded-full" :class="getSeoAuditScore().dotClass"></span>
+                                <span x-text="getSeoAuditScore().score + '/100 ' + getSeoAuditScore().label"></span>
+                            </span>
                         </div>
                     </div>
 
@@ -3419,20 +3678,109 @@ body[data-theme="neon"] .cms-handler-chip {
                     </div>
                 </div>
 
-                <!-- Card 6: SEO Meta & SERP Preview -->
-                <div class="cms-editor-card" x-show="activeSidebarTab === 'seo' || activeSidebarTab === 'all' || activeSidebarTab === 'publish'">
-                    <div class="cms-editor-card-header-row" style="margin-bottom: 10px; padding-bottom: 8px;">
-                        <h3 class="cms-card-subhead">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                                <polyline points="15 3 21 3 21 9"/>
-                                <line x1="10" y1="14" x2="21" y2="3"/>
-                            </svg>
-                            <span>SEO &amp; Google Snippet</span>
-                        </h3>
+                <!-- Card 6: SEO Meta & Google Snippet (Yoast & RankMath Powered) -->
+                <div class="cms-editor-card" id="cms-card-seo" x-show="activeSidebarTab === 'seo' || activeSidebarTab === 'all' || activeSidebarTab === 'publish'">
+                    <div class="cms-editor-card-header-row" style="margin-bottom: 12px; padding-bottom: 8px;">
+                        <div class="flex items-center justify-between w-full">
+                            <h3 class="cms-card-subhead">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                                <span>SEO Suite &amp; Snippet Preview</span>
+                            </h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                Real-Time Yoast / RankMath
+                            </span>
+                        </div>
                     </div>
-                    <div class="space-y-3.5">
-                        <!-- Meta Title -->
+
+                    <div class="space-y-4">
+                        <!-- 1. Focus Keyword & Live Density Counter -->
+                        <div class="p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="cms-field-label-sm font-bold text-indigo-950 dark:text-indigo-200" style="margin: 0;">
+                                    🎯 Focus Keyword
+                                </label>
+                                <span class="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                                    Primary Search Phrase
+                                </span>
+                            </div>
+                            <input type="text"
+                                   class="cms-editor-input-sm bg-white dark:bg-slate-900"
+                                   placeholder="e.g. mini excavator maintenance, hydraulic fittings..."
+                                   x-model="focusKeyword"
+                                   @input="onFocusKeywordInput()" />
+
+                            <!-- Real-time keyword placement indicators -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1 text-[10.5px]">
+                                <div class="px-2 py-1 rounded-lg border text-center font-semibold"
+                                     :class="getKeywordCheck('title') ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300' : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-500'">
+                                    <span x-text="getKeywordCheck('title') ? '✓ In Title' : '✗ In Title'"></span>
+                                </div>
+                                <div class="px-2 py-1 rounded-lg border text-center font-semibold"
+                                     :class="getKeywordCheck('slug') ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300' : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-500'">
+                                    <span x-text="getKeywordCheck('slug') ? '✓ In URL Slug' : '✗ In URL Slug'"></span>
+                                </div>
+                                <div class="px-2 py-1 rounded-lg border text-center font-semibold"
+                                     :class="getKeywordCheck('desc') ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300' : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-500'">
+                                    <span x-text="getKeywordCheck('desc') ? '✓ In Meta Desc' : '✗ In Meta Desc'"></span>
+                                </div>
+                                <div class="px-2 py-1 rounded-lg border text-center font-semibold"
+                                     :class="getKeywordCheck('intro') ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300' : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-500'">
+                                    <span x-text="getKeywordCheck('intro') ? '✓ In First 10%' : '✗ In Intro'"></span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1">
+                                <span>Density: <strong class="text-indigo-600 dark:text-indigo-400" x-text="getKeywordDensity().percentage + '%'"></strong> (<span x-text="getKeywordDensity().count + ' occurrences'"></span>)</span>
+                                <span class="text-[10px]" :class="getKeywordDensity().statusClass" x-text="getKeywordDensity().statusText"></span>
+                            </div>
+                        </div>
+
+                        <!-- 2. Live Yoast/RankMath Score & Audit Checklist -->
+                        <div class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm text-white shadow-sm"
+                                         :class="getSeoAuditScore().bgClass" x-text="getSeoAuditScore().score">
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                                            <span>SEO Health Score</span>
+                                            <span class="text-[10px] px-1.5 py-0.2 rounded font-bold" :class="getSeoAuditScore().badgeClass" x-text="getSeoAuditScore().label"></span>
+                                        </div>
+                                        <div class="text-[10.5px] text-slate-400" x-text="getSeoAuditScore().subtext"></div>
+                                    </div>
+                                </div>
+                                <button type="button" @click="seoChecklistExpanded = !seoChecklistExpanded"
+                                        class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer">
+                                    <span x-text="seoChecklistExpanded ? 'Hide Checklist ▲' : 'View 12 Checks ▼'"></span>
+                                </button>
+                            </div>
+
+                            <!-- Progress Bar -->
+                            <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div class="h-full transition-all duration-300 rounded-full"
+                                     :class="getSeoAuditScore().bgClass"
+                                     :style="`width: ${Math.min(100, Math.max(5, getSeoAuditScore().score))}%;`"></div>
+                            </div>
+
+                            <!-- 12-Item Audit Checklist Accordion -->
+                            <div x-show="seoChecklistExpanded" x-transition class="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                                <template x-for="(check, idx) in getSeoChecklist()" :key="idx">
+                                    <div class="dgt-seo-check-item">
+                                        <span class="text-xs mt-0.5 shrink-0" x-text="check.passed ? '🟢' : (check.warning ? '🟡' : '🔴')"></span>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="font-bold text-[11px] text-slate-800 dark:text-slate-200" x-text="check.title"></div>
+                                            <div class="text-[10.5px] text-slate-500 dark:text-slate-400" x-text="check.desc"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- 3. Meta Title -->
                         <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="cms-field-label-sm" style="margin: 0;">Meta Title (SEO)</label>
@@ -3457,7 +3805,7 @@ body[data-theme="neon"] .cms-handler-chip {
                                    @blur="if (metaTitle && metaTitle.length > 60) { metaTitle = autoCutSeoGrammar(metaTitle, 60, true); if (articles[0]) articles[0].meta_title = metaTitle; }" />
                         </div>
 
-                        <!-- Meta Description -->
+                        <!-- 4. Meta Description -->
                         <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="cms-field-label-sm" style="margin: 0;">Meta Description</label>
@@ -3482,13 +3830,13 @@ body[data-theme="neon"] .cms-handler-chip {
                                       @blur="if (metaDescription && metaDescription.length > 160) { metaDescription = autoCutSeoGrammar(metaDescription, 160, false); if (articles[0]) articles[0].meta_description = metaDescription; }"></textarea>
                         </div>
 
-                        <!-- Tag Keywords -->
+                        <!-- 5. Tag Keywords -->
                         <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="cms-field-label-sm" style="margin: 0;">Tag Keywords</label>
                                 <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">SEO &amp; Tags</span>
                             </div>
-                            <input type="text" class="cms-editor-input-sm" placeholder="e.g. mini excavator, machinery parts, maintenance (comma separated)" x-model="tagKeywords" @input="if (articles[0]) { articles[0].tag_keywords = tagKeywords; articles[0].focus_keyword = tagKeywords; }" />
+                            <input type="text" class="cms-editor-input-sm" placeholder="e.g. mini excavator, machinery parts, maintenance (comma separated)" x-model="tagKeywords" @input="if (articles[0]) { articles[0].tag_keywords = tagKeywords; articles[0].focus_keyword = (focusKeyword || tagKeywords); }" />
                             
                             <!-- Dynamic Tag Pills Preview -->
                             <div class="flex flex-wrap gap-1.5 mt-2" x-show="tagKeywords && tagKeywords.trim()">
@@ -3501,12 +3849,69 @@ body[data-theme="neon"] .cms-handler-chip {
                             <p class="text-[10px] text-slate-400 mt-1">Separate keywords with commas. Used for meta keywords, WordPress post tags, and search index discovery.</p>
                         </div>
 
-                        <!-- Google Search SERP Preview Box -->
-                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-1">
-                            <span class="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">Google Search Preview</span>
-                            <div class="text-[10px] text-slate-400 truncate" x-text="computeCanonicalUrl()"></div>
-                            <h4 class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 truncate" x-text="metaTitle || postTitle || 'Sample Title'"></h4>
-                            <p class="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2" x-text="autoCutSeoGrammar(metaDescription || postExcerpt || '', 160, false) || 'Article summary preview...'"></p>
+                        <!-- 6. Multi-Platform SERP & Social Share Preview -->
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                                <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                    <span>🌐</span> Snippet &amp; Social Preview
+                                </span>
+                                <div class="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800 p-0.5 rounded-lg">
+                                    <button type="button" class="dgt-serp-tab" :class="{ 'active': serpTab === 'desktop' }" @click="serpTab = 'desktop'">
+                                        🖥️ Desktop
+                                    </button>
+                                    <button type="button" class="dgt-serp-tab" :class="{ 'active': serpTab === 'mobile' }" @click="serpTab = 'mobile'">
+                                        📱 Mobile
+                                    </button>
+                                    <button type="button" class="dgt-serp-tab" :class="{ 'active': serpTab === 'social' }" @click="serpTab = 'social'">
+                                        📣 Social Card
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- A. Desktop Google SERP Preview -->
+                            <div x-show="serpTab === 'desktop'" class="space-y-1 pt-1">
+                                <div class="text-[11px] text-slate-600 dark:text-slate-400 truncate flex items-center gap-1 font-sans">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[8px] font-bold">G</span>
+                                    <span x-text="computeCanonicalUrl()"></span>
+                                </div>
+                                <h4 class="text-sm font-semibold text-blue-700 dark:text-blue-400 hover:underline cursor-pointer truncate" x-text="metaTitle || postTitle || 'Sample Title'"></h4>
+                                <p class="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed" x-text="autoCutSeoGrammar(metaDescription || postExcerpt || '', 160, false) || 'Article summary preview shown to searchers on Google...'"></p>
+                            </div>
+
+                            <!-- B. Mobile Google SERP Preview (Card layout with favicon) -->
+                            <div x-show="serpTab === 'mobile'" class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5 shadow-xs">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-indigo-600">
+                                        🌐
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-[11px] font-bold text-slate-900 dark:text-slate-100 truncate" x-text="selectedWebsite?.name || selectedWebsite?.clean_domain || 'Happy Machinery'"></div>
+                                        <div class="text-[9.5px] text-slate-400 truncate" x-text="computeCanonicalUrl()"></div>
+                                    </div>
+                                </div>
+                                <h4 class="text-xs font-bold text-blue-600 dark:text-blue-400 leading-snug line-clamp-2" x-text="metaTitle || postTitle || 'Sample Title'"></h4>
+                                <p class="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 leading-normal" x-text="autoCutSeoGrammar(metaDescription || postExcerpt || '', 160, false) || 'Article summary preview...'"></p>
+                            </div>
+
+                            <!-- C. Social Share (Open Graph / Facebook / Twitter) Card -->
+                            <div x-show="serpTab === 'social'" class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+                                <div class="w-full h-36 bg-slate-100 dark:bg-slate-800 flex items-center justify-center relative overflow-hidden">
+                                    <template x-if="featuredImageUrl">
+                                        <img :src="featuredImageUrl" class="w-full h-full object-cover" alt="Social card preview" />
+                                    </template>
+                                    <template x-if="!featuredImageUrl">
+                                        <div class="text-center p-4 text-slate-400">
+                                            <span class="text-2xl block mb-1">🖼️</span>
+                                            <span class="text-xs font-semibold">Attach a Featured Cover Image to see social card preview</span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="p-3 space-y-1">
+                                    <div class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 truncate" x-text="(selectedWebsite?.clean_domain || 'HAPPYMACHINERY.COM')"></div>
+                                    <h5 class="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" x-text="metaTitle || postTitle || 'Article Title'"></h5>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2" x-text="autoCutSeoGrammar(metaDescription || postExcerpt || '', 160, false) || 'Article excerpt...'"></p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3599,6 +4004,228 @@ body[data-theme="neon"] .cms-handler-chip {
         </div>
     </div>
 
+    <!-- ── 1. WORDPRESS LINK WHISPER / INTERNAL LINK ASSISTANT MODAL ── -->
+    <div x-show="internalLinkModalOpen" x-transition.opacity
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+         @keydown.escape.window="internalLinkModalOpen = false" style="display: none;">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative"
+             @click.outside="internalLinkModalOpen = false">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-lg shadow-xs">
+                        🧭
+                    </div>
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>Internal Linking Assistant</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 font-bold">Link Whisper</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Search published posts across your website fleet to insert internal links with 1 click:</p>
+                    </div>
+                </div>
+                <button type="button" @click="internalLinkModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg text-sm">✕</button>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div class="flex items-center gap-2">
+                <div class="relative flex-1">
+                    <input type="text" x-model="internalLinkSearch" placeholder="Search articles by title, keyword, or slug..."
+                           class="w-full pl-9 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                    <svg class="absolute left-3 top-3 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
+                <select x-model="internalLinkSiteFilter" class="px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300">
+                    <option value="all">All Fleet Sites</option>
+                    <template x-for="site in websites" :key="site.id">
+                        <option :value="site.id" x-text="site.name || site.clean_domain"></option>
+                    </template>
+                </select>
+            </div>
+
+            <!-- Articles List -->
+            <div class="max-h-80 overflow-y-auto space-y-2 pr-1 cms-scrollbar">
+                <template x-for="post in getFilteredInternalLinkPosts()" :key="post.id">
+                    <div class="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 hover:bg-white dark:hover:bg-slate-900 hover:border-sky-500/50 dark:hover:border-sky-500/50 transition-all flex items-center justify-between gap-3 group">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300" x-text="getWebsiteDomain(post.website_id)"></span>
+                                <span class="text-[10px] text-slate-400" x-text="post.post_date || (post.created_at ? post.created_at.substring(0, 10) : '')"></span>
+                            </div>
+                            <h4 class="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-sky-600 dark:group-hover:text-sky-400" x-text="post.title"></h4>
+                            <div class="text-[10.5px] text-slate-400 font-mono truncate" x-text="computePostFullUrl(post)"></div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" @click="insertInternalLinkIntoArticle(post)"
+                                    class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                                    title="Insert link into active cursor position in article">
+                                <span>🔗 Insert Link</span>
+                            </button>
+                            <button type="button" @click="copyPostUrl(post)"
+                                    class="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-xs transition-all cursor-pointer"
+                                    title="Copy clean URL to clipboard">
+                                📋
+                            </button>
+                            <a :href="computePostFullUrl(post)" target="_blank" rel="noopener noreferrer"
+                               class="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-xs transition-all cursor-pointer"
+                               title="Open published article in new tab">
+                                ↗
+                            </a>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="getFilteredInternalLinkPosts().length === 0" class="p-8 text-center text-xs text-slate-400">
+                    No articles matching your search query. Try another keyword.
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+                <span>Tip: Select words in the editor before clicking to link directly to those words!</span>
+                <button type="button" @click="internalLinkModalOpen = false" class="px-4 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── 2. FAQ ACCORDION BUILDER MODAL (Schema.org FAQPage) ── -->
+    <div x-show="faqModalOpen" x-transition.opacity
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+         @keydown.escape.window="faqModalOpen = false" style="display: none;">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative"
+             @click.outside="faqModalOpen = false">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-lg shadow-xs">
+                        ❓
+                    </div>
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>FAQ Accordion Block Builder</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 font-bold">Schema.org FAQPage</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Build interactive question &amp; answer accordions that appear as Rich Results on Google Search:</p>
+                    </div>
+                </div>
+                <button type="button" @click="faqModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg text-sm">✕</button>
+            </div>
+
+            <!-- List of Questions & Answers -->
+            <div class="max-h-80 overflow-y-auto space-y-3 pr-1 cms-scrollbar">
+                <template x-for="(item, idx) in faqItems" :key="idx">
+                    <div class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 space-y-2 relative group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400" x-text="'Q' + (idx + 1) + ':'"></span>
+                            <button type="button" @click="removeFaqItem(idx)" class="text-slate-400 hover:text-red-500 text-xs px-1.5 py-0.5 rounded cursor-pointer" title="Remove question">
+                                🗑️ Remove
+                            </button>
+                        </div>
+                        <input type="text" x-model="item.question" placeholder="e.g. How often should I change mini excavator hydraulic oil?"
+                               class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <textarea x-model="item.answer" rows="2" placeholder="e.g. It is recommended to replace hydraulic oil every 1,000 operating hours or at least once per year..."
+                                  class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                    </div>
+                </template>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button type="button" @click="addFaqItem()"
+                        class="px-3.5 py-2 rounded-xl border border-dashed border-emerald-400 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer">
+                    <span>+ Add Another Question</span>
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="faqModalOpen = false" class="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">Cancel</button>
+                    <button type="button" @click="insertFaqBlockIntoArticle()"
+                            class="px-5 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/25 cursor-pointer flex items-center gap-1.5">
+                        <span>Insert FAQ Block &rarr;</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── 3. CALLOUT / PRO TIP / KEY TAKEAWAY PATTERN MODAL ── -->
+    <div x-show="calloutModalOpen" x-transition.opacity
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+         @keydown.escape.window="calloutModalOpen = false" style="display: none;">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl relative"
+             @click.outside="calloutModalOpen = false">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-lg shadow-xs">
+                        💡
+                    </div>
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 dark:text-white">Insert Callout Box</h3>
+                        <p class="text-xs text-slate-400">Gutenberg-style attention blocks for tips, warnings, and takeaways:</p>
+                    </div>
+                </div>
+                <button type="button" @click="calloutModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg text-sm">✕</button>
+            </div>
+
+            <!-- Callout Type Picker -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" @click="calloutType = 'tip'"
+                        class="p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer"
+                        :class="calloutType === 'tip' ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 ring-2 ring-emerald-500/20' : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'">
+                    <span class="text-base block mb-0.5">💡</span>
+                    Pro Tip
+                </button>
+                <button type="button" @click="calloutType = 'warning'"
+                        class="p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer"
+                        :class="calloutType === 'warning' ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 ring-2 ring-amber-500/20' : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'">
+                    <span class="text-base block mb-0.5">⚠️</span>
+                    Warning
+                </button>
+                <button type="button" @click="calloutType = 'takeaway'"
+                        class="p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer"
+                        :class="calloutType === 'takeaway' ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'">
+                    <span class="text-base block mb-0.5">📌</span>
+                    Key Takeaway
+                </button>
+                <button type="button" @click="calloutType = 'quote'"
+                        class="p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer"
+                        :class="calloutType === 'quote' ? 'border-violet-500 bg-violet-50 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300 ring-2 ring-violet-500/20' : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'">
+                    <span class="text-base block mb-0.5">💬</span>
+                    Expert Quote
+                </button>
+            </div>
+
+            <!-- Callout Title & Content -->
+            <div class="space-y-2.5">
+                <div>
+                    <label class="cms-field-label-sm">Callout Title</label>
+                    <input type="text" x-model="calloutTitle" placeholder="e.g. Pro Tip: Always Check Pressure Relief Valve"
+                           class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+                <div>
+                    <label class="cms-field-label-sm">Message Content</label>
+                    <textarea x-model="calloutText" rows="3" placeholder="Write your highlight message or guidance for readers..."
+                              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+                </div>
+            </div>
+
+            <!-- Live Preview -->
+            <div class="p-3.5 rounded-xl border-l-4 text-xs"
+                 :class="{
+                    'bg-emerald-50/70 border-emerald-500 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-200': calloutType === 'tip',
+                    'bg-amber-50/70 border-amber-500 text-amber-950 dark:bg-amber-950/40 dark:text-amber-200': calloutType === 'warning',
+                    'bg-indigo-50/70 border-indigo-500 text-indigo-950 dark:bg-indigo-950/40 dark:text-indigo-200': calloutType === 'takeaway',
+                    'bg-violet-50/70 border-violet-500 text-violet-950 dark:bg-violet-950/40 dark:text-violet-200': calloutType === 'quote'
+                 }">
+                <div class="font-bold flex items-center gap-1.5 mb-1">
+                    <span x-text="calloutType === 'tip' ? '💡' : (calloutType === 'warning' ? '⚠️' : (calloutType === 'takeaway' ? '📌' : '💬'))"></span>
+                    <span x-text="calloutTitle || 'Callout Title Preview'"></span>
+                </div>
+                <div class="text-[11.5px] opacity-90 leading-relaxed" x-text="calloutText || 'Your message will appear formatted cleanly inside the article body.'"></div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button type="button" @click="calloutModalOpen = false" class="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">Cancel</button>
+                <button type="button" @click="insertCalloutIntoArticle()"
+                        class="px-5 py-2 text-xs font-black rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-500/25 cursor-pointer flex items-center gap-1.5">
+                    <span>Insert Callout Box &rarr;</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -3687,6 +4314,22 @@ function blogPostCmsApp() {
         activeImageSrc: '',
         imagePopoverMode: null,
         imageHideTimeout: null,
+
+        // WordPress / Yoast / RankMath Suite State
+        internalLinkModalOpen: false,
+        internalLinkSearch: '',
+        internalLinkSiteFilter: 'all',
+        faqModalOpen: false,
+        faqItems: [
+            { question: '', answer: '' },
+            { question: '', answer: '' }
+        ],
+        calloutModalOpen: false,
+        calloutType: 'tip',
+        calloutTitle: '',
+        calloutText: '',
+        serpTab: 'desktop',
+        seoChecklistExpanded: true,
 
         // ════════════════════════════════════════════════════════════════════════
         // MULTI-ARTICLE MANAGEMENT & FACTORY
@@ -4311,6 +4954,42 @@ function blogPostCmsApp() {
                 if (!art.featured_image_url) art.featured_image_url = url.trim();
                 this.syncVisualCanvasForArticle(art, true);
             }
+        },
+
+        promptInsertArticleLink(art) {
+            const url = prompt('Enter link URL (e.g. https://example.com, https://skidsteers.us/shop, or /attachments):');
+            if (!url || !url.trim()) return;
+            const cleanUrl = url.trim();
+
+            if (this.editorMode === 'visual') {
+                const visualEl = document.getElementById('cms-visual-editor-' + art.uid) || document.getElementById('cms-visual-editor');
+                if (visualEl) {
+                    visualEl.focus();
+                    const sel = window.getSelection();
+                    if (sel && sel.toString().trim()) {
+                        document.execCommand('createLink', false, cleanUrl);
+                    } else {
+                        const text = prompt('Enter link display text:', 'Learn More') || cleanUrl;
+                        document.execCommand('insertHTML', false, `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+                    }
+                    this.syncVisualCanvasToRaw();
+                    return;
+                }
+            }
+
+            const textarea = document.getElementById('cms-main-textarea-' + art.uid) || document.getElementById('cms-main-textarea');
+            if (!textarea) return;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end).trim();
+            const linkText = selectedText || prompt('Enter link display text:', 'Learn More') || cleanUrl;
+            const mdLink = `[${linkText}](${cleanUrl})`;
+            textarea.value = textarea.value.substring(0, start) + mdLink + textarea.value.substring(end);
+            art.contentRaw = textarea.value;
+            if (this.articles[0] && this.articles[0].uid === art.uid) {
+                this.contentRaw = art.contentRaw;
+            }
+            this.syncVisualCanvasForArticle(art, true);
         },
 
         promptInsertArticleYoutube(art) {
@@ -5633,6 +6312,16 @@ function blogPostCmsApp() {
             this.$nextTick(() => {
                 this.setupVisualEditorImageInteractions();
             });
+
+            // Shortcut Ctrl+K / Cmd+K for fast hyperlink insertion
+            window.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                    if (this.currentScreen === 'editor') {
+                        e.preventDefault();
+                        this.promptInsertLink();
+                    }
+                }
+            });
         },
 
         onWebsiteChange(newId) {
@@ -6607,6 +7296,12 @@ function blogPostCmsApp() {
             }
         },
 
+        promptInsertLink() {
+            if (this.articles[0]) {
+                this.promptInsertArticleLink(this.articles[0]);
+            }
+        },
+
         promptInsertYoutube() {
             if (this.articles[0]) {
                 this.promptInsertArticleYoutube(this.articles[0]);
@@ -6672,6 +7367,539 @@ function blogPostCmsApp() {
 
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     this.showToast(`Loaded article #${p.id} into CMS editor.`);
+                }
+            });
+        },
+
+        // ════════════════════════════════════════════════════════════════════════
+        // WORDPRESS & YOAST / RANKMATH SUITE METHODS
+        // ════════════════════════════════════════════════════════════════════════
+
+        optimizeSlug() {
+            const current = (this.postSlug || this.postTitle || '').toLowerCase().trim();
+            if (!current) {
+                this.showToast('Please enter an article title or slug first.', null, 'warning');
+                return;
+            }
+
+            const stopWords = new Set([
+                'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'aren',
+                'at', 'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by', 'can',
+                'could', 'did', 'do', 'does', 'doing', 'down', 'during', 'each', 'few', 'for', 'from', 'further',
+                'had', 'has', 'have', 'having', 'he', 'her', 'here', 'hers', 'herself', 'him', 'himself', 'his',
+                'how', 'i', 'if', 'in', 'into', 'is', 'isn', 'it', 'its', 'itself', 'just', 'me', 'more', 'most',
+                'my', 'myself', 'no', 'nor', 'not', 'now', 'of', 'off', 'on', 'once', 'only', 'or', 'other',
+                'our', 'ours', 'ourselves', 'out', 'over', 'own', 'same', 'she', 'should', 'so', 'some', 'such',
+                'than', 'that', 'the', 'their', 'theirs', 'them', 'themselves', 'then', 'there', 'these', 'they',
+                'this', 'those', 'through', 'to', 'too', 'under', 'until', 'up', 'very', 'was', 'wasn', 'we',
+                'were', 'what', 'when', 'where', 'which', 'while', 'who', 'whom', 'why', 'will', 'with', 'won',
+                'would', 'you', 'your', 'yours', 'yourself', 'yourselves'
+            ]);
+
+            const words = current
+                .replace(/https?:\/\/[^\s]+/g, '')
+                .replace(/[^\w\s-]/g, ' ')
+                .split(/[\s_-]+/)
+                .filter(Boolean);
+
+            const filtered = words.filter(w => !stopWords.has(w));
+            const finalWords = filtered.length >= 2 ? filtered : words;
+            const optimized = finalWords.slice(0, 7).join('-');
+
+            this.postSlug = optimized;
+            this.slugManuallyEdited = true;
+            if (this.articles[0]) {
+                this.articles[0].slug = optimized;
+                this.articles[0].slugManuallyEdited = true;
+            }
+            this.showToast(`Permalink optimized for Google: "${optimized}"`);
+        },
+
+        insertContentAtActivePosition(htmlSnippet, mdSnippet = null) {
+            const fallbackSnippet = mdSnippet || htmlSnippet;
+            if (this.editorMode === 'visual') {
+                const visualEl = document.getElementById('cms-visual-editor-' + (this.articles[0]?.uid || '')) || document.getElementById('cms-visual-editor');
+                if (visualEl) {
+                    visualEl.focus();
+                    try {
+                        document.execCommand('insertHTML', false, htmlSnippet);
+                    } catch (e) {
+                        visualEl.innerHTML += htmlSnippet;
+                    }
+                    this.syncVisualCanvasToRaw();
+                    return;
+                }
+            }
+
+            const targetArt = this.articles[0];
+            const textarea = document.getElementById('cms-main-textarea-' + (targetArt?.uid || '')) || document.getElementById('cms-main-textarea');
+            if (textarea && targetArt) {
+                const start = textarea.selectionStart || 0;
+                targetArt.contentRaw = targetArt.contentRaw.substring(0, start) + `\n\n${fallbackSnippet}\n\n` + targetArt.contentRaw.substring(start);
+                this.contentRaw = targetArt.contentRaw;
+                this.syncVisualCanvasForArticle(targetArt, true);
+            } else if (targetArt) {
+                targetArt.contentRaw += `\n\n${fallbackSnippet}\n\n`;
+                this.contentRaw = targetArt.contentRaw;
+                this.syncVisualCanvasForArticle(targetArt, true);
+            }
+        },
+
+        insertTableOfContents() {
+            const raw = this.articles[0]?.contentRaw || this.contentRaw || '';
+            const visualEl = document.getElementById('cms-visual-editor-' + (this.articles[0]?.uid || '')) || document.getElementById('cms-visual-editor');
+            
+            let headings = [];
+
+            if (visualEl && this.editorMode === 'visual') {
+                const hNodes = visualEl.querySelectorAll('h2, h3');
+                hNodes.forEach((node, idx) => {
+                    const text = (node.textContent || '').trim();
+                    if (!text) return;
+                    let id = node.getAttribute('id');
+                    if (!id) {
+                        id = this.slugify(text) || ('heading-' + (idx + 1));
+                        node.setAttribute('id', id);
+                    }
+                    headings.push({
+                        level: node.tagName.toLowerCase() === 'h2' ? 2 : 3,
+                        text: text,
+                        id: id
+                    });
+                });
+                if (headings.length > 0) {
+                    this.syncVisualCanvasToRaw();
+                }
+            }
+
+            if (headings.length === 0) {
+                const lines = raw.split('\n');
+                lines.forEach((line, idx) => {
+                    const h2Match = line.match(/^##\s+(.+)$/);
+                    const h3Match = line.match(/^###\s+(.+)$/);
+                    const htmlHMatch = line.match(/<(h[23])(?:\s+id="([^"]*)")?[^>]*>(.*?)<\/\1>/i);
+
+                    if (h2Match) {
+                        const text = h2Match[1].replace(/<[^>]+>/g, '').trim();
+                        headings.push({ level: 2, text: text, id: this.slugify(text) || ('section-' + idx) });
+                    } else if (h3Match) {
+                        const text = h3Match[1].replace(/<[^>]+>/g, '').trim();
+                        headings.push({ level: 3, text: text, id: this.slugify(text) || ('section-' + idx) });
+                    } else if (htmlHMatch) {
+                        const text = htmlHMatch[3].replace(/<[^>]+>/g, '').trim();
+                        const id = htmlHMatch[2] || this.slugify(text) || ('section-' + idx);
+                        headings.push({ level: htmlHMatch[1].toLowerCase() === 'h2' ? 2 : 3, text: text, id: id });
+                    }
+                });
+            }
+
+            if (headings.length === 0) {
+                this.showToast('No H2 or H3 headings detected in article yet. Add some headings with the H2 / H3 buttons first!', null, 'warning');
+                return;
+            }
+
+            let tocHtml = `<div class="dgt-toc-container my-6" style="background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 14px; padding: 18px 22px; margin: 24px 0;">`;
+            tocHtml += `<div class="dgt-toc-header" style="display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 800; color: #4338ca; margin-bottom: 12px;">`;
+            tocHtml += `<span style="display: flex; align-items: center; gap: 8px;"><span>📑</span> Table of Contents</span>`;
+            tocHtml += `<span style="font-size: 11px; font-weight: 600; opacity: 0.8;">(${headings.length} Sections)</span>`;
+            tocHtml += `</div>`;
+            tocHtml += `<ul class="dgt-toc-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px;">`;
+
+            headings.forEach(h => {
+                const indent = h.level === 3 ? 'padding-left: 18px; font-size: 12.5px; opacity: 0.9;' : 'font-size: 13.5px; font-weight: 600;';
+                const bullet = h.level === 3 ? '↳ ' : '• ';
+                tocHtml += `<li class="dgt-toc-item dgt-toc-depth-${h.level}" style="${indent}">`;
+                tocHtml += `<a href="#${h.id}" style="color: #4f46e5; text-decoration: none;">${bullet}${this.escapeHtml(h.text)}</a>`;
+                tocHtml += `</li>`;
+            });
+
+            tocHtml += `</ul></div><p>&nbsp;</p>`;
+
+            this.insertContentAtActivePosition(tocHtml);
+            this.showToast(`Inserted responsive Table of Contents with ${headings.length} headings!`);
+        },
+
+        openInternalLinkAssistant() {
+            this.internalLinkModalOpen = true;
+            this.internalLinkSearch = '';
+        },
+
+        getFilteredInternalLinkPosts() {
+            const list = Array.isArray(this.latestPosts) ? this.latestPosts : [];
+            const q = (this.internalLinkSearch || '').toLowerCase().trim();
+            const siteFilter = this.internalLinkSiteFilter;
+
+            return list.filter(p => {
+                if (siteFilter !== 'all' && String(p.website_id) !== String(siteFilter)) {
+                    return false;
+                }
+                if (!q) return true;
+                const title = (p.title || '').toLowerCase();
+                const slug = (p.slug || '').toLowerCase();
+                const author = (p.author_name || '').toLowerCase();
+                return title.includes(q) || slug.includes(q) || author.includes(q);
+            });
+        },
+
+        getWebsiteDomain(siteId) {
+            const site = (this.websites || []).find(w => String(w.id) === String(siteId));
+            return site ? (site.clean_domain || site.name || 'Fleet Site') : 'Fleet Site';
+        },
+
+        computePostFullUrl(post) {
+            if (!post) return '#';
+            if (post.live_url && !post.live_url.includes('localhost')) {
+                return post.live_url;
+            }
+            const site = (this.websites || []).find(w => String(w.id) === String(post.website_id));
+            const base = site ? (site.url || `https://${site.clean_domain || 'happymachinery.com'}`) : 'https://happymachinery.com';
+            const cleanBase = base.replace(/\/$/, '');
+            const slug = post.slug || this.slugify(post.title || '');
+            return `${cleanBase}/blog/${slug}`;
+        },
+
+        insertInternalLinkIntoArticle(post) {
+            const url = this.computePostFullUrl(post);
+            const anchorTitle = post.title || 'Related Article';
+
+            if (this.editorMode === 'visual') {
+                const visualEl = document.getElementById('cms-visual-editor-' + (this.articles[0]?.uid || '')) || document.getElementById('cms-visual-editor');
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0 && sel.toString().trim()) {
+                    const selectedText = sel.toString().trim();
+                    const linkHtml = `<a href="${url}" title="${this.escapeHtml(anchorTitle)}" class="text-blue-600 dark:text-blue-400 font-bold underline" target="_blank" rel="noopener">${this.escapeHtml(selectedText)}</a>`;
+                    document.execCommand('insertHTML', false, linkHtml);
+                    this.syncVisualCanvasToRaw();
+                    this.internalLinkModalOpen = false;
+                    this.showToast(`Linked "${selectedText}" to ${anchorTitle}!`);
+                    return;
+                }
+            }
+
+            const mdOrHtml = `<a href="${url}" title="${this.escapeHtml(anchorTitle)}" class="text-blue-600 dark:text-blue-400 font-bold underline" target="_blank" rel="noopener">${this.escapeHtml(anchorTitle)}</a>`;
+            this.insertContentAtActivePosition(mdOrHtml, `[${anchorTitle}](${url})`);
+            this.internalLinkModalOpen = false;
+            this.showToast(`Inserted internal link: "${anchorTitle}"`);
+        },
+
+        copyPostUrl(post) {
+            const url = this.computePostFullUrl(post);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url);
+                this.showToast(`Copied article URL to clipboard!`);
+            } else {
+                prompt('Copy article URL:', url);
+            }
+        },
+
+        openFaqBuilderModal() {
+            this.faqModalOpen = true;
+            if (!this.faqItems || this.faqItems.length === 0) {
+                this.faqItems = [
+                    { question: '', answer: '' },
+                    { question: '', answer: '' }
+                ];
+            }
+        },
+
+        addFaqItem() {
+            this.faqItems.push({ question: '', answer: '' });
+        },
+
+        removeFaqItem(idx) {
+            if (this.faqItems.length <= 1) {
+                this.faqItems = [{ question: '', answer: '' }];
+                return;
+            }
+            this.faqItems.splice(idx, 1);
+        },
+
+        insertFaqBlockIntoArticle() {
+            const valid = (this.faqItems || []).filter(item => item.question && item.question.trim());
+            if (valid.length === 0) {
+                alert('Please enter at least one FAQ question.');
+                return;
+            }
+
+            let html = `\n<div class="dgt-faq-block my-6 space-y-3" itemscope itemtype="https://schema.org/FAQPage">\n`;
+            valid.forEach((item, i) => {
+                const q = this.escapeHtml(item.question.trim());
+                const a = this.escapeHtml(item.answer.trim() || 'Details coming soon.');
+                html += `  <div class="dgt-faq-item border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">\n`;
+                html += `    <button type="button" class="dgt-faq-question w-full text-left p-3.5 font-bold text-xs bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 flex justify-between items-center cursor-pointer" onclick="const ans = this.nextElementSibling; if(ans) ans.classList.toggle('hidden');">\n`;
+                html += `      <span itemprop="name">${q}</span>\n`;
+                html += `      <span class="text-slate-400 font-bold ml-2">▾</span>\n`;
+                html += `    </button>\n`;
+                html += `    <div class="dgt-faq-answer p-3.5 text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">\n`;
+                html += `      <div itemprop="text">${a}</div>\n`;
+                html += `    </div>\n`;
+                html += `  </div>\n`;
+            });
+            html += `</div>\n<p>&nbsp;</p>\n`;
+
+            this.insertContentAtActivePosition(html);
+            this.faqModalOpen = false;
+            this.showToast(`Inserted Schema.org FAQ block with ${valid.length} Q&As!`);
+        },
+
+        openCalloutModal() {
+            this.calloutModalOpen = true;
+            if (!this.calloutTitle) this.calloutTitle = 'Pro Tip: Maintenance Insight';
+            if (!this.calloutText) this.calloutText = 'Always inspect grease fittings and hydraulic hoses before beginning high-load excavation jobs.';
+        },
+
+        insertCalloutIntoArticle() {
+            const title = (this.calloutTitle || 'Key Note').trim();
+            const text = (this.calloutText || '').trim();
+            if (!text) {
+                alert('Please enter callout message text.');
+                return;
+            }
+
+            const icons = { tip: '💡', warning: '⚠️', takeaway: '📌', quote: '💬' };
+            const icon = icons[this.calloutType] || '💡';
+
+            const html = `\n<div class="dgt-callout dgt-callout-${this.calloutType} my-5 p-4 rounded-xl border-l-4">\n` +
+                         `  <div class="dgt-callout-title font-bold text-sm mb-1 flex items-center gap-2"><span>${icon}</span> <span>${this.escapeHtml(title)}</span></div>\n` +
+                         `  <div class="dgt-callout-body text-xs leading-relaxed opacity-95">${this.escapeHtml(text)}</div>\n` +
+                         `</div>\n<p>&nbsp;</p>\n`;
+
+            this.insertContentAtActivePosition(html);
+            this.calloutModalOpen = false;
+            this.showToast(`Inserted Callout block into article!`);
+        },
+
+        // ════════════════════════════════════════════════════════════════════════
+        // REAL-TIME ARTICLE METRICS & SEO AUDIT ENGINE
+        // ════════════════════════════════════════════════════════════════════════
+
+        getWordMetrics() {
+            const text = (this.contentRaw || this.articles[0]?.contentRaw || '').replace(/<[^>]+>/g, ' ').trim();
+            const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+            const readingTime = Math.max(1, Math.ceil(words / 200));
+            return { words, readingTime };
+        },
+
+        getHeadingMetrics() {
+            const raw = this.contentRaw || this.articles[0]?.contentRaw || '';
+            const h2Matches = (raw.match(/<h2[^>]*>|##\s+/gi) || []).length;
+            const h3Matches = (raw.match(/<h3[^>]*>|###\s+/gi) || []).length;
+            return { h2: h2Matches, h3: h3Matches, total: h2Matches + h3Matches };
+        },
+
+        getImageMetrics() {
+            const raw = this.contentRaw || this.articles[0]?.contentRaw || '';
+            const imgCount = (raw.match(/<img\s+[^>]*>|!\[[^\]]*\]\([^)]+\)/gi) || []).length;
+            const hasCover = Boolean(this.featuredImageUrl || this.articles[0]?.featured_image_url);
+            return { count: imgCount + (hasCover ? 1 : 0), inBody: imgCount, hasCover };
+        },
+
+        getLinkMetrics() {
+            const raw = this.contentRaw || this.articles[0]?.contentRaw || '';
+            const allLinks = (raw.match(/<a\s+[^>]*href=["']([^"']*)["']|\[[^\]]+\]\(([^)]+)\)/gi) || []);
+            let internal = 0;
+            let external = 0;
+            const currentDomain = (this.selectedWebsite?.clean_domain || '').toLowerCase();
+
+            allLinks.forEach(l => {
+                const isInternal = l.includes('href="/"') || l.includes('href="#') || l.includes('](/') || l.includes('](#') || (currentDomain && l.toLowerCase().includes(currentDomain));
+                if (isInternal) {
+                    internal++;
+                } else {
+                    external++;
+                }
+            });
+
+            return { total: allLinks.length, internal, external };
+        },
+
+        onFocusKeywordInput() {
+            if (this.articles[0]) {
+                this.articles[0].focus_keyword = this.focusKeyword;
+            }
+        },
+
+        getKeywordCheck(type) {
+            const kw = (this.focusKeyword || '').toLowerCase().trim();
+            if (!kw) return false;
+
+            const title = (this.metaTitle || this.postTitle || this.articles[0]?.title || '').toLowerCase();
+            const slug = (this.postSlug || this.articles[0]?.slug || '').toLowerCase();
+            const desc = (this.metaDescription || this.postExcerpt || this.articles[0]?.meta_description || '').toLowerCase();
+            const raw = (this.contentRaw || this.articles[0]?.contentRaw || '').replace(/<[^>]+>/g, ' ').toLowerCase();
+
+            if (type === 'title') return title.includes(kw);
+            if (type === 'slug') return slug.replace(/-/g, ' ').includes(kw) || slug.includes(this.slugify(kw));
+            if (type === 'desc') return desc.includes(kw);
+            if (type === 'intro') {
+                const words = raw.split(/\s+/).slice(0, 120).join(' ');
+                return words.includes(kw);
+            }
+            if (type === 'headings') {
+                const hMatches = (this.contentRaw || '').match(/<h[23][^>]*>(.*?)<\/h[23]>|#{2,3}\s+(.*)/gi) || [];
+                return hMatches.some(h => h.toLowerCase().includes(kw));
+            }
+            return false;
+        },
+
+        getKeywordDensity() {
+            const kw = (this.focusKeyword || '').toLowerCase().trim();
+            const text = (this.contentRaw || this.articles[0]?.contentRaw || '').replace(/<[^>]+>/g, ' ').toLowerCase();
+            const words = text ? text.split(/\s+/).filter(Boolean) : [];
+            const totalWords = words.length;
+
+            if (!kw || totalWords === 0) {
+                return { count: 0, percentage: '0.0', statusText: 'Set focus keyword to analyze', statusClass: 'text-slate-400' };
+            }
+
+            const regex = new RegExp('\\b' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
+            const count = (text.match(regex) || []).length;
+            const percentage = ((count / totalWords) * 100).toFixed(1);
+
+            let statusText = 'Optimal density (1.0% - 2.5%)';
+            let statusClass = 'text-emerald-600 dark:text-emerald-400 font-bold';
+
+            if (parseFloat(percentage) < 0.8) {
+                statusText = 'Low keyword density (aim for 1-2.5%)';
+                statusClass = 'text-amber-500 font-medium';
+            } else if (parseFloat(percentage) > 3.0) {
+                statusText = 'Keyword stuffing danger (>3.0%)';
+                statusClass = 'text-red-500 font-bold';
+            }
+
+            return { count, percentage, statusText, statusClass };
+        },
+
+        getSeoChecklist() {
+            const kw = (this.focusKeyword || '').trim();
+            const wordCount = this.getWordMetrics().words;
+            const titleLen = (this.metaTitle || this.postTitle || '').length;
+            const descLen = (this.metaDescription || this.postExcerpt || '').length;
+            const headings = this.getHeadingMetrics();
+            const images = this.getImageMetrics();
+            const links = this.getLinkMetrics();
+            const density = parseFloat(this.getKeywordDensity().percentage);
+
+            return [
+                {
+                    title: 'Focus Keyword in SEO Title',
+                    desc: kw ? (this.getKeywordCheck('title') ? 'Great! Focus keyword is present in the SEO title.' : 'Missing: Include your primary focus keyword in the title.') : 'Set a focus keyword to check this requirement.',
+                    passed: Boolean(kw && this.getKeywordCheck('title')),
+                    warning: !kw
+                },
+                {
+                    title: 'SEO Title Length (40 - 60 chars)',
+                    desc: titleLen >= 40 && titleLen <= 60 ? `Optimal: Title is ${titleLen} characters.` : (titleLen < 40 ? `Too short: ${titleLen}/60 chars (aim for at least 40).` : `Too long: ${titleLen}/60 chars (may be truncated on Google).`),
+                    passed: titleLen >= 40 && titleLen <= 60,
+                    warning: titleLen > 0 && titleLen < 40
+                },
+                {
+                    title: 'Focus Keyword in URL Slug',
+                    desc: kw ? (this.getKeywordCheck('slug') ? 'Optimal: Keyword found in permalink slug.' : 'Missing: Slug should contain main keyword.') : 'Add focus keyword to check.',
+                    passed: Boolean(kw && this.getKeywordCheck('slug')),
+                    warning: !kw
+                },
+                {
+                    title: 'Focus Keyword in Meta Description',
+                    desc: kw ? (this.getKeywordCheck('desc') ? 'Great: Keyword appears in Google search snippet.' : 'Missing: Add keyword to meta description.') : 'Add focus keyword to check.',
+                    passed: Boolean(kw && this.getKeywordCheck('desc')),
+                    warning: !kw
+                },
+                {
+                    title: 'Meta Description Length (120 - 160 chars)',
+                    desc: descLen >= 120 && descLen <= 160 ? `Optimal: Description is ${descLen} characters.` : (descLen < 120 ? `Short: ${descLen}/160 chars (aim for 120-160 chars for high CTR).` : `Too long: ${descLen}/160 chars (will be cut with ...).`),
+                    passed: descLen >= 120 && descLen <= 160,
+                    warning: descLen > 0 && descLen < 120
+                },
+                {
+                    title: 'Focus Keyword in First Paragraph (Introduction)',
+                    desc: kw ? (this.getKeywordCheck('intro') ? 'Passed: Search engines find keyword in the opening 100 words.' : 'Missing: Mention focus keyword early in introduction.') : 'Add focus keyword to check.',
+                    passed: Boolean(kw && this.getKeywordCheck('intro')),
+                    warning: !kw
+                },
+                {
+                    title: 'Subheadings Structure (H2 & H3)',
+                    desc: headings.total >= 3 ? `Well structured: Found ${headings.h2} H2 and ${headings.h3} H3 headings.` : `Need more headings: Only ${headings.total} headings found (break into H2/H3 for readability).`,
+                    passed: headings.total >= 3,
+                    warning: headings.total >= 1 && headings.total < 3
+                },
+                {
+                    title: 'Article Word Count (>600 words)',
+                    desc: wordCount >= 600 ? `Excellent depth: ${wordCount} words (search engines prefer in-depth guides).` : `Thin content: ${wordCount} words (recommend at least 600 words to rank).`,
+                    passed: wordCount >= 600,
+                    warning: wordCount >= 300 && wordCount < 600
+                },
+                {
+                    title: 'Keyword Density (1.0% - 2.5%)',
+                    desc: density >= 0.8 && density <= 2.8 ? `Natural frequency: ${density}% keyword density.` : (density < 0.8 ? `Low density: ${density}% (use keyword a few more times).` : `High density: ${density}% (avoid keyword stuffing).`),
+                    passed: density >= 0.8 && density <= 2.8,
+                    warning: Boolean(kw && density > 0 && (density < 0.8 || density > 2.8))
+                },
+                {
+                    title: 'Featured Image & Media',
+                    desc: images.count >= 2 ? `Rich media: Cover photo and ${images.inBody} content images found.` : (images.hasCover ? 'Good start: Featured cover set, add 1-2 images inside content.' : 'Missing: Set a featured cover image to rank in Google Images.'),
+                    passed: images.count >= 2,
+                    warning: images.count === 1
+                },
+                {
+                    title: 'Internal Links to Fleet Posts',
+                    desc: links.internal >= 1 ? `Passed: Found ${links.internal} internal links (boosts site authority).` : 'Missing: Add at least 1 internal link using "🧭 Internal Links" tool.',
+                    passed: links.internal >= 1,
+                    warning: links.internal === 0
+                },
+                {
+                    title: 'External Authority & Reference Links',
+                    desc: links.external >= 1 ? `Passed: Found ${links.external} outbound reference links.` : 'Tip: Add 1 authoritative reference link to reputable industry sources.',
+                    passed: links.external >= 1,
+                    warning: links.external === 0
+                }
+            ];
+        },
+
+        getSeoAuditScore() {
+            const checks = this.getSeoChecklist();
+            let score = 0;
+            checks.forEach(c => {
+                if (c.passed) score += 8.33;
+                else if (c.warning) score += 3.5;
+            });
+            const finalScore = Math.min(100, Math.round(score));
+
+            if (finalScore >= 80) {
+                return {
+                    score: finalScore,
+                    label: 'Great SEO',
+                    subtext: 'Optimized & ready to rank on Google Page 1',
+                    badgeClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700',
+                    bgClass: 'bg-emerald-500',
+                    dotClass: 'bg-emerald-500'
+                };
+            } else if (finalScore >= 50) {
+                return {
+                    score: finalScore,
+                    label: 'Needs Work',
+                    subtext: 'A few SEO fixes needed before publishing',
+                    badgeClass: 'bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-700',
+                    bgClass: 'bg-amber-500',
+                    dotClass: 'bg-amber-500'
+                };
+            } else {
+                return {
+                    score: finalScore,
+                    label: 'Critical SEO',
+                    subtext: 'Add title, focus keyword, and content',
+                    badgeClass: 'bg-red-50 text-red-700 dark:bg-red-950/70 dark:text-red-300 border border-red-300 dark:border-red-700',
+                    bgClass: 'bg-red-500',
+                    dotClass: 'bg-red-500'
+                };
+            }
+        },
+
+        scrollToSeoCard() {
+            this.$nextTick(() => {
+                const el = document.getElementById('cms-card-seo');
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             });
         },

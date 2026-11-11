@@ -1820,101 +1820,7 @@
                      || \App\Models\WebsiteMember::where('user_id', auth()->id())->where('role', 'QC')->exists();
         @endphp
         
-        <div class="space-y-4" x-data="{
-            selectedFollowUps: [],
-            isBatchSubmitting: false,
-            toggleSelectAll(e) {
-                if (e.target.checked) {
-                    const cbs = document.querySelectorAll('.fu-row-checkbox:not(:disabled)');
-                    this.selectedFollowUps = Array.from(cbs).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
-                } else {
-                    this.selectedFollowUps = [];
-                }
-            },
-            submitBatchQc(status = 'approved') {
-                if (!this.selectedFollowUps.length || this.isBatchSubmitting) return;
-                if (!confirm(`Are you sure you want to mark ${this.selectedFollowUps.length} follow-up(s) as Approved and sync them to Google Sheets?`)) {
-                    return;
-                }
-                this.isBatchSubmitting = true;
-                
-                fetch('{{ route('websites.followups.batch-qc') }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        ids: this.selectedFollowUps,
-                        qc_status: status,
-                        sync_sheet: true
-                    })
-                })
-                .then(async res => {
-                    const data = await res.json();
-                    if (res.ok && data.success) {
-                        let msg = data.message || 'Successfully updated follow-ups.';
-                        if (data.synced_count !== undefined) {
-                            msg += ` (${data.synced_count} synced to Google Sheets)`;
-                        }
-                        if (data.sync_failed_count && data.sync_failed_count > 0) {
-                            msg += ` (${data.sync_failed_count} sheet sync failed - check row status)`;
-                        }
-                        alert(msg);
-                        window.location.reload();
-                    } else {
-                        alert(data.message || 'Error occurred during batch approval.');
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Network error while processing batch QC approval.');
-                })
-                .finally(() => {
-                    this.isBatchSubmitting = false;
-                });
-            },
-            syncRow(id, triggerEl) {
-                const btn = triggerEl;
-                btn.disabled = true;
-                const originalText = btn.innerHTML;
-                btn.innerHTML = 'Syncing...';
-
-                fetch(`/websites/follow-ups/${id}/sync-sheet`, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    }
-                })
-                .then(async res => {
-                    const data = await res.json();
-                    if (res.ok && data.success) {
-                        const cell = btn.closest('.sheet-status-cell');
-                        if (cell) {
-                            cell.innerHTML = `
-                                <div class='inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800' title='Synced to Google Sheet'>
-                                    <svg class='w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path stroke-linecap='round' stroke-linejoin='round' d='M4.5 12.75l6 6 9-13.5'/></svg>
-                                    <span>Synced</span>
-                                    ${data.google_sheet_row ? `<span class='text-[10px] font-bold opacity-75'>(Row #${data.google_sheet_row})</span>` : ''}
-                                </div>
-                            `;
-                        }
-                    } else {
-                        alert(data.message || 'Failed to sync to Google Sheets');
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error syncing to Google Sheet.');
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                });
-            }
-        }">
+        <div class="space-y-4">
             {{-- Batch Actions Floating / Sticky Bar --}}
             <div x-show="selectedFollowUps.length > 0" x-cloak x-transition
                  class="sticky top-20 z-20 p-3.5 bg-gradient-to-r from-indigo-900 to-slate-900 text-white rounded-2xl shadow-xl border border-indigo-700/50 flex flex-wrap items-center justify-between gap-3">
@@ -2025,11 +1931,18 @@
                             <td class="px-4 py-3 whitespace-nowrap sheet-status-cell">
                                 @if($fu->type === 'blog_post')
                                     @if($fu->google_sheet_status === 'synced')
-                                        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800" title="{{ $fu->google_sheet_synced_at ? 'Synced: ' . $fu->google_sheet_synced_at->format('d M Y H:i') : 'Synced to Google Sheet' }}">
-                                            <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                                            <span>Synced</span>
-                                            @if($fu->google_sheet_row)
-                                                <span class="text-[10px] font-bold opacity-75">(Row #{{ $fu->google_sheet_row }})</span>
+                                        <div class="flex items-center gap-1.5">
+                                            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800" title="{{ $fu->google_sheet_synced_at ? 'Synced: ' . $fu->google_sheet_synced_at->format('d M Y H:i') : 'Synced to Google Sheet' }}">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                                <span>Synced</span>
+                                                @if($fu->google_sheet_row)
+                                                    <span class="text-[10px] font-bold opacity-75">(Row #{{ $fu->google_sheet_row }})</span>
+                                                @endif
+                                            </div>
+                                            @if($canQc)
+                                            <button type="button" @click="syncRow({{ $fu->id }}, $el)" class="p-1 rounded-md text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" title="Re-sync to Google Sheet (Fix row alignment)">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                                            </button>
                                             @endif
                                         </div>
                                     @elseif($fu->google_sheet_status === 'failed')
@@ -3394,12 +3307,39 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
                 const match = cat.match(/([1-9])/);
                 return match ? match[1] : '';
             },
+            websiteCatalog: [
+                @foreach($allWebsites as $ws)
+                @php
+                    $wsClassNum = \App\Services\GoogleBlogsSheetService::extractClassFromCategory($ws->category ?? '') ?? '';
+                @endphp
+                { id: '{{ $ws->id }}', name: '{{ addslashes($ws->name ?? "") }}', url: '{{ addslashes($ws->url ?? "") }}', category: '{{ addslashes($ws->category ?? "") }}', blogClass: '{{ $wsClassNum }}' },
+                @endforeach
+            ],
             selectWebsite(item, id, name, category, blogClass) {
                 item.selectedId = id;
                 item.selectedName = name;
                 item.selectedCategory = category;
                 item.blogClass = blogClass || this.getBlogClassForCategory(category) || '';
                 item.openDropdown = false;
+            },
+            autoDetectWebsiteFromUrl(item) {
+                if (!item || !item.url) return;
+                try {
+                    const parsed = new URL(item.url.trim());
+                    const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+                    if (!host) return;
+                    const match = this.websiteCatalog.find(w => {
+                        const wName = (w.name || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0].toLowerCase().trim();
+                        const wUrlHost = (w.url || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0].toLowerCase().trim();
+                        return wName === host || wUrlHost === host;
+                    });
+                    if (match) {
+                        item.selectedId = match.id;
+                        item.selectedName = match.name;
+                        item.selectedCategory = match.category;
+                        item.blogClass = match.blogClass || this.getBlogClassForCategory(match.category) || '';
+                    }
+                } catch (e) {}
             },
             addItem() {
                 this.items.push({
@@ -3684,7 +3624,7 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
 
                             <div class="col-span-2">
                                 <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-1">Blog URL</label>
-                                <input type="url" :name="'items[' + index + '][url]'" x-model="item.url" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
+                                <input type="url" :name="'items[' + index + '][url]'" x-model="item.url" @input="autoDetectWebsiteFromUrl(item)" @change="autoDetectWebsiteFromUrl(item)" class="form-input w-full rounded-xl text-sm" placeholder="https://...">
                             </div>
                         </div>
                     </div>
@@ -4410,6 +4350,17 @@ Don\'t worry, the websites inside this class will NOT be deleted. They will just
         'status' => $w->status
     ])->values();
 @endphp
+window.syncFollowUpRow = function(id, triggerEl) {
+    const alpineEl = document.querySelector('[x-data="websitesApp()"]');
+    if (alpineEl && typeof Alpine !== 'undefined') {
+        const app = Alpine.$data(alpineEl);
+        if (app && typeof app.syncRow === 'function') {
+            app.syncRow(id, triggerEl);
+            return;
+        }
+    }
+};
+
 function websitesApp() {
     const allWebsites = @json($mappedWebsites);
 
@@ -4420,6 +4371,110 @@ function websitesApp() {
         filterMember: '',
         filterClass: '',
         filterApprovalStatus: '',
+
+        // Follow-up batch selection & Google Sheets sync
+        selectedFollowUps: [],
+        isBatchSubmitting: false,
+        toggleSelectAll(e) {
+            if (e.target.checked) {
+                const cbs = document.querySelectorAll('.fu-row-checkbox:not(:disabled)');
+                this.selectedFollowUps = Array.from(cbs).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+            } else {
+                this.selectedFollowUps = [];
+            }
+        },
+        submitBatchQc(status = 'approved') {
+            if (!this.selectedFollowUps.length || this.isBatchSubmitting) return;
+            if (!confirm(`Are you sure you want to mark ${this.selectedFollowUps.length} follow-up(s) as Approved and sync them to Google Sheets?`)) {
+                return;
+            }
+            this.isBatchSubmitting = true;
+
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+            fetch('{{ route('websites.followups.batch-qc') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token
+                },
+                body: JSON.stringify({
+                    ids: this.selectedFollowUps,
+                    qc_status: status,
+                    sync_sheet: true
+                })
+            })
+            .then(async res => {
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    let msg = data.message || 'Successfully updated follow-ups.';
+                    if (data.synced_count !== undefined) {
+                        msg += ` (${data.synced_count} synced to Google Sheets)`;
+                    }
+                    if (data.sync_failed_count && data.sync_failed_count > 0) {
+                        msg += ` (${data.sync_failed_count} sheet sync failed - check row status)`;
+                    }
+                    alert(msg);
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Error occurred during batch approval.');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Network error while processing batch QC approval.');
+            })
+            .finally(() => {
+                this.isBatchSubmitting = false;
+            });
+        },
+        syncRow(id, triggerEl) {
+            const btn = triggerEl;
+            if (!btn) return;
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="animate-spin w-3.5 h-3.5 inline" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span class="text-[10px]">Syncing...</span></span>';
+
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+            fetch(`/websites/follow-ups/${id}/sync-sheet`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token
+                }
+            })
+            .then(async res => {
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    const cell = btn.closest('.sheet-status-cell');
+                    if (cell) {
+                        const rowNum = data.row || data.google_sheet_row;
+                        cell.innerHTML = `
+                            <div class="flex items-center gap-1.5">
+                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800" title="Synced to Google Sheet">
+                                    <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                    <span>Synced</span>
+                                    ${rowNum ? `<span class="text-[10px] font-bold opacity-75">(Row #${rowNum})</span>` : ''}
+                                </div>
+                                <button type="button" onclick="window.syncFollowUpRow(${id}, this)" class="p-1 rounded-md text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" title="Re-sync to Google Sheet">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                                </button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    alert(data.message || 'Failed to sync to Google Sheets');
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error syncing to Google Sheet.');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            });
+        },
         countTab(tabKey) {
             let pool = this.allWebsites;
             if (tabKey === 'build') pool = pool.filter(w => w.status === 'Build Website');
@@ -4879,6 +4934,7 @@ function websitesApp() {
         maintenanceModalAction: '',
 
         init() {
+            window._websitesAppInstance = this;
             // Restore filters from sessionStorage if they exist
             this.searchQuery = sessionStorage.getItem('filterSearchQuery') || '';
             this.filterMember = sessionStorage.getItem('filterMember') || '';

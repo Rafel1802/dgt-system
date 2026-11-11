@@ -4,9 +4,9 @@
 
 @section('content')
 @php
-    $version = '1.0.8';
+    $version = '1.0.9';
     $downloadUrl = asset('downloads/KIUQ-SYSTEM-1.0.8.dmg');
-    $iosDownloadUrl = asset('downloads/KIUQ-SYSTEM-IOS-1.0.6.ipa');
+    $iosDownloadUrl = asset('downloads/KIUQ-SYSTEM-IOS-1.0.9.ipa');
     $androidDownloadUrl = asset('downloads/KIUQ-SYSTEM-ANDROID-1.0.6.apk');
     $appcastUrl = asset('appcast/latest-mac.json');
 @endphp

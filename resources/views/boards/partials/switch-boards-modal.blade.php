@@ -159,7 +159,7 @@
                  :aria-label="'Switch to ' + b.name">
                 <div class="relative h-full w-full switch-board-cover-overlay bg-slate-950/15 transition group-hover:bg-transparent">
                   <div class="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] items-center gap-2">
-                    <span class="switch-board-ws-tag rounded-md bg-white/90 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700 shadow-sm" x-text="sbmBoardWorkspaceName(b)"></span>
+                    <span class="switch-board-ws-tag switch-board-month-tag rounded-md bg-white/90 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700 shadow-sm" x-text="sbmBoardMonth(b)"></span>
                   </div>
 
                 </div>

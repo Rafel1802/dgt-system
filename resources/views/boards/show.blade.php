@@ -216,12 +216,12 @@ body.is-dragging-card * { cursor: grabbing !important; }
 	@media (max-width: 1023px) {
 		.is-board-page .topbar,
 		html:has(.board-wrap) .topbar {
-			padding-top: env(safe-area-inset-top, 0px) !important;
+			padding-top: var(--dgt-safe-top, 56px) !important;
 			padding-bottom: 0px !important;
-			padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
-			padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
-			height: calc(44px + env(safe-area-inset-top, 0px)) !important;
-			min-height: calc(44px + env(safe-area-inset-top, 0px)) !important;
+			padding-left: max(18px, calc(env(safe-area-inset-left, 0px) + 18px)) !important;
+			padding-right: max(18px, calc(env(safe-area-inset-right, 0px) + 18px)) !important;
+			height: calc(52px + var(--dgt-safe-top, 56px)) !important;
+			min-height: calc(52px + var(--dgt-safe-top, 56px)) !important;
 			border-bottom: none !important;
 			margin-bottom: 0 !important;
 			background: transparent !important;
@@ -342,12 +342,12 @@ body.is-dragging-card * { cursor: grabbing !important; }
 		.is-board-page .topbar,
 		.main-wrapper:has(.board-wrap) .topbar {
 			flex: 0 0 auto !important;
-			height: calc(44px + env(safe-area-inset-top, 0px)) !important;
-			min-height: calc(44px + env(safe-area-inset-top, 0px)) !important;
-			padding-top: env(safe-area-inset-top, 0px) !important;
+			height: calc(52px + var(--dgt-safe-top, 56px)) !important;
+			min-height: calc(52px + var(--dgt-safe-top, 56px)) !important;
+			padding-top: var(--dgt-safe-top, 56px) !important;
 			padding-bottom: 0px !important;
-			padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
-			padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
+			padding-left: max(18px, calc(env(safe-area-inset-left, 0px) + 18px)) !important;
+			padding-right: max(18px, calc(env(safe-area-inset-right, 0px) + 18px)) !important;
 		}
 		.is-board-page .page-content,
 		.page-content:has(.board-wrap) {
@@ -372,7 +372,7 @@ body.is-dragging-card * { cursor: grabbing !important; }
 			min-height: 0 !important;
 			height: 100% !important;
 			display: flex !important;
-			padding: 0.25rem 0.75rem calc(56px + max(4px, calc(env(safe-area-inset-bottom, 0px) - 18px))) 0.75rem !important;
+			padding: 0.25rem 0.75rem calc(84px + var(--dgt-safe-bottom, 24px)) 0.75rem !important;
 			gap: 0.75rem !important;
 			overflow-x: auto !important;
 			overflow-y: hidden !important;
@@ -555,7 +555,7 @@ body.is-dragging-card * { cursor: grabbing !important; }
 			min-width: 265px !important;
 		}
 		.board-wrap {
-			padding: 0.25rem 0.65rem calc(56px + max(4px, calc(env(safe-area-inset-bottom, 0px) - 18px))) 0.65rem !important;
+			padding: 0.25rem 0.65rem calc(84px + var(--dgt-safe-bottom, 24px)) 0.65rem !important;
 			gap: 0.65rem !important;
 			scroll-padding: 0.65rem !important;
 		}

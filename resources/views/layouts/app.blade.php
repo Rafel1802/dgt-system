@@ -36,6 +36,45 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         @endif
     @endauth
 
+    <!-- Pusher Beams Web Push Notifications SDK -->
+    <script src="https://js.pusher.com/beams/2.1.0/push-notifications-cdn.js"></script>
+    <script>
+        (function() {
+            window.kiuqInitPusherBeams = function() {
+                if (typeof PusherPushNotifications === 'undefined') return;
+                if (window.beamsClient) return;
+
+                try {
+                    const beamsClient = new PusherPushNotifications.Client({
+                        instanceId: '{{ config('services.pusher_beams.instance_id', '9bc62035-82e2-48e0-8818-3355c2a76a10') }}',
+                    });
+                    window.beamsClient = beamsClient;
+
+                    beamsClient.start()
+                        .then(() => beamsClient.addDeviceInterest('hello'))
+                        @auth
+                        .then(() => beamsClient.addDeviceInterest('user-{{ auth()->id() }}'))
+                        .then(() => beamsClient.addDeviceInterest('dgt-all'))
+                        @endauth
+                        .then(() => {
+                            console.log('Successfully registered and subscribed!');
+                        })
+                        .catch(function(err) {
+                            console.error('Pusher Beams error:', err);
+                        });
+                } catch (e) {
+                    console.error('Pusher Beams initialization error:', e);
+                }
+            };
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', window.kiuqInitPusherBeams);
+            } else {
+                window.kiuqInitPusherBeams();
+            }
+        })();
+    </script>
+
     <title>@yield('title', 'DIGITAL SYSTEM') | Digital Workspace</title>
     <meta name="description" content="@yield('meta_description', 'Digital Team Management System — Manage tasks, boards, and operations efficiently.')">
     <meta name="robots" content="noindex, nofollow">
@@ -61,6 +100,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
     <!-- Turbo 8: Drive navigation with speculative prefetch for instant loading. -->
     <meta name="turbo-prefetch" content="true">
+    <script>
+        // Only enable native View Transitions on mobile view (< 1024px)
+        if (window.innerWidth < 1024) {
+            const vtMeta = document.createElement('meta');
+            vtMeta.name = 'view-transition';
+            vtMeta.content = 'same-origin';
+            document.head.appendChild(vtMeta);
+        }
+    </script>
     <style>
         [x-cloak] { display: none !important; }
 
@@ -84,12 +132,126 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             opacity: 1 !important;
         }
 
-        /* Guarantee instant desktop page loads with zero transition animations */
+        /* ─── Real Native iOS Application Slide Navigation (Mobile View) ──── */
+        @media (max-width: 1023px) {
+            /* Disable browser default cross-fade in View Transitions on mobile */
+            ::view-transition-old(root),
+            ::view-transition-new(root) {
+                mix-blend-mode: normal !important;
+            }
+
+            @keyframes dgtSlideOutToRight {
+                0% {
+                    transform: translateX(0);
+                    box-shadow: -10px 0 28px rgba(0, 0, 0, 0.3);
+                    opacity: 1;
+                }
+                100% {
+                    transform: translateX(100%);
+                    box-shadow: -10px 0 28px rgba(0, 0, 0, 0.05);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes dgtSlideInFromLeft {
+                0% {
+                    transform: translateX(-28%);
+                    opacity: 0.88;
+                    filter: brightness(0.92);
+                }
+                100% {
+                    transform: translateX(0);
+                    opacity: 1;
+                    filter: brightness(1);
+                }
+            }
+
+            @keyframes dgtSlideInFromRight {
+                0% {
+                    transform: translateX(100%);
+                    box-shadow: -10px 0 28px rgba(0, 0, 0, 0.3);
+                    opacity: 1;
+                }
+                100% {
+                    transform: translateX(0);
+                    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes dgtSlideOutToLeft {
+                0% {
+                    transform: translateX(0);
+                    opacity: 1;
+                    filter: brightness(1);
+                }
+                100% {
+                    transform: translateX(-28%);
+                    opacity: 0.88;
+                    filter: brightness(0.92);
+                }
+            }
+
+            /* View Transitions: Slide BACK (Real application back gesture/click) */
+            :root.nav-back::view-transition-old(root),
+            html.nav-back::view-transition-old(root),
+            html[data-navigation-direction="back"]::view-transition-old(root) {
+                animation: 0.28s cubic-bezier(0.32, 0.72, 0, 1) both dgtSlideOutToRight !important;
+                z-index: 10 !important;
+            }
+
+            :root.nav-back::view-transition-new(root),
+            html.nav-back::view-transition-new(root),
+            html[data-navigation-direction="back"]::view-transition-new(root) {
+                animation: 0.28s cubic-bezier(0.32, 0.72, 0, 1) both dgtSlideInFromLeft !important;
+                z-index: 1 !important;
+            }
+
+            /* View Transitions: Slide FORWARD */
+            :root.nav-forward::view-transition-old(root),
+            html.nav-forward::view-transition-old(root),
+            html[data-navigation-direction="forward"]::view-transition-old(root) {
+                animation: 0.28s cubic-bezier(0.32, 0.72, 0, 1) both dgtSlideOutToLeft !important;
+                z-index: 1 !important;
+            }
+
+            :root.nav-forward::view-transition-new(root),
+            html.nav-forward::view-transition-new(root),
+            html[data-navigation-direction="forward"]::view-transition-new(root) {
+                animation: 0.28s cubic-bezier(0.32, 0.72, 0, 1) both dgtSlideInFromRight !important;
+                z-index: 10 !important;
+            }
+
+            /* Native DOM Slide Fallback (For Safari iOS & all WebViews) */
+            .mobile-sliding-back-out {
+                animation: dgtSlideOutToRight 0.25s cubic-bezier(0.32, 0.72, 0, 1) both !important;
+                pointer-events: none !important;
+                transform-origin: center center;
+                will-change: transform;
+            }
+
+            .mobile-sliding-back-in {
+                animation: dgtSlideInFromLeft 0.28s cubic-bezier(0.32, 0.72, 0, 1) both !important;
+                transform-origin: center center;
+                will-change: transform;
+            }
+
+            .mobile-sliding-forward-in {
+                animation: dgtSlideInFromRight 0.28s cubic-bezier(0.32, 0.72, 0, 1) both !important;
+                transform-origin: center center;
+                will-change: transform;
+            }
+        }
+
+        /* ─── Desktop Web (>= 1024px): Standard instant navigation as before (NO sliding) ─── */
         @media (min-width: 1024px) {
-            ::view-transition-group(*),
-            ::view-transition-old(*),
-            ::view-transition-new(*) {
+            ::view-transition,
+            ::view-transition-group(root),
+            ::view-transition-image-pair(root),
+            ::view-transition-old(root),
+            ::view-transition-new(root) {
                 animation: none !important;
+                mix-blend-mode: normal !important;
             }
         }
 
@@ -188,7 +350,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             box-shadow: 0 0 12px rgba(0, 162, 255, 0.35) !important;
         }
 
-        /* ─── Notification Dropdown in Neon Mode ─── */
+        /* ─── Notification Dropdown in Dark & Neon Modes ─── */
+        [data-theme="dark"] .notif-panel {
+            background-color: #0f172a !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+        }
+        [data-theme="dark"] .notif-panel .border-b {
+            background-color: #0b1329 !important;
+            border-color: rgba(255, 255, 255, 0.08) !important;
+        }
         [data-theme="neon"] .notif-panel {
             background: linear-gradient(180deg, rgba(4, 20, 56, 0.98) 0%, rgba(2, 12, 36, 0.98) 100%) !important;
             border-color: rgba(0, 160, 255, 0.35) !important;
@@ -228,7 +399,142 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }, { passive: true });
     </script>
     <script>
+        // Native Real Application Navigation (Slide back on back navigation)
         (function() {
+            window.setNavDirection = function(dir) {
+                const isBack = dir === 'back';
+                document.documentElement.classList.toggle('nav-back', isBack);
+                document.documentElement.classList.toggle('nav-forward', !isBack);
+                document.documentElement.setAttribute('data-navigation-direction', dir);
+                try {
+                    sessionStorage.setItem('dgt_nav_dir', dir);
+                    sessionStorage.setItem('dgt_nav_time', String(Date.now()));
+                } catch (_) {}
+            };
+
+            window.dgtNavigateBack = function(fallbackUrl = '{{ route('dashboard') }}') {
+                window.setNavDirection('back');
+
+                if (window.innerWidth < 1024) {
+                    const currentMain = document.getElementById('main-content');
+                    if (currentMain) {
+                        currentMain.classList.add('mobile-sliding-back-out');
+                    }
+                }
+
+                let hasSameAppReferrer = false;
+                try {
+                    hasSameAppReferrer = document.referrer
+                        ? new URL(document.referrer).origin === window.location.origin
+                        : false;
+                } catch (_) {
+                    hasSameAppReferrer = false;
+                }
+
+                if (window.history.length > 1 && hasSameAppReferrer) {
+                    window.history.back();
+                    return;
+                }
+
+                if (window.Turbo) {
+                    window.Turbo.visit(fallbackUrl);
+                } else {
+                    window.location.href = fallbackUrl;
+                }
+            };
+
+            window.dgtGoBack = window.dgtNavigateBack;
+
+            // Detect clicks on back buttons or links with back action
+            document.addEventListener('click', (e) => {
+                const backBtn = e.target.closest('.ios-nav-back-btn, .mobile-back-btn, button[onclick*="history.back"], button[onclick*="dgtGoBack"], button[onclick*="dgtNavigateBack"], [data-nav-back], a[data-direction="back"]');
+                if (backBtn) {
+                    window.setNavDirection('back');
+                    if (window.innerWidth < 1024) {
+                        const currentMain = document.getElementById('main-content');
+                        if (currentMain) {
+                            currentMain.classList.add('mobile-sliding-back-out');
+                        }
+                    }
+                } else {
+                    const navLink = e.target.closest('a[href]:not([target="_blank"]):not([data-turbo="false"])');
+                    if (navLink && navLink.origin === window.location.origin && !navLink.href.includes('#')) {
+                        if (!document.documentElement.classList.contains('nav-back')) {
+                            window.setNavDirection('forward');
+                        }
+                    }
+                }
+            }, { capture: true });
+
+            // Browser back / forward buttons (popstate)
+            window.addEventListener('popstate', () => {
+                window.setNavDirection('back');
+            });
+
+            // Turbo visit events
+            document.addEventListener('turbo:visit', (e) => {
+                if (e.detail?.action === 'restore') {
+                    window.setNavDirection('back');
+                } else if (!document.documentElement.classList.contains('nav-back')) {
+                    window.setNavDirection('forward');
+                }
+            });
+
+            // Turbo before-render: inject slide classes before DOM is painted
+            document.addEventListener('turbo:before-render', (event) => {
+                let isBack = false;
+                try {
+                    const storedDir = sessionStorage.getItem('dgt_nav_dir');
+                    const storedTime = Number(sessionStorage.getItem('dgt_nav_time') || 0);
+                    if (storedDir === 'back' && (Date.now() - storedTime) < 3500) {
+                        isBack = true;
+                    }
+                } catch (_) {}
+
+                if (
+                    isBack ||
+                    document.documentElement.classList.contains('nav-back') ||
+                    document.documentElement.getAttribute('data-navigation-direction') === 'back' ||
+                    event.detail?.action === 'restore'
+                ) {
+                    document.documentElement.classList.add('nav-back');
+                    document.documentElement.classList.remove('nav-forward');
+                    document.documentElement.setAttribute('data-navigation-direction', 'back');
+
+                    if (window.innerWidth < 1024 && event.detail?.newBody) {
+                        const newMain = event.detail.newBody.querySelector('#main-content');
+                        if (newMain) {
+                            newMain.classList.add('mobile-sliding-back-in');
+                        }
+                    }
+                } else {
+                    document.documentElement.classList.add('nav-forward');
+                    document.documentElement.classList.remove('nav-back');
+                    document.documentElement.setAttribute('data-navigation-direction', 'forward');
+
+                    if (window.innerWidth < 1024 && event.detail?.newBody) {
+                        const newMain = event.detail.newBody.querySelector('#main-content');
+                        if (newMain) {
+                            newMain.classList.add('mobile-sliding-forward-in');
+                        }
+                    }
+                }
+            });
+
+            // Reset after transition finishes
+            document.addEventListener('turbo:load', () => {
+                setTimeout(() => {
+                    document.documentElement.classList.remove('nav-back', 'nav-forward');
+                    document.documentElement.removeAttribute('data-navigation-direction');
+                    try { sessionStorage.removeItem('dgt_nav_dir'); } catch (_) {}
+                    const main = document.getElementById('main-content');
+                    if (main) {
+                        main.classList.remove('mobile-sliding-back-out', 'mobile-sliding-back-in', 'mobile-sliding-forward-in');
+                    }
+                }, 320);
+            });
+        })();
+
             // Revert submit buttons when Turbo completes the request
             document.addEventListener('turbo:submit-end', function(e) {
                 const form = e.target;
@@ -418,6 +724,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <script defer src="{{ asset('js/workspace-alpine.js') }}?v={{ file_exists(public_path('js/workspace-alpine.js')) ? filemtime(public_path('js/workspace-alpine.js')) : '1.0.0' }}"></script>
     <script defer src="{{ asset('js/trello-board.js') }}?v={{ file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0' }}"></script>
     <script defer src="{{ asset('js/drag-scroll.js') }}?v={{ file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0' }}"></script>
+    <script defer src="{{ asset('js/dgt-chat.js') }}?v={{ file_exists(public_path('js/dgt-chat.js')) ? filemtime(public_path('js/dgt-chat.js')) : '1.0.0' }}" data-turbo-track="reload"></script>
     <!-- Vite assets (Tailwind CSS + Alpine.js + Livewire, bundled manually so Livewire's JS
          is not injected into <body> where Turbo would re-execute it on every navigation) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -512,14 +819,24 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 background: var(--bg-page, #f4f7fb);
             }
 
+            :root {
+                --dgt-safe-top: env(safe-area-inset-top, 0px);
+                --dgt-safe-bottom: env(safe-area-inset-bottom, 0px);
+            }
+
+            html.dgt-ios-app {
+                --dgt-safe-top: max(env(safe-area-inset-top, 0px), 56px);
+                --dgt-safe-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+            }
+
             html.dgt-mobile-app .topbar {
                 flex: 0 0 auto;
-                height: calc(44px + env(safe-area-inset-top, 0px)) !important;
-                min-height: calc(44px + env(safe-area-inset-top, 0px)) !important;
-                padding-top: env(safe-area-inset-top, 0px) !important;
-                padding-bottom: 0px !important;
-                padding-left: max(0.75rem, env(safe-area-inset-left, 12px)) !important;
-                padding-right: max(0.75rem, env(safe-area-inset-right, 12px)) !important;
+                height: calc(52px + var(--dgt-safe-top, 56px)) !important;
+                min-height: calc(52px + var(--dgt-safe-top, 56px)) !important;
+                padding-top: var(--dgt-safe-top, 56px) !important;
+                padding-bottom: 4px !important;
+                padding-left: max(18px, calc(env(safe-area-inset-left, 0px) + 18px)) !important;
+                padding-right: max(18px, calc(env(safe-area-inset-right, 0px) + 18px)) !important;
             }
 
             html.dgt-mobile-app .page-content {
@@ -529,7 +846,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
                 overscroll-behavior-y: contain;
-                padding-bottom: calc(52px + max(calc(env(safe-area-inset-bottom, 0px) - 8px), 8px)) !important;
+                padding-bottom: calc(92px + var(--dgt-safe-bottom, 24px)) !important;
             }
 
             /* 100% Native Mobile App UX Enhancements */
@@ -558,6 +875,47 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     user-select: none;
                     -webkit-touch-callout: none;
                 }
+            }
+
+            /* ── iOS Native App Shell Polish ────────────────────────────── */
+            html.dgt-ios-app {
+                -webkit-touch-callout: none !important;
+                -webkit-user-select: none !important;
+                user-select: none !important;
+            }
+
+            html.dgt-ios-app input,
+            html.dgt-ios-app textarea,
+            html.dgt-ios-app [contenteditable="true"],
+            html.dgt-ios-app .selectable-text {
+                -webkit-user-select: text !important;
+                user-select: text !important;
+            }
+
+            html.dgt-ios-app .topbar {
+                background: rgba(255, 255, 255, 0.82) !important;
+                backdrop-filter: blur(36px) saturate(210%) !important;
+                -webkit-backdrop-filter: blur(36px) saturate(210%) !important;
+                border-bottom: 0.5px solid rgba(15, 23, 42, 0.08) !important;
+            }
+
+            [data-theme="dark"] html.dgt-ios-app .topbar {
+                background: rgba(15, 23, 42, 0.85) !important;
+                backdrop-filter: blur(36px) saturate(210%) !important;
+                -webkit-backdrop-filter: blur(36px) saturate(210%) !important;
+                border-bottom: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+            }
+
+            [data-theme="neon"] html.dgt-ios-app .topbar {
+                background: rgba(3, 12, 34, 0.88) !important;
+                backdrop-filter: blur(36px) saturate(210%) !important;
+                -webkit-backdrop-filter: blur(36px) saturate(210%) !important;
+                border-bottom: 0.5px solid rgba(0, 220, 255, 0.35) !important;
+            }
+
+            html.dgt-ios-app .page-content {
+                padding-bottom: calc(96px + var(--dgt-safe-bottom, 24px)) !important;
+                -webkit-overflow-scrolling: touch !important;
             }
         </style>
     @endif
@@ -926,7 +1284,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }
     </style>
 </head>
-<body class="h-full bg-[var(--bg-page)] overscroll-none touch-manipulation overflow-x-hidden" x-data="themeSystem()" x-init="initTheme()">
+<body class="h-full bg-[var(--bg-page)] overscroll-none touch-manipulation overflow-x-hidden {{ request()->routeIs('chat*') ? 'is-chat-page' : '' }}" x-data="themeSystem()" x-init="initTheme()">
 
     <!-- ── Sidebar Overlay (mobile) ───────────────────────────────────── -->
     <style>
@@ -1028,6 +1386,65 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </svg>
                     <span>All Members</span>
                 </a>
+
+                @if(auth()->check() && auth()->user()->isChatEnabled())
+                @php
+                    $initialChatUnread = (int) (app(\App\Services\Chat\DgtChatService::class)->getUnreadCount(auth()->user()));
+                @endphp
+                <!-- DGT Chat -->
+                <a href="{{ route('chat.index') }}"
+                   data-turbo="false"
+                   class="sidebar-item {{ request()->routeIs('chat.*') ? 'active' : '' }}"
+                   id="nav-chat" data-tooltip="Chat"
+                   x-data="{ unreadCount: {{ $initialChatUnread }} }"
+                   x-init="
+                       const fetchChatUnread = () => {
+                           if (document.hidden) return;
+                           fetch('{{ route('chat.unread-count') }}', { credentials: 'same-origin' })
+                               .then(r => r.ok ? r.json() : null)
+                               .then(d => { if (d && d.unread_count !== undefined) unreadCount = Number(d.unread_count); })
+                               .catch(() => {});
+                       };
+                       fetchChatUnread();
+                       setInterval(fetchChatUnread, 2500);
+                       document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchChatUnread(); });
+                       window.addEventListener('focus', fetchChatUnread);
+                       window.addEventListener('chat:unread-updated', (e) => {
+                           if (e.detail && e.detail.unread_count !== undefined) unreadCount = Number(e.detail.unread_count);
+                       });
+
+                       const setupRealtimeUnread = () => {
+                           if (typeof window.kiuqGetPusherClient !== 'function') return;
+                           const pusher = window.kiuqGetPusherClient();
+                           const currentUserId = '{{ auth()->id() }}';
+                           if (!pusher || !currentUserId) return;
+                           try {
+                               const userChannel = pusher.subscribe(`private-chat.user.${currentUserId}`);
+                               userChannel.bind_global((eventName, data) => {
+                                   if (!data) return;
+                                   const evStr = String(eventName);
+                                   if (evStr.includes('ChatMessageSent') || evStr.includes('message.sent')) {
+                                       fetchChatUnread();
+                                   }
+                               });
+                           } catch (e) {}
+                       };
+                       setTimeout(setupRealtimeUnread, 1200);
+                   ">
+                    <div class="relative flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.75.75 0 0 1-.974-.948l.783-2.35A7.47 7.47 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                        </svg>
+                        <span x-show="unreadCount > 0"
+                              class="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-sm ring-2 ring-white dark:ring-slate-900"
+                              x-text="unreadCount > 99 ? '99+' : unreadCount">{{ $initialChatUnread > 99 ? '99+' : ($initialChatUnread > 0 ? $initialChatUnread : '') }}</span>
+                    </div>
+                    <span>Chat</span>
+                    <span x-show="unreadCount > 0"
+                          class="ml-auto inline-flex items-center justify-center h-5 min-w-[22px] px-1.5 rounded-full bg-rose-500 text-[11px] font-black text-white shadow-md shadow-rose-500/50 ring-1 ring-white/40"
+                          x-text="unreadCount > 99 ? '99+' : unreadCount">{{ $initialChatUnread > 99 ? '99+' : ($initialChatUnread > 0 ? $initialChatUnread : '') }}</span>
+                </a>
+                @endif
 
                 <!-- Notes -->
                 @unless(auth()->user()?->hasRole('boss'))
@@ -1314,10 +1731,6 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </div>
                 </div>
                 @endif
-
-
-
-
 
                 @if(auth()->user()->isQcOrSupervisor())
                 <a href="{{ route('boards.reports.personal') }}"
@@ -1799,23 +2212,23 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         @if(!View::hasSection('hide_back') && !request()->routeIs('dashboard'))
                         <button type="button"
                                 @if(View::hasSection('back_url'))
-                                    onclick="window.Turbo ? Turbo.visit('@yield('back_url')') : window.location.href='@yield('back_url')'"
+                                    onclick="window.dgtNavigateBack('@yield('back_url')')"
                                 @else
-                                    onclick="window.history.length > 1 ? window.history.back() : (window.Turbo ? Turbo.visit('{{ route('dashboard') }}') : window.location.href='{{ route('dashboard') }}')"
+                                    onclick="window.dgtNavigateBack('{{ route('dashboard') }}')"
                                 @endif
-                                class="ios-nav-back-btn flex items-center gap-0.5 text-indigo-600 dark:text-sky-400 font-semibold active:opacity-60 transition-opacity select-none py-1 px-1.5 -ml-2 rounded-lg"
+                                class="ios-nav-back-btn flex items-center gap-1 text-indigo-600 dark:text-sky-400 font-bold active:scale-95 transition-all select-none py-1.5 px-3 rounded-full cursor-pointer"
                                 aria-label="Back">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <svg class="w-4.5 h-4.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.75" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                             </svg>
-                            <span class="text-[15px] font-semibold tracking-tight">Back</span>
+                            <span class="text-[14px] font-bold tracking-tight">Back</span>
                         </button>
                         @else
                         <button type="button"
                                 @click="$store.mobileHub.toggle()"
-                                class="ios-nav-brand-btn flex items-center gap-2 active:scale-95 transition-transform -ml-1 select-none"
+                                class="ios-nav-brand-btn flex items-center gap-2 active:scale-95 transition-transform py-1 px-2.5 rounded-full select-none"
                                 aria-label="Open Hub">
-                            <img src="{{ $appIconAsset }}" alt="DGT" class="w-7 h-7 rounded-lg object-contain shadow-xs">
+                            <img src="{{ $appIconAsset }}" alt="DGT" class="w-6.5 h-6.5 rounded-lg object-contain shadow-xs">
                             <span class="text-xs font-black tracking-wider uppercase bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">DGT</span>
                         </button>
                         @endif
@@ -1825,11 +2238,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     @if(!View::hasSection('hide_back'))
                     <button type="button"
                             @if(View::hasSection('back_url'))
-                                onclick="window.Turbo ? Turbo.visit('@yield('back_url')') : window.location.href='@yield('back_url')'"
+                                onclick="window.dgtNavigateBack('@yield('back_url')')"
                             @else
-                                onclick="window.history.length > 1 ? window.history.back() : (window.Turbo ? Turbo.visit('{{ route('boards.workspaces') }}') : window.location.href='{{ route('boards.workspaces') }}')"
+                                onclick="window.dgtNavigateBack('{{ route('boards.workspaces') }}')"
                             @endif
-                            class="mobile-back-btn hidden lg:inline-flex"
+                            class="mobile-back-btn hidden lg:inline-flex cursor-pointer"
                             title="Back"
                             aria-label="Back to previous page">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
@@ -1892,6 +2305,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </button>
                     </div>
 
+                    <!-- KIUQ AI Fixed Header Button -->
+                    @include('components.kiuq-ai.button')
+
                     <!-- Dark Mode Pill Toggle (desktop) -->
                     <div class="theme-pill-toggle cursor-pointer select-none" @click="toggleTheme()" :title="theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'" role="button" tabindex="0" @keydown.enter="toggleTheme()" @keydown.space.prevent="toggleTheme()" aria-label="Toggle dark mode" id="topbar-theme-toggle">
                         <!-- Sun icon -->
@@ -1926,8 +2342,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
 
-                    <div class="relative" x-data="notificationSystem()" x-init="initNotifications()" @kiuq:realtime-notification.window="open = false">
-                        <button class="btn btn-secondary btn-icon relative hover:!bg-blue-600 hover:!text-white hover:!border-blue-600 transition-all duration-75"
+                    <div class="relative notif-bell-wrapper" x-data="notificationSystem()" x-init="initNotifications()" @kiuq:realtime-notification.window="open = false">
+                        <button class="btn btn-secondary btn-icon notif-bell-btn relative hover:!bg-blue-600 hover:!text-white hover:!border-blue-600 transition-all duration-75"
                                 @click="toggleOpen()"
                                 aria-label="Open notifications"
                                 :aria-expanded="open">
@@ -1940,22 +2356,22 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </button>
 
                         <div x-show="open" @click.outside="open = false" x-cloak style="display: none;"
-                             class="notif-panel absolute right-0 mt-2 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl z-50 sm:w-96"
-                             x-transition:enter="transition ease-out duration-75"
-                             x-transition:enter-start="opacity-0 scale-95"
-                             x-transition:enter-end="opacity-100 scale-100"
+                             class="notif-panel absolute right-0 mt-2 w-[calc(100vw-1.5rem)] overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl shadow-2xl z-[9990] sm:w-96"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
+                             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
                              role="menu">
-                            <div class="border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900 px-4 py-3">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div>
-                                        <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">Recent activity</h3>
-                                        <p class="mt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400" x-text="unreadCount > 0 ? unreadCount + ' unread notification' + (unreadCount === 1 ? '' : 's') : 'All notifications are read'"></p>
+                            <div class="notif-panel-header border-b border-slate-200/70 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/90 px-4 py-3 flex-shrink-0">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">Notifications</h3>
+                                        <p class="mt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400 truncate" x-text="unreadCount > 0 ? unreadCount + ' unread notification' + (unreadCount === 1 ? '' : 's') : 'All notifications are read'"></p>
                                     </div>
-                                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
                                         <button type="button"
                                                 x-show="canPin"
                                                 @click="openAnnouncementModal()"
-                                                class="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-1 text-[11px] font-black transition border border-amber-500/20 shadow-xs"
+                                                class="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2.5 py-1 text-[11px] font-black transition border border-amber-500/20 shadow-xs"
                                                 title="Pin an announcement to top for all users">
                                             <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
                                             Pin
@@ -1964,7 +2380,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                                 x-show="unreadCount > 0"
                                                 @click="markAllAsRead()"
                                                 class="rounded-lg px-2 py-1 text-[11px] font-black text-indigo-700 dark:text-indigo-400 transition hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
-                                            Mark all as read
+                                            Mark read
+                                        </button>
+                                        <button type="button"
+                                                @click="open = false"
+                                                class="lg:hidden inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400 active:scale-90 transition"
+                                                aria-label="Close notifications">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                                         </button>
                                     </div>
                                 </div>
@@ -1999,7 +2421,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 </button>
                             </div>
 
-                            <div class="max-h-96 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 scrollbar-thin">
+                            <div class="notif-panel-list max-h-96 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 scrollbar-thin">
                                 <template x-for="notif in notifications" :key="notif.id">
                                     <div class="group relative flex w-full items-start gap-3 p-3.5 text-left transition cursor-pointer select-none"
                                          :class="notif.is_pinned 
@@ -2035,11 +2457,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                                         </button>
                                                     </template>
                                                     
-                                                    <!-- Pin Button (Visible on hover if canPin and not pinned) -->
+                                                    <!-- Pin Button (Visible on mobile and on hover on desktop if canPin and not pinned) -->
                                                     <template x-if="canPin && !notif.is_pinned">
                                                         <button type="button"
                                                                 @click.stop="openPinModal(notif)"
-                                                                class="opacity-0 group-hover:opacity-100 focus:opacity-100 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 border border-amber-200 dark:border-amber-800 transition shadow-xs"
+                                                                class="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 border border-amber-200 dark:border-amber-800 transition shadow-xs"
                                                                 title="Pin notification to top for all users">
                                                             <svg class="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
                                                             Pin
@@ -2499,9 +2921,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         </div>
     </div>
 
-    <!-- ── Apple HIG Standard 5-Tab Mobile Navigation Bar ────────────── -->
-    <nav class="mobile-bottom-nav lg:hidden" id="mobile-bottom-nav" aria-label="Mobile navigation">
-        <div class="mobile-bottom-nav-inner">
+    <!-- ── Apple Music / iOS 26 Liquid Glass Floating Capsule Navigation Bar ── -->
+    <nav class="mobile-bottom-nav ios-liquid-glass-dock lg:hidden" id="mobile-bottom-nav" aria-label="Mobile navigation">
+        <div class="ios-liquid-specular-rim" aria-hidden="true"></div>
+        <div class="mobile-bottom-nav-inner" id="mobile-bottom-nav-track">
+            <!-- Morphing Liquid Glass Sliding Lens Pill -->
+            <div class="ios-liquid-pill" id="ios-liquid-pill" aria-hidden="true"></div>
 
             <!-- 1. Home -->
             @can('dashboard.view')
@@ -2510,13 +2935,12 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                class="mobile-nav-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}"
                aria-label="Home">
                 <span class="mobile-nav-icon">
-                    <svg fill="currentColor" viewBox="0 0 24 24" class="w-6 h-6">
+                    <svg fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5">
                         <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z" />
                         <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z" />
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Home</span>
-                <span class="mobile-nav-indicator"></span>
             </a>
             @endcan
 
@@ -2527,12 +2951,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                class="mobile-nav-item {{ (request()->routeIs('boards.*') && !request()->routeIs('boards.reports.*')) ? 'active' : '' }}"
                aria-label="Boards">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z"/>
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Boards</span>
-                <span class="mobile-nav-indicator"></span>
             </a>
             @endcan
 
@@ -2546,54 +2969,93 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                class="mobile-nav-item {{ request()->routeIs('tasks.count') ? 'active' : '' }}"
                aria-label="Tasks">
                 <span class="mobile-nav-icon relative">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
                     </svg>
                     @if($mobileTasksCount > 0)
-                        <span class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full {{ $mobileHasDueTomorrow ? 'bg-amber-500' : 'bg-rose-500' }} text-white text-[9px] font-bold flex items-center justify-center">{{ $mobileTasksCount }}</span>
+                        <span class="absolute -top-1.5 -right-2 min-w-4 h-4 px-1 rounded-full {{ $mobileHasDueTomorrow ? 'bg-amber-500' : 'bg-rose-500' }} text-white text-[9px] font-bold flex items-center justify-center shadow-xs">{{ $mobileTasksCount }}</span>
                     @endif
                 </span>
                 <span class="mobile-nav-label">Tasks</span>
-                <span class="mobile-nav-indicator"></span>
             </a>
 
-            <!-- 4. Websites / Content -->
+            <!-- 4. Websites Portfolio -->
             @if(auth()->user()?->hasWebsiteAccess() || auth()->user()?->hasAnyRole(['boss', 'super-admin', 'admin-digital', 'digital-team']))
-            <a href="{{ route('websites.posts.index') }}"
+            <a href="{{ route('websites.index') }}"
                data-turbo-preload
-               class="mobile-nav-item {{ request()->routeIs('websites.*') ? 'active' : '' }}"
+               class="mobile-nav-item {{ (request()->routeIs('websites.index') || request()->routeIs('websites.show')) ? 'active' : '' }}"
                aria-label="Websites">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253M3 12a8.959 8.959 0 0 0 .284 2.253" />
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Websites</span>
-                <span class="mobile-nav-indicator"></span>
             </a>
-            @else
+
+            <!-- 5. Blog Posts CMS -->
+            <a href="{{ route('websites.posts.index') }}"
+               data-turbo-preload
+               class="mobile-nav-item {{ (request()->routeIs('websites.posts.*') || request()->routeIs('websites.blogs.*')) ? 'active' : '' }}"
+               aria-label="Blog CMS">
+                <span class="mobile-nav-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                </span>
+                <span class="mobile-nav-label">Blog CMS</span>
+            </a>
+            @endif
+
+            <!-- 6. Chat (if enabled for user) -->
+            @if(auth()->check() && auth()->user()->isChatEnabled())
+            <a href="{{ route('chat.index') }}"
+               data-turbo="false"
+               class="mobile-nav-item {{ request()->routeIs('chat.*') ? 'active' : '' }}"
+               aria-label="Chat">
+                <span class="mobile-nav-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                    </svg>
+                </span>
+                <span class="mobile-nav-label">Chat</span>
+            </a>
+            @endif
+
+            <!-- 7. Notes -->
             <a href="{{ route('notes.private') }}"
                data-turbo-preload
                class="mobile-nav-item {{ request()->routeIs('notes.*') ? 'active' : '' }}"
                aria-label="Notes">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Notes</span>
-                <span class="mobile-nav-indicator"></span>
             </a>
-            @endif
 
-            <!-- 5. iOS App Hub Trigger -->
+            <!-- 8. KIUQ AI Studio -->
+            <button type="button"
+                    class="mobile-nav-item"
+                    @click="$dispatch('open-kiuq-ai')"
+                    aria-label="KIUQ AI">
+                <span class="mobile-nav-icon">
+                    <svg fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5">
+                        <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z" />
+                    </svg>
+                </span>
+                <span class="mobile-nav-label">KIUQ AI</span>
+            </button>
+
+            <!-- 9. iOS App Hub Trigger -->
             <button type="button"
                     class="mobile-nav-item"
                     :class="{ 'active': $store.mobileHub.open }"
-                    @click="$store.mobileHub.toggle()"
+                    @click="$store.mobileHub.toggle(); setTimeout(() => window.dgtSyncLiquidGlassNav?.(), 40)"
                     aria-label="App Hub">
                 <span class="mobile-nav-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor" class="w-5 h-5">
                         <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
                         <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
                         <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
@@ -2601,11 +3063,113 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     </svg>
                 </span>
                 <span class="mobile-nav-label">Hub</span>
-                <span class="mobile-nav-indicator"></span>
             </button>
 
         </div>
     </nav>
+
+    <script>
+        (() => {
+            let glideTimeout = null;
+
+            const syncLiquidGlassNav = (targetItem = null, animate = true, centerScroll = true) => {
+                const track = document.getElementById('mobile-bottom-nav-track');
+                const pill = document.getElementById('ios-liquid-pill');
+                if (!track || !pill) return;
+
+                const activeItem = targetItem || track.querySelector('.mobile-nav-item.active');
+                if (!activeItem) {
+                    pill.style.opacity = '0';
+                    return;
+                }
+
+                const left = activeItem.offsetLeft;
+                const width = activeItem.offsetWidth;
+                if (width <= 0) return;
+
+                if (!animate) {
+                    pill.style.transition = 'none';
+                } else {
+                    pill.style.transition = '';
+                    pill.classList.add('is-gliding');
+                    clearTimeout(glideTimeout);
+                    glideTimeout = setTimeout(() => pill.classList.remove('is-gliding'), 360);
+                }
+
+                pill.style.opacity = '1';
+                pill.style.width = `${width}px`;
+                pill.style.transform = `translate3d(${left}px, -50%, 0)`;
+
+                if (!animate) {
+                    requestAnimationFrame(() => {
+                        pill.style.transition = '';
+                    });
+                }
+
+                if (centerScroll) {
+                    const targetScroll = Math.max(0, left - (track.clientWidth - width) / 2);
+                    try {
+                        track.scrollTo({
+                            left: targetScroll,
+                            behavior: animate ? 'smooth' : 'auto'
+                        });
+                    } catch (_) {
+                        track.scrollLeft = targetScroll;
+                    }
+                }
+            };
+
+            window.dgtSyncLiquidGlassNav = syncLiquidGlassNav;
+
+            const bindLiquidGlassInteractions = () => {
+                const track = document.getElementById('mobile-bottom-nav-track');
+                const pill = document.getElementById('ios-liquid-pill');
+                if (!track || !pill || track.dataset.liquidBound === 'true') return;
+                track.dataset.liquidBound = 'true';
+
+                // Tap optimistic morphing animation
+                track.addEventListener('click', (e) => {
+                    const item = e.target.closest('.mobile-nav-item');
+                    if (!item) return;
+                    track.querySelectorAll('.mobile-nav-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                    syncLiquidGlassNav(item, true, true);
+                });
+
+                // Touch press lens expansion (Apple Music / iOS 26 tactile glass feel)
+                track.addEventListener('touchstart', (e) => {
+                    const item = e.target.closest('.mobile-nav-item');
+                    if (item && pill) {
+                        pill.classList.add('is-pressing');
+                    }
+                }, { passive: true });
+
+                const clearPress = () => {
+                    if (pill) pill.classList.remove('is-pressing');
+                };
+                track.addEventListener('touchend', clearPress, { passive: true });
+                track.addEventListener('touchcancel', clearPress, { passive: true });
+            };
+
+            const initNav = () => {
+                bindLiquidGlassInteractions();
+                syncLiquidGlassNav(null, false, true);
+                setTimeout(() => syncLiquidGlassNav(null, false, true), 120);
+            };
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initNav);
+            } else {
+                initNav();
+            }
+
+            document.addEventListener('turbo:load', () => {
+                bindLiquidGlassInteractions();
+                syncLiquidGlassNav(null, true, true);
+            });
+            window.addEventListener('resize', () => syncLiquidGlassNav(null, false, false));
+        })();
+    </script>
 
     <!-- ── iOS Native App Hub Bottom Sheet ──────────────────────────────── -->
     <div x-cloak
@@ -2803,6 +3367,32 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                             </div>
                             <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Notes</span>
                         </a>
+
+                        @if(auth()->check() && auth()->user()->isChatEnabled())
+                        <!-- App: Chat -->
+                        <a href="{{ route('chat.index') }}"
+                           data-turbo="false"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group relative"
+                           x-data="{ unreadCount: {{ (int)($initialChatUnread ?? 0) }} }"
+                           x-init="
+                               window.addEventListener('chat:unread-updated', (e) => {
+                                   if (e.detail && e.detail.unread_count !== undefined) unreadCount = Number(e.detail.unread_count);
+                               });
+                           ">
+                            <div class="relative w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-cyan-500 via-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.75.75 0 0 1-.974-.948l.783-2.35A7.47 7.47 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                                </svg>
+                                <span x-show="unreadCount > 0"
+                                      class="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-slate-900"
+                                      x-text="unreadCount > 99 ? '99+' : unreadCount">
+                                    {{ ($initialChatUnread ?? 0) > 99 ? '99+' : (($initialChatUnread ?? 0) > 0 ? $initialChatUnread : '') }}
+                                </span>
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Chat</span>
+                        </a>
+                        @endif
 
                         <!-- App 8: Settings -->
                         <a href="{{ route('settings') }}"
@@ -3092,7 +3682,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
     <script>
     window.dgtInitialsAvatar = function(name = 'User', color = '#4f46e5') {
-        const cleanName = String(name || 'User').trim().replace(/\s+/g, ' ');
+        const cleanName = String(name || 'User')
+            .replace(/\s*\([^)]*\)/g, '')
+            .replace(/[^\p{L}\p{N}\s@]/gu, ' ')
+            .trim()
+            .replace(/\s+/g, ' ');
         const parts = cleanName.includes('@') ? [cleanName.split('@')[0]] : cleanName.split(' ').filter(Boolean);
         const initials = (parts.length > 1
             ? (parts[0][0] || '') + (parts[parts.length - 1][0] || '')
@@ -3704,6 +4298,189 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }
     };
 
+    // Global Messenger-Style In-App Chat Notification Toast
+    window.showChatNotificationToast = function(data) {
+        if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
+
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const senderName = data.sender_name || 'Team Member';
+        const avatar = data.sender_avatar || (window.dgtInitialsAvatar ? window.dgtInitialsAvatar(senderName) : '/favicon.svg');
+        const preview = data.message || 'Sent a message';
+        const link = data.link || '/chat';
+
+        const toast = document.createElement('div');
+        toast.className = 'dgt-chat-toast flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl shadow-2xl bg-slate-900/95 text-white border border-indigo-500/40 ring-1 ring-white/10 pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-200 max-w-sm cursor-pointer hover:border-indigo-400 select-none backdrop-blur-2xl';
+
+        toast.innerHTML = `
+            <div class="relative shrink-0 mt-0.5">
+                <img src="${avatar}" class="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-500/60 shadow-md" alt="${window.dgtEscapeHtml ? window.dgtEscapeHtml(senderName) : senderName}" onerror="this.src='/favicon.svg'" />
+                <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-slate-900"></span>
+            </div>
+            <div class="flex-1 min-w-0 pr-1">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-white truncate max-w-[150px]">${window.dgtEscapeHtml ? window.dgtEscapeHtml(senderName) : senderName}</span>
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Chat</span>
+                    <span class="text-[10px] text-slate-400 font-medium ml-auto">now</span>
+                </div>
+                <p class="mt-1 text-xs text-slate-300 leading-snug line-clamp-2 font-normal">${window.dgtEscapeHtml ? window.dgtEscapeHtml(preview) : preview}</p>
+                <div class="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300">
+                    <span>Reply now</span>
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+                </div>
+            </div>
+            <button class="toast-close-btn shrink-0 -mt-1 -mr-1 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" aria-label="Close">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            </button>
+        `;
+
+        const closeBtn = toast.querySelector('.toast-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toast.classList.add('translate-x-8', 'opacity-0');
+                setTimeout(() => toast.remove(), 250);
+            });
+        }
+
+        toast.addEventListener('click', (e) => {
+            if (!e.target.closest('.toast-close-btn')) {
+                toast.classList.add('translate-x-8', 'opacity-0');
+                setTimeout(() => toast.remove(), 250);
+                window.location.href = link;
+            }
+        });
+
+        container.prepend(toast);
+
+        // Slide in
+        setTimeout(() => {
+            toast.classList.remove('translate-x-8', 'opacity-0');
+        }, 30);
+
+        // Auto dismiss after 7s
+        setTimeout(() => {
+            toast.classList.add('translate-x-8', 'opacity-0');
+            setTimeout(() => toast.remove(), 250);
+        }, 7000);
+    };
+
+    // Out-of-system (Device / Desktop) Chat Notification
+    window.sendBrowserChatNotification = function(data) {
+        const senderName = data.sender_name || 'DGT Chat';
+        const preview = data.message || 'Sent a message';
+        const rawAvatar = data.sender_avatar || '';
+        const avatarUrl = rawAvatar && String(rawAvatar).startsWith('/')
+            ? window.location.origin + rawAvatar
+            : (rawAvatar || (window.location.origin + '/favicon.svg'));
+        const link = data.link || '/chat';
+
+        // 1. macOS native app bridge (Flutter InAppWebView)
+        try {
+            const nativePayload = {
+                id: String(data.id || Date.now()),
+                title: senderName,
+                subtitle: 'DGT Team Chat',
+                message: preview,
+                link: window.location.origin + link,
+                avatarUrl: avatarUrl
+            };
+            if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === 'function') {
+                window.flutter_inappwebview.callHandler('DgtNativeNotifications', JSON.stringify(nativePayload));
+            } else if (window.DgtNativeNotifications && typeof window.DgtNativeNotifications.postMessage === 'function') {
+                window.DgtNativeNotifications.postMessage(JSON.stringify(nativePayload));
+            }
+        } catch (e) {}
+
+        // 2. Standard HTML5 Web Notification API
+        if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+        try {
+            const audioSrc = document.getElementById('notif-sound')?.src;
+            const notif = new Notification(senderName, {
+                body: preview,
+                icon: avatarUrl,
+                badge: '/favicon.svg',
+                tag: 'dgt-chat-conv-' + (data.conversation_id || 'general'),
+                renotify: true,
+                silent: false,
+                data: { sound: audioSrc, link: link }
+            });
+            notif.onclick = function(e) {
+                e.preventDefault();
+                window.focus();
+                window.location.href = link;
+                notif.close();
+            };
+        } catch (e) {
+            console.warn('Browser chat notification error:', e);
+        }
+    };
+
+    // Central dispatcher for incoming chat messages across the whole application
+    window.handleGlobalIncomingChatMessage = function(payload) {
+        if (!payload || !payload.id) return;
+        const currentUserId = document.querySelector('meta[name="kiuq-user-id"]')?.content;
+        if (Number(payload.user_id) === Number(currentUserId)) return; // Ignore messages sent by me
+
+        const isChatPage = window.location.pathname === '/chat' || window.location.pathname.startsWith('/chat');
+
+        // Deduplicate in case message arrives via multiple channels or tabs
+        const notifKey = 'chat_msg_' + payload.id;
+        if (window.__dgtRecentChatMsgIds && window.__dgtRecentChatMsgIds.has(notifKey)) return;
+        if (!window.__dgtRecentChatMsgIds) window.__dgtRecentChatMsgIds = new Set();
+        window.__dgtRecentChatMsgIds.add(notifKey);
+        if (window.__dgtRecentChatMsgIds.size > 200) {
+            window.__dgtRecentChatMsgIds.delete(window.__dgtRecentChatMsgIds.values().next().value);
+        }
+
+        const senderName = payload.sender_name || payload.user?.name || 'DGT Chat';
+        const senderAvatar = payload.sender_avatar || payload.user?.avatar_url || '';
+        let bodyText = payload.body || payload.content || '';
+        if (!bodyText && payload.attachments && payload.attachments.length) {
+            bodyText = `Sent ${payload.attachments.length} attachment(s)`;
+        }
+        if (!bodyText) bodyText = 'Sent you a message';
+
+        const chatLink = `/chat?conversation_id=${payload.conversation_id}`;
+
+        // 1. Pop up in system with sound when outside chat menu
+        if (!isChatPage) {
+            window.showChatNotificationToast({
+                id: payload.id,
+                conversation_id: payload.conversation_id,
+                sender_name: senderName,
+                sender_avatar: senderAvatar,
+                message: bodyText,
+                link: chatLink,
+                created_at: payload.created_at || new Date().toISOString()
+            });
+
+            // Play board notification sound
+            window.playNotificationSound?.();
+        }
+
+        // 2. Pop up out of system (Device / Desktop) with sound when blurred, minimized, or outside chat
+        if (document.hidden || !document.hasFocus() || !isChatPage) {
+            window.sendBrowserChatNotification({
+                id: payload.id,
+                sender_name: senderName,
+                sender_avatar: senderAvatar,
+                message: bodyText,
+                link: chatLink,
+                conversation_id: payload.conversation_id
+            });
+        }
+    };
+
+    // Prompt for notification permission on user's first interaction
+    document.addEventListener('click', function() {
+        if (window.Notification && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, { once: true });
+
     window.kiuqGetPusherClient = function() {
         if (!window.Pusher) return null;
 
@@ -3757,6 +4534,27 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 handle(payload);
             }
         });
+
+        // Subscribe to user chat channel for system-wide real-time chat notifications & popups
+        try {
+            const chatChannel = window.__kiuqPusher.subscribe(`private-chat.user.${userId}`);
+            const handleChatMsg = (data) => {
+                if (data) window.handleGlobalIncomingChatMessage?.(data);
+            };
+            chatChannel.bind('message.sent', handleChatMsg);
+            chatChannel.bind('App\\Events\\Chat\\ChatMessageSent', handleChatMsg);
+            if (typeof chatChannel.bind_global === 'function') {
+                chatChannel.bind_global((eventName, payload) => {
+                    if (!payload) return;
+                    const evStr = String(eventName);
+                    if (evStr.includes('ChatMessageSent') || evStr.includes('message.sent')) {
+                        window.handleGlobalIncomingChatMessage?.(payload);
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('Chat user channel subscribe error:', e);
+        }
 
         return true;
     };
@@ -4819,6 +5617,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             }));
         });
     </script>
+
+    <!-- KIUQ AI Liquid Glass Workspace Modal -->
+    @include('components.kiuq-ai.workspace')
+    <script src="{{ asset('js/marked.min.js') }}?v={{ file_exists(public_path('js/marked.min.js')) ? filemtime(public_path('js/marked.min.js')) : '1.0.0' }}"></script>
+    <script src="{{ asset('js/kiuq-ai.js') }}?v={{ file_exists(public_path('js/kiuq-ai.js')) ? filemtime(public_path('js/kiuq-ai.js')) : '1.0.0' }}"></script>
 
 </body>
 </html>

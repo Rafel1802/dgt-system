@@ -754,6 +754,12 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                     supportMultipleWindows: true,
                     limitsNavigationsToAppBoundDomains: false,
                   ),
+                  onPermissionRequest: (controller, request) async {
+                    return PermissionResponse(
+                      resources: request.resources,
+                      action: PermissionResponseAction.GRANT,
+                    );
+                  },
                   onWebViewCreated: (webViewController) {
                     controller = webViewController;
                     controller?.addJavaScriptHandler(

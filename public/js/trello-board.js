@@ -1203,22 +1203,7 @@ window.trelloBoard = function(config) {
 
         // Copy a shareable link to the clipboard
         case 'link': {
-          const url = `${window.location.origin}/boards/${this.boardSlug}?card=${card.id}`;
-          try {
-            await navigator.clipboard.writeText(url);
-            window.showToast('Card link copied to clipboard!');
-          } catch {
-            await window.promptModal({
-              title: 'Copy card link',
-              message: 'Copy this URL manually.',
-              inputLabel: 'Card link',
-              value: url,
-              readonly: true,
-              required: false,
-              confirmText: 'Done',
-              cancelText: 'Close',
-            });
-          }
+          await this.copyCardLink(card);
           break;
         }
 
@@ -5324,7 +5309,8 @@ window.trelloBoard = function(config) {
       if (s) {
         boards = boards.filter(b => {
           const workspaceName = this.sbmBoardWorkspaceName(b).toLowerCase();
-          return (b.name || '').toLowerCase().includes(s) || workspaceName.includes(s);
+          const monthName = this.sbmBoardMonth(b).toLowerCase();
+          return (b.name || '').toLowerCase().includes(s) || workspaceName.includes(s) || monthName.includes(s);
         });
       }
 
@@ -5386,6 +5372,54 @@ window.trelloBoard = function(config) {
     sbmBoardWorkspaceName(board) {
       const ws = this.sbmWorkspaceForBoard(board);
       return ws ? ws.name : 'Workspace';
+    },
+
+    sbmBoardMonth(board) {
+      if (!board) return '';
+      const name = String(board.name || '').trim();
+
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+
+      // 1. Check full English month names in board name
+      for (const m of months) {
+        const reg = new RegExp('\\b' + m + '\\b', 'i');
+        if (reg.test(name)) {
+          return m;
+        }
+      }
+
+      // 2. Check 3-letter month abbreviations
+      const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      for (let i = 0; i < shortMonths.length; i++) {
+        const reg = new RegExp('\\b' + shortMonths[i] + '\\b', 'i');
+        if (reg.test(name)) {
+          return months[i];
+        }
+      }
+
+      // 3. Check Khmer month names
+      const khmerMonths = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+      for (let i = 0; i < khmerMonths.length; i++) {
+        if (name.includes(khmerMonths[i])) {
+          return months[i];
+        }
+      }
+
+      // 4. Check created_at date if present
+      if (board.created_at) {
+        try {
+          const d = new Date(board.created_at);
+          if (!isNaN(d.getTime())) {
+            return months[d.getMonth()];
+          }
+        } catch (e) {}
+      }
+
+      // 5. Fallback to current calendar month
+      return months[new Date().getMonth()];
     },
 
     sbmWorkspaceInitials(name) {
@@ -7431,6 +7465,56 @@ window.trelloBoard = function(config) {
     async editAttachment(file)    { this.amEditAttachment(file); },
     async deleteAttachment(file)  { this.amDeleteAttachment(file); },
 
+
+    async copyCardLink(card = null) {
+      const targetCard = card || this.activeCard;
+      if (!targetCard) return;
+      const slug = (targetCard.board && targetCard.board.slug) || this.boardSlug || (this.board && this.board.slug);
+      const url = `${window.location.origin}/boards/${slug}?card=${targetCard.id}`;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = url;
+          ta.style.position = 'fixed';
+          ta.style.top = '0';
+          ta.style.left = '0';
+          ta.style.width = '2em';
+          ta.style.height = '2em';
+          ta.style.padding = '0';
+          ta.style.border = 'none';
+          ta.style.outline = 'none';
+          ta.style.boxShadow = 'none';
+          ta.style.background = 'transparent';
+          ta.style.opacity = '0';
+          ta.style.pointerEvents = 'none';
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        if (window.showToast) {
+          window.showToast('Card link copied to clipboard!');
+        }
+      } catch (err) {
+        if (window.promptModal) {
+          await window.promptModal({
+            title: 'Copy card link',
+            message: 'Copy this URL manually.',
+            inputLabel: 'Card link',
+            value: url,
+            readonly: true,
+            required: false,
+            confirmText: 'Done',
+            cancelText: 'Close',
+          });
+        } else {
+          prompt('Copy card link:', url);
+        }
+      }
+    },
 
     // ── Deletions ─────────────────────────────────────────────────────────────
     async archiveCard() {

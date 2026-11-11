@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <g filter="url(#sh)">
+    <!-- Comic Book Starburst -->
+    <polygon points="100,20 120,55 160,35 150,75 190,85 165,115 190,145 150,150 155,190 120,165 100,195 80,165 45,190 50,150 10,145 35,115 10,85 50,75 40,35 80,55" fill="#ea580c" stroke="#fef08a" stroke-width="4"/>
+    <polygon points="100,40 115,65 145,50 135,80 165,90 145,110 165,135 135,138 140,165 115,148 100,170 85,148 60,165 65,138 35,135 55,110 35,90 65,80 55,50 85,65" fill="#facc15"/>
+    <text x="100" y="115" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="900" fill="#7c2d12" text-anchor="middle" stroke="#ffffff" stroke-width="1.5">JANG! 🔥</text>
+  </g>
+</svg>

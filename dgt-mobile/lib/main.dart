@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -72,6 +73,7 @@ class DgtWebsiteShell extends StatefulWidget {
 class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     with WidgetsBindingObserver {
   InAppWebViewController? controller;
+  PullToRefreshController? pullToRefreshController;
   int loadingProgress = 0;
   bool hasLoadedFirstPage = false;
   bool splashScreenDone = false;
@@ -125,6 +127,22 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    pullToRefreshController = kIsWeb
+        ? null
+        : PullToRefreshController(
+            settings: PullToRefreshSettings(
+              color: const Color(0xFF2F68ED),
+            ),
+            onRefresh: () async {
+              if (defaultTargetPlatform == TargetPlatform.android) {
+                await controller?.reload();
+              } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+                await controller?.reload();
+              }
+            },
+          );
+
     Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) {
         setState(() => splashScreenDone = true);
@@ -143,18 +161,60 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     await controller?.reload();
   }
 
-  Future<void> _prepareAppSurface() async {
+  Future<void> _prepareAppSurface({double topInset = 56.0, double bottomInset = 28.0}) async {
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final safeTopPx = isIos ? math.max(topInset, 56.0).round() : math.max(topInset, 24.0).round();
+    final safeBottomPx = isIos ? math.max(bottomInset, 28.0).round() : math.max(bottomInset, 12.0).round();
+
     await controller?.evaluateJavascript(
       source: '''
       (() => {
+        const applySafeMetrics = () => {
+          const root = document.documentElement;
+          root.classList.add('dgt-mobile-app');
+          if (navigator.userAgent.includes('Android') || navigator.userAgent.includes('DGTSystemAndroidApp')) {
+            root.classList.add('dgt-android-app');
+          } else {
+            root.classList.add('dgt-ios-app');
+          }
+          root.style.setProperty('--dgt-safe-top', '${safeTopPx}px');
+          root.style.setProperty('--dgt-safe-bottom', '${safeBottomPx}px');
+        };
+
+        applySafeMetrics();
+
+        if (!document.getElementById('dgt-ios-native-app-styles')) {
+          const style = document.createElement('style');
+          style.id = 'dgt-ios-native-app-styles';
+          style.innerHTML = `
+            html.dgt-ios-app {
+              --dgt-safe-top: ${safeTopPx}px !important;
+              --dgt-safe-bottom: ${safeBottomPx}px !important;
+              -webkit-user-select: none;
+              -webkit-touch-callout: none;
+              -webkit-tap-highlight-color: transparent !important;
+              touch-action: manipulation;
+            }
+            html.dgt-ios-app input, 
+            html.dgt-ios-app textarea, 
+            html.dgt-ios-app [contenteditable="true"] {
+              -webkit-user-select: text !important;
+              user-select: text !important;
+              font-size: 16px !important;
+            }
+            html.dgt-ios-app .page-content,
+            html.dgt-ios-app .custom-scrollbar {
+              -webkit-overflow-scrolling: touch !important;
+            }
+          `;
+          document.head.appendChild(style);
+        }
+
         if (window.__dgtMobileReady) return;
         window.__dgtMobileReady = true;
-        document.documentElement.classList.add('dgt-mobile-app');
-        if (navigator.userAgent.includes('Android') || navigator.userAgent.includes('DGTSystemAndroidApp')) {
-          document.documentElement.classList.add('dgt-android-app');
-        } else {
-          document.documentElement.classList.add('dgt-ios-app');
-        }
+
+        document.addEventListener('turbo:load', applySafeMetrics);
+        document.addEventListener('turbo:render', applySafeMetrics);
 
         const blurAccidentalColorPicker = () => {
           const active = document.activeElement;
@@ -173,6 +233,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
   @override
   Widget build(BuildContext context) {
+    final viewPadding = MediaQuery.viewPaddingOf(context);
+    final mediaPadding = MediaQuery.paddingOf(context);
+    final topSafe = math.max(viewPadding.top, mediaPadding.top);
+    final bottomSafe = math.max(viewPadding.bottom, mediaPadding.bottom);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: Stack(
@@ -190,6 +255,8 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 allowFileAccessFromFileURLs: true,
                 allowUniversalAccessFromFileURLs: true,
                 mediaPlaybackRequiresUserGesture: false,
+                allowsInlineMediaPlayback: true,
+                allowsAirPlayForMediaPlayback: true,
                 disableContextMenu: true,
                 verticalScrollBarEnabled: false,
                 horizontalScrollBarEnabled: false,
@@ -200,11 +267,19 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 supportZoom: false,
                 preferredContentMode: UserPreferredContentMode.MOBILE,
                 overScrollMode: OverScrollMode.NEVER,
-                disallowOverScroll: true,
+                disallowOverScroll: false,
                 allowsLinkPreview: false,
+                isInspectable: kDebugMode,
               ),
+              pullToRefreshController: pullToRefreshController,
               onWebViewCreated: (webViewController) {
                 controller = webViewController;
+              },
+              onPermissionRequest: (controller, permissionRequest) async {
+                return PermissionResponse(
+                  resources: permissionRequest.resources,
+                  action: PermissionResponseAction.GRANT,
+                );
               },
               onProgressChanged: (controller, progress) {
                 if (!hasLoadedFirstPage) {
@@ -223,11 +298,15 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                 });
               },
               onLoadStop: (controller, url) async {
+                pullToRefreshController?.endRefreshing();
                 setState(() {
                   loadingProgress = 100;
                   hasLoadedFirstPage = true;
                 });
-                await _prepareAppSurface();
+                await _prepareAppSurface(
+                  topInset: topSafe,
+                  bottomInset: bottomSafe,
+                );
               },
               onReceivedError: (controller, request, error) {
                 if (request.isForMainFrame ?? false) {

@@ -30,5 +30,8 @@ Schedule::command('gsc:auto-inspect --limit=200')->dailyAt('03:30')->withoutOver
 // Every 5 minutes Central Website & Blog Analytics Synchronization across Hostinger accounts
 Schedule::command('dgt:sync-websites --sync')->everyFiveMinutes()->withoutOverlapping()->name('dgt-website-sync-5m');
 
+// Every 5 minutes: auto-convert chat images older than 5 minutes to WebP to save server storage
+Schedule::command('chat:convert-images-webp')->everyFiveMinutes()->withoutOverlapping()->name('chat-convert-images-webp-5m');
+
 
 

@@ -33,9 +33,26 @@ async function api(url, options = {}) {
 
 window.api = api;
 
-window.dgtGoBack = (fallback = '/boards') => {
-    let hasSameAppReferrer = false;
+window.dgtNavigateBack = (fallback = '/boards') => {
+    try {
+        if (typeof window.setNavDirection === 'function') {
+            window.setNavDirection('back');
+        } else {
+            document.documentElement.classList.add('nav-back');
+            document.documentElement.classList.remove('nav-forward');
+            document.documentElement.setAttribute('data-navigation-direction', 'back');
+            sessionStorage.setItem('dgt_nav_dir', 'back');
+            sessionStorage.setItem('dgt_nav_time', String(Date.now()));
+        }
+        if (window.innerWidth < 1024) {
+            const currentMain = document.getElementById('main-content');
+            if (currentMain) {
+                currentMain.classList.add('mobile-sliding-back-out');
+            }
+        }
+    } catch (_) {}
 
+    let hasSameAppReferrer = false;
     try {
         hasSameAppReferrer = document.referrer
             ? new URL(document.referrer).origin === window.location.origin
@@ -49,11 +66,21 @@ window.dgtGoBack = (fallback = '/boards') => {
         return;
     }
 
-    window.location.href = fallback;
+    if (window.Turbo) {
+        window.Turbo.visit(fallback);
+    } else {
+        window.location.href = fallback;
+    }
 };
 
+window.dgtGoBack = window.dgtNavigateBack;
+
 const makeInitialsAvatar = function(name = 'User', color = '#4f46e5') {
-    const cleanName = String(name || 'User').trim().replace(/\s+/g, ' ');
+    const cleanName = String(name || 'User')
+        .replace(/\s*\([^)]*\)/g, '')
+        .replace(/[^\p{L}\p{N}\s@]/gu, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
     const parts = cleanName.includes('@') ? [cleanName.split('@')[0]] : cleanName.split(' ').filter(Boolean);
     const initials = (parts.length > 1
         ? `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`

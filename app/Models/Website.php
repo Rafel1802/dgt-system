@@ -284,6 +284,23 @@ class Website extends Model
     }
 
     /**
+     * Scope query to active / non-archived websites (robust against NULL is_archived values)
+     */
+    public function scopeActive($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('is_archived', false)->orWhereNull('is_archived');
+        });
+    }
+
+    public function scopeNotArchived($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('is_archived', false)->orWhereNull('is_archived');
+        });
+    }
+
+    /**
      * Scope query to websites assigned to specified user(s) (via handled_by or website_assignees)
      */
     public function scopeAssignedToMember($query, $userIds)
@@ -424,5 +441,10 @@ class Website extends Model
             self::STATUS_COMPLETED            => 'bg-violet-100 text-violet-700',
             default                           => 'bg-slate-100 text-slate-600',
         };
+    }
+
+    public function inquiries(): HasMany
+    {
+        return $this->hasMany(WebsiteInquiry::class, 'website_id')->latest();
     }
 }

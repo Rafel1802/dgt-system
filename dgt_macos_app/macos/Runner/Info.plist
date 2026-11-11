@@ -32,5 +32,7 @@
 	<string>NSApplication</string>
 	<key>NSUserNotificationAlertStyle</key>
 	<string>banner</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>KIUQ SYSTEM requires microphone access for real-time HD voice calls between colleagues.</string>
 </dict>
 </plist>

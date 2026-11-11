@@ -53,7 +53,7 @@ class GoogleSearchConsoleController extends Controller
         $account = GoogleSearchConsoleAccount::where('is_active', true)->latest()->first();
 
         // All active DGT websites authorized for the user, with handler, assignees, and class
-        $authorizedWebsites = Website::where('is_archived', false)
+        $authorizedWebsites = Website::active()
             ->when(!$user->canViewAllWebsiteReports(), fn($q) => $q->assignedToMember($user->id))
             ->with([
                 'handler:id,name,email,avatar',
@@ -390,7 +390,7 @@ class GoogleSearchConsoleController extends Controller
             $properties = $this->clientService->listProperties($account);
             $mappedSiteUrls = GoogleSearchConsoleSite::pluck('site_url')->toArray();
 
-            $websites = Website::where('is_archived', false)->get(['id', 'name', 'url']);
+            $websites = Website::active()->get(['id', 'name', 'url']);
 
             // Attach auto-match suggestions based on domain/URL
             $enhancedProperties = array_map(function ($prop) use ($mappedSiteUrls, $websites) {
@@ -455,7 +455,7 @@ class GoogleSearchConsoleController extends Controller
         }
 
         $existingMappings = GoogleSearchConsoleSite::all()->keyBy('website_id');
-        $websites = Website::where('is_archived', false)
+        $websites = Website::active()
             ->with(['handler:id,name,email,avatar'])
             ->orderBy('name')
             ->get();

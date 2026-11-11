@@ -29,6 +29,41 @@
     <link rel="apple-touch-icon" href="{{ $appleTouchIcon }}">
     <link rel="shortcut icon" href="{{ $faviconIco }}">
 
+    <!-- Pusher Beams Web Push Notifications SDK -->
+    <script src="https://js.pusher.com/beams/2.1.0/push-notifications-cdn.js"></script>
+    <script>
+        (function() {
+            window.kiuqInitPusherBeams = function() {
+                if (typeof PusherPushNotifications === 'undefined') return;
+                if (window.beamsClient) return;
+
+                try {
+                    const beamsClient = new PusherPushNotifications.Client({
+                        instanceId: '{{ config('services.pusher_beams.instance_id', '9bc62035-82e2-48e0-8818-3355c2a76a10') }}',
+                    });
+                    window.beamsClient = beamsClient;
+
+                    beamsClient.start()
+                        .then(() => beamsClient.addDeviceInterest('hello'))
+                        .then(() => {
+                            console.log('Successfully registered and subscribed!');
+                        })
+                        .catch(function(err) {
+                            console.error('Pusher Beams error:', err);
+                        });
+                } catch (e) {
+                    console.error('Pusher Beams initialization error:', e);
+                }
+            };
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', window.kiuqInitPusherBeams);
+            } else {
+                window.kiuqInitPusherBeams();
+            }
+        })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <g filter="url(#sh)">
+    <!-- Alien Head -->
+    <path d="M 68 85 C 60 50, 140 50, 132 85 C 125 110, 100 118, 100 118 C 100 118, 75 110, 68 85 Z" fill="#22c55e" stroke="#ffffff" stroke-width="3.5"/>
+    <ellipse cx="85" cy="78" rx="8" ry="14" fill="#0f172a" transform="rotate(-15 85 78)"/>
+    <ellipse cx="115" cy="78" rx="8" ry="14" fill="#0f172a" transform="rotate(15 115 78)"/>
+    <rect x="30" y="145" width="140" height="36" rx="18" fill="#10b981" stroke="#ffffff" stroke-width="3"/>
+    <text x="100" y="169" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="900" fill="#ffffff" text-anchor="middle">Hart mee??? 👽</text>
+  </g>
+</svg>

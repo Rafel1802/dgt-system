@@ -69,11 +69,33 @@ class WebsiteFollowUpController extends Controller
             $url = $item['url'] ?? null;
             $blogClass = $item['blog_sheet_class'] ?? null;
 
-            if (empty($blogClass)) {
-                $wsLookup = Website::find($websiteId);
-                if ($wsLookup && !empty($wsLookup->category)) {
-                    $blogClass = GoogleBlogsSheetService::extractClassFromCategory($wsLookup->category);
+            $wsLookup = Website::find($websiteId);
+
+            // If this is a blog post with a valid URL, ensure the selected website matches the URL's domain
+            if ($finalType === 'blog_post' && !empty($url)) {
+                $currentMatchesUrl = $wsLookup && (
+                    GoogleBlogsSheetService::isStrictWebsiteMatch($wsLookup->name ?? '', $url)
+                    || (!empty($wsLookup->url) && GoogleBlogsSheetService::isStrictWebsiteMatch($wsLookup->url, $url))
+                );
+
+                if (!$currentMatchesUrl) {
+                    $allWs = Website::all();
+                    foreach ($allWs as $candidateWs) {
+                        if (
+                            GoogleBlogsSheetService::isStrictWebsiteMatch($candidateWs->name ?? '', $url)
+                            || (!empty($candidateWs->url) && GoogleBlogsSheetService::isStrictWebsiteMatch($candidateWs->url, $url))
+                        ) {
+                            $wsLookup = $candidateWs;
+                            $websiteId = $candidateWs->id;
+                            $blogClass = GoogleBlogsSheetService::extractClassFromCategory($candidateWs->category) ?: $blogClass;
+                            break;
+                        }
+                    }
                 }
+            }
+
+            if (empty($blogClass) && $wsLookup && !empty($wsLookup->category)) {
+                $blogClass = GoogleBlogsSheetService::extractClassFromCategory($wsLookup->category);
             }
 
             $recentDuplicate = WebsiteFollowUp::where('website_id', $websiteId)
@@ -157,20 +179,24 @@ class WebsiteFollowUpController extends Controller
             }
 
             $sheetStatus = 'skipped';
+            $syncedRow   = null;
             if ($finalType === 'blog_post' && $sheetEnabled && !$skipSheetSync) {
                 $sheetStatus = $isAsync ? 'pending' : 'synced';
+                $syncedRow   = (!$isAsync && isset($syncResult['row'])) ? $syncResult['row'] : null;
             }
 
             $followUp = new WebsiteFollowUp([
-                'website_id'          => $websiteId,
-                'type'                => $finalType,
-                'url'                 => $url,
-                'google_indexed'      => 'pending',
-                'assigned_to'         => $validated['assigned_to'] ?? null,
-                'qc_status'           => 'pending',
-                'created_by'          => auth()->id(),
-                'blog_sheet_class'    => $blogClass,
-                'google_sheet_status' => $sheetStatus,
+                'website_id'             => $websiteId,
+                'type'                   => $finalType,
+                'url'                    => $url,
+                'google_indexed'         => 'pending',
+                'assigned_to'            => $validated['assigned_to'] ?? null,
+                'qc_status'              => 'pending',
+                'created_by'             => auth()->id(),
+                'blog_sheet_class'       => $blogClass,
+                'google_sheet_status'    => $sheetStatus,
+                'google_sheet_row'       => $syncedRow,
+                'google_sheet_synced_at' => ($sheetStatus === 'synced') ? now() : null,
             ]);
 
             $followUp->save();
@@ -666,10 +692,11 @@ class WebsiteFollowUpController extends Controller
                 'google_sheet_error'     => null,
             ]);
             return response()->json([
-                'success' => true,
-                'row'     => $res['row'] ?? null,
-                'sheet'   => $sheetTab,
-                'message' => "Synced successfully to {$sheetTab} (Row #" . ($res['row'] ?? '?') . ").",
+                'success'          => true,
+                'row'              => $res['row'] ?? null,
+                'google_sheet_row' => $res['row'] ?? null,
+                'sheet'            => $sheetTab,
+                'message'          => "Synced successfully to {$sheetTab} (Row #" . ($res['row'] ?? '?') . ").",
             ]);
         }
 
@@ -698,7 +725,7 @@ class WebsiteFollowUpController extends Controller
         }
 
         $date = Carbon::parse($websiteFollowUp->created_at, config('app.timezone', 'Asia/Phnom_Penh'))
-            ->format('d/m');
+            ->format('m/d/Y');
 
         $websiteFollowUp->updateQuietly(['google_sheet_status' => 'pending', 'google_sheet_error' => null]);
 

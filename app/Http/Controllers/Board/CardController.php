@@ -27,9 +27,13 @@ use Illuminate\View\View;
  */
 class CardController extends Controller
 {
-    /** Return full card data for the detail modal. */
-    public function show($id): JsonResponse
+    /** Return full card data for the detail modal, or redirect if accessed directly in a browser. */
+    public function show($id): JsonResponse|\Illuminate\Http\RedirectResponse
     {
+        if (!request()->wantsJson() && !request()->ajax()) {
+            return $this->openDirect(request(), $id);
+        }
+
         $card = Card::find($id);
         
         if (!$card) {
@@ -164,6 +168,22 @@ class CardController extends Controller
             'progress'   => $card->checklistProgress(),
             'activities' => $activitiesPayload,
         ]);
+    }
+
+    /**
+     * Direct browser navigation to open a card on its board.
+     * Supports formats: 101, CRD-101, etc.
+     */
+    public function openDirect(Request $request, $cardIdentifier)
+    {
+        $id = is_numeric($cardIdentifier) ? (int)$cardIdentifier : (int)preg_replace('/[^0-9]/', '', (string)$cardIdentifier);
+        $card = Card::with('boardList.board')->find($id);
+
+        if (!$card || !$card->boardList || !$card->boardList->board) {
+            return redirect()->route('boards.workspaces')->with('error', "Task card #{$cardIdentifier} not found or deleted.");
+        }
+
+        return redirect("/boards/{$card->boardList->board->slug}?card={$card->id}");
     }
 
     /** Create a new card inside a board list. */

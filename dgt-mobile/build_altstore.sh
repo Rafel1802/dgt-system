@@ -15,7 +15,7 @@ echo "3. Packaging into AltStore IPA..."
 BUILD_DIR="build/ios/iphoneos"
 APP_BUNDLE="Runner.app"
 PAYLOAD_DIR="build/ios/Payload"
-IPA_PATH="build/ios/KIUQ-SYSTEM-IOS-1.0.7.ipa"
+IPA_PATH="build/ios/KIUQ-SYSTEM-IOS-1.0.9.ipa"
 
 if [ -d "build/ios/iphoneos/Runner.app" ]; then
     BUILD_DIR="build/ios/iphoneos"
@@ -32,16 +32,20 @@ cp -R "$BUILD_DIR/$APP_BUNDLE" "$PAYLOAD_DIR/"
 
 rm -f "$IPA_PATH" "build/ios/KIUQ-SYSTEM.ipa"
 cd build/ios
-zip -qr KIUQ-SYSTEM-IOS-1.0.7.ipa Payload
-cp KIUQ-SYSTEM-IOS-1.0.7.ipa KIUQ-SYSTEM.ipa
-cp KIUQ-SYSTEM-IOS-1.0.7.ipa KIUQ-SYSTEM-IOS-1.0.6.ipa
+zip -qr KIUQ-SYSTEM-IOS-1.0.9.ipa Payload
+cp KIUQ-SYSTEM-IOS-1.0.9.ipa KIUQ-SYSTEM.ipa
+cp KIUQ-SYSTEM-IOS-1.0.9.ipa KIUQ-SYSTEM-IOS-1.0.8.ipa
+cp KIUQ-SYSTEM-IOS-1.0.9.ipa KIUQ-SYSTEM-IOS-1.0.7.ipa
+cp KIUQ-SYSTEM-IOS-1.0.9.ipa KIUQ-SYSTEM-IOS-1.0.6.ipa
 cd ../..
 
 rm -rf "$PAYLOAD_DIR"
 
 mkdir -p ../public/downloads
-cp "build/ios/KIUQ-SYSTEM-IOS-1.0.7.ipa" "../public/downloads/KIUQ-SYSTEM-IOS-1.0.7.ipa"
+cp "build/ios/KIUQ-SYSTEM-IOS-1.0.9.ipa" "../public/downloads/KIUQ-SYSTEM-IOS-1.0.9.ipa"
 cp "build/ios/KIUQ-SYSTEM.ipa" "../public/downloads/KIUQ-SYSTEM.ipa"
+cp "build/ios/KIUQ-SYSTEM-IOS-1.0.8.ipa" "../public/downloads/KIUQ-SYSTEM-IOS-1.0.8.ipa"
+cp "build/ios/KIUQ-SYSTEM-IOS-1.0.7.ipa" "../public/downloads/KIUQ-SYSTEM-IOS-1.0.7.ipa"
 cp "build/ios/KIUQ-SYSTEM-IOS-1.0.6.ipa" "../public/downloads/KIUQ-SYSTEM-IOS-1.0.6.ipa"
 
-echo "Done! Your IPA is ready at: ../public/downloads/KIUQ-SYSTEM-IOS-1.0.7.ipa"
+echo "Done! Your IPA is ready at: ../public/downloads/KIUQ-SYSTEM-IOS-1.0.9.ipa"

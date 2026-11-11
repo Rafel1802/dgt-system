@@ -17,11 +17,13 @@ if (!defined('ABSPATH')) {
 if (!class_exists('DGT_Website_Connector')) {
 
 class DGT_Website_Connector {
-    const OPTION_DGT_URL    = 'dgt_connector_platform_url';
-    const OPTION_API_KEY    = 'dgt_connector_api_key';
-    const OPTION_API_SECRET = 'dgt_connector_api_secret';
-    const OPTION_AUTO_SYNC  = 'dgt_connector_auto_sync';
-    const OPTION_LAST_SYNC  = 'dgt_connector_last_sync';
+    const OPTION_DGT_URL          = 'dgt_connector_platform_url';
+    const OPTION_API_KEY          = 'dgt_connector_api_key';
+    const OPTION_API_SECRET       = 'dgt_connector_api_secret';
+    const OPTION_AUTO_SYNC        = 'dgt_connector_auto_sync';
+    const OPTION_LAST_SYNC        = 'dgt_connector_last_sync';
+    const OPTION_CAPTURE_INQUIRY  = 'dgt_connector_capture_inquiries';
+    const OPTION_INQUIRY_QUEUE    = 'dgt_connector_inquiry_queue';
 
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_rest_routes']);
@@ -31,9 +33,21 @@ class DGT_Website_Connector {
         add_action('template_redirect', [$this, 'track_single_post_view']);
         add_action('wp_footer', [$this, 'render_tracking_script']);
 
+        // Form Inquiries Hooks (CF7, Elementor, WPForms, Gravity, Fluent, Custom)
+        add_action('wpcf7_mail_sent', [$this, 'handle_cf7_inquiry'], 10, 1);
+        add_action('elementor_pro/forms/new_record', [$this, 'handle_elementor_inquiry'], 10, 2);
+        add_action('wpforms_process_complete', [$this, 'handle_wpforms_inquiry'], 10, 4);
+        add_action('gform_after_submission', [$this, 'handle_gravity_inquiry'], 10, 2);
+        add_action('fluentform_submission_inserted', [$this, 'handle_fluent_inquiry'], 10, 3);
+        add_action('dgt_submit_inquiry', [$this, 'dispatch_inquiry_to_dgt'], 10, 1);
+        add_action('dgt_connector_inquiry_retry_cron', [$this, 'process_inquiry_retry_queue']);
+
         // Schedule cron if enabled
         if (!wp_next_scheduled('dgt_connector_cron_sync')) {
             wp_schedule_event(time(), 'hourly', 'dgt_connector_cron_sync');
+        }
+        if (!wp_next_scheduled('dgt_connector_inquiry_retry_cron')) {
+            wp_schedule_event(time(), 'hourly', 'dgt_connector_inquiry_retry_cron');
         }
     }
 
@@ -189,7 +203,11 @@ class DGT_Website_Connector {
             return new WP_Error('missing_title', 'Post title is required.', ['status' => 400]);
         }
 
-        $content     = (string)$request->get_param('content'); // Contains rich HTML with figures/tables/embeds
+        $content = (string)$request->get_param('content'); // Contains rich HTML with figures/tables/embeds
+        // If content was sent entity-encoded (&lt;h1...&gt;), decode so WordPress stores and renders native HTML elements
+        if (str_contains($content, '&lt;') && str_contains($content, '&gt;') && !str_contains($content, '<h') && !str_contains($content, '<p') && !str_contains($content, '<figure')) {
+            $content = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
         $status      = sanitize_key($request->get_param('status') ?: 'publish');
         $slug        = sanitize_title($request->get_param('slug'));
         $excerpt     = sanitize_textarea_field($request->get_param('excerpt') ?: '');
@@ -688,6 +706,7 @@ class DGT_Website_Connector {
         register_setting('dgt_connector_group', self::OPTION_API_KEY);
         register_setting('dgt_connector_group', self::OPTION_API_SECRET);
         register_setting('dgt_connector_group', self::OPTION_AUTO_SYNC);
+        register_setting('dgt_connector_group', self::OPTION_CAPTURE_INQUIRY);
     }
 
     public function render_admin_page() {
@@ -736,6 +755,15 @@ class DGT_Website_Connector {
                             </label>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row">Capture Form Inquiries</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="<?php echo self::OPTION_CAPTURE_INQUIRY; ?>" value="1" <?php checked(get_option(self::OPTION_CAPTURE_INQUIRY, '1'), '1'); ?> />
+                                Automatically capture and transmit form submissions from Contact Form 7, Elementor, WPForms, Gravity Forms, and Fluent Forms to DGT Central Inquiries.
+                            </label>
+                        </td>
+                    </tr>
                 </table>
                 <?php submit_button('Save Configuration'); ?>
             </form>
@@ -750,6 +778,162 @@ class DGT_Website_Connector {
             </form>
         </div>
         <?php
+    }
+
+    /* ─── Form Submission Inquiries Integration ──────────────────────────── */
+
+    public function handle_cf7_inquiry($contact_form) {
+        if (!get_option(self::OPTION_CAPTURE_INQUIRY, '1')) return;
+        $submission = class_exists('WPCF7_Submission') ? \WPCF7_Submission::get_instance() : null;
+        if (!$submission) return;
+
+        $postedData = $submission->get_posted_data();
+        $this->dispatch_inquiry_to_dgt([
+            'form_id'         => 'cf7_' . ($contact_form->id() ?? '0'),
+            'form_name'       => method_exists($contact_form, 'title') ? $contact_form->title() : 'Contact Form 7',
+            'source_url'      => $submission->get_meta('url') ?? home_url($_SERVER['REQUEST_URI'] ?? ''),
+            'fields'          => $postedData,
+            'idempotency_key' => 'cf7_' . md5(($contact_form->id() ?? '0') . serialize($postedData) . microtime()),
+        ]);
+    }
+
+    public function handle_elementor_inquiry($record, $handler) {
+        if (!get_option(self::OPTION_CAPTURE_INQUIRY, '1')) return;
+        $rawFields = $record->get('fields');
+        $fields = [];
+        foreach ($rawFields as $id => $field) {
+            $fields[$id] = $field['value'] ?? '';
+        }
+
+        $formName = $record->get_form_settings('form_name') ?: 'Elementor Form';
+        $formId = $record->get_form_settings('id') ?: 'elementor_form';
+
+        $this->dispatch_inquiry_to_dgt([
+            'form_id'         => 'elementor_' . $formId,
+            'form_name'       => $formName,
+            'source_url'      => wp_get_referer() ?: home_url($_SERVER['REQUEST_URI'] ?? ''),
+            'fields'          => $fields,
+            'idempotency_key' => 'elem_' . md5($formId . serialize($fields) . microtime()),
+        ]);
+    }
+
+    public function handle_wpforms_inquiry($fields, $entry, $formData, $entryId) {
+        if (!get_option(self::OPTION_CAPTURE_INQUIRY, '1')) return;
+        $normalized = [];
+        if (is_array($fields)) {
+            foreach ($fields as $f) {
+                $name = $f['name'] ?? ('field_' . ($f['id'] ?? ''));
+                $normalized[$name] = $f['value'] ?? '';
+            }
+        }
+
+        $this->dispatch_inquiry_to_dgt([
+            'form_id'         => 'wpforms_' . ($formData['id'] ?? $entryId),
+            'form_name'       => $formData['settings']['form_title'] ?? 'WPForms Form',
+            'source_url'      => wp_get_referer() ?: home_url(),
+            'fields'          => $normalized,
+            'idempotency_key' => 'wpf_' . md5(($formData['id'] ?? '') . $entryId . serialize($normalized)),
+        ]);
+    }
+
+    public function handle_gravity_inquiry($entry, $form) {
+        if (!get_option(self::OPTION_CAPTURE_INQUIRY, '1')) return;
+        $fields = [];
+        if (!empty($form['fields'])) {
+            foreach ($form['fields'] as $f) {
+                $id = $f->id;
+                $label = $f->label ?: ('field_' . $id);
+                $fields[$label] = rgar($entry, (string)$id);
+            }
+        }
+
+        $this->dispatch_inquiry_to_dgt([
+            'form_id'         => 'gravity_' . ($form['id'] ?? '0'),
+            'form_name'       => $form['title'] ?? 'Gravity Form',
+            'source_url'      => rgar($entry, 'source_url') ?: wp_get_referer() ?: home_url(),
+            'fields'          => $fields,
+            'idempotency_key' => 'gf_' . md5(($form['id'] ?? '') . rgar($entry, 'id') . serialize($fields)),
+        ]);
+    }
+
+    public function handle_fluent_inquiry($insertId, $formData, $form) {
+        if (!get_option(self::OPTION_CAPTURE_INQUIRY, '1')) return;
+        $this->dispatch_inquiry_to_dgt([
+            'form_id'         => 'fluent_' . ($form->id ?? '0'),
+            'form_name'       => $form->title ?? 'Fluent Form',
+            'source_url'      => wp_get_referer() ?: home_url(),
+            'fields'          => is_array($formData) ? $formData : [],
+            'idempotency_key' => 'fluent_' . md5(($form->id ?? '') . $insertId . serialize($formData)),
+        ]);
+    }
+
+    public function dispatch_inquiry_to_dgt(array $payload) {
+        $dgtUrl    = rtrim(get_option(self::OPTION_DGT_URL, ''), '/');
+        $apiKey    = get_option(self::OPTION_API_KEY, '');
+        $apiSecret = get_option(self::OPTION_API_SECRET, '');
+
+        if (empty($dgtUrl) || empty($apiKey) || empty($apiSecret)) {
+            return false;
+        }
+
+        $payload['ip_address']   = $_SERVER['REMOTE_ADDR'] ?? '';
+        $payload['user_agent']   = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $payload['referrer_url'] = wp_get_referer() ?: '';
+        $payload['submitted_at'] = current_time('mysql');
+
+        if (empty($payload['idempotency_key'])) {
+            $payload['idempotency_key'] = 'wp_inq_' . md5(serialize($payload) . wp_generate_password(12));
+        }
+
+        $bodyJson  = json_encode($payload);
+        $timestamp = (string) time();
+        $nonce     = wp_generate_password(16, false);
+        $signature = hash_hmac('sha256', $timestamp . '.' . $bodyJson, $apiSecret);
+
+        $response = wp_remote_post($dgtUrl . '/api/v1/inquiries', [
+            'method'      => 'POST',
+            'timeout'     => 5,
+            'blocking'    => true,
+            'headers'     => [
+                'Content-Type'    => 'application/json',
+                'Accept'          => 'application/json',
+                'X-DGT-Key'       => $apiKey,
+                'X-DGT-Signature' => $signature,
+                'X-DGT-Timestamp' => $timestamp,
+                'X-DGT-Nonce'     => $nonce,
+            ],
+            'body'        => $bodyJson,
+            'sslverify'   => false,
+        ]);
+
+        $code = is_array($response) ? wp_remote_retrieve_response_code($response) : 0;
+        if ($code >= 200 && $code < 300) {
+            return true;
+        }
+
+        // Network error / timeout: enqueue for retry
+        $queue = get_option(self::OPTION_INQUIRY_QUEUE, []);
+        if (!is_array($queue)) $queue = [];
+        if (count($queue) >= 100) array_shift($queue);
+        $payload['retry_count'] = 0;
+        $queue[] = $payload;
+        update_option(self::OPTION_INQUIRY_QUEUE, $queue, false);
+        return false;
+    }
+
+    public function process_inquiry_retry_queue() {
+        $queue = get_option(self::OPTION_INQUIRY_QUEUE, []);
+        if (empty($queue) || !is_array($queue)) return;
+
+        $remaining = [];
+        foreach ($queue as $item) {
+            $item['retry_count'] = ($item['retry_count'] ?? 0) + 1;
+            $success = $this->dispatch_inquiry_to_dgt($item);
+            if (!$success && $item['retry_count'] < 5) {
+                $remaining[] = $item;
+            }
+        }
+        update_option(self::OPTION_INQUIRY_QUEUE, $remaining, false);
     }
 }
 

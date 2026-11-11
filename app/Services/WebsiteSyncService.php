@@ -622,6 +622,11 @@ class WebsiteSyncService
                         $totalUpdated += $ing['items_updated'];
                         $syncedSites[] = 'happymachinery.com';
                     }
+
+                    // Sync inquiries from happymachinery.com
+                    try {
+                        app(\App\Services\WebsiteInquiryService::class)->syncHappyMachineryInquiries($site39);
+                    } catch (\Throwable $inqErr) {}
                 }
             }
         } catch (Throwable $e) {

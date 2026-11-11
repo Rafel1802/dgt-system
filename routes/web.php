@@ -32,6 +32,16 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+// ── Pusher Beams Service Worker Endpoint ──────────────────────────────────────
+Route::get('/service-worker.js', function () {
+    $script = 'importScripts("https://js.pusher.com/beams/service-worker.js");' . PHP_EOL;
+    return response($script, 200, [
+        'Content-Type'           => 'application/javascript; charset=utf-8',
+        'Service-Worker-Allowed' => '/',
+        'Cache-Control'          => 'no-cache, no-store, must-revalidate',
+    ]);
+});
+
 // ── Auth Routes ────────────────────────────────────────────────────────────
 // These two utility routes were previously public with no auth check at all
 // — /debug-log dumped raw application log contents to anyone, and
@@ -61,6 +71,11 @@ Route::get('/ping', function () {
 Route::get('/connectors/download/{type}', [\App\Http\Controllers\WebsiteIntegrationController::class, 'downloadConnector'])->name('websites.connectors.download');
 Route::get('/websites/connectors/download/{type}', [\App\Http\Controllers\WebsiteIntegrationController::class, 'downloadConnector'])->name('websites.connectors.download.alias');
 
+// Direct Application Binary Downloads (macOS .dmg, iOS .ipa)
+Route::redirect('/downloads/ios-app', '/ios-app/download');
+Route::get('/ios-app/download', [RouteClosureController::class, 'downloadIosApp'])->name('downloads.ios-app.file');
+Route::get('/mac-app/download', [RouteClosureController::class, 'downloadMacApp'])->name('downloads.mac-app.file');
+
 Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
     // Google OAuth Callback (available for guests to login and existing sessions to authenticate/re-link)
@@ -88,10 +103,9 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
 
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard')->middleware('maintenance:dashboard');
         Route::view('/mac-app', 'downloads.mac-app')->name('downloads.mac-app');
+        Route::redirect('/downloads/mac-app', '/mac-app');
         // Internal-only: validates Livewire + Turbo coexist safely. Not linked from any menu. Remove after Livewire rollout is verified stable.
         Route::view('/internal/livewire-test', 'internal.livewire-test')->name('internal.livewire-test');
-        Route::get('/mac-app/download', [RouteClosureController::class, 'downloadMacApp'])->name('downloads.mac-app.file');
-        Route::get('/ios-app/download', [RouteClosureController::class, 'downloadIosApp'])->name('downloads.ios-app.file');
 
         // ── System Health (Removed - Redirect to Dashboard) ───────
         Route::any('/system-health/{any?}', function () {
@@ -154,6 +168,16 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::get('/websites/blogs/export/csv', [\App\Http\Controllers\WebsiteIntegrationController::class, 'exportBlogsCsv'])->name('websites.blogs.export.csv');
             Route::get('/websites/blogs/export/pdf', [\App\Http\Controllers\WebsiteIntegrationController::class, 'exportBlogsPdf'])->name('websites.blogs.export.pdf');
             Route::post('/websites/blogs/sync-now', [\App\Http\Controllers\WebsiteIntegrationController::class, 'syncBlogsNow'])->name('websites.blogs.sync-now');
+
+            // ── Centralized Inquiries Dashboard & Management ──
+            Route::get('/websites/inquiries', [\App\Http\Controllers\WebsiteInquiryController::class, 'index'])->name('websites.inquiries.index');
+            Route::post('/websites/inquiries/sync', [\App\Http\Controllers\WebsiteInquiryController::class, 'syncInquiries'])->name('websites.inquiries.sync');
+            Route::get('/websites/inquiries/export/csv', [\App\Http\Controllers\WebsiteInquiryController::class, 'exportCsv'])->name('websites.inquiries.export.csv');
+            Route::get('/websites/inquiries/{inquiry}', [\App\Http\Controllers\WebsiteInquiryController::class, 'show'])->name('websites.inquiries.show');
+            Route::post('/websites/inquiries/{inquiry}/status', [\App\Http\Controllers\WebsiteInquiryController::class, 'updateStatus'])->name('websites.inquiries.status');
+            Route::post('/websites/inquiries/{inquiry}/assign', [\App\Http\Controllers\WebsiteInquiryController::class, 'assign'])->name('websites.inquiries.assign');
+            Route::post('/websites/inquiries/{inquiry}/notes', [\App\Http\Controllers\WebsiteInquiryController::class, 'addNote'])->name('websites.inquiries.notes');
+            Route::delete('/websites/inquiries/{inquiry}', [\App\Http\Controllers\WebsiteInquiryController::class, 'destroy'])->name('websites.inquiries.destroy');
 
             // ── Blog Post CMS & Multi-Website Publishing ──
             Route::get('/websites/posts', [\App\Http\Controllers\WebsiteBlogPostController::class, 'index'])->name('websites.posts.index');
@@ -293,9 +317,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::delete('/lists/{list}', [BoardController::class, 'destroyList'])->name('lists.destroy');
             Route::delete('/lists/{list}/clear', [BoardController::class, 'clearList'])->name('lists.clear');
 
-            // Card management — AJAX
+            // Card management — AJAX & Direct Browser Open
             Route::post('/{board:slug}/cards', [BoardCardController::class, 'store'])->name('cards.store');
             Route::post('/{board:slug}/cards/reorder', [BoardController::class, 'reorderCards'])->name('cards.reorder');
+            Route::get('/card/{cardIdentifier}', [BoardCardController::class, 'openDirect'])->name('card.direct');
             Route::get('/cards/{card}', [BoardCardController::class, 'show'])->name('cards.show');
             Route::patch('/cards/{card}', [BoardCardController::class, 'update'])->name('cards.update');
             Route::delete('/cards/{card}', [BoardCardController::class, 'destroy'])->name('cards.destroy');
@@ -353,6 +378,10 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/{board:slug}/import/preview',  [BoardImportController::class, 'preview'])->name('import.preview');
             Route::post('/{board:slug}/import/confirm',  [BoardImportController::class, 'confirm'])->name('import.confirm');
         });
+
+        // ── Direct Card Links (Resolves card links from AI, notifications, or external shares) ──
+        Route::get('/cards/{cardIdentifier}', [BoardCardController::class, 'openDirect'])->name('cards.direct');
+        Route::get('/dgt/boards/card/{cardIdentifier}', [BoardCardController::class, 'openDirect']);
 
         // ── Kanban Board ─────────────────────────────────────────────────
         Route::middleware(['role:super-admin|admin-digital|digital-team|boss', 'maintenance:boards'])
@@ -704,6 +733,93 @@ Route::middleware(['auth', 'ensure.active', \App\Http\Middleware\EnsureKpiAccess
         // Audit Logs
         Route::get('/audit-logs', [\App\Http\Controllers\Kpi\KpiAuditController::class, 'index'])->name('audit-logs.index');
     });
+
+// ── KIUQ AI Assistant ─────────────────────────────────────────────────
+Route::middleware(['auth', 'ensure.active'])->prefix('ai')->name('ai.')->group(function () {
+    Route::get('/', function () {
+        return redirect()->route('dashboard', ['open_ai' => 1]);
+    })->name('index');
+    Route::post('/chat', [\App\Http\Controllers\Ai\KiuqAiController::class, 'chat'])->name('chat');
+    Route::post('/chat/stream', [\App\Http\Controllers\Ai\KiuqAiController::class, 'streamChat'])->name('chat.stream');
+    Route::get('/conversations', [\App\Http\Controllers\Ai\KiuqAiController::class, 'getConversations'])->name('conversations');
+    Route::post('/conversations', [\App\Http\Controllers\Ai\KiuqAiController::class, 'createConversation'])->name('conversations.create');
+    Route::get('/conversations/{id}/messages', [\App\Http\Controllers\Ai\KiuqAiController::class, 'getMessages'])->name('conversations.messages');
+    Route::delete('/conversations/{id}', [\App\Http\Controllers\Ai\KiuqAiController::class, 'deleteConversation'])->name('conversations.delete');
+    Route::post('/conversations/{id}/pin', [\App\Http\Controllers\Ai\KiuqAiController::class, 'togglePinConversation'])->name('conversations.pin');
+    Route::post('/conversations/{id}/archive', [\App\Http\Controllers\Ai\KiuqAiController::class, 'archiveConversation'])->name('conversations.archive');
+    Route::patch('/conversations/{id}/rename', [\App\Http\Controllers\Ai\KiuqAiController::class, 'renameConversation'])->name('conversations.rename');
+
+    Route::post('/prompt/improve', [\App\Http\Controllers\Ai\KiuqAiController::class, 'improvePrompt'])->name('prompt.improve');
+    Route::get('/models', [\App\Http\Controllers\Ai\KiuqAiController::class, 'getModels'])->name('models');
+    Route::get('/studio/data', [\App\Http\Controllers\Ai\KiuqAiController::class, 'getStudioData'])->name('studio.data');
+
+    Route::post('/action/confirm', [\App\Http\Controllers\Ai\KiuqAiController::class, 'confirmAction'])->name('action.confirm');
+    Route::post('/action/cancel', [\App\Http\Controllers\Ai\KiuqAiController::class, 'cancelAction'])->name('action.cancel');
+    Route::post('/images/generate', [\App\Http\Controllers\Ai\KiuqAiController::class, 'generateImageDirect'])->name('images.generate');
+    Route::post('/voice/generate', [\App\Http\Controllers\Ai\KiuqAiController::class, 'generateVoiceOverDirect'])->name('voice.generate');
+    Route::get('/voice/history', [\App\Http\Controllers\Ai\KiuqAiController::class, 'getVoiceHistory'])->name('voice.history');
+    Route::post('/messages/{id}/voice', [\App\Http\Controllers\Ai\KiuqAiController::class, 'generateVoiceForMessage'])->name('messages.voice');
+    Route::get('/reports/{report}/export/{format}', [\App\Http\Controllers\Ai\KiuqAiController::class, 'exportReport'])->name('reports.export');
+});
+
+// ── DGT Chat: Premium Real-Time Messaging System ──────────────────────
+Route::middleware(['auth', 'ensure.active', 'ensure.chat'])->prefix('chat')->name('chat.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Chat\DgtChatController::class, 'index'])->name('index');
+    Route::get('/unread-count', [\App\Http\Controllers\Chat\DgtChatController::class, 'getUnreadCount'])->name('unread-count');
+    Route::get('/conversations', [\App\Http\Controllers\Chat\DgtChatController::class, 'getConversations'])->name('conversations');
+    Route::post('/conversations/private', [\App\Http\Controllers\Chat\DgtChatController::class, 'startPrivateChat'])->name('conversations.private');
+    Route::post('/conversations/group', [\App\Http\Controllers\Chat\DgtChatController::class, 'createGroup'])->name('conversations.group');
+    Route::get('/conversations/{id}/messages', [\App\Http\Controllers\Chat\DgtChatController::class, 'getMessages'])->name('conversations.messages');
+    Route::get('/conversations/{id}/sync', [\App\Http\Controllers\Chat\DgtChatController::class, 'syncMessages'])->name('conversations.sync');
+    Route::post('/conversations/{id}/messages', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendMessage'])->name('conversations.send');
+    Route::post('/conversations/{id}/read', [\App\Http\Controllers\Chat\DgtChatController::class, 'markRead'])->name('conversations.read');
+    Route::post('/conversations/{id}/pin', [\App\Http\Controllers\Chat\DgtChatController::class, 'togglePin'])->name('conversations.pin');
+    Route::post('/conversations/{id}/archive', [\App\Http\Controllers\Chat\DgtChatController::class, 'toggleArchive'])->name('conversations.archive');
+    Route::post('/conversations/{id}/mute', [\App\Http\Controllers\Chat\DgtChatController::class, 'toggleMute'])->name('conversations.mute');
+    Route::post('/conversations/{id}/nickname', [\App\Http\Controllers\Chat\DgtChatController::class, 'updateNickname'])->name('conversations.nickname');
+    Route::delete('/conversations/{id}', [\App\Http\Controllers\Chat\DgtChatController::class, 'deleteConversation'])->name('conversations.delete');
+    Route::post('/messages/{id}/reactions', [\App\Http\Controllers\Chat\DgtChatController::class, 'toggleReaction'])->name('messages.reaction');
+    Route::patch('/messages/{id}', [\App\Http\Controllers\Chat\DgtChatController::class, 'editMessage'])->name('messages.edit');
+    Route::delete('/messages/{id}', [\App\Http\Controllers\Chat\DgtChatController::class, 'deleteMessage'])->name('messages.delete');
+    Route::post('/typing', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendTyping'])->name('typing');
+    Route::get('/users', [\App\Http\Controllers\Chat\DgtChatController::class, 'getUsersDirectory'])->name('users');
+    Route::get('/saved-messages', [\App\Http\Controllers\Chat\DgtChatController::class, 'savedMessages'])->name('saved-messages');
+    Route::post('/conversations/{id}/poll', [\App\Http\Controllers\Chat\DgtChatController::class, 'createPoll'])->name('conversations.poll');
+    Route::post('/messages/{id}/vote', [\App\Http\Controllers\Chat\DgtChatController::class, 'votePoll'])->name('messages.vote');
+    Route::post('/messages/{id}/unsend', [\App\Http\Controllers\Chat\DgtChatController::class, 'unsendMessage'])->name('messages.unsend');
+    Route::post('/messages/{id}/forward', [\App\Http\Controllers\Chat\DgtChatController::class, 'forwardMessage'])->name('messages.forward');
+    Route::get('/settings', [\App\Http\Controllers\Chat\DgtChatController::class, 'getSettings'])->name('settings.get');
+    Route::post('/settings', [\App\Http\Controllers\Chat\DgtChatController::class, 'updateSettings'])->name('settings.update');
+    Route::get('/attachments/{attachment}/view', [\App\Http\Controllers\Chat\DgtChatController::class, 'viewAttachment'])->name('attachments.view');
+    Route::get('/attachments/{attachment}/download', [\App\Http\Controllers\Chat\DgtChatController::class, 'downloadAttachment'])->name('attachments.download');
+    Route::get('/admin/users-permissions', [\App\Http\Controllers\Chat\DgtChatController::class, 'getAdminUsersPermissions'])->name('admin.users');
+    Route::post('/admin/toggle-user-chat', [\App\Http\Controllers\Chat\DgtChatController::class, 'toggleUserChatPermission'])->name('admin.toggle');
+    Route::post('/admin/batch-toggle-chat', [\App\Http\Controllers\Chat\DgtChatController::class, 'batchToggleChatPermissions'])->name('admin.batch-toggle');
+    Route::post('/admin/convert-webp-now', [\App\Http\Controllers\Chat\DgtChatController::class, 'convertImagesWebpNow'])->name('admin.convert-webp');
+
+    // Stickers & Worldwide GIFs
+    Route::get('/stickers', [\App\Http\Controllers\Chat\DgtChatController::class, 'getStickers'])->name('stickers.index');
+    Route::post('/stickers', [\App\Http\Controllers\Chat\DgtChatController::class, 'createSticker'])->name('stickers.store');
+    Route::delete('/stickers/{id}', [\App\Http\Controllers\Chat\DgtChatController::class, 'deleteSticker'])->name('stickers.destroy');
+    Route::get('/gifs/search', [\App\Http\Controllers\Chat\DgtChatController::class, 'searchGifs'])->name('gifs.search');
+
+    // Conversation Media & WhatsApp Profile Card
+    Route::get('/conversations/{id}/media', [\App\Http\Controllers\Chat\DgtChatController::class, 'getConversationMedia'])->name('conversations.media');
+    Route::post('/conversations/{id}/profile', [\App\Http\Controllers\Chat\DgtChatController::class, 'updateProfile'])->name('conversations.profile');
+
+    // Voice Message Notes (Telegram Style)
+    Route::post('/messages/voice', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendVoiceMessage'])->name('messages.voice');
+    Route::post('/conversations/{id}/voice', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendVoiceMessage'])->name('conversations.voice');
+
+    // WebRTC One-to-One Voice Calls
+    Route::post('/calls/initiate', [\App\Http\Controllers\Chat\DgtChatController::class, 'initiateCall'])->name('calls.initiate');
+    Route::post('/calls/{id}/signal', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendCallSignal'])->name('calls.signal');
+    Route::get('/calls/{id}/signals', [\App\Http\Controllers\Chat\DgtChatController::class, 'getCallSignals'])->name('calls.signals');
+    Route::post('/calls/{id}/accept', [\App\Http\Controllers\Chat\DgtChatController::class, 'acceptCall'])->name('calls.accept');
+    Route::post('/calls/{id}/decline', [\App\Http\Controllers\Chat\DgtChatController::class, 'declineCall'])->name('calls.decline');
+    Route::post('/calls/{id}/end', [\App\Http\Controllers\Chat\DgtChatController::class, 'endCall'])->name('calls.end');
+    Route::get('/calls/active', [\App\Http\Controllers\Chat\DgtChatController::class, 'getActiveCall'])->name('calls.active');
+});
 
 // ── Public Pages & Legal Compliance (Google OAuth Requirements) ───────────
 Route::get('/', [RouteClosureController::class, 'index'])->name('home');

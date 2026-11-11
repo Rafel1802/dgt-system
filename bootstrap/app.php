@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         $middleware->web(append: [
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            \App\Http\Middleware\EnsureUserIsActive::class,
         ]);
 
         // ── Exclude webhooks & OAuth callbacks from CSRF ─────────────────
@@ -39,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'check.ip.ban'  => CheckIpBan::class,
             'ensure.active' => EnsureUserIsActive::class,
+            'ensure.chat'   => \App\Http\Middleware\EnsureChatAccess::class,
             'log.activity'  => LogActivity::class,
             'role'          => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission'    => \Spatie\Permission\Middleware\PermissionMiddleware::class,

@@ -23,9 +23,11 @@ class EnsureUserIsActive
                 ->withErrors(['email' => 'Your account has been deactivated. Please contact admin.']);
         }
 
-        // Keep last_login_at updated to accurately track online/active users
+        // Keep last_login_at and online cache updated to accurately track online/active users
         if ($request->user()) {
             $user = $request->user();
+            \Illuminate\Support\Facades\Cache::put("user-is-online-{$user->id}", true, 180);
+            \Illuminate\Support\Facades\Cache::put("user-last-seen-{$user->id}", now()->timestamp, 86400 * 30);
             if (! $user->last_login_at || $user->last_login_at->diffInMinutes(now()) >= 5) {
                 $user->timestamps = false;
                 $user->last_login_at = now();

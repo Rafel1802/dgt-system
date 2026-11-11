@@ -221,6 +221,7 @@ function doPost(e) {
       var COL_PUBLIC  = block.colPublic;
       var COL_DATED   = block.colDated;
       var COL_WEBSITE = block.colWebsite;
+      var COL_WRITER  = block.colWriter;
       var dataStartRow = block.dataStartRow; // Usually row index 2 (row 3 of sheet)
 
       // ── Handle DELETE action ──────────────────────────────────────────────
@@ -284,6 +285,7 @@ function doPost(e) {
       if (action === 'syncBlogFollowUp') {
         var targetWeb = extractDomain(websiteDomain || publicLink);
         var formattedDate = formatSheetDate(dated);
+        var requestAliases = Array.isArray(payload.aliases) ? payload.aliases : [];
 
         // Specific sheet_row override
         if (payload.sheet_row) {
@@ -310,12 +312,11 @@ function doPost(e) {
           var cellClass     = String(allData[r][COL_CLASS]   || '').trim();
           var cellDoc       = String(allData[r][COL_DOC]     || '').trim();
           var cellWebsite   = String(allData[r][COL_WEBSITE] || '').trim();
-          var cellWebDomain = extractDomain(cellWebsite);
+          var cellWriter    = (COL_WRITER !== -1 && allData[r][COL_WRITER]) ? String(allData[r][COL_WRITER] || '').trim() : '';
 
-          // Domain matching
-          var webMatches = (cellWebsite.toLowerCase() === websiteDomain.toLowerCase()) ||
-                           (cellWebDomain !== '' && cellWebDomain === targetWeb) ||
-                           (cellWebsite.indexOf(targetWeb) !== -1);
+          // Domain matching using robust matcher (handles aliases, TLDs, singular/plural, typos)
+          var webMatches = isWebsiteMatch(cellWebsite, websiteDomain, requestAliases) ||
+                           isWebsiteMatch(cellWebsite, targetWeb, requestAliases);
 
           // Class matching
           var classMatches = (cellClass === classNum || 
@@ -328,6 +329,7 @@ function doPost(e) {
             var cellPublic   = String(allData[r][COL_PUBLIC] || '').trim();
             var cellDatedVal = allData[r][COL_DATED];
             var hasDoc       = (cellDoc !== '' && cellDoc !== '-' && cellDoc.toLowerCase() !== 'n/a');
+            var hasWriter    = (cellWriter !== '' && cellWriter !== '-' && cellWriter.toLowerCase() !== 'n/a');
             
             // A cell ONLY has a Public Link if it contains an actual URL (http:// or https://)
             var isEmptyPublic = (cellPublic === '' || cellPublic === '-' || cellPublic.toLowerCase() === 'n/a' || !/^https?:\/\//i.test(cellPublic));
@@ -339,6 +341,8 @@ function doPost(e) {
               hasDoc: hasDoc,
               publicLink: isEmptyPublic ? '' : cellPublic,
               dated: cellDatedVal,
+              writer: cellWriter,
+              hasWriter: hasWriter,
               isDateMatch: datesMatch(cellDatedVal, dated),
               isUrlMatch: (!isEmptyPublic) && normaliseUrl(cellPublic) === normLink,
               isEmptyPublic: isEmptyPublic
@@ -380,59 +384,79 @@ function doPost(e) {
         }
 
         var target = null;
+        var orphanedRowToClean = null;
 
-        // 1. Check rows matching the requested date
-        var dateMatchingRows = websiteRows.filter(function(w) { return w.isDateMatch; });
+        // Check if an accidental duplicate/orphaned row was created with this URL (URL matched, but writer is empty)
+        // while an empty scheduled slot (with writer or pre-scheduled) exists in the same class
+        var emptyPreScheduledRows = websiteRows.filter(function(w) { return w.isEmptyPublic; });
+        var urlMatchingRows = websiteRows.filter(function(w) { return w.isUrlMatch; });
 
-        if (dateMatchingRows.length > 0) {
-          // Priority 1: URL match on date (idempotent re-sync)
-          var urlMatchOnDate = dateMatchingRows.filter(function(w) { return w.isUrlMatch; });
-          if (urlMatchOnDate.length > 0) {
-            target = urlMatchOnDate[0];
-          } else {
-            // Priority 2: Empty Public Link on this date
-            var emptyOnDate = dateMatchingRows.filter(function(w) { return w.isEmptyPublic; });
-            if (emptyOnDate.length > 0) {
-              target = emptyOnDate[0];
-            } else if (payload.force_overwrite) {
-              target = dateMatchingRows[0];
-            } else {
-              lock.releaseLock();
-              return buildResponse({
-                success: false,
-                needs_confirmation: true,
-                sheet_row: dateMatchingRows[0].sheetRow,
-                existing_public_link: dateMatchingRows[0].publicLink,
-                message: 'Row ' + dateMatchingRows[0].sheetRow + ' for "' + websiteDomain + '" on ' + dated + ' in Class ' + classNum + ' (tab "' + sheetName + '") already has a Public Link (' + dateMatchingRows[0].publicLink + '). Confirm overwrite to replace it.'
-              });
-            }
+        if (urlMatchingRows.length > 0 && emptyPreScheduledRows.length > 0) {
+          var orphanedRows = urlMatchingRows.filter(function(w) { return !w.hasWriter; });
+          if (orphanedRows.length > 0) {
+            var scheduledSlot = emptyPreScheduledRows.filter(function(w) { return w.hasWriter; });
+            target = (scheduledSlot.length > 0) ? scheduledSlot[0] : emptyPreScheduledRows[0];
+            orphanedRowToClean = orphanedRows[0].sheetRow;
           }
-        } else {
-          // 2. No exact date match found in the sheet:
-          // Priority 1: URL match across rows (idempotent re-sync)
-          var urlMatches = websiteRows.filter(function(w) { return w.isUrlMatch; });
-          if (urlMatches.length > 0) {
-            target = urlMatches[0];
-          } else {
-            // Priority 2: First empty slot (prefer row that has Doc Link if present, otherwise any empty slot)
-            var emptyWithDoc = websiteRows.filter(function(w) { return w.isEmptyPublic && w.hasDoc; });
-            var emptyAny = websiteRows.filter(function(w) { return w.isEmptyPublic; });
+        }
 
-            if (emptyWithDoc.length > 0) {
-              target = emptyWithDoc[0];
-            } else if (emptyAny.length > 0) {
-              target = emptyAny[0];
-            } else if (payload.force_overwrite) {
-              target = websiteRows[0];
+        if (!target) {
+          // 1. Check rows matching the requested date
+          var dateMatchingRows = websiteRows.filter(function(w) { return w.isDateMatch; });
+
+          if (dateMatchingRows.length > 0) {
+            // Priority 1: URL match on date (idempotent re-sync)
+            var urlMatchOnDate = dateMatchingRows.filter(function(w) { return w.isUrlMatch; });
+            if (urlMatchOnDate.length > 0) {
+              target = urlMatchOnDate[0];
             } else {
-              lock.releaseLock();
-              return buildResponse({
-                success: false,
-                needs_confirmation: true,
-                sheet_row: websiteRows[0].sheetRow,
-                existing_public_link: websiteRows[0].publicLink,
-                message: 'All scheduled rows for "' + websiteDomain + '" in Class ' + classNum + ' (tab "' + sheetName + '") already have a Public Link (' + websiteRows[0].publicLink + '). Confirm overwrite to replace it.'
-              });
+              // Priority 2: Empty Public Link on this date
+              var emptyOnDate = dateMatchingRows.filter(function(w) { return w.isEmptyPublic; });
+              if (emptyOnDate.length > 0) {
+                target = emptyOnDate[0];
+              } else if (payload.force_overwrite) {
+                target = dateMatchingRows[0];
+              } else {
+                lock.releaseLock();
+                return buildResponse({
+                  success: false,
+                  needs_confirmation: true,
+                  sheet_row: dateMatchingRows[0].sheetRow,
+                  existing_public_link: dateMatchingRows[0].publicLink,
+                  message: 'Row ' + dateMatchingRows[0].sheetRow + ' for "' + websiteDomain + '" on ' + dated + ' in Class ' + classNum + ' (tab "' + sheetName + '") already has a Public Link (' + dateMatchingRows[0].publicLink + '). Confirm overwrite to replace it.'
+                });
+              }
+            }
+          } else {
+            // 2. No exact date match found in the sheet:
+            // Priority 1: URL match across rows (idempotent re-sync)
+            var urlMatches = websiteRows.filter(function(w) { return w.isUrlMatch; });
+            if (urlMatches.length > 0) {
+              target = urlMatches[0];
+            } else {
+              // Priority 2: First empty slot (prefer row that has Doc Link if present, or row with writer, otherwise any empty slot)
+              var emptyWithDoc    = websiteRows.filter(function(w) { return w.isEmptyPublic && w.hasDoc; });
+              var emptyWithWriter = websiteRows.filter(function(w) { return w.isEmptyPublic && w.hasWriter; });
+              var emptyAny        = websiteRows.filter(function(w) { return w.isEmptyPublic; });
+
+              if (emptyWithDoc.length > 0) {
+                target = emptyWithDoc[0];
+              } else if (emptyWithWriter.length > 0) {
+                target = emptyWithWriter[0];
+              } else if (emptyAny.length > 0) {
+                target = emptyAny[0];
+              } else if (payload.force_overwrite) {
+                target = websiteRows[0];
+              } else {
+                lock.releaseLock();
+                return buildResponse({
+                  success: false,
+                  needs_confirmation: true,
+                  sheet_row: websiteRows[0].sheetRow,
+                  existing_public_link: websiteRows[0].publicLink,
+                  message: 'All scheduled rows for "' + websiteDomain + '" in Class ' + classNum + ' (tab "' + sheetName + '") already have a Public Link (' + websiteRows[0].publicLink + '). Confirm overwrite to replace it.'
+                });
+              }
             }
           }
         }
@@ -450,6 +474,25 @@ function doPost(e) {
         // Update ONLY Public Link and Dated; keep Doc Link, Website, Writer intact!
         sheet.getRange(writeSheetRow, COL_PUBLIC + 1).setValue(publicLink);
         sheet.getRange(writeSheetRow, COL_DATED  + 1).setValue(formattedDate);
+
+        // If an orphaned duplicate row existed (e.g. Row 60 appended previously), clean it up!
+        if (orphanedRowToClean && orphanedRowToClean !== writeSheetRow && orphanedRowToClean <= sheet.getLastRow()) {
+          try {
+            sheet.getRange(orphanedRowToClean, COL_CLASS   + 1).setValue('');
+            sheet.getRange(orphanedRowToClean, COL_PUBLIC  + 1).setValue('');
+            sheet.getRange(orphanedRowToClean, COL_DATED   + 1).setValue('');
+            sheet.getRange(orphanedRowToClean, COL_WEBSITE + 1).setValue('');
+
+            var rowVals = sheet.getRange(orphanedRowToClean, 1, 1, sheet.getLastColumn()).getValues()[0];
+            var isEntirelyBlank = rowVals.every(function(val) { return String(val || '').trim() === ''; });
+            if (isEntirelyBlank && orphanedRowToClean > writeSheetRow) {
+              sheet.deleteRow(orphanedRowToClean);
+            }
+          } catch (cleanErr) {
+            Logger.log('Orphan row clean warning: ' + cleanErr.message);
+          }
+        }
+
         SpreadsheetApp.flush();
 
         var syncResult = {
@@ -810,6 +853,99 @@ function extractDomain(url) {
   } catch (err) {
     return '';
   }
+}
+
+/**
+ * Robust matching between a spreadsheet cell website and the target website / aliases.
+ * Handles:
+ *  - Exact string match
+ *  - Extracted domain equality
+ *  - Custom alias list match
+ *  - Stripped TLD root slugs (e.g. asianmachinery vs asiamachinery)
+ *  - Linguistic stem variations (e.g. asian <-> asia)
+ *  - Singular vs plural (skidsteers <-> skidsteer)
+ */
+function isWebsiteMatch(cellWebsite, targetWebsite, requestAliases) {
+  if (!cellWebsite) return false;
+  var cWeb = String(cellWebsite).trim();
+  if (cWeb === '' || cWeb === '-' || cWeb.toLowerCase() === 'n/a') return false;
+
+  var tWeb = String(targetWebsite || '').trim();
+  if (tWeb === '') return false;
+
+  // 1. Direct equality (case-insensitive)
+  if (cWeb.toLowerCase() === tWeb.toLowerCase()) return true;
+
+  // 2. Extracted domain equality
+  var cDomain = extractDomain(cWeb);
+  var tDomain = extractDomain(tWeb);
+  if (cDomain !== '' && tDomain !== '' && cDomain === tDomain) return true;
+
+  // 3. Request aliases check
+  var aliasList = [];
+  if (Array.isArray(requestAliases)) {
+    aliasList = requestAliases.map(function(a) { return String(a).toLowerCase().trim(); });
+  }
+  if (aliasList.indexOf(cWeb.toLowerCase()) !== -1 || (cDomain !== '' && aliasList.indexOf(cDomain) !== -1)) {
+    return true;
+  }
+
+  // Prevent cross-matching separate websites that share a base name but have distinct TLDs in the same sheet (e.g. asiamachinery.net vs asiamachinery.org, kuvuo.net vs kuvuo.com)
+  var normalizeWebsiteDomain = function(d) {
+    if (!d) return '';
+    return d.toLowerCase().trim().replace(/^asianmachinery\./, 'asiamachinery.');
+  };
+  var normCDomain = normalizeWebsiteDomain(cDomain || cWeb);
+  var normTDomain = normalizeWebsiteDomain(tDomain || tWeb);
+  if (normCDomain !== '' && normTDomain !== '' && normCDomain === normTDomain) return true;
+  if (normCDomain.indexOf('asiamachinery.') === 0 && normTDomain.indexOf('asiamachinery.') === 0 && normCDomain !== normTDomain) {
+    return false;
+  }
+
+  // 4. Normalized root slug comparison (strip TLDs, non-alphanumeric)
+  var normalizeSlug = function(str) {
+    if (!str) return '';
+    var d = extractDomain(str) || str;
+    var base = d.replace(/\.(com|org|net|wiki|online|us|co|info|biz|io|store|site|eu)$/i, '');
+    return base.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  };
+
+  var cSlug = normalizeSlug(cWeb);
+  var tSlug = normalizeSlug(tWeb);
+
+  if (cSlug !== '' && tSlug !== '' && cSlug === tSlug) return true;
+
+  for (var i = 0; i < aliasList.length; i++) {
+    var aSlug = normalizeSlug(aliasList[i]);
+    if (aSlug !== '' && aSlug === cSlug) {
+      return true;
+    }
+  }
+
+  // 5. Linguistic stem variation:
+  // e.g. "asianmachinery" <-> "asiamachinery"
+  var stem = function(s) {
+    return s.replace(/asian/g, 'asia').replace(/s$/, '');
+  };
+  var cStem = stem(cSlug);
+  var tStem = stem(tSlug);
+  if (cStem !== '' && tStem !== '' && cStem === tStem) return true;
+
+  for (var j = 0; j < aliasList.length; j++) {
+    var aStem = stem(normalizeSlug(aliasList[j]));
+    if (aStem !== '' && aStem === cStem) {
+      return true;
+    }
+  }
+
+  // 6. Substring match for substantial names (>= 6 chars)
+  if (cSlug.length >= 6 && tSlug.length >= 6) {
+    if (cSlug.indexOf(tSlug) !== -1 || tSlug.indexOf(cSlug) !== -1) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function normaliseUrl(url) {

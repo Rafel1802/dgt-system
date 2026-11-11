@@ -89,6 +89,37 @@ class DgtConnectorClient {
     }
 
     /**
+     * Submit a customer inquiry / quote request / contact form to DGT Central System.
+     *
+     * @param array $inquiryData [
+     *     'customer_name'    => 'John Doe',
+     *     'customer_email'   => 'john@example.com',
+     *     'customer_phone'   => '+123456789',
+     *     'subject'          => 'Product Quote',
+     *     'message'          => 'I am interested in your heavy equipment.',
+     *     'inquiry_type'     => 'quote_request', // quote_request, contact, technical_support, sales, etc.
+     *     'product_service'  => 'Excavator Model X',
+     *     'form_name'        => 'Quote Form',
+     *     'source_url'       => 'https://example.com/products/model-x',
+     *     'custom_fields'    => ['budget' => '$50,000', 'timeline' => 'Immediate'],
+     *     'idempotency_key'  => 'unique-submission-id-or-leave-blank',
+     * ]
+     */
+    public function submitInquiry(array $inquiryData): array {
+        if (empty($inquiryData['idempotency_key'])) {
+            $inquiryData['idempotency_key'] = 'inq_' . bin2hex(random_bytes(16));
+        }
+        return $this->request('POST', '/api/v1/connector/inquiries', $inquiryData);
+    }
+
+    /**
+     * Test ping to verify Inquiries API connection.
+     */
+    public function pingInquiries(): array {
+        return $this->request('GET', '/api/v1/connector/inquiries/ping');
+    }
+
+    /**
      * Execute signed HTTP request with HMAC SHA-256.
      */
     private function request(string $method, string $path, array $data = []): array {

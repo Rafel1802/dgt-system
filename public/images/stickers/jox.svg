@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <g filter="url(#sh)">
+    <!-- Crown -->
+    <polygon points="75,32 85,48 100,28 115,48 125,32 125,55 75,55" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="100" cy="95" r="48" fill="#fbbf24" stroke="#ffffff" stroke-width="4"/>
+    <!-- Sunglasses -->
+    <path d="M 64 85 L 94 85 Q 96 102 80 104 Q 64 102 64 85 Z" fill="#0f172a" stroke="#ffffff" stroke-width="2"/>
+    <path d="M 106 85 L 136 85 Q 136 102 120 104 Q 104 102 106 85 Z" fill="#0f172a" stroke="#ffffff" stroke-width="2"/>
+    <line x1="94" y1="88" x2="106" y2="88" stroke="#0f172a" stroke-width="3"/>
+    <!-- Cool Smirk -->
+    <path d="M 88 120 Q 105 130 118 118" fill="none" stroke="#78350f" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- JoX Badge -->
+    <rect x="45" y="148" width="110" height="36" rx="18" fill="#0284c7" stroke="#ffffff" stroke-width="3"/>
+    <text x="100" y="172" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">JoX 😎</text>
+  </g>
+</svg>

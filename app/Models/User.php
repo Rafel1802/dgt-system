@@ -56,6 +56,7 @@ class User extends Authenticatable
         'google_id',
         'google_email',
         'team',
+        'can_use_chat',
     ];
 
     /**
@@ -106,6 +107,7 @@ class User extends Authenticatable
             'dashboard_appearance' => 'array',
             'password' => 'hashed',
             'board_backgrounds' => 'array',
+            'can_use_chat' => 'boolean',
         ];
     }
 
@@ -243,30 +245,14 @@ class User extends Authenticatable
         $normalized = ltrim($avatar, '/');
 
         if (Str::startsWith($normalized, 'storage/')) {
-            $relativePath = Str::after($normalized, 'storage/');
-
-            if (Storage::disk('public')->exists($relativePath)) {
-                return $avatarCache[$avatar] = asset($normalized);
-            }
-        }
-
-        if (Storage::disk('public')->exists($normalized)) {
-            return $avatarCache[$avatar] = asset('storage/' . $normalized);
-        }
-
-        if (is_file(public_path('storage/' . $normalized))) {
-            return $avatarCache[$avatar] = asset('storage/' . $normalized);
-        }
-
-        if (is_file(base_path('storage/' . $normalized))) {
-            return $avatarCache[$avatar] = asset('storage/' . $normalized);
-        }
-
-        if (is_file(public_path($normalized))) {
             return $avatarCache[$avatar] = asset($normalized);
         }
 
-        return $avatarCache[$avatar] = self::initialsAvatarDataUri($this->name ?: $this->email ?: 'User', $this->avatar_color);
+        if (Str::startsWith($normalized, 'public/')) {
+            return $avatarCache[$avatar] = asset(Str::after($normalized, 'public/'));
+        }
+
+        return $avatarCache[$avatar] = asset('storage/' . $normalized);
     }
 
     /**
@@ -609,21 +595,57 @@ SVG;
     }
 
     /**
+     * Check if user is authorized to manage chat access permissions (Mr. Dara and Super Admins).
+     */
+    public function canManageChatPermissions(): bool
+    {
+        if ($this->isDara() || strtolower(trim($this->username ?? '')) === 'dara') {
+            return true;
+        }
+
+        if (strtolower(trim($this->username ?? '')) === 'somalika') {
+            return false;
+        }
+
+        return $this->hasAnyRole(['super-admin', 'admin']);
+    }
+
+    /**
+     * Check if this user has chat access enabled.
+     */
+    public function isChatEnabled(): bool
+    {
+        // Only Dara has access until explicitly turned on for others
+        if ($this->isDara() || strtolower(trim($this->username ?? '')) === 'dara') {
+            return true;
+        }
+
+        return (bool) ($this->can_use_chat ?? false);
+    }
+
+    protected static array $userDigitalTeamCache = [];
+
+    /**
      * Detect digital team ('A' or 'B') based on workflow board membership or lead identity.
      */
     public function getDigitalTeam(?int $workspaceId = null): ?string
     {
+        $cacheKey = ($this->id ?? 0) . '_' . ($workspaceId ?? 'all');
+        if (array_key_exists($cacheKey, self::$userDigitalTeamCache)) {
+            return self::$userDigitalTeamCache[$cacheKey];
+        }
+
         if (!empty($this->team) && in_array(strtoupper($this->team), ['A', 'B'])) {
-            return strtoupper($this->team);
+            return self::$userDigitalTeamCache[$cacheKey] = strtoupper($this->team);
         }
 
         $username = strtolower(trim($this->username ?? ''));
         $name = strtolower(trim($this->name ?? ''));
         if (str_contains($username, 'dara') || str_contains($name, 'dara')) {
-            return 'A';
+            return self::$userDigitalTeamCache[$cacheKey] = 'A';
         }
         if (str_contains($username, 'kim') || str_contains($name, 'kim')) {
-            return 'B';
+            return self::$userDigitalTeamCache[$cacheKey] = 'B';
         }
 
         try {
@@ -640,17 +662,17 @@ SVG;
             foreach ($boards as $b) {
                 $bName = strtolower($b->name);
                 if (str_contains($bName, 'team a') || str_contains($bName, 'teama') || str_contains($bName, 'team-a')) {
-                    return 'A';
+                    return self::$userDigitalTeamCache[$cacheKey] = 'A';
                 }
                 if (str_contains($bName, 'team b') || str_contains($bName, 'teamb') || str_contains($bName, 'team-b')) {
-                    return 'B';
+                    return self::$userDigitalTeamCache[$cacheKey] = 'B';
                 }
             }
         } catch (\Throwable $e) {
             // Fallback
         }
 
-        return null;
+        return self::$userDigitalTeamCache[$cacheKey] = null;
     }
 
     /**
@@ -1359,4 +1381,61 @@ SVG;
         if (is_array($decoded)) return $decoded;
         return array_filter(array_map('trim', explode(',', (string)$val)));
     }
+
+    public function chatConversations(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Chat\ChatConversation::class, 'chat_conversation_members', 'user_id', 'conversation_id')
+            ->withPivot(['role', 'is_pinned', 'is_archived', 'is_muted', 'last_read_message_id', 'last_read_at', 'custom_nickname', 'custom_wallpaper'])
+            ->withTimestamps();
+    }
+
+    public function chatSettings(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\Chat\ChatUserSetting::class, 'user_id');
+    }
+
+    public function isOnline(): bool
+    {
+        return \Illuminate\Support\Facades\Cache::has("user-is-online-{$this->id}") || 
+               ($this->last_login_at && $this->last_login_at->gt(now()->subMinutes(5)));
+    }
+
+    /**
+     * Get human-friendly Telegram-style last seen status string.
+     */
+    public function getLastSeenFormatted(): string
+    {
+        if ($this->isOnline()) {
+            return 'Online';
+        }
+
+        $lastSeenTs = \Illuminate\Support\Facades\Cache::get("user-last-seen-{$this->id}");
+        if ($lastSeenTs) {
+            $lastSeen = \Carbon\Carbon::createFromTimestamp($lastSeenTs);
+            $diffMinutes = (int) now()->diffInMinutes($lastSeen);
+
+            if ($diffMinutes < 1) {
+                return 'last seen just now';
+            }
+            if ($diffMinutes < 60) {
+                return "last seen {$diffMinutes}m ago";
+            }
+            $diffHours = (int) ($diffMinutes / 60);
+            if ($diffHours < 24) {
+                return "last seen {$diffHours}h ago";
+            }
+            if ($lastSeen->isYesterday()) {
+                return 'last seen yesterday at ' . $lastSeen->format('H:i');
+            }
+            return 'last seen ' . $lastSeen->diffForHumans();
+        }
+
+        if ($this->last_login_at) {
+            return 'last seen ' . $this->last_login_at->diffForHumans();
+        }
+
+        return 'Offline';
+    }
 }
+
+

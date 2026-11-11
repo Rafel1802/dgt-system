@@ -24,3 +24,23 @@ Broadcast::channel('boards.{boardId}', function ($user, $boardId) {
 Broadcast::channel('websites', function ($user) {
     return $user->hasWebsiteAccess();
 });
+
+Broadcast::channel('inquiries', function ($user) {
+    return $user->hasWebsiteAccess();
+});
+
+Broadcast::channel('chat.user.{userId}', function ($user, $userId) {
+    if (!$user->isChatEnabled()) {
+        return false;
+    }
+    return (int) $user->id === (int) $userId;
+});
+
+Broadcast::channel('chat.conversation.{conversationId}', function ($user, $conversationId) {
+    if (!$user->isChatEnabled()) {
+        return false;
+    }
+    return \App\Models\Chat\ChatConversationMember::where('conversation_id', $conversationId)
+        ->where('user_id', $user->id)
+        ->exists();
+});

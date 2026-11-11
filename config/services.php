@@ -73,4 +73,9 @@ return [
         'redirect_uri'  => env('GOOGLE_SEARCH_CONSOLE_REDIRECT_URI'),
     ],
 
+    'pusher_beams' => [
+        'instance_id' => env('PUSHER_BEAMS_INSTANCE_ID', '9bc62035-82e2-48e0-8818-3355c2a76a10'),
+        'secret_key'  => env('PUSHER_BEAMS_SECRET_KEY'),
+    ],
+
 ];

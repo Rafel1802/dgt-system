@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <g filter="url(#sh)">
+    <circle cx="100" cy="85" r="45" fill="#fcd34d" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="85" cy="80" r="5" fill="#18181b"/>
+    <circle cx="115" cy="80" r="5" fill="#18181b"/>
+    <!-- Sips cup with straw -->
+    <rect x="90" y="105" width="20" height="30" rx="3" fill="#ec4899" stroke="#ffffff" stroke-width="2"/>
+    <line x1="100" y1="95" x2="100" y2="115" stroke="#ffffff" stroke-width="3"/>
+    <rect x="35" y="148" width="130" height="36" rx="18" fill="#8b5cf6" stroke="#ffffff" stroke-width="3"/>
+    <text x="100" y="172" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="#ffffff" text-anchor="middle">FU YAK! 🧋</text>
+  </g>
+</svg>

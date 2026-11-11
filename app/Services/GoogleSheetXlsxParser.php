@@ -133,16 +133,16 @@ class GoogleSheetXlsxParser
             foreach ($rows as $rNum => $cells) {
                 $rowHeaders = [];
                 for ($i = 0; $i <= $maxColIdx; $i++) {
-                    $rowHeaders[$i] = strtolower($cells[$i]['value'] ?? '');
+                    $rowHeaders[$i] = trim(preg_replace('/\s+/', ' ', strtolower((string)($cells[$i]['value'] ?? ''))));
                 }
-                if (in_array('dated', $rowHeaders, true)) {
+                if (in_array('dated', $rowHeaders, true) || in_array('date', $rowHeaders, true)) {
                     $headerRowIndex = $rNum;
                     $headers = $rowHeaders;
                     break;
                 }
             }
 
-            // 7. Group column headers into blocks (sections)
+            // 7. Group column headers into blocks (sections) with canonical aliases
             $blocks = [];
             $currentBlock = [];
             foreach ($headers as $idx => $header) {
@@ -153,13 +153,25 @@ class GoogleSheetXlsxParser
                     $currentBlock = [];
                     continue;
                 }
-                if (isset($currentBlock[$header])) {
+
+                // Canonical resolution for robust matching across spreadsheets
+                $canonical = match(true) {
+                    in_array($header, ['website link', 'website', 'websites', 'website url', 'web link', 'web url', 'site link', 'site', 'domain', 'web', 'website_link']) => 'website link',
+                    in_array($header, ['class', 'classes', 'category']) => 'class',
+                    in_array($header, ['dated', 'date', 'published date', 'publish date']) => 'dated',
+                    in_array($header, ['doc link', 'google doc link', 'doc', 'google doc', 'document', 'doc_link']) => 'doc link',
+                    in_array($header, ['public link', 'public url', 'live link', 'post link', 'article link', 'url', 'public_link']) => 'public link',
+                    default => $header,
+                };
+
+                if (isset($currentBlock[$canonical]) || isset($currentBlock[$header])) {
                     if (isset($currentBlock['dated'])) {
                         $blocks[] = $currentBlock;
                     }
                     $currentBlock = [];
                 }
                 $currentBlock[$header] = $idx;
+                $currentBlock[$canonical] = $idx;
             }
             if (isset($currentBlock['dated'])) {
                 $blocks[] = $currentBlock;

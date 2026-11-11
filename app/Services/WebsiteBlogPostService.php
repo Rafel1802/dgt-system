@@ -508,6 +508,7 @@ class WebsiteBlogPostService
     {
         $integration = $website->integration;
         $styledContent = $this->ensureContentCleanAndStyled($post->content_html ?: '', $post, $website);
+        $styledContent = $this->ensureArticleLinks($styledContent, $post, $website, false);
 
         $payload = [
             'external_id'        => $post->external_id,
@@ -528,6 +529,12 @@ class WebsiteBlogPostService
             'keywords'           => $post->tag_keywords ?: $post->focus_keyword,
             'author_name'        => $post->author_name,
         ];
+
+        // Prepare pristine markdown for modern framework/Next.js/React sites
+        $pristineMarkdown = $this->htmlToPristineMarkdown($styledContent, $post->raw_content, $post, $website);
+        $frameworkPayload = $payload;
+        $frameworkPayload['content']     = $pristineMarkdown;
+        $frameworkPayload['raw_content'] = $pristineMarkdown;
 
         $siteDomain = strtolower(parse_url($website->url, PHP_URL_HOST) ?: $website->name);
         $siteDomain = preg_replace('/^www\./i', '', $siteDomain);
@@ -611,7 +618,7 @@ class WebsiteBlogPostService
                             'X-DGT-Master-Key' => 'dgt_fleet_secure_master_sync_2026',
                             'X-DGT-Key'        => 'dgt_fleet_secure_master_sync_2026',
                         ])
-                        ->post($syncConf['endpoint'], $payload);
+                        ->post($syncConf['endpoint'], $frameworkPayload);
                     if ($resp->successful()) {
                         $respData = $resp->json();
                         $liveUrl = (!empty($respData['url']) && is_string($respData['url']))
@@ -641,7 +648,7 @@ class WebsiteBlogPostService
                         'X-DGT-Master-Key' => 'dgt_fleet_secure_master_sync_2026',
                         'X-DGT-Key'        => 'dgt_fleet_secure_master_sync_2026',
                     ])
-                    ->post($dynamicSyncEndpoint, $payload);
+                    ->post($dynamicSyncEndpoint, $frameworkPayload);
                 if ($probeResp->successful()) {
                     $probeData = $probeResp->json();
                     if (is_array($probeData) && (!empty($probeData['success']) || !empty($probeData['url']))) {
@@ -1836,6 +1843,9 @@ HTML;
             return $this->ensureContentCleanAndStyled($raw);
         }
 
+        // Guarantee image URLs are isolated with double newlines so following text is never lost
+        $raw = preg_replace('/(https?:\/\/[^\s<>\(\)\[\]"\']+\.(?:webp|png|jpe?g|gif|svg|avif)(?:\?[^\s<>\(\)\[\]"\']*)?)/i', "\n\n$1\n\n", $raw);
+
         $lines = preg_split('/\r\n|\r|\n/', $raw);
         $blocks = [];
         $currentBlock = [];
@@ -1889,18 +1899,342 @@ HTML;
                 continue;
             }
 
-            if (preg_match('/^https?:\/\/[^\s<>]+\.(?:webp|png|jpe?g|gif|avif)$/i', $trimmed)) {
+            if (preg_match('/^https?:\/\/[^\s<>]+\.(?:webp|png|jpe?g|gif|svg|avif)(?:\?[^\s<>]*)?$/i', $trimmed)) {
                 $htmlBlocks[] = "<figure class=\"cms-rendered-figure my-6\" data-align=\"center\" style=\"margin: 1.75rem auto; text-align: center; max-width: 100%; clear: both;\"><img src=\"{$trimmed}\" alt=\"\" loading=\"lazy\" class=\"rounded-xl shadow-md mx-auto max-h-[480px] object-cover\" style=\"max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: block; margin: 0 auto;\"></figure>";
                 continue;
             }
 
-            $formattedPara = nl2br(htmlspecialchars($trimmed, ENT_QUOTES, 'UTF-8'));
-            $formattedPara = preg_replace('/\*\*([^*]+)\*\*/', '<strong>$1</strong>', $formattedPara);
-            $formattedPara = preg_replace('/\*([^*]+)\*/', '<em>$1</em>', $formattedPara);
-            $htmlBlocks[] = '<p style="text-align: justify;">' . $formattedPara . '</p>';
+            // YouTube video embed support
+            if (preg_match('/^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})$/i', $trimmed, $ym)) {
+                $vidId = $ym[1];
+                $htmlBlocks[] = "<div class=\"cms-video-container my-6\" style=\"position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin: 1.75rem 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);\"><iframe src=\"https://www.youtube.com/embed/{$vidId}\" style=\"position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture\" allowfullscreen loading=\"lazy\"></iframe></div>";
+                continue;
+            }
+
+            // Process markdown formatting: bold, italic, and links safely
+            $safeText = htmlspecialchars($trimmed, ENT_QUOTES, 'UTF-8');
+            $safeText = preg_replace('/\*\*([^*]+)\*\*/', '<strong>$1</strong>', $safeText);
+            $safeText = preg_replace('/\*([^*]+)\*/', '<em>$1</em>', $safeText);
+            $safeText = preg_replace_callback('/\[([^\]]+)\]\((https?:\/\/[^\s\)]+|\/[^\s\)]+)\)/', function ($lm) {
+                $text = $lm[1];
+                $url = $lm[2];
+                $isExternal = str_starts_with($url, 'http');
+                $target = $isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+                return "<a href=\"{$url}\"{$target} class=\"font-semibold text-blue-700 underline\" style=\"color: #2563eb; text-decoration: underline; font-weight: 600;\">{$text}</a>";
+            }, $safeText);
+            $htmlBlocks[] = '<p style="text-align: justify;">' . nl2br($safeText) . '</p>';
         }
 
         return implode("\n", $htmlBlocks);
+    }
+
+    /**
+     * Convert rich HTML article into clean, pristine Markdown tailored for React/Next.js/Markdown sites.
+     * Guarantees 0 raw HTML tags on destination screen (no escaped <h1>, <figure>, <p>).
+     * Preserves and styles all images, headings, bullet lists, internal links, external links, and video embeds.
+     * Strips redundant top H1 title (since website page headers already render it) and isolates all images with \n\n.
+     */
+    public function htmlToPristineMarkdown(string $html, ?string $rawContent = null, ?WebsitePost $post = null, ?Website $website = null): string
+    {
+        $postTitle = trim($post?->title ?: '');
+
+        // Prefer rich structured HTML ($html) since it contains section headings (<h2>), figures, and paragraphs properly structured.
+        // Fall back to $rawContent only if $html is empty or plain.
+        $content = '';
+        if (trim($html) !== '' && (str_contains($html, '<p') || str_contains($html, '<h2') || str_contains($html, '<figure') || str_contains($html, '<h3'))) {
+            $content = trim($html);
+        } elseif ($rawContent && trim($rawContent) !== '') {
+            $content = trim($rawContent);
+        } else {
+            $content = trim($html);
+        }
+
+        if ($content === '') {
+            return '';
+        }
+
+        // If content contains HTML tags, convert HTML tags to Markdown
+        if (preg_match('/<[a-z][\s\S]*>/i', $content)) {
+            // Strip contenteditable and editor UI attributes
+            $content = preg_replace('/contenteditable=["\'][^"\']*["\']/i', '', $content);
+            $content = preg_replace('/data-placeholder=["\'][^"\']*["\']/i', '', $content);
+
+            // Strip top H1 tag if it matches or contains post title
+            $content = preg_replace_callback('/<h1[^>]*>([\s\S]*?)<\/h1>/i', function ($m) use ($postTitle) {
+                $h1Text = trim(strip_tags($m[1]));
+                if ($postTitle !== '' && (stripos($h1Text, $postTitle) !== false || stripos($postTitle, $h1Text) !== false)) {
+                    return ''; // Strip top duplicate title
+                }
+                return "\n\n## {$h1Text}\n\n";
+            }, $content);
+
+            // YouTube iframe to Markdown video preview link
+            $content = preg_replace_callback('/<iframe[^>]*src=["\'](?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})[^"\']*["\'][^>]*>[\s\S]*?<\/iframe>/i', function ($m) {
+                $vidId = $m[1];
+                return "\n\n[![Watch Video](https://img.youtube.com/vi/{$vidId}/hqdefault.jpg)](https://www.youtube.com/watch?v={$vidId})\n\n";
+            }, $content);
+
+            // Convert Figures & Images into Markdown: ![Alt](url)
+            $content = preg_replace_callback('/<figure[^>]*>[\s\S]*?<\/figure>/i', function ($m) use ($postTitle) {
+                preg_match('/src=["\']([^"\']+)["\']/i', $m[0], $srcMatch);
+                preg_match('/alt=["\']([^"\']*)["\']/i', $m[0], $altMatch);
+                preg_match('/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i', $m[0], $capMatch);
+
+                $src = $srcMatch[1] ?? '';
+                if (empty($src)) return '';
+
+                $alt = !empty($altMatch[1]) ? trim(strip_tags($altMatch[1])) : '';
+                if (empty($alt) && !empty($capMatch[1])) {
+                    $alt = trim(strip_tags($capMatch[1]));
+                }
+                if (empty($alt) || stripos($alt, 'caption') !== false) {
+                    $alt = $postTitle ?: 'Heavy Machinery Equipment';
+                }
+                $cleanAlt = trim(str_replace(['[', ']', '(', ')', '"', "\n", "\r"], ' ', $alt));
+                return "\n\n![{$cleanAlt}]({$src})\n\n";
+            }, $content);
+
+            // Standalone <img> tags
+            $content = preg_replace_callback('/<img\s+[^>]*>/i', function ($m) use ($postTitle) {
+                preg_match('/src=["\']([^"\']+)["\']/i', $m[0], $srcMatch);
+                preg_match('/alt=["\']([^"\']*)["\']/i', $m[0], $altMatch);
+                $src = $srcMatch[1] ?? '';
+                if (empty($src)) return '';
+                $alt = !empty($altMatch[1]) ? trim(strip_tags($altMatch[1])) : ($postTitle ?: 'Machinery');
+                $cleanAlt = trim(str_replace(['[', ']', '(', ')', '"', "\n", "\r"], ' ', $alt));
+                return "\n\n![{$cleanAlt}]({$src})\n\n";
+            }, $content);
+
+            // Convert Headings: h2 -> ##, h3 -> ###, h4-h6 -> ####
+            $content = preg_replace('/<h2[^>]*>([\s\S]*?)<\/h2>/i', "\n\n## $1\n\n", $content);
+            $content = preg_replace('/<h3[^>]*>([\s\S]*?)<\/h3>/i', "\n\n### $1\n\n", $content);
+            $content = preg_replace('/<h[4-6][^>]*>([\s\S]*?)<\/h[4-6]>/i', "\n\n#### $1\n\n", $content);
+
+            // Clean bold tags inside headings: ## **Heading** -> ## Heading
+            $content = preg_replace_callback('/\n(#{1,4})\s+([\s\S]*?)\n/', function ($m) {
+                $level = $m[1];
+                $text = trim(strip_tags($m[2]));
+                return "\n\n{$level} {$text}\n\n";
+            }, $content);
+
+            // Convert Links: <a href="url">anchor</a> -> [anchor](url)
+            $content = preg_replace_callback('/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>([\s\S]*?)<\/a>/i', function ($m) {
+                $url = trim($m[1]);
+                $text = trim(strip_tags($m[2]));
+                if (empty($text) || empty($url)) return $text;
+                return "[{$text}]({$url})";
+            }, $content);
+
+            // Convert Bold & Italic
+            $content = preg_replace('/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/i', '**$1**', $content);
+            $content = preg_replace('/<(?:em|i)[^>]*>([\s\S]*?)<\/(?:em|i)>/i', '*$1*', $content);
+
+            // Convert Lists
+            $content = preg_replace_callback('/<li[^>]*>([\s\S]*?)<\/li>/i', function ($m) {
+                $item = trim(strip_tags($m[1], '<a><strong><em>'));
+                return "\n- {$item}";
+            }, $content);
+            $content = preg_replace('/<\/?(?:ul|ol)[^>]*>/i', "\n", $content);
+
+            // Convert Paragraphs & Line Breaks
+            $content = preg_replace('/<br\s*\/?>/i', "\n", $content);
+            $content = preg_replace('/<p[^>]*>([\s\S]*?)<\/p>/i', "\n\n$1\n\n", $content);
+            $content = preg_replace('/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/i', "\n\n> $1\n\n", $content);
+
+            // Strip remaining HTML tags
+            $content = strip_tags($content);
+            $content = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        // Standardize newlines
+        $md = str_replace(["\r\n", "\r"], "\n", $content);
+
+        // 1. Strip redundant top Title from beginning of markdown (Next.js/React templates render it in header)
+        if ($postTitle !== '') {
+            $md = preg_replace('/^\s*#{1,3}\s*' . preg_quote($postTitle, '/') . '\s*\n+/i', '', $md);
+            // Case-insensitive normalized title check
+            $md = preg_replace_callback('/^\s*#{1,3}\s*([^\n]+)\n+/i', function ($m) use ($postTitle) {
+                $lineNorm = strtolower(trim(preg_replace('/[^a-zA-Z0-9]/', '', $m[1])));
+                $titleNorm = strtolower(trim(preg_replace('/[^a-zA-Z0-9]/', '', $postTitle)));
+                if ($lineNorm !== '' && ($lineNorm === $titleNorm || str_contains($lineNorm, $titleNorm) || str_contains($titleNorm, $lineNorm))) {
+                    return ''; // Strip top title
+                }
+                return $m[0];
+            }, $md);
+        }
+
+        // 2. Isolate existing markdown images: ensure double newlines before and after
+        $md = preg_replace('/(?<!\n\n)(!\[[^\]]*\]\([^\)]+\))(?!\n\n)/i', "\n\n$1\n\n", $md);
+
+        // 3. Convert bare image URLs into standalone ![Alt](url) blocks surrounded by double newlines
+        $md = preg_replace_callback('/(?<!\]\()https?:\/\/[^\s<>\(\)\[\]"\']+\.(?:webp|png|jpe?g|gif|svg|avif)(?:\?[^\s<>\(\)\[\]"\']*)?/i', function ($m) use ($postTitle) {
+            $src = trim($m[0]);
+            $alt = $postTitle ?: 'Heavy Machinery Equipment';
+            $cleanAlt = trim(str_replace(['[', ']', '(', ')', '"', "\n", "\r"], ' ', $alt));
+            return "\n\n![{$cleanAlt}]({$src})\n\n";
+        }, $md);
+
+        // 4. Standalone YouTube video URLs to Markdown links
+        $md = preg_replace_callback('/(?:\n|^)(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\n|$)/i', function ($m) {
+            $vidId = $m[1];
+            return "\n\n[![Watch Video](https://img.youtube.com/vi/{$vidId}/hqdefault.jpg)](https://www.youtube.com/watch?v={$vidId})\n\n";
+        }, $md);
+
+        // 5. Promote standalone bold paragraph headings: **Heading** -> ## Heading
+        $md = preg_replace_callback('/(?:\n|^)\s*\*\*([^\*\n]{3,100})\*\*\s*(?:\n|$)/i', function ($m) {
+            $h = trim($m[1], " \t\n\r\0\x0B:");
+            if (preg_match('/^(?:key takeaway|note|tip|warning|caution|important|best suited for|source|author|disclaimer)\b/i', $h)) {
+                return $m[0];
+            }
+            return "\n\n## {$h}\n\n";
+        }, $md);
+
+        // 6. Convert any remaining H1 "# " in the body to H2 "## " (Next.js requires ## or ###)
+        $md = preg_replace('/(?:\n|^)#\s+([^\n]+)/', "\n\n## $1\n\n", $md);
+
+        // 7. Normalize blank lines and split into clean blocks
+        $blocks = preg_split('/\n\s*\n/', $md);
+        $cleanBlocks = [];
+        foreach ($blocks as $b) {
+            $trimmed = trim($b);
+            if ($trimmed !== '') {
+                $cleanBlocks[] = $trimmed;
+            }
+        }
+        $md = implode("\n\n", $cleanBlocks);
+
+        return $this->ensureArticleLinks($md, $post, $website, true);
+    }
+
+    /**
+     * Guarantees that every blog post published from DGT system contains:
+     * 1. High-relevance Internal Link(s) to the website's store, equipment catalog, or products.
+     * 2. Authoritative External Link(s) (e.g. OSHA safety standards, ISO specs, manufacturer certifications).
+     *
+     * Works seamlessly for both HTML content and Markdown content.
+     */
+    public function ensureArticleLinks(string $content, ?WebsitePost $post = null, ?Website $website = null, bool $isMarkdown = false): string
+    {
+        if (trim($content) === '') {
+            return $content;
+        }
+
+        $siteUrl = rtrim($website?->url ?: ($post?->website?->url ?: ''), '/');
+        $siteDomain = strtolower(parse_url($siteUrl, PHP_URL_HOST) ?: '');
+        $siteDomain = preg_replace('/^www\./i', '', $siteDomain);
+
+        // 1. Determine website store URL or equipment catalog URL
+        $storeUrl = $siteUrl ? ($siteUrl . '/shop') : '#';
+        if (str_contains($siteDomain, 'skidsteers.us')) $storeUrl = 'https://skidsteers.us/shop';
+        elseif (str_contains($siteDomain, 'happymachinery.com')) $storeUrl = 'https://happymachinery.com/equipment';
+        elseif (str_contains($siteDomain, 'typhonmachinery.com')) $storeUrl = 'https://typhonmachinery.com/store/';
+        elseif (str_contains($siteDomain, 'stonekrusher.com')) $storeUrl = 'https://stonekrusher.com/equipment';
+        elseif (str_contains($siteDomain, 'americanloader.com')) $storeUrl = 'https://americanloader.com/catalog';
+        elseif (str_contains($siteDomain, 'groundripper.com')) $storeUrl = 'https://groundripper.com/products';
+        elseif (str_contains($siteDomain, 'konstructz.com')) $storeUrl = 'https://konstructz.com/store';
+        elseif ($post?->product_url) $storeUrl = $post->product_url;
+
+        // Check if content already has an internal link to this domain or store
+        $hasInternalLink = false;
+        if ($siteDomain && str_contains(strtolower($content), $siteDomain)) {
+            $hasInternalLink = true;
+        } elseif (str_contains($content, 'href="/') || str_contains($content, '](/')) {
+            $hasInternalLink = true;
+        }
+
+        // Check if content already has an external link
+        $hasExternalLink = false;
+        if (preg_match('/(?:href=["\']https?:\/\/|\[[^\]]+\]\(https?:\/\/)(?!' . preg_quote($siteDomain, '/') . ')[^"\'\s\)]+/i', $content)) {
+            $hasExternalLink = true;
+        }
+
+        $result = $content;
+
+        // If missing Internal Link: contextually link the first high-relevance equipment keyword
+        if (!$hasInternalLink && $storeUrl !== '#') {
+            $targetKeywords = [
+                'compact track loaders', 'compact track loader',
+                'mini skid steers', 'mini skid steer',
+                'skid steer loaders', 'skid steer loader',
+                'skid steers', 'skid steer',
+                'mini excavators', 'mini excavator',
+                'heavy equipment', 'compact equipment',
+                'plate compactors', 'plate compactor',
+                'trencher attachments', 'trencher attachment',
+                'hydraulic attachments', 'equipment catalog',
+                'attachments', 'machinery', 'equipment'
+            ];
+
+            foreach ($targetKeywords as $kw) {
+                $pattern = '/\b(' . preg_quote($kw, '/') . ')\b(?![\w\s]*[\]>])/i';
+                if (preg_match($pattern, $result)) {
+                    if ($isMarkdown) {
+                        $result = preg_replace($pattern, "[$1]({$storeUrl})", $result, 1);
+                    } else {
+                        $result = preg_replace($pattern, "<a href=\"{$storeUrl}\" class=\"font-semibold text-blue-700 underline\" style=\"color: #2563eb; text-decoration: underline; font-weight: 600;\">$1</a>", $result, 1);
+                    }
+                    $hasInternalLink = true;
+                    break;
+                }
+            }
+
+            // Fallback: If still no internal link found, append natural equipment exploration callout
+            if (!$hasInternalLink) {
+                $categoryLabel = $post?->category ? ucfirst($post->category) : 'Heavy Machinery';
+                if ($isMarkdown) {
+                    $result .= "\n\n> **Explore Equipment:** Browse our full lineup of [{$categoryLabel} and Work Attachments]({$storeUrl}) for high-performance jobsite solutions.";
+                } else {
+                    $result .= "\n\n<div class=\"my-6 p-4 rounded-xl border border-blue-200 bg-blue-50/50\" style=\"margin: 1.5rem 0; padding: 1rem; border-radius: 0.75rem; border: 1px solid #bfdbfe; background: #eff6ff;\"><p class=\"text-sm\" style=\"margin: 0; font-size: 0.875rem;\"><strong>Explore Equipment:</strong> Browse our full lineup of <a href=\"{$storeUrl}\" class=\"font-semibold text-blue-700 underline\" style=\"color: #1d4ed8; font-weight: 600; text-decoration: underline;\">{$categoryLabel} and Work Attachments</a> for high-performance jobsite solutions.</p></div>";
+                }
+                $hasInternalLink = true;
+            }
+        }
+
+        // If missing External Link: contextually link safety/standards or add citation
+        if (!$hasExternalLink) {
+            $externalTargets = [
+                ['keyword' => 'OSHA safety standards', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'OSHA standards', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'OSHA guidelines', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'OSHA', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'ISO standards', 'url' => 'https://www.iso.org'],
+                ['keyword' => 'ISO safety standards', 'url' => 'https://www.iso.org'],
+                ['keyword' => 'hydraulic specifications', 'url' => 'https://www.iso.org'],
+                ['keyword' => 'safety standards', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'safety guidelines', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'safety protocols', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'safety requirements', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'safety', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'standards', 'url' => 'https://www.iso.org'],
+                ['keyword' => 'compliance', 'url' => 'https://www.osha.gov'],
+                ['keyword' => 'specifications', 'url' => 'https://www.iso.org'],
+            ];
+
+            foreach ($externalTargets as $ext) {
+                $pattern = '/\b(' . preg_quote($ext['keyword'], '/') . ')\b(?![\w\s]*[\]>])/i';
+                if (preg_match($pattern, $result)) {
+                    if ($isMarkdown) {
+                        $result = preg_replace($pattern, "[$1]({$ext['url']})", $result, 1);
+                    } else {
+                        $result = preg_replace($pattern, "<a href=\"{$ext['url']}\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"font-semibold text-blue-700 underline\" style=\"color: #2563eb; text-decoration: underline; font-weight: 600;\">$1</a>", $result, 1);
+                    }
+                    $hasExternalLink = true;
+                    break;
+                }
+            }
+
+            // Fallback: If still no external link found, append authoritative regulatory citation
+            if (!$hasExternalLink) {
+                if ($isMarkdown) {
+                    $result .= "\n\n*Reference: For jobsite equipment regulations, safety standards, and operator guidelines, visit the [Occupational Safety and Health Administration (OSHA)](https://www.osha.gov).*";
+                } else {
+                    $result .= "\n\n<p class=\"text-xs text-gray-500 italic mt-4\" style=\"font-size: 0.75rem; color: #6b7280; font-style: italic; margin-top: 1rem;\">Reference: For jobsite equipment regulations, safety standards, and operator guidelines, visit the <a href=\"https://www.osha.gov\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-blue-600 underline\" style=\"color: #2563eb; text-decoration: underline;\">Occupational Safety and Health Administration (OSHA)</a>.</p>";
+                }
+                $hasExternalLink = true;
+            }
+        }
+
+        return $result;
     }
 
     /**

@@ -90,12 +90,10 @@ class LogActivity
             'created_at' => now(),
         ];
 
-        if (app()->runningUnitTests()) {
+        try {
             ActivityLog::create($payload);
-        } else {
-            dispatch(static function () use ($payload) {
-                ActivityLog::create($payload);
-            })->afterResponse();
+        } catch (\Throwable $logErr) {
+            // Log writing should never crash the HTTP response lifecycle
         }
 
         return $response;

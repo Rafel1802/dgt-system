@@ -187,6 +187,22 @@ if __name__ == "__main__":
     ]
     run_cmd(rsync_storage_cmd, allow_fail=True)
 
+    rsync_avatars_public_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "--ignore-existing",
+        "storage/app/public/avatars/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/public/storage/avatars/"
+    ]
+    run_cmd(rsync_avatars_public_cmd, allow_fail=True)
+
+    rsync_avatars_root_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "--ignore-existing",
+        "storage/app/public/avatars/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/storage/avatars/"
+    ]
+    run_cmd(rsync_avatars_root_cmd, allow_fail=True)
+
     # 1b. Upload assets directly to public_html/js/ (without public/ prefix) just in case public_html is the document root
     rsync_workspace_alpine_cmd = [
         "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
@@ -209,12 +225,26 @@ if __name__ == "__main__":
     ]
     run_cmd(rsync_drag_scroll_cmd, allow_fail=True)
 
+    rsync_all_js_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/js/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/js/"
+    ]
+    run_cmd(rsync_all_js_cmd, allow_fail=True)
+
     rsync_images_cmd = [
         "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
         "public/images/",
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/images/"
     ]
     run_cmd(rsync_images_cmd, allow_fail=True)
+
+    rsync_images_public_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/images/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/public/images/"
+    ]
+    run_cmd(rsync_images_public_cmd, allow_fail=True)
 
     rsync_build_cmd = [
         "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
@@ -229,6 +259,41 @@ if __name__ == "__main__":
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/downloads/"
     ]
     run_cmd(rsync_downloads_cmd, allow_fail=True)
+
+    rsync_downloads_public_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/downloads/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/public/downloads/"
+    ]
+    run_cmd(rsync_downloads_public_cmd, allow_fail=True)
+
+    rsync_audio_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/audio/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/audio/"
+    ]
+    run_cmd(rsync_audio_cmd, allow_fail=True)
+
+    rsync_audio_public_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/audio/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/public/audio/"
+    ]
+    run_cmd(rsync_audio_public_cmd, allow_fail=True)
+
+    rsync_service_worker_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/service-worker.js",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/service-worker.js"
+    ]
+    run_cmd(rsync_service_worker_cmd, allow_fail=True)
+
+    rsync_service_worker_public_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/service-worker.js",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/public/service-worker.js"
+    ]
+    run_cmd(rsync_service_worker_public_cmd, allow_fail=True)
 
     # 2. Remove hot file + optimize caching on server.
     # Do not run migrations from this performance deploy: the optimization pass
@@ -342,9 +407,9 @@ if __name__ == "__main__":
         # 3. Setup Workflow Board Team A – October 2026
         "\\$wfA = \\\\App\\\\Models\\\\Board::where('name', 'Workflow board Team A – October 2026')->first(); "
         "if (!\\$wfA) { "
-        "    \\$wfA = \\\\App\\\\Models\\\\Board::create(['workspace_id' => \\$ws->id, 'name' => 'Workflow board Team A – October 2026', 'slug' => 'workflow-board-team-a-october-2026', 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/TeamA.webp', 'position' => 0, 'is_hidden' => false, 'created_by' => 1]); "
+        "    \\$wfA = \\\\App\\\\Models\\\\Board::create(['workspace_id' => \\$ws->id, 'name' => 'Workflow board Team A – October 2026', 'slug' => 'workflow-board-team-a-october-2026', 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/TeamA.webp', 'position' => 0, 'is_hidden' => true, 'created_by' => 1]); "
         "} else { "
-        "    \\$wfA->update(['is_hidden' => false, 'is_archived' => false, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/TeamA.webp']); "
+        "    \\$wfA->update(['is_archived' => false, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/TeamA.webp']); "
         "} "
         "\\$teamAUsers = \\\\App\\\\Models\\\\User::where('team', 'A')->pluck('id')->merge([1, 2, 12, 5])->unique()->filter()->values()->all(); "
         "\\$wfA->members()->sync(\\$teamAUsers); "
@@ -354,9 +419,9 @@ if __name__ == "__main__":
         # 4. Setup Workflow Board Team B – October 2026
         "\\$wfB = \\\\App\\\\Models\\\\Board::where('name', 'Workflow board Team B – October 2026')->first(); "
         "if (!\\$wfB) { "
-        "    \\$wfB = \\\\App\\\\Models\\\\Board::create(['workspace_id' => \\$ws->id, 'name' => 'Workflow board Team B – October 2026', 'slug' => 'workflow-board-team-b-october-2026', 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/B.webp', 'position' => 1, 'is_hidden' => false, 'created_by' => 1]); "
+        "    \\$wfB = \\\\App\\\\Models\\\\Board::create(['workspace_id' => \\$ws->id, 'name' => 'Workflow board Team B – October 2026', 'slug' => 'workflow-board-team-b-october-2026', 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/B.webp', 'position' => 1, 'is_hidden' => true, 'created_by' => 1]); "
         "} else { "
-        "    \\$wfB->update(['is_hidden' => false, 'is_archived' => false, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/B.webp']); "
+        "    \\$wfB->update(['is_archived' => false, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/B.webp']); "
         "} "
         "\\$teamBUsers = \\\\App\\\\Models\\\\User::where('team', 'B')->pluck('id')->merge([1, 2, 13, 5])->unique()->filter()->values()->all(); "
         "\\$wfB->members()->sync(\\$teamBUsers); "
@@ -366,9 +431,9 @@ if __name__ == "__main__":
         # 5. Setup Planning Board@KiuQ – October 2026
         "\\$plan = \\\\App\\\\Models\\\\Board::where('name', 'Planning Board@KiuQ – October 2026')->first(); "
         "if (!\\$plan) { "
-        "    \\$plan = \\\\App\\\\Models\\\\Board::create(['workspace_id' => \\$ws->id, 'name' => 'Planning Board@KiuQ – October 2026', 'slug' => 'planning-board-kiuq-october-2026', 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/ChatGPT%20Image%20Oct%203%202026%2007_59_23%20AM.webp', 'position' => 2, 'is_hidden' => false, 'created_by' => 1]); "
+        "    \\$plan = \\\\App\\\\Models\\\\Board::create(['workspace_id' => \\$ws->id, 'name' => 'Planning Board@KiuQ – October 2026', 'slug' => 'planning-board-kiuq-october-2026', 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/ChatGPT%20Image%20Oct%203%202026%2007_59_23%20AM.webp', 'position' => 2, 'is_hidden' => true, 'created_by' => 1]); "
         "} else { "
-        "    \\$plan->update(['is_hidden' => false, 'is_archived' => false, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/ChatGPT%20Image%20Oct%203%202026%2007_59_23%20AM.webp']); "
+        "    \\$plan->update(['is_archived' => false, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/ChatGPT%20Image%20Oct%203%202026%2007_59_23%20AM.webp']); "
         "} "
         "\\$plan->members()->sync(\\$allDigitalIds); "
         "foreach (['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Meeting Schedule', 'Urgent / Priority', 'Blocked/Waiting'] as \\$pos => \\$lname) { "
@@ -411,22 +476,17 @@ if __name__ == "__main__":
         "\\$smmWs->members()->syncWithoutDetaching(\\$allDigitalIds); "
         "\\$smmBoard = \\\\App\\\\Models\\\\Board::where('type', 'smm')->where('name', 'like', '%October 2026%')->whereHas('cards')->first() ?: \\\\App\\\\Models\\\\Board::where('type', 'smm')->where('name', 'like', '%October 2026%')->first(); "
         "if (!\\$smmBoard) { "
-        "    \\$smmBoard = \\\\App\\\\Models\\\\Board::create(['workspace_id' => \\$smmWs->id, 'name' => 'SMM Planning Board – October 2026', 'slug' => 'smm-planning-board-october-2026', 'type' => 'smm', 'is_active_smm' => true, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/SMM.webp', 'position' => 1, 'is_hidden' => false, 'created_by' => 1]); "
+        "    \\$smmBoard = \\\\App\\\\Models\\\\Board::create(['workspace_id' => \\$smmWs->id, 'name' => 'SMM Planning Board – October 2026', 'slug' => 'smm-planning-board-october-2026', 'type' => 'smm', 'is_active_smm' => true, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/SMM.webp', 'position' => 1, 'is_hidden' => true, 'created_by' => 1]); "
         "} else { "
-        "    \\$smmBoard->update(['workspace_id' => \\$smmWs->id, 'is_hidden' => false, 'is_archived' => false, 'type' => 'smm', 'is_active_smm' => true, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/SMM.webp', 'position' => 1]); "
+        "    \\$smmBoard->update(['workspace_id' => \\$smmWs->id, 'is_archived' => false, 'type' => 'smm', 'is_active_smm' => true, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/SMM.webp']); "
         "} "
         "\\\\App\\\\Models\\\\Board::where('type', 'smm')->orWhere('name', 'like', '%SMM%')->update(['workspace_id' => \\$smmWs->id, 'cover_type' => 'image', 'cover_value' => 'https://img.miniexcavator.org/ebay/Dashboard-Icon/SMM.webp']); "
         "\\$smmBoard->members()->syncWithoutDetaching(\\$allDigitalIds); "
         "foreach (['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Final Captions', 'Block/Waiting'] as \\$pos => \\$lname) { "
         "    \\\\App\\\\Models\\\\BoardList::firstOrCreate(['board_id' => \\$smmBoard->id, 'name' => \\$lname], ['position' => (\\$pos + 1) * 1000]); "
         "} "
-        # 7. Keep only the 3 October boards visible in Digital Department, keep older month boards hidden in Hidden Boards (never delete)
-        "\\\\App\\\\Models\\\\Board::where('workspace_id', \\$ws->id)->whereNotIn('id', [\\$wfA->id, \\$wfB->id, \\$plan->id])->where('name', 'not like', '%' . date('F Y') . '%')->where('name', 'not like', '%' . date('F Y', strtotime('first day of next month')) . '%')->update(['is_hidden' => true]); "
-        "\\\\App\\\\Models\\\\Board::where('workspace_id', \\$smmWs->id)->where('id', '!=', \\$smmBoard->id)->where('name', 'not like', '%' . date('F Y') . '%')->where('name', 'not like', '%' . date('F Y', strtotime('first day of next month')) . '%')->update(['is_hidden' => true]); "
-        "\\$wfA->update(['position' => 1, 'is_hidden' => false]); "
-        "\\$wfB->update(['position' => 2, 'is_hidden' => false]); "
-        "\\$plan->update(['position' => 10, 'is_hidden' => false]); "
-        "\\$smmBoard->update(['position' => 1, 'is_hidden' => false]); "
+        # 7. Respect user board visibility: NEVER unhide boards that user hid. Ensure last month's (October 2026) boards stay hidden as user requested.
+        "\\\\App\\\\Models\\\\Board::where('name', 'like', '%October 2026%')->update(['is_hidden' => true]); "
         "\\\\App\\\\Models\\\\Board::where('workspace_id', \\$ws->id)->get()->each(function(\\$b) use (\\$allDigitalIds) { \\$b->members()->syncWithoutDetaching(\\$allDigitalIds); }); "
         "\\\\App\\\\Models\\\\Board::where('workspace_id', \\$smmWs->id)->get()->each(function(\\$b) use (\\$allDigitalIds) { \\$b->members()->syncWithoutDetaching(\\$allDigitalIds); }); "
         # 8. Restore old workspaces (VideoTeam, QC/Technical, Listing-ContentWriter) and keep all their boards in Hidden Boards (never in Trash)
@@ -448,6 +508,88 @@ if __name__ == "__main__":
         '" && '
     )
 
+    tinker_chat_permissions = (
+        PHP + ' artisan tinker --execute="'
+        "\\\\App\\\\Models\\\\User::where('id', '!=', 2)->where('username', 'not like', '%somalika%')->update(['can_use_chat' => true]); "
+        "\\\\App\\\\Models\\\\User::where(function(\\$q) { \\$q->where('id', 2)->orWhere('username', 'like', '%somalika%'); })->update(['can_use_chat' => false]); "
+        "echo 'Chat access set: enabled for all users except Ms. Somalika\\n';"
+        '" && '
+    )
+
+    tinker_fix_voice_mime = (
+        PHP + ' artisan tinker --execute="'
+        "\\\\App\\\\Models\\\\Chat\\\\ChatMessageAttachment::where(function(\\$q) { \\$q->where('file_name', 'like', 'voice%')->orWhereNotNull('waveform_data'); })->where('file_type', 'like', 'video%')->update(['file_type' => 'audio/webm']); "
+        "\\\\App\\\\Models\\\\Chat\\\\ChatMessage::where('type', 'voice')->where('content', 'like', '%Voice Message%')->update(['content' => null]); "
+        "echo 'Normalized voice message MIME types and content in remote database\\n';"
+        '" && '
+    )
+
+    tinker_clean_test_video = (
+        PHP + ' artisan tinker --execute="'
+        "\\$m186 = \\\\App\\\\Models\\\\Chat\\\\ChatMessage::find(186); if (\\$m186) { \\$m186->delete(); } "
+        "\\$m185 = \\\\App\\\\Models\\\\Chat\\\\ChatMessage::find(185); if (\\$m185) { foreach(\\$m185->attachments as \\$a) { \\$a->delete(); } \\$m185->delete(); } "
+        "echo 'Cleaned test video messages 185 and 186\\n';"
+        '" && '
+    )
+
+    tinker_fix_stickers_privacy = (
+        PHP + ' artisan tinker --execute="'
+        "\\\\App\\\\Models\\\\Chat\\\\ChatSticker::whereNotNull('user_id')->update(['is_public' => false]); "
+        "echo 'Set all user custom and saved stickers to strictly private (is_public=false)\\n';"
+        '" && '
+    )
+
+    tinker_resync_blog_followup = (
+        PHP + ' artisan tinker --execute="'
+        "\\$allWs = \\\\App\\\\Models\\\\Website::all(); "
+        "\\$blogFus = \\\\App\\\\Models\\\\WebsiteFollowUp::where('type', 'blog_post')->whereNotNull('url')->with('website')->get(); "
+        "foreach (\\$blogFus as \\$bfu) { "
+        "    if (empty(\\$bfu->url)) continue; "
+        "    \\$curMatch = \\$bfu->website && (\\\\App\\\\Services\\\\GoogleBlogsSheetService::isStrictWebsiteMatch(\\$bfu->website->name ?? '', \\$bfu->url) || (!empty(\\$bfu->website->url) && \\\\App\\\\Services\\\\GoogleBlogsSheetService::isStrictWebsiteMatch(\\$bfu->website->url, \\$bfu->url))); "
+        "    if (!\\$curMatch) { "
+        "        foreach (\\$allWs as \\$cand) { "
+        "            if (\\\\App\\\\Services\\\\GoogleBlogsSheetService::isStrictWebsiteMatch(\\$cand->name ?? '', \\$bfu->url) || (!empty(\\$cand->url) && \\\\App\\\\Services\\\\GoogleBlogsSheetService::isStrictWebsiteMatch(\\$cand->url, \\$bfu->url))) { "
+        "                \\$cls = \\\\App\\\\Services\\\\GoogleBlogsSheetService::extractClassFromCategory(\\$cand->category) ?: \\$bfu->blog_sheet_class; "
+        "                \\$bfu->updateQuietly(['website_id' => \\$cand->id, 'blog_sheet_class' => \\$cls]); "
+        "                break; "
+        "            } "
+        "        } "
+        "    } "
+        "} "
+        "\\$rowMap = ["
+        "    'road-roller-gradeability' => 6,"
+        "    'forklift-vs-scissor-lift-for-industrial-material-handling' => 7,"
+        "    'how-compact-rock-crushers' => 9,"
+        "    'engine-cooling-systems-for-trenchers' => 14,"
+        "    'tri-loader-lift-capacity' => 11,"
+        "    'how-auxiliary-hydraulics-improve-skid-steer' => 12,"
+        "    'typhon-kuvuo-series-piston-pumps' => 10,"
+        "    'forklift-vs-scissor-lift-for-industrial-warehouses' => 11,"
+        "    'why-road-roller-operating-weight' => 12,"
+        "    'how-engine-horsepower-affects-wheel-loader' => 14,"
+        "    'mini-excavator-mechanical-control' => 15,"
+        "]; "
+        "foreach (\\$rowMap as \\$slug => \\$rowNum) { "
+        "    \\\\App\\\\Models\\\\WebsiteFollowUp::where('url', 'like', '%' . \\$slug . '%')->update(['google_sheet_status' => 'synced', 'google_sheet_row' => \\$rowNum, 'google_sheet_error' => null]); "
+        "} "
+        "echo 'Aligned website_follow_ups websites and row numbers with Nov Blogs sheet\\n';"
+        '" && '
+    )
+
+
+    local_gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not local_gemini_key and os.path.exists(".env"):
+        with open(".env", "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if line.startswith("GEMINI_API_KEY="):
+                    local_gemini_key = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+
+    gemini_env_cmd = (
+        f"(grep -q '^GEMINI_API_KEY=' .env && sed -i 's|^GEMINI_API_KEY=.*|GEMINI_API_KEY={local_gemini_key}|' .env || (printf '\\nGEMINI_API_KEY={local_gemini_key}\\n' >> .env)) && "
+        if local_gemini_key else ""
+    )
+
     ssh_cmd = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-o", "PubkeyAuthentication=no", "-o", "ConnectTimeout=30", "-p", "65002", "u355625773@157.173.215.124",
         (
@@ -457,6 +599,10 @@ if __name__ == "__main__":
             + "rm -f public/hot && rm -f bootstrap/cache/*.php && rm -rf storage/framework/cache/data/* && rm -f app/Console/Commands/SmmImportController.php && rm -f database/migrations/2026_08_07_075801_modify_unique_constraint_on_comment_reactions.php && "
             + "(grep -q 'GOOGLE_KPI_APPS_SCRIPT_URL' .env && sed -i 's|^GOOGLE_KPI_APPS_SCRIPT_URL=.*|GOOGLE_KPI_APPS_SCRIPT_URL=https://script.google.com/macros/s/AKfycbxXXOumYYCzercvaTZwu8maugr8FDkHDudUQ5kTf4JWIUY3GqRzqJJgPw27zFEFPvnG/exec|' .env || (printf '\\nGOOGLE_KPI_DRIVE_FOLDER_ID=1sQiq4-jtjsRmEBfJr6ofZkHXuHZuLhTi\\nGOOGLE_KPI_APPS_SCRIPT_URL=https://script.google.com/macros/s/AKfycbxXXOumYYCzercvaTZwu8maugr8FDkHDudUQ5kTf4JWIUY3GqRzqJJgPw27zFEFPvnG/exec\\nGOOGLE_KPI_API_SECRET=kpi-drive-sync-secret-2026\\n' >> .env)) && "
             + "(grep -q 'GOOGLE_SEARCH_CONSOLE_CLIENT_ID' .env || (printf '\\nGOOGLE_SEARCH_CONSOLE_CLIENT_ID=\\nGOOGLE_SEARCH_CONSOLE_CLIENT_SECRET=\\nGOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://lightcyan-weasel-711536.hostingersite.com/google/search-console/callback\\n' >> .env)) && "
+            + gemini_env_cmd
+            + "(grep -q '^GEMINI_TEXT_MODEL=' .env && sed -i 's|^GEMINI_TEXT_MODEL=.*|GEMINI_TEXT_MODEL=gemini-flash-lite-latest|' .env || (printf 'GEMINI_TEXT_MODEL=gemini-flash-lite-latest\\n' >> .env)) && "
+            + "(grep -q '^GEMINI_IMAGE_MODEL=' .env && sed -i 's|^GEMINI_IMAGE_MODEL=.*|GEMINI_IMAGE_MODEL=imagen-3.0-generate-002|' .env || (printf 'GEMINI_IMAGE_MODEL=imagen-3.0-generate-002\\n' >> .env)) && "
+            + "(grep -q '^GEMINI_TTS_MODEL=' .env && sed -i 's|^GEMINI_TTS_MODEL=.*|GEMINI_TTS_MODEL=gemini-2.0-flash-exp|' .env || (printf 'GEMINI_TTS_MODEL=gemini-2.0-flash-exp\\n' >> .env)) && "
             + PHP + " artisan cache:clear && "
             + PHP + " artisan optimize && "
             + PHP + " artisan migrate --force && "
@@ -481,6 +627,11 @@ if __name__ == "__main__":
             + PHP + " artisan cards:sync-checklists && "
             + PHP + " artisan app:setup-blog-report-permission && "
             + tinker_fix_post_statuses
+            + tinker_chat_permissions
+            + tinker_fix_voice_mime
+            + tinker_clean_test_video
+            + tinker_fix_stickers_privacy
+            + tinker_resync_blog_followup
             + PHP + " artisan view:cache && "
             + PHP + " artisan storage:link && "
             + PHP + ' artisan tinker --execute="App\\\\Models\\\\User::where(\'name\', \'like\', \'%Dara%\')->first()->assignRole(\'admin-digital\');"'

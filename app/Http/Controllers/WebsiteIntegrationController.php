@@ -43,7 +43,7 @@ class WebsiteIntegrationController extends Controller
         $memberId = $request->get('member_id');
         $search = $request->get('search');
 
-        $query = Website::where('is_archived', false)
+        $query = Website::active()
             ->with(['integration', 'handler', 'assignees'])
             ->withCount('posts')
             ->withSum('posts', 'cumulative_views')
@@ -95,7 +95,7 @@ class WebsiteIntegrationController extends Controller
 
         // Summary Statistics across all non-archived websites (cached 60s for instant tab switching)
         $stats = Cache::remember('dgt_fleet_summary_metrics', 60, function () {
-            $totalWebsites = Website::where('is_archived', false)->count();
+            $totalWebsites = Website::active()->count();
             $connectedCmsCount = WebsiteIntegration::where('cms_status', WebsiteIntegration::CMS_STATUS_CONNECTED)->where('is_active', true)->count();
             $notConnectedCount = $totalWebsites - $connectedCmsCount;
             $connectedAnalyticsCount = WebsiteIntegration::where('analytics_status', WebsiteIntegration::ANALYTICS_STATUS_CONNECTED)->count();
@@ -235,7 +235,7 @@ class WebsiteIntegrationController extends Controller
 
         // Cached collections as pure arrays for fast dropdown filters, zero serialization bugs, and smooth tab switching
         $allWebsites = Cache::remember('dgt_active_websites_array', 300, function () {
-            return Website::where('is_archived', false)
+            return Website::active()
                 ->with('handler:id,name,email,avatar')
                 ->orderBy('name')
                 ->get()
@@ -863,6 +863,20 @@ class WebsiteIntegrationController extends Controller
                 $file = public_path('connectors/custom-php/dgt-connector-client.php');
                 abort_unless(file_exists($file), 404, 'SDK client file not found.');
                 return response()->download($file, 'dgt-connector-client.php', [
+                    'Content-Type' => 'text/plain; charset=utf-8',
+                ]);
+
+            case 'inquiries-zip':
+                $file = public_path('connectors/wordpress/dgt-inquiries.zip');
+                abort_unless(file_exists($file), 404, 'Inquiries plugin package not found.');
+                return response()->download($file, 'dgt-inquiries.zip', [
+                    'Content-Type' => 'application/zip',
+                ]);
+
+            case 'inquiries-php':
+                $file = public_path('connectors/wordpress/dgt-inquiries/dgt-inquiries.php');
+                abort_unless(file_exists($file), 404, 'Inquiries PHP file not found.');
+                return response()->download($file, 'dgt-inquiries.php', [
                     'Content-Type' => 'text/plain; charset=utf-8',
                 ]);
 

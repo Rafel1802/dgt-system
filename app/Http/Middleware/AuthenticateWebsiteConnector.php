@@ -15,7 +15,10 @@ class AuthenticateWebsiteConnector
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $apiKey = $request->header('X-DGT-Key');
+        $apiKey = $request->header('X-DGT-Key') 
+            ?: ($request->header('X-API-KEY') 
+            ?: ($request->input('api_key') 
+            ?: $request->input('dgt_key')));
         $signature = $request->header('X-DGT-Signature');
         $timestamp = $request->header('X-DGT-Timestamp');
         $nonce = $request->header('X-DGT-Nonce');
@@ -83,6 +86,9 @@ class AuthenticateWebsiteConnector
             $authenticated = $integration->verifySignature($signature, $timestamp, $rawPayload);
         } elseif ($secret) {
             $authenticated = hash_equals($integration->api_secret, $secret);
+        } elseif ($request->is('api/v1/inquiries*') || $request->is('api/v1/connector/inquiries*')) {
+            // For customer inquiries / RFQ submissions, an active registered API key is authorized
+            $authenticated = true;
         }
 
         if (!$authenticated) {

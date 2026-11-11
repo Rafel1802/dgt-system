@@ -44,7 +44,7 @@
 --}}
 <div x-show="attachmentModal.open" x-cloak
      class="fixed inset-0 flex items-center justify-center p-4"
-     style="z-index: 110;"
+     style="z-index: 130;"
      @keydown.escape.window="if(attachmentModal.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeAttachmentModal(); }">
 
   {{-- Backdrop --}}
@@ -1149,7 +1149,7 @@ function imageZoomHandler() {
 <!-- Video Preview Modal (Popup Theater) -->
 <div x-show="videoPreview.open" x-cloak
      class="fixed inset-0 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-3 sm:p-6"
-     style="z-index: 110;"
+     style="z-index: 125;"
      @keydown.escape.window="if(videoPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeVideoPreview(); }"
      @click="closeVideoPreview()">
   <div class="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-950 shadow-2xl flex flex-col" @click.stop>
@@ -1211,7 +1211,7 @@ function imageZoomHandler() {
 <!-- Canva Preview Modal (Interactive Theater with Zoom & Page Navigation) -->
 <div x-show="canvaPreview.open" x-cloak
      class="fixed inset-0 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-2 sm:p-5"
-     style="z-index: 110;"
+     style="z-index: 125;"
      @keydown.escape.window="if(canvaPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); closeCanvaPreview(); }"
      @keydown.left.window="if(canvaPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); if(canvaPreview.scale > 1) { canvaPanLeft(); } else { canvaPrevPage(); } }"
      @keydown.right.window="if(canvaPreview.open) { $event.preventDefault(); $event.stopImmediatePropagation(); if(canvaPreview.scale > 1) { canvaPanRight(); } else { canvaNextPage(); } }"

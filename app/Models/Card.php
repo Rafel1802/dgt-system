@@ -681,21 +681,29 @@ class Card extends Model
         return null;
     }
 
+    protected ?string $cachedDetectedTeam = null;
+    protected bool $hasDetectedTeam = false;
+
     /**
      * Detect or return the card's assigned digital team ('A', 'B', or 'Both').
      */
     public function detectTeam(): ?string
     {
+        if ($this->hasDetectedTeam) {
+            return $this->cachedDetectedTeam;
+        }
+        $this->hasDetectedTeam = true;
+
         // 1. Explicit attribute
         if (!empty($this->attributes['team'])) {
             $t = strtoupper(trim($this->attributes['team']));
             if (in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B']) || (str_contains($t, 'A') && str_contains($t, 'B'))) {
-                return 'Both';
+                return $this->cachedDetectedTeam = 'Both';
             }
             if ($t === 'A' || $t === 'B') {
-                return $t;
+                return $this->cachedDetectedTeam = $t;
             }
-            return $t;
+            return $this->cachedDetectedTeam = $t;
         }
 
         // 2. Check attached labels (e.g. [Team A] and [Team B], or [Team A & B])
@@ -706,7 +714,7 @@ class Card extends Model
             foreach ($labels as $lbl) {
                 $name = $lbl->name ?? '';
                 if (preg_match('/Team\s*A\s*(&|\+|and)\s*(Team\s*)?B\b/i', $name)) {
-                    return 'Both';
+                    return $this->cachedDetectedTeam = 'Both';
                 }
                 if (preg_match('/Team\s*A\b/i', $name)) {
                     $hasA = true;
@@ -716,10 +724,10 @@ class Card extends Model
                 }
             }
             if ($hasA && $hasB) {
-                return 'Both';
+                return $this->cachedDetectedTeam = 'Both';
             }
-            if ($hasA) return 'A';
-            if ($hasB) return 'B';
+            if ($hasA) return $this->cachedDetectedTeam = 'A';
+            if ($hasB) return $this->cachedDetectedTeam = 'B';
         }
 
         // 3. Check title or bracketed tag e.g. [Team A], (Team B), Team A, Team B
@@ -727,29 +735,31 @@ class Card extends Model
         $titleHasA = preg_match('/\[Team\s*A\]/i', $title) || preg_match('/\(Team\s*A\)/i', $title) || preg_match('/\bTeam\s*A\b/i', $title);
         $titleHasB = preg_match('/\[Team\s*B\]/i', $title) || preg_match('/\(Team\s*B\)/i', $title) || preg_match('/\bTeam\s*B\b/i', $title);
         if ($titleHasA && $titleHasB) {
-            return 'Both';
+            return $this->cachedDetectedTeam = 'Both';
         }
-        if ($titleHasA) return 'A';
-        if ($titleHasB) return 'B';
+        if ($titleHasA) return $this->cachedDetectedTeam = 'A';
+        if ($titleHasB) return $this->cachedDetectedTeam = 'B';
 
         // 4. Check sync siblings (if twin is on Workflow Board Team A or Team B)
-        try {
-            $siblings = $this->relationLoaded('syncSiblings') ? $this->syncSiblings : $this->syncSiblings()->with('board')->get();
-            $sibHasA = false;
-            $sibHasB = false;
-            foreach ($siblings as $sibling) {
-                $bName = strtolower($sibling->board?->name ?? '');
-                if (str_contains($bName, 'team a') || str_contains($bName, 'teama') || str_contains($bName, 'team-a')) {
-                    $sibHasA = true;
+        if (!empty($this->sync_group_id)) {
+            try {
+                $siblings = $this->relationLoaded('syncSiblings') ? $this->syncSiblings : $this->syncSiblings()->with('board')->get();
+                $sibHasA = false;
+                $sibHasB = false;
+                foreach ($siblings as $sibling) {
+                    $bName = strtolower($sibling->board?->name ?? '');
+                    if (str_contains($bName, 'team a') || str_contains($bName, 'teama') || str_contains($bName, 'team-a')) {
+                        $sibHasA = true;
+                    }
+                    if (str_contains($bName, 'team b') || str_contains($bName, 'teamb') || str_contains($bName, 'team-b')) {
+                        $sibHasB = true;
+                    }
                 }
-                if (str_contains($bName, 'team b') || str_contains($bName, 'teamb') || str_contains($bName, 'team-b')) {
-                    $sibHasB = true;
-                }
-            }
-            if ($sibHasA && $sibHasB) return 'Both';
-            if ($sibHasA) return 'A';
-            if ($sibHasB) return 'B';
-        } catch (\Throwable $e) {}
+                if ($sibHasA && $sibHasB) return $this->cachedDetectedTeam = 'Both';
+                if ($sibHasA) return $this->cachedDetectedTeam = 'A';
+                if ($sibHasB) return $this->cachedDetectedTeam = 'B';
+            } catch (\Throwable $e) {}
+        }
 
         // 5. Check assignees (if assignees contain members of Team A and/or Team B)
         try {
@@ -761,9 +771,9 @@ class Card extends Model
                 if ($uTeam === 'A') $assHasA = true;
                 if ($uTeam === 'B') $assHasB = true;
             }
-            if ($assHasA && $assHasB) return 'Both';
-            if ($assHasA) return 'A';
-            if ($assHasB) return 'B';
+            if ($assHasA && $assHasB) return $this->cachedDetectedTeam = 'Both';
+            if ($assHasA) return $this->cachedDetectedTeam = 'A';
+            if ($assHasB) return $this->cachedDetectedTeam = 'B';
         } catch (\Throwable $e) {}
 
         // 6. Check creator: Kim is Team B, Dara is Team A
@@ -773,19 +783,19 @@ class Card extends Model
                 $cUser = strtolower($creator->username ?? '');
                 $cName = strtolower($creator->name ?? '');
                 if (str_contains($cUser, 'kim') || str_contains($cName, 'kim') || $creator->id === 13) {
-                    return 'B';
+                    return $this->cachedDetectedTeam = 'B';
                 }
                 if (str_contains($cUser, 'dara') || str_contains($cName, 'dara') || $creator->id === 12) {
-                    return 'A';
+                    return $this->cachedDetectedTeam = 'A';
                 }
                 $cTeam = $creator->getDigitalTeam();
                 if ($cTeam) {
-                    return $cTeam;
+                    return $this->cachedDetectedTeam = $cTeam;
                 }
             }
         } catch (\Throwable $e) {}
 
-        return null;
+        return $this->cachedDetectedTeam = null;
     }
 
     public function isBothTeams(): bool

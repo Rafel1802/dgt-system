@@ -209,6 +209,28 @@ class BlogReportController extends Controller
                             $rawWebsite = isset($block['website link']) && isset($row[$block['website link']]) ? ($row[$block['website link']]['link'] ?: $row[$block['website link']]['value']) : '';
                             $rowWebsiteLink = $makeAbsolute($rawWebsite);
 
+                            // Fallback 1: check other column name aliases in block
+                            if (empty($rowWebsiteLink)) {
+                                foreach (['website', 'websites', 'website url', 'web link', 'web url', 'site link', 'site', 'domain', 'web', 'website_link'] as $wKey) {
+                                    if (isset($block[$wKey]) && isset($row[$block[$wKey]])) {
+                                        $cand = $row[$block[$wKey]]['link'] ?: $row[$block[$wKey]]['value'];
+                                        if (!empty(trim((string)$cand))) {
+                                            $rowWebsiteLink = $makeAbsolute($cand);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Fallback 2: extract root website domain origin from public link
+                            if (empty($rowWebsiteLink) && !empty($rowPublicLink)) {
+                                $parsedUrl = parse_url($rowPublicLink);
+                                if (!empty($parsedUrl['host'])) {
+                                    $scheme = $parsedUrl['scheme'] ?? 'https';
+                                    $rowWebsiteLink = $scheme . '://' . $parsedUrl['host'];
+                                }
+                            }
+
                             $rowDated = isset($block['dated']) && isset($row[$block['dated']]) ? trim((string)$row[$block['dated']]['value']) : '';
                             if (is_numeric($rowDated) && (float)$rowDated > 40000 && (float)$rowDated < 60000) {
                                 $rowDated = date('m/d', strtotime('1899-12-30 +' . (int)$rowDated . ' days'));
@@ -352,10 +374,11 @@ class BlogReportController extends Controller
                 return back()->with('error', 'Could not find any "Dated" column in the Blogs worksheet.');
             }
 
-            // Group columns into blocks/sections based on 'dated'
+            // Group columns into blocks/sections based on 'dated' with canonical resolution
             $blocks = [];
             $currentBlock = [];
-            foreach ($headers as $idx => $header) {
+            foreach ($headers as $idx => $rawHdr) {
+                $header = trim(preg_replace('/\s+/', ' ', strtolower((string)$rawHdr)));
                 if ($header === '') {
                     if (isset($currentBlock['dated'])) {
                         $blocks[] = $currentBlock;
@@ -363,13 +386,24 @@ class BlogReportController extends Controller
                     $currentBlock = [];
                     continue;
                 }
-                if (isset($currentBlock[$header])) {
+
+                $canonical = match(true) {
+                    in_array($header, ['website link', 'website', 'websites', 'website url', 'web link', 'web url', 'site link', 'site', 'domain', 'web', 'website_link']) => 'website link',
+                    in_array($header, ['class', 'classes', 'category']) => 'class',
+                    in_array($header, ['dated', 'date', 'published date', 'publish date']) => 'dated',
+                    in_array($header, ['doc link', 'google doc link', 'doc', 'google doc', 'document', 'doc_link']) => 'doc link',
+                    in_array($header, ['public link', 'public url', 'live link', 'post link', 'article link', 'url', 'public_link']) => 'public link',
+                    default => $header,
+                };
+
+                if (isset($currentBlock[$canonical]) || isset($currentBlock[$header])) {
                     if (isset($currentBlock['dated'])) {
                         $blocks[] = $currentBlock;
                     }
                     $currentBlock = [];
                 }
                 $currentBlock[$header] = $idx;
+                $currentBlock[$canonical] = $idx;
             }
             if (isset($currentBlock['dated'])) {
                 $blocks[] = $currentBlock;
@@ -385,6 +419,28 @@ class BlogReportController extends Controller
                     $rowDocLink = isset($block['doc link']) && isset($row[$block['doc link']]) ? $makeAbsolute($row[$block['doc link']]) : '';
                     $rowPublicLink = isset($block['public link']) && isset($row[$block['public link']]) ? $makeAbsolute($row[$block['public link']]) : '';
                     $rowWebsiteLink = isset($block['website link']) && isset($row[$block['website link']]) ? $makeAbsolute($row[$block['website link']]) : '';
+
+                    // Fallback 1: check other column aliases
+                    if (empty($rowWebsiteLink)) {
+                        foreach (['website', 'websites', 'website url', 'web link', 'web url', 'site link', 'site', 'domain', 'web', 'website_link'] as $wKey) {
+                            if (isset($block[$wKey]) && isset($row[$block[$wKey]])) {
+                                $cand = $row[$block[$wKey]];
+                                if (!empty(trim((string)$cand))) {
+                                    $rowWebsiteLink = $makeAbsolute($cand);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback 2: extract root website domain from public link
+                    if (empty($rowWebsiteLink) && !empty($rowPublicLink)) {
+                        $parsedUrl = parse_url($rowPublicLink);
+                        if (!empty($parsedUrl['host'])) {
+                            $scheme = $parsedUrl['scheme'] ?? 'https';
+                            $rowWebsiteLink = $scheme . '://' . $parsedUrl['host'];
+                        }
+                    }
                     
                     $rowDated = isset($block['dated']) && isset($row[$block['dated']]) ? trim((string)$row[$block['dated']]) : '';
                     if (empty($rowDated)) {
