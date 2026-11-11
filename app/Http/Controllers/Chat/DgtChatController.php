@@ -574,6 +574,16 @@ class DgtChatController extends Controller
         // Delete / soft delete the message
         $message->delete();
 
+        // Keep conversation's last_message_id and last_message_at synced with the latest remaining message
+        $newLastMsg = ChatMessage::where('conversation_id', $convId)
+            ->whereNull('deleted_at')
+            ->orderByDesc('id')
+            ->first();
+        ChatConversation::where('id', $convId)->update([
+            'last_message_id' => $newLastMsg?->id,
+            'last_message_at' => $newLastMsg?->created_at,
+        ]);
+
         // Broadcast real-time deletion event to all participants
         try {
             broadcast(new \App\Events\Chat\ChatMessageDeleted($convId, $messageId, $user->id))->toOthers();

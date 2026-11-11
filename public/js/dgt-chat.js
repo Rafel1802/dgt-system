@@ -1019,12 +1019,12 @@ window.dgtChat = function(initialConfig = {}) {
                 case 'direct':
                     // "direct show only the people I chat with"
                     // Must be 1-on-1 private chat, unarchived, non-virtual, and has actual chat message history
-                    list = list.filter(c => 
-                        (c.type === 'direct' || c.type === 'private') && 
-                        !c.is_archived && 
-                        !c.is_virtual && 
-                        !!(c.last_message && (c.last_message.id || c.last_message.content || c.last_message.body))
-                    );
+                    list = list.filter(c => {
+                        if ((c.type !== 'direct' && c.type !== 'private') || c.is_archived || c.is_virtual) return false;
+                        const hasLastMsg = !!(c.last_message && (c.last_message.id || c.last_message.content || c.last_message.body || c.last_message.time));
+                        const hasCachedMsgs = Array.isArray(this.messagesCache?.[c.id]) && this.messagesCache[c.id].length > 0;
+                        return hasLastMsg || hasCachedMsgs;
+                    });
                     break;
                 case 'all':
                     // "all must show all members but user our people we chat with on top"
@@ -1562,6 +1562,13 @@ window.dgtChat = function(initialConfig = {}) {
                     // Store in memory cache & persist latest 50 messages to sessionStorage + localStorage
                     this._persistCacheToStorage(conversationId, fetched);
 
+                    if (fetched.length > 0) {
+                        const convObj = this.conversations.find(c => Number(c.id) === Number(conversationId));
+                        if (convObj && !convObj.last_message) {
+                            this.updateConversationLastMessage(Number(conversationId), fetched[fetched.length - 1]);
+                        }
+                    }
+
                     // Apply messages if user is still viewing this conversation
                     if (this.activeConversation && Number(this.activeConversation.id) === Number(conversationId)) {
                         const msgContainer = document.getElementById('chat-messages-container');
@@ -1796,9 +1803,14 @@ window.dgtChat = function(initialConfig = {}) {
          * Typing indicators and read updates NEVER move the conversation.
          */
         updateConversationLastMessage(convId, message) {
-            const index = this.conversations.findIndex(c => c.id === convId);
+            const index = this.conversations.findIndex(c => Number(c.id) === Number(convId));
             if (index !== -1) {
                 const conv = this.conversations[index];
+                if (!message) {
+                    conv.last_message = null;
+                    conv.last_message_at = null;
+                    return;
+                }
                 const isMe = (Number(message.user_id) === Number(this.currentUser.id));
 
                 const prevMsgId = conv.last_message?.id ? Number(conv.last_message.id) : 0;
@@ -1807,11 +1819,17 @@ window.dgtChat = function(initialConfig = {}) {
                 // Genuinely newer if it's an optimistic sending message, or has a higher ID, or no previous message
                 const isNewer = isOptimistic || (!prevMsgId && newMsgId > 0) || (newMsgId > 0 && newMsgId > prevMsgId);
 
+                const fallbackText = message.type === 'voice' ? '🎤 Voice message'
+                    : (message.type === 'sticker' ? '✨ Sticker'
+                    : (message.type === 'gif' ? '🎬 GIF'
+                    : ((message.attachments && message.attachments.length) ? '📎 Attachment'
+                    : (message.type ? (message.type + ' message') : 'Message'))));
+
                 conv.last_message = {
                     id: message.id,
                     user_id: message.user_id,
-                    content: message.content || message.body,
-                    body: message.body || message.content,
+                    content: message.content || message.body || fallbackText,
+                    body: message.body || message.content || fallbackText,
                     sender_name: isMe ? 'You' : (message.user?.name || message.sender_name || 'User'),
                     time: message.formatted_time || (new Date(message.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
                     is_me: isMe,

@@ -52,7 +52,7 @@ class DgtChatService
         // with their boolean is_archived property so the client-side SPA can filter dynamically.
 
         if ($tab === 'direct') {
-            $query->where('type', 'private');
+            $query->whereIn('type', ['private', 'direct']);
         } elseif ($tab === 'groups') {
             $query->where('type', 'group');
         }
@@ -69,10 +69,52 @@ class DgtChatService
             ->orderByDesc('updated_at')
             ->get();
 
-        // 2. High-performance batch unread computation (1 query for all conversations, eliminating N+1 DB roundtrips)
+        // 2. High-performance batch unread computation & automatic last_message healing
         $convIds = $conversations->pluck('id')->all();
         $unreadCounts = [];
         if (!empty($convIds)) {
+            $latestMsgIdsByConv = ChatMessage::whereIn('conversation_id', $convIds)
+                ->whereNull('deleted_at')
+                ->selectRaw('conversation_id, MAX(id) as max_id')
+                ->groupBy('conversation_id')
+                ->pluck('max_id', 'conversation_id')
+                ->all();
+
+            $healedMsgIds = [];
+            foreach ($conversations as $c) {
+                $realMaxId = isset($latestMsgIdsByConv[$c->id]) ? (int) $latestMsgIdsByConv[$c->id] : 0;
+                if ($realMaxId > 0 && (!$c->lastMessage || (int) $c->last_message_id !== $realMaxId)) {
+                    $healedMsgIds[] = $realMaxId;
+                } elseif ($realMaxId === 0 && ($c->last_message_id !== null || ($c->last_message_at !== null && $c->title !== 'Saved Messages'))) {
+                    $c->setRelation('lastMessage', null);
+                    $c->last_message_id = null;
+                    $c->last_message_at = null;
+                    ChatConversation::where('id', $c->id)->update([
+                        'last_message_id' => null,
+                        'last_message_at' => null,
+                    ]);
+                }
+            }
+
+            if (!empty($healedMsgIds)) {
+                $healedMsgs = ChatMessage::whereIn('id', $healedMsgIds)
+                    ->with('user:id,name')
+                    ->get()
+                    ->keyBy('conversation_id');
+                foreach ($conversations as $c) {
+                    if (isset($healedMsgs[$c->id])) {
+                        $hm = $healedMsgs[$c->id];
+                        $c->setRelation('lastMessage', $hm);
+                        $c->last_message_id = $hm->id;
+                        $c->last_message_at = $hm->created_at;
+                        ChatConversation::where('id', $c->id)->update([
+                            'last_message_id' => $hm->id,
+                            'last_message_at' => $hm->created_at,
+                        ]);
+                    }
+                }
+            }
+
             $lastReadMap = [];
             foreach ($conversations as $c) {
                 $mPivot = $c->members->firstWhere('user_id', $user->id);
@@ -167,6 +209,11 @@ class DgtChatService
             }
             // For contacts without messages: stable sort by name (avoids jumpy reordering when online toggles)
             return strcasecmp($a['title'] ?? '', $b['title'] ?? '');
+        })->unique(function ($item) {
+            if (($item['type'] ?? '') === 'direct' && !empty($item['other_user_id'])) {
+                return 'direct_' . (int) $item['other_user_id'];
+            }
+            return 'conv_' . $item['id'];
         })->values();
     }
 

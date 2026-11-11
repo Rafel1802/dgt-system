@@ -528,7 +528,12 @@ if __name__ == "__main__":
         PHP + ' artisan tinker --execute="'
         "\\$m186 = \\\\App\\\\Models\\\\Chat\\\\ChatMessage::find(186); if (\\$m186) { \\$m186->delete(); } "
         "\\$m185 = \\\\App\\\\Models\\\\Chat\\\\ChatMessage::find(185); if (\\$m185) { foreach(\\$m185->attachments as \\$a) { \\$a->delete(); } \\$m185->delete(); } "
-        "echo 'Cleaned test video messages 185 and 186\\n';"
+        "foreach (\\\\App\\\\Models\\\\Chat\\\\ChatConversation::all() as \\$c) { "
+        "    \\$lm = \\\\App\\\\Models\\\\Chat\\\\ChatMessage::where('conversation_id', \\$c->id)->whereNull('deleted_at')->orderByDesc('id')->first(); "
+        "    if (\\$lm) { \\$c->update(['last_message_id' => \\$lm->id, 'last_message_at' => \\$lm->created_at]); } "
+        "    elseif (\\$c->title !== 'Saved Messages') { \\$c->update(['last_message_id' => null, 'last_message_at' => null]); } "
+        "} "
+        "echo 'Cleaned test video messages and healed all conversation last_message pointers\\n';"
         '" && '
     )
 
