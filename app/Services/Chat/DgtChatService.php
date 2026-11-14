@@ -571,6 +571,14 @@ class DgtChatService
             return $message;
         });
 
+        // Invalidate cached unread counts for all conversation members
+        try {
+            $memberUserIds = $conv->members ? $conv->members->pluck('user_id')->all() : ChatConversationMember::where('conversation_id', $conv->id)->pluck('user_id')->all();
+            foreach ($memberUserIds as $memberUid) {
+                Cache::forget("chat:unread_count:{$memberUid}");
+            }
+        } catch (\Throwable $e) {}
+
         // Clear sender's typing indicator in cache immediately so the client doesn't need a separate /chat/typing POST
         $typingKey = "chat:typing:conv:{$conv->id}";
         $rawTyping = Cache::get($typingKey);
@@ -654,6 +662,8 @@ class DgtChatService
                 'last_read_at'         => now(),
             ]);
 
+        Cache::forget("chat:unread_count:{$user->id}");
+
         if ($targetMessageId > 0) {
             // Read receipts are pushed immediately so the other user sees "seen" (2 blue ticks) in real time
             $convId = $conv->id;
@@ -734,7 +744,9 @@ class DgtChatService
             'call_id'         => $m->call_id,
             'call'            => $m->call ? [
                 'id'                 => $m->call->id,
+                'call_type'          => $m->call->isVideo() ? 'video' : 'voice',
                 'status'             => $m->call->status,
+                'end_reason'         => $m->call->end_reason,
                 'duration_seconds'   => $m->call->duration_seconds,
                 'formatted_duration' => $m->call->formatted_duration,
                 'is_caller'          => $m->call->caller_id === $viewer->id,
@@ -825,17 +837,19 @@ class DgtChatService
             return 0;
         }
 
-        return (int) DB::table('chat_conversation_members as m')
-            ->join('chat_messages as msg', 'msg.conversation_id', '=', 'm.conversation_id')
-            ->where('m.user_id', $user->id)
-            ->where('m.is_archived', false)
-            ->where('msg.user_id', '!=', $user->id)
-            ->whereRaw('msg.id > COALESCE(m.last_read_message_id, 0)')
-            ->whereNull('msg.deleted_at')
-            ->where(function ($q) {
-                $q->where('msg.is_unsent', false)->orWhereNull('msg.is_unsent');
-            })
-            ->count();
+        return (int) Cache::remember("chat:unread_count:{$user->id}", 5, function () use ($user) {
+            return (int) DB::table('chat_conversation_members as m')
+                ->join('chat_messages as msg', 'msg.conversation_id', '=', 'm.conversation_id')
+                ->where('m.user_id', $user->id)
+                ->where('m.is_archived', false)
+                ->where('msg.user_id', '!=', $user->id)
+                ->whereRaw('msg.id > COALESCE(m.last_read_message_id, 0)')
+                ->whereNull('msg.deleted_at')
+                ->where(function ($q) {
+                    $q->where('msg.is_unsent', false)->orWhereNull('msg.is_unsent');
+                })
+                ->count();
+        });
     }
 
     /**

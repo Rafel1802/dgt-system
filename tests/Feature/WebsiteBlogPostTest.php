@@ -1100,17 +1100,14 @@ HTML;
         $post = WebsitePost::where('website_id', $website->id)->where('slug', 'hydraulic-displacement-compact-machinery')->first();
         $this->assertNotNull($post);
 
-        // Verify H2 has universal inline styling
+        // Verify H2 has clean native website heading structure
         $this->assertStringContainsString('<h2', $post->content_html);
-        $this->assertStringContainsString('font-size: 1.5rem', $post->content_html);
-        $this->assertStringContainsString('font-weight: 800', $post->content_html);
-        $this->assertStringContainsString('border-bottom: 2px solid #e2e8f0', $post->content_html);
+        $this->assertStringContainsString('wp-block-heading', $post->content_html);
         $this->assertStringContainsString('Fundamentals of Hydraulic Displacement in Compact Machinery', $post->content_html);
 
-        // Verify H3 has universal inline styling
+        // Verify H3 has clean native website heading structure
         $this->assertStringContainsString('<h3', $post->content_html);
-        $this->assertStringContainsString('font-size: 1.25rem', $post->content_html);
-        $this->assertStringContainsString('font-weight: 700', $post->content_html);
+        $this->assertStringContainsString('wp-block-heading', $post->content_html);
         $this->assertStringContainsString('Fixed vs. Variable Displacement', $post->content_html);
         $this->assertStringContainsString('Mini Excavator Piston Pump vs. Gear Pump', $post->content_html);
     }
@@ -1159,10 +1156,10 @@ HTML;
 
         // Must be promoted to styled headings rather than left as plain unstyled <p><strong>
         $this->assertStringContainsString('<h2', $post->content_html);
-        $this->assertStringContainsString('border-bottom: 2px solid #e2e8f0', $post->content_html);
+        $this->assertStringContainsString('wp-block-heading', $post->content_html);
         $this->assertStringContainsString('Fundamentals of Hydraulic Displacement in Compact Machinery', $post->content_html);
 
-        $this->assertStringContainsString('<h3', $post->content_html);
+        $this->assertStringContainsString('<h2', $post->content_html);
         $this->assertStringContainsString('Fixed vs. Variable Displacement', $post->content_html);
     }
 
@@ -1810,6 +1807,80 @@ DRAFT;
 
         $response->assertStatus(200);
         $response->assertSee('syncSheetImmediately: true,', false);
+    }
+
+    /**
+     * Test that blog post hyperlinks (internal & external) are preserved, styled with bold blue underline,
+     * and external links receive target="_blank" rel="noopener noreferrer".
+     */
+    public function test_blog_post_hyperlinks_are_preserved_and_styled_with_anchor_css(): void
+    {
+        $service = app(\App\Services\WebsiteBlogPostService::class);
+
+        $website = Website::create([
+            'name'     => 'American Mini Excavator',
+            'url'      => 'https://americanminiexcavator.com',
+            'category' => 'Excavators',
+            'status'   => 'live',
+        ]);
+
+        $rawWithLinks = "Check our [Mini Excavator Guide](https://americanminiexcavator.com/blog/guide) for details and reference [OSHA Safety Standards](https://www.osha.gov/safety) before operation.\n\nAlso visit [Attachments](/attachments) for tools.";
+
+        $html = $service->formatMarkdownContent($rawWithLinks);
+        $styled = $service->ensureContentCleanAndStyled($html, null, $website);
+        $final = $service->ensureArticleLinks($styled, null, $website, false);
+
+        // Internal link: americanminiexcavator.com
+        $this->assertStringContainsString('href="https://americanminiexcavator.com/blog/guide"', $final);
+        $this->assertStringContainsString('color: #2563eb;', $final);
+        $this->assertStringContainsString('text-decoration: underline;', $final);
+        $this->assertStringContainsString('cms-article-link', $final);
+        $this->assertStringNotContainsString('href="https://americanminiexcavator.com/blog/guide" target="_blank"', $final);
+
+        // External link: osha.gov
+        $this->assertStringContainsString('href="https://www.osha.gov/safety"', $final);
+        $this->assertStringContainsString('target="_blank"', $final);
+        $this->assertStringContainsString('rel="noopener noreferrer"', $final);
+        $this->assertStringContainsString('color: #2563eb;', $final);
+        $this->assertStringContainsString('cms-article-link', $final);
+
+        // Relative internal link: /attachments
+        $this->assertStringContainsString('href="/attachments"', $final);
+        $this->assertStringNotContainsString('href="/attachments" target="_blank"', $final);
+    }
+
+    /**
+     * Test that Hostinger Website Builder sites (usaexcavators.com, newminiexcavator.com, etc.)
+     * return the Central Reader URL so that visitors and Google Sheet viewers never encounter a 404.
+     */
+    public function test_hostinger_website_builder_sites_provide_working_central_reader_url(): void
+    {
+        \Illuminate\Support\Facades\Http::fake();
+        $service = app(\App\Services\WebsiteBlogPostService::class);
+
+        $website = Website::create([
+            'name'     => 'USA Excavators',
+            'url'      => 'https://usaexcavators.com',
+            'category' => '1st Class',
+            'status'   => 'live',
+        ]);
+
+        $post = WebsitePost::create([
+            'website_id'    => $website->id,
+            'external_id'   => 'hostinger-post-1',
+            'title'         => 'Hydraulic Pressure and Breakout Force in Compact Excavators',
+            'slug'          => 'hydraulic-pressure-and-breakout-force',
+            'canonical_url' => url('/blog/usaexcavators.com/hydraulic-pressure-and-breakout-force'),
+            'content_html'  => '<p>Understanding excavator hydraulic systems and flow rate.</p>',
+            'status'        => 'published',
+        ]);
+
+        $result = $service->dispatchPostToRemoteWebsite($website, $post);
+
+        $this->assertFalse($result['synced']);
+        $expectedReaderUrl = url('/blog/usaexcavators.com/hydraulic-pressure-and-breakout-force');
+        $this->assertEquals($expectedReaderUrl, $result['url']);
+        $this->assertEquals($expectedReaderUrl, $post->fresh()->canonical_url);
     }
 }
 

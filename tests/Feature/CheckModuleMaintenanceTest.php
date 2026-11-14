@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ProductionReport\ProductionReportTeamMapping;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -350,5 +351,120 @@ class CheckModuleMaintenanceTest extends TestCase
             $responseDara = $this->actingAs($this->daraUser)->get($r);
             $this->assertNotEquals(503, $responseDara->getStatusCode(), "Dara was blocked on {$r}");
         }
+    }
+
+    public function test_production_reports_maintenance_blocks_regular_user_and_shows_503(): void
+    {
+        ProductionReportTeamMapping::updateOrCreate(
+            ['user_id' => $this->regularUser->id],
+            [
+                'team_code' => 'A',
+                'team_name' => 'Team A — Production & Motion Graphics',
+                'role_in_reporting' => ProductionReportTeamMapping::ROLE_MEMBER,
+                'can_submit_daily' => true,
+                'can_submit_monthly' => true,
+                'is_active' => true,
+            ]
+        );
+
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['production_reports'])]
+        );
+        \Illuminate\Support\Facades\Cache::forget('active_maintenance_modules_list');
+
+        // Regular user receives 503
+        $response = $this->actingAs($this->regularUser)->get(route('production-reports.index'));
+        $response->assertStatus(503);
+        $response->assertSee('Production Report Management System');
+
+        // Dara is strictly exempt
+        $responseDara = $this->actingAs($this->daraUser)->get(route('production-reports.index'));
+        $this->assertNotEquals(503, $responseDara->getStatusCode());
+    }
+
+    public function test_production_reports_maintenance_blocks_when_generic_reports_key_is_active(): void
+    {
+        ProductionReportTeamMapping::updateOrCreate(
+            ['user_id' => $this->regularUser->id],
+            [
+                'team_code' => 'A',
+                'team_name' => 'Team A — Production & Motion Graphics',
+                'role_in_reporting' => ProductionReportTeamMapping::ROLE_MEMBER,
+                'can_submit_daily' => true,
+                'can_submit_monthly' => true,
+                'is_active' => true,
+            ]
+        );
+
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['reports'])]
+        );
+        \Illuminate\Support\Facades\Cache::forget('active_maintenance_modules_list');
+
+        $response = $this->actingAs($this->regularUser)->get(route('production-reports.index'));
+        $response->assertStatus(503);
+
+        $responseDara = $this->actingAs($this->daraUser)->get(route('production-reports.index'));
+        $this->assertNotEquals(503, $responseDara->getStatusCode());
+    }
+
+    public function test_production_reports_reminder_suppressed_during_maintenance_for_regular_user(): void
+    {
+        ProductionReportTeamMapping::updateOrCreate(
+            ['user_id' => $this->regularUser->id],
+            [
+                'team_code' => 'A',
+                'team_name' => 'Team A — Production & Motion Graphics',
+                'role_in_reporting' => ProductionReportTeamMapping::ROLE_MEMBER,
+                'can_submit_daily' => true,
+                'can_submit_monthly' => true,
+                'is_active' => true,
+            ]
+        );
+
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['production_reports'])]
+        );
+        \Illuminate\Support\Facades\Cache::forget('active_maintenance_modules_list');
+
+        $response = $this->actingAs($this->regularUser)->getJson(route('production-reports.reminder-status'));
+        $response->assertStatus(200);
+        $response->assertJson(['show' => false]);
+    }
+
+    public function test_admin_maintenance_page_lists_production_reports_module_and_can_toggle(): void
+    {
+        $response = $this->actingAs($this->daraUser)->get(route('admin.maintenance.index'));
+        $response->assertStatus(200);
+        $response->assertSee('Production Reports (Report)');
+
+        // Post form with production_reports active
+        $postResponse = $this->actingAs($this->daraUser)->post(route('admin.maintenance.store'), [
+            'modules' => [
+                'production_reports' => '1',
+            ],
+            'template_style' => 'custom',
+        ]);
+        $postResponse->assertRedirect(route('admin.maintenance.index'));
+
+        $val = Setting::where('key', 'maintenance_modules')->value('value');
+        $this->assertStringContainsString('production_reports', (string) $val);
+    }
+
+    public function test_sidebar_displays_maint_badge_for_report_when_maintenance_is_active(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'maintenance_modules'],
+            ['value' => json_encode(['production_reports'])]
+        );
+        \Illuminate\Support\Facades\Cache::forget('active_maintenance_modules_list');
+
+        $response = $this->actingAs($this->daraUser)->get(route('dashboard'));
+        $response->assertStatus(200);
+        $response->assertSee('nav-production-reports');
+        $response->assertSee('Maint');
     }
 }

@@ -15,6 +15,10 @@ import '../models/shell_state.dart';
 class WebViewBridgeScripts {
   const WebViewBridgeScripts._();
 
+  /// Injected at document start so web scripts immediately know native `flutter_webrtc` v3 is active.
+  static const String earlyNativeWebRtcFlagScript =
+      'window.__dgtNativeWebRtcAvailable = true; window.__dgtNativeWebRtcBridgeVersion = 3;';
+
   /// Builds the idempotent setup & layout-sync script run on page load and safe-area updates.
   static String buildBootstrapScript({
     required double safeTopPx,
@@ -35,25 +39,43 @@ class WebViewBridgeScripts {
 
   static const String _bootstrapTemplate = r'''
 (() => {
+  window.__dgtNativeWebRtcAvailable = true;
+  window.__dgtNativeWebRtcBridgeVersion = 3;
   const root = document.documentElement;
   if (!root) return;
 
   const isIpadShell = __IS_IPAD__;
 
   const applyMetrics = () => {
-    root.classList.add('dgt-mobile-app', 'dgt-ios-app', 'dgt-liquid-glass-shell');
-    root.classList.toggle('dgt-ipad-shell', isIpadShell);
-    root.style.setProperty('--dgt-safe-top', '__SAFE_TOP__px');
-    root.style.setProperty('--dgt-safe-bottom', '__SAFE_BOTTOM__px');
-    root.style.setProperty('--dgt-safe-left', '__SAFE_LEFT__px');
-    root.style.setProperty('--dgt-safe-right', '__SAFE_RIGHT__px');
-    root.style.setProperty('--dgt-dock-clearance', '__DOCK_CLEARANCE__px');
+    ['dgt-mobile-app', 'dgt-ios-app', 'dgt-liquid-glass-shell'].forEach((cls) => {
+      if (!root.classList.contains(cls)) root.classList.add(cls);
+    });
+    if (root.classList.contains('dgt-ipad-shell') !== isIpadShell) {
+      root.classList.toggle('dgt-ipad-shell', isIpadShell);
+    }
+    if (root.style.getPropertyValue('--dgt-safe-top') !== '__SAFE_TOP__px') {
+      root.style.setProperty('--dgt-safe-top', '__SAFE_TOP__px');
+    }
+    if (root.style.getPropertyValue('--dgt-safe-bottom') !== '__SAFE_BOTTOM__px') {
+      root.style.setProperty('--dgt-safe-bottom', '__SAFE_BOTTOM__px');
+    }
+    if (root.style.getPropertyValue('--dgt-safe-left') !== '__SAFE_LEFT__px') {
+      root.style.setProperty('--dgt-safe-left', '__SAFE_LEFT__px');
+    }
+    if (root.style.getPropertyValue('--dgt-safe-right') !== '__SAFE_RIGHT__px') {
+      root.style.setProperty('--dgt-safe-right', '__SAFE_RIGHT__px');
+    }
+    if (root.style.getPropertyValue('--dgt-dock-clearance') !== '__DOCK_CLEARANCE__px') {
+      root.style.setProperty('--dgt-dock-clearance', '__DOCK_CLEARANCE__px');
+    }
 
     const isAuthed = Boolean(
       document.getElementById('sidebar') ||
       document.getElementById('mobile-bottom-nav')
     );
-    root.classList.toggle('dgt-flutter-nav-managed', isAuthed);
+    if (root.classList.contains('dgt-flutter-nav-managed') !== isAuthed) {
+      root.classList.toggle('dgt-flutter-nav-managed', isAuthed);
+    }
   };
 
   if (!document.getElementById('dgt-ios26-liquid-glass-styles')) {
@@ -119,6 +141,15 @@ class WebViewBridgeScripts {
       /* Prevent horizontal overflow on compact iPhone viewports */
       html.dgt-ios-app body {
         overflow-x: hidden;
+      }
+
+      /* Ensure notification panel never overrides x-show="open" or x-cloak on mobile */
+      .notif-panel[x-cloak],
+      .notif-panel[hidden],
+      .notif-panel[style*="display: none"],
+      .notif-panel[style*="display:none"] {
+        display: none !important;
+        pointer-events: none !important;
       }
     `;
     (document.head || root).appendChild(style);
@@ -382,6 +413,13 @@ class WebViewBridgeScripts {
 
     const shiftedChat = document.querySelector('.chat-panel-list.is-shifted');
     const isChatThreadOpen = Boolean(shiftedChat && currentPath.startsWith('/chat'));
+    const authUserMeta = document.querySelector('meta[name="kiuq-user-id"]');
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const authUserId = authUserMeta && authUserMeta.content ? parseInt(authUserMeta.content, 10) || 0 : 0;
+    const csrfToken = csrfMeta && csrfMeta.content ? csrfMeta.content : '';
+    const socketId = (window.__kiuqPusher && window.__kiuqPusher.connection && window.__kiuqPusher.connection.socket_id)
+      ? window.__kiuqPusher.connection.socket_id
+      : '';
 
     const payload = {
       isAuthenticated,
@@ -393,6 +431,9 @@ class WebViewBridgeScripts {
       tasksCount,
       primaryTabs,
       hubDestinations,
+      authUserId,
+      csrfToken,
+      socketId,
       user: {
         name: userName,
         role: userRole,
@@ -655,6 +696,15 @@ class WebViewBridgeScripts {
     return true;
   }
   return false;
+})();
+''';
+  }
+
+  /// Notifies the embedded web workspace that a native WebRTC call finished so Call History & Chat refresh.
+  static String notifyWebCallEndedScript() {
+    return r'''
+(() => {
+  window.dispatchEvent(new CustomEvent('dgt:call-ended'));
 })();
 ''';
   }

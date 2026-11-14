@@ -1436,6 +1436,36 @@ SVG;
 
         return 'Offline';
     }
+
+    public function productionReports(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\ProductionReport\ProductionReport::class, 'user_id');
+    }
+
+    public function productionReportMapping(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\ProductionReport\ProductionReportTeamMapping::class, 'user_id');
+    }
+
+    public function canAccessProductionReports(): bool
+    {
+        return app(\App\Services\ProductionReport\ProductionReportPermissionService::class)->canAccessModule($this);
+    }
+
+    public function isProductionReportSupervisor(): bool
+    {
+        return app(\App\Services\ProductionReport\ProductionReportPermissionService::class)->isSupervisor($this);
+    }
+
+    public function isProductionReportHead(): bool
+    {
+        return app(\App\Services\ProductionReport\ProductionReportPermissionService::class)->isProductionHead($this);
+    }
+
+    public function getProductionReportTeamCode(): ?string
+    {
+        return app(\App\Services\ProductionReport\ProductionReportPermissionService::class)->getAssignedTeamCode($this);
+    }
 }
 
 

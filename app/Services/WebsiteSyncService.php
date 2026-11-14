@@ -535,7 +535,7 @@ class WebsiteSyncService
                 'user' => 'u355625773_machine2u',
                 'pass' => 'Machine2u',
                 'query'=> "SELECT id, title, excerpt, date as published_at, author, image as featured_image, views FROM blogs ORDER BY date DESC",
-                'url'  => 'https://machine2u.com/blog/',
+                'url'  => 'https://machine2u.com/blog?id=',
                 'src'  => 'native_database'
             ],
             44 => [
@@ -955,50 +955,52 @@ class WebsiteSyncService
         $slug = (string) ($item['slug'] ?? '');
         $author = (string) ($item['author_name'] ?? ($item['author'] ?? ''));
 
-        $image = (string) ($item['featured_image_url'] ?? ($item['featured_image'] ?? ''));
-        $text = strtolower($title . ' ' . $slug . ' ' . $author . ' ' . $image);
+        $text = strtolower($title . ' ' . $slug);
+        $authorLower = strtolower($author);
+
+        // 1. Underscore-stuffed spam titles or generic page-NNN slugs or non-Latin scripts (Greek/Cyrillic/Arabic)
+        if (substr_count($title, '_') >= 2 || preg_match('/^page-\d+$/i', $slug) || preg_match('/[\x{0370}-\x{03FF}\x{0400}-\x{04FF}\x{0600}-\x{06FF}]/u', $title)) {
+            return true;
+        }
+
+        // 2. Compromised WP author accounts: block unless explicitly about heavy machinery
+        $compromisedAuthors = ['hansa hood', 'me nas', 'michael cerrick', 'monita en', 'john vicas'];
+        foreach ($compromisedAuthors as $badAuthor) {
+            if (str_contains($authorLower, $badAuthor)) {
+                if (!self::hasMachineryKeyword($text)) {
+                    return true;
+                }
+            }
+        }
 
         $spamKeywords = [
-            'casino',
-            'free spins',
-            'spinstar',
-            'bettyspin',
-            'liraspin',
-            'coolzino',
-            'casoola',
-            'spino gambino',
-            'pistolo casino',
-            'tortuga casino',
-            'royal vincit',
-            'wild robin casino',
-            'stone vegas casino',
-            'wonderluck casino',
-            'vasy casino',
-            'spin fin casino',
-            'spintropolis',
-            'slott casino',
-            'spingranny',
-            'cosmobet',
-            'jackpot bob',
-            'rockyspin',
-            'verde casino',
-            'ivybet',
-            'casinozer',
-            'monaco jack',
-            'casinolo',
-            'greenluck',
-            'staxino',
-            'roulette',
-            'hansa hood',
-            'me nas',
-            'michael cerrick',
-            'monita en',
-            'john vicas',
-            'universal heavy machinery',
-            'fleet safety board',
-            'fleet integration verification',
-            'diagnostic fleet connectivity',
-            '1579829366248',
+            'casino', 'kasino', 'kasyno', 'igralnice', 'free spins', 'spinstar', 'bettyspin',
+            'liraspin', 'coolzino', 'casoola', 'spino gambino', 'pistolo', 'tortuga',
+            'royal vincit', 'wild robin', 'wildrobins', 'stone vegas', 'wonderluck', 'vasy casino',
+            'spin fin', 'spintropolis', 'slott casino', 'spingranny', 'cosmobet', 'jackpot',
+            'rockyspin', 'verde casino', 'ivybet', 'casinozer', 'monaco jack', 'casinolo',
+            'greenluck', 'staxino', 'roulette', 'universal heavy machinery', 'fleet safety board',
+            'fleet integration verification', 'diagnostic fleet connectivity', 'fleet-connectivity-check',
+            'connection-check-', 'favorite-rest-article-', 'document-d-', 'pelipaikan', 'frumzi',
+            'valikoima', 'efbet', 'pinco', 'betflag', 'betonred', 'gggbet', '1xbet', 'one x bet',
+            '1vin', 'likesbet', 'lamon-bonus', 'sportsbook', 'gambling', 'punters', 'paris-sportifs',
+            'bonus-de-bienvenue', 'wagering', 'pokies', 'aviator', 'plinko', 'kalshi', 'jojobet',
+            'mostbet', 'dafabet', 'odds96', 'chickenroad', 'chicken-road', 'chicken road', 'winnita',
+            'vegashero', 'wildtokyo', 'lizaro', 'lucky-31', 'lucky31', 'lucky hills', 'lucky crumbling',
+            'winhero', 'wildwin', 'betbong', 'betrepublic', 'betory', 'betninja', 'bet-ninja',
+            'betwinner', 'betzino', 'aruba-bet', 'waliya', 'hulusport', 'hulu-sport', 'hulu sport',
+            'mxwin', 'berriez', 'kinbet', 'dk88', 'golden-mister', 'golden mister', 'pavilion 88',
+            'pavilion-88', 'crazy-time', 'crazytime', 'crazy time', 'big-bass', 'bigbass', 'big bass',
+            'hold-and-win', 'hold and win', 'monopoly big baller', 'book-of-dead', 'book of dead',
+            'book of the dead', 'book of the fallen', 'royal joker', 'buffalo bingo', 'super hot',
+            'granawin', 'dudespin', 'jellona', 'rioplay', 'drop the billionare', 'scommesse', 'wetten',
+            'apuestas', 'bahisler', 'echtgeld', 'auszahlung', 'einzahlung', 'stortingen', 'uitbetaling',
+            'rekisteroitymiseen', 'bonuskoodi', 'hazardowe', 'coronavirus', 'san antonio spurs',
+            'bull rush', 'jewelry making', 'guerir-l-angoisse', 'diva-spin', 'autosecurite',
+            'sainikkalyan', 'rescuemagazine', 'nmdg.co.uk', 'calamo.ec', 'fortunetiger', 'velo-bets',
+            'betify', 'prince-ali', 'prince ali', 'twin-promotions', 'twin promotions',
+            'boomerang-fiable', 'celsius-promotions', 'spin-king', 'spinwinera', 'spinania',
+            'spins-ofglory', 'sweety spin', 'blaze spins', 'avia-fly', 'oink-oink',
         ];
 
         foreach ($spamKeywords as $kw) {
@@ -1007,6 +1009,28 @@ class WebsiteSyncService
             }
         }
 
+        return false;
+    }
+
+    /**
+     * Check if text contains legitimate heavy machinery / construction equipment terminology.
+     */
+    public static function hasMachineryKeyword(string $text): bool
+    {
+        $text = strtolower($text);
+        $machineryKeywords = [
+            'excavator', 'digger', 'scissor', 'lift', 'loader', 'skid', 'steer', 'trencher',
+            'forklift', 'dumper', 'compactor', 'roller', 'crusher', 'typhon', 'kuvuo',
+            'hydraulic', 'boom', 'bucket', 'undercarriage', 'auger', 'breaker', 'grapple',
+            'tractor', 'backhoe', 'bulldozer', 'dozer', 'crane', 'telehandler', 'machinery',
+            'equipment', 'vibration', 'diesel', 'electric', 'engine', 'track', 'crawler',
+            'maintenance', 'attachment', 'operator', 'digging', 'trenching', 'compaction',
+        ];
+        foreach ($machineryKeywords as $kw) {
+            if (str_contains($text, $kw)) {
+                return true;
+            }
+        }
         return false;
     }
 }

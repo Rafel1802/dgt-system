@@ -87,6 +87,9 @@ class PublicBlogViewController extends Controller
             ->take(3)
             ->get();
 
+        $domainHint = $website ? $website->clean_domain : parse_url($post->canonical_url ?? '', PHP_URL_HOST);
+        $theme = app(\App\Services\WebsiteBlogPostService::class)->resolveWebsiteTheme($website, $post, $domainHint);
+
         return view('public.blog.show', compact(
             'post',
             'website',
@@ -96,7 +99,8 @@ class PublicBlogViewController extends Controller
             'authorName',
             'readingMinutes',
             'wordCount',
-            'relatedPosts'
+            'relatedPosts',
+            'theme'
         ));
     }
 

@@ -16,9 +16,9 @@
      x-data="{ openBoardMenu: false }"
      :class="{ 'z-50': openBoardMenu, 'z-10': !openBoardMenu }"
      @mouseenter="if ('{{ $board->background_type === 'image' && $board->background_value ? 1 : 0 }}' === '1' && !window['_preloaded_bg_' + {{ $board->id }}]) { const img = new Image(); img.src = '{{ str_replace('\'', '\\\'', $board->background_value) }}'; window['_preloaded_bg_' + {{ $board->id }}] = true; }"
-     title="Drag to move this board left or right"
-     class="group block relative h-28 cursor-grab active:cursor-grabbing rounded-xl shadow-xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 overflow-hidden {{ $isWhiteCover ? 'border-2 border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800' : '' }}"
-     style="{{ $board->coverStyle() }}">
+     title="Drag to move this board (on mobile: press and hold 3 seconds)"
+     class="group block relative h-28 cursor-grab active:cursor-grabbing rounded-xl shadow-xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 overflow-hidden select-none {{ $isWhiteCover ? 'border-2 border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800' : '' }}"
+     style="{{ $board->coverStyle() }}; -webkit-touch-callout: none;">
      
   <a href="{{ route('boards.show', $board->slug) }}" 
      data-turbo="false"

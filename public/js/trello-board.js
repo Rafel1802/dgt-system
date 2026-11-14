@@ -313,7 +313,26 @@ window.trelloBoard = function(config) {
     ctxCard:      null,
     ctxList:      null,
     ctxVisible:   false,
+    ctxColorOpen: false,
     ctxTouchTimer: null,
+
+    // Card colour palette (key → swatch rgb). Keep in sync with Card::CARD_COLORS + show.blade.php CSS.
+    cardColorOptions: [
+      { key: 'green',  label: 'Green',  rgb: '16,185,129'  },
+      { key: 'teal',   label: 'Teal',   rgb: '20,184,166'  },
+      { key: 'sky',    label: 'Sky',    rgb: '14,165,233'  },
+      { key: 'blue',   label: 'Blue',   rgb: '59,130,246'  },
+      { key: 'indigo', label: 'Indigo', rgb: '99,102,241'  },
+      { key: 'purple', label: 'Purple', rgb: '168,85,247'  },
+      { key: 'pink',   label: 'Pink',   rgb: '236,72,153'  },
+      { key: 'rose',   label: 'Rose',   rgb: '244,63,94'   },
+      { key: 'red',    label: 'Red',    rgb: '239,68,68'   },
+      { key: 'orange', label: 'Orange', rgb: '249,115,22'  },
+      { key: 'amber',  label: 'Amber',  rgb: '245,158,11'  },
+      { key: 'yellow', label: 'Yellow', rgb: '234,179,8'   },
+      { key: 'lime',   label: 'Lime',   rgb: '132,204,22'  },
+      { key: 'slate',  label: 'Slate',  rgb: '100,116,139' },
+    ],
 
     // Date picker modal
     datePicker: {
@@ -345,8 +364,12 @@ window.trelloBoard = function(config) {
     switchBoardsModal: {
       open: false,
       search: '',
-      tab: 'your', // 'your', 'starred', 'recent', 'workspace'
+      tab: 'your', // 'your', 'starred', 'hidden', 'recent', 'workspace'
       selectedWorkspace: null,
+      monthFilter: 'all',
+      typeFilter: 'all', // 'all', 'planning', 'workflow', 'smm'
+      showHiddenInView: false,
+      filteredBoards: [],
       creating: false,
       createBoardName: '',
       createVisibility: 'workspace',
@@ -767,6 +790,9 @@ window.trelloBoard = function(config) {
       this.$watch('switchBoardsModal.search', () => this.updateSbmFilteredBoards());
       this.$watch('switchBoardsModal.tab', () => this.updateSbmFilteredBoards());
       this.$watch('switchBoardsModal.selectedWorkspace', () => this.updateSbmFilteredBoards());
+      this.$watch('switchBoardsModal.monthFilter', () => this.updateSbmFilteredBoards());
+      this.$watch('switchBoardsModal.typeFilter', () => this.updateSbmFilteredBoards());
+      this.$watch('switchBoardsModal.showHiddenInView', () => this.updateSbmFilteredBoards());
 
       // Reset horizontal scroll cleanly without layout thrashing
       const wrap = document.getElementById('board-wrap');
@@ -904,6 +930,9 @@ window.trelloBoard = function(config) {
       if (t === 'BOTH' || t === 'ALL' || t === 'A,B' || t === 'A, B' || t === 'A&B' || t === 'A & B' || t === 'A+B' || (t.includes('A') && t.includes('B'))) {
         return true;
       }
+      if (t === 'A' || t === 'B' || t === 'NONE') {
+        return false;
+      }
       if (card.labels && Array.isArray(card.labels)) {
         if (card.labels.some(l => /team\s*a\s*(&|\+|and)\s*(team\s*)?b\b/i.test(l.name || ''))) return true;
         const hasA = card.labels.some(l => /team\s*a\b/i.test(l.name || ''));
@@ -1026,7 +1055,7 @@ window.trelloBoard = function(config) {
       if (!this.activeCard || this.isUpdatingComment) return;
       
       const commentIdx = this.activeCard.comments?.findIndex(c => c.id === commentId);
-      if (commentIdx === -1) return;
+      if (commentIdx == null || commentIdx === -1) return;
       
       const comment = this.activeCard.comments[commentIdx];
       const originalReactions = [...(comment.reactions || [])];
@@ -1046,6 +1075,8 @@ window.trelloBoard = function(config) {
       this.isUpdatingComment = true;
       try {
         const res = await this.api(`/boards/cards/comments/${commentId}/react`, 'POST', { emoji: emoji }, { silentErrors: true });
+        // Card modal may have been closed while waiting
+        if (!this.activeCard || !Array.isArray(this.activeCard.comments) || !this.activeCard.comments[commentIdx]) return;
         
         if (res._ok) {
             const finalComments = [...this.activeCard.comments];
@@ -1059,9 +1090,11 @@ window.trelloBoard = function(config) {
         }
       } catch (err) {
         console.error('Failed to toggle reaction', err);
-        const rollbackComments = [...this.activeCard.comments];
-        rollbackComments[commentIdx] = { ...comment, reactions: originalReactions };
-        this.activeCard.comments = rollbackComments;
+        if (this.activeCard && Array.isArray(this.activeCard.comments)) {
+          const rollbackComments = [...this.activeCard.comments];
+          rollbackComments[commentIdx] = { ...comment, reactions: originalReactions };
+          this.activeCard.comments = rollbackComments;
+        }
       } finally {
         this.isUpdatingComment = false;
       }
@@ -1109,6 +1142,7 @@ window.trelloBoard = function(config) {
       const menu = document.getElementById('card-ctx-menu');
       if (menu) menu.classList.add('hidden');
       this.ctxVisible = false;
+      this.ctxColorOpen = false;
       this.ctxCard = null;
       this.ctxList = null;
     },
@@ -1233,6 +1267,37 @@ window.trelloBoard = function(config) {
           this.api(`/boards/cards/${card.id}`, 'DELETE').catch(() => {});
           break;
       }
+    },
+
+    // ── Card colour (try any colour live — menu / modal stay open so you can compare) ──────────
+    cardColorLabel(key) {
+      return (this.cardColorOptions.find(c => c.key === key) || {}).label || 'Default';
+    },
+
+    async setCardColor(card, key) {
+      if (!card || !card.id) return;
+      const id    = card.id;
+      const value = key || null;
+      const prev  = card.card_color ?? null;
+      if (prev === value) return;
+
+      const apply = (v) => {
+        this.lists.forEach(l => {
+          const c = l.cards.find(x => x.id === id);
+          if (c) c.card_color = v;
+        });
+        if (this.activeCard && this.activeCard.id === id) this.activeCard.card_color = v;
+        if (this.ctxCard && this.ctxCard.id === id) this.ctxCard.card_color = v;
+      };
+
+      apply(value); // instant preview
+
+      const res = await this.api(`/boards/cards/${id}`, 'PATCH', { card_color: value });
+      if (res && res._ok === false) {
+        apply(prev); // roll back on failure (api() already toasted the error)
+        return;
+      }
+      window.showToast(value ? `Card color: ${this.cardColorLabel(value)}` : 'Card color reset to default');
     },
 
     openCardTransferModal(mode, card, list) {
@@ -4210,6 +4275,8 @@ window.trelloBoard = function(config) {
           normalized = 'Both';
         } else if (t === 'A' || t === 'B') {
           normalized = t;
+        } else if (t === 'NONE' || t === 'NULL') {
+          normalized = null;
         } else {
           normalized = teamVal;
         }
@@ -4228,7 +4295,7 @@ window.trelloBoard = function(config) {
         });
       });
 
-      await this.updateCardField({ team: normalized });
+      await this.updateCardField({ team: normalized || 'none' });
     },
 
     // ── Members & Labels ──────────────────────────────────────────────────────
@@ -4531,10 +4598,24 @@ window.trelloBoard = function(config) {
       this.refreshCardActivities();
     },
 
+    hasSmmLabel(card) {
+      if (!card) return false;
+      if (Array.isArray(card.labels) && card.labels.some(l => {
+        const name = String(l?.name || '').trim().toLowerCase();
+        const color = String(l?.color || '').trim().toLowerCase();
+        return name === 'smm' || name.includes('smm') || color === '#50c878';
+      })) {
+        return true;
+      }
+      if (String(card.label || '').trim().toLowerCase() === 'smm') {
+        return true;
+      }
+      return false;
+    },
+
     isSmmCard(card) {
       if (!card) return false;
-      const hasSmmLabel = Array.isArray(card.labels) && card.labels.some(l => (l.name || '').trim().toLowerCase() === 'smm');
-      if (hasSmmLabel) return true;
+      if (this.hasSmmLabel(card)) return true;
       const isSmmBoard = (this.board?.name || '').toLowerCase().includes('smm') || this.board?.type === 'smm' || this.board?.is_active_smm;
       return Boolean(isSmmBoard);
     },
@@ -5163,6 +5244,87 @@ window.trelloBoard = function(config) {
       }
     },
 
+    showUploadToast(isUploaded) {
+      let container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'fixed right-3 sm:right-5 z-[9999] space-y-3 pointer-events-none max-w-[calc(100vw-1.5rem)] sm:max-w-sm';
+        container.style.top = 'max(1.25rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.625rem))';
+        document.body.appendChild(container);
+      }
+
+      const toast = document.createElement('div');
+      toast.dataset.systemFeedback = '1';
+      toast.className = `dgt-notification-toast dgt-upload-toast flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold pointer-events-auto transform translate-x-8 opacity-0 transition-all duration-150 border backdrop-blur-xl ${
+        isUploaded
+          ? 'bg-emerald-600/95 border-emerald-400/40 text-white shadow-emerald-950/40'
+          : 'bg-sky-600/95 border-sky-400/40 text-white shadow-sky-950/40'
+      }`;
+
+      const iconSvg = isUploaded
+        ? `<svg class="w-5 h-5 flex-shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>`
+        : `<svg class="w-5 h-5 flex-shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>`;
+
+      const messageText = isUploaded ? 'Successfully uploaded!' : 'Upload status removed.';
+
+      toast.innerHTML = `
+        <span class="inline-flex items-center justify-center p-1 rounded-full bg-white/20">${iconSvg}</span>
+        <span class="tracking-wide">${messageText}</span>
+      `;
+
+      container.prepend(toast);
+
+      // Slide in
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-8', 'opacity-0');
+      });
+
+      // Auto dismiss after 3 seconds
+      setTimeout(() => {
+        toast.classList.add('translate-x-8', 'opacity-0');
+        setTimeout(() => {
+          toast.remove();
+        }, 250);
+      }, 3000);
+    },
+
+    async toggleUploadChecklistItem(cl, item, event = null) {
+      if (!this.activeCard || !item || String(item.id).startsWith('temp-')) return;
+      const previous = !!item.is_uploaded;
+      const next = !previous;
+
+      // Optimistic update
+      item.is_uploaded = next;
+      if (event?.target) event.target.checked = next;
+
+      // Immediate notification per prompt requirement
+      this.showUploadToast(next);
+
+      try {
+        const res = await this.api(`/boards/cards/${this.activeCard.id}/checklists/${cl.id}/items/${item.id}/upload`, 'PATCH', { is_uploaded: next });
+        if (res && res.success) {
+          item.is_uploaded = !!res.is_uploaded;
+          if (res.item) {
+            item.uploaded_by = res.item.uploaded_by;
+            item.uploaded_at = res.item.uploaded_at;
+          }
+          this.refreshCardActivities?.();
+        } else {
+          // Revert optimistic update
+          item.is_uploaded = previous;
+          if (event?.target) event.target.checked = previous;
+          this.showUploadToast(previous);
+          window.showToast?.(res?.message || 'Failed to update upload status.', 'error');
+        }
+      } catch (err) {
+        item.is_uploaded = previous;
+        if (event?.target) event.target.checked = previous;
+        this.showUploadToast(previous);
+        window.showToast?.('Network error while saving upload status.', 'error');
+      }
+    },
+
     async deleteChecklistItem(cl, item) {
       if (!this.activeCard || !await window.confirmModal("Delete this checklist item?")) return;
       
@@ -5297,6 +5459,7 @@ window.trelloBoard = function(config) {
       if (this.switchBoardsModal.search) return 'Search boards';
       if (this.switchBoardsModal.tab === 'your') return 'Your boards';
       if (this.switchBoardsModal.tab === 'starred') return 'Starred boards';
+      if (this.switchBoardsModal.tab === 'hidden') return 'Hidden boards';
       if (this.switchBoardsModal.tab === 'recent') return 'Recent boards';
       
       const ws = this.allWorkspaces.find(w => w.id === this.switchBoardsModal.selectedWorkspace);
@@ -5304,8 +5467,123 @@ window.trelloBoard = function(config) {
     },
 
     updateSbmFilteredBoards() {
-      const s = this.switchBoardsModal.search.trim().toLowerCase();
-      let boards = s ? this.sbmAllBoards() : this.sbmBoardsForTab(this.switchBoardsModal.tab);
+      const s = (this.switchBoardsModal.search || '').trim().toLowerCase();
+      const monthFilter = (this.switchBoardsModal.monthFilter || 'all').toLowerCase();
+      const typeFilter = (this.switchBoardsModal.typeFilter || 'all').toLowerCase();
+      const tab = this.switchBoardsModal.tab || 'your';
+
+      // When filtering by a specific Month or searching by text on Your/Workspace tabs,
+      // automatically include hidden boards too so past months' boards are immediately found!
+      const autoIncludeHidden = (monthFilter !== 'all' || s !== '') && tab !== 'hidden';
+      let boards = s
+        ? (tab === 'hidden' ? this.sbmBoardsForTab('hidden') : this.sbmAllBoards(true))
+        : this.sbmBoardsForTab(tab, autoIncludeHidden ? true : null);
+
+      if (s) {
+        boards = boards.filter(b => {
+          const workspaceName = this.sbmBoardWorkspaceName(b).toLowerCase();
+          const monthName = this.sbmBoardMonth(b).toLowerCase();
+          const catName = this.sbmBoardCategoryLabel(b).toLowerCase();
+          return (b.name || '').toLowerCase().includes(s) || workspaceName.includes(s) || monthName.includes(s) || catName.includes(s);
+        });
+      }
+
+      if (monthFilter && monthFilter !== 'all') {
+        boards = boards.filter(b => this.sbmBoardMonth(b).toLowerCase() === monthFilter);
+      }
+
+      if (typeFilter && typeFilter !== 'all') {
+        boards = boards.filter(b => this.sbmBoardCategory(b) === typeFilter);
+      }
+
+      this.switchBoardsModal.filteredBoards = this.sbmUniqueBoards(boards);
+    },
+
+    sbmAllBoards(includeHidden = false) {
+      const all = this.allWorkspaces.flatMap(ws => ws.boards || []);
+      return includeHidden ? all : all.filter(b => !b.is_hidden);
+    },
+
+    sbmBoardsForTab(tab, includeHiddenOverride = null) {
+      const includeHidden = includeHiddenOverride !== null
+        ? includeHiddenOverride
+        : Boolean(this.switchBoardsModal?.showHiddenInView);
+
+      if (tab === 'hidden') {
+        return this.sbmAllBoards(true).filter(b => Boolean(b.is_hidden));
+      }
+
+      if (tab === 'starred') {
+        return this.sbmAllBoards(includeHidden).filter(b => b.is_starred);
+      }
+
+      if (tab === 'recent') {
+        const list = this.sbmAllBoards(includeHidden);
+        const current = list.find(b => b.id === this.boardId);
+        const others = list.filter(b => b.id !== this.boardId);
+        return (current ? [current, ...others] : others).slice(0, 8);
+      }
+
+      if (tab === 'workspace') {
+        const ws = this.sbmSelectedWorkspace();
+        const list = ws ? (ws.boards || []) : [];
+        return includeHidden ? list : list.filter(b => !b.is_hidden);
+      }
+
+      return this.sbmAllBoards(includeHidden);
+    },
+
+    sbmBoardCount(tab) {
+      if (tab === 'hidden') {
+        return this.sbmUniqueBoards(this.sbmAllBoards(true).filter(b => Boolean(b.is_hidden))).length;
+      }
+      if (tab === 'starred') {
+        return this.sbmUniqueBoards(this.sbmAllBoards(false).filter(b => b.is_starred)).length;
+      }
+      if (tab === 'your') {
+        return this.sbmUniqueBoards(this.sbmAllBoards(false)).length;
+      }
+      return this.sbmUniqueBoards(this.sbmBoardsForTab(tab)).length;
+    },
+
+    sbmWorkspaceBoardCount(ws) {
+      if (!ws || !Array.isArray(ws.boards)) return 0;
+      if (this.switchBoardsModal.tab === 'hidden') {
+        return ws.boards.filter(b => b.is_hidden).length;
+      }
+      return ws.boards.filter(b => !b.is_hidden).length;
+    },
+
+    sbmBoardCategory(board) {
+      if (!board) return 'other';
+      const name = String(board.name || '').toLowerCase();
+      const wsName = String(this.sbmBoardWorkspaceName(board) || '').toLowerCase();
+      const isSmm = board.type === 'smm' || board.is_active_smm || name.includes('smm') || wsName.includes('social media');
+      if (isSmm) return 'smm';
+      const isPlanning = (name.includes('planning') || board.type === 'planning' || board.is_template) && !name.includes('workflow');
+      if (isPlanning) return 'planning';
+      const isWorkflow = name.includes('workflow') || board.type === 'workflow' || name.includes('team a') || name.includes('team b') || name.includes('teama') || name.includes('teamb');
+      if (isWorkflow) return 'workflow';
+      return 'other';
+    },
+
+    sbmBoardCategoryLabel(board) {
+      const cat = this.sbmBoardCategory(board);
+      if (cat === 'planning') return 'Planning';
+      if (cat === 'workflow') return 'Workflow';
+      if (cat === 'smm') return 'SMM';
+      return 'Board';
+    },
+
+    sbmTypeCount(type) {
+      const s = (this.switchBoardsModal.search || '').trim().toLowerCase();
+      const monthFilter = (this.switchBoardsModal.monthFilter || 'all').toLowerCase();
+      const tab = this.switchBoardsModal.tab || 'your';
+      const autoIncludeHidden = (monthFilter !== 'all' || s !== '') && tab !== 'hidden';
+      let boards = s
+        ? (tab === 'hidden' ? this.sbmBoardsForTab('hidden') : this.sbmAllBoards(true))
+        : this.sbmBoardsForTab(tab, autoIncludeHidden ? true : null);
+
       if (s) {
         boards = boards.filter(b => {
           const workspaceName = this.sbmBoardWorkspaceName(b).toLowerCase();
@@ -5313,35 +5591,74 @@ window.trelloBoard = function(config) {
           return (b.name || '').toLowerCase().includes(s) || workspaceName.includes(s) || monthName.includes(s);
         });
       }
-
-      this.switchBoardsModal.filteredBoards = this.sbmUniqueBoards(boards);
+      if (monthFilter && monthFilter !== 'all') {
+        boards = boards.filter(b => this.sbmBoardMonth(b).toLowerCase() === monthFilter);
+      }
+      const unique = this.sbmUniqueBoards(boards);
+      if (!type || type === 'all') return unique.length;
+      return unique.filter(b => this.sbmBoardCategory(b) === type).length;
     },
 
-    sbmAllBoards() {
-      return this.allWorkspaces.flatMap(ws => ws.boards || []);
+    sbmMonthOptions() {
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      const tab = this.switchBoardsModal.tab || 'your';
+      const pool = this.sbmUniqueBoards(
+        tab === 'hidden' ? this.sbmBoardsForTab('hidden') : this.sbmAllBoards(true)
+      );
+      return months.map(m => {
+        const count = pool.filter(b => this.sbmBoardMonth(b).toLowerCase() === m.toLowerCase()).length;
+        return {
+          value: m,
+          label: count > 0 ? `${m} (${count})` : m,
+          count
+        };
+      });
     },
 
-    sbmBoardsForTab(tab) {
-      if (tab === 'starred') {
-        return this.sbmAllBoards().filter(b => b.is_starred);
-      }
-
-      if (tab === 'recent') {
-        const current = this.sbmAllBoards().find(b => b.id === this.boardId);
-        const others = this.sbmAllBoards().filter(b => b.id !== this.boardId);
-        return (current ? [current, ...others] : others).slice(0, 8);
-      }
-
-      if (tab === 'workspace') {
-        const ws = this.sbmSelectedWorkspace();
-        return ws ? (ws.boards || []) : [];
-      }
-
-      return this.sbmAllBoards();
+    sbmHasActiveFilters() {
+      return Boolean(
+        (this.switchBoardsModal.search && this.switchBoardsModal.search.trim() !== '') ||
+        (this.switchBoardsModal.monthFilter && this.switchBoardsModal.monthFilter !== 'all') ||
+        (this.switchBoardsModal.typeFilter && this.switchBoardsModal.typeFilter !== 'all')
+      );
     },
 
-    sbmBoardCount(tab) {
-      return this.sbmUniqueBoards(this.sbmBoardsForTab(tab)).length;
+    sbmResetFilters() {
+      this.switchBoardsModal.search = '';
+      this.switchBoardsModal.monthFilter = 'all';
+      this.switchBoardsModal.typeFilter = 'all';
+      this.updateSbmFilteredBoards();
+    },
+
+    async toggleBoardHiddenDirect(board) {
+      if (!board || !board.slug) return;
+      try {
+        const res = await fetch(`/boards/${board.slug}/toggle-hidden`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': this.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content || '',
+            'Accept': 'application/json'
+          }
+        });
+        const data = await res.json();
+        if (res.ok && data && data.success !== false) {
+          const newHidden = Boolean(data.is_hidden);
+          this.allWorkspaces.forEach(ws => {
+            (ws.boards || []).forEach(b => {
+              if (b.id === board.id) b.is_hidden = newHidden;
+            });
+          });
+          board.is_hidden = newHidden;
+          this.updateSbmFilteredBoards();
+          window.showToast?.(newHidden ? `Hidden "${board.name}"` : `Restored "${board.name}" to active boards`);
+        }
+      } catch (e) {
+        console.error('Failed to toggle board hidden status:', e);
+      }
     },
 
     sbmUniqueBoards(boards) {
@@ -5763,55 +6080,74 @@ window.trelloBoard = function(config) {
       if (!this.activeCard.comments) this.activeCard.comments = [];
       this.activeCard.comments.push(fakeComment);
 
+      // Capture the card now: the modal may be closed (activeCard = null) before the request resolves
+      const cardRef = this.activeCard;
+      const cardId = cardRef.id;
+      const initialListId = cardRef.board_list_id;
+      const isSameCardOpen = () => !!(this.activeCard && String(this.activeCard.id) === String(cardId));
+
       this.lists.forEach(l => {
-        const c = l.cards.find(x => x.id === this.activeCard.id);
+        const c = l.cards.find(x => x.id === cardId);
         if (c) c.comment_count = (c.comment_count ?? 0) + 1;
       });
 
-      this.api(`/boards/cards/${this.activeCard.id}/comments`, 'POST', { body: newCommentVal })
+      this.api(`/boards/cards/${cardId}/comments`, 'POST', { body: newCommentVal })
         .then(res => {
           if (res.comment) {
-            const idx = this.activeCard.comments.findIndex(c => c.id === tempId);
-            if (idx !== -1) this.activeCard.comments[idx] = res.comment;
+            const target = isSameCardOpen() ? this.activeCard : cardRef;
+            if (target) {
+              if (!Array.isArray(target.comments)) target.comments = [];
+              const idx = target.comments.findIndex(c => c.id === tempId);
+              if (idx !== -1) target.comments[idx] = res.comment;
+            }
 
-            if (res.card_moved) {
-              window.showToast('Card moved by automation!');
+            if (res.card_moved && res.card) {
+              window.showToast?.('Card moved by automation!');
               const newCard = res.card;
               if (parseInt(newCard.board_id, 10) !== parseInt(this.boardId, 10)) {
-                this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
-                this.closeCard();
+                this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(cardId, 10)));
+                if (isSameCardOpen()) this.closeCard();
                 return;
-              } else if (parseInt(newCard.board_list_id, 10) !== parseInt(this.activeCard.board_list_id, 10)) {
-                this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
+              } else if (parseInt(newCard.board_list_id, 10) !== parseInt(initialListId, 10)) {
+                this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(cardId, 10)));
                 const targetList = this.lists.find(l => parseInt(l.id, 10) === parseInt(newCard.board_list_id, 10));
                 if (targetList) targetList.cards.unshift(newCard);
-                this.closeCard();
+                if (isSameCardOpen()) this.closeCard();
                 return;
               }
             }
             // No need to refreshCardActivities() if we successfully swapped the comment optimistically
           } else {
-            this.revertComment(tempId, newCommentVal);
+            this.revertComment(tempId, newCommentVal, cardId, cardRef);
           }
         }).catch((err) => {
-          this.revertComment(tempId, newCommentVal);
+          console.error('Comment post error', err);
+          // Only a real request/API failure reaches here (UI updates above are null-safe)
+          this.revertComment(tempId, newCommentVal, cardId, cardRef, true);
           if (err && err.checklist_incomplete) {
-            this.showChecklistIncompleteModal(/\bready\b/i.test(newCommentVal) ? 'ready' : 'automation', this.activeCard);
-          } else {
+            this.showChecklistIncompleteModal(/\bready\b/i.test(newCommentVal) ? 'ready' : 'automation', this.activeCard || cardRef);
+          } else if (!/Cannot read properties|undefined is not an object|null is not an object/i.test(String(err?.message || ''))) {
             window.showToast?.(err?.error || err?.message || 'Failed to post comment', 'error');
           }
         });
     },
 
-    revertComment(tempId, originalText) {
-      if (!this.activeCard) return;
-      this.activeCard.comments = this.activeCard.comments.filter(c => c.id !== tempId);
-      this.lists.forEach(l => {
-        const c = l.cards.find(x => x.id === this.activeCard.id);
-        if (c) c.comment_count = Math.max(0, (c.comment_count ?? 1) - 1);
-      });
-      this.newComment = originalText;
-      window.showToast?.('Failed to post comment', 'error');
+    revertComment(tempId, originalText, cardId = null, cardRef = null, silent = false) {
+      const id = cardId ?? this.activeCard?.id;
+      const target = (this.activeCard && String(this.activeCard.id) === String(id)) ? this.activeCard : cardRef;
+      if (target && Array.isArray(target.comments)) {
+        target.comments = target.comments.filter(c => c.id !== tempId);
+      }
+      if (id != null) {
+        this.lists.forEach(l => {
+          const c = l.cards.find(x => x.id === id);
+          if (c) c.comment_count = Math.max(0, (c.comment_count ?? 1) - 1);
+        });
+      }
+      if (this.activeCard && String(this.activeCard.id) === String(id)) {
+        this.newComment = originalText;
+      }
+      if (!silent) window.showToast?.('Failed to post comment', 'error');
     },
 
     async updateComment(commentId, body) {
@@ -5819,7 +6155,7 @@ window.trelloBoard = function(config) {
       if (!this.activeCard || !content) return;
 
       const res = await this.api(`/boards/cards/${this.activeCard.id}/comments/${commentId}`, 'PATCH', { body: content });
-      if (res.comment) {
+      if (res.comment && this.activeCard) {
         if (!this.activeCard.comments) this.activeCard.comments = [];
         this.activeCard.comments = this.activeCard.comments.map(comment =>
           comment.id === commentId ? { ...comment, ...res.comment } : comment
@@ -7606,31 +7942,32 @@ window.trelloBoard = function(config) {
     async deleteComment(commentId) {
       if (!this.activeCard || !await window.confirmModal("Delete this comment permanently?")) return;
       
-      const originalComments = [...this.activeCard.comments];
-      this.activeCard.comments = this.activeCard.comments.filter(x => x.id !== commentId);
+      const cardRef = this.activeCard;
+      const cardId = cardRef.id;
+      const originalComments = [...(cardRef.comments || [])];
+      cardRef.comments = (cardRef.comments || []).filter(x => x.id !== commentId);
       this.lists.forEach(l => {
-        const c = l.cards.find(x => x.id === this.activeCard.id);
+        const c = l.cards.find(x => x.id === cardId);
         if (c) c.comment_count = Math.max(0, (c.comment_count ?? 1) - 1);
       });
+      const restore = () => {
+        cardRef.comments = originalComments;
+        this.lists.forEach(l => {
+          const c = l.cards.find(x => x.id === cardId);
+          if (c) c.comment_count = (c.comment_count ?? 0) + 1;
+        });
+      };
       
-      this.api(`/boards/cards/${this.activeCard.id}/comments/${commentId}`, 'DELETE')
+      this.api(`/boards/cards/${cardId}/comments/${commentId}`, 'DELETE')
         .then(res => {
           if (res.success || res.message) {
             // Deleted silently without extra notification alert
           } else {
-            this.activeCard.comments = originalComments;
-            this.lists.forEach(l => {
-              const c = l.cards.find(x => x.id === this.activeCard.id);
-              if (c) c.comment_count = (c.comment_count ?? 0) + 1;
-            });
+            restore();
             window.showToast?.('Failed to delete comment', 'error');
           }
         }).catch(() => {
-          this.activeCard.comments = originalComments;
-          this.lists.forEach(l => {
-            const c = l.cards.find(x => x.id === this.activeCard.id);
-            if (c) c.comment_count = (c.comment_count ?? 0) + 1;
-          });
+          restore();
           window.showToast?.('Network error', 'error');
         });
     },
@@ -7958,6 +8295,9 @@ window.trelloBoard = function(config) {
         ? [...this.pastedImages]
         : (this.pastedImage ? [this.pastedImage] : []);
       if (!imagesToSend.length || !this.activeCard) return;
+      const shotCardRef = this.activeCard;
+      const shotCardId = shotCardRef.id;
+      const shotListId = shotCardRef.board_list_id;
 
       this.sendingScreenshot = true;
       try {
@@ -7969,7 +8309,7 @@ window.trelloBoard = function(config) {
           formData.append('file', blob, `screenshot-${Date.now()}-${idx + 1}.jpg`);
           formData.append('comment_only', '1');
 
-          const fileRes = await fetch(`/boards/cards/${this.activeCard.id}/files`, {
+          const fileRes = await fetch(`/boards/cards/${shotCardId}/files`, {
             method: 'POST',
             headers: {
               'X-CSRF-TOKEN': this.csrfToken,
@@ -7991,37 +8331,38 @@ window.trelloBoard = function(config) {
         const imgMarkdown = uploadedUrls.map(url => `![screenshot](${url})`).join('\n\n');
         const body = textPrefix + imgMarkdown;
 
-        const res = await this.api(`/boards/cards/${this.activeCard.id}/comments`, 'POST', { body });
+        const res = await this.api(`/boards/cards/${shotCardId}/comments`, 'POST', { body });
         if (res.comment) {
           if (res.card_moved) {
             window.showToast('Card moved by automation!');
             const newCard = res.card;
             if (parseInt(newCard.board_id, 10) !== parseInt(this.boardId, 10)) {
-              this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
-              this.closeCard();
+              this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(shotCardId, 10)));
+              if (this.activeCard && String(this.activeCard.id) === String(shotCardId)) this.closeCard();
               return;
-            } else if (parseInt(newCard.board_list_id, 10) !== parseInt(this.activeCard.board_list_id, 10)) {
-              this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(this.activeCard.id, 10)));
+            } else if (parseInt(newCard.board_list_id, 10) !== parseInt(shotListId, 10)) {
+              this.lists.forEach(l => l.cards = l.cards.filter(c => parseInt(c.id, 10) !== parseInt(shotCardId, 10)));
               const targetList = this.lists.find(l => parseInt(l.id, 10) === parseInt(newCard.board_list_id, 10));
               if (targetList) targetList.cards.unshift(newCard);
-              this.closeCard();
+              if (this.activeCard && String(this.activeCard.id) === String(shotCardId)) this.closeCard();
               return;
             }
           }
 
-          if (!this.activeCard.comments) this.activeCard.comments = [];
-          this.activeCard.comments.push(res.comment);
+          const shotTarget = (this.activeCard && String(this.activeCard.id) === String(shotCardId)) ? this.activeCard : shotCardRef;
+          if (!Array.isArray(shotTarget.comments)) shotTarget.comments = [];
+          shotTarget.comments.push(res.comment);
           this.newComment = '';
           this.pastedImages = [];
           this.pastedImage = null;
           
           this.lists.forEach(l => {
-            const c = l.cards.find(x => x.id === this.activeCard.id);
+            const c = l.cards.find(x => x.id === shotCardId);
             if (c) c.comment_count = (c.comment_count ?? 0) + 1;
           });
 
           window.showToast(imagesToSend.length > 1 ? `${imagesToSend.length} screenshots shared in comments! 📸` : 'Screenshot shared in comments! 📸');
-          this.refreshCardActivities();
+          if (this.activeCard) this.refreshCardActivities();
         }
       } catch(e) {
         window.showToast(e.message || 'Failed to send screenshot', 'error');

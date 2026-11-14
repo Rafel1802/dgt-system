@@ -83,6 +83,9 @@ class GoogleBlogsSheetService
      */
     public function extractDomain(string $url): string
     {
+        if (preg_match('#/blog/([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/#i', $url, $m)) {
+            return strtolower(preg_replace('/^www\./i', '', trim($m[1])));
+        }
         $host = parse_url(trim($url), PHP_URL_HOST) ?? '';
         // Strip leading "www."
         return preg_replace('/^www\./i', '', $host);
@@ -98,10 +101,14 @@ class GoogleBlogsSheetService
             return '';
         }
 
-        $host = parse_url(trim($websiteOrUrl), PHP_URL_HOST);
-        $domain = strtolower(trim(preg_replace('/^www\./i', '', $host ?: $websiteOrUrl)));
-        $domain = preg_replace('/:\d+$/', '', $domain);
-        $domain = trim($domain, '/');
+        if (preg_match('#/blog/([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/#i', (string) $websiteOrUrl, $m)) {
+            $domain = strtolower(trim(preg_replace('/^www\./i', '', $m[1])));
+        } else {
+            $host = parse_url(trim($websiteOrUrl), PHP_URL_HOST);
+            $domain = strtolower(trim(preg_replace('/^www\./i', '', $host ?: $websiteOrUrl)));
+            $domain = preg_replace('/:\d+$/', '', $domain);
+            $domain = trim($domain, '/');
+        }
 
         // Specific domain-to-sheet-dropdown mappings
         // IMPORTANT: Keep asiamachinery.net (for asianmachinery.net) and asiamachinery.org distinct!

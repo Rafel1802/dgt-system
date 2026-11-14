@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:collection';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
@@ -12,9 +14,11 @@ import 'src/config/app_config.dart';
 import 'src/models/shell_state.dart';
 import 'src/services/ios_native_bridge.dart';
 import 'src/services/session_storage_service.dart';
+import 'src/services/webrtc_call_service.dart';
 import 'src/services/webview_bridge_scripts.dart';
 import 'src/theme/liquid_glass_theme.dart';
 import 'src/widgets/liquid_glass_bottom_nav.dart';
+import 'src/widgets/liquid_glass_call_screen.dart';
 import 'src/widgets/liquid_glass_hub_sheet.dart';
 import 'src/widgets/liquid_glass_ipad_sidebar.dart';
 import 'src/widgets/liquid_glass_overlays.dart';
@@ -39,12 +43,14 @@ class DgtMobileApp extends StatelessWidget {
     super.key,
     this.enableWebView = true,
     this.initialShellState,
+    this.debugCallController,
   });
 
   /// Allows widget tests to verify the Liquid Glass shell deterministically
   /// without instantiating platform `WKWebView` views when set to `false`.
   final bool enableWebView;
   final KiuqShellState? initialShellState;
+  final WebRtcCallController? debugCallController;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +65,7 @@ class DgtMobileApp extends StatelessWidget {
       home: DgtWebsiteShell(
         enableWebView: enableWebView,
         initialShellState: initialShellState,
+        debugCallController: debugCallController,
       ),
     );
   }
@@ -72,10 +79,12 @@ class DgtWebsiteShell extends StatefulWidget {
     super.key,
     this.enableWebView = true,
     this.initialShellState,
+    this.debugCallController,
   });
 
   final bool enableWebView;
   final KiuqShellState? initialShellState;
+  final WebRtcCallController? debugCallController;
 
   @override
   State<DgtWebsiteShell> createState() => _DgtWebsiteShellState();
@@ -85,6 +94,8 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
     with WidgetsBindingObserver {
   final SessionStorageService _storage = SessionStorageService();
   late final IosNativeBridge _nativeBridge;
+  late final WebRtcCallController _callController;
+  bool _ownsCallController = false;
 
   InAppWebViewController? _controller;
   PullToRefreshController? _pullToRefreshController;
@@ -135,6 +146,23 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       },
     );
 
+    if (widget.debugCallController != null) {
+      _callController = widget.debugCallController!;
+      _ownsCallController = false;
+    } else {
+      _callController = WebRtcCallController(
+        nativeBridge: _nativeBridge,
+        enableNativeWebRtc: widget.enableWebView,
+        webHttpExecutor: _executeAuthenticatedWebJsonRequest,
+        onNotifyWebCallEnded: () {
+          _controller?.evaluateJavascript(
+            source: WebViewBridgeScripts.notifyWebCallEndedScript(),
+          );
+        },
+      );
+      _ownsCallController = true;
+    }
+
     if (widget.enableWebView && !kIsWeb) {
       _pullToRefreshController = PullToRefreshController(
         settings: PullToRefreshSettings(color: const Color(0xFF2563EB)),
@@ -147,6 +175,7 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
   Future<void> _initializeShell() async {
     final loadedPrefs = await _storage.loadPreferences();
+    final cachedSnapshot = await _storage.loadShellSnapshot();
     final netStatus = await _nativeBridge.checkConnectivity();
 
     if (!mounted) return;
@@ -154,7 +183,22 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       _prefs = loadedPrefs;
       _initialTargetUrl = loadedPrefs.lastRestorableUrl ?? appBaseUrl;
       if (widget.initialShellState == null) {
-        _shellState = _shellState.copyWith(themeMode: loadedPrefs.themeMode);
+        var nextShell = _shellState.copyWith(themeMode: loadedPrefs.themeMode);
+        if (cachedSnapshot != null && cachedSnapshot['isAuthenticated'] == true) {
+          final userMap = cachedSnapshot['user'] is Map
+              ? Map<String, dynamic>.from(cachedSnapshot['user'] as Map)
+              : null;
+          nextShell = nextShell.copyWith(
+            isAuthenticated: true,
+            pageTitle: (cachedSnapshot['pageTitle'] ?? 'KIUQ SYSTEM').toString(),
+            unreadNotifications:
+                int.tryParse('${cachedSnapshot['unreadNotifications'] ?? 0}') ?? 0,
+            unreadChat: int.tryParse('${cachedSnapshot['unreadChat'] ?? 0}') ?? 0,
+            tasksCount: int.tryParse('${cachedSnapshot['tasksCount'] ?? 0}') ?? 0,
+            user: KiuqUserProfile.fromJson(userMap),
+          );
+        }
+        _shellState = nextShell;
       }
       _isOffline = !netStatus.isOnline;
       _preferencesLoaded = true;
@@ -165,7 +209,21 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
     _applySystemOverlayStyle();
 
-    Future<void>.delayed(const Duration(milliseconds: 260), () {
+    // Configure native iOS background notification polling & request permission if enabled
+    await _nativeBridge.configureBackgroundPolling(
+      baseUrl: appBaseUrl,
+      authenticated: _shellState.isAuthenticated,
+    );
+    if (loadedPrefs.notificationsEnabled) {
+      final notifStatus = await _nativeBridge.getNotificationStatus();
+      if (notifStatus == 'notDetermined' && !loadedPrefs.notificationPromptShown) {
+        await _storage.markNotificationPromptShown();
+        _prefs = _prefs.copyWith(notificationPromptShown: true);
+        await _nativeBridge.requestNotificationPermission();
+      }
+    }
+
+    Future<void>.delayed(const Duration(milliseconds: 180), () {
       if (mounted) {
         setState(() => _splashMinimumDone = true);
       }
@@ -175,6 +233,9 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
   @override
   void dispose() {
     _loadWatchdogTimer?.cancel();
+    if (_ownsCallController) {
+      _callController.dispose();
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -341,6 +402,11 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
         final userMap = raw['user'] is Map
             ? Map<String, dynamic>.from(raw['user'] as Map)
             : null;
+        _callController.updateWebAuthMetadata(
+          authUserId: int.tryParse('${raw['authUserId'] ?? 0}'),
+          csrfToken: (raw['csrfToken'] ?? '').toString(),
+          socketId: (raw['socketId'] ?? '').toString(),
+        );
         final canBack = await webViewController.canGoBack();
 
         if (!mounted) return null;
@@ -381,10 +447,42 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
         if (isAuthed && KiuqUrlPolicy.isRestorableAppUrl(currentUrl)) {
           await _storage.saveLastRestorableUrl(currentUrl);
+          await _storage.saveShellSnapshot(<String, dynamic>{
+            'isAuthenticated': true,
+            'pageTitle': pageTitle,
+            'unreadNotifications': _shellState.unreadNotifications,
+            'unreadChat': _shellState.unreadChat,
+            'tasksCount': _shellState.tasksCount,
+            'user': userMap,
+          });
+          await _nativeBridge.configureBackgroundPolling(
+            baseUrl: appBaseUrl,
+            authenticated: true,
+          );
+          await _nativeBridge.setBadgeCount(
+            _shellState.unreadNotifications + _shellState.unreadChat,
+          );
         } else if (!isAuthed && currentUrl.contains('/login')) {
           await _storage.clearLastRestorableUrl();
+          await _storage.clearShellSnapshot();
+          await _nativeBridge.configureBackgroundPolling(
+            baseUrl: appBaseUrl,
+            authenticated: false,
+          );
+          await _nativeBridge.setBadgeCount(0);
         }
         return null;
+      },
+    );
+
+    // 1b. Live Badge Count Sync
+    webViewController.addJavaScriptHandler(
+      handlerName: 'DgtShellBadgeSync',
+      callback: (args) async {
+        if (args.isEmpty || args.first is! Map) return false;
+        final map = Map<String, dynamic>.from(args.first as Map);
+        final badgeCount = int.tryParse('${map['badgeCount'] ?? 0}') ?? 0;
+        return _nativeBridge.setBadgeCount(badgeCount);
       },
     );
 
@@ -438,18 +536,34 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
       handlerName: 'DgtNativeNotifications',
       callback: (args) async {
         if (!_prefs.notificationsEnabled || args.isEmpty) return false;
-        final payload = args.first is Map
-            ? Map<String, dynamic>.from(args.first as Map)
-            : <String, dynamic>{'body': args.first.toString()};
+        Map<String, dynamic> payload;
+        final first = args.first;
+        if (first is Map) {
+          payload = Map<String, dynamic>.from(first);
+        } else if (first is String) {
+          try {
+            final decoded = jsonDecode(first);
+            payload = decoded is Map
+                ? Map<String, dynamic>.from(decoded)
+                : <String, dynamic>{'body': first};
+          } catch (_) {
+            payload = <String, dynamic>{'body': first};
+          }
+        } else {
+          payload = <String, dynamic>{'body': first.toString()};
+        }
 
         final action = (payload['action'] ?? 'notify').toString();
         if (action == 'requestPermission') {
           return _nativeBridge.requestNotificationPermission();
         }
 
+        final id = (payload['id'] ?? '').toString();
         final title = (payload['title'] ?? 'KIUQ SYSTEM').toString();
+        final subtitle = (payload['subtitle'] ?? '').toString();
         final body = (payload['body'] ?? payload['message'] ?? '').toString();
-        final url = (payload['url'] ?? '').toString();
+        final url = (payload['url'] ?? payload['link'] ?? '').toString();
+        final badgeCount = int.tryParse('${payload['badgeCount'] ?? ''}');
         if (body.trim().isEmpty && title.trim().isEmpty) return false;
 
         var status = await _nativeBridge.getNotificationStatus();
@@ -462,9 +576,12 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
         if (status == 'authorized') {
           return _nativeBridge.showLocalNotification(
+            id: id.isNotEmpty ? id : null,
             title: title,
+            subtitle: subtitle.isNotEmpty ? subtitle : null,
             body: body,
             url: url.isNotEmpty ? url : null,
+            badgeCount: badgeCount,
           );
         }
         return false;
@@ -512,6 +629,74 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
         return false;
       },
     );
+
+    // 6. Native `flutter_webrtc` Voice & Video Call Signaling & Lifecycle Bridge
+    webViewController.addJavaScriptHandler(
+      handlerName: 'DgtWebRtcCall',
+      callback: (args) async {
+        if (args.isEmpty || args.first is! Map || !mounted) {
+          return <String, dynamic>{'ok': false};
+        }
+        final payload = Map<String, dynamic>.from(args.first as Map);
+        await _callController.handleWebViewBridgePayload(payload);
+        return <String, dynamic>{'ok': true};
+      },
+    );
+  }
+
+  /// Executes JSON API requests inside the live authenticated `InAppWebView` so
+  /// `HttpOnly` `laravel_session` cookies, CSRF tokens, and Pusher `X-Socket-ID`
+  /// headers are always synchronized with the active KIUQ web session.
+  Future<Map<String, dynamic>?> _executeAuthenticatedWebJsonRequest(
+    String method,
+    String path,
+    Map<String, dynamic>? body,
+  ) async {
+    final webView = _controller;
+    if (webView == null || !mounted) return null;
+    try {
+      final result = await webView.callAsyncJavaScript(
+        functionBody: '''
+          try {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const socketId = window.__kiuqPusher?.connection?.socket_id || '';
+            const headers = {
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            };
+            if (csrf) headers['X-CSRF-TOKEN'] = csrf;
+            if (socketId) headers['X-Socket-ID'] = socketId;
+            const opts = {
+              method: reqMethod,
+              headers,
+              credentials: 'same-origin',
+            };
+            if (reqMethod !== 'GET' && reqBody) {
+              headers['Content-Type'] = 'application/json';
+              opts.body = reqBody;
+            }
+            const res = await fetch(reqPath, opts);
+            const data = await res.json().catch(() => ({}));
+            if (data && typeof data === 'object') {
+              data.__httpStatus = res.status;
+              return data;
+            }
+            return { __httpStatus: res.status };
+          } catch (e) {
+            return null;
+          }
+        ''',
+        arguments: <String, dynamic>{
+          'reqMethod': method,
+          'reqPath': path,
+          'reqBody': body != null ? jsonEncode(body) : '',
+        },
+      );
+      if (result?.value is Map) {
+        return Map<String, dynamic>.from(result!.value as Map);
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _syncWebSurfaceMetrics(BuildContext context) async {
@@ -1041,6 +1226,12 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
                   ),
                 ),
 
+              // ── Native Apple iOS 26 Liquid Glass Voice & Video Call Overlay
+              LiquidGlassCallOverlay(
+                controller: _callController,
+                palette: palette,
+              ),
+
               // ── Smooth Launch Veil
               Positioned.fill(
                 child: LiquidGlassLaunchVeil(isVisible: showLaunchVeil),
@@ -1079,6 +1270,12 @@ class _DgtWebsiteShellState extends State<DgtWebsiteShell>
 
     return InAppWebView(
       initialUrlRequest: URLRequest(url: WebUri(_initialTargetUrl)),
+      initialUserScripts: UnmodifiableListView<UserScript>(<UserScript>[
+        UserScript(
+          source: WebViewBridgeScripts.earlyNativeWebRtcFlagScript,
+          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+        ),
+      ]),
       initialSettings: InAppWebViewSettings(
         applicationNameForUserAgent: _applicationUserAgentToken,
         javaScriptEnabled: true,

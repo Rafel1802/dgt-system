@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -69,6 +70,8 @@ class SessionStorageService {
   static const String _keyNotificationsEnabled = 'kiuq.pref.notifications_enabled';
   static const String _keyNotificationPromptShown =
       'kiuq.pref.notification_prompt_shown';
+  static const String _keyCachedShellSnapshot =
+      'kiuq.cache.shell_snapshot_v1';
 
   SharedPreferences? _prefs;
   final Set<String> _sessionGrantedMediaOrigins = <String>{};
@@ -137,6 +140,37 @@ class SessionStorageService {
     await prefs.setBool(_keyNotificationPromptShown, true);
   }
 
+  /// Saves a lightweight JSON snapshot of the authenticated shell state in device
+  /// storage (`SharedPreferences`) so cold starts hydrate navigation tabs,
+  /// user profile, and badge counts in 0ms.
+  Future<void> saveShellSnapshot(Map<String, dynamic> rawState) async {
+    try {
+      final prefs = await _instance();
+      await prefs.setString(_keyCachedShellSnapshot, jsonEncode(rawState));
+    } catch (_) {}
+  }
+
+  /// Loads the cached shell snapshot from device storage.
+  Future<Map<String, dynamic>?> loadShellSnapshot() async {
+    try {
+      final prefs = await _instance();
+      final encoded = prefs.getString(_keyCachedShellSnapshot);
+      if (encoded == null || encoded.isEmpty) return null;
+      final decoded = jsonDecode(encoded);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> clearShellSnapshot() async {
+    try {
+      final prefs = await _instance();
+      await prefs.remove(_keyCachedShellSnapshot);
+    } catch (_) {}
+  }
+
   bool hasSessionMediaConsent(String originAndResourceKey) {
     return _sessionGrantedMediaOrigins.contains(originAndResourceKey);
   }
@@ -175,6 +209,7 @@ class SessionStorageService {
   Future<void> performFullSessionReset() async {
     _sessionGrantedMediaOrigins.clear();
     await clearLastRestorableUrl();
+    await clearShellSnapshot();
     await clearWebCachePreservingSession();
     if (!kIsWeb) {
       try {

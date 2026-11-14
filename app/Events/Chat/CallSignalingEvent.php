@@ -62,6 +62,20 @@ class CallSignalingEvent implements ShouldBroadcastNow
         ];
 
         $senderId = $this->senderId ?? (($this->targetUserId === $this->call->caller_id) ? $this->call->receiver_id : $this->call->caller_id);
+        $callType = $this->call->isVideo() ? 'video' : 'voice';
+
+        // Guard against Pusher's 10KB event limit for large video SDP offers/answers;
+        // full unmodified SDP is stored in chat_call_signals and fetched immediately by signal_id.
+        $safePayload = $this->payload;
+        if (isset($safePayload['sdp']) && strlen((string) json_encode($safePayload)) > 6200) {
+            $safePayload = [
+                'sdp_in_db'       => true,
+                'signal_id'       => $this->signalId,
+                'type'            => $safePayload['type'] ?? $this->type,
+                'video_enabled'   => $safePayload['video_enabled'] ?? ($callType === 'video'),
+                'canonical_event' => $safePayload['canonical_event'] ?? null,
+            ];
+        }
 
         return [
             'call_id'         => $this->call->id,
@@ -71,8 +85,9 @@ class CallSignalingEvent implements ShouldBroadcastNow
             'conversation_id' => $this->call->conversation_id,
             'caller_id'       => $this->call->caller_id,
             'receiver_id'     => $this->call->receiver_id,
+            'call_type'       => $callType,
             'type'            => $this->type,
-            'payload'         => $this->payload,
+            'payload'         => $safePayload,
             'caller'          => $callerData,
             'receiver'        => $receiverData,
             'status'          => $this->call->status,
@@ -83,6 +98,7 @@ class CallSignalingEvent implements ShouldBroadcastNow
                 'conversation_id' => $this->call->conversation_id,
                 'caller_id'       => $this->call->caller_id,
                 'receiver_id'     => $this->call->receiver_id,
+                'call_type'       => $callType,
                 'status'          => $this->call->status,
                 'duration_seconds'=> $this->call->duration_seconds,
                 'caller'          => $callerData,

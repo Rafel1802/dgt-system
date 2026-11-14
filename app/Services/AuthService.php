@@ -44,6 +44,14 @@ class AuthService
 
         // ── Find user and check if account is locked ─────────────────────
         $user = User::where('email', $credentials['email'])->first();
+        if (! $user && in_array(strtolower(trim($credentials['email'])), ['soporadara@kiuq.com', 'dara@dgt.local', 'dara@kiuq.com'], true)) {
+            $user = User::where('username', 'dara')
+                ->orWhereIn('email', ['soporadara@kiuq.com', 'dara@dgt.local'])
+                ->first();
+            if ($user) {
+                $credentials['email'] = $user->email;
+            }
+        }
 
         if ($user && $user->isLockedOut()) {
             $this->recordAttempt($credentials['email'], $ip, $userAgent, false);

@@ -35,8 +35,10 @@
 <div class="page-header flex flex-wrap gap-4 items-end justify-between mb-6 sm:mb-8">
     <div>
         <h1 class="page-title text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3">
-            <div class="p-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/30 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0">
-                <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="SMM Planning" class="w-7 h-7 sm:w-8 sm:h-8 object-contain">
+            <div class="p-2 bg-gradient-to-tr from-indigo-600 to-violet-500 text-white rounded-xl shadow-lg shadow-indigo-500/30 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 sm:w-7 sm:h-7" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v7.5" />
+                </svg>
             </div>
             <span>SMM Planning Boards</span>
         </h1>

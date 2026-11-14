@@ -44,13 +44,21 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>KIUQ SYSTEM needs camera access when you capture photos or videos to upload to boards, chat, or profile settings.</string>
+	<string>KIUQ SYSTEM needs camera access for real-time HD video calls and when capturing photos or videos to upload.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>KIUQ SYSTEM needs photo library access when you select images or videos to attach and upload.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>KIUQ SYSTEM needs permission to save downloaded images and attachments to your photo library.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>KIUQ SYSTEM needs microphone access when recording audio or video attachments.</string>
+	<string>KIUQ SYSTEM needs microphone access for real-time voice and video calls, voice notes, and audio input.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>remote-notification</string>
+	</array>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>

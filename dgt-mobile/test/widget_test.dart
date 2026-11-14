@@ -1,9 +1,12 @@
 import 'package:dgt_mobile_app/main.dart';
 import 'package:dgt_mobile_app/src/config/app_config.dart';
 import 'package:dgt_mobile_app/src/models/shell_state.dart';
+import 'package:dgt_mobile_app/src/services/ios_native_bridge.dart';
+import 'package:dgt_mobile_app/src/services/webrtc_call_service.dart';
 import 'package:dgt_mobile_app/src/services/webview_bridge_scripts.dart';
 import 'package:dgt_mobile_app/src/theme/liquid_glass_theme.dart';
 import 'package:dgt_mobile_app/src/widgets/liquid_glass_bottom_nav.dart';
+import 'package:dgt_mobile_app/src/widgets/liquid_glass_call_screen.dart';
 import 'package:dgt_mobile_app/src/widgets/liquid_glass_hub_sheet.dart';
 import 'package:dgt_mobile_app/src/widgets/liquid_glass_overlays.dart';
 import 'package:flutter/cupertino.dart';
@@ -403,6 +406,131 @@ void main() {
       await tester.tap(find.text('Retry'));
       await tester.pump();
       expect(retried, equals(2));
+    });
+  });
+
+  group('Native WebRTC Voice & Video Call Liquid Glass Overlay', () {
+    testWidgets('renders Incoming Video Call screen with Audio Only, Video, and Decline actions', (
+      tester,
+    ) async {
+      final bridge = IosNativeBridge();
+      final callController = WebRtcCallController(
+        nativeBridge: bridge,
+        enableNativeWebRtc: false,
+      );
+      addTearDown(callController.dispose);
+
+      callController.debugPreviewCallState(
+        phase: KiuqCallPhase.incomingRinging,
+        contactName: 'Dara Sok',
+        isVideo: true,
+        isCaller: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: <Widget>[
+                LiquidGlassCallOverlay(
+                  controller: callController,
+                  palette: LiquidGlassPalette.of(KiuqThemeMode.dark),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_native_incoming_call_screen')),
+        findsOneWidget,
+      );
+      expect(find.text('Incoming Video Call'), findsOneWidget);
+      expect(find.text('Dara Sok'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_call_decline_btn')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_call_accept_voice_btn')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_call_accept_video_btn')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('switches smoothly between Active Call screen and Minimized Floating Call Pill', (
+      tester,
+    ) async {
+      final bridge = IosNativeBridge();
+      final callController = WebRtcCallController(
+        nativeBridge: bridge,
+        enableNativeWebRtc: false,
+      );
+      addTearDown(callController.dispose);
+
+      callController.debugPreviewCallState(
+        phase: KiuqCallPhase.connected,
+        contactName: 'Sopora Admin',
+        isVideo: false,
+        isCaller: true,
+        durationSeconds: 125,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: <Widget>[
+                LiquidGlassCallOverlay(
+                  controller: callController,
+                  palette: LiquidGlassPalette.of(KiuqThemeMode.dark),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_native_active_call_screen')),
+        findsOneWidget,
+      );
+      expect(find.text('02:05'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_call_mute_btn')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_call_end_btn')),
+        findsOneWidget,
+      );
+
+      // Minimize to floating Liquid Glass pill
+      await tester.tap(
+        find.byKey(const ValueKey<String>('kiuq_call_minimize_btn')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_native_minimized_call_pill')),
+        findsOneWidget,
+      );
+      expect(find.text('Sopora Admin'), findsOneWidget);
+
+      // Tap floating pill to restore full call screen
+      await tester.tap(find.text('Sopora Admin'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('kiuq_native_active_call_screen')),
+        findsOneWidget,
+      );
     });
   });
 }

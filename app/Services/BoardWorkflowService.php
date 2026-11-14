@@ -17,6 +17,11 @@ class BoardWorkflowService
      */
     public function handleCommentTrigger(Card $card, CardComment $comment)
     {
+        // System comments must never trigger automations
+        if (!empty($comment->is_system)) {
+            return;
+        }
+
         $board = $card->board;
         if (!$board) return;
 
@@ -251,12 +256,6 @@ class BoardWorkflowService
             return null;
         }
 
-        // 1b. Card MUST have an SMM label to be auto-copied to the workflow board
-        if (!$card->hasSmmLabel()) {
-            \Log::info("autoCopyCompletedPlanningCardToWorkflow: Card #{$card->id} ('{$card->title}') ignored because it does not have an SMM label.");
-            return null;
-        }
-
         // 2. Must have at least 1 checklist item, and ALL items must be 100% completed
         $checklists = $card->relationLoaded('checklists') 
             ? $card->checklists 
@@ -280,27 +279,48 @@ class BoardWorkflowService
         }
 
         // 3. Determine target team:
-        // Rule:
-        // - if members from team A -> copy to team A
-        // - if members from team B -> copy to team B
-        // - if have both team A & B -> copy to team A!
-        $assignees = $card->relationLoaded('assignees') ? $card->assignees : $card->assignees()->get();
-        $hasTeamA = false;
-        $hasTeamB = false;
-
-        foreach ($assignees as $member) {
-            $mTeam = $member->getDigitalTeam($planningBoard->workspace_id);
-            if ($mTeam === 'A') $hasTeamA = true;
-            if ($mTeam === 'B') $hasTeamB = true;
+        // Priority 1: Check Assigned By (creator)
+        // - Kim (Head of Team B) -> Team B Workflow Board
+        // - Dara (Head of Team A) -> Team A Workflow Board
+        // - Other creator -> creator's digital team
+        $targetTeam = null;
+        $creator = $card->relationLoaded('creator') ? $card->creator : ($card->created_by ? \App\Models\User::find($card->created_by) : null);
+        if ($creator) {
+            $cUser = strtolower($creator->username ?? '');
+            $cName = strtolower($creator->name ?? '');
+            if (str_contains($cUser, 'kim') || str_contains($cName, 'kim') || $creator->id === 5 || $creator->id === 13) {
+                $targetTeam = 'B';
+            } elseif (str_contains($cUser, 'dara') || str_contains($cName, 'dara') || $creator->id === 4 || $creator->id === 12) {
+                $targetTeam = 'A';
+            } else {
+                $cTeam = $creator->getDigitalTeam($planningBoard->workspace_id);
+                if ($cTeam === 'A' || $cTeam === 'B') {
+                    $targetTeam = $cTeam;
+                }
+            }
         }
 
-        if ($hasTeamA && $hasTeamB) {
-            $targetTeam = 'A';
-        } elseif ($hasTeamA) {
-            $targetTeam = 'A';
-        } elseif ($hasTeamB) {
-            $targetTeam = 'B';
-        } else {
+        // Priority 2: If target team not resolved by creator, check assignees
+        if (!$targetTeam) {
+            $assignees = $card->relationLoaded('assignees') ? $card->assignees : $card->assignees()->get();
+            $hasTeamA = false;
+            $hasTeamB = false;
+
+            foreach ($assignees as $member) {
+                $mTeam = $member->getDigitalTeam($planningBoard->workspace_id);
+                if ($mTeam === 'A') $hasTeamA = true;
+                if ($mTeam === 'B') $hasTeamB = true;
+            }
+
+            if ($hasTeamA && !$hasTeamB) {
+                $targetTeam = 'A';
+            } elseif ($hasTeamB && !$hasTeamA) {
+                $targetTeam = 'B';
+            }
+        }
+
+        // Priority 3: Fallback to detectTeam() or default to 'A'
+        if (!$targetTeam) {
             $detected = strtoupper(trim((string)($card->team ?: $card->detectTeam())));
             if ($detected === 'B') {
                 $targetTeam = 'B';
@@ -461,8 +481,26 @@ class BoardWorkflowService
             });
         }
 
-        // Determine card's team ('A' or 'B')
-        $cardTeam = $card->team ?: $card->detectTeam();
+        // Determine card's team ('A' or 'B') - Assigned By (creator) has highest priority
+        $cardTeam = null;
+        $creator = $card->relationLoaded('creator') ? $card->creator : ($card->created_by ? \App\Models\User::find($card->created_by) : null);
+        if ($creator) {
+            $cUser = strtolower($creator->username ?? '');
+            $cName = strtolower($creator->name ?? '');
+            if (str_contains($cUser, 'kim') || str_contains($cName, 'kim') || $creator->id === 5 || $creator->id === 13) {
+                $cardTeam = 'B';
+            } elseif (str_contains($cUser, 'dara') || str_contains($cName, 'dara') || $creator->id === 4 || $creator->id === 12) {
+                $cardTeam = 'A';
+            } else {
+                $cTeam = $creator->getDigitalTeam($planningBoard->workspace_id);
+                if ($cTeam === 'A' || $cTeam === 'B') {
+                    $cardTeam = $cTeam;
+                }
+            }
+        }
+        if (!$cardTeam) {
+            $cardTeam = $card->team ?: $card->detectTeam();
+        }
         if (!$cardTeam) {
             $actor = auth()->user();
             if ($actor) {
@@ -495,14 +533,19 @@ class BoardWorkflowService
             ]);
         }
 
-        // Check if card is already synced to avoid duplicate copies on this workflow board
-        if ($card->sync_group_id) {
-            $existingTwin = Card::where('sync_group_id', $card->sync_group_id)
-                ->where('board_id', $workflowBoard->id)
-                ->first();
-            if ($existingTwin) {
-                return; // Already copied
-            }
+        // Check if card is already copied/synced to avoid duplicate copies anywhere on this workflow board
+        $existingTwin = Card::where('board_id', $workflowBoard->id)
+            ->where(function ($q) use ($card) {
+                if ($card->sync_group_id) {
+                    $q->where('sync_group_id', $card->sync_group_id)
+                      ->orWhere('title', $card->title);
+                } else {
+                    $q->where('title', $card->title);
+                }
+            })
+            ->first();
+        if ($existingTwin) {
+            return; // Already copied
         }
 
         // Replicate and sync (copies assignees, labels, checklists, sync_group_id)
@@ -548,7 +591,27 @@ class BoardWorkflowService
             return null;
         }
 
-        $cardTeam = $team ?: ($card->team ?: $card->detectTeam());
+        $cardTeam = $team;
+        if (!$cardTeam) {
+            $creator = $card->relationLoaded('creator') ? $card->creator : ($card->created_by ? \App\Models\User::find($card->created_by) : null);
+            if ($creator) {
+                $cUser = strtolower($creator->username ?? '');
+                $cName = strtolower($creator->name ?? '');
+                if (str_contains($cUser, 'kim') || str_contains($cName, 'kim') || $creator->id === 5 || $creator->id === 13) {
+                    $cardTeam = 'B';
+                } elseif (str_contains($cUser, 'dara') || str_contains($cName, 'dara') || $creator->id === 4 || $creator->id === 12) {
+                    $cardTeam = 'A';
+                } else {
+                    $cTeam = $creator->getDigitalTeam($planningBoard->workspace_id);
+                    if ($cTeam === 'A' || $cTeam === 'B') {
+                        $cardTeam = $cTeam;
+                    }
+                }
+            }
+        }
+        if (!$cardTeam) {
+            $cardTeam = $card->team ?: $card->detectTeam();
+        }
         if (!$cardTeam) {
             $actor = auth()->user();
             if ($actor) {

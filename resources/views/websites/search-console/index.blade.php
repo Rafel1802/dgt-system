@@ -28,65 +28,7 @@
         </div>
     @endif
 
-    {{-- ── Connection Notice Banner ──────────────────────────────────────── --}}
-    @if(!$isConfigured)
-        <div class="mb-6 p-5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div class="flex items-start gap-3.5">
-                <div class="p-2.5 bg-amber-100 dark:bg-amber-900/50 rounded-xl text-amber-700 dark:text-amber-300">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-amber-900 dark:text-amber-200">Google Search Console OAuth Not Configured</h3>
-                    <p class="text-sm text-amber-700 dark:text-amber-400 mt-0.5">Configure your Google Cloud OAuth Client ID and Secret in your deployment environment to activate live synchronization.</p>
-                </div>
-            </div>
-            <button type="button" @click="showSetupGuide = true" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-amber-900 dark:text-amber-100 bg-amber-200/80 hover:bg-amber-300 dark:bg-amber-800 dark:hover:bg-amber-700 rounded-xl transition-colors shrink-0">
-                <span>View Setup Instructions</span>
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
-            </button>
-        </div>
-    @elseif(!$account)
-        <div class="mb-6 p-5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div class="flex items-start gap-3.5">
-                <div class="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-xl text-blue-700 dark:text-blue-300">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-blue-900 dark:text-blue-200">Google Account Not Connected</h3>
-                    <p class="text-sm text-blue-700 dark:text-blue-400 mt-0.5">Authorize your Google account to grant DGT System read-only access to your Search Console properties.</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-3">
-                <button type="button" @click="showSetupGuide = true" class="px-3.5 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors">
-                    Setup Guide
-                </button>
-                <a href="{{ route('google.search-console.connect') }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-colors">
-                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.345-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg>
-                    <span>Connect Google Account</span>
-                </a>
-            </div>
-        </div>
-    @elseif($mappedSites->isEmpty())
-        <div class="mb-6 p-5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div class="flex items-start gap-3.5">
-                <div class="p-2.5 bg-amber-100 dark:bg-amber-900/50 rounded-xl text-amber-700 dark:text-amber-300">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 6.75h.008v.008H12v-.008Z" /></svg>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-amber-900 dark:text-amber-200">Google Account Connected, But No Websites Mapped</h3>
-                    <p class="text-sm text-amber-700 dark:text-amber-400 mt-0.5">Map your DGT website records to Search Console properties to begin synchronizing keywords and analytics.</p>
-                </div>
-            </div>
-            <button type="button" @click="openManageModal($event)" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-amber-900 dark:text-amber-100 bg-amber-200/80 hover:bg-amber-300 dark:bg-amber-800 dark:hover:bg-amber-700 rounded-xl transition-colors shrink-0">
-                <span>Map Properties Now</span>
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
-            </button>
-        </div>
-    @endif
+
 
     {{-- ── Top Navigation & Header ───────────────────────────────────────── --}}
     <div class="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -2563,7 +2505,7 @@
                                 <span x-text="sitemapFeedback.text"></span>
                             </div>
                             <template x-if="sitemapFeedback.requiresReconnect">
-                                <a href="{{ route('google.search-console.connect') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shrink-0 shadow-xs transition-colors">
+                                <a href="{{ route('google.search-console.connect') }}" data-turbo="false" data-turbo-prefetch="false" rel="nofollow" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shrink-0 shadow-xs transition-colors">
                                     <span>Reconnect Google Account ↗</span>
                                 </a>
                             </template>
@@ -3036,7 +2978,7 @@
             </div>
 
             <div class="flex items-center gap-2">
-                <a href="{{ route('google.search-console.connect') }}" class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">
+                <a href="{{ route('google.search-console.connect') }}" data-turbo="false" data-turbo-prefetch="false" rel="nofollow" class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm">
                     {{ $account ? 'Switch / Reconnect' : 'Connect Account' }}
                 </a>
                 @if($account)
@@ -3273,7 +3215,7 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                        <a href="{{ route('google.search-console.connect') }}" class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">
+                        <a href="{{ route('google.search-console.connect') }}" data-turbo="false" data-turbo-prefetch="false" rel="nofollow" class="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">
                             {{ $account ? 'Reconnect / Switch' : 'Connect Google' }}
                         </a>
                         @if($account)
@@ -4089,7 +4031,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 
     {{-- ── MODAL: 1-Click Browser Sync & Auto-Scan Robot ────────────────────── --}}
     <div x-show="showBookmarkletModal" @click.self="showBookmarkletModal = false" class="fixed inset-0 z-[99999] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" x-cloak>
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-5">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-5 max-h-[92vh] overflow-y-auto">
             <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
                 <div class="flex items-center gap-2.5">
                     <div class="p-2 bg-purple-50 dark:bg-purple-950/50 rounded-xl text-purple-600 dark:text-purple-400">
@@ -4097,7 +4039,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                     </div>
                     <div>
                         <h3 class="text-sm font-black text-slate-900 dark:text-slate-100">Google Search Console Auto-Scan Robot</h3>
-                        <p class="text-[11px] text-slate-500">Auto-detect and scan all 56 websites or sync current site directly to DGT</p>
+                        <p class="text-[11px] text-slate-500">Auto-detect and scan all <span x-text="allWebsites.length || 56"></span> websites (Indexed &amp; Not Indexed pages)</p>
                     </div>
                 </div>
                 <button type="button" @click="showBookmarkletModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -4109,7 +4051,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
             <div class="flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-xl gap-1">
                 <button type="button" @click="syncModalTab = 'robot'" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5" :class="syncModalTab === 'robot' ? 'bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-xs' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'">
                     <span>🤖</span>
-                    <span>Auto-Sync Robot (All 56 Sites)</span>
+                    <span>Auto-Sync Robot (All <span x-text="allWebsites.length || 56"></span> Sites)</span>
                 </button>
                 <button type="button" @click="syncModalTab = 'single'" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5" :class="syncModalTab === 'single' ? 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-xs' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'">
                     <span>⚡</span>
@@ -4117,14 +4059,69 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                 </button>
             </div>
 
-            {{-- TAB 1: AUTO-SYNC ROBOT (ALL 56 SITES) --}}
+            {{-- TAB 1: AUTO-SYNC ROBOT (ALL SITES) --}}
             <div x-show="syncModalTab === 'robot'" class="space-y-4 text-xs">
+                {{-- Direct 1-Click In-App Auto-Scanner Card --}}
+                <div class="p-4 bg-gradient-to-br from-emerald-500/10 via-purple-500/5 to-indigo-500/10 border border-emerald-300/80 dark:border-emerald-700/70 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <div>
+                            <div class="font-black text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>🚀 Instant 1-Click Direct Auto-Scan (All <span x-text="allWebsites.length || 56"></span> Websites)</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                                Scan all websites directly inside DGT right now — detects all <b>Indexed</b> &amp; <b>Not Indexed</b> pages, sitemaps, and exclusion reasons automatically.
+                            </p>
+                        </div>
+                        <div class="shrink-0">
+                            <template x-if="!directRobotScanning">
+                                <button type="button" @click="startDirectMultiSiteScan()" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-xl shadow-md shadow-emerald-500/20 cursor-pointer transition-all">
+                                    <span>🚀 Scan All Websites Now</span>
+                                </button>
+                            </template>
+                            <template x-if="directRobotScanning">
+                                <button type="button" @click="stopDirectMultiSiteScan()" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl shadow-xs cursor-pointer transition-all">
+                                    <span>⛔ Stop Scan</span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    {{-- Live Direct Scan HUD --}}
+                    <template x-if="directRobotScanning || directRobotLogs.length > 0">
+                        <div class="p-3.5 bg-slate-900 text-slate-100 rounded-xl border border-slate-700 space-y-2.5">
+                            <div class="flex items-center justify-between text-[11px]">
+                                <span class="font-bold text-purple-300 truncate max-w-[260px]" x-text="directRobotCurrentDomain || 'Ready'"></span>
+                                <span class="font-mono font-black text-emerald-400" x-text="directRobotProgress + ' / ' + directRobotTotal + ' (' + (directRobotTotal > 0 ? Math.round((directRobotProgress / directRobotTotal) * 100) : 0) + '%)'"></span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+                                <div class="bg-gradient-to-r from-purple-500 via-blue-500 to-emerald-500 h-full transition-all duration-300" :style="'width: ' + (directRobotTotal > 0 ? Math.round((directRobotProgress / directRobotTotal) * 100) : 0) + '%'"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 pt-0.5">
+                                <div class="px-2.5 py-1.5 bg-emerald-950/60 border border-emerald-800/70 rounded-lg flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-emerald-300 uppercase">✓ Total Indexed Detected</span>
+                                    <span class="font-mono font-black text-xs text-emerald-400" x-text="directRobotTotalIndexed.toLocaleString()"></span>
+                                </div>
+                                <div class="px-2.5 py-1.5 bg-amber-950/60 border border-amber-800/70 rounded-lg flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-amber-300 uppercase">⚠️ Total Not Indexed</span>
+                                    <span class="font-mono font-black text-xs text-amber-400" x-text="directRobotTotalNotIndexed.toLocaleString()"></span>
+                                </div>
+                            </div>
+                            <div id="direct-robot-log-box" class="max-h-36 overflow-y-auto bg-slate-950 rounded-lg p-2.5 font-mono text-[10.5px] leading-relaxed space-y-1 border border-slate-800">
+                                <template x-for="(line, idx) in directRobotLogs" :key="idx">
+                                    <div :class="line.color || 'text-slate-300'" x-text="line.text"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
                 <div class="p-3.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-900/60 rounded-2xl text-purple-900 dark:text-purple-200 space-y-1">
                     <div class="font-bold flex items-center gap-1.5 text-xs text-purple-950 dark:text-purple-100">
-                        <span>🤖 Fully Automated Multi-Site Sync:</span>
+                        <span>🤖 Browser Bookmarklet Multi-Site Sync (Inside Google Search Console):</span>
                     </div>
                     <p class="text-[11px] leading-relaxed text-purple-800/90 dark:text-purple-300">
-                        The Robot automatically loops through all <b>56 websites</b> in Google Search Console, reads their latest <b>Indexed</b> and <b>Not Indexed</b> pages, and updates your DGT dashboard in real-time. No manual clicks required!
+                        You can also run the Browser Robot directly inside your open <b>Google Search Console</b> tab to scrape live Page Indexing scorecards &amp; exclusion reason tables across all <b><span x-text="allWebsites.length || 56"></span> websites</b>.
                     </p>
                 </div>
 
@@ -4135,9 +4132,9 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                         <span>Drag this button to your Bookmarks Bar:</span>
                     </div>
                     <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-purple-300 dark:border-purple-800/60 flex items-center justify-center">
-                        <a :href="robotBookmarkletHref" onclick="alert('📌 Please DRAG this button to your Chrome Bookmarks Bar (press Ctrl+Shift+B or Cmd+Shift+B to show your Bookmarks Bar)!\n\nOr click \'Copy Robot Code\' below to paste directly into DevTools Console.'); return false;" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/20 cursor-grab active:cursor-grabbing transform hover:scale-105 transition-all">
+                        <a :href="robotBookmarkletHref" onclick="alert('📌 Please DRAG this button to your Chrome Bookmarks Bar (press Ctrl+Shift+B or Cmd+Shift+B to show your Bookmarks Bar)!\n\nOr click \'🚀 Scan All Websites Now\' above to scan directly inside DGT!'); return false;" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/20 cursor-grab active:cursor-grabbing transform hover:scale-105 transition-all">
                             <span class="text-base">🤖</span>
-                            <span>⚡ Drag Me: Run DGT Robot (All 56 Sites)</span>
+                            <span>⚡ Drag Me: Run DGT Robot (All <span x-text="allWebsites.length || 56"></span> Sites)</span>
                         </a>
                     </div>
                 </div>
@@ -4146,12 +4143,12 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                 <div class="space-y-2">
                     <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <span class="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black">2</span>
-                        <span>How to run:</span>
+                        <span>How to run Browser Robot:</span>
                     </div>
                     <ol class="list-decimal list-inside space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 pl-1 leading-relaxed">
                         <li>In your browser, open Google Search Console (<a href="https://search.google.com/search-console" target="_blank" class="text-purple-600 dark:text-purple-400 font-bold hover:underline inline-flex items-center gap-0.5">search.google.com/search-console <svg class="w-3 h-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></a>).</li>
                         <li>Click <b>🤖 Run DGT Robot</b> in your Bookmarks Bar (or paste into Console).</li>
-                        <li>A floating HUD will show live scanning progress (1/56 ... 56/56) and update all sites into DGT automatically!</li>
+                        <li>A floating HUD will show live scanning progress and update all sites into DGT automatically!</li>
                     </ol>
                     <div class="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-lg p-2 flex items-center gap-1.5">
                         <span>💡</span>
@@ -4195,7 +4192,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                     <ol class="list-decimal list-inside space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 pl-1 leading-relaxed">
                         <li>In Google Search Console, open any website under <b>Indexing → Pages</b>.</li>
                         <li>Click <b>⚡ Sync Current Site</b> in your Bookmarks Bar (or paste console snippet).</li>
-                        <li>Instantly updates that website in DGT in 1 second!</li>
+                        <li>Instantly updates that website's Indexed &amp; Not Indexed counts and reasons in DGT in 1 second!</li>
                     </ol>
                 </div>
 
@@ -4306,8 +4303,19 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 <script type="text/plain" id="dgt-robot-code">
 (async function() {
     try {
+        const PRIMARY_API_BASE = '{{ rtrim(url('/'), '/') }}';
+        const FALLBACK_API_BASE = 'https://lightcyan-weasel-711536.hostingersite.com';
+
+        async function apiFetch(path, options) {
+            try {
+                const r = await fetch(PRIMARY_API_BASE + path, options);
+                if (r.ok) return r;
+            } catch (e) {}
+            return await fetch(FALLBACK_API_BASE + path, options);
+        }
+
         if (!window.location.hostname.includes('search.google.com')) {
-            if (confirm('Google Search Console Robot must run on Google Search Console.\n\nClick OK to open Google Search Console (search.google.com) now!\nOnce loaded, click this bookmark again.')) {
+            if (confirm('Google Search Console Robot runs on Google Search Console.\n\nClick OK to open Google Search Console (search.google.com) now!\nOnce loaded, click this bookmark again.')) {
                 window.location.href = 'https://search.google.com/search-console';
             }
             return;
@@ -4316,12 +4324,9 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         const oldHud = document.getElementById('dgt-robot-hud');
         if (oldHud) oldHud.remove();
 
-        const oldPreview = document.getElementById('dgt-robot-preview');
-        if (oldPreview) oldPreview.remove();
-
         const hud = document.createElement('div');
         hud.id = 'dgt-robot-hud';
-        hud.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999999;width:440px;background:#0f172a;color:#f8fafc;border-radius:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6),0 0 0 1px #334155;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:12px;padding:18px;line-height:1.4;box-sizing:border-box;';
+        hud.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999999;width:450px;background:#0f172a;color:#f8fafc;border-radius:20px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.6),0 0 0 1px #334155;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:12px;padding:18px;line-height:1.4;box-sizing:border-box;';
 
         function mkEl(tag, styles, text) {
             const node = document.createElement(tag);
@@ -4331,13 +4336,12 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         }
 
         const header = mkEl('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;');
-
         const headerLeft = mkEl('div', 'display:flex;align-items:center;gap:10px;');
         const iconBox = mkEl('div', 'width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(139,92,246,0.3);flex-shrink:0;', '🤖');
 
         const titleGroup = mkEl('div');
         const titleText = mkEl('div', 'font-weight:800;font-size:13px;color:#f8fafc;letter-spacing:-0.01em;', 'DGT Auto-Scan Robot');
-        const subText = mkEl('div', 'font-size:11px;color:#94a3b8;', 'Scanning all 56 websites...');
+        const subText = mkEl('div', 'font-size:11px;color:#94a3b8;', 'Scanning all websites (Indexed & Not Indexed)...');
         subText.id = 'dgt-robot-sub';
         titleGroup.appendChild(titleText);
         titleGroup.appendChild(subText);
@@ -4354,7 +4358,6 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 
         headerRight.appendChild(stopBtn);
         headerRight.appendChild(closeBtn);
-
         header.appendChild(headerLeft);
         header.appendChild(headerRight);
 
@@ -4366,19 +4369,18 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         const infoRow = mkEl('div', 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;');
         const currentDomain = mkEl('span', 'color:#e2e8f0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;', 'Initializing connection...');
         currentDomain.id = 'dgt-robot-current';
-        const counter = mkEl('span', 'color:#a855f7;font-weight:800;font-family:monospace;', '0 / 56');
+        const counter = mkEl('span', 'color:#a855f7;font-weight:800;font-family:monospace;', '0 / 0');
         counter.id = 'dgt-robot-counter';
         infoRow.appendChild(currentDomain);
         infoRow.appendChild(counter);
 
-        const logBox = mkEl('div', 'height:140px;overflow-y:auto;background:#020617;border-radius:12px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;line-height:1.6;color:#cbd5e1;border:1px solid #1e293b;');
+        const logBox = mkEl('div', 'height:150px;overflow-y:auto;background:#020617;border-radius:12px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;line-height:1.6;color:#cbd5e1;border:1px solid #1e293b;');
         logBox.id = 'dgt-robot-log';
 
         hud.appendChild(header);
         hud.appendChild(barTrack);
         hud.appendChild(infoRow);
         hud.appendChild(logBox);
-
         document.body.appendChild(hud);
 
         let isStopped = false;
@@ -4415,7 +4417,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         }
 
         log('🚀 Connecting to DGT database...', '#a855f7');
-        const listResp = await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/properties-list');
+        const listResp = await apiFetch('/api/gsc/properties-list');
         const listData = await listResp.json();
 
         if (!listData.success || !Array.isArray(listData.sites) || listData.sites.length === 0) {
@@ -4429,44 +4431,48 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         log('✓ Loaded ' + sites.length + ' websites! Starting auto-scan loop...', '#10b981');
 
         function parseNum(raw) {
-            if (!raw && raw !== 0) return null;
+            if (raw === null || raw === undefined || raw === '') return null;
             raw = String(raw).replace(/[\s\u00a0,]/g, '').trim();
-            if (/k$/i.test(raw)) return Math.round(parseFloat(raw) * 1000);
-            if (/m$/i.test(raw)) return Math.round(parseFloat(raw) * 1000000);
+            if (/^[\d.]+k$/i.test(raw)) return Math.round(parseFloat(raw) * 1000);
+            if (/^[\d.]+m$/i.test(raw)) return Math.round(parseFloat(raw) * 1000000);
             const n = parseInt(raw, 10);
             return isNaN(n) ? null : n;
         }
 
         function parseGscDoc(doc, expectedDomain) {
             if (!doc || !doc.body) return null;
-            const docUrl = (doc.location ? doc.location.href : '') || '';
-            if (expectedDomain && docUrl && !docUrl.includes(encodeURIComponent(expectedDomain)) && !docUrl.includes(expectedDomain)) {
-                return null;
-            }
+            const text = (doc.body.innerText || '').trim();
+            if (!text || text.length < 40) return null;
 
-            const text = doc.body.innerText || '';
-            if (!text || text.length < 50) return null;
+            if (/You don't have access to this property|Select property to continue/i.test(text)) {
+                return { noAccess: true };
+            }
+            if (/Processing data, please check again in a day or so/i.test(text)) {
+                return { indexed: 0, notIndexed: 0, reasons: 0, reasonsList: [], lastUpdate: '' };
+            }
 
             let notIndexed = null;
             let indexed = null;
             let reasons = 0;
+            let reasonsList = [];
             let lastUpdate = '';
 
             const notIdxMatch = text.match(/(?:^|[^\w])Not indexed[\s\r\n:]+([\d,.]+[KM]?)/i)
-                             || text.match(/Not indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);
+                             || text.match(/Not indexed\s*[\r\n]+\s*([\d,.]+[KM]?)\s*(?:pages)?/i);
             if (notIdxMatch) notIndexed = parseNum(notIdxMatch[1]);
 
-            const idxMatch = text.match(/(?<!not\s)Indexed[\s\r\n:]+([\d,.]+[KM]?)/i)
-                          || text.match(/(?<!not\s)Indexed\s*[\r\n]+\s*([\d,.]+[KM]?)/i);
+            const idxMatch = text.match(/(?<!not\s)(?<!Not\s)Indexed[\s\r\n:]+([\d,.]+[KM]?)/i)
+                          || text.match(/(?<!not\s)(?<!Not\s)Indexed\s*[\r\n]+\s*([\d,.]+[KM]?)\s*(?:pages)?/i);
             if (idxMatch) indexed = parseNum(idxMatch[1]);
 
             if (notIndexed === null || indexed === null) {
                 try {
-                    const cards = doc.querySelectorAll('[aria-label], [role="tab"], [role="button"], div, button');
+                    const cards = doc.querySelectorAll('[aria-label], [role="tab"], [role="button"], [role="region"], div, span');
                     for (let el of cards) {
                         const aria = el.getAttribute('aria-label') || '';
                         const t = (el.innerText || el.textContent || '').trim();
-                        const combined = aria + ' ' + t;
+                        if (t.length > 250 && !aria) continue;
+                        const combined = (aria + ' ' + t).trim();
 
                         if (notIndexed === null) {
                             const m1 = combined.match(/Not indexed[\s\r\n:]+([\d,.]+[KM]?)/i);
@@ -4481,14 +4487,43 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                 } catch(e) {}
             }
 
+            // If one card is present and page finished rendering ("Why pages aren't indexed" or "View data about indexed pages"), default missing one to 0
+            if (indexed !== null && notIndexed === null && /View data about indexed pages|Page indexing/i.test(text)) {
+                notIndexed = 0;
+            }
+            if (notIndexed !== null && indexed === null && /Why pages aren't indexed|Page indexing/i.test(text)) {
+                indexed = 0;
+            }
+
+            // Extract real exclusion reasons from "Why pages aren't indexed" table rows
+            try {
+                const rows = doc.querySelectorAll('table tr, [role="row"]');
+                const knownReasonKeywords = /canonical|crawled|discovered|redirect|404|noindex|robots\.txt|duplicate|blocked|error|anomaly/i;
+                for (let row of rows) {
+                    const cells = row.querySelectorAll('td, [role="gridcell"], [role="cell"]');
+                    if (cells.length >= 2) {
+                        const reasonText = (cells[0].innerText || cells[0].textContent || '').trim().split('\n')[0].trim();
+                        const lastCellText = (cells[cells.length - 1].innerText || cells[cells.length - 1].textContent || '').trim();
+                        const countVal = parseNum(lastCellText);
+                        if (reasonText && knownReasonKeywords.test(reasonText) && countVal !== null && countVal >= 0) {
+                            reasonsList.push({ reason: reasonText, count: countVal });
+                        }
+                    }
+                }
+            } catch(e) {}
+
             const rMatch = text.match(/(\d+)\s+reasons/i) || text.match(/Why pages aren't indexed\s*\(?(\d+)?\)?/i);
-            if (rMatch && rMatch[1]) reasons = parseInt(rMatch[1], 10);
+            if (rMatch && rMatch[1]) {
+                reasons = parseInt(rMatch[1], 10);
+            } else if (reasonsList.length > 0) {
+                reasons = reasonsList.length;
+            }
 
             const dMatch = text.match(/Last update:\s*([\d/.-]+)/i) || text.match(/Updated:\s*([\d/.-]+)/i);
             if (dMatch && dMatch[1]) lastUpdate = dMatch[1];
 
             if (indexed !== null && notIndexed !== null) {
-                return { indexed: indexed, notIndexed: notIndexed, reasons: reasons, lastUpdate: lastUpdate };
+                return { indexed: indexed, notIndexed: notIndexed, reasons: reasons, reasonsList: reasonsList, lastUpdate: lastUpdate };
             }
             return null;
         }
@@ -4505,41 +4540,64 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
             currentDomain.textContent = 'Scanning: ' + site.clean_domain;
             log('[' + (i + 1) + '/' + sites.length + '] Scanning ' + site.clean_domain + '...', '#38bdf8');
 
-            if (!worker || worker.closed) {
-                worker = window.open(site.gsc_url, 'dgt_robot_worker', 'width=1100,height=800,left=100,top=100');
-                if (!worker || worker.closed) {
-                    log('❌ Pop-up blocked! Allow pop-ups for search.google.com in URL bar.', '#ef4444');
-                    alert('⚠️ Pop-up was blocked by browser!\n\nPlease click the pop-up icon in your URL bar, select "Always allow pop-ups from search.google.com", and click Run DGT Robot again.');
-                    cleanup();
-                    return;
-                }
-            } else {
-                try {
-                    worker.location.href = site.gsc_url;
-                } catch(e) {
-                    worker = window.open(site.gsc_url, 'dgt_robot_worker', 'width=1100,height=800,left=100,top=100');
-                }
-            }
+            const candidateUrls = (Array.isArray(site.fallback_gsc_urls) && site.fallback_gsc_urls.length > 0)
+                ? site.fallback_gsc_urls
+                : [site.gsc_url];
 
             let found = null;
-            let retries = 0;
-            await new Promise(function(r) { setTimeout(r, 1500); });
 
-            while (!found && retries < 24 && !isStopped) {
-                retries++;
-                try {
-                    if (worker && !worker.closed && worker.document) {
-                        found = parseGscDoc(worker.document, site.clean_domain);
+            for (let uIdx = 0; uIdx < candidateUrls.length; uIdx++) {
+                if (isStopped) break;
+                const targetGscUrl = candidateUrls[uIdx];
+
+                if (!worker || worker.closed) {
+                    worker = window.open(targetGscUrl, 'dgt_robot_worker', 'width=1100,height=800,left=100,top=100');
+                    if (!worker || worker.closed) {
+                        log('❌ Pop-up blocked! Allow pop-ups for search.google.com in URL bar.', '#ef4444');
+                        alert('⚠️ Pop-up was blocked by browser!\n\nPlease click the pop-up icon in your URL bar, select "Always allow pop-ups from search.google.com", and click Run DGT Robot again.');
+                        cleanup();
+                        return;
                     }
-                } catch(e) {}
-                if (!found) {
-                    await new Promise(function(r) { setTimeout(r, 500); });
+                } else {
+                    try {
+                        worker.location.href = targetGscUrl;
+                    } catch(e) {
+                        worker = window.open(targetGscUrl, 'dgt_robot_worker', 'width=1100,height=800,left=100,top=100');
+                    }
+                }
+
+                let retries = 0;
+                let noAccessDetected = false;
+                await new Promise(function(r) { setTimeout(r, 1400); });
+
+                while (!found && retries < 22 && !isStopped) {
+                    retries++;
+                    try {
+                        if (worker && !worker.closed && worker.document) {
+                            const res = parseGscDoc(worker.document, site.clean_domain);
+                            if (res && res.noAccess) {
+                                noAccessDetected = true;
+                                break;
+                            }
+                            if (res) {
+                                found = res;
+                                break;
+                            }
+                        }
+                    } catch(e) {}
+                    if (!found) {
+                        await new Promise(function(r) { setTimeout(r, 450); });
+                    }
+                }
+
+                if (found || !noAccessDetected) {
+                    break;
                 }
             }
 
-            if (found) {
+            if (found && !found.noAccess) {
                 try {
-                    const syncResp = await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data', {
+                    const syncResp = await apiFetch('/api/gsc/sync-browser-data', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -4547,6 +4605,7 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                             indexed: found.indexed,
                             not_indexed: found.notIndexed,
                             reasons_count: found.reasons,
+                            reasons: found.reasonsList,
                             last_updated: found.lastUpdate
                         })
                     });
@@ -4561,10 +4620,10 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
                     log('⚠️ ' + site.clean_domain + ': Sync failed (' + e.message + ')', '#fbbf24');
                 }
             } else {
-                log('⏱️ ' + site.clean_domain + ': Skipped (page did not load within 13s)', '#f97316');
+                log('⏱️ ' + site.clean_domain + ': Skipped (property not accessible or timed out)', '#f97316');
             }
 
-            await new Promise(function(r) { setTimeout(r, 400); });
+            await new Promise(function(r) { setTimeout(r, 350); });
         }
 
         try { if (worker && !worker.closed) worker.close(); } catch(e){}
@@ -4583,8 +4642,19 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
 <script type="text/plain" id="dgt-bookmarklet-code">
 (async function(){
     try {
+        const PRIMARY_API_BASE = '{{ rtrim(url('/'), '/') }}';
+        const FALLBACK_API_BASE = 'https://lightcyan-weasel-711536.hostingersite.com';
+
+        async function apiFetch(path, options) {
+            try {
+                const r = await fetch(PRIMARY_API_BASE + path, options);
+                if (r.ok) return r;
+            } catch (e) {}
+            return await fetch(FALLBACK_API_BASE + path, options);
+        }
+
         if (!window.location.hostname.includes('search.google.com')) {
-            if (confirm('⚠️ Single Site Sync must run on Google Search Console.\n\nClick OK to open Google Search Console now! Once loaded on your website\'s indexing page, click this bookmark again.')) {
+            if (confirm('⚠️ Single Site Sync runs on Google Search Console.\n\nClick OK to open Google Search Console now! Once loaded on your website\'s indexing page, click this bookmark again.')) {
                 window.location.href = 'https://search.google.com/search-console';
             }
             return;
@@ -4621,8 +4691,8 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         function parseNum(raw) {
             if (!raw && raw !== 0) return 0;
             raw = String(raw).replace(/[\s\u00a0,]/g, '').trim();
-            if (/k$/i.test(raw)) return Math.round(parseFloat(raw) * 1000);
-            if (/m$/i.test(raw)) return Math.round(parseFloat(raw) * 1000000);
+            if (/^[\d.]+k$/i.test(raw)) return Math.round(parseFloat(raw) * 1000);
+            if (/^[\d.]+m$/i.test(raw)) return Math.round(parseFloat(raw) * 1000000);
             const n = parseInt(raw, 10);
             return isNaN(n) ? 0 : n;
         }
@@ -4661,7 +4731,24 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
         notIndexed = notIndexed !== null ? notIndexed : 0;
         indexed = indexed !== null ? indexed : 0;
 
-        let reasons = 0;
+        let reasonsList = [];
+        try {
+            const rows = document.querySelectorAll('table tr, [role="row"]');
+            const knownReasonKeywords = /canonical|crawled|discovered|redirect|404|noindex|robots\.txt|duplicate|blocked|error|anomaly/i;
+            for (let row of rows) {
+                const cells = row.querySelectorAll('td, [role="gridcell"], [role="cell"]');
+                if (cells.length >= 2) {
+                    const reasonText = (cells[0].innerText || cells[0].textContent || '').trim().split('\n')[0].trim();
+                    const lastCellText = (cells[cells.length - 1].innerText || cells[cells.length - 1].textContent || '').trim();
+                    const countVal = parseNum(lastCellText);
+                    if (reasonText && knownReasonKeywords.test(reasonText) && countVal >= 0) {
+                        reasonsList.push({ reason: reasonText, count: countVal });
+                    }
+                }
+            }
+        } catch(e) {}
+
+        let reasons = reasonsList.length;
         const rMatch = text.match(/(\d+)\s+reasons/i) || text.match(/Why pages aren't indexed\s*\(?(\d+)?\)?/i);
         if (rMatch && rMatch[1]) reasons = parseInt(rMatch[1], 10);
 
@@ -4676,10 +4763,11 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI={{ route('google.search-console.callback') }}
             indexed: indexed,
             not_indexed: notIndexed,
             reasons_count: reasons,
+            reasons: reasonsList,
             last_updated: updatedDate
         };
 
-        const resp = await fetch('https://lightcyan-weasel-711536.hostingersite.com/api/gsc/sync-browser-data', {
+        const resp = await apiFetch('/api/gsc/sync-browser-data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -4976,6 +5064,16 @@ function gscDashboard() {
         scanningBackground: false,
         scanProgressText: 'Auto-Scan All Pages',
         scanPollTimer: null,
+
+        // Direct Multi-Site Auto-Scanner State (Inside Auto-Scan Robot Modal)
+        directRobotScanning: false,
+        directRobotStopped: false,
+        directRobotProgress: 0,
+        directRobotTotal: 0,
+        directRobotCurrentDomain: '',
+        directRobotTotalIndexed: 0,
+        directRobotTotalNotIndexed: 0,
+        directRobotLogs: [],
 
         // Live URL Inspector State
         inspectUrlInput: '',
@@ -6633,6 +6731,123 @@ function gscDashboard() {
                     console.error('Poll status error:', err);
                 }
             }, 3000);
+        },
+
+        appendDirectRobotLog(text, color = 'text-slate-300') {
+            const time = new Date().toTimeString().split(' ')[0];
+            this.directRobotLogs.push({
+                text: `[${time}] ${text}`,
+                color: color
+            });
+            this.$nextTick(() => {
+                const box = document.getElementById('direct-robot-log-box');
+                if (box) box.scrollTop = box.scrollHeight;
+            });
+        },
+
+        stopDirectMultiSiteScan() {
+            this.directRobotStopped = true;
+            this.directRobotScanning = false;
+            this.directRobotCurrentDomain = '⛔ Scan stopped by user';
+            this.appendDirectRobotLog('⛔ Scan stopped by user.', 'text-rose-400 font-bold');
+        },
+
+        async startDirectMultiSiteScan() {
+            if (this.directRobotScanning) return;
+            this.directRobotScanning = true;
+            this.directRobotStopped = false;
+            this.directRobotProgress = 0;
+            this.directRobotTotalIndexed = 0;
+            this.directRobotTotalNotIndexed = 0;
+            this.directRobotLogs = [];
+            this.directRobotCurrentDomain = 'Connecting to DGT & Google Search Console...';
+
+            try {
+                this.appendDirectRobotLog('🚀 Loading all websites & Google Search Console properties...', 'text-purple-400 font-bold');
+                const listResp = await fetch('{{ url('/api/gsc/properties-list') }}', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const listData = await listResp.json();
+
+                if (!listData.success || !Array.isArray(listData.sites) || listData.sites.length === 0) {
+                    this.appendDirectRobotLog('❌ Could not load websites list from DGT.', 'text-rose-400');
+                    this.directRobotScanning = false;
+                    return;
+                }
+
+                const sites = listData.sites;
+                this.directRobotTotal = sites.length;
+                this.appendDirectRobotLog(`✓ Found ${sites.length} websites! Starting automated indexation & non-indexation scan...`, 'text-emerald-400 font-bold');
+
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+                let successCount = 0;
+
+                for (let i = 0; i < sites.length; i++) {
+                    if (this.directRobotStopped) break;
+                    const site = sites[i];
+                    this.directRobotProgress = i + 1;
+                    this.directRobotCurrentDomain = `Scanning [${i + 1}/${sites.length}]: ${site.clean_domain}`;
+
+                    try {
+                        const stepResp = await fetch('{{ route('websites.search-console.sitemaps.scan-website-step') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': token
+                            },
+                            body: JSON.stringify({
+                                website_id: site.website_id,
+                                site_id: site.id
+                            })
+                        });
+                        const stepData = await stepResp.json();
+
+                        if (stepData.success) {
+                            successCount++;
+                            const idxCount = parseInt(stepData.indexed || 0, 10);
+                            const notIdxCount = parseInt(stepData.not_indexed || 0, 10);
+                            const rCount = parseInt(stepData.reasons_count || 0, 10);
+                            this.directRobotTotalIndexed += idxCount;
+                            this.directRobotTotalNotIndexed += notIdxCount;
+
+                            // Update website in allWebsites array so UI dropdown reflects mapped status immediately
+                            const wsObj = (this.allWebsites || []).find(w => String(w.id) === String(site.website_id));
+                            if (wsObj) {
+                                wsObj.is_mapped = true;
+                                if (!wsObj.site_url && stepData.site_url) {
+                                    wsObj.site_url = stepData.site_url;
+                                }
+                            }
+
+                            this.appendDirectRobotLog(
+                                `✓ [${i + 1}/${sites.length}] ${site.clean_domain}: ${idxCount.toLocaleString()} Indexed, ${notIdxCount.toLocaleString()} Not Indexed` + (rCount > 0 ? ` (${rCount} reasons)` : ''),
+                                'text-emerald-400'
+                            );
+                        } else {
+                            this.appendDirectRobotLog(`⚠️ [${i + 1}/${sites.length}] ${site.clean_domain}: ${stepData.message || 'Scan warning'}`, 'text-amber-400');
+                        }
+                    } catch (stepErr) {
+                        this.appendDirectRobotLog(`⚠️ [${i + 1}/${sites.length}] ${site.clean_domain}: ${stepErr.message}`, 'text-amber-400');
+                    }
+                }
+
+                if (!this.directRobotStopped) {
+                    this.directRobotCurrentDomain = `🎉 Completed! Scanned ${successCount}/${sites.length} websites!`;
+                    this.appendDirectRobotLog(
+                        `🎉 FINISHED! Scanned ${successCount}/${sites.length} websites — Total Indexed: ${this.directRobotTotalIndexed.toLocaleString()}, Total Not Indexed: ${this.directRobotTotalNotIndexed.toLocaleString()}`,
+                        'text-emerald-300 font-bold'
+                    );
+                    if (this.sitemapWebsiteId) {
+                        await this.loadIndexStatus(1, true);
+                        await this.loadSitemaps(this.sitemapWebsiteId);
+                    }
+                }
+            } catch (err) {
+                this.appendDirectRobotLog('❌ Scanner error: ' + err.message, 'text-rose-400');
+            } finally {
+                this.directRobotScanning = false;
+            }
         },
 
         async inspectSingleUrl(targetUrl) {

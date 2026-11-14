@@ -86,12 +86,13 @@ class WebsiteBlogPostController extends Controller
             return $profiles;
         });
 
-        // Distinct categories across the fleet for autocomplete
-        $allCategories = Cache::remember('dgt_fleet_categories_list', 300, function () {
-            return Website::whereNotNull('category')
+        // Distinct article categories across published blog posts (excluding internal SEO tier labels like "1st Class")
+        $allCategories = Cache::remember('dgt_fleet_categories_list_v2', 300, function () {
+            return WebsitePost::whereNotNull('category')
+                ->where('category', '!=', '')
                 ->distinct()
                 ->pluck('category')
-                ->filter()
+                ->filter(fn ($c) => !preg_match('/^(\d+(st|nd|rd|th)\s*class|class\s*\d+|uncategorized)$/i', trim((string) $c)))
                 ->sort()
                 ->values()
                 ->all();
@@ -170,7 +171,7 @@ class WebsiteBlogPostController extends Controller
         $rawContent = (string) $request->input('raw_content', '');
 
         if (empty($contentHtml) && !empty($rawContent)) {
-            $contentHtml = $this->blogPostService->formatMarkdownContent($rawContent);
+            $contentHtml = $this->blogPostService->formatMarkdownContent($rawContent, $website);
         }
 
         if (empty($contentHtml)) {
@@ -223,6 +224,7 @@ class WebsiteBlogPostController extends Controller
             : collect();
 
         $isPreview = true;
+        $theme = app(\App\Services\WebsiteBlogPostService::class)->resolveWebsiteTheme($website, $post, $website?->url);
 
         return view('public.blog.show', compact(
             'post',
@@ -234,7 +236,8 @@ class WebsiteBlogPostController extends Controller
             'readingMinutes',
             'wordCount',
             'relatedPosts',
-            'isPreview'
+            'isPreview',
+            'theme'
         ));
     }
 
@@ -246,6 +249,7 @@ class WebsiteBlogPostController extends Controller
         abort_unless(auth()->user()?->hasWebsiteAccess(), 403, 'Access denied.');
 
         $websiteId = $request->input('website_id');
+        $website = $websiteId ? Website::find($websiteId) : null;
         $title = trim((string) $request->input('title', 'Untitled Article'));
         if (empty($title)) {
             $title = 'Untitled Article';
@@ -256,7 +260,7 @@ class WebsiteBlogPostController extends Controller
         $rawContent = (string) $request->input('raw_content', '');
 
         if (empty($contentHtml) && !empty($rawContent)) {
-            $contentHtml = $this->blogPostService->formatMarkdownContent($rawContent);
+            $contentHtml = $this->blogPostService->formatMarkdownContent($rawContent, $website);
         }
 
         if (empty($contentHtml)) {
@@ -360,6 +364,7 @@ class WebsiteBlogPostController extends Controller
         $previewToken = $token;
         $previewExpiresAt = $payload['expires_at'] ?? (time() + 600);
         $previewShareUrl = route('public.blog.preview', ['token' => $token]);
+        $theme = app(\App\Services\WebsiteBlogPostService::class)->resolveWebsiteTheme($website, $post, $website?->url);
 
         return view('public.blog.show', compact(
             'post',
@@ -374,7 +379,8 @@ class WebsiteBlogPostController extends Controller
             'isPreview',
             'previewToken',
             'previewExpiresAt',
-            'previewShareUrl'
+            'previewShareUrl',
+            'theme'
         ));
     }
 
@@ -1169,11 +1175,14 @@ class WebsiteBlogPostController extends Controller
             }
         } catch (\Throwable $e) {}
 
+        $theme = app(\App\Services\WebsiteBlogPostService::class)->resolveWebsiteTheme($website);
+
         return array_merge([
             'id'     => $website->id,
             'name'   => $website->name,
             'domain' => $domain,
             'url'    => $website->url,
+            'theme'  => $theme,
         ], $matched);
     }
 }

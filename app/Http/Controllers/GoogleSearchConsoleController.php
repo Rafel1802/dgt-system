@@ -398,11 +398,10 @@ class GoogleSearchConsoleController extends Controller
                 $cleanPropDomain = preg_replace('#^(sc-domain:|https?://(www\.)?)#i', '', rtrim($siteUrl, '/'));
                 $isDomainProp = str_starts_with($siteUrl, 'sc-domain:');
 
-                $suggestedWebsite = $websites->first(function ($w) use ($cleanPropDomain) {
-                    $cleanWsDomain = preg_replace('#^(https?://(www\.)?)#i', '', rtrim($w->url, '/'));
-                    return strcasecmp($cleanWsDomain, $cleanPropDomain) === 0
-                        || str_contains(strtolower($cleanWsDomain), strtolower($cleanPropDomain))
-                        || str_contains(strtolower($cleanPropDomain), strtolower($cleanWsDomain));
+                // Exact domain match only (machinery.org must NEVER match asiamachinery.org)
+                $propHost = self::extractCleanGscDomain($siteUrl);
+                $suggestedWebsite = $websites->first(function ($w) use ($propHost) {
+                    return $propHost !== '' && self::extractCleanGscDomain((string) $w->url) === $propHost;
                 });
 
                 return [
@@ -427,6 +426,34 @@ class GoogleSearchConsoleController extends Controller
     }
 
     /**
+     * Normalize a GSC property / URL / domain to its exact lowercase host (no scheme, www, path).
+     */
+    public static function extractCleanGscDomain(string $urlOrDomain): string
+    {
+        $d = strtolower(trim($urlOrDomain));
+        $d = preg_replace('#^sc-domain:#i', '', $d);
+        $d = preg_replace('#^https?://#i', '', $d);
+        $d = preg_replace('#^www\.#i', '', $d);
+        $d = preg_replace('#[/?\#].*$#', '', $d);
+        return trim(preg_replace('#:\d+$#', '', $d), " ./");
+    }
+
+    /**
+     * Exact GSC property strings that belong to one domain.
+     */
+    public static function exactGscPropertyCandidates(string $cleanDomain): array
+    {
+        $d = self::extractCleanGscDomain($cleanDomain);
+        return [
+            "sc-domain:{$d}",
+            "https://{$d}/", "https://{$d}",
+            "https://www.{$d}/", "https://www.{$d}",
+            "http://{$d}/", "http://{$d}",
+            "http://www.{$d}/", "http://www.{$d}",
+        ];
+    }
+
+    /**
      * Auto-match DGT websites with Google Search Console properties
      */
     /**
@@ -440,10 +467,10 @@ class GoogleSearchConsoleController extends Controller
                 $rawProps = $this->clientService->listProperties($account);
                 $formattedProperties = array_map(function ($p) {
                     $siteUrl = $p['site_url'];
-                    $clean = preg_replace('#^(sc-domain:|https?://(www\.)?)#i', '', rtrim($siteUrl, '/'));
+                    $clean = self::extractCleanGscDomain($siteUrl);
                     return [
                         'site_url'         => $siteUrl,
-                        'clean_domain'     => strtolower($clean),
+                        'clean_domain'     => $clean,
                         'display'          => $clean . (str_starts_with($siteUrl, 'sc-domain:') ? ' (Domain)' : ' (URL)'),
                         'type'             => str_starts_with($siteUrl, 'sc-domain:') ? 'Domain' : 'URL Prefix',
                         'permission_level' => $p['permission_level'] ?? 'siteFullUser',
@@ -463,28 +490,23 @@ class GoogleSearchConsoleController extends Controller
         $matches = [];
         foreach ($websites as $w) {
             $existingSite = $existingMappings->get($w->id);
-            $cleanWsDomain = strtolower($w->clean_domain ?: preg_replace('#^(https?://(www\.)?)#i', '', rtrim($w->url, '/')));
+            $cleanWsDomain = self::extractCleanGscDomain((string) ($w->clean_domain ?: $w->url));
 
             $bestProp = null;
             $confidence = 'none';
 
+            // Exact domain equality only. Prefer the sc-domain: property when both exist.
+            // (Partial/substring matching wrongly mapped machinery.org -> asiamachinery.org.)
             foreach ($formattedProperties as $fp) {
-                if ($fp['clean_domain'] === $cleanWsDomain) {
-                    $bestProp = $fp;
-                    $confidence = 'exact';
-                    break;
-                }
-            }
-
-            if (!$bestProp) {
-                foreach ($formattedProperties as $fp) {
-                    if (str_contains($cleanWsDomain, $fp['clean_domain']) || str_contains($fp['clean_domain'], $cleanWsDomain)) {
+                if ($cleanWsDomain !== '' && $fp['clean_domain'] === $cleanWsDomain) {
+                    if (!$bestProp || ($fp['type'] === 'Domain' && $bestProp['type'] !== 'Domain')) {
                         $bestProp = $fp;
-                        $confidence = 'partial';
-                        break;
+                        $confidence = 'exact';
                     }
                 }
             }
+
+            $currentClean = $existingSite ? self::extractCleanGscDomain((string) $existingSite->site_url) : null;
 
             $matches[] = [
                 'website_id'         => $w->id,
@@ -494,7 +516,8 @@ class GoogleSearchConsoleController extends Controller
                 'handler_name'       => $w->handler?->name ?? 'Unassigned',
                 'is_already_mapped'  => $existingSite !== null,
                 'current_site_url'   => $existingSite?->site_url,
-                'current_clean'      => $existingSite ? preg_replace('#^(sc-domain:|https?://(www\.)?)#i', '', rtrim($existingSite->site_url, '/')) : null,
+                'current_clean'      => $currentClean,
+                'has_mismatch'       => $existingSite !== null && $currentClean !== $cleanWsDomain,
                 'suggested_site_url' => $bestProp ? $bestProp['site_url'] : ($existingSite?->site_url ?? ''),
                 'suggested_clean'    => $bestProp ? $bestProp['clean_domain'] : ($existingSite ? preg_replace('#^(sc-domain:|https?://(www\.)?)#i', '', rtrim($existingSite->site_url, '/')) : ''),
                 'confidence'         => $confidence,
@@ -2349,18 +2372,67 @@ class GoogleSearchConsoleController extends Controller
     }
 
     /**
-     * Start background auto-inspection scan for a website via URL Inspection API
+     * Start background auto-inspection scan for a website (or all websites) via URL Inspection API
      */
     public function startAutoInspection(Request $request)
     {
         $user = $request->user();
         abort_unless($user && $user->hasWebsiteAccess(), 403);
 
+        $scanAll = (bool) $request->boolean('scan_all');
         $websiteId = (int) $request->get('website_id');
         $force = (bool) $request->boolean('force');
 
+        $artisanPath = escapeshellarg(base_path('artisan'));
+        $phpBinary = PHP_BINARY ?: '/opt/alt/php84/usr/bin/php';
+        if (!file_exists($phpBinary)) {
+            $phpBinary = 'php';
+        }
+        $phpBinary = escapeshellcmd($phpBinary);
+        $forceFlag = $force ? '--force' : '';
+
+        if ($scanAll || !$websiteId) {
+            $totalWebsites = Website::whereNotNull('url')->where('url', '!=', '')->count();
+            Cache::put('gsc_auto_inspect_all_status', [
+                'running'                 => true,
+                'started_at'              => now()->toIso8601String(),
+                'total_sites'             => $totalWebsites,
+                'sites_completed'         => 0,
+                'current_domain'          => 'Initializing multi-site scanner...',
+                'total_indexed_found'     => 0,
+                'total_not_indexed_found' => 0,
+                'recent_logs'             => ["🚀 Starting full GSC scan across {$totalWebsites} websites..."],
+                'message'                 => "Scanning 0/{$totalWebsites} websites...",
+            ], 3600);
+
+            $cmd = "{$phpBinary} {$artisanPath} gsc:auto-inspect --limit=15 {$forceFlag} > /dev/null 2>&1 &";
+            @shell_exec($cmd);
+
+            return response()->json([
+                'success'     => true,
+                'scan_all'    => true,
+                'total_sites' => $totalWebsites,
+                'message'     => "Started automated Google Search Console scan across all {$totalWebsites} websites.",
+            ]);
+        }
+
         $website = Website::findOrFail($websiteId);
+        $activeAccount = GoogleSearchConsoleAccount::where('is_active', true)->first();
+        $cleanDomain = $website->clean_domain ?: preg_replace('#^(https?://)?(www\.)?#i', '', rtrim((string) $website->url, '/'));
+        $cleanDomain = strtolower(trim(preg_replace('#/.*$#', '', (string) $cleanDomain)));
+
         $mappedSite = GoogleSearchConsoleSite::where('website_id', $website->id)->first();
+        if (!$mappedSite && $cleanDomain) {
+            $mappedSite = GoogleSearchConsoleSite::create([
+                'account_id'       => $activeAccount?->id,
+                'website_id'       => $website->id,
+                'site_url'         => "sc-domain:{$cleanDomain}",
+                'permission_level' => 'siteFullUser',
+                'is_verified'      => true,
+                'is_sync_enabled'  => true,
+            ]);
+        }
+
         if (!$mappedSite) {
             return response()->json(['success' => false, 'message' => 'Website is not linked with Google Search Console.'], 422);
         }
@@ -2387,37 +2459,142 @@ class GoogleSearchConsoleController extends Controller
             'message'      => 'Initializing background scan...',
         ], 3600);
 
-        // Run non-blocking background artisan command
-        $artisanPath = escapeshellarg(base_path('artisan'));
-        $phpBinary = PHP_BINARY ?: '/opt/alt/php84/usr/bin/php';
-        if (!file_exists($phpBinary)) {
-            $phpBinary = 'php';
-        }
-        $phpBinary = escapeshellcmd($phpBinary);
-        $forceFlag = $force ? '--force' : '';
-        $cmd = "{$phpBinary} {$artisanPath} gsc:auto-inspect --website={$website->id} --limit=200 {$forceFlag} > /dev/null 2>&1 &";
-
+        $cmd = "{$phpBinary} {$artisanPath} gsc:auto-inspect --website={$website->id} --limit=150 {$forceFlag} > /dev/null 2>&1 &";
         @shell_exec($cmd);
 
         return response()->json([
             'success' => true,
-            'message' => "Live Google Search Console inspection scan started in the background for {$website->name}. It will verify all pages without slowing down the site.",
+            'message' => "Live Google Search Console inspection scan started in the background for {$website->name}.",
         ]);
     }
 
     /**
-     * Get live background inspection progress
+     * Get live background inspection progress (single website or all websites)
      */
     public function getInspectionScanStatus(Request $request)
     {
         $user = $request->user();
         abort_unless($user && $user->hasWebsiteAccess(), 403);
 
+        if ($request->boolean('scan_all')) {
+            $status = Cache::get('gsc_auto_inspect_all_status') ?: ['running' => false, 'message' => 'Idle'];
+            return response()->json(array_merge(['success' => true], $status));
+        }
+
         $websiteId = (int) $request->get('website_id');
         $cacheKey = "gsc_inspecting_{$websiteId}";
         $status = Cache::get($cacheKey) ?: ['running' => false, 'message' => 'Idle'];
 
         return response()->json(array_merge(['success' => true], $status));
+    }
+
+    /**
+     * Scan a single website step (used by the Direct Server Multi-Site Scanner in the Auto-Scan Robot modal)
+     */
+    public function scanWebsiteStep(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->hasWebsiteAccess(), 403);
+
+        $websiteId = (int) $request->get('website_id');
+        $siteId = (int) $request->get('site_id');
+
+        $website = $websiteId ? Website::find($websiteId) : null;
+        $site = $siteId ? GoogleSearchConsoleSite::find($siteId) : null;
+
+        if (!$website && $site && $site->website_id) {
+            $website = Website::find($site->website_id);
+        }
+
+        if (!$website) {
+            return response()->json(['success' => false, 'message' => 'Website not found'], 404);
+        }
+
+        $cleanDomain = $website->clean_domain ?: preg_replace('#^(https?://)?(www\.)?#i', '', rtrim((string) $website->url, '/'));
+        $cleanDomain = strtolower(trim(preg_replace('#/.*$#', '', (string) $cleanDomain)));
+
+        $activeAccount = GoogleSearchConsoleAccount::where('is_active', true)->first();
+
+        if (!$site) {
+            $site = GoogleSearchConsoleSite::where('website_id', $website->id)->first();
+        }
+        if (!$site && $cleanDomain) {
+            $site = GoogleSearchConsoleSite::whereIn('site_url', self::exactGscPropertyCandidates($cleanDomain))->first();
+            if ($site && !$site->website_id) {
+                $site->update(['website_id' => $website->id, 'is_sync_enabled' => true]);
+            }
+        }
+        if (!$site && $cleanDomain) {
+            $site = GoogleSearchConsoleSite::create([
+                'account_id'       => $activeAccount?->id,
+                'website_id'       => $website->id,
+                'site_url'         => "sc-domain:{$cleanDomain}",
+                'permission_level' => 'siteFullUser',
+                'is_verified'      => true,
+                'is_sync_enabled'  => true,
+            ]);
+        }
+
+        // 1. Inspect primary homepage via URL Inspection API if account is connected and not recently inspected
+        if ($activeAccount && $cleanDomain) {
+            try {
+                $homeUrl = 'https://' . $cleanDomain . '/';
+                $recentInspection = \App\Models\GoogleSearchConsole\GoogleSearchConsoleUrlInspection::where('website_id', $website->id)
+                    ->where('url_hash', sha1($homeUrl))
+                    ->where('inspected_at', '>=', now()->subHours(12))
+                    ->first();
+                if (!$recentInspection) {
+                    $this->sitemapService->inspectPageUrl($website, $homeUrl, $user->id);
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal if Google API quota or property permission differs
+            }
+        }
+
+        // 2. Compute complete indexation overview (sitemaps, search analytics pages, inspections, and reasons)
+        $overview = $this->sitemapService->getIndexationOverview($website, 'all', '', 1, 25, false);
+        $summary = $overview['summary'] ?? [];
+
+        $indexed = (int) ($summary['total_indexed'] ?? 0);
+        $notIndexed = (int) ($summary['total_not_indexed'] ?? 0);
+        $reasons = $summary['gsc_reasons'] ?? [];
+
+        if ($site) {
+            $site->refresh();
+            $finalIndexed = $site->gsc_indexed_pages !== null ? max((int) $site->gsc_indexed_pages, $indexed) : $indexed;
+            $finalNotIndexed = ($site->gsc_not_indexed_pages !== null && (int) $site->gsc_not_indexed_pages > 0)
+                ? (int) $site->gsc_not_indexed_pages
+                : $notIndexed;
+            $finalReasons = !empty($site->gsc_indexing_reasons) ? $site->gsc_indexing_reasons : $reasons;
+
+            $site->update([
+                'gsc_indexed_pages'       => $finalIndexed,
+                'gsc_not_indexed_pages'   => $finalNotIndexed,
+                'gsc_indexing_updated_at' => $site->gsc_indexing_updated_at ?: now(),
+                'gsc_indexing_reasons'    => $finalReasons,
+                'last_synced_at'          => now(),
+                'sync_status'             => 'success',
+            ]);
+
+            $indexed = $finalIndexed;
+            $notIndexed = $finalNotIndexed;
+            $reasons = $finalReasons;
+        }
+
+        return response()->json([
+            'success'        => true,
+            'website_id'     => $website->id,
+            'name'           => $website->name,
+            'clean_domain'   => $cleanDomain,
+            'site_url'       => $site?->site_url ?: "sc-domain:{$cleanDomain}",
+            'indexed'        => $indexed,
+            'not_indexed'    => $notIndexed,
+            'reasons_count'  => is_array($reasons) ? count($reasons) : 0,
+            'reasons'        => $reasons,
+            'sitemaps_count' => (int) ($summary['sitemaps_count'] ?? 1),
+            'submitted_urls' => (int) ($summary['sitemaps_submitted_urls'] ?? 0),
+            'last_updated'   => $summary['gsc_last_updated'] ?? now()->format('m/d/y'),
+        ]);
     }
 
     /**
@@ -2437,9 +2614,9 @@ class GoogleSearchConsoleController extends Controller
         }
 
         $property = trim((string) ($request->get('property') ?: $request->get('resource_id') ?: $request->get('site_url')));
-        $indexed = (int) $request->get('indexed');
-        $notIndexed = (int) $request->get('not_indexed');
-        $reasonsCount = (int) $request->get('reasons_count');
+        $indexed = max(0, (int) $request->get('indexed'));
+        $notIndexed = max(0, (int) $request->get('not_indexed'));
+        $reasonsCount = max(0, (int) $request->get('reasons_count'));
         $dateStr = $request->get('last_updated');
 
         if (empty($property)) {
@@ -2452,20 +2629,30 @@ class GoogleSearchConsoleController extends Controller
         $clean = preg_replace('#^sc-domain:#i', '', $property);
         $clean = preg_replace('#^https?://#i', '', $clean);
         $clean = preg_replace('#^www\.#i', '', trim($clean, '/'));
+        $clean = strtolower(trim(preg_replace('#/.*$#', '', $clean)));
 
         // Match GoogleSearchConsoleSite or Website
-        $site = GoogleSearchConsoleSite::where('site_url', 'like', "%{$clean}%")
-            ->orWhereHas('website', function ($q) use ($clean) {
-                $q->where('url', 'like', "%{$clean}%")->orWhere('name', 'like', "%{$clean}%");
-            })
-            ->first();
+        // Exact domain matching only (never substring: machinery.org != asiamachinery.org)
+        $website = Website::where('url', 'like', "%{$clean}%")->orWhere('name', 'like', "%{$clean}%")->get()
+            ->first(fn ($w) => self::extractCleanGscDomain((string) ($w->url ?: $w->name)) === $clean);
+
+        $site = $website ? GoogleSearchConsoleSite::where('website_id', $website->id)->first() : null;
+        if (!$site) {
+            $site = GoogleSearchConsoleSite::whereIn('site_url', self::exactGscPropertyCandidates($clean))->first();
+        }
 
         if (!$site) {
-            $website = Website::where('url', 'like', "%{$clean}%")->orWhere('name', 'like', "%{$clean}%")->first();
             if ($website) {
+                $activeAccount = GoogleSearchConsoleAccount::where('is_active', true)->first();
                 $site = GoogleSearchConsoleSite::firstOrCreate(
                     ['website_id' => $website->id],
-                    ['site_url' => "https://{$clean}/", 'permission_level' => 'siteFullUser', 'is_verified' => true, 'is_sync_enabled' => true]
+                    [
+                        'account_id'       => $activeAccount?->id,
+                        'site_url'         => str_starts_with($property, 'sc-domain:') || str_starts_with($property, 'http') ? $property : "sc-domain:{$clean}",
+                        'permission_level' => 'siteFullUser',
+                        'is_verified'      => true,
+                        'is_sync_enabled'  => true,
+                    ]
                 );
             }
         }
@@ -2488,12 +2675,26 @@ class GoogleSearchConsoleController extends Controller
             'gsc_indexed_pages'       => $indexed,
             'gsc_not_indexed_pages'   => $notIndexed,
             'gsc_indexing_updated_at' => $date,
+            'last_synced_at'          => now(),
+            'sync_status'             => 'success',
         ];
 
-        // If reasons array provided, save it; otherwise generate standard breakdown if reasonsCount provided
+        // If reasons array provided from DOM table, normalize & save it; otherwise generate breakdown if reasonsCount provided
         $reasons = $request->get('reasons');
         if (is_array($reasons) && !empty($reasons)) {
-            $updateData['gsc_indexing_reasons'] = $reasons;
+            $normalizedReasons = [];
+            foreach ($reasons as $r) {
+                if (is_array($r) && !empty($r['reason'])) {
+                    $normalizedReasons[] = [
+                        'reason' => trim((string) $r['reason']),
+                        'count'  => max(0, (int) ($r['count'] ?? 0)),
+                    ];
+                }
+            }
+            if (!empty($normalizedReasons)) {
+                usort($normalizedReasons, fn($a, $b) => $b['count'] <=> $a['count']);
+                $updateData['gsc_indexing_reasons'] = $normalizedReasons;
+            }
         } elseif ($reasonsCount > 0 && $notIndexed > 0) {
             $common = [
                 'Alternative page with proper canonical tag',
@@ -2517,22 +2718,79 @@ class GoogleSearchConsoleController extends Controller
                 if ($rem <= 0) break;
             }
             $updateData['gsc_indexing_reasons'] = $gen;
+        } elseif ($notIndexed === 0) {
+            $updateData['gsc_indexing_reasons'] = [];
         }
 
         $site->update($updateData);
+
+        // Also store any sample indexed_urls / not_indexed_urls passed from the browser robot
+        if ($site->website_id) {
+            $indexedUrls = $request->get('indexed_urls');
+            if (is_array($indexedUrls)) {
+                foreach (array_slice($indexedUrls, 0, 50) as $u) {
+                    $u = trim((string) $u);
+                    if (filter_var($u, FILTER_VALIDATE_URL)) {
+                        try {
+                            \App\Models\GoogleSearchConsole\GoogleSearchConsoleUrlInspection::updateOrCreate(
+                                ['website_id' => $site->website_id, 'url_hash' => sha1($u)],
+                                [
+                                    'site_url'         => $site->site_url,
+                                    'url'              => $u,
+                                    'verdict'          => 'PASS',
+                                    'coverage_state'   => 'Submitted and indexed',
+                                    'is_indexed'       => true,
+                                    'indexing_state'   => 'INDEXING_ALLOWED',
+                                    'page_fetch_state' => 'SUCCESSFUL',
+                                    'robots_txt_state' => 'ALLOWED',
+                                    'inspected_at'     => now(),
+                                ]
+                            );
+                        } catch (\Throwable $e) {}
+                    }
+                }
+            }
+
+            $notIndexedUrls = $request->get('not_indexed_urls');
+            if (is_array($notIndexedUrls)) {
+                foreach (array_slice($notIndexedUrls, 0, 50) as $item) {
+                    $u = is_array($item) ? trim((string) ($item['url'] ?? '')) : trim((string) $item);
+                    $reason = is_array($item) ? trim((string) ($item['reason'] ?? 'Crawled - currently not indexed')) : 'Crawled - currently not indexed';
+                    if (filter_var($u, FILTER_VALIDATE_URL)) {
+                        try {
+                            \App\Models\GoogleSearchConsole\GoogleSearchConsoleUrlInspection::updateOrCreate(
+                                ['website_id' => $site->website_id, 'url_hash' => sha1($u)],
+                                [
+                                    'site_url'         => $site->site_url,
+                                    'url'              => $u,
+                                    'verdict'          => 'NEUTRAL',
+                                    'coverage_state'   => $reason ?: 'Crawled - currently not indexed',
+                                    'is_indexed'       => false,
+                                    'indexing_state'   => 'INDEXING_ALLOWED',
+                                    'page_fetch_state' => 'SUCCESSFUL',
+                                    'robots_txt_state' => 'ALLOWED',
+                                    'inspected_at'     => now(),
+                                ]
+                            );
+                        } catch (\Throwable $e) {}
+                    }
+                }
+            }
+        }
 
         $resp = response()->json([
             'success' => true,
             'message' => "Successfully synced {$clean}: {$indexed} Indexed, " . number_format($notIndexed) . " Not Indexed!",
             'data'    => [
                 'property'    => $site->site_url,
+                'website_id'  => $site->website_id,
                 'website'     => $site->website?->name,
                 'indexed'     => $indexed,
                 'not_indexed' => $notIndexed,
                 'reasons'     => $site->gsc_indexing_reasons,
             ],
         ]);
-        if ($origin) {
+        if ($origin && $origin !== '*') {
             $resp->header('Access-Control-Allow-Origin', $origin)
                  ->header('Access-Control-Allow-Credentials', 'true');
         } else {
@@ -2561,32 +2819,84 @@ class GoogleSearchConsoleController extends Controller
             return $resp;
         }
 
+        $activeAccount = GoogleSearchConsoleAccount::where('is_active', true)->first();
+
+        // Ensure all active Websites with a domain have a GoogleSearchConsoleSite record so all 56+ sites are included
+        $allWebsites = Website::whereNotNull('url')->where('url', '!=', '')->orderBy('id')->get();
+        foreach ($allWebsites as $ws) {
+            $cleanDomain = $ws->clean_domain ?: preg_replace('#^(https?://)?(www\.)?#i', '', rtrim((string) $ws->url, '/'));
+            $cleanDomain = strtolower(trim(preg_replace('#/.*$#', '', (string) $cleanDomain)));
+            if (!$cleanDomain || str_contains($cleanDomain, '127.0.0.1') || str_contains($cleanDomain, 'localhost')) {
+                continue;
+            }
+            $existing = GoogleSearchConsoleSite::where('website_id', $ws->id)->first();
+            if (!$existing) {
+                $existing = GoogleSearchConsoleSite::whereIn('site_url', self::exactGscPropertyCandidates($cleanDomain))->first();
+                if ($existing && !$existing->website_id) {
+                    $existing->update(['website_id' => $ws->id, 'is_sync_enabled' => true]);
+                } elseif (!$existing) {
+                    GoogleSearchConsoleSite::create([
+                        'account_id'       => $activeAccount?->id,
+                        'website_id'       => $ws->id,
+                        'site_url'         => "sc-domain:{$cleanDomain}",
+                        'permission_level' => 'siteFullUser',
+                        'is_verified'      => true,
+                        'is_sync_enabled'  => true,
+                    ]);
+                }
+            }
+        }
+
         $sites = GoogleSearchConsoleSite::where('is_sync_enabled', true)
             ->with('website:id,name,url')
+            ->orderBy('website_id')
             ->get(['id', 'website_id', 'site_url', 'gsc_indexed_pages', 'gsc_not_indexed_pages', 'gsc_indexing_updated_at']);
 
-        $list = $sites->map(function ($s) {
+        // Deduplicate by clean_domain so the robot scans each unique domain once
+        $seenDomains = [];
+        $list = [];
+
+        foreach ($sites as $s) {
             $name = $s->website?->name ?: $s->site_url;
-            $clean = preg_replace('#^(sc-domain:|https?://(www\.)?)#i', '', rtrim($s->site_url, '/'));
-            return [
-                'id'              => $s->id,
-                'website_id'      => $s->website_id,
-                'name'            => $name,
-                'clean_domain'    => $clean,
-                'site_url'        => $s->site_url,
-                'gsc_url'         => 'https://search.google.com/search-console/index?resource_id=' . urlencode($s->site_url),
-                'indexed'         => $s->gsc_indexed_pages,
-                'not_indexed'     => $s->gsc_not_indexed_pages,
-                'last_updated'    => $s->gsc_indexing_updated_at?->format('m/d/Y'),
+            $clean = strtolower(trim(preg_replace('#^(sc-domain:|https?://(www\.)?)#i', '', rtrim((string) $s->site_url, '/'))));
+            $clean = preg_replace('#/.*$#', '', $clean);
+            if (!$clean || isset($seenDomains[$clean]) || str_contains($clean, '127.0.0.1') || str_contains($clean, 'localhost')) {
+                continue;
+            }
+            $seenDomains[$clean] = true;
+
+            $candidateProperties = array_values(array_unique([
+                $s->site_url,
+                "sc-domain:{$clean}",
+                "https://{$clean}/",
+                "https://www.{$clean}/",
+            ]));
+
+            $fallbackGscUrls = array_map(
+                fn($prop) => 'https://search.google.com/search-console/index?resource_id=' . urlencode($prop),
+                $candidateProperties
+            );
+
+            $list[] = [
+                'id'                => $s->id,
+                'website_id'        => $s->website_id,
+                'name'              => $name,
+                'clean_domain'      => $clean,
+                'site_url'          => $s->site_url,
+                'gsc_url'           => 'https://search.google.com/search-console/index?resource_id=' . urlencode($s->site_url),
+                'fallback_gsc_urls' => $fallbackGscUrls,
+                'indexed'           => $s->gsc_indexed_pages,
+                'not_indexed'       => $s->gsc_not_indexed_pages,
+                'last_updated'      => $s->gsc_indexing_updated_at?->format('m/d/Y'),
             ];
-        })->values();
+        }
 
         $resp = response()->json([
             'success' => true,
             'total'   => count($list),
             'sites'   => $list,
         ]);
-        if ($origin) {
+        if ($origin && $origin !== '*') {
             $resp->header('Access-Control-Allow-Origin', $origin)
                  ->header('Access-Control-Allow-Credentials', 'true');
         } else {

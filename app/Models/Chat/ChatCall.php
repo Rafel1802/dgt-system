@@ -18,12 +18,14 @@ class ChatCall extends Model
         'conversation_id',
         'caller_id',
         'receiver_id',
+        'call_type',
         'status', // 'calling', 'ringing', 'connected', 'ended', 'declined', 'missed', 'cancelled', 'busy'
         'started_at',
         'answered_at',
         'ended_at',
         'duration_seconds',
         'end_reason',
+        'metadata',
     ];
 
     protected $casts = [
@@ -31,6 +33,7 @@ class ChatCall extends Model
         'answered_at'      => 'datetime',
         'ended_at'         => 'datetime',
         'duration_seconds' => 'integer',
+        'metadata'         => 'array',
     ];
 
     public function conversation(): BelongsTo
@@ -59,6 +62,14 @@ class ChatCall extends Model
     public function isActive(): bool
     {
         return in_array($this->status, ['calling', 'ringing', 'connected']);
+    }
+
+    /**
+     * Check whether this session is a video call.
+     */
+    public function isVideo(): bool
+    {
+        return $this->call_type === 'video' || $this->end_reason === 'video';
     }
 
     /**

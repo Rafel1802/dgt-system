@@ -7,8 +7,31 @@ use App\Models\Ai\AiReport;
 use App\Models\Board;
 use App\Models\BoardList;
 use App\Models\Card;
+use App\Models\Customer;
+use App\Models\EbayCustomerRecord;
+use App\Models\GoogleSearchConsole\GoogleSearchConsoleSearchQuery;
+use App\Models\GoogleSearchConsole\GoogleSearchConsoleSite;
+use App\Models\GoogleSearchConsole\GoogleSearchConsoleSitemap;
+use App\Models\Kpi\KpiPeriod;
+use App\Models\Kpi\KpiReview;
+use App\Models\Kpi\KpiSkill;
+use App\Models\Kpi\KpiSquad;
+use App\Models\Kpi\KpiTask;
+use App\Models\Label;
+use App\Models\Lead;
+use App\Models\MeetingAlarm;
+use App\Models\Note;
+use App\Models\ProductionReport\ProductionReport;
+use App\Models\ProductionReport\ProductionReportTeamMapping;
+use App\Models\Setting;
+use App\Models\Shipment;
+use App\Models\SocialMediaClass;
+use App\Models\SocialMediaItem;
+use App\Models\SocialMediaPost;
+use App\Models\TechSupportCase;
 use App\Models\User;
 use App\Models\Website;
+use App\Models\WebsiteFollowUp;
 use App\Models\WebsiteInquiry;
 use App\Models\WebsitePost;
 use App\Models\WebsiteQcCheck;
@@ -17,11 +40,15 @@ use App\Services\WebsiteBlogPostService;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class KiuqAiToolRegistry
 {
+    private ?string $currentUserPrompt = null;
+    private ?string $currentConversationContext = null;
+
     public function __construct(
         private readonly WebsiteBlogPostService $blogService,
         private readonly BoardWorkflowService $boardWorkflowService,
@@ -353,26 +380,34 @@ class KiuqAiToolRegistry
             ],
             [
                 'name' => 'list_boards',
-                'description' => 'List active workspaces and boards with their lists, types, and verified navigation URLs in the DGT system.',
+                'description' => 'Search and list workspaces and boards (including active boards, hidden boards, past-month boards like September/October/November, Planning Boards, Workflow Boards, Team A/B boards, and SMM Boards) with their lists, types, hidden status, and direct navigation URLs.',
                 'parameters' => [
                     'type' => 'OBJECT',
                     'properties' => [
                         'type' => [
                             'type' => 'STRING',
-                            'description' => 'Optional filter by board name or type (e.g. planning, workflow, smm, video, graphic, content).',
+                            'description' => 'Optional filter by board name, month, or type (e.g. "planning", "september", "planning board september", "workflow", "smm", "team a", "team b").',
+                        ],
+                        'month' => [
+                            'type' => 'STRING',
+                            'description' => 'Optional month filter (e.g. January, February, March, April, May, June, July, August, September, October, November, December).',
+                        ],
+                        'include_hidden' => [
+                            'type' => 'BOOLEAN',
+                            'description' => 'Whether to include hidden/past-month boards (default true when searching or filtering by month).',
                         ],
                     ],
                 ],
             ],
             [
                 'name' => 'export_board_report',
-                'description' => 'Export official productivity report and metrics for a specific workspace board (e.g. Planning Board, Workflow Board, SMM Board) with the exact same template UI, KPI statistics, member productivity summary, task details, and direct PDF/CSV export links.',
+                'description' => 'Export official productivity report and metrics for a specific workspace board (e.g. Planning Board, Workflow Board, SMM Board, including hidden/past-month boards) with the exact same template UI, KPI statistics, member productivity summary, task details, and direct PDF/CSV export links.',
                 'parameters' => [
                     'type' => 'OBJECT',
                     'properties' => [
                         'board_name' => [
                             'type' => 'STRING',
-                            'description' => 'Name, slug, or keyword of the board (e.g. "Planning Board", "Planning Board@KiuQ – October 2026", "Workflow Board", "GraphicPlanningBoard@KiuQ").',
+                            'description' => 'Name, slug, month, or keyword of the board (e.g. "Planning Board September", "Planning Board@KiuQ – October 2026", "Workflow Board", "SMM Planning Board").',
                         ],
                         'board_id' => [
                             'type' => 'INTEGER',
@@ -401,7 +436,7 @@ class KiuqAiToolRegistry
                     'properties' => [
                         'team' => [
                             'type' => 'STRING',
-                            'description' => 'Optional filter by team name (e.g. Listing, Video, Graphic, QC, SMM, Sales, CRM).',
+                            'description' => 'Optional filter by team name (e.g. Listing, Video, Graphic, QC, SMM, Sales, CRM, Team A, Team B).',
                         ],
                         'role' => [
                             'type' => 'STRING',
@@ -435,7 +470,59 @@ class KiuqAiToolRegistry
                     'properties' => [
                         'section' => [
                             'type' => 'STRING',
-                            'description' => 'Optional section keyword (e.g. dashboard, chat, boards, planning, tasks, websites, blogs, inquiries, gsc, seo, social_media, kpi, reports, notes, users, labels, security, settings, apps).',
+                            'description' => 'Optional section keyword (e.g. dashboard, chat, boards, planning, tasks, websites, blogs, inquiries, gsc, seo, social_media, kpi, production_reports, reports, notes, users, labels, security, settings, apps).',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'search_system_everything',
+                'description' => 'Universal omniscient search across EVERY section and database table in the DGT System: Active & Hidden Boards (any month), Task Cards, Websites, Google Search Console (indexed/not-indexed pages, sitemaps, queries), Blogs, Production Reports (Daily/Weekly/Monthly), KPI Reviews & Tasks, Team & Private Notes, SMM Posts & Classes, Customer Inquiries, CRM Leads/Customers, Staff Members, Card Labels, and System Navigation Routes.',
+                'parameters' => [
+                    'type' => 'OBJECT',
+                    'required' => ['query'],
+                    'properties' => [
+                        'query' => [
+                            'type' => 'STRING',
+                            'description' => 'Search query, keyword, month name, board name, website domain, staff name, or section name.',
+                        ],
+                        'section' => [
+                            'type' => 'STRING',
+                            'description' => 'Optional target section filter: all, boards, cards, websites, gsc, blogs, production_reports, kpi, notes, smm, inquiries, crm, members, labels, navigation.',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'search_google_search_console',
+                'description' => 'Search Google Search Console (GSC) properties, indexed vs not-indexed page counts, sitemaps, clicks, impressions, and top search queries across all connected websites.',
+                'parameters' => [
+                    'type' => 'OBJECT',
+                    'properties' => [
+                        'query' => [
+                            'type' => 'STRING',
+                            'description' => 'Optional domain name, keyword, or filter (e.g. "indexed", "not indexed", "sitemap", "hondaparts").',
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'search_production_reports',
+                'description' => 'Search Daily, Weekly, and Monthly Production Reports submitted by Team A (Dara), Team B (Kim), and Production Members, or check submission status.',
+                'parameters' => [
+                    'type' => 'OBJECT',
+                    'properties' => [
+                        'query' => [
+                            'type' => 'STRING',
+                            'description' => 'Optional keyword, member name, team ("A" or "B"), or report type ("daily", "weekly", "monthly").',
+                        ],
+                        'report_type' => [
+                            'type' => 'STRING',
+                            'description' => 'Optional report type filter: daily, weekly, monthly.',
+                        ],
+                        'team_code' => [
+                            'type' => 'STRING',
+                            'description' => 'Optional team filter: A or B.',
                         ],
                     ],
                 ],
@@ -446,8 +533,11 @@ class KiuqAiToolRegistry
     /**
      * Execute a tool call securely on behalf of the authenticated user.
      */
-    public function execute(string $toolName, array $args, User $user): array
+    public function execute(string $toolName, array $args, User $user, ?string $rawUserPrompt = null, ?string $conversationContext = null): array
     {
+        $this->currentUserPrompt = $rawUserPrompt;
+        $this->currentConversationContext = $conversationContext;
+
         // 1. Enforce permanent safety restrictions
         $safetyCheck = $this->safetyService->inspectToolCall($toolName, $args, $user);
         if (!$safetyCheck['allowed']) {
@@ -479,6 +569,15 @@ class KiuqAiToolRegistry
 
                 case 'get_system_navigation':
                     return $this->handleGetSystemNavigation($args, $user);
+
+                case 'search_system_everything':
+                    return $this->handleSearchSystemEverything($args, $user);
+
+                case 'search_google_search_console':
+                    return $this->handleSearchGoogleSearchConsole($args, $user);
+
+                case 'search_production_reports':
+                    return $this->handleSearchProductionReports($args, $user);
 
                 case 'search_blogs':
                     return $this->handleSearchBlogs($args, $user);
@@ -1146,19 +1245,125 @@ class KiuqAiToolRegistry
 
     private function handleListBoards(array $args, User $user): array
     {
-        $query = Board::with(['workspace:id,name', 'lists' => fn($q) => $q->orderBy('position')])
-            ->where('is_hidden', false)
+        $combinedPrompt = trim(implode(' ', array_filter([
+            $args['type'] ?? '',
+            $args['month'] ?? '',
+            $args['query'] ?? '',
+            $this->currentUserPrompt ?? '',
+            $this->currentConversationContext ?? '',
+        ])));
+
+        $monthsMap = [
+            'january'   => ['january', 'jan'],
+            'february'  => ['february', 'feb'],
+            'march'     => ['march', 'mar'],
+            'april'     => ['april', 'apr'],
+            'may'       => ['may'],
+            'june'      => ['june', 'jun'],
+            'july'      => ['july', 'jul'],
+            'august'    => ['august', 'aug'],
+            'september' => ['september', 'sep', 'sept'],
+            'october'   => ['october', 'oct'],
+            'november'  => ['november', 'nov'],
+            'december'  => ['december', 'dec'],
+        ];
+
+        $detectedMonth = null;
+        foreach ($monthsMap as $fullMonth => $aliases) {
+            foreach ($aliases as $alias) {
+                if (preg_match('/\b' . preg_quote($alias, '/') . '\b/i', $combinedPrompt)) {
+                    $detectedMonth = $fullMonth;
+                    break 2;
+                }
+            }
+        }
+
+        $wantsHiddenOnly = preg_match('/\b(hidden|archived|past\s+board|old\s+board)\b/i', $combinedPrompt) === 1;
+        $wantsPlanning = preg_match('/\b(planning|plan)\b/i', $combinedPrompt) === 1;
+        $wantsWorkflow = preg_match('/\b(workflow|work\s*flow)\b/i', $combinedPrompt) === 1;
+        $wantsSmm = preg_match('/\b(smm|social\s*media)\b/i', $combinedPrompt) === 1;
+        $wantsTeamA = preg_match('/\bteam\s*a\b/i', $combinedPrompt) === 1;
+        $wantsTeamB = preg_match('/\bteam\s*b\b/i', $combinedPrompt) === 1;
+
+        // Always include both active and hidden boards so past-month boards (e.g. September, October) are found!
+        $baseQuery = Board::with(['workspace:id,name', 'lists' => fn($q) => $q->orderBy('position')])
             ->where('is_archived', false);
 
-        if (!empty($args['type'])) {
-            $term = trim($args['type']);
-            $query->where(function ($q) use ($term) {
-                $q->where('type', 'like', "%{$term}%")
-                  ->orWhere('name', 'like', "%{$term}%");
+        if ($wantsHiddenOnly && !$detectedMonth) {
+            $baseQuery->where('is_hidden', true);
+        }
+
+        $filteredQuery = clone $baseQuery;
+
+        if ($detectedMonth) {
+            $monthAliases = $monthsMap[$detectedMonth] ?? [$detectedMonth];
+            $filteredQuery->where(function ($q) use ($monthAliases) {
+                foreach ($monthAliases as $m) {
+                    $q->orWhere('name', 'like', "%{$m}%")
+                      ->orWhere('slug', 'like', "%{$m}%");
+                }
             });
         }
 
-        $boards = $query->orderBy('position')->orderBy('name')->take(20)->get();
+        if ($wantsPlanning && !$wantsWorkflow) {
+            $filteredQuery->where(function ($q) {
+                $q->where('name', 'like', '%planning%')
+                  ->orWhere('type', 'like', '%planning%');
+            });
+        } elseif ($wantsWorkflow && !$wantsPlanning) {
+            $filteredQuery->where(function ($q) {
+                $q->where('name', 'like', '%workflow%')
+                  ->orWhere('type', 'like', '%workflow%');
+            });
+        }
+
+        if ($wantsSmm) {
+            $filteredQuery->where(function ($q) {
+                $q->where('name', 'like', '%smm%')
+                  ->orWhere('type', 'like', '%smm%');
+            });
+        }
+
+        if ($wantsTeamA && !$wantsTeamB) {
+            $filteredQuery->where('name', 'like', '%Team A%');
+        } elseif ($wantsTeamB && !$wantsTeamA) {
+            $filteredQuery->where('name', 'like', '%Team B%');
+        }
+
+        if (!$detectedMonth && !$wantsPlanning && !$wantsWorkflow && !$wantsSmm && !$wantsTeamA && !$wantsTeamB && !empty($args['type'])) {
+            $cleanedTerm = trim(preg_replace('/\b(find|search|for|me|the|of|in|on|board|boards|workspace|workspaces|show|get|open|link|please|ok|okay)\b/i', ' ', $args['type']));
+            $cleanedTerm = trim(preg_replace('/\s+/', ' ', $cleanedTerm));
+            if (!empty($cleanedTerm)) {
+                $tokens = array_filter(explode(' ', $cleanedTerm), fn($t) => strlen($t) >= 2);
+                $filteredQuery->where(function ($q) use ($tokens, $cleanedTerm) {
+                    $q->where('name', 'like', "%{$cleanedTerm}%")
+                      ->orWhere('type', 'like', "%{$cleanedTerm}%");
+                    foreach ($tokens as $tok) {
+                        $q->orWhere('name', 'like', "%{$tok}%");
+                    }
+                });
+            }
+        }
+
+        $boards = $filteredQuery->orderBy('is_hidden')->orderByDesc('id')->take(25)->get();
+
+        $exactFilterMatched = $boards->isNotEmpty();
+
+        // If a specific month (e.g. September) was requested and no board with that month name exists, fallback to showing all boards of that type (active + hidden) and explain clearly
+        if ($boards->isEmpty()) {
+            $fallbackQuery = clone $baseQuery;
+            if ($wantsPlanning) {
+                $fallbackQuery->where('name', 'like', '%planning%');
+            } elseif ($wantsWorkflow) {
+                $fallbackQuery->where('name', 'like', '%workflow%');
+            } elseif ($wantsSmm) {
+                $fallbackQuery->where('name', 'like', '%smm%');
+            }
+            $boards = $fallbackQuery->orderBy('is_hidden')->orderByDesc('id')->take(25)->get();
+            if ($boards->isEmpty()) {
+                $boards = $baseQuery->orderBy('is_hidden')->orderByDesc('id')->take(25)->get();
+            }
+        }
 
         $boardList = $boards->map(function ($b) {
             $boardUrl = url('/boards/' . $b->slug);
@@ -1167,6 +1372,7 @@ class KiuqAiToolRegistry
                 'name'      => $b->name,
                 'slug'      => $b->slug,
                 'type'      => $b->type ?: 'standard',
+                'is_hidden' => (bool) $b->is_hidden,
                 'workspace' => $b->workspace?->name ?: 'Digital Department @ KiuQ',
                 'lists'     => $b->lists->pluck('name')->all(),
                 'url'       => $boardUrl,
@@ -1176,11 +1382,23 @@ class KiuqAiToolRegistry
         $rows = [];
         foreach ($boardList as $b) {
             $listsStr = !empty($b['lists']) ? implode(' → ', $b['lists']) : 'No lists';
-            $rows[] = "- [**{$b['name']}**]({$b['url']}) (*{$b['workspace']}*)\n  Lists: `{$listsStr}`";
+            $statusBadge = $b['is_hidden'] ? ' `👁️‍🗨️ Hidden Board`' : ' `✅ Active`';
+            $rows[] = "- [**{$b['name']}**]({$b['url']}){$statusBadge} (*{$b['workspace']}*)\n  Lists: `{$listsStr}`";
         }
         $boardsMd = !empty($rows) ? implode("\n", $rows) : "No boards found.";
 
-        $message = "### 📌 Active Workspaces & Boards (" . count($boardList) . ")\n\n"
+        $headerTitle = "📌 Workspaces & Boards (" . count($boardList) . ")";
+        $prefixNotice = '';
+        if ($detectedMonth && $exactFilterMatched) {
+            $monthTitle = ucfirst($detectedMonth);
+            $headerTitle = "📌 {$monthTitle} Workspaces & Boards (" . count($boardList) . ")";
+        } elseif ($detectedMonth && !$exactFilterMatched) {
+            $monthTitle = ucfirst($detectedMonth);
+            $prefixNotice = "> ℹ️ No board specifically named **{$monthTitle}** was found in the database. Below are all matching **Active & Hidden Boards** available in the system:\n\n";
+        }
+
+        $message = "### {$headerTitle}\n\n"
+            . $prefixNotice
             . $boardsMd . "\n\n"
             . "👉 [**View All Workspaces & Boards**](/boards) · [**SMM Boards**](/smm-boards)";
 
@@ -1193,7 +1411,7 @@ class KiuqAiToolRegistry
     }
 
     /**
-     * Resolve a Board model by ID, slug, exact name, or fuzzy tokens.
+     * Resolve a Board model by ID, slug, exact name, or fuzzy tokens (including hidden/past-month boards).
      */
     public function resolveBoard(?string $query = null, ?int $boardId = null): ?Board
     {
@@ -1202,18 +1420,21 @@ class KiuqAiToolRegistry
             if ($board) return $board;
         }
 
-        $rawQuery = trim($query ?? '');
+        $rawQuery = trim(implode(' ', array_filter([
+            $query ?? '',
+            $this->currentUserPrompt ?? '',
+            $this->currentConversationContext ?? '',
+        ])));
 
-        // If numeric ID passed as string
-        if (is_numeric($rawQuery)) {
-            $board = Board::with('workspace')->find((int)$rawQuery);
+        if (is_numeric(trim($query ?? ''))) {
+            $board = Board::with('workspace')->find((int) trim($query));
             if ($board) return $board;
         }
 
         if (empty($rawQuery)) {
             return Board::with('workspace')
                 ->where('is_archived', false)
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('name', 'like', '%Planning%')
                       ->orWhere('name', 'like', '%Workflow%');
                 })
@@ -1222,56 +1443,74 @@ class KiuqAiToolRegistry
                 ?? Board::with('workspace')->where('is_archived', false)->latest('id')->first();
         }
 
-        // 1. Exact slug match
-        $board = Board::with('workspace')->where('slug', Str::slug($rawQuery))->first();
-        if ($board) return $board;
+        if (!empty($query)) {
+            // 1. Exact slug match
+            $board = Board::with('workspace')->where('slug', Str::slug(trim($query)))->first();
+            if ($board) return $board;
 
-        // 2. Exact name match (case-insensitive)
-        $board = Board::with('workspace')->whereRaw('LOWER(name) = ?', [strtolower($rawQuery)])->first();
-        if ($board) return $board;
+            // 2. Exact name match (case-insensitive)
+            $board = Board::with('workspace')->whereRaw('LOWER(name) = ?', [strtolower(trim($query))])->first();
+            if ($board) return $board;
+        }
 
-        // 3. Clean up the query string (strip noise words)
-        $cleaned = trim(preg_replace('/\b(export|report|from|board|the|in|of|show|get|generate|view|pdf|csv)\b/i', ' ', $rawQuery));
-        $cleaned = preg_replace('/\s+/', ' ', $cleaned);
+        // 3. Clean up the query string (strip conversational & command noise words)
+        $cleaned = trim(preg_replace('/\b(find|search|where|is|for|me|please|ok|okay|export|report|from|board|boards|the|in|of|on|show|get|generate|view|open|link|pdf|csv|can|you|i|want|need|to)\b/i', ' ', $rawQuery));
+        $cleaned = trim(preg_replace('/\s+/', ' ', $cleaned));
 
         if (!empty($cleaned)) {
             // Substring search with cleaned query
             $board = Board::with('workspace')
+                ->where('is_archived', false)
                 ->where('name', 'like', "%{$cleaned}%")
                 ->latest('id')
                 ->first();
             if ($board) return $board;
 
-            // Word tokens match (e.g. "planning", "october")
-            $tokens = array_filter(explode(' ', $cleaned), fn($t) => strlen($t) >= 3);
+            // Word tokens match (e.g. "planning" + "september")
+            $tokens = array_values(array_unique(array_filter(explode(' ', strtolower($cleaned)), fn($t) => strlen($t) >= 3)));
             if (!empty($tokens)) {
-                $q = Board::with('workspace');
+                $q = Board::with('workspace')->where('is_archived', false);
                 foreach ($tokens as $token) {
                     $q->where('name', 'like', "%{$token}%");
                 }
                 $board = $q->latest('id')->first();
                 if ($board) return $board;
 
-                // Any token
-                $board = Board::with('workspace')->where(function($qb) use ($tokens) {
-                    foreach ($tokens as $token) {
-                        $qb->orWhere('name', 'like', "%{$token}%");
+                // Prioritize month token + board type token if present
+                $months = ['january','february','march','april','may','june','july','august','september','october','november','december','jan','feb','mar','apr','jun','jul','aug','sep','sept','oct','nov','dec'];
+                $monthTokens = array_intersect($tokens, $months);
+                if (!empty($monthTokens)) {
+                    $mq = Board::with('workspace')->where('is_archived', false);
+                    foreach ($monthTokens as $mt) {
+                        $mq->where('name', 'like', "%{$mt}%");
                     }
-                })->latest('id')->first();
-                if ($board) return $board;
+                    if (stripos($cleaned, 'smm') !== false) {
+                        $mq->where('name', 'like', '%smm%');
+                    } elseif (stripos($cleaned, 'plan') !== false) {
+                        $mq->where('name', 'like', '%plan%');
+                    } elseif (stripos($cleaned, 'work') !== false) {
+                        $mq->where('name', 'like', '%work%');
+                    }
+                    $board = $mq->latest('id')->first();
+                    if ($board) return $board;
+                }
             }
         }
 
-        // 4. Substring search with raw query
-        $board = Board::with('workspace')
-            ->where('name', 'like', "%{$rawQuery}%")
-            ->latest('id')
-            ->first();
-        if ($board) return $board;
+        // 4. If query contains "smm", find SMM board
+        if (stripos($rawQuery, 'smm') !== false) {
+            $board = Board::with('workspace')
+                ->where('is_archived', false)
+                ->where('name', 'like', '%smm%')
+                ->latest('id')
+                ->first();
+            if ($board) return $board;
+        }
 
-        // 5. If query contains "planning", find any planning board
+        // 5. If query contains "planning", find planning board
         if (stripos($rawQuery, 'plan') !== false) {
             $board = Board::with('workspace')
+                ->where('is_archived', false)
                 ->where('name', 'like', '%plan%')
                 ->latest('id')
                 ->first();
@@ -1281,6 +1520,7 @@ class KiuqAiToolRegistry
         // 6. If query contains "workflow", find workflow board
         if (stripos($rawQuery, 'work') !== false) {
             $board = Board::with('workspace')
+                ->where('is_archived', false)
                 ->where('name', 'like', '%work%')
                 ->latest('id')
                 ->first();
@@ -1809,6 +2049,41 @@ class KiuqAiToolRegistry
                 'description' => 'Download official native iOS application for iPhone & iPad.',
                 'route'       => '/ios-app/download',
             ],
+            'production_reports' => [
+                'title'       => 'Production Reports Dashboard',
+                'description' => 'Daily, Weekly, and Monthly Production Report Management System for Team A (Dara), Team B (Kim), and Supervisor (Somalika).',
+                'route'       => '/production-reports',
+            ],
+            'production_reports_daily' => [
+                'title'       => 'Daily Production Reports',
+                'description' => 'Submit and review daily member production reports (Deadline: 5:00 PM Cambodia time).',
+                'route'       => '/production-reports/daily',
+            ],
+            'production_reports_weekly' => [
+                'title'       => 'Weekly Team Production Reports',
+                'description' => 'Automatic compilation of Team A & Team B weekly production reports with PPTX/PDF/CSV export (Deadline: Saturday 8:00 AM).',
+                'route'       => '/production-reports/weekly',
+            ],
+            'production_reports_monthly' => [
+                'title'       => 'Monthly Production Reports',
+                'description' => 'Monthly production summary and performance compilation.',
+                'route'       => '/production-reports/monthly',
+            ],
+            'production_reports_calendar' => [
+                'title'       => 'Production Report Calendar',
+                'description' => 'Calendar view of daily, weekly, and monthly report submissions and overdue status.',
+                'route'       => '/production-reports/calendar',
+            ],
+            'production_reports_media' => [
+                'title'       => 'Production Report Media & Attachments',
+                'description' => 'Central gallery of uploaded posters, graphics, videos, and highlighted deliverables.',
+                'route'       => '/production-reports/media',
+            ],
+            'production_reports_archive' => [
+                'title'       => 'Production Report Archive',
+                'description' => 'Searchable historical archive of all submitted production reports and exports.',
+                'route'       => '/production-reports/archive',
+            ],
         ];
 
         $filter = strtolower(trim($args['section'] ?? ''));
@@ -1840,5 +2115,537 @@ class KiuqAiToolRegistry
             'routes'  => $targets,
             'message' => $message,
         ];
+    }
+
+    private function handleSearchGoogleSearchConsole(array $args, User $user): array
+    {
+        $query = trim($args['query'] ?? '');
+        if (!Schema::hasTable('gsc_sites')) {
+            return [
+                'success' => true,
+                'message' => "### 🔍 Google Search Console & Sitemaps\n\n👉 [**Open Google Search Console & Sitemaps Suite**](/websites/google-search-console)",
+            ];
+        }
+
+        $sitesQuery = GoogleSearchConsoleSite::query();
+        if (!empty($query) && !preg_match('/\b(all|index|indexed|not\s+indexed|sitemap|sitemaps|gsc|google|search|console)\b/i', $query)) {
+            $sitesQuery->where('site_url', 'like', "%{$query}%");
+        }
+
+        $sites = $sitesQuery->orderByDesc('total_indexed')->orderByDesc('total_clicks')->take(25)->get();
+        $totalSites = GoogleSearchConsoleSite::count();
+        $totalIndexed = (int) GoogleSearchConsoleSite::sum('total_indexed');
+        $totalNotIndexed = (int) GoogleSearchConsoleSite::sum('total_not_indexed');
+        $totalClicks = (int) GoogleSearchConsoleSite::sum('total_clicks');
+        $totalImpressions = (int) GoogleSearchConsoleSite::sum('total_impressions');
+
+        $rows = [];
+        foreach ($sites as $site) {
+            $indexed = (int) ($site->total_indexed ?? 0);
+            $notIndexed = (int) ($site->total_not_indexed ?? 0);
+            $clicks = (int) ($site->total_clicks ?? 0);
+            $impr = (int) ($site->total_impressions ?? 0);
+            $rows[] = "- **{$site->site_url}** — ✅ Indexed: **{$indexed}** | ⚠️ Not Indexed: **{$notIndexed}** | Clicks: `{$clicks}` | Impressions: `{$impr}`";
+        }
+
+        $sitesMd = !empty($rows) ? implode("\n", $rows) : "No Google Search Console properties matched `{$query}`.";
+
+        $message = "### 🔍 Google Search Console & Indexation Overview\n\n"
+            . "**Connected GSC Properties:** {$totalSites} | **Total Indexed Pages:** {$totalIndexed} | **Not Indexed Pages:** {$totalNotIndexed} | **Clicks:** {$totalClicks} | **Impressions:** {$totalImpressions}\n\n"
+            . $sitesMd . "\n\n"
+            . "👉 [**Open Google Search Console Dashboard**](/websites/google-search-console) · [**Sitemaps & Indexation Scanner**](/websites/google-search-console?view=sitemaps)";
+
+        return [
+            'success' => true,
+            'total_sites' => $totalSites,
+            'total_indexed' => $totalIndexed,
+            'total_not_indexed' => $totalNotIndexed,
+            'message' => $message,
+        ];
+    }
+
+    private function handleSearchProductionReports(array $args, User $user): array
+    {
+        if (!Schema::hasTable('production_reports')) {
+            return [
+                'success' => true,
+                'message' => "### 📋 Production Reports Module\n\n👉 [**Open Production Reports Dashboard**](/production-reports)",
+            ];
+        }
+
+        $q = ProductionReport::with('user:id,name,username,team');
+
+        $rawReportQuery = trim(($args['query'] ?? '') . ' ' . ($this->currentUserPrompt ?? ''));
+        $detectedReportType = !empty($args['report_type']) ? strtolower(trim($args['report_type'])) : null;
+        if (!$detectedReportType) {
+            if (preg_match('/\bdaily\b/i', $rawReportQuery)) {
+                $detectedReportType = 'daily';
+            } elseif (preg_match('/\bweekly\b/i', $rawReportQuery)) {
+                $detectedReportType = 'weekly';
+            } elseif (preg_match('/\bmonthly\b/i', $rawReportQuery)) {
+                $detectedReportType = 'monthly';
+            }
+        }
+
+        if ($detectedReportType) {
+            $q->where('report_type', $detectedReportType);
+        }
+
+        $detectedTeamCode = !empty($args['team_code']) ? strtoupper(trim($args['team_code'])) : null;
+        if (!$detectedTeamCode) {
+            if (preg_match('/\bteam\s*a\b/i', $rawReportQuery)) {
+                $detectedTeamCode = 'A';
+            } elseif (preg_match('/\bteam\s*b\b/i', $rawReportQuery)) {
+                $detectedTeamCode = 'B';
+            }
+        }
+
+        if ($detectedTeamCode) {
+            $q->where('team_code', $detectedTeamCode);
+        }
+
+        if (!empty($args['query'])) {
+            $term = trim(preg_replace('/\b(find|search|show|where|is|are|get|open|the|all|production|daily|weekly|monthly|team\s*a|team\s*b|report|reports|menu|for|me)\b/i', ' ', $args['query']));
+            $term = trim(preg_replace('/\s+/', ' ', $term));
+            if (!empty($term)) {
+                $q->where(function ($sub) use ($term) {
+                    $sub->where('title', 'like', "%{$term}%")
+                        ->orWhere('executive_summary', 'like', "%{$term}%")
+                        ->orWhere('team_name', 'like', "%{$term}%")
+                        ->orWhereHas('user', fn($uq) => $uq->where('name', 'like', "%{$term}%")->orWhere('username', 'like', "%{$term}%"));
+                });
+            }
+        }
+
+        $reports = $q->latest('reporting_date')->latest('id')->take(15)->get();
+        $rows = [];
+        foreach ($reports as $r) {
+            $typeBadge = strtoupper($r->report_type);
+            $authorName = $r->user?->name ?: 'Team';
+            $dateStr = $r->reporting_date ? Carbon::parse($r->reporting_date)->format('M d, Y') : 'Recent';
+            $url = route('production-reports.show', $r->id);
+            $rows[] = "- [**{$r->title}**]({$url}) `[{$typeBadge}]` — By **{$authorName}** (Team {$r->team_code}) · Status: `{$r->status}` · Date: {$dateStr}";
+        }
+
+        $reportsMd = !empty($rows) ? implode("\n", $rows) : "No production reports matched your filter.";
+
+        $message = "### 📋 Production Reports (" . count($reports) . " Matched)\n\n"
+            . $reportsMd . "\n\n"
+            . "👉 [**Production Reports Dashboard**](/production-reports) · [**Submit Daily Report**](/production-reports/daily/create) · [**Weekly Team Reports**](/production-reports/weekly) · [**Export Center**](/production-reports/archive)";
+
+        return [
+            'success' => true,
+            'count'   => count($reports),
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * Universal omniscient search across EVERY section and database model in the DGT System.
+     */
+    public function handleSearchSystemEverything(array $args, User $user): array
+    {
+        $primaryQuery = !empty($args['query']) ? trim($args['query']) : trim($this->currentUserPrompt ?? '');
+        $rawQuery = trim($primaryQuery . ' ' . ($this->currentConversationContext ?? ''));
+
+        $sectionFilter = strtolower(trim($args['section'] ?? 'all'));
+
+        // If the query specifically asks for a board (e.g. "find the Planning board of september for me" or "september ok")
+        if ($sectionFilter === 'boards' || (preg_match('/\b(board|boards|planning|workflow|workspace|smm\s+board)\b/i', $rawQuery) && !preg_match('/\b(card|website|blog|note|kpi|inquiry|gsc)\b/i', $rawQuery))) {
+            return $this->handleListBoards(['type' => $rawQuery], $user);
+        }
+
+        $cleaned = trim(preg_replace('/\b(find|search|where|is|are|for|me|the|in|of|on|at|to|from|show|get|open|link|please|ok|okay|system|section|inside|my|anything|any|all|check|look|up)\b/i', ' ', $primaryQuery));
+        $cleaned = trim(preg_replace('/\s+/', ' ', $cleaned));
+        $searchTerm = !empty($cleaned) ? $cleaned : $primaryQuery;
+        $tokens = array_values(array_unique(array_filter(explode(' ', strtolower($searchTerm)), fn($t) => strlen($t) >= 2)));
+
+        $sectionsOutput = [];
+
+        // 1. BOARDS (Active & Hidden, including past months like September/October/November)
+        if (in_array($sectionFilter, ['all', 'boards'], true)) {
+            $boardQuery = Board::with(['workspace:id,name', 'lists' => fn($q) => $q->orderBy('position')])
+                ->where('is_archived', false);
+
+            if (!empty($tokens)) {
+                $boardQuery->where(function ($q) use ($tokens, $searchTerm) {
+                    $q->where('name', 'like', "%{$searchTerm}%")
+                      ->orWhere('slug', 'like', "%{$searchTerm}%");
+                    foreach ($tokens as $tok) {
+                        $q->orWhere('name', 'like', "%{$tok}%")
+                          ->orWhere('slug', 'like', "%{$tok}%");
+                    }
+                });
+            }
+
+            $matchedBoards = $boardQuery->orderBy('is_hidden')->orderByDesc('id')->take(10)->get();
+            if ($matchedBoards->isNotEmpty()) {
+                $bRows = [];
+                foreach ($matchedBoards as $b) {
+                    $bUrl = url('/boards/' . $b->slug);
+                    $badge = $b->is_hidden ? ' `👁️‍🗨️ Hidden Board`' : ' `✅ Active`';
+                    $listsStr = $b->lists->pluck('name')->implode(' → ') ?: 'No lists';
+                    $bRows[] = "- [**{$b->name}**]({$bUrl}){$badge} (*" . ($b->workspace?->name ?: 'Workspace') . "*)\n  Lists: `{$listsStr}`";
+                }
+                $sectionsOutput[] = "#### 📌 Matching Boards (" . $matchedBoards->count() . ")\n" . implode("\n", $bRows);
+            }
+        }
+
+        // 2. TASK CARDS (including cards matched by title, description, card ID, assignee name, or label name like SMM/Graphic/Video)
+        if (in_array($sectionFilter, ['all', 'cards'], true) && !empty($searchTerm)) {
+            $cardQuery = Card::with(['boardList.board:id,name,slug', 'labels:id,name,color', 'assignees:id,name'])->where(function ($q) use ($searchTerm, $tokens) {
+                $q->where('title', 'like', "%{$searchTerm}%")
+                  ->orWhere('description', 'like', "%{$searchTerm}%")
+                  ->orWhereHas('labels', fn($lq) => $lq->where('name', 'like', "%{$searchTerm}%"))
+                  ->orWhereHas('assignees', fn($mq) => $mq->where('name', 'like', "%{$searchTerm}%")->orWhere('username', 'like', "%{$searchTerm}%"))
+                  ->orWhereHas('boardList', fn($blq) => $blq->where('name', 'like', "%{$searchTerm}%"));
+                if (preg_match('/\bCRD-(\d+)\b/i', $searchTerm, $cm)) {
+                    $q->orWhere('id', (int) $cm[1]);
+                }
+                foreach ($tokens as $tok) {
+                    if (strlen($tok) >= 3) {
+                        $q->orWhere('title', 'like', "%{$tok}%");
+                    }
+                }
+            });
+            $matchedCards = $cardQuery->latest('id')->take(8)->get();
+            if ($matchedCards->isNotEmpty()) {
+                $cRows = [];
+                foreach ($matchedCards as $c) {
+                    $boardName = $c->boardList?->board?->name ?: 'Board';
+                    $boardSlug = $c->boardList?->board?->slug;
+                    $listName = $c->boardList?->name ?: 'List';
+                    $labelsStr = $c->labels->pluck('name')->implode(', ');
+                    $labelBadge = $labelsStr ? " `[{$labelsStr}]`" : '';
+                    $cardUrl = $boardSlug ? url("/boards/{$boardSlug}?card={$c->id}") : url("/cards/{$c->id}");
+                    $cRows[] = "- [**{$c->title}**]({$cardUrl}){$labelBadge} — List: `{$listName}` on *{$boardName}*";
+                }
+                $sectionsOutput[] = "#### 🗂️ Matching Task Cards (" . $matchedCards->count() . ")\n" . implode("\n", $cRows);
+            }
+        }
+
+        // 3. WEBSITES & GOOGLE SEARCH CONSOLE
+        if (in_array($sectionFilter, ['all', 'websites', 'gsc'], true) && !empty($searchTerm)) {
+            $matchedWebsites = Website::with('handler:id,name')
+                ->where(function ($q) use ($searchTerm, $tokens) {
+                    $q->where('name', 'like', "%{$searchTerm}%")
+                      ->orWhere('url', 'like', "%{$searchTerm}%")
+                      ->orWhere('category', 'like', "%{$searchTerm}%");
+                    foreach ($tokens as $tok) {
+                        if (strlen($tok) >= 3) {
+                            $q->orWhere('name', 'like', "%{$tok}%")
+                              ->orWhere('url', 'like', "%{$tok}%");
+                        }
+                    }
+                })->take(8)->get();
+
+            if ($matchedWebsites->isNotEmpty()) {
+                $wRows = [];
+                foreach ($matchedWebsites as $w) {
+                    $wRows[] = "- [**{$w->name}**]({$w->url}) — Status: `{$w->status}` | Handler: *" . ($w->handler?->name ?: 'Unassigned') . "* · [Open in DGT](/websites)";
+                }
+                $sectionsOutput[] = "#### 🌐 Matching Websites (" . $matchedWebsites->count() . ")\n" . implode("\n", $wRows);
+            }
+
+            if (Schema::hasTable('gsc_sites')) {
+                $gscMatches = GoogleSearchConsoleSite::where('site_url', 'like', "%{$searchTerm}%")->take(6)->get();
+                if ($gscMatches->isNotEmpty()) {
+                    $gRows = [];
+                    foreach ($gscMatches as $gs) {
+                        $gRows[] = "- **{$gs->site_url}** — ✅ Indexed: **{$gs->total_indexed}** | ⚠️ Not Indexed: **{$gs->total_not_indexed}** · [Open GSC](/websites/google-search-console?view=sitemaps)";
+                    }
+                    $sectionsOutput[] = "#### 🔍 Google Search Console Properties (" . $gscMatches->count() . ")\n" . implode("\n", $gRows);
+                }
+            }
+        }
+
+        // 4. BLOG POSTS
+        if (in_array($sectionFilter, ['all', 'blogs'], true) && !empty($searchTerm)) {
+            $matchedBlogs = WebsitePost::with('website:id,name')
+                ->where(function ($q) use ($searchTerm) {
+                    $q->where('title', 'like', "%{$searchTerm}%")
+                      ->orWhere('focus_keyword', 'like', "%{$searchTerm}%");
+                })->latest('id')->take(6)->get();
+
+            if ($matchedBlogs->isNotEmpty()) {
+                $pRows = [];
+                foreach ($matchedBlogs as $p) {
+                    $siteName = $p->website?->name ?: 'Website';
+                    $pRows[] = "- **{$p->title}** (*{$siteName}*) — Status: `{$p->status}` · [Manage Blog Posts](/websites/posts)";
+                }
+                $sectionsOutput[] = "#### 📝 Matching Blog Posts (" . $matchedBlogs->count() . ")\n" . implode("\n", $pRows);
+            }
+        }
+
+        // 5. PRODUCTION REPORTS
+        if (in_array($sectionFilter, ['all', 'production_reports'], true) && Schema::hasTable('production_reports') && !empty($searchTerm)) {
+            $matchedReports = ProductionReport::with('user:id,name')
+                ->where(function ($q) use ($searchTerm, $tokens) {
+                    $q->where('title', 'like', "%{$searchTerm}%")
+                      ->orWhere('executive_summary', 'like', "%{$searchTerm}%")
+                      ->orWhere('team_name', 'like', "%{$searchTerm}%")
+                      ->orWhereHas('user', fn($uq) => $uq->where('name', 'like', "%{$searchTerm}%")->orWhere('username', 'like', "%{$searchTerm}%"));
+                })->latest('reporting_date')->take(6)->get();
+
+            if ($matchedReports->isNotEmpty()) {
+                $rRows = [];
+                foreach ($matchedReports as $r) {
+                    $rUrl = route('production-reports.show', $r->id);
+                    $rRows[] = "- [**{$r->title}**]({$rUrl}) (`" . strtoupper($r->report_type) . "`) — By *" . ($r->user?->name ?: 'Team') . "* · Status: `{$r->status}`";
+                }
+                $sectionsOutput[] = "#### 📋 Matching Production Reports (" . $matchedReports->count() . ")\n" . implode("\n", $rRows);
+            }
+        }
+
+        // 6. SOCIAL MEDIA MARKETING (SMM)
+        if (in_array($sectionFilter, ['all', 'smm'], true) && Schema::hasTable('social_media_items') && !empty($searchTerm)) {
+            $matchedSmm = SocialMediaItem::where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', "%{$searchTerm}%")
+                  ->orWhere('platform', 'like', "%{$searchTerm}%")
+                  ->orWhere('handle', 'like', "%{$searchTerm}%");
+            })->take(6)->get();
+
+            if ($matchedSmm->isNotEmpty()) {
+                $sRows = [];
+                foreach ($matchedSmm as $smm) {
+                    $sRows[] = "- **{$smm->name}** (`{$smm->platform}`) — [Open SMM Dashboard](/social-media) · [SMM Boards](/smm-boards)";
+                }
+                $sectionsOutput[] = "#### 📱 Matching Social Media (SMM) Channels (" . $matchedSmm->count() . ")\n" . implode("\n", $sRows);
+            }
+        }
+
+        // 7. KPI PERFORMANCE SYSTEM
+        if (in_array($sectionFilter, ['all', 'kpi'], true) && Schema::hasTable('kpi_tasks') && !empty($searchTerm)) {
+            $matchedKpiTasks = KpiTask::where('title', 'like', "%{$searchTerm}%")
+                ->orWhere('description', 'like', "%{$searchTerm}%")
+                ->latest('id')
+                ->take(5)
+                ->get();
+
+            if ($matchedKpiTasks->isNotEmpty()) {
+                $kRows = [];
+                foreach ($matchedKpiTasks as $kt) {
+                    $kRows[] = "- **{$kt->title}** — Status: `{$kt->status}` · [Open KPI System](/kpi)";
+                }
+                $sectionsOutput[] = "#### 🏆 Matching KPI Tasks (" . $matchedKpiTasks->count() . ")\n" . implode("\n", $kRows);
+            }
+        }
+
+        // 8. CUSTOMER INQUIRIES & CRM LEADS
+        if (in_array($sectionFilter, ['all', 'inquiries', 'crm'], true) && !empty($searchTerm)) {
+            if (Schema::hasTable('website_inquiries')) {
+                $matchedInq = WebsiteInquiry::with('website:id,name')
+                    ->where(function ($q) use ($searchTerm) {
+                        $q->where('customer_name', 'like', "%{$searchTerm}%")
+                          ->orWhere('customer_email', 'like', "%{$searchTerm}%")
+                          ->orWhere('subject', 'like', "%{$searchTerm}%")
+                          ->orWhere('message', 'like', "%{$searchTerm}%");
+                    })->latest('id')->take(5)->get();
+
+                if ($matchedInq->isNotEmpty()) {
+                    $iRows = [];
+                    foreach ($matchedInq as $inq) {
+                        $iRows[] = "- **{$inq->customer_name}** ({$inq->customer_email}) — *{$inq->subject}* · [Open Inquiries](/websites/inquiries)";
+                    }
+                    $sectionsOutput[] = "#### 📥 Matching Website Inquiries (" . $matchedInq->count() . ")\n" . implode("\n", $iRows);
+                }
+            }
+        }
+
+        // 9. NOTES (Team Notes & User's Private Notes)
+        if (in_array($sectionFilter, ['all', 'notes'], true) && Schema::hasTable('notes') && !empty($searchTerm)) {
+            $matchedNotes = Note::where(function ($q) use ($user) {
+                    $q->where('type', 'team')
+                      ->orWhere(function ($pq) use ($user) {
+                          $pq->where('type', 'private')->where('user_id', $user->id);
+                      });
+                })
+                ->where(function ($q) use ($searchTerm) {
+                    $q->where('title', 'like', "%{$searchTerm}%")
+                      ->orWhere('content', 'like', "%{$searchTerm}%");
+                })
+                ->latest('updated_at')
+                ->take(5)
+                ->get();
+
+            if ($matchedNotes->isNotEmpty()) {
+                $nRows = [];
+                foreach ($matchedNotes as $n) {
+                    $nUrl = $n->type === 'team' ? url('/notes/team') : url('/notes/private');
+                    $nRows[] = "- [**{$n->title}**]({$nUrl}) (`" . ucfirst($n->type) . " Note`)";
+                }
+                $sectionsOutput[] = "#### 📓 Matching Notes (" . $matchedNotes->count() . ")\n" . implode("\n", $nRows);
+            }
+        }
+
+        // 10. STAFF MEMBERS
+        if (in_array($sectionFilter, ['all', 'members'], true) && !empty($searchTerm)) {
+            $matchedMembers = User::where(function ($q) use ($searchTerm, $tokens) {
+                $q->where('name', 'like', "%{$searchTerm}%")
+                  ->orWhere('username', 'like', "%{$searchTerm}%")
+                  ->orWhere('email', 'like', "%{$searchTerm}%")
+                  ->orWhere('team', 'like', "%{$searchTerm}%")
+                  ->orWhere('team_role', 'like', "%{$searchTerm}%");
+            })->take(8)->get();
+
+            if ($matchedMembers->isNotEmpty()) {
+                $mRows = [];
+                foreach ($matchedMembers as $m) {
+                    $mRows[] = "- **{$m->name}** (`{$m->email}`) — Team: *" . ($m->team ?: 'General') . "* · [View Staff Directory](/members)";
+                }
+                $sectionsOutput[] = "#### 👥 Matching Team Members (" . $matchedMembers->count() . ")\n" . implode("\n", $mRows);
+            }
+        }
+
+        // 11. SYSTEM NAVIGATION ROUTES
+        $navResult = $this->handleGetSystemNavigation(['section' => $searchTerm], $user);
+        if (!empty($navResult['routes']) && count($navResult['routes']) < 25) {
+            $navRows = [];
+            foreach (array_slice($navResult['routes'], 0, 8) as $item) {
+                $navRows[] = "- [**{$item['title']}**](" . url($item['route']) . ") (`{$item['route']}`) — {$item['description']}";
+            }
+            $sectionsOutput[] = "#### 🧭 Matching System Sections & Navigation\n" . implode("\n", $navRows);
+        }
+
+        if (empty($sectionsOutput)) {
+            $boardsResult = $this->handleListBoards(['type' => $rawQuery], $user);
+            return $boardsResult;
+        }
+
+        $message = "### 🔎 Universal DGT System Search Results\n\n"
+            . implode("\n\n", $sectionsOutput) . "\n\n"
+            . "👉 [**All Boards**](/boards) · [**Production Reports**](/production-reports) · [**Websites**](/websites) · [**GSC & Sitemaps**](/websites/google-search-console)";
+
+        return [
+            'success' => true,
+            'query'   => $rawQuery,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * Comprehensive Intelligence Overview when the user asks about AI smartness, system search capabilities,
+     * or searching anything across any section inside DGT System.
+     */
+    public function handleSearchSystemIntelligenceOverview(string $query, User $user): array
+    {
+        $boardsCount = Schema::hasTable('boards') ? Board::where('is_archived', false)->count() : 0;
+        $cardsCount = Schema::hasTable('cards') ? Card::count() : 0;
+        $reportsCount = Schema::hasTable('production_reports') ? ProductionReport::count() : 0;
+        $websitesCount = Schema::hasTable('websites') ? Website::count() : 0;
+        $gscCount = Schema::hasTable('gsc_sites') ? GoogleSearchConsoleSite::count() : 0;
+        $postsCount = Schema::hasTable('website_posts') ? WebsitePost::count() : 0;
+        $membersCount = User::where('is_active', true)->count();
+        $notesCount = Schema::hasTable('notes') ? Note::count() : 0;
+        $inquiriesCount = Schema::hasTable('website_inquiries') ? WebsiteInquiry::count() : 0;
+        $smmCount = Schema::hasTable('social_media_items') ? SocialMediaItem::count() : 0;
+        $kpiCount = Schema::hasTable('kpi_tasks') ? KpiTask::count() : 0;
+
+        // Sample active & hidden boards
+        $sampleBoards = Board::where('is_archived', false)
+            ->orderBy('is_hidden')
+            ->orderByDesc('id')
+            ->take(4)
+            ->get();
+        $boardLinks = [];
+        foreach ($sampleBoards as $b) {
+            $badge = $b->is_hidden ? ' *(Hidden)*' : '';
+            $boardLinks[] = "[**{$b->name}**](/boards/{$b->slug}){$badge}";
+        }
+
+        // Sample recent cards
+        $sampleCards = Card::with('boardList.board')->latest('id')->take(3)->get();
+        $cardLinks = [];
+        foreach ($sampleCards as $c) {
+            $bSlug = $c->boardList?->board?->slug;
+            $cardUrl = $bSlug ? url("/boards/{$bSlug}?card={$c->id}") : url("/cards/{$c->id}");
+            $cardLinks[] = "[**{$c->title}**]({$cardUrl})";
+        }
+
+        $message = "### 🧠 Universal AI Search Trained & Active Across All System Sections\n\n"
+            . "KIUQ AI is now deeply trained and equipped with **Universal Omniscient Search** across every single section, database table, and operational workflow in the **DGT System**.\n\n"
+            . "You can search, query, inspect, and get direct links for anything across these **12 System Sections**:\n\n"
+            . "| Section | What You Can Search | Live Records in DB | Quick Access Link |\n"
+            . "| :--- | :--- | :--- | :--- |\n"
+            . "| 📌 **Kanban Boards** | Monthly roadmaps (Sep/Oct/Nov), Workflow Boards (Team A & B), SMM boards, active & hidden boards | **{$boardsCount} Boards** | [Open Boards](/boards) |\n"
+            . "| 🗂️ **Task Cards** | Any task by title, description, ID (`CRD-xxx`), assignee (Chhay, Dara, Kim, etc.), label, or checklist | **{$cardsCount} Cards** | [Workload Analytics](/tasks-count) |\n"
+            . "| 📋 **Production Reports** | Member Daily Reports (due 5:00 PM), Weekly Team Reports (Team A & B), Monthly Reports with PDF/Word | **{$reportsCount} Reports** | [Production Reports](/production-reports) |\n"
+            . "| 🌐 **Websites & CMS** | Connected domains, SSL status, QC audits, WordPress blog drafts & live published articles | **{$websitesCount} Sites / {$postsCount} Posts** | [Websites](/websites) · [CMS Posts](/websites/posts) |\n"
+            . "| 🔍 **Google Search Console** | Indexed pages, non-indexed issues, sitemaps, clicks, impressions, and top ranking keywords | **{$gscCount} Properties** | [GSC Analytics](/websites/google-search-console) |\n"
+            . "| 📱 **Social Media (SMM)** | SMM channel handles, campaign planning, and twin-card sync across planning and workflow boards | **{$smmCount} Channels** | [SMM Dashboard](/social-media) · [SMM Boards](/smm-boards) |\n"
+            . "| 🏆 **KPI Performance** | Squad reviews, monthly employee KPI evaluations, supervisor skill grading & scorecards | **{$kpiCount} Tasks** | [KPI System](/kpi) |\n"
+            . "| 👥 **Staff & Members** | Organization roster: Team A (Dara - 6 members), Team B (Kim - 4 members), Supervisor, roles, emails | **{$membersCount} Staff** | [Staff Directory](/members) |\n"
+            . "| 📓 **Notes Knowledge Base** | Team SOP documentation, folder trees, and personal scratchpad checklists | **{$notesCount} Notes** | [Team Notes](/notes/team) · [Private Notes](/notes/private) |\n"
+            . "| 📥 **Customer Inquiries** | Inbound customer leads captured live from Contact Form 7 on connected WordPress sites | **{$inquiriesCount} Inquiries** | [Inquiries](/websites/inquiries) |\n"
+            . "| 💬 **Chat & WebRTC** | 1-on-1 private messaging, department channels, WebRTC voice/video calls | Active Workspace | [Open Chat](/chat) |\n"
+            . "| 🧭 **System Navigation** | Direct deep-links to every verified page, admin setting, and tools | 25+ Verified Routes | [Settings](/admin/settings) |\n\n"
+            . "---\n\n"
+            . "#### 💡 How You Can Search Right Now (Try Any Prompt Below):\n"
+            . "- **Task Cards**: `\"find card promo video\"` or `\"cards assigned to Chhay\"` or `\"CRD-1\"`\n"
+            . "- **Boards**: `\"find planning board november\"` or `\"workflow board team b\"` or `\"hidden boards\"`\n"
+            . "- **Production Reports**: `\"show team a reports\"` or `\"today daily reports\"` or `\"compile weekly report\"`\n"
+            . "- **Websites**: `\"list all live websites\"` or `\"check american excavator\"`\n"
+            . "- **Search Console (GSC)**: `\"show not-indexed pages in search console\"`\n"
+            . "- **Staff**: `\"list team b members\"` or `\"find kim\"` or `\"who is in team a\"`\n\n"
+            . "#### ⚡ Live Active Records in Your System:\n"
+            . "- **Boards**: " . (!empty($boardLinks) ? implode(' · ', $boardLinks) : 'None') . "\n"
+            . "- **Recent Tasks**: " . (!empty($cardLinks) ? implode(' · ', $cardLinks) : 'None') . "\n\n"
+            . "Simply type whatever you want to find, and I will search every table and section with direct clickable links!";
+
+        return [
+            'success' => true,
+            'query'   => $query,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * Deterministic smart search dispatcher for KiuqAiController when the user asks to find/search
+     * any board (including hidden/past-month boards like September), GSC, Production Reports, or any section.
+     */
+    public function detectAndExecuteSmartSearch(string $prompt, User $user, ?string $previousContext = null): ?array
+    {
+        $this->currentUserPrompt = $prompt;
+
+        // Only carry over $previousContext when the current prompt is a short conversational refinement (e.g. "september ok", "team a", "what about october", "hidden ones")
+        $wordCount = count(preg_split('/\s+/', trim($prompt), -1, PREG_SPLIT_NO_EMPTY));
+        $isShortFollowUp = ($wordCount <= 4) && !empty($previousContext) && (
+            preg_match('/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|hidden|team\s*a|team\s*b|smm|planning|workflow|ok|okay|yes|please)\b/i', $prompt) === 1
+        );
+
+        $effectiveContext = $isShortFollowUp ? $previousContext : null;
+        $this->currentConversationContext = $effectiveContext;
+
+        $combined = trim($prompt . ' ' . ($effectiveContext ?? ''));
+
+        // 0. Check if user is asking to train AI or asking about universal search capabilities across system sections
+        if (preg_match('/\b(train\s*(ai)?.*smart|smart.*ai|train\s+ai|search\s+anything|any\s+section|inside\s+my\s+system|search\s+everything|all\s+sections|what\s+can\s+(i|you)\s+search|how\s+(can\s+i|to)\s+search|search\s+in\s+system)\b/i', $combined)) {
+            return $this->handleSearchSystemIntelligenceOverview($combined, $user);
+        }
+
+        $isExportIntent = preg_match('/\b(export|pdf|csv|download\s+report|generate\s+report)\b/i', $prompt) === 1;
+
+        // 1. Check if the user is looking for a Board / Planning Board / Workflow Board / SMM Board / Month Board
+        $hasBoardIntent = preg_match('/\b(board|boards|planning\s+board|workflow\s+board|smm\s+board|hidden\s+board|switch\s+board)\b/i', $combined) === 1;
+        if ($hasBoardIntent && !$isExportIntent) {
+            return $this->handleListBoards(['type' => $combined], $user);
+        }
+
+        // 2. Check if user is asking about Google Search Console / Indexed / Not Indexed / Sitemaps
+        if (preg_match('/\b(google\s+search\s+console|search\s+console|gsc|indexed|not\s+indexed|indexation|sitemaps?)\b/i', $prompt)) {
+            return $this->handleSearchGoogleSearchConsole(['query' => $prompt], $user);
+        }
+
+        // 3. Check if user is asking about the Production Reports module (Daily / Weekly / Monthly reports, Team A/B reports)
+        if (preg_match('/\b(production\s+reports?|team\s*[ab]\s+reports?|daily\s+reports?|weekly\s+reports?|monthly\s+reports?|weekly\s+team\s+reports?|report\s+menu|report\s+archive|report\s+calendar|reports?\s+tracker)\b/i', $prompt) && !$isExportIntent) {
+            return $this->handleSearchProductionReports(['query' => $prompt], $user);
+        }
+
+        // 4. General "find / search / where is / show / open / list" across any section of the system
+        if (preg_match('/\b(find|search|where\s+is|where\s+are|look\s+for|locate|show|show\s+me|take\s+me\s+to|go\s+to|open\s+the|list|check|lookup)\b/i', $prompt)) {
+            return $this->handleSearchSystemEverything(['query' => $prompt], $user);
+        }
+
+        return null;
     }
 }

@@ -790,6 +790,230 @@ body.is-dragging-card * { cursor: grabbing !important; }
 	[data-theme="neon"] .kanban-card .bg-slate-50 span {
 		color: #e0f2fe !important;
 	}
+
+	/* ── Custom Card Colour (user-picked: Light = tinted white | Dark = deep tint | Neon = glowing) ── */
+	@php
+		$prCardColors = [
+			'green'  => ['16,185,129',  '#064e3b'], 'teal'   => ['20,184,166',  '#134e4a'],
+			'sky'    => ['14,165,233',  '#0c4a6e'], 'blue'   => ['59,130,246',  '#1e3a8a'],
+			'indigo' => ['99,102,241',  '#312e81'], 'purple' => ['168,85,247',  '#581c87'],
+			'pink'   => ['236,72,153',  '#831843'], 'rose'   => ['244,63,94',   '#881337'],
+			'red'    => ['239,68,68',   '#7f1d1d'], 'orange' => ['249,115,22',  '#7c2d12'],
+			'amber'  => ['245,158,11',  '#78350f'], 'yellow' => ['234,179,8',   '#713f12'],
+			'lime'   => ['132,204,22',  '#365314'], 'slate'  => ['100,116,139', '#1e293b'],
+		];
+	@endphp
+	@foreach($prCardColors as $prKey => [$prRgb, $prInk])
+	.kanban-card.kanban-card-c-{{ $prKey }} { --cc: {{ $prRgb }}; --cc-ink: {{ $prInk }}; }
+	@endforeach
+	.kanban-card.kanban-card-colored {
+		background: linear-gradient(145deg, rgba(var(--cc), 0.14) 0%, rgba(var(--cc), 0.30) 100%), #ffffff !important;
+		border: 1.5px solid rgba(var(--cc), 0.62) !important;
+		box-shadow: 0 2px 8px rgba(var(--cc), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+	}
+	.kanban-card.kanban-card-colored:hover {
+		border-color: rgb(var(--cc)) !important;
+		box-shadow: 0 10px 24px rgba(var(--cc), 0.3), 0 0 0 1px rgb(var(--cc)) !important;
+	}
+	.kanban-card.kanban-card-colored .kanban-card-title,
+	.kanban-card.kanban-card-colored .kanban-card-meta:not(.kanban-card-date-badge):not(.bg-red-100):not(.bg-pink-100) { color: var(--cc-ink) !important; }
+	.kanban-card.kanban-card-colored .kanban-card-meta.bg-slate-100:not(.kanban-card-date-badge) {
+		background: rgba(255, 255, 255, 0.88) !important;
+		border: 1px solid rgba(var(--cc), 0.35) !important;
+	}
+	.kanban-card.kanban-card-colored .bg-slate-50 { background: rgba(255, 255, 255, 0.92) !important; border-color: rgba(var(--cc), 0.35) !important; }
+	.kanban-card.kanban-card-colored .bg-slate-50 span { color: var(--cc-ink) !important; }
+	.kanban-card.kanban-card-colored .group\/members { border-top-color: rgba(var(--cc), 0.25) !important; }
+
+	[data-theme="dark"] .kanban-card.kanban-card-colored,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-colored {
+		background: linear-gradient(145deg, rgba(var(--cc), 0.36) 0%, rgba(var(--cc), 0.16) 100%), #0f172a !important;
+		border: 1.5px solid rgba(var(--cc), 0.6) !important;
+		box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-colored:hover,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-colored:hover {
+		border-color: rgba(var(--cc), 0.95) !important;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 14px rgba(var(--cc), 0.35) !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-colored .kanban-card-title,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-colored .kanban-card-title { color: #f8fafc !important; }
+	[data-theme="dark"] .kanban-card.kanban-card-colored .kanban-card-meta:not(.kanban-card-date-badge):not(.bg-red-100):not(.bg-pink-100),
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-colored .kanban-card-meta:not(.kanban-card-date-badge):not(.bg-red-100):not(.bg-pink-100) { color: #e2e8f0 !important; }
+	[data-theme="dark"] .kanban-card.kanban-card-colored .kanban-card-meta.bg-slate-100:not(.kanban-card-date-badge),
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-colored .kanban-card-meta.bg-slate-100:not(.kanban-card-date-badge) {
+		background: rgba(2, 8, 23, 0.6) !important; color: #f1f5f9 !important; border: 1px solid rgba(var(--cc), 0.4) !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-colored .bg-slate-50,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-colored .bg-slate-50 { background: rgba(2, 8, 23, 0.6) !important; border-color: rgba(var(--cc), 0.4) !important; }
+	[data-theme="dark"] .kanban-card.kanban-card-colored .bg-slate-50 span,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-colored .bg-slate-50 span { color: #f1f5f9 !important; }
+
+	[data-theme="neon"] .kanban-card.kanban-card-colored {
+		background: linear-gradient(135deg, rgba(var(--cc), 0.42) 0%, rgba(var(--cc), 0.14) 100%), #020819 !important;
+		border: 1.5px solid rgba(var(--cc), 0.9) !important;
+		box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 16px rgba(var(--cc), 0.4), inset 0 0 18px rgba(var(--cc), 0.14) !important;
+	}
+	[data-theme="neon"] .kanban-card.kanban-card-colored:hover {
+		border-color: rgb(var(--cc)) !important;
+		box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 26px rgba(var(--cc), 0.65) !important;
+		transform: translateY(-2px) translateZ(0) !important;
+	}
+	[data-theme="neon"] .kanban-card.kanban-card-colored .kanban-card-title { color: #ffffff !important; text-shadow: 0 0 8px rgba(var(--cc), 0.6) !important; }
+	[data-theme="neon"] .kanban-card.kanban-card-colored .kanban-card-meta:not(.kanban-card-date-badge):not(.bg-red-100):not(.bg-pink-100) { color: #e0f2fe !important; }
+	[data-theme="neon"] .kanban-card.kanban-card-colored .kanban-card-meta.bg-slate-100:not(.kanban-card-date-badge) { background: rgba(2, 8, 23, 0.65) !important; color: #f0f9ff !important; border: 1px solid rgba(var(--cc), 0.5) !important; }
+	[data-theme="neon"] .kanban-card.kanban-card-colored .bg-slate-50 { background: rgba(2, 8, 23, 0.7) !important; border-color: rgba(var(--cc), 0.5) !important; }
+	[data-theme="neon"] .kanban-card.kanban-card-colored .bg-slate-50 span { color: #f0f9ff !important; }
+
+	/* Swatch picker (context menu + card modal) */
+	.pr-swatch-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 6px 8px 8px; }
+	.pr-swatch {
+		width: 100%; aspect-ratio: 1 / 1; border-radius: 9999px; cursor: pointer; border: 2px solid rgba(255, 255, 255, 0.9);
+		box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.18), 0 2px 5px rgba(15, 23, 42, 0.22);
+		transition: transform .12s ease, box-shadow .12s ease; position: relative;
+	}
+	.pr-swatch:hover { transform: scale(1.18); }
+	.pr-swatch.is-active { box-shadow: 0 0 0 2px #4f46e5, 0 2px 8px rgba(15, 23, 42, 0.3); transform: scale(1.1); }
+	.pr-swatch.is-active::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 900; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+	.pr-swatch-none { background: repeating-linear-gradient(45deg, #fff, #fff 4px, #e2e8f0 4px, #e2e8f0 8px); }
+	[data-theme="dark"] .pr-swatch, [data-theme="neon"] .pr-swatch { border-color: rgba(15, 23, 42, 0.9); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28); }
+	[data-theme="dark"] .pr-swatch-none, [data-theme="neon"] .pr-swatch-none { background: repeating-linear-gradient(45deg, #1e293b, #1e293b 4px, #475569 4px, #475569 8px); }
+	#card-ctx-menu { max-height: calc(100vh - 16px); overflow-y: auto; }
+
+	/* ── SMM Label Card Theme (Light: Green | Dark: Dark Green | Neon: Neon Green) ── */
+	/* ── Kanban Card Date Badge (High-Contrast Vibrant Pink with Bold White Text as in Image 3) ── */
+	.kanban-card .kanban-card-date-badge {
+		background: #ff2d87 !important;
+		color: #ffffff !important;
+		font-weight: 800 !important;
+		font-size: 0.72rem !important;
+		line-height: 1rem !important;
+		padding: 2.5px 8px !important;
+		border-radius: 8px !important;
+		border: 1px solid rgba(255, 255, 255, 0.25) !important;
+		display: inline-flex !important;
+		align-items: center !important;
+		justify-content: center !important;
+		box-shadow: 0 1px 4px rgba(255, 45, 135, 0.45), 0 0 10px rgba(255, 45, 135, 0.35) !important;
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+		letter-spacing: 0.01em !important;
+		white-space: nowrap !important;
+		transition: transform 0.12s ease, box-shadow 0.12s ease !important;
+	}
+	.kanban-card .kanban-card-date-badge:hover {
+		transform: scale(1.05) !important;
+		box-shadow: 0 2px 8px rgba(255, 45, 135, 0.6), 0 0 14px rgba(255, 45, 135, 0.5) !important;
+	}
+	.kanban-card .kanban-card-date-badge.is-overdue {
+		background: #ef4444 !important;
+		color: #ffffff !important;
+		box-shadow: 0 1px 4px rgba(239, 68, 68, 0.45), 0 0 10px rgba(239, 68, 68, 0.35) !important;
+	}
+
+	/* ── SMM Label Card Theme (Lime: #84cc16 | rgb 132, 204, 22 - Light, Dark & Neon) ── */
+	.kanban-card.kanban-card-smm {
+		--cc: 132, 204, 22;
+		--cc-ink: #365314;
+		background: linear-gradient(145deg, rgba(132, 204, 22, 0.16) 0%, rgba(132, 204, 22, 0.32) 100%), #ffffff !important;
+		border: 1.5px solid rgba(132, 204, 22, 0.68) !important;
+		box-shadow: 0 2px 8px rgba(132, 204, 22, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.75) !important;
+	}
+	.kanban-card.kanban-card-smm:hover {
+		border-color: #84cc16 !important;
+		box-shadow: 0 10px 24px rgba(132, 204, 22, 0.32), 0 0 0 1px #84cc16 !important;
+	}
+	.kanban-card.kanban-card-smm .kanban-card-title {
+		color: #365314 !important;
+	}
+	.kanban-card.kanban-card-smm .kanban-card-meta:not(.kanban-card-date-badge):not(.bg-red-100):not(.bg-pink-100) {
+		color: #4d7c0f !important;
+	}
+	.kanban-card.kanban-card-smm .kanban-card-meta.bg-slate-100:not(.kanban-card-date-badge) {
+		background: rgba(255, 255, 255, 0.88) !important;
+		color: #365314 !important;
+		border: 1px solid rgba(132, 204, 22, 0.35) !important;
+	}
+	.kanban-card.kanban-card-smm .bg-slate-50 {
+		background: rgba(255, 255, 255, 0.92) !important;
+		border-color: rgba(132, 204, 22, 0.35) !important;
+	}
+	.kanban-card.kanban-card-smm .bg-slate-50 span {
+		color: #365314 !important;
+	}
+	.kanban-card.kanban-card-smm .group\/members {
+		border-top-color: rgba(132, 204, 22, 0.25) !important;
+	}
+
+	/* Dark Mode SMM Card */
+	[data-theme="dark"] .kanban-card.kanban-card-smm,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-smm {
+		--cc: 132, 204, 22;
+		--cc-ink: #f8fafc;
+		background: linear-gradient(145deg, rgba(132, 204, 22, 0.34) 0%, rgba(132, 204, 22, 0.14) 100%), #0f172a !important;
+		border: 1.5px solid rgba(163, 230, 53, 0.6) !important;
+		box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-smm:hover,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-smm:hover {
+		border-color: rgba(163, 230, 53, 0.95) !important;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 14px rgba(132, 204, 22, 0.35) !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-smm .kanban-card-title,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-smm .kanban-card-title {
+		color: #f8fafc !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-smm .kanban-card-meta:not(.kanban-card-date-badge):not(.bg-red-100):not(.bg-pink-100),
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-smm .kanban-card-meta:not(.kanban-card-date-badge):not(.bg-red-100):not(.bg-pink-100) {
+		color: #d9f99d !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-smm .kanban-card-meta.bg-slate-100:not(.kanban-card-date-badge),
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-smm .kanban-card-meta.bg-slate-100:not(.kanban-card-date-badge) {
+		background: rgba(2, 8, 23, 0.6) !important;
+		color: #f1f5f9 !important;
+		border: 1px solid rgba(132, 204, 22, 0.4) !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-smm .bg-slate-50,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-smm .bg-slate-50 {
+		background: rgba(2, 8, 23, 0.6) !important;
+		border-color: rgba(132, 204, 22, 0.4) !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-smm .bg-slate-50 span,
+	html.dark:not([data-theme="neon"]) .kanban-card.kanban-card-smm .bg-slate-50 span {
+		color: #f1f5f9 !important;
+	}
+	[data-theme="dark"] .kanban-card.kanban-card-smm .group\/members {
+		border-top-color: rgba(132, 204, 22, 0.25) !important;
+	}
+
+	/* Neon Mode SMM Card */
+	[data-theme="neon"] .kanban-card.kanban-card-smm {
+		--cc: 132, 204, 22;
+		background: linear-gradient(135deg, rgba(132, 204, 22, 0.42) 0%, rgba(132, 204, 22, 0.14) 100%), #020819 !important;
+		border: 1.5px solid rgba(163, 230, 53, 0.9) !important;
+		box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 16px rgba(132, 204, 22, 0.4), inset 0 0 18px rgba(132, 204, 22, 0.14) !important;
+	}
+	[data-theme="neon"] .kanban-card.kanban-card-smm:hover {
+		border-color: rgb(163, 230, 53) !important;
+		box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 26px rgba(163, 230, 53, 0.65) !important;
+		transform: translateY(-2px) translateZ(0) !important;
+	}
+	[data-theme="neon"] .kanban-card.kanban-card-smm .kanban-card-title {
+		color: #ffffff !important;
+		text-shadow: 0 0 8px rgba(132, 204, 22, 0.6) !important;
+	}
+	[data-theme="neon"] .kanban-card.kanban-card-smm .kanban-card-meta:not(.kanban-card-date-badge):not(.bg-red-100):not(.bg-pink-100) {
+		color: #d9f99d !important;
+	}
+	[data-theme="neon"] .kanban-card.kanban-card-smm .bg-slate-50 {
+		background: rgba(2, 8, 23, 0.7) !important;
+		border-color: rgba(132, 204, 22, 0.5) !important;
+	}
+	[data-theme="neon"] .kanban-card.kanban-card-smm .bg-slate-50 span {
+		color: #f0f9ff !important;
+	}
+	[data-theme="neon"] .kanban-card.kanban-card-smm .group\/members {
+		border-top-color: rgba(132, 204, 22, 0.3) !important;
+	}
 	[data-theme="neon"] .add-list-btn {
 		background: rgba(0, 70, 180, 0.2) !important;
 		border: 1px dashed rgba(0, 160, 255, 0.45) !important;
@@ -1625,7 +1849,7 @@ body.is-dragging-card * { cursor: grabbing !important; }
       <div class="list-cards relative z-10 flex-1 overflow-y-auto min-h-12 pb-8 scrollbar-thin transition-colors" :id="'cards-'+list.id" :data-list-id="list.id">
         <template x-for="card in filteredCards(list)" :key="card.id">
           <div class="kanban-card select-none relative"
-               :class="['priority-' + card.priority, isSelectMode ? 'cursor-pointer' : (canDragCard(card, list) ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'), (selectedCards || []).includes(card.id) ? 'ring-2 ring-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/50' : '']"
+               :class="['priority-' + card.priority, card.card_color ? ('kanban-card-colored kanban-card-c-' + card.card_color) : ((hasSmmLabel(card) || (typeof isSmmCard === 'function' && isSmmCard(card))) ? 'kanban-card-smm kanban-card-colored kanban-card-c-lime' : ''), isSelectMode ? 'cursor-pointer' : (canDragCard(card, list) ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'), (selectedCards || []).includes(card.id) ? 'ring-2 ring-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/50' : '']"
                :data-id="card.id"
                :data-can-drag="!isSelectMode && canDragCard(card, list) ? '1' : '0'"
                @click="isSelectMode ? toggleCardSelection(card.id) : openCard(card.id)"
@@ -1771,10 +1995,10 @@ body.is-dragging-card * { cursor: grabbing !important; }
 
                 {{-- Meta row --}}
                 <div class="flex items-center gap-2 flex-wrap">
-                  {{-- Due date / Public date --}}
+                  {{-- Due date / Public date (High-contrast vibrant pink pill with bold white text as in Image 3) --}}
                   <span x-show="card.content_public_date || card.due_at"
-                        :class="isOverdue(card) ? 'bg-red-100 text-red-600' : (card.content_public_date ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400' : 'bg-slate-100 text-slate-500')"
-                        class="kanban-card-meta font-bold px-2 py-1 rounded-lg"
+                        :class="isOverdue(card) ? 'is-overdue' : ''"
+                        class="kanban-card-meta kanban-card-date-badge"
                         x-text="formatDate(card.content_public_date || card.due_at)"
                         :title="(card.content_public_date ? 'Public Date: ' : 'Due Date: ') + formatDateShort(card.content_public_date || card.due_at)"></span>
 
@@ -2014,6 +2238,26 @@ body.is-dragging-card * { cursor: grabbing !important; }
   <div class="ctx-item" x-show="board.card_covers_enabled !== false" @click="ctxAction('cover')">
     <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
     Change cover
+  </div>
+
+  {{-- Card colour: swatches apply instantly so you can compare; menu stays open --}}
+  <div class="ctx-item" @click.stop="ctxColorOpen = !ctxColorOpen">
+    <span class="w-3.5 h-3.5 rounded-full flex-shrink-0 border border-slate-300"
+          :style="ctxCard?.card_color ? ('background: rgb(' + (cardColorOptions.find(c => c.key === ctxCard.card_color)?.rgb || '148,163,184') + ')') : 'background: conic-gradient(#f43f5e, #f59e0b, #10b981, #3b82f6, #a855f7, #f43f5e)'"></span>
+    Card color
+    <svg class="w-3 h-3 ml-auto text-slate-400 transition-transform" :class="ctxColorOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>
+  </div>
+  <div x-show="ctxColorOpen" x-cloak @click.stop>
+    <div class="pr-swatch-grid">
+      <template x-for="c in cardColorOptions" :key="c.key">
+        <button type="button" class="pr-swatch" :class="ctxCard?.card_color === c.key ? 'is-active' : ''"
+                :style="'background: rgb(' + c.rgb + ')'" :title="c.label" :aria-label="c.label"
+                @click.stop="setCardColor(ctxCard, c.key)"></button>
+      </template>
+      <button type="button" class="pr-swatch pr-swatch-none" :class="!ctxCard?.card_color ? 'is-active' : ''"
+              title="Default (no color)" aria-label="Default color" @click.stop="setCardColor(ctxCard, null)"></button>
+    </div>
+    <p class="px-3 pb-2 text-[10px] text-slate-400 leading-snug">Click a color to preview it instantly. Pick the striped circle to reset.</p>
   </div>
 
   {{-- Edit dates --}}

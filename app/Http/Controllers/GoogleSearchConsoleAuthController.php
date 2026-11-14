@@ -36,7 +36,22 @@ class GoogleSearchConsoleAuthController extends Controller
                 ->with('error', 'Google Search Console OAuth is not configured. Please set GOOGLE_SEARCH_CONSOLE_CLIENT_ID and GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET in .env.');
         }
 
-        $state = Str::random(40);
+        // Never start an OAuth flow from a background/speculative prefetch (Turbo hover prefetch,
+        // <link rel=prefetch>). Those requests used to overwrite the saved state and caused
+        // "Invalid state parameter" when the real click came back from Google.
+        $purpose = strtolower($request->header('Sec-Purpose', '') . ' ' . $request->header('Purpose', '') . ' ' . $request->header('X-Sec-Purpose', '') . ' ' . $request->header('X-Moz', ''));
+        if (str_contains($purpose, 'prefetch') || str_contains($purpose, 'prerender')) {
+            return response('', 204)->header('Cache-Control', 'no-store');
+        }
+
+        // Stateless, tamper-proof state bound to this user (valid 20 min). Survives session rotation,
+        // multiple tabs and repeated clicks, while still protecting against CSRF.
+        $nonce = Str::random(24);
+        $state = rtrim(strtr(base64_encode(\Illuminate\Support\Facades\Crypt::encryptString(json_encode([
+            'u' => $user->id,
+            't' => time(),
+            'n' => $nonce,
+        ]))), '+/', '-_'), '=');
         $request->session()->put('gsc_oauth_state', $state);
 
         try {
@@ -67,12 +82,28 @@ class GoogleSearchConsoleAuthController extends Controller
 
         // Validate state parameter to protect against CSRF
         $storedState = $request->session()->pull('gsc_oauth_state');
-        $receivedState = $request->get('state');
+        $receivedState = (string) $request->get('state');
 
-        if (!$storedState || !hash_equals($storedState, (string) $receivedState)) {
-            Log::warning('GSC OAuth state mismatch', [
-                'stored'   => $storedState,
-                'received' => $receivedState,
+        $stateValid = $storedState && hash_equals($storedState, $receivedState);
+        if (!$stateValid && $receivedState !== '') {
+            // Fallback: verify the encrypted state is ours, for this user, and recent
+            try {
+                $b64 = strtr($receivedState, '-_', '+/');
+                $b64 .= str_repeat('=', (4 - strlen($b64) % 4) % 4);
+                $payload = json_decode(\Illuminate\Support\Facades\Crypt::decryptString(base64_decode($b64, true) ?: ''), true);
+                $stateValid = is_array($payload)
+                    && (int) ($payload['u'] ?? 0) === (int) $user->id
+                    && (time() - (int) ($payload['t'] ?? 0)) <= 1200;
+            } catch (\Throwable $e) {
+                $stateValid = false;
+            }
+        }
+
+        if (!$stateValid) {
+            Log::error('GSC OAuth state mismatch', [
+                'stored'   => $storedState ? substr($storedState, 0, 12) . '…' : null,
+                'received' => $receivedState ? substr($receivedState, 0, 12) . '…' : null,
+                'user_id'  => $user->id,
             ]);
             return redirect()->route('websites.search-console.index')
                 ->with('error', 'Google authorization failed: Invalid state parameter. Please try connecting again.');

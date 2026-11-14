@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Ai\AiConversation;
 use App\Models\Ai\AiMessage;
 use App\Models\Ai\AiReport;
+use App\Models\Ai\AiTranslation;
 use App\Models\Ai\AiVoiceOver;
 use App\Models\Board;
 use App\Models\Website;
@@ -15,11 +16,13 @@ use App\Services\Ai\GroqClientService;
 use App\Services\Ai\KiuqAiReportService;
 use App\Services\Ai\KiuqAiSafetyService;
 use App\Services\Ai\KiuqAiToolRegistry;
+use App\Services\Ai\KiuqTranslationService;
 use App\Services\WebsiteBlogPostService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -31,7 +34,8 @@ class KiuqAiController extends Controller
         private readonly KiuqAiSafetyService $safetyService,
         private readonly KiuqAiToolRegistry $toolRegistry,
         private readonly KiuqAiReportService $reportService,
-        private readonly WebsiteBlogPostService $blogService
+        private readonly WebsiteBlogPostService $blogService,
+        private readonly KiuqTranslationService $translationService
     ) {}
 
     private function isGroqModel(?string $model): bool
@@ -193,7 +197,7 @@ class KiuqAiController extends Controller
         $validated = $request->validate([
             'message'         => ['nullable', 'string', 'max:15000'],
             'conversation_id' => ['nullable', 'integer'],
-            'mode'            => ['nullable', 'string', 'in:general,blog,image,seo,task,qc,report,voice'],
+            'mode'            => ['nullable', 'string', 'in:general,translate,blog,image,seo,task,qc,report,voice'],
             'model'           => ['nullable', 'string', 'max:100'],
             'attachments'     => ['nullable', 'array'],
         ]);
@@ -298,16 +302,22 @@ class KiuqAiController extends Controller
             'attachments'     => !empty($processedAttachments) ? $processedAttachments : null,
         ]);
 
-        // 3. Build Conversation Context for Gemini
+        // 3. Build Conversation Context for Gemini & retrieve previous user message for follow-up context (e.g. "september ok")
+        $previousUserMsg = AiMessage::where('conversation_id', $conversation->id)
+            ->where('role', 'user')
+            ->where('id', '<', $userMsg->id)
+            ->latest('id')
+            ->first();
+        $previousUserPrompt = $previousUserMsg?->content;
+
         $contents = $this->buildGeminiHistory($conversation, $multimodalParts);
 
         // 4. Retrieve Whitelisted Tools conditionally for maximum response speed
-        // For general chat, quick queries, language translations, and casual conversation, omitting tools cuts latency drastically
         $tools = [];
-        $lowerPrompt = strtolower($userPrompt);
+        $lowerPrompt = strtolower($userPrompt . ' ' . ($previousUserPrompt ?? ''));
         $needsTools = ($mode !== 'general' && $mode !== 'translate');
         if (!$needsTools) {
-            $systemKeywordsPattern = '/\b(card|cards|board|boards|workspace|workspaces|task|tasks|qc check|qc audit|system report|production report|report|reports|pdf|export|download|dgt database|blog post|blogs|website list|website|websites|domain|domains|inquiry|inquiries|lead|leads|member|members|user|users|staff|team|kpi|gsc|search console|seo|chat|notes|navigation|link|links|route|routes)\b/i';
+            $systemKeywordsPattern = '/\b(find|search|where|locate|hidden|card|cards|board|boards|planning|workflow|smm|workspace|workspaces|task|tasks|qc check|qc audit|system report|production report|daily report|weekly report|monthly report|report|reports|pdf|export|download|dgt database|blog post|blogs|website list|website|websites|domain|domains|inquiry|inquiries|lead|leads|member|members|user|users|staff|team|kpi|gsc|search console|indexed|not indexed|indexation|sitemap|sitemaps|seo|chat|notes|navigation|link|links|route|routes|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b/i';
             if (preg_match($systemKeywordsPattern, $lowerPrompt)) {
                 $needsTools = true;
             }
@@ -318,13 +328,26 @@ class KiuqAiController extends Controller
         }
 
         try {
-            $aiResponse = $this->executeAiWithFailover(
-                $model,
-                $contents,
-                $tools,
-                $userPrompt,
-                !empty($multimodalParts)
-            );
+            $isCreationOrWritingPrompt = preg_match('/\b(write|draft|translate|caption|code|html|css|image|voice|audio|explain|rewrite|create\s+card|move\s+card|publish|export|pdf|csv)\b/i', $userPrompt) === 1;
+            $fastSmartSearch = (empty($multimodalParts) && !$isCreationOrWritingPrompt)
+                ? $this->toolRegistry->detectAndExecuteSmartSearch($userPrompt, $user, $previousUserPrompt)
+                : null;
+
+            if (!empty($fastSmartSearch['message'])) {
+                $aiResponse = [
+                    'text'           => $fastSmartSearch['message'],
+                    'function_calls' => [],
+                    'role'           => 'model',
+                ];
+            } else {
+                $aiResponse = $this->executeAiWithFailover(
+                    $model,
+                    $contents,
+                    $tools,
+                    $userPrompt,
+                    !empty($multimodalParts)
+                );
+            }
 
             $actionType   = null;
             $actionData   = null;
@@ -337,7 +360,7 @@ class KiuqAiController extends Controller
                     $toolName = $call['name'] ?? '';
                     $toolArgs = $call['args'] ?? [];
 
-                    $toolResult = $this->toolRegistry->execute($toolName, $toolArgs, $user);
+                    $toolResult = $this->toolRegistry->execute($toolName, $toolArgs, $user, $userPrompt, $previousUserPrompt);
 
                     // Check if tool produced an action preview requiring UI confirmation
                     if (!empty($toolResult['requires_ui_action'])) {
@@ -358,14 +381,16 @@ class KiuqAiController extends Controller
             }
 
             // Direct intent check: if user asked to export/generate a report or asked for the PDF
-            $isBoardExportRequest = preg_match('/\b(export|generate|download|view)\b.*?\bboard\b/i', $userPrompt)
-                || preg_match('/\bboard\b.*?\b(report|export|pdf|csv)\b/i', $userPrompt)
-                || preg_match('/\b(planning|workflow|graphic|video|smm|content)\s+board\b/i', $userPrompt);
+            $hasExplicitExportWord = preg_match('/\b(export|pdf|csv|download\s+report|generate\s+report|report\s+of\s+board|board\s+report)\b/i', $userPrompt) === 1;
+            $isBoardExportRequest = $hasExplicitExportWord && (
+                preg_match('/\bboard\b/i', $userPrompt)
+                || preg_match('/\b(planning|workflow|graphic|video|smm|content)\s+board\b/i', $userPrompt)
+            );
 
             $isReportRequest = $isBoardExportRequest
                 || preg_match('/\b(export|generate|download|create)\s+.*?\b(report|pdf)\b/i', $userPrompt)
                 || preg_match('/\b(where\s+is\s+the\s+pdf|where\s+is\s+the\s+report)\b/i', $userPrompt)
-                || preg_match('/\b(report\s+of\s+board|planning\s+board\s+report|production\s+report)\b/i', $userPrompt);
+                || preg_match('/\b(report\s+of\s+board|planning\s+board\s+report)\b/i', $userPrompt);
 
             if ($isReportRequest && empty($aiResponse['function_calls'])) {
                 if (preg_match('/where\s+is\s+the\s+(pdf|report)/i', $userPrompt)) {
@@ -385,7 +410,7 @@ class KiuqAiController extends Controller
                 } elseif ($isBoardExportRequest) {
                     $toolResult = $this->toolRegistry->execute('export_board_report', [
                         'board_name' => $userPrompt,
-                    ], $user);
+                    ], $user, $userPrompt, $previousUserPrompt);
                     if (!empty($toolResult['message'])) {
                         $botText .= ($botText ? "\n\n" : "") . $toolResult['message'];
                     }
@@ -393,10 +418,16 @@ class KiuqAiController extends Controller
                     $toolResult = $this->toolRegistry->execute('generate_production_report', [
                         'instructions' => $userPrompt,
                         'title'        => 'Production Report',
-                    ], $user);
+                    ], $user, $userPrompt, $previousUserPrompt);
                     if (!empty($toolResult['message'])) {
                         $botText .= ($botText ? "\n\n" : "") . $toolResult['message'];
                     }
+                }
+            } elseif (empty($aiResponse['function_calls'])) {
+                // Smart Universal Search fallback for board queries (including hidden/past-month boards & follow-ups like "september ok"), GSC, Production Reports, and system search
+                $smartSearchResult = $this->toolRegistry->detectAndExecuteSmartSearch($userPrompt, $user, $previousUserPrompt);
+                if (!empty($smartSearchResult['message'])) {
+                    $botText = $smartSearchResult['message'];
                 }
             }
 
@@ -663,6 +694,47 @@ class KiuqAiController extends Controller
         }
 
         $contents = $this->sanitizeUtf8($contents);
+
+        $previousUserPrompt = AiMessage::where('conversation_id', $conversation->id)
+            ->where('role', 'user')
+            ->where('id', '<', $userMsg->id)
+            ->latest('id')
+            ->value('content');
+
+        $isCreationOrWritingPrompt = preg_match('/\b(write|draft|translate|caption|code|html|css|image|voice|audio|explain|rewrite|create\s+card|move\s+card|publish|export|pdf|csv)\b/i', $userPrompt) === 1;
+        $fastSmartSearch = (empty($multimodalParts) && !$isCreationOrWritingPrompt)
+            ? $this->toolRegistry->detectAndExecuteSmartSearch($userPrompt, $user, $previousUserPrompt)
+            : null;
+
+        if (!empty($fastSmartSearch['message'])) {
+            $fastText = $fastSmartSearch['message'];
+            return response()->stream(function () use ($conversation, $user, $fastText) {
+                @ini_set('output_buffering', 'off');
+                @ini_set('zlib.output_compression', false);
+                @ini_set('implicit_flush', 1);
+                ob_implicit_flush(1);
+                while (ob_get_level() > 0) {
+                    ob_end_flush();
+                }
+                echo ": " . str_repeat(" ", 2048) . "\n\n";
+                echo "data: " . json_encode(['text' => $fastText, 'conversation_id' => $conversation->id, 'done' => false], JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE) . "\n\n";
+                flush();
+                echo "data: " . json_encode(['text' => '', 'conversation_id' => $conversation->id, 'done' => true], JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE) . "\n\n";
+                flush();
+
+                AiMessage::create([
+                    'conversation_id' => $conversation->id,
+                    'user_id'         => $user->id,
+                    'role'            => 'model',
+                    'content'         => $fastText,
+                ]);
+            }, 200, [
+                'Content-Type'      => 'text/event-stream; charset=UTF-8',
+                'Cache-Control'     => 'no-cache, no-transform',
+                'X-Accel-Buffering' => 'no',
+                'Connection'        => 'keep-alive',
+            ]);
+        }
 
         return response()->stream(function () use ($conversation, $contents, $tools, $model, $user, $userPrompt, $multimodalParts) {
             @ini_set('output_buffering', 'off');
@@ -1099,11 +1171,13 @@ class KiuqAiController extends Controller
             ]);
 
         return response()->json([
-            'success'  => true,
-            'websites' => $websites,
-            'boards'   => $boards,
-            'reports'  => $reports,
-            'voices'   => $voices,
+            'success'             => true,
+            'websites'            => $websites,
+            'boards'              => $boards,
+            'reports'             => $reports,
+            'voices'              => $voices,
+            'translate_languages' => KiuqTranslationService::supportedLanguages(),
+            'translate_modes'     => KiuqTranslationService::supportedModes(),
         ]);
     }
 
@@ -1370,7 +1444,7 @@ class KiuqAiController extends Controller
         $conversation = AiConversation::create([
             'user_id'         => $user->id,
             'title'           => 'New Chat',
-            'mode'            => in_array($mode, ['general', 'blog', 'image', 'seo', 'task', 'qc', 'report', 'voice']) ? $mode : 'general',
+            'mode'            => in_array($mode, ['general', 'translate', 'blog', 'image', 'seo', 'task', 'qc', 'report', 'voice']) ? $mode : 'general',
             'last_message_at' => now(),
         ]);
 
@@ -1709,5 +1783,355 @@ class KiuqAiController extends Controller
         if ($carbon->isCurrentWeek()) return 'This Week';
         if ($carbon->isLastWeek()) return 'Last Week';
         return $carbon->format('M Y');
+    }
+
+    // ── Multi-Language Translation Studio Endpoints ──────────────────────
+
+    public function getTranslationLanguages(): JsonResponse
+    {
+        return response()->json([
+            'success'   => true,
+            'languages' => KiuqTranslationService::supportedLanguages(),
+            'modes'     => KiuqTranslationService::supportedModes(),
+        ]);
+    }
+
+    public function detectTranslationLanguage(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'text' => ['required', 'string', 'max:12000'],
+        ]);
+
+        $detection = $this->translationService->detectLanguage($validated['text']);
+
+        return response()->json([
+            'success'   => true,
+            'detection' => $detection,
+        ]);
+    }
+
+    public function translateTextStudio(Request $request): JsonResponse
+    {
+        $allowedModes = implode(',', array_keys(KiuqTranslationService::supportedModes()));
+        $validated = $request->validate([
+            'text'                     => ['required', 'string', 'max:12000'],
+            'source_language'          => ['required', 'string', 'max:16'],
+            'target_language'          => ['required', 'string', 'max:16'],
+            'mode'                     => ['nullable', 'string', "in:{$allowedModes}"],
+            'advanced_options'         => ['nullable', 'array'],
+            'advanced_options.tone'    => ['nullable', 'string', 'max:100'],
+            'advanced_options.audience'=> ['nullable', 'string', 'max:100'],
+            'advanced_options.variant' => ['nullable', 'string', 'max:100'],
+            'advanced_options.glossary'=> ['nullable', 'string', 'max:500'],
+            'advanced_options.notes'   => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $user = auth()->user();
+        $sourceText = $this->sanitizeUtf8String(trim($validated['text']));
+        if ($sourceText === '') {
+            return response()->json(['success' => false, 'error' => 'Please enter text to translate.'], 422);
+        }
+
+        $sourceLang = trim($validated['source_language']);
+        $targetLang = trim($validated['target_language']);
+        if ($targetLang === 'auto') {
+            return response()->json(['success' => false, 'error' => 'Please choose a specific target language.'], 422);
+        }
+
+        $mode = $validated['mode'] ?? 'standard';
+        $advanced = $validated['advanced_options'] ?? [];
+
+        try {
+            $result = $this->translationService->translateText(
+                sourceText: $sourceText,
+                sourceLanguage: $sourceLang,
+                targetLanguage: $targetLang,
+                mode: $mode,
+                advancedOptions: $advanced,
+            );
+
+            $historyItem = $this->persistTranslationRecord(
+                userId: $user->id,
+                sourceLanguage: $sourceLang,
+                detectedLanguage: $result['detected_language'] ?? null,
+                targetLanguage: $targetLang,
+                mode: $mode,
+                sourceText: $sourceText,
+                translatedText: $result['translated_text'],
+                extractedOcrText: null,
+                advancedOptions: $advanced,
+                providerModel: $result['provider_model'] ?? null,
+            );
+
+            return response()->json([
+                'success'           => true,
+                'translated_text'   => $result['translated_text'],
+                'detected_language' => $result['detected_language'],
+                'detected_name'     => $result['detected_name'],
+                'detected_flag'     => $result['detected_flag'],
+                'confidence'        => $result['confidence'],
+                'provider_model'    => $result['provider_model'],
+                'history_item'      => $historyItem,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Translation Studio error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function translateImageOcrStudio(Request $request): JsonResponse
+    {
+        $allowedModes = implode(',', array_keys(KiuqTranslationService::supportedModes()));
+        $validated = $request->validate([
+            'image'           => ['required', 'file', 'mimes:jpeg,jpg,png,webp,gif', 'max:8192'],
+            'source_language' => ['nullable', 'string', 'max:16'],
+            'target_language' => ['required', 'string', 'max:16'],
+            'mode'            => ['nullable', 'string', "in:{$allowedModes}"],
+            'advanced_options'=> ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $user = auth()->user();
+        $sourceLang = trim($validated['source_language'] ?? 'auto') ?: 'auto';
+        $targetLang = trim($validated['target_language']);
+        if ($targetLang === 'auto') {
+            return response()->json(['success' => false, 'error' => 'Please choose a target language for OCR translation.'], 422);
+        }
+        $mode = $validated['mode'] ?? 'standard';
+        $advanced = [];
+        if (!empty($validated['advanced_options'])) {
+            $decoded = json_decode($validated['advanced_options'], true);
+            if (is_array($decoded)) {
+                $advanced = $decoded;
+            }
+        }
+
+        try {
+            $result = $this->translationService->translateImageOcr(
+                imageFile: $request->file('image'),
+                sourceLanguage: $sourceLang,
+                targetLanguage: $targetLang,
+                mode: $mode,
+                advancedOptions: $advanced,
+            );
+
+            $extractedText = (string) ($result['extracted_text'] ?? '');
+            $historyItem = $this->persistTranslationRecord(
+                userId: $user->id,
+                sourceLanguage: $sourceLang,
+                detectedLanguage: $result['detected_language'] ?? null,
+                targetLanguage: $targetLang,
+                mode: $mode,
+                sourceText: $extractedText,
+                translatedText: $result['translated_text'],
+                extractedOcrText: $extractedText,
+                advancedOptions: $advanced,
+                providerModel: $result['provider_model'] ?? null,
+            );
+
+            return response()->json([
+                'success'           => true,
+                'extracted_text'    => $extractedText,
+                'translated_text'   => $result['translated_text'],
+                'detected_language' => $result['detected_language'],
+                'detected_name'     => $result['detected_name'],
+                'detected_flag'     => $result['detected_flag'],
+                'confidence'        => $result['confidence'],
+                'provider_model'    => $result['provider_model'],
+                'history_item'      => $historyItem,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Image OCR translation failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error'   => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function transcribeVoiceInputStudio(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'audio'         => ['required', 'file', 'max:12288'],
+            'language_hint' => ['nullable', 'string', 'max:16'],
+        ]);
+
+        try {
+            $result = $this->translationService->transcribeSpeech(
+                audioFile: $request->file('audio'),
+                languageHint: $validated['language_hint'] ?? null,
+            );
+
+            return response()->json([
+                'success' => true,
+                'text'    => $result['text'],
+                'model'   => $result['model'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Voice input transcription failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error'   => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function synthesizeTranslationSpeech(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'text'     => ['required', 'string', 'max:5000'],
+            'language' => ['required', 'string', 'max:16'],
+        ]);
+
+        try {
+            $result = $this->translationService->synthesizeSpeech(
+                text: $validated['text'],
+                languageCode: $validated['language'],
+            );
+
+            return response()->json([
+                'success'   => true,
+                'audio_url' => $result['audio_url'],
+                'mime_type' => $result['mime_type'] ?? 'audio/mpeg',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Translation TTS failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error'   => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function getTranslationHistory(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        if (!Schema::hasTable('ai_translations')) {
+            return response()->json(['success' => true, 'history' => []]);
+        }
+
+        $query = AiTranslation::where('user_id', $user->id);
+
+        if ($request->boolean('favorites')) {
+            $query->where('is_favorite', true);
+        }
+
+        $search = trim((string) $request->query('q', ''));
+        if ($search !== '') {
+            $query->where(function ($sub) use ($search) {
+                $sub->where('source_text', 'like', "%{$search}%")
+                    ->orWhere('translated_text', 'like', "%{$search}%")
+                    ->orWhere('source_language', 'like', "%{$search}%")
+                    ->orWhere('target_language', 'like', "%{$search}%");
+            });
+        }
+
+        $items = $query->orderByDesc('is_favorite')
+            ->orderByDesc('id')
+            ->limit(60)
+            ->get()
+            ->map(fn(AiTranslation $item) => $this->formatTranslationHistoryItem($item))
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'history' => $items,
+        ]);
+    }
+
+    public function toggleFavoriteTranslation(int $id): JsonResponse
+    {
+        $user = auth()->user();
+        if (!Schema::hasTable('ai_translations')) {
+            return response()->json(['success' => false, 'error' => 'Translation history table not migrated yet.'], 422);
+        }
+
+        $item = AiTranslation::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+        $item->is_favorite = !$item->is_favorite;
+        $item->save();
+
+        return response()->json([
+            'success'     => true,
+            'is_favorite' => $item->is_favorite,
+            'item'        => $this->formatTranslationHistoryItem($item),
+        ]);
+    }
+
+    public function deleteTranslationHistory(int $id): JsonResponse
+    {
+        $user = auth()->user();
+        if (!Schema::hasTable('ai_translations')) {
+            return response()->json(['success' => true]);
+        }
+
+        AiTranslation::where('id', $id)->where('user_id', $user->id)->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    private function persistTranslationRecord(
+        int $userId,
+        string $sourceLanguage,
+        ?string $detectedLanguage,
+        string $targetLanguage,
+        string $mode,
+        string $sourceText,
+        string $translatedText,
+        ?string $extractedOcrText,
+        array $advancedOptions,
+        ?string $providerModel
+    ): ?array {
+        if (!Schema::hasTable('ai_translations')) {
+            return null;
+        }
+
+        try {
+            $record = AiTranslation::create([
+                'user_id'            => $userId,
+                'source_language'    => $sourceLanguage,
+                'detected_language'  => $detectedLanguage,
+                'target_language'    => $targetLanguage,
+                'translation_mode'   => $mode,
+                'source_text'        => $sourceText,
+                'translated_text'    => $translatedText,
+                'extracted_ocr_text' => $extractedOcrText,
+                'advanced_options'   => !empty($advancedOptions) ? $advancedOptions : null,
+                'provider_model'     => $providerModel,
+                'is_favorite'        => false,
+            ]);
+
+            return $this->formatTranslationHistoryItem($record);
+        } catch (\Throwable $e) {
+            Log::warning('Could not persist translation history record: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function formatTranslationHistoryItem(AiTranslation $item): array
+    {
+        $srcMeta = $this->translationService->findLanguageMeta($item->detected_language ?: $item->source_language);
+        $tgtMeta = $this->translationService->findLanguageMeta($item->target_language);
+
+        return [
+            'id'                 => $item->id,
+            'source_language'    => $item->source_language,
+            'detected_language'  => $item->detected_language,
+            'source_label'       => $srcMeta['name'] ?? $item->source_language,
+            'source_flag'        => $srcMeta['flag'] ?? '🌐',
+            'target_language'    => $item->target_language,
+            'target_label'       => $tgtMeta['name'] ?? $item->target_language,
+            'target_flag'        => $tgtMeta['flag'] ?? '🌐',
+            'translation_mode'   => $item->translation_mode,
+            'source_text'        => $item->source_text,
+            'translated_text'    => $item->translated_text,
+            'extracted_ocr_text' => $item->extracted_ocr_text,
+            'advanced_options'   => $item->advanced_options ?? [],
+            'provider_model'     => $item->provider_model,
+            'is_favorite'        => (bool) $item->is_favorite,
+            'created_at'         => $item->created_at?->toIso8601String(),
+            'time_label'         => $item->created_at?->diffForHumans() ?? 'just now',
+        ];
     }
 }

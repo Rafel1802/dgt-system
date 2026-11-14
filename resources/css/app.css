@@ -1318,7 +1318,7 @@
     color: var(--text-primary) !important;
   }
 
-  [data-theme="dark"] .kanban-card {
+  [data-theme="dark"] .kanban-card:not(.kanban-card-smm) {
     background: var(--bg-card-hover) !important;
     border-color: var(--border-color) !important;
   }
@@ -1328,7 +1328,7 @@
     box-shadow: 0 10px 25px rgba(16, 185, 129, .15), 0 0 0 1px #10b981 !important;
   }
 
-  [data-theme="dark"] .kanban-card-title {
+  [data-theme="dark"] .kanban-card:not(.kanban-card-smm) .kanban-card-title {
     color: var(--text-primary) !important;
   }
 
@@ -2988,25 +2988,85 @@
   .ios-nav-back-btn,
   .ios-nav-brand-btn {
     min-height: 36px !important;
-    padding: 0 11px !important;
+    height: 36px !important;
+    padding: 0 12px 0 8px !important;
     border-radius: 9999px !important;
-    background: rgba(255, 255, 255, 0.72) !important;
+    background: rgba(255, 255, 255, 0.78) !important;
     border: 0.5px solid rgba(15, 23, 42, 0.1) !important;
     box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
   }
 
   [data-theme="dark"] .ios-nav-back-btn,
   [data-theme="dark"] .ios-nav-brand-btn {
-    background: rgba(30, 41, 59, 0.78) !important;
+    background: rgba(30, 41, 59, 0.84) !important;
     border: 0.5px solid rgba(255, 255, 255, 0.14) !important;
+    color: #38bdf8 !important;
     box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
   }
 
   [data-theme="neon"] .ios-nav-back-btn,
   [data-theme="neon"] .ios-nav-brand-btn {
-    background: rgba(6, 24, 58, 0.82) !important;
-    border: 0.5px solid rgba(0, 240, 255, 0.35) !important;
-    box-shadow: 0 0 14px rgba(0, 180, 255, 0.2), inset 0 1px 0 rgba(0, 240, 255, 0.25) !important;
+    background: rgba(6, 24, 60, 0.88) !important;
+    border: 1px solid rgba(0, 220, 255, 0.45) !important;
+    color: #38bdf8 !important;
+    box-shadow: 0 0 14px rgba(0, 180, 255, 0.22), inset 0 1px 0 rgba(0, 240, 255, 0.25) !important;
+  }
+
+  [data-theme="neon"] .ios-nav-brand-text {
+    background: linear-gradient(90deg, #ffffff 0%, #38bdf8 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.45));
+  }
+
+  .kiuq-ai-header-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
+    padding: 0 !important;
+    border-radius: 9999px !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+    border: 0.5px solid rgba(15, 23, 42, 0.1) !important;
+    box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+  }
+
+  .kiuq-ai-header-btn .kiuq-ai-header-label,
+  .kiuq-ai-header-btn .kiuq-ai-shortcut-badge {
+    display: none !important;
+  }
+
+  .kiuq-ai-header-btn .kiuq-ai-icon-badge {
+    width: 24px !important;
+    height: 24px !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+    border-radius: 9999px !important;
+  }
+
+  [data-theme="dark"] .kiuq-ai-header-btn {
+    background: rgba(30, 41, 59, 0.84) !important;
+    border: 0.5px solid rgba(255, 255, 255, 0.14) !important;
+    box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  }
+
+  [data-theme="neon"] .kiuq-ai-header-btn {
+    background: rgba(6, 24, 60, 0.88) !important;
+    border: 1px solid rgba(0, 220, 255, 0.45) !important;
+    box-shadow: 0 0 14px rgba(0, 180, 255, 0.22), inset 0 1px 0 rgba(0, 240, 255, 0.25) !important;
+  }
+
+  [data-theme="neon"] .kiuq-ai-status-dot {
+    border-color: #041230 !important;
+    box-shadow: 0 0 6px rgba(52, 211, 153, 0.8) !important;
   }
 
   .notif-bell-btn {
@@ -3014,27 +3074,65 @@
     height: 36px !important;
     min-width: 36px !important;
     min-height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
     border-radius: 9999px !important;
-    background: rgba(255, 255, 255, 0.72) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+    background: rgba(255, 255, 255, 0.78) !important;
     border: 0.5px solid rgba(15, 23, 42, 0.1) !important;
     box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
   }
 
-  [data-theme="dark"] .notif-bell-btn {
-    background: rgba(30, 41, 59, 0.78) !important;
+  [data-theme="dark"] .notif-bell-btn,
+  [data-theme="dark"] .topbar .notif-bell-btn {
+    background: rgba(30, 41, 59, 0.84) !important;
     border: 0.5px solid rgba(255, 255, 255, 0.14) !important;
+    color: #e2e8f0 !important;
     box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
   }
 
-  [data-theme="neon"] .notif-bell-btn {
-    background: rgba(6, 24, 58, 0.82) !important;
-    border: 0.5px solid rgba(0, 240, 255, 0.35) !important;
-    box-shadow: 0 0 14px rgba(0, 180, 255, 0.2), inset 0 1px 0 rgba(0, 240, 255, 0.25) !important;
+  [data-theme="neon"] .notif-bell-btn,
+  [data-theme="neon"] .topbar .notif-bell-btn {
+    background: rgba(6, 24, 60, 0.88) !important;
+    border: 1px solid rgba(0, 220, 255, 0.45) !important;
+    color: #38bdf8 !important;
+    box-shadow: 0 0 14px rgba(0, 180, 255, 0.22), inset 0 1px 0 rgba(0, 240, 255, 0.25) !important;
+  }
+
+  .mobile-avatar-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
+    border-radius: 9999px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  [data-theme="dark"] .mobile-avatar-btn {
+    background: rgba(30, 41, 59, 0.84) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  }
+
+  [data-theme="neon"] .mobile-avatar-btn {
+    background: rgba(6, 24, 60, 0.88) !important;
+    border: 1.5px solid rgba(0, 220, 255, 0.6) !important;
+    box-shadow: 0 0 12px rgba(0, 180, 255, 0.3) !important;
   }
 
   /* ── Responsive Notification Sheet & Toast Container on Mobile / iOS ── */
   .notif-bell-wrapper {
     position: static !important;
+    flex-shrink: 0 !important;
   }
 
   .notif-panel {
@@ -3046,7 +3144,7 @@
     max-width: 440px !important;
     margin: 0 auto !important;
     max-height: calc(100dvh - var(--dgt-safe-top, 56px) - 140px) !important;
-    display: flex !important;
+    display: flex;
     flex-direction: column !important;
     border-radius: 24px !important;
     backdrop-filter: blur(36px) saturate(210%) !important;
@@ -3056,6 +3154,14 @@
       0 8px 20px -6px rgba(15, 23, 42, 0.18),
       inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
     z-index: 95 !important;
+  }
+
+  .notif-panel[x-cloak],
+  .notif-panel[hidden],
+  .notif-panel[style*="display: none"],
+  .notif-panel[style*="display:none"] {
+    display: none !important;
+    pointer-events: none !important;
   }
 
   .notif-panel-list {
@@ -3073,14 +3179,21 @@
     margin: 0 auto !important;
   }
 
-  [data-theme="dark"] .topbar {
-    border-bottom: 0.5px solid rgba(255, 255, 255, 0.08) !important;
-    background: rgba(15, 23, 42, 0.88) !important;
+  html:not([data-theme="dark"]):not([data-theme="neon"]) .topbar {
+    background: rgba(255, 255, 255, 0.86) !important;
   }
 
+  html[data-theme="dark"] .topbar,
+  [data-theme="dark"] .topbar {
+    border-bottom: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(15, 23, 42, 0.90) !important;
+  }
+
+  html[data-theme="neon"] .topbar,
   [data-theme="neon"] .topbar {
-    border-bottom: 0.5px solid rgba(0, 240, 255, 0.25) !important;
-    background: rgba(2, 10, 30, 0.92) !important;
+    border-bottom: 1px solid rgba(0, 210, 255, 0.35) !important;
+    background: linear-gradient(180deg, rgba(2, 8, 28, 0.96) 0%, rgba(4, 16, 46, 0.92) 100%) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65), 0 1px 12px rgba(0, 170, 255, 0.18) !important;
   }
 
   /* ── Apple UINavigationBar Title (Responsive Flexbox - Zero Collision) ── */
@@ -3765,11 +3878,26 @@ body[data-theme="neon"] {
   transform: translateY(-1px);
 }
 
-[data-theme="neon"] .btn-secondary {
+[data-theme="neon"] .btn-secondary:not(.notif-bell-btn) {
   background: rgba(0, 60, 150, 0.3) !important;
   border: 1px solid rgba(0, 160, 255, 0.4) !important;
   color: #bae6fd !important;
   box-shadow: 0 0 10px rgba(0, 140, 255, 0.2) !important;
+}
+
+[data-theme="neon"] .topbar .notif-bell-btn,
+[data-theme="neon"] .notif-bell-btn {
+  background: rgba(6, 24, 60, 0.88) !important;
+  border: 1px solid rgba(0, 220, 255, 0.45) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 0 14px rgba(0, 180, 255, 0.22), inset 0 1px 0 rgba(0, 240, 255, 0.25) !important;
+}
+
+[data-theme="neon"] .topbar .kiuq-ai-header-btn,
+[data-theme="neon"] .kiuq-ai-header-btn {
+  background: rgba(6, 24, 60, 0.88) !important;
+  border: 1px solid rgba(0, 220, 255, 0.45) !important;
+  box-shadow: 0 0 14px rgba(0, 180, 255, 0.22), inset 0 1px 0 rgba(0, 240, 255, 0.25) !important;
 }
 
 [data-theme="neon"] .btn-secondary:hover {
@@ -4403,6 +4531,56 @@ body[data-theme="neon"] {
   border: 1px solid rgba(56, 189, 248, 0.5) !important;
   box-shadow: 0 0 10px rgba(0, 190, 255, 0.35) !important;
   transform: translateZ(0);
+}
+
+/* Switch Boards Modal Filter Bar & Month Select in Neon / Dark Mode */
+[data-theme="neon"] .sbm-filter-select,
+.dark .sbm-filter-select {
+  background-color: rgba(4, 20, 56, 0.92) !important;
+  border-color: rgba(0, 180, 255, 0.45) !important;
+  color: #e0f2fe !important;
+}
+
+[data-theme="neon"] .sbm-filter-select option,
+.dark .sbm-filter-select option {
+  background-color: #041438 !important;
+  color: #f0f9ff !important;
+}
+
+[data-theme="neon"] .sbm-type-filter-bar,
+.dark .sbm-type-filter-bar {
+  background: rgba(2, 10, 32, 0.85) !important;
+  border-color: rgba(0, 160, 255, 0.28) !important;
+}
+
+[data-theme="neon"] .sbm-type-pill:not(.sbm-type-pill-active),
+.dark .sbm-type-pill:not(.sbm-type-pill-active) {
+  color: #93c5fd !important;
+  background: transparent !important;
+}
+
+[data-theme="neon"] .sbm-type-pill:not(.sbm-type-pill-active):hover,
+.dark .sbm-type-pill:not(.sbm-type-pill-active):hover {
+  background: rgba(0, 140, 255, 0.18) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="neon"] .sbm-type-pill:not(.sbm-type-pill-active) span.rounded-full,
+.dark .sbm-type-pill:not(.sbm-type-pill-active) span.rounded-full {
+  background: rgba(0, 50, 130, 0.55) !important;
+  color: #7dd3fc !important;
+}
+
+[data-theme="neon"] .sbm-type-pill-active {
+  background: linear-gradient(135deg, #0066ff 0%, #00c3ff 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(0, 180, 255, 0.45) !important;
+}
+
+[data-theme="neon"] .sbm-filter-reset {
+  background: rgba(244, 63, 94, 0.15) !important;
+  border-color: rgba(244, 63, 94, 0.45) !important;
+  color: #fda4af !important;
 }
 
 /* ─── Import Cards Modal in Neon ────────────────────────────────────────── */
@@ -5942,4 +6120,27 @@ html[data-theme="neon"] #card-desc-editor .ql-editor a:hover {
   text-decoration-color: #ffffff !important;
   text-shadow: 0 0 14px rgba(0, 240, 255, 1) !important;
   box-shadow: 0 0 18px rgba(0, 240, 255, 0.5) !important;
+}
+
+/* ── Smooth 120Hz Mobile & iOS Hardware Acceleration + Neon Hub Polish ── */
+html {
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+.page-content,
+.mobile-page-content {
+  -webkit-overflow-scrolling: touch;
+  contain: style;
+}
+
+html[data-theme="neon"] .dropdown-menu {
+  background: rgba(5, 18, 46, 0.96) !important;
+  border: 1px solid rgba(0, 220, 255, 0.4) !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 180, 255, 0.2) !important;
+}
+
+html[data-theme="neon"] .ios-hub-card > div.bg-white {
+  background: rgba(6, 22, 54, 0.88) !important;
+  border-color: rgba(0, 220, 255, 0.28) !important;
 }

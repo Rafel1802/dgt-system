@@ -58,11 +58,11 @@ function doPost(e) {
     }
 
     // ── Extract parameters ──────────────────────────────────────────────────
-    var classNum   = String(payload['class']    || '').trim();
+    var classNum = String(payload['class'] || '').trim();
     var publicLink = String(payload.public_link || '').trim();
-    var dated      = String(payload.date        || '').trim();
-    var requestId  = String(payload.request_id  || '').trim();
-    var action     = String(payload.action      || '').trim();
+    var dated = String(payload.date || '').trim();
+    var requestId = String(payload.request_id || '').trim();
+    var action = String(payload.action || '').trim();
 
     if (action !== 'delete' && action !== 'export_csv') {
       var validationError = validateFields(classNum, publicLink, dated);
@@ -108,9 +108,9 @@ function doPost(e) {
           Logger.log('openById error: ' + ssErr.message);
           return buildResponse({
             success: false,
-            message: 'Cannot access Google Spreadsheet. ' + ssErr.message + 
-                     '. Please ensure the Google account deploying this script has Editor access to: ' + 
-                     'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/edit'
+            message: 'Cannot access Google Spreadsheet. ' + ssErr.message +
+              '. Please ensure the Google account deploying this script has Editor access to: ' +
+              'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/edit'
           });
         }
       }
@@ -154,15 +154,15 @@ function doPost(e) {
         }
 
         var monthMap = {
-          1:  ['jan blogs', 'january blogs', 'jan'],
-          2:  ['feb blogs', 'february blogs', 'feb'],
-          3:  ['mar blogs', 'march blogs', 'mar'],
-          4:  ['apr blogs', 'april blogs', 'apr'],
-          5:  ['may blogs', 'may'],
-          6:  ['jun blogs', 'june blogs', 'jun'],
-          7:  ['jul blogs', 'july blogs', 'jul'],
-          8:  ['aug blogs', 'august blogs', 'aug'],
-          9:  ['sep blogs', 'september blogs', 'sep'],
+          1: ['jan blogs', 'january blogs', 'jan'],
+          2: ['feb blogs', 'february blogs', 'feb'],
+          3: ['mar blogs', 'march blogs', 'mar'],
+          4: ['apr blogs', 'april blogs', 'apr'],
+          5: ['may blogs', 'may'],
+          6: ['jun blogs', 'june blogs', 'jun'],
+          7: ['jul blogs', 'july blogs', 'jul'],
+          8: ['aug blogs', 'august blogs', 'aug'],
+          9: ['sep blogs', 'september blogs', 'sep'],
           10: ['oct blogs', 'october blogs', 'oct'],
           11: ['nov blogs', 'november blogs', 'nov'],
           12: ['dec blogs', 'december blogs', 'dec']
@@ -216,12 +216,12 @@ function doPost(e) {
         });
       }
 
-      var COL_CLASS   = block.colClass;
-      var COL_DOC     = block.colDoc;
-      var COL_PUBLIC  = block.colPublic;
-      var COL_DATED   = block.colDated;
+      var COL_CLASS = block.colClass;
+      var COL_DOC = block.colDoc;
+      var COL_PUBLIC = block.colPublic;
+      var COL_DATED = block.colDated;
       var COL_WEBSITE = block.colWebsite;
-      var COL_WRITER  = block.colWriter;
+      var COL_WRITER = block.colWriter;
       var dataStartRow = block.dataStartRow; // Usually row index 2 (row 3 of sheet)
 
       // ── Handle DELETE action ──────────────────────────────────────────────
@@ -269,7 +269,7 @@ function doPost(e) {
           var exportData = exportSheet.getDataRange().getValues();
           var csvString = '';
           for (var i = 0; i < exportData.length; i++) {
-            var rowString = exportData[i].map(function(cell) {
+            var rowString = exportData[i].map(function (cell) {
               var str = String(cell).replace(/"/g, '""');
               return '"' + str + '"';
             }).join(',');
@@ -292,7 +292,7 @@ function doPost(e) {
           var explicitRow = parseInt(payload.sheet_row, 10);
           if (explicitRow > dataStartRow && explicitRow <= allData.length) {
             sheet.getRange(explicitRow, COL_PUBLIC + 1).setValue(publicLink);
-            sheet.getRange(explicitRow, COL_DATED  + 1).setValue(formattedDate);
+            sheet.getRange(explicitRow, COL_DATED + 1).setValue(formattedDate);
             SpreadsheetApp.flush();
             var syncResult = {
               success: true,
@@ -309,28 +309,28 @@ function doPost(e) {
         var websiteRows = [];
 
         for (var r = dataStartRow; r < allData.length; r++) {
-          var cellClass     = String(allData[r][COL_CLASS]   || '').trim();
-          var cellDoc       = String(allData[r][COL_DOC]     || '').trim();
-          var cellWebsite   = String(allData[r][COL_WEBSITE] || '').trim();
-          var cellWriter    = (COL_WRITER !== -1 && allData[r][COL_WRITER]) ? String(allData[r][COL_WRITER] || '').trim() : '';
+          var cellClass = String(allData[r][COL_CLASS] || '').trim();
+          var cellDoc = String(allData[r][COL_DOC] || '').trim();
+          var cellWebsite = String(allData[r][COL_WEBSITE] || '').trim();
+          var cellWriter = (COL_WRITER !== -1 && allData[r][COL_WRITER]) ? String(allData[r][COL_WRITER] || '').trim() : '';
 
           // Domain matching using robust matcher (handles aliases, TLDs, singular/plural, typos)
           var webMatches = isWebsiteMatch(cellWebsite, websiteDomain, requestAliases) ||
-                           isWebsiteMatch(cellWebsite, targetWeb, requestAliases);
+            isWebsiteMatch(cellWebsite, targetWeb, requestAliases);
 
           // Class matching
-          var classMatches = (cellClass === classNum || 
-                              cellClass === 'Class ' + classNum || 
-                              block.declaredClass === classNum ||
-                              (classNum === '4' && (cellClass === '3' || cellClass === '4')) ||
-                              (classNum === '3' && (cellClass === '3' || cellClass === '4')));
+          var classMatches = (cellClass === classNum ||
+            cellClass === 'Class ' + classNum ||
+            block.declaredClass === classNum ||
+            (classNum === '4' && (cellClass === '3' || cellClass === '4')) ||
+            (classNum === '3' && (cellClass === '3' || cellClass === '4')));
 
           if (webMatches && classMatches) {
-            var cellPublic   = String(allData[r][COL_PUBLIC] || '').trim();
+            var cellPublic = String(allData[r][COL_PUBLIC] || '').trim();
             var cellDatedVal = allData[r][COL_DATED];
-            var hasDoc       = (cellDoc !== '' && cellDoc !== '-' && cellDoc.toLowerCase() !== 'n/a');
-            var hasWriter    = (cellWriter !== '' && cellWriter !== '-' && cellWriter.toLowerCase() !== 'n/a');
-            
+            var hasDoc = (cellDoc !== '' && cellDoc !== '-' && cellDoc.toLowerCase() !== 'n/a');
+            var hasWriter = (cellWriter !== '' && cellWriter !== '-' && cellWriter.toLowerCase() !== 'n/a');
+
             // A cell ONLY has a Public Link if it contains an actual URL (http:// or https://)
             var isEmptyPublic = (cellPublic === '' || cellPublic === '-' || cellPublic.toLowerCase() === 'n/a' || !/^https?:\/\//i.test(cellPublic));
 
@@ -356,7 +356,7 @@ function doPost(e) {
           var emptyBlockRow = -1;
           for (var r = dataStartRow; r < allData.length; r++) {
             var cellWeb = String(allData[r][COL_WEBSITE] || '').trim();
-            var cellPub = String(allData[r][COL_PUBLIC]  || '').trim();
+            var cellPub = String(allData[r][COL_PUBLIC] || '').trim();
             if (cellWeb === '' && (cellPub === '' || !/^https?:\/\//i.test(cellPub))) {
               emptyBlockRow = r + 1;
               break;
@@ -366,9 +366,9 @@ function doPost(e) {
             emptyBlockRow = allData.length + 1;
           }
 
-          sheet.getRange(emptyBlockRow, COL_CLASS   + 1).setValue(classNum);
-          sheet.getRange(emptyBlockRow, COL_PUBLIC  + 1).setValue(publicLink);
-          sheet.getRange(emptyBlockRow, COL_DATED   + 1).setValue(formattedDate);
+          sheet.getRange(emptyBlockRow, COL_CLASS + 1).setValue(classNum);
+          sheet.getRange(emptyBlockRow, COL_PUBLIC + 1).setValue(publicLink);
+          sheet.getRange(emptyBlockRow, COL_DATED + 1).setValue(formattedDate);
           sheet.getRange(emptyBlockRow, COL_WEBSITE + 1).setValue(websiteDomain);
           SpreadsheetApp.flush();
 
@@ -388,13 +388,13 @@ function doPost(e) {
 
         // Check if an accidental duplicate/orphaned row was created with this URL (URL matched, but writer is empty)
         // while an empty scheduled slot (with writer or pre-scheduled) exists in the same class
-        var emptyPreScheduledRows = websiteRows.filter(function(w) { return w.isEmptyPublic; });
-        var urlMatchingRows = websiteRows.filter(function(w) { return w.isUrlMatch; });
+        var emptyPreScheduledRows = websiteRows.filter(function (w) { return w.isEmptyPublic; });
+        var urlMatchingRows = websiteRows.filter(function (w) { return w.isUrlMatch; });
 
         if (urlMatchingRows.length > 0 && emptyPreScheduledRows.length > 0) {
-          var orphanedRows = urlMatchingRows.filter(function(w) { return !w.hasWriter; });
+          var orphanedRows = urlMatchingRows.filter(function (w) { return !w.hasWriter; });
           if (orphanedRows.length > 0) {
-            var scheduledSlot = emptyPreScheduledRows.filter(function(w) { return w.hasWriter; });
+            var scheduledSlot = emptyPreScheduledRows.filter(function (w) { return w.hasWriter; });
             target = (scheduledSlot.length > 0) ? scheduledSlot[0] : emptyPreScheduledRows[0];
             orphanedRowToClean = orphanedRows[0].sheetRow;
           }
@@ -402,16 +402,16 @@ function doPost(e) {
 
         if (!target) {
           // 1. Check rows matching the requested date
-          var dateMatchingRows = websiteRows.filter(function(w) { return w.isDateMatch; });
+          var dateMatchingRows = websiteRows.filter(function (w) { return w.isDateMatch; });
 
           if (dateMatchingRows.length > 0) {
             // Priority 1: URL match on date (idempotent re-sync)
-            var urlMatchOnDate = dateMatchingRows.filter(function(w) { return w.isUrlMatch; });
+            var urlMatchOnDate = dateMatchingRows.filter(function (w) { return w.isUrlMatch; });
             if (urlMatchOnDate.length > 0) {
               target = urlMatchOnDate[0];
             } else {
               // Priority 2: Empty Public Link on this date
-              var emptyOnDate = dateMatchingRows.filter(function(w) { return w.isEmptyPublic; });
+              var emptyOnDate = dateMatchingRows.filter(function (w) { return w.isEmptyPublic; });
               if (emptyOnDate.length > 0) {
                 target = emptyOnDate[0];
               } else if (payload.force_overwrite) {
@@ -430,14 +430,14 @@ function doPost(e) {
           } else {
             // 2. No exact date match found in the sheet:
             // Priority 1: URL match across rows (idempotent re-sync)
-            var urlMatches = websiteRows.filter(function(w) { return w.isUrlMatch; });
+            var urlMatches = websiteRows.filter(function (w) { return w.isUrlMatch; });
             if (urlMatches.length > 0) {
               target = urlMatches[0];
             } else {
               // Priority 2: First empty slot (prefer row that has Doc Link if present, or row with writer, otherwise any empty slot)
-              var emptyWithDoc    = websiteRows.filter(function(w) { return w.isEmptyPublic && w.hasDoc; });
-              var emptyWithWriter = websiteRows.filter(function(w) { return w.isEmptyPublic && w.hasWriter; });
-              var emptyAny        = websiteRows.filter(function(w) { return w.isEmptyPublic; });
+              var emptyWithDoc = websiteRows.filter(function (w) { return w.isEmptyPublic && w.hasDoc; });
+              var emptyWithWriter = websiteRows.filter(function (w) { return w.isEmptyPublic && w.hasWriter; });
+              var emptyAny = websiteRows.filter(function (w) { return w.isEmptyPublic; });
 
               if (emptyWithDoc.length > 0) {
                 target = emptyWithDoc[0];
@@ -473,18 +473,18 @@ function doPost(e) {
 
         // Update ONLY Public Link and Dated; keep Doc Link, Website, Writer intact!
         sheet.getRange(writeSheetRow, COL_PUBLIC + 1).setValue(publicLink);
-        sheet.getRange(writeSheetRow, COL_DATED  + 1).setValue(formattedDate);
+        sheet.getRange(writeSheetRow, COL_DATED + 1).setValue(formattedDate);
 
         // If an orphaned duplicate row existed (e.g. Row 60 appended previously), clean it up!
         if (orphanedRowToClean && orphanedRowToClean !== writeSheetRow && orphanedRowToClean <= sheet.getLastRow()) {
           try {
-            sheet.getRange(orphanedRowToClean, COL_CLASS   + 1).setValue('');
-            sheet.getRange(orphanedRowToClean, COL_PUBLIC  + 1).setValue('');
-            sheet.getRange(orphanedRowToClean, COL_DATED   + 1).setValue('');
+            sheet.getRange(orphanedRowToClean, COL_CLASS + 1).setValue('');
+            sheet.getRange(orphanedRowToClean, COL_PUBLIC + 1).setValue('');
+            sheet.getRange(orphanedRowToClean, COL_DATED + 1).setValue('');
             sheet.getRange(orphanedRowToClean, COL_WEBSITE + 1).setValue('');
 
             var rowVals = sheet.getRange(orphanedRowToClean, 1, 1, sheet.getLastColumn()).getValues()[0];
-            var isEntirelyBlank = rowVals.every(function(val) { return String(val || '').trim() === ''; });
+            var isEntirelyBlank = rowVals.every(function (val) { return String(val || '').trim() === ''; });
             if (isEntirelyBlank && orphanedRowToClean > writeSheetRow) {
               sheet.deleteRow(orphanedRowToClean);
             }
@@ -511,9 +511,9 @@ function doPost(e) {
       var genericEmptyIndex = -1;
 
       for (var r = dataStartRow; r < allData.length; r++) {
-        var cellClass   = String(allData[r][COL_CLASS]   || '').trim();
-        var cellPublic  = String(allData[r][COL_PUBLIC]  || '').trim();
-        var cellDated   = String(allData[r][COL_DATED]   || '').trim();
+        var cellClass = String(allData[r][COL_CLASS] || '').trim();
+        var cellPublic = String(allData[r][COL_PUBLIC] || '').trim();
+        var cellDated = String(allData[r][COL_DATED] || '').trim();
         var cellWebsite = String(allData[r][COL_WEBSITE] || '').trim();
 
         if (cellPublic === '' || !/^https?:\/\//i.test(cellPublic)) {
@@ -527,11 +527,11 @@ function doPost(e) {
 
         if (normaliseUrl(cellPublic) === normLink) {
           var dupResult = {
-            success:   false,
+            success: false,
             duplicate: true,
-            message:   'This blog link already exists in Class ' + classNum + ' (row ' + (r + 1) + ').',
-            class:     classNum,
-            row:       r + 1
+            message: 'This blog link already exists in Class ' + classNum + ' (row ' + (r + 1) + ').',
+            class: classNum,
+            row: r + 1
           };
           if (requestId) storeIdempotencyResult(requestId, dupResult);
           return buildResponse(dupResult);
@@ -547,17 +547,17 @@ function doPost(e) {
         sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
       }
 
-      sheet.getRange(writeSheetRow, COL_CLASS   + 1).setValue(classNum);
-      sheet.getRange(writeSheetRow, COL_PUBLIC  + 1).setValue(publicLink);
-      sheet.getRange(writeSheetRow, COL_DATED   + 1).setValue(formatSheetDate(dated));
+      sheet.getRange(writeSheetRow, COL_CLASS + 1).setValue(classNum);
+      sheet.getRange(writeSheetRow, COL_PUBLIC + 1).setValue(publicLink);
+      sheet.getRange(writeSheetRow, COL_DATED + 1).setValue(formatSheetDate(dated));
       sheet.getRange(writeSheetRow, COL_WEBSITE + 1).setValue(websiteDomain);
       SpreadsheetApp.flush();
 
       var successResult = {
         success: true,
         message: 'Blog added successfully to Class ' + classNum + ' in row ' + writeSheetRow + '.',
-        class:   classNum,
-        row:     writeSheetRow
+        class: classNum,
+        row: writeSheetRow
       };
 
       if (requestId) storeIdempotencyResult(requestId, successResult);
@@ -618,8 +618,8 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
     var subMatches = 0;
     for (var c = 0; c < row.length; c++) {
       var h = String(row[c] || '').toLowerCase().trim();
-      if (h.indexOf('link') !== -1 || h.indexOf('public') !== -1 || h.indexOf('doc') !== -1 || 
-          h.indexOf('date') !== -1 || h.indexOf('writer') !== -1) {
+      if (h.indexOf('link') !== -1 || h.indexOf('public') !== -1 || h.indexOf('doc') !== -1 ||
+        h.indexOf('date') !== -1 || h.indexOf('writer') !== -1) {
         subMatches++;
       }
     }
@@ -650,7 +650,7 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
   }
 
   var groupRow = (groupRowIndex !== -1) ? allData[groupRowIndex] : null;
-  var subRow   = allData[subRowIndex];
+  var subRow = allData[subRowIndex];
   var dataStartRow = subRowIndex + 1;
 
   // 1. Locate all Class start columns
@@ -677,12 +677,12 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
     var nextCol = (i + 1 < classColIndices.length) ? classColIndices[i + 1] : Math.min(startCol + 7, numCols);
 
     var block = {
-      colClass:   startCol + 0,
-      colDoc:     startCol + 1,
-      colPublic:  startCol + 2,
-      colDated:   startCol + 3,
+      colClass: startCol + 0,
+      colDoc: startCol + 1,
+      colPublic: startCol + 2,
+      colDated: startCol + 3,
       colWebsite: startCol + 4,
-      colWriter:  (startCol + 5 < numCols) ? startCol + 5 : -1,
+      colWriter: (startCol + 5 < numCols) ? startCol + 5 : -1,
       declaredClass: null,
       dataStartRow: dataStartRow
     };
@@ -819,9 +819,9 @@ function findClassBlock(allData, classNum, targetWebsiteDomain) {
 
 function doGet(e) {
   return buildResponse({
-    ok:        true,
-    service:   'DGT Blogs Sheet Integration',
-    version:   '3.2.0',
+    ok: true,
+    service: 'DGT Blogs Sheet Integration',
+    version: '3.2.0',
     timestamp: new Date().toISOString()
   });
 }
@@ -829,9 +829,9 @@ function doGet(e) {
 // ── ❺  HELPERS ───────────────────────────────────────────────────────────────
 
 function validateFields(classNum, publicLink, dated) {
-  if (!classNum)   return 'Missing required field: class.';
+  if (!classNum) return 'Missing required field: class.';
   if (!publicLink) return 'Missing required field: public_link.';
-  if (!dated)      return 'Missing required field: date.';
+  if (!dated) return 'Missing required field: date.';
 
   if (!/^https?:\/\/.+/i.test(publicLink)) {
     return 'public_link must start with http:// or https://.';
@@ -881,17 +881,17 @@ function isWebsiteMatch(cellWebsite, targetWebsite, requestAliases) {
   var tDomain = extractDomain(tWeb);
   if (cDomain !== '' && tDomain !== '' && cDomain === tDomain) return true;
 
-  // 3. Request aliases check
+  // 3. Request aliases check al
   var aliasList = [];
   if (Array.isArray(requestAliases)) {
-    aliasList = requestAliases.map(function(a) { return String(a).toLowerCase().trim(); });
+    aliasList = requestAliases.map(function (a) { return String(a).toLowerCase().trim(); });
   }
   if (aliasList.indexOf(cWeb.toLowerCase()) !== -1 || (cDomain !== '' && aliasList.indexOf(cDomain) !== -1)) {
     return true;
   }
 
   // Prevent cross-matching separate websites that share a base name but have distinct TLDs in the same sheet (e.g. asiamachinery.net vs asiamachinery.org, kuvuo.net vs kuvuo.com)
-  var normalizeWebsiteDomain = function(d) {
+  var normalizeWebsiteDomain = function (d) {
     if (!d) return '';
     return d.toLowerCase().trim().replace(/^asianmachinery\./, 'asiamachinery.');
   };
@@ -903,7 +903,7 @@ function isWebsiteMatch(cellWebsite, targetWebsite, requestAliases) {
   }
 
   // 4. Normalized root slug comparison (strip TLDs, non-alphanumeric)
-  var normalizeSlug = function(str) {
+  var normalizeSlug = function (str) {
     if (!str) return '';
     var d = extractDomain(str) || str;
     var base = d.replace(/\.(com|org|net|wiki|online|us|co|info|biz|io|store|site|eu)$/i, '');
@@ -924,7 +924,7 @@ function isWebsiteMatch(cellWebsite, targetWebsite, requestAliases) {
 
   // 5. Linguistic stem variation:
   // e.g. "asianmachinery" <-> "asiamachinery"
-  var stem = function(s) {
+  var stem = function (s) {
     return s.replace(/asian/g, 'asia').replace(/s$/, '');
   };
   var cStem = stem(cSlug);
@@ -1045,13 +1045,13 @@ function getIdempotencyResult(requestId) {
 
 function storeIdempotencyResult(requestId, result) {
   try {
-    var props  = PropertiesService.getScriptProperties();
-    var key    = IDEM_PREFIX + requestId;
-    var allKeys = props.getKeys().filter(function(k) { return k.indexOf(IDEM_PREFIX) === 0; });
+    var props = PropertiesService.getScriptProperties();
+    var key = IDEM_PREFIX + requestId;
+    var allKeys = props.getKeys().filter(function (k) { return k.indexOf(IDEM_PREFIX) === 0; });
 
     if (allKeys.length >= IDEMPOTENCY_CACHE_SIZE) {
       var toDelete = allKeys.slice(0, Math.floor(IDEMPOTENCY_CACHE_SIZE / 4));
-      toDelete.forEach(function(k) { props.deleteProperty(k); });
+      toDelete.forEach(function (k) { props.deleteProperty(k); });
     }
     props.setProperty(key, JSON.stringify(result));
   } catch (err) {

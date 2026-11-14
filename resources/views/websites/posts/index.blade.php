@@ -1505,6 +1505,31 @@ body[data-theme="neon"] .cms-handler-chip {
     line-height: 1.8;
     font-size: 15px;
 }
+#cms-visual-editor a,
+.cms-visual-editor a,
+.cms-article-link {
+    color: #2563eb !important;
+    text-decoration: underline !important;
+    text-underline-offset: 3px;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition: color 0.15s ease-in-out;
+}
+#cms-visual-editor a:hover,
+.cms-visual-editor a:hover,
+.cms-article-link:hover {
+    color: #1d4ed8 !important;
+}
+.dark #cms-visual-editor a,
+.dark .cms-visual-editor a,
+.dark .cms-article-link {
+    color: #60a5fa !important;
+}
+.dark #cms-visual-editor a:hover,
+.dark .cms-visual-editor a:hover,
+.dark .cms-article-link:hover {
+    color: #93c5fd !important;
+}
 #cms-visual-editor h1 {
     color: var(--cms-text-primary);
     font-weight: 900;
@@ -3181,16 +3206,20 @@ body[data-theme="neon"] .cms-handler-chip {
 
                         <!-- Tailored Website CTA & Equipment Card -->
                         <template x-if="productUrl || productSku || (currentWebsiteProfile && currentWebsiteProfile.store_url)">
-                            <div class="cms-equipment-cta my-8 p-6 rounded-2xl bg-gradient-to-br from-blue-50/90 via-slate-50 to-white dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 shadow-sm">
+                            <div class="cms-equipment-cta my-8 p-6 rounded-2xl bg-white dark:bg-slate-900 border shadow-sm"
+                                 :style="'border-color: ' + (resolveThemeColorForSelectedSite() + '40') + '; border-left: 5px solid ' + resolveThemeColorForSelectedSite() + ';'">
                                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                     <div class="space-y-1.5">
-                                        <div class="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-100/60 dark:bg-blue-950/80 px-2.5 py-0.5 rounded-full">
+                                        <div class="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full"
+                                             :style="'color: ' + resolveThemeColorForSelectedSite() + '; background: ' + (resolveThemeColorForSelectedSite() + '18') + ';'">
                                             <span>★ Featured Machinery &amp; Equipment</span>
                                         </div>
                                         <h4 class="text-lg font-black text-slate-900 dark:text-white" x-text="productSku ? ('Model / Series: ' + productSku) : (selectedWebsite ? (selectedWebsite.name + ' Heavy Equipment') : 'Featured Machinery')"></h4>
                                         <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">Looking for top-performing heavy equipment, authentic attachments, and dependable jobsite power? Explore verified models backed by manufacturer warranty and nationwide delivery.</p>
                                     </div>
-                                    <a :href="productUrl || currentWebsiteProfile?.store_url || '#'" target="_blank" class="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 shrink-0">
+                                    <a :href="productUrl || currentWebsiteProfile?.store_url || '#'" target="_blank"
+                                       class="px-5 py-3 rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-2 shrink-0 text-white"
+                                       :style="'background: ' + resolveThemeColorForSelectedSite() + ';'">
                                         <span>View Specifications &amp; Pricing</span>
                                         <span>&rarr;</span>
                                     </a>
@@ -4960,6 +4989,8 @@ function blogPostCmsApp() {
             const url = prompt('Enter link URL (e.g. https://example.com, https://skidsteers.us/shop, or /attachments):');
             if (!url || !url.trim()) return;
             const cleanUrl = url.trim();
+            const isExternal = /^https?:\/\//i.test(cleanUrl);
+            const targetAttr = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
 
             if (this.editorMode === 'visual') {
                 const visualEl = document.getElementById('cms-visual-editor-' + art.uid) || document.getElementById('cms-visual-editor');
@@ -4967,10 +4998,11 @@ function blogPostCmsApp() {
                     visualEl.focus();
                     const sel = window.getSelection();
                     if (sel && sel.toString().trim()) {
-                        document.execCommand('createLink', false, cleanUrl);
+                        const linkText = sel.toString().trim();
+                        document.execCommand('insertHTML', false, `<a href="${cleanUrl}"${targetAttr} class="cms-article-link text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-800" style="color: #2563eb; text-decoration: underline; font-weight: 600;">${linkText}</a>`);
                     } else {
                         const text = prompt('Enter link display text:', 'Learn More') || cleanUrl;
-                        document.execCommand('insertHTML', false, `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+                        document.execCommand('insertHTML', false, `<a href="${cleanUrl}"${targetAttr} class="cms-article-link text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-800" style="color: #2563eb; text-decoration: underline; font-weight: 600;">${text}</a>`);
                     }
                     this.syncVisualCanvasToRaw();
                     return;
@@ -5123,6 +5155,17 @@ function blogPostCmsApp() {
             if (!text || !art) return;
             let raw = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
             if (!raw) return;
+
+            // Preserve author hyperlinks from rich clipboard HTML (Google Docs, Word, web pages)
+            if (htmlContent && htmlContent.includes('<a')) {
+                raw = this.preserveHtmlHyperlinksAsMarkdown(raw, htmlContent);
+            }
+            // If raw text itself contains raw HTML <a> tags, convert them to markdown links [text](url)
+            raw = raw.replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (match, href, txt) => {
+                const cleanTxt = txt.replace(/<[^>]+>/g, '').trim();
+                const cleanHref = href.trim();
+                return (cleanTxt && cleanHref) ? `[${cleanTxt}](${cleanHref})` : txt;
+            });
 
             // Automatically recognize and format tables (Google Docs rich HTML, tab-separated, sequential lines, etc.)
             raw = this.detectAndFormatTables(raw, htmlContent);
@@ -7045,6 +7088,33 @@ function blogPostCmsApp() {
                 return `<p${a ? ' ' + a : ''}>`;
             });
 
+            // 7. Parse any unparsed markdown links [text](url) into styled <a> tags
+            styled = styled.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/|#|mailto:|tel:)[^\s\)]+)\)/gi, (match, linkText, linkUrl) => {
+                const cleanUrl = linkUrl.trim();
+                const isExternal = /^https?:\/\//i.test(cleanUrl);
+                const targetAttr = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+                return `<a href="${cleanUrl}"${targetAttr} class="cms-article-link text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-800" style="color: #2563eb; text-decoration: underline; font-weight: 600;">${linkText}</a>`;
+            });
+
+            // 8. Ensure all <a> tags have proper class, high-visibility inline styling, and external target
+            styled = styled.replace(/<a\b([^>]*)href=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/a>/gi, (match, before, href, after, linkText) => {
+                let attrs = (before + ' ' + after).trim();
+                if (!attrs.includes('class=')) {
+                    attrs += ' class="cms-article-link text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-800"';
+                } else if (!attrs.includes('cms-article-link')) {
+                    attrs = attrs.replace(/class=["']([^"']*)["']/i, 'class="$1 cms-article-link text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-800"');
+                }
+                if (!attrs.includes('style=')) {
+                    attrs += ' style="color: #2563eb; text-decoration: underline; font-weight: 600;"';
+                } else if (!attrs.includes('color:') && !attrs.includes('color :')) {
+                    attrs = attrs.replace(/style=["']([^"']*)["']/i, 'style="$1; color: #2563eb; text-decoration: underline; font-weight: 600;"');
+                }
+                if (/^https?:\/\//i.test(href) && !attrs.includes('target=')) {
+                    attrs += ' target="_blank" rel="noopener noreferrer"';
+                }
+                return `<a href="${href}" ${attrs.trim()}>${linkText}</a>`;
+            });
+
             return styled;
         },
 
@@ -7266,9 +7336,114 @@ function blogPostCmsApp() {
             return html;
         },
 
+        resolveThemeColorForSelectedSite() {
+            if (this.currentWebsiteProfile?.theme?.link_color) {
+                return this.currentWebsiteProfile.theme.link_color;
+            }
+            if (this.currentWebsiteProfile?.theme?.primary) {
+                return this.currentWebsiteProfile.theme.primary;
+            }
+            const domain = (this.selectedWebsite?.url || this.selectedWebsite?.clean_domain || this.selectedWebsite?.name || '').toLowerCase();
+            if (domain.includes('groundripper') || domain.includes('konstructz') || domain.includes('konstruz') || domain.includes('construcz') || domain.includes('cwqv') || domain.includes('mzvt')) {
+                return '#8c6f38'; // Gold
+            }
+            if (domain.includes('kuvuo') || domain.includes('kuvyn')) {
+                return '#12372a'; // Forest Green
+            }
+            if (domain.includes('typhon') || domain.includes('thunderdump') || domain.includes('usaexcavators') || domain.includes('newminiexcavator') || domain.includes('tinyexcavator') || domain.includes('newexcavatorsforsale') || domain.includes('unitedstatesofexcavators') || domain.includes('newexcavator') || domain.includes('newdiggerforsale') || domain.includes('1excavator')) {
+                return '#ea580c'; // Machinery Orange
+            }
+            if (domain.includes('machine2u') || domain.includes('electricforklift')) {
+                return '#059669'; // Emerald
+            }
+            if (domain.includes('stunning')) {
+                return '#a96d00';
+            }
+            if (domain.includes('machinery.org') || domain.includes('machineryusa')) {
+                return '#0a1a2e';
+            }
+            if (domain.includes('americanloader') || domain.includes('machineryvillage')) {
+                return '#0b2d55';
+            }
+            if (domain.includes('skidsteers.us') || domain.includes('skidsteers.org')) {
+                return '#15803d';
+            }
+            if (domain.includes('skidsteers.online')) {
+                return '#e11d48';
+            }
+            return '#2563eb';
+        },
+
+        preserveHtmlHyperlinksAsMarkdown(text, htmlContent) {
+            if (!htmlContent || !htmlContent.includes('<a')) return text;
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
+                const links = doc.querySelectorAll('a[href]');
+                if (!links || links.length === 0) return text;
+
+                let result = text;
+                links.forEach(link => {
+                    let href = (link.getAttribute('href') || '').trim();
+                    let linkText = (link.textContent || '').replace(/\u00a0/g, ' ').trim();
+                    if (!href || !linkText || href.startsWith('javascript:')) return;
+
+                    // Unwrap Google Docs redirect URLs: https://www.google.com/url?q=REAL_URL&sa=...
+                    if (href.includes('google.com/url?') && href.includes('q=')) {
+                        try {
+                            const parsedUrl = new URL(href);
+                            const realUrl = parsedUrl.searchParams.get('q');
+                            if (realUrl) {
+                                href = decodeURIComponent(realUrl);
+                            }
+                        } catch (e) {
+                            const match = href.match(/[?&]q=([^&]+)/);
+                            if (match) {
+                                href = decodeURIComponent(match[1]);
+                            }
+                        }
+                    }
+
+                    if (result.includes(`[${linkText}](${href})`)) return;
+
+                    // Match and wrap in markdown link [linkText](href)
+                    const escaped = linkText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp('(?<!\\[|href=["\']|src=["\'])\\b' + escaped + '\\b(?!\\]|["\'])', 'i');
+                    if (regex.test(result)) {
+                        result = result.replace(regex, `[${linkText}](${href})`);
+                    } else if (result.includes(linkText)) {
+                        result = result.replace(linkText, `[${linkText}](${href})`);
+                    }
+                });
+                return result;
+            } catch (e) {
+                return text;
+            }
+        },
+
         formatInlineMarkdown(text) {
+            if (!text) return '';
+            const currentSiteUrl = (this.selectedWebsite && this.selectedWebsite.url) ? this.selectedWebsite.url : '';
+            const currentHost = currentSiteUrl ? currentSiteUrl.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0].toLowerCase() : '';
+            const themeColor = this.resolveThemeColorForSelectedSite();
+
             return text
-                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 dark:text-blue-400 font-bold underline">$1</a>')
+                .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/|#|mailto:|tel:)[^\s\)]+)\)/g, (match, linkText, linkUrl) => {
+                    const cleanUrl = linkUrl.trim();
+                    let isExternal = false;
+                    if (/^https?:\/\//i.test(cleanUrl)) {
+                        try {
+                            const urlHost = new URL(cleanUrl).hostname.replace(/^www\./i, '').toLowerCase();
+                            if (!currentHost || (urlHost !== currentHost && !urlHost.endsWith('.' + currentHost) && !currentHost.endsWith('.' + urlHost))) {
+                                isExternal = true;
+                            }
+                        } catch (e) {
+                            isExternal = true;
+                        }
+                    }
+                    const targetAttr = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+                    return `<a href="${cleanUrl}"${targetAttr} class="cms-article-link font-semibold underline" style="color: ${themeColor}; text-decoration: underline; font-weight: 600;">${linkText}</a>`;
+                })
                 .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
                 .replace(/\*([^*]+)\*/g, '<em>$1</em>')
                 .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs font-mono">$1</code>');

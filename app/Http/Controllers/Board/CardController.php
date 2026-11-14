@@ -293,6 +293,7 @@ class CardController extends Controller
             'reminder'      => ['nullable', 'integer', 'min:0'],
             'recurring'     => ['nullable', 'in:none,daily,weekly,monthly,yearly'],
             'cover_image'   => ['nullable', 'string'],
+            'card_color'    => ['sometimes', 'nullable', 'string', \Illuminate\Validation\Rule::in(Card::CARD_COLORS)],
             'is_archived'   => ['sometimes', 'boolean'],
             'board_list_id' => ['sometimes', 'exists:board_lists,id'],
             'status'        => ['sometimes', 'string'],
@@ -307,7 +308,9 @@ class CardController extends Controller
         if (array_key_exists('team', $validated)) {
             if (!empty($validated['team'])) {
                 $t = strtoupper(trim($validated['team']));
-                if (in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B']) || (str_contains($t, 'A') && str_contains($t, 'B'))) {
+                if ($t === 'NONE' || $t === 'NULL') {
+                    $validated['team'] = 'none';
+                } elseif (in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B']) || (str_contains($t, 'A') && str_contains($t, 'B'))) {
                     $validated['team'] = 'Both';
                 } elseif ($t === 'A' || $t === 'B') {
                     $validated['team'] = $t;
@@ -315,7 +318,7 @@ class CardController extends Controller
                     $validated['team'] = $validated['team'];
                 }
             } else {
-                $validated['team'] = null;
+                $validated['team'] = 'none';
             }
         } elseif (array_key_exists('created_by', $validated) && !empty($validated['created_by']) && empty($card->team)) {
             $cUser = User::find($validated['created_by']);
@@ -375,8 +378,10 @@ class CardController extends Controller
                     $val ? "changed Content Type to **{$val}**" : 'cleared Content Type'),
                 'content_public_date' => $this->logCardActivity($card, 'content_public_date_changed',
                     "changed Public Date to **{$val}**"),
+                'card_color'  => $this->logCardActivity($card, 'card_color_changed',
+                    $val ? "changed card color to **{$val}**" : 'reset card color'),
                 'team'        => $this->logCardActivity($card, 'team_changed',
-                    $val ? ($val === 'Both' ? "assigned card to **Team A & B (Both Teams)**" : "assigned card to **Team {$val}**") : 'removed team assignment'),
+                    $val ? ($val === 'Both' ? "assigned card to **Team A & B (Both Teams)**" : ($val === 'none' ? 'removed team assignment' : "assigned card to **Team {$val}**")) : 'removed team assignment'),
                 default       => null,
             };
         }
@@ -667,21 +672,26 @@ class CardController extends Controller
                     }
 
                     // Prevent duplicate copies if card has already been replicated to the target board
-                    if ($card->sync_group_id) {
-                        $alreadyCopied = \App\Models\Card::where('sync_group_id', $card->sync_group_id)
-                            ->where('board_id', $automation->target_board_id)
-                            ->exists();
-                        if ($alreadyCopied) {
-                            return [
-                                'triggered' => true,
-                                'rule_id' => $automation->id,
-                                'trigger_type' => $automation->trigger_type,
-                                'action_type' => $automation->action_type,
-                                'target_board_id' => $automation->target_board_id,
-                                'target_list_id' => $automation->target_list_id,
-                                'reason' => 'already copied',
-                            ];
-                        }
+                    $alreadyCopied = \App\Models\Card::where('board_id', $automation->target_board_id)
+                        ->where(function ($q) use ($card) {
+                            if ($card->sync_group_id) {
+                                $q->where('sync_group_id', $card->sync_group_id)
+                                  ->orWhere('title', $card->title);
+                            } else {
+                                $q->where('title', $card->title);
+                            }
+                        })
+                        ->exists();
+                    if ($alreadyCopied) {
+                        return [
+                            'triggered' => true,
+                            'rule_id' => $automation->id,
+                            'trigger_type' => $automation->trigger_type,
+                            'action_type' => $automation->action_type,
+                            'target_board_id' => $automation->target_board_id,
+                            'target_list_id' => $automation->target_list_id,
+                            'reason' => 'already copied',
+                        ];
                     }
 
                     $isSameBoard = (int)$automation->target_board_id === (int)$card->board_id;
@@ -759,19 +769,10 @@ class CardController extends Controller
         $this->logCardActivity($card, 'deleted', "moved card '{$card->title}' to Trash");
         $card->delete();
 
-        // Also cascade soft-delete to any twin cards in the same sync group
-        if ($card->sync_group_id) {
-            $syncedCards = Card::where('sync_group_id', $card->sync_group_id)
-                ->where('id', '!=', $card->id)
-                ->get();
-            foreach ($syncedCards as $twin) {
-                if (!$twin->board_id && $twin->board_list_id) {
-                    $twin->board_id = $twin->boardList?->board_id;
-                    $twin->save();
-                }
-                $twin->delete();
-            }
-        }
+        // Note: Do NOT cascade soft-delete to other twin cards in the same sync group.
+        // Per requirement, deleting/archiving a card on one board (e.g. a copied card on a workflow board)
+        // must leave the other cards (especially the original on the planning board) intact.
+        // Active remaining cards continue to sync normally until each one is individually removed.
 
         return response()->json(['message' => 'Card moved to Trash.']);
     }
@@ -1373,12 +1374,12 @@ class CardController extends Controller
             $status = $item->is_completed ? 'completed' : 'uncompleted';
             $this->logCardActivity($card, 'checklist_item_toggled', "marked item **{$item->content}** as {$status}");
 
-            // Automation: If card is on a Planning Board, has an SMM label, and all checklist items are now 100% completed,
+            // Automation: If card is on a Planning Board and all checklist items are now 100% completed,
             // automatically copy to the appropriate Workflow Board (Team A or Team B) into list "Draft".
             if ($item->is_completed) {
                 try {
                     $freshCard = $card->fresh(['checklists.items', 'assignees', 'board', 'labels']);
-                    if ($freshCard && !$freshCard->hasIncompleteChecklist() && $freshCard->hasSmmLabel()) {
+                    if ($freshCard && !$freshCard->hasIncompleteChecklist()) {
                         app(\App\Services\BoardWorkflowService::class)->autoCopyCompletedPlanningCardToWorkflow($freshCard);
                     }
                 } catch (\Throwable $e) {
@@ -1621,7 +1622,74 @@ class CardController extends Controller
 
         return response()->json([
             'success' => true,
-            'item'    => $item->fresh(['assignedUser', 'markedBy', 'issueBy']),
+            'item'    => $item->fresh(['assignedUser', 'markedBy', 'issueBy', 'uploadedBy']),
+        ]);
+    }
+
+    /**
+     * Toggle the Upload status on a checklist item.
+     * Upload is strictly for internal tracking and operates independently from Check status.
+     */
+    public function uploadChecklistItem(Request $request, Card $card, CardChecklist $checklist, CardChecklistItem $item): JsonResponse
+    {
+        $user = auth()->user();
+        $isUploaded = $request->has('is_uploaded')
+            ? filter_var($request->input('is_uploaded'), FILTER_VALIDATE_BOOLEAN)
+            : ! $item->is_uploaded;
+
+        if (!$item->sync_id) {
+            $item->sync_id = (string) \Illuminate\Support\Str::uuid();
+        }
+
+        $updateData = [
+            'sync_id'     => $item->sync_id,
+            'is_uploaded' => $isUploaded,
+            'uploaded_by' => $isUploaded ? $user->id : null,
+            'uploaded_at' => $isUploaded ? now() : null,
+        ];
+
+        $item->update($updateData);
+
+        // Propagate upload status to all twin cards in the sync group
+        if ($card->sync_group_id) {
+            $normalizeItemKey = function ($text) {
+                $text = mb_strtolower(trim($text ?? ''));
+                $text = preg_replace('/\s*([:\.\-])\s*/u', '$1', $text);
+                $text = preg_replace('/\s+/u', ' ', $text);
+                return $text;
+            };
+            $targetKey = $normalizeItemKey($item->content);
+
+            $twins = Card::where('sync_group_id', $card->sync_group_id)
+                ->where('id', '!=', $card->id)
+                ->with(['checklists.items'])
+                ->get();
+
+            foreach ($twins as $twin) {
+                foreach ($twin->checklists as $twinChecklist) {
+                    foreach ($twinChecklist->items as $twinItem) {
+                        $matches = false;
+                        if ($item->sync_id && $twinItem->sync_id === $item->sync_id) {
+                            $matches = true;
+                        } elseif ($targetKey !== '' && $normalizeItemKey($twinItem->content) === $targetKey) {
+                            $matches = true;
+                        }
+
+                        if ($matches) {
+                            $twinItem->updateQuietly(array_merge($updateData, ['sync_id' => $item->sync_id]));
+                        }
+                    }
+                }
+            }
+        }
+
+        $actionText = $isUploaded ? 'marked as uploaded' : 'removed upload status from';
+        $this->logCardActivity($card, 'checklist_item_uploaded', "{$actionText} item **{$item->content}**", false);
+
+        return response()->json([
+            'success'     => true,
+            'is_uploaded' => (bool) $item->is_uploaded,
+            'item'        => $item->fresh(['assignedUser', 'markedBy', 'issueBy', 'uploadedBy']),
         ]);
     }
 
@@ -2620,6 +2688,21 @@ class CardController extends Controller
                 $completedBy = $bestCompletedItem ? $bestCompletedItem->completed_by : null;
                 $completedAt = $bestCompletedItem ? $bestCompletedItem->completed_at : null;
 
+                // Find best upload state in cluster
+                $bestUploadedItem = null;
+                foreach ($cluster as $it) {
+                    if (!empty($it->is_uploaded)) {
+                        if (!$bestUploadedItem) {
+                            $bestUploadedItem = $it;
+                        } elseif ($it->uploaded_at && (!$bestUploadedItem->uploaded_at || $it->uploaded_at > $bestUploadedItem->uploaded_at)) {
+                            $bestUploadedItem = $it;
+                        }
+                    }
+                }
+                $isUploaded = $bestUploadedItem ? (bool)$bestUploadedItem->is_uploaded : false;
+                $uploadedBy = $bestUploadedItem ? $bestUploadedItem->uploaded_by : null;
+                $uploadedAt = $bestUploadedItem ? $bestUploadedItem->uploaded_at : null;
+
                 // 3a. Update existing items in the cluster
                 foreach ($cluster as $it) {
                     $updates = [];
@@ -2663,6 +2746,15 @@ class CardController extends Controller
                         $it->is_completed = true;
                         $it->completed_by = $completedBy;
                         $it->completed_at = $completedAt;
+                    }
+
+                    if ($bestUploadedItem && (bool)$it->is_uploaded !== $isUploaded) {
+                        $updates['is_uploaded'] = $isUploaded;
+                        $updates['uploaded_by'] = $uploadedBy;
+                        $updates['uploaded_at'] = $uploadedAt;
+                        $it->is_uploaded = $isUploaded;
+                        $it->uploaded_by = $uploadedBy;
+                        $it->uploaded_at = $uploadedAt;
                     }
 
                     if ($bestAssigneeId && !$it->assigned_user_id && empty($it->assigned_user_ids)) {
@@ -2713,6 +2805,11 @@ class CardController extends Controller
                                 $cUpdates['assigned_user_id'] = $bestAssigneeId;
                                 $cUpdates['assigned_user_ids'] = $bestAssigneeIds;
                             }
+                            if ($bestUploadedItem && (bool)$existingItemOnC->is_uploaded !== $isUploaded) {
+                                $cUpdates['is_uploaded'] = $isUploaded;
+                                $cUpdates['uploaded_by'] = $uploadedBy;
+                                $cUpdates['uploaded_at'] = $uploadedAt;
+                            }
                             if (!empty($cUpdates)) {
                                 $existingItemOnC->updateQuietly($cUpdates);
                                 $modified = true;
@@ -2737,6 +2834,9 @@ class CardController extends Controller
                                     'is_approved'      => $isApproved,
                                     'approved_by'      => $approvedBy,
                                     'approved_at'      => $approvedAt,
+                                    'is_uploaded'      => $isUploaded,
+                                    'uploaded_by'      => $uploadedBy,
+                                    'uploaded_at'      => $uploadedAt,
                                     'assigned_user_id' => $bestAssigneeId,
                                     'assigned_user_ids'=> $bestAssigneeIds,
                                 ]);
@@ -3396,6 +3496,7 @@ class CardController extends Controller
             'smm_cluster_label'  => $card->smm_cluster_label,
             'content_public_date'=> $card->content_public_date?->format('Y-m-d'),
             'team'            => $card->team,
+            'card_color'      => $card->card_color,
             'position'        => $card->position,
             'sync_group_id'   => $card->sync_group_id,
             'creator'         => $card->creator ? [

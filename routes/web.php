@@ -156,6 +156,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/websites/google-search-console/sitemaps/update-coverage', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'updateCoverageSnapshot'])->name('websites.search-console.sitemaps.update-coverage');
             Route::post('/websites/google-search-console/sitemaps/start-auto-inspection', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'startAutoInspection'])->name('websites.search-console.sitemaps.start-auto-inspection');
             Route::get('/websites/google-search-console/sitemaps/inspection-status', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'getInspectionScanStatus'])->name('websites.search-console.sitemaps.inspection-status');
+            Route::post('/websites/google-search-console/sitemaps/scan-website-step', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'scanWebsiteStep'])->name('websites.search-console.sitemaps.scan-website-step');
             Route::get('/websites/google-search-console/export/sitemaps-csv', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'exportSitemapsCsv'])->name('websites.search-console.export.sitemaps-csv');
             Route::match(['get', 'post', 'options'], '/websites/google-search-console/sync-browser-data', [\App\Http\Controllers\GoogleSearchConsoleController::class, 'syncBrowserData'])->name('websites.search-console.sync-browser-data');
 
@@ -338,6 +339,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
             Route::post('/cards/{card}/checklists/{checklist}/items', [BoardCardController::class, 'storeChecklistItem'])->name('cards.checklists.items.store');
             Route::patch('/cards/{card}/checklists/{checklist}/items/{item}', [BoardCardController::class, 'toggleChecklistItem'])->name('cards.checklists.items.toggle');
             Route::patch('/cards/{card}/checklists/{checklist}/items/{item}/review', [BoardCardController::class, 'reviewChecklistItem'])->name('cards.checklists.items.review');
+            Route::patch('/cards/{card}/checklists/{checklist}/items/{item}/upload', [BoardCardController::class, 'uploadChecklistItem'])->name('cards.checklists.items.upload');
             Route::delete('/cards/{card}/checklists/{checklist}/items/{item}', [BoardCardController::class, 'destroyChecklistItem'])->name('cards.checklists.items.destroy');
 
             // Comments — Trello Board
@@ -419,6 +421,7 @@ Route::middleware(['web', 'check.ip.ban'])->group(function () {
                 Route::delete('/cards/{card}/checklists/{checklist}', [CardChecklistController::class, 'destroy'])->name('checklists.destroy');
                 Route::post('/cards/{card}/checklists/{checklist}/items', [CardChecklistController::class, 'storeItem'])->name('checklists.items.store');
                 Route::patch('/cards/{card}/checklists/{checklist}/items/{item}/toggle', [CardChecklistController::class, 'toggleItem'])->name('checklists.items.toggle');
+                Route::patch('/cards/{card}/checklists/{checklist}/items/{item}/upload', [CardChecklistController::class, 'uploadItem'])->name('checklists.items.upload');
                 Route::delete('/cards/{card}/checklists/{checklist}/items/{item}', [CardChecklistController::class, 'destroyItem'])->name('checklists.items.destroy');
 
                 // Files
@@ -760,6 +763,17 @@ Route::middleware(['auth', 'ensure.active'])->prefix('ai')->name('ai.')->group(f
     Route::get('/voice/history', [\App\Http\Controllers\Ai\KiuqAiController::class, 'getVoiceHistory'])->name('voice.history');
     Route::post('/messages/{id}/voice', [\App\Http\Controllers\Ai\KiuqAiController::class, 'generateVoiceForMessage'])->name('messages.voice');
     Route::get('/reports/{report}/export/{format}', [\App\Http\Controllers\Ai\KiuqAiController::class, 'exportReport'])->name('reports.export');
+
+    // Multi-Language Translation Studio
+    Route::get('/translate/languages', [\App\Http\Controllers\Ai\KiuqAiController::class, 'getTranslationLanguages'])->name('translate.languages')->middleware('throttle:60,1');
+    Route::post('/translate/detect', [\App\Http\Controllers\Ai\KiuqAiController::class, 'detectTranslationLanguage'])->name('translate.detect')->middleware('throttle:120,1');
+    Route::post('/translate', [\App\Http\Controllers\Ai\KiuqAiController::class, 'translateTextStudio'])->name('translate.run')->middleware('throttle:120,1');
+    Route::post('/translate/ocr', [\App\Http\Controllers\Ai\KiuqAiController::class, 'translateImageOcrStudio'])->name('translate.ocr')->middleware('throttle:20,1');
+    Route::post('/translate/voice-input', [\App\Http\Controllers\Ai\KiuqAiController::class, 'transcribeVoiceInputStudio'])->name('translate.stt')->middleware('throttle:30,1');
+    Route::post('/translate/tts', [\App\Http\Controllers\Ai\KiuqAiController::class, 'synthesizeTranslationSpeech'])->name('translate.tts')->middleware('throttle:45,1');
+    Route::get('/translate/history', [\App\Http\Controllers\Ai\KiuqAiController::class, 'getTranslationHistory'])->name('translate.history')->middleware('throttle:60,1');
+    Route::post('/translate/history/{id}/favorite', [\App\Http\Controllers\Ai\KiuqAiController::class, 'toggleFavoriteTranslation'])->name('translate.favorite')->middleware('throttle:60,1');
+    Route::delete('/translate/history/{id}', [\App\Http\Controllers\Ai\KiuqAiController::class, 'deleteTranslationHistory'])->name('translate.delete')->middleware('throttle:60,1');
 });
 
 // ── DGT Chat: Premium Real-Time Messaging System ──────────────────────
@@ -811,15 +825,82 @@ Route::middleware(['auth', 'ensure.active', 'ensure.chat'])->prefix('chat')->nam
     Route::post('/messages/voice', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendVoiceMessage'])->name('messages.voice');
     Route::post('/conversations/{id}/voice', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendVoiceMessage'])->name('conversations.voice');
 
-    // WebRTC One-to-One Voice Calls
-    Route::post('/calls/initiate', [\App\Http\Controllers\Chat\DgtChatController::class, 'initiateCall'])->name('calls.initiate');
-    Route::post('/calls/{id}/signal', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendCallSignal'])->name('calls.signal');
-    Route::get('/calls/{id}/signals', [\App\Http\Controllers\Chat\DgtChatController::class, 'getCallSignals'])->name('calls.signals');
-    Route::post('/calls/{id}/accept', [\App\Http\Controllers\Chat\DgtChatController::class, 'acceptCall'])->name('calls.accept');
-    Route::post('/calls/{id}/decline', [\App\Http\Controllers\Chat\DgtChatController::class, 'declineCall'])->name('calls.decline');
-    Route::post('/calls/{id}/end', [\App\Http\Controllers\Chat\DgtChatController::class, 'endCall'])->name('calls.end');
-    Route::get('/calls/active', [\App\Http\Controllers\Chat\DgtChatController::class, 'getActiveCall'])->name('calls.active');
+    // WebRTC One-to-One Voice & Video Calls
+    Route::get('/calls/ice-config', [\App\Http\Controllers\Chat\DgtChatController::class, 'getIceConfig'])->name('calls.ice-config')->middleware('throttle:60,1');
+    Route::get('/calls/history', [\App\Http\Controllers\Chat\DgtChatController::class, 'getCallHistory'])->name('calls.history')->middleware('throttle:60,1');
+    Route::get('/calls/active', [\App\Http\Controllers\Chat\DgtChatController::class, 'getActiveCall'])->name('calls.active')->middleware('throttle:90,1');
+    Route::post('/calls/initiate', [\App\Http\Controllers\Chat\DgtChatController::class, 'initiateCall'])->name('calls.initiate')->middleware('throttle:30,1');
+    Route::post('/calls/{id}/ringing', [\App\Http\Controllers\Chat\DgtChatController::class, 'markCallRinging'])->name('calls.ringing')->middleware('throttle:60,1');
+    Route::post('/calls/{id}/signal', [\App\Http\Controllers\Chat\DgtChatController::class, 'sendCallSignal'])->name('calls.signal')->middleware('throttle:240,1');
+    Route::get('/calls/{id}/signals', [\App\Http\Controllers\Chat\DgtChatController::class, 'getCallSignals'])->name('calls.signals')->middleware('throttle:180,1');
+    Route::post('/calls/{id}/accept', [\App\Http\Controllers\Chat\DgtChatController::class, 'acceptCall'])->name('calls.accept')->middleware('throttle:60,1');
+    Route::post('/calls/{id}/decline', [\App\Http\Controllers\Chat\DgtChatController::class, 'declineCall'])->name('calls.decline')->middleware('throttle:60,1');
+    Route::post('/calls/{id}/reject', [\App\Http\Controllers\Chat\DgtChatController::class, 'declineCall'])->name('calls.reject')->middleware('throttle:60,1');
+    Route::post('/calls/{id}/cancel', [\App\Http\Controllers\Chat\DgtChatController::class, 'cancelCall'])->name('calls.cancel')->middleware('throttle:60,1');
+    Route::post('/calls/{id}/timeout', [\App\Http\Controllers\Chat\DgtChatController::class, 'timeoutCall'])->name('calls.timeout')->middleware('throttle:60,1');
+    Route::post('/calls/{id}/end', [\App\Http\Controllers\Chat\DgtChatController::class, 'endCall'])->name('calls.end')->middleware('throttle:60,1');
 });
+
+// ==============================================================================
+// Production Report Management System (/production-reports)
+// ==============================================================================
+// Global 15-minute daily-deadline reminder poll (any signed-in user; returns {show:false} when not applicable)
+Route::middleware(['auth', 'ensure.active'])
+    ->get('/production-reports/reminder-status', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'reminderStatus'])
+    ->name('production-reports.reminder-status');
+
+Route::middleware(['auth', 'ensure.active', \App\Http\Middleware\EnsureProductionReportAccess::class, 'maintenance:production_reports'])
+    ->prefix('production-reports')
+    ->name('production-reports.')
+    ->group(function () {
+        // Role-aware Main Dashboard
+        Route::get('/', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'index'])->name('index');
+
+        // My Reports
+        Route::get('/my-reports', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'myReports'])->name('my-reports');
+
+        // Daily Reports & Daily Tracker
+        Route::get('/daily-tracker', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'dailyTracker'])->name('daily.tracker');
+        Route::get('/daily/create', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'createDaily'])->name('daily.create');
+        Route::post('/daily', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'storeDaily'])->name('daily.store');
+
+        // Weekly Team Reports (Dara -> Team A, Kim -> Team B, Somalika -> View All)
+        Route::get('/weekly', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'weeklyIndex'])->name('weekly.index');
+        Route::get('/weekly/create', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'createWeekly'])->name('weekly.create');
+        Route::post('/weekly', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'storeWeekly'])->name('weekly.store');
+
+        // Monthly Reports
+        Route::get('/monthly/create', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'createMonthly'])->name('monthly.create');
+        Route::post('/monthly', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'storeMonthly'])->name('monthly.store');
+        Route::get('/monthly/team', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'createTeamMonthly'])->name('monthly.team.create');
+        Route::post('/monthly/team', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'storeTeamMonthly'])->name('monthly.team.store');
+
+        // Member & Leadership Date-Range Combined Export & 1-Click Clipboard Text Summary
+        Route::get('/export-range/{format}', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'exportRange'])->name('export-range');
+        Route::get('/summary-text', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'summaryText'])->name('summary-text');
+        Route::post('/team/export-combined', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'exportTeamCombined'])->name('team.export-combined');
+
+        // Report Detail, Review, Return for Correction, Approve & Exports (PPTX, PDF, CSV)
+        Route::get('/reports/{report}', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'show'])->name('show');
+        Route::post('/reports/{report}/return', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'returnForCorrection'])->name('return');
+        Route::post('/reports/{report}/approve', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'approve'])->name('approve');
+        Route::get('/reports/{report}/export/{format}', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'export'])->name('export');
+
+        // Secure Private Media Preview & Download
+        Route::get('/media/{media}/view', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'viewMedia'])->name('media.view');
+        Route::get('/media/{media}/download', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'downloadMedia'])->name('media.download');
+
+        // Calendar, Media Gallery, Archive & Settings
+        Route::get('/calendar', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'calendar'])->name('calendar');
+        Route::get('/media', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'mediaGallery'])->name('media');
+        Route::get('/archive', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'archive'])->name('archive');
+        Route::get('/archive/export-csv', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'exportArchiveCsv'])->name('archive.export-csv');
+        Route::get('/settings', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'settings'])->name('settings');
+        Route::post('/settings/deadlines', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'updateDeadlines'])->name('settings.deadlines');
+        Route::post('/settings/team-mapping', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'upsertTeamMapping'])->name('settings.team-mapping');
+        Route::post('/settings/team-mapping/{mapping}/remove', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'removeTeamMapping'])->name('settings.team-mapping.remove');
+        Route::delete('/settings/team-mapping/{mapping}', [\App\Http\Controllers\ProductionReport\ProductionReportController::class, 'removeTeamMapping'])->name('settings.team-mapping.destroy');
+    });
 
 // ── Public Pages & Legal Compliance (Google OAuth Requirements) ───────────
 Route::get('/', [RouteClosureController::class, 'index'])->name('home');

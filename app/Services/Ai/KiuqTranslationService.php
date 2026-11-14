@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use Exception;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -276,6 +277,20 @@ class KiuqTranslationService
         string $mode = 'standard',
         array $advancedOptions = []
     ): array {
+        $cacheKey = 'kiuq_trans_' . md5(json_encode([
+            $sourceText,
+            $sourceLanguage,
+            $targetLanguage,
+            $mode,
+            $advancedOptions,
+        ]));
+
+        if ($cached = Cache::get($cacheKey)) {
+            if (is_array($cached) && !empty($cached['translated_text'])) {
+                return $cached;
+            }
+        }
+
         $targetMeta = $this->findLanguageMeta($targetLanguage)
             ?? ['code' => $targetLanguage, 'name' => $targetLanguage, 'native' => $targetLanguage];
         $sourceMeta = $this->findLanguageMeta($sourceLanguage);
@@ -355,7 +370,7 @@ class KiuqTranslationService
         $finalDetectedCode = $heuristicDetection['detected_code'] ?? $detectedFromModel;
         $finalDetectedMeta = $finalDetectedCode ? $this->findLanguageMeta($finalDetectedCode) : null;
 
-        return [
+        $resData = [
             'translated_text'   => $cleanTranslation,
             'detected_language' => $finalDetectedMeta['code'] ?? $finalDetectedCode,
             'detected_name'     => $finalDetectedMeta['name'] ?? ($heuristicDetection['detected_name'] ?? null),
@@ -363,6 +378,10 @@ class KiuqTranslationService
             'confidence'        => $heuristicDetection['confidence'] ?? ($finalDetectedCode ? 'medium' : 'ambiguous'),
             'provider_model'    => $usedModel,
         ];
+
+        Cache::put($cacheKey, $resData, 86400);
+
+        return $resData;
     }
 
     /**

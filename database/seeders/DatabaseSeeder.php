@@ -17,6 +17,9 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             CrmSeeder::class,
             CrmPhase1Seeder::class,
+            ProductionReportSeeder::class,
+            DigitalKpiSeeder::class,
+            WorkspaceBoardSeeder::class,
         ]);
     }
 }

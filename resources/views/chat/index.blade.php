@@ -8,7 +8,7 @@
 @endpush
 
 @section('content')
-<div class="dgt-chat-wrapper w-full h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-4.25rem)] overflow-hidden bg-slate-100 dark:bg-slate-950 flex flex-col"
+<div class="dgt-chat-wrapper w-full flex-1 h-full min-h-0 overflow-hidden bg-slate-100 dark:bg-slate-950 flex flex-col"
      x-data="dgtChat({
          currentUser: {
              id: {{ $user->id }},
@@ -41,16 +41,29 @@
         .is-chat-page .main-wrapper {
             height: 100vh !important;
             height: 100dvh !important;
+            max-height: 100dvh !important;
             min-height: 0 !important;
             overflow: hidden !important;
+        }
+        /* Flex column: topbar keeps its natural height (incl. margins), chat fills the rest exactly */
+        .is-chat-page .main-wrapper {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        .is-chat-page .main-wrapper > .topbar,
+        .is-chat-page .main-wrapper > .ios-alert-wrapper {
+            flex: 0 0 auto !important;
         }
         .is-chat-page .page-content {
             padding: 0 !important;
             margin: 0 !important;
-            height: calc(100vh - 4rem) !important;
-            height: calc(100dvh - 4rem) !important;
+            flex: 1 1 0% !important;
+            height: auto !important;
+            max-height: none !important;
             min-height: 0 !important;
             overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
         }
         body.is-chat-page .mobile-bottom-nav,
         .is-chat-page #mobile-bottom-nav {
@@ -98,6 +111,7 @@
             }
         }
         .dgt-chat-wrapper {
+            flex: 1 1 0% !important;
             height: 100% !important;
             max-height: 100% !important;
             min-height: 0 !important;
@@ -613,12 +627,71 @@
                         class="px-2.5 py-1 rounded-lg shrink-0 transition-all">
                     Archive
                 </button>
+                <button type="button"
+                        @click="activeTab = 'calls'; loadCallHistory()"
+                        :class="activeTab === 'calls' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'"
+                        class="px-2.5 py-1 rounded-lg shrink-0 transition-all inline-flex items-center gap-1">
+                    <span>Calls</span>
+                </button>
             </div>
 
-            <!-- Panel 1 Conversation Cards List (All users & conversations ready) -->
+            <!-- Panel 1 Conversation Cards List & Call History -->
             <div class="flex-1 min-h-0 overflow-y-auto chat-scrollbar divide-y divide-slate-100 dark:divide-slate-800/60 overscroll-contain">
 
-                <template x-for="conv in filteredConversations" :key="conv.id">
+                <!-- Call History Tab View -->
+                <div x-show="activeTab === 'calls'" x-cloak class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                    <div x-show="isLoadingCallHistory" class="py-10 text-center text-xs text-slate-400">
+                        Loading call history...
+                    </div>
+                    <template x-for="item in callHistory" :key="item.id">
+                        <div class="p-3 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <img :src="avatarUrl(item.other_user?.avatar_url, item.other_user?.name)"
+                                     :alt="item.other_user?.name"
+                                     x-on:error="handleAvatarError($event, item.other_user?.name)"
+                                     class="w-11 h-11 rounded-full object-cover shrink-0">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold truncate"
+                                       :class="(item.status === 'missed' || item.status === 'declined') ? 'text-rose-500' : 'text-slate-800 dark:text-slate-100'"
+                                       x-text="item.other_user?.name || 'Team Member'"></p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 truncate">
+                                        <span x-text="item.direction === 'outgoing' ? '↗' : '↙'"></span>
+                                        <span x-text="item.call_type === 'video' ? 'Video' : 'Voice'"></span>
+                                        <span>•</span>
+                                        <span x-text="item.status === 'ended' ? item.formatted_duration : item.status"></span>
+                                        <template x-if="item.created_at_human">
+                                            <span x-text="'• ' + item.created_at_human"></span>
+                                        </template>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0" x-show="item.other_user?.id">
+                                <button type="button"
+                                        @click.stop="window.dgtStartVoiceCall(item.other_user.id, { conversationId: item.conversation_id, name: item.other_user.name, avatar: item.other_user.avatar_url })"
+                                        class="p-2 rounded-xl text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition cursor-pointer"
+                                        title="Voice Call">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                                    </svg>
+                                </button>
+                                <button type="button"
+                                        @click.stop="window.dgtStartVideoCall(item.other_user.id, { conversationId: item.conversation_id, name: item.other_user.name, avatar: item.other_user.avatar_url })"
+                                        class="p-2 rounded-xl text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition cursor-pointer"
+                                        title="Video Call">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="!isLoadingCallHistory && callHistory.length === 0" class="py-16 px-6 text-center text-slate-400">
+                        <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">No recent calls yet</p>
+                        <p class="text-xs text-slate-400 mt-1">Tap the Voice or Video icon on any contact card to start a real-time call.</p>
+                    </div>
+                </div>
+
+                <template x-for="conv in (activeTab === 'calls' ? [] : filteredConversations)" :key="conv.id">
                     <!-- Telegram-Style Swipe Item Container -->
                     <div class="telegram-swipe-container"
                          x-data="telegramSwipeItem(conv)"
@@ -674,7 +747,7 @@
                              @contextmenu.prevent="openConversationMenu($event, conv)"
                              :style="'transform: translateX(' + offset + 'px); ' + (isDragging ? 'transition: none;' : 'transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);')"
                              :class="{ 'is-active': activeConversation && activeConversation.id === conv.id }"
-                             class="telegram-chat-card p-3 cursor-pointer flex items-center gap-3">
+                             class="telegram-chat-card group p-3 cursor-pointer flex items-center gap-3">
 
                             <!-- Avatar with online badge -->
                             <div class="relative shrink-0 pointer-events-none">
@@ -802,8 +875,31 @@
                                         </p>
                                     </template>
 
-                                    <!-- Status Icons & Unread Badge -->
-                                    <div class="flex items-center gap-1.5 shrink-0">
+                                    <!-- Status Icons, Quick Call Actions & Unread Badge -->
+                                    <div class="flex items-center gap-1 shrink-0 pointer-events-auto">
+                                        <!-- Direct Contact Card Instant Voice & Video Call Buttons -->
+                                        <template x-if="(conv.type === 'direct' || conv.type === 'private') && conv.other_user_id && Number(conv.other_user_id) !== Number(currentUser.id) && conv.title !== 'Saved Messages'">
+                                            <div class="flex items-center gap-0.5 opacity-80 sm:opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                                                 @pointerdown.stop
+                                                 @touchstart.stop>
+                                                <button type="button"
+                                                        @click.stop="window.dgtStartVoiceCall(conv.other_user_id, { conversationId: conv.is_virtual ? 0 : conv.id, name: conv.title, avatar: conv.avatar_url })"
+                                                        class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition cursor-pointer"
+                                                        title="Voice Call">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                                                    </svg>
+                                                </button>
+                                                <button type="button"
+                                                        @click.stop="window.dgtStartVideoCall(conv.other_user_id, { conversationId: conv.is_virtual ? 0 : conv.id, name: conv.title, avatar: conv.avatar_url })"
+                                                        class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition cursor-pointer"
+                                                        title="Video Call">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </template>
                                         <!-- Muted Icon -->
                                         <template x-if="conv.is_muted">
                                             <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -830,7 +926,7 @@
                 </template>
 
                 <!-- Empty State if no conversations match filter -->
-                <div x-show="filteredConversations.length === 0"
+                <div x-show="activeTab !== 'calls' && filteredConversations.length === 0"
                      class="py-16 px-6 text-center text-slate-400">
                     <svg class="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-700" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
@@ -1327,22 +1423,22 @@
                                         </div>
                                     </template>
 
-                                    <!-- Voice Call Event Bubble (Telegram / WhatsApp Style) -->
+                                    <!-- Voice & Video Call Event Bubble (Telegram / WhatsApp Style) -->
                                     <template x-if="msg.type === 'call_event' || msg.call">
                                         <div class="flex items-center gap-3 py-1 min-w-[210px] sm:min-w-[250px]">
                                             <!-- Call Icon Indicator -->
                                             <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-xs"
                                                  :class="{
-                                                     'bg-rose-500/20 text-rose-500': (msg.call?.status === 'missed' || msg.call?.status === 'declined'),
-                                                     'bg-emerald-500/20 text-emerald-500': (msg.call?.status === 'completed' || msg.call?.status === 'answered'),
+                                                     'bg-rose-500/20 text-rose-500': (msg.call?.status === 'missed' || msg.call?.status === 'declined' || msg.call?.status === 'busy'),
+                                                     'bg-emerald-500/20 text-emerald-500': (msg.call?.status === 'ended' || msg.call?.status === 'completed' || msg.call?.status === 'answered'),
                                                      'bg-indigo-500/20 text-indigo-400': (msg.call?.status === 'cancelled' || !msg.call?.status)
                                                  }">
-                                                <template x-if="msg.call?.status === 'missed' || msg.call?.status === 'declined'">
+                                                <template x-if="msg.call?.call_type === 'video' || (msg.content || '').includes('Video')">
                                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 9-7.5 7.5m0-7.5 7.5 7.5" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
                                                     </svg>
                                                 </template>
-                                                <template x-if="msg.call?.status !== 'missed' && msg.call?.status !== 'declined'">
+                                                <template x-if="!(msg.call?.call_type === 'video' || (msg.content || '').includes('Video'))">
                                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
                                                     </svg>
@@ -1352,16 +1448,22 @@
                                             <!-- Call Details -->
                                             <div class="flex-1 min-w-0">
                                                 <h4 class="text-xs font-bold truncate"
-                                                    x-text="msg.call?.status === 'missed' ? 'Missed Voice Call' : (msg.call?.status === 'declined' ? 'Declined Call' : 'Voice Call')"></h4>
+                                                    x-text="(() => {
+                                                        const kind = (msg.call?.call_type === 'video' || (msg.content || '').includes('Video')) ? 'Video Call' : 'Voice Call';
+                                                        if (msg.call?.status === 'missed') return 'Missed ' + kind;
+                                                        if (msg.call?.status === 'declined') return 'Declined ' + kind;
+                                                        if (msg.call?.status === 'cancelled') return 'Cancelled ' + kind;
+                                                        return kind;
+                                                    })()"></h4>
                                                 <p class="text-[10px] opacity-75 truncate">
-                                                    <span x-text="msg.call?.formatted_duration || (msg.call?.duration_seconds ? formatCallDuration(msg.call.duration_seconds) : (msg.call?.status === 'missed' ? 'No answer' : 'Voice call'))"></span>
+                                                    <span x-text="(msg.call?.status === 'ended' && msg.call?.formatted_duration) ? msg.call.formatted_duration : (msg.call?.status === 'missed' ? 'No answer' : (msg.call?.status === 'declined' ? 'Declined' : (msg.call?.status === 'cancelled' ? 'Cancelled' : 'Tap to call back')))"></span>
                                                 </p>
                                             </div>
 
                                             <!-- Call Back Quick Action Button -->
                                             <template x-if="activeConversation?.type === 'direct' || activeConversation?.type === 'private'">
                                                 <button type="button"
-                                                        @click="startVoiceCall()"
+                                                        @click="(msg.call?.call_type === 'video' || (msg.content || '').includes('Video')) ? startVideoCall() : startVoiceCall()"
                                                         class="p-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shrink-0 shadow-sm transition-transform active:scale-95 cursor-pointer"
                                                         title="Call Back">
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
@@ -2969,9 +3071,27 @@
                                 <p class="text-xs text-slate-400 truncate" x-text="u.team_role"></p>
                             </div>
                         </div>
-                        <button type="button" class="px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-600 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                            Message
-                        </button>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button"
+                                    @click.stop="newChatModal = false; window.dgtStartVoiceCall(u.id, { name: u.name, avatar: u.avatar_url })"
+                                    class="p-2 rounded-xl text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition cursor-pointer"
+                                    title="Voice Call">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                                </svg>
+                            </button>
+                            <button type="button"
+                                    @click.stop="newChatModal = false; window.dgtStartVideoCall(u.id, { name: u.name, avatar: u.avatar_url })"
+                                    class="p-2 rounded-xl text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition cursor-pointer"
+                                    title="Video Call">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                </svg>
+                            </button>
+                            <button type="button" class="px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-600 text-white opacity-90 group-hover:opacity-100 transition-opacity">
+                                Message
+                            </button>
+                        </div>
                     </div>
                 </template>
             </div>

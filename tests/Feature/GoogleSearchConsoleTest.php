@@ -689,6 +689,22 @@ class GoogleSearchConsoleTest extends TestCase
     }
 
     /**
+     * Test connection notice banner is never displayed to any user on the index page
+     */
+    public function test_connection_notice_banner_is_never_displayed_on_index_page()
+    {
+        // When visiting index without an account
+        $response = $this->actingAs($this->adminUser)
+            ->get(route('websites.search-console.index'));
+
+        $response->assertStatus(200);
+        // Ensure the prominent warning banner is never shown
+        $response->assertDontSee('Google Account Not Connected</h3>', false);
+        $response->assertDontSee('Authorize your Google account to grant DGT System read-only access', false);
+        $response->assertDontSee('Google Search Console OAuth Not Configured</h3>', false);
+    }
+
+    /**
      * Test live URL test endpoint validates URL format and returns inspection details
      */
     public function test_live_url_endpoint_validates_and_inspects_url()
@@ -987,7 +1003,7 @@ class GoogleSearchConsoleTest extends TestCase
             ->get(route('websites.search-console.index'));
 
         $viewRes->assertStatus(200);
-        $viewRes->assertSee('Auto-Sync from GSC');
+        $viewRes->assertSee('Refresh');
         $viewRes->assertDontSee('Sync / Edit GSC Numbers');
         $viewRes->assertDontSee('showCoverageSnapshotModal');
     }

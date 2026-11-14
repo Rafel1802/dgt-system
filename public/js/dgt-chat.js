@@ -67,7 +67,9 @@ window.dgtChat = function(initialConfig = {}) {
         customWallpaperUrlInput: (initialConfig.settings && initialConfig.settings.wallpaper_image) || '',
 
         // Navigation & View Filters
-        activeTab: 'direct', // 'direct' (default), 'all', 'unread', 'groups', 'pinned', 'archived'
+        activeTab: 'direct', // 'direct' (default), 'all', 'unread', 'groups', 'pinned', 'archived', 'calls'
+        callHistory: [],
+        isLoadingCallHistory: false,
         searchQuery: '',
         searchInChat: '',
         showSearchInChat: false,
@@ -760,10 +762,16 @@ window.dgtChat = function(initialConfig = {}) {
                 }
             }
 
-            // Resume active call if exists on load
-            if (this.callState.call) {
+            // Resume active call if exists on load (handled globally when DgtWebRtcCallManager is loaded)
+            if (!window.DgtWebRtcCallManager && this.callState.call) {
                 this.resumeActiveCall(this.callState.call);
             }
+
+            window.addEventListener('dgt:call-ended', () => {
+                if (this.activeConversation) this.syncActiveConversation();
+                this.refreshConversationsList();
+                if (this.activeTab === 'calls') this.loadCallHistory();
+            });
 
             // Pre-load stickers for instant WhatsApp/Telegram speed (GIFs are loaded on demand when GIF tab is opened)
             this.loadStickers();
@@ -992,6 +1000,21 @@ window.dgtChat = function(initialConfig = {}) {
                 this.showToast('Custom wallpaper applied!', 'success');
             };
             reader.readAsDataURL(file);
+        },
+
+        async loadCallHistory() {
+            this.isLoadingCallHistory = true;
+            try {
+                const res = await fetch('/chat/calls/history?limit=60', { credentials: 'same-origin' });
+                const data = await res.json();
+                if (data && data.success && Array.isArray(data.calls)) {
+                    this.callHistory = data.calls;
+                }
+            } catch (e) {
+                console.warn('Failed to load call history:', e);
+            } finally {
+                this.isLoadingCallHistory = false;
+            }
         },
 
         /**
@@ -5607,6 +5630,7 @@ window.dgtChat = function(initialConfig = {}) {
         },
 
         handleIncomingCallSignal(e) {
+            if (window.DgtWebRtcCallManager) return;
             if (!e) return;
             // Ignore signals targeted at a different user (prevents self-echo bugs)
             if (e.target_user_id && Number(e.target_user_id) !== Number(this.currentUser.id)) {
@@ -5800,6 +5824,7 @@ window.dgtChat = function(initialConfig = {}) {
          */
         triggerDeviceNotification(msg) {
             if (!msg || Number(msg.user_id) === Number(this.currentUser.id)) return;
+            if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
 
             const senderName = msg.sender_name || msg.user?.name || 'DGT Chat';
             const text = msg.body || msg.content || (msg.attachments && msg.attachments.length ? `Sent ${msg.attachments.length} file(s)` : 'New message');
@@ -6495,6 +6520,31 @@ window.dgtChat = function(initialConfig = {}) {
                 this._isInitiatingCall = false;
                 this.showToast('You cannot call yourself.', 'warning');
                 return;
+            }
+
+            // Delegate to unified Global WebRTC Call Engine (supports Desktop/Mobile Web + Native Flutter CallKit/WebRTC)
+            if (typeof window.dgtStartCall === 'function') {
+                this._isInitiatingCall = false;
+                const contactObj = (Array.isArray(this.usersDirectory) && this.usersDirectory.find(u => Number(u.id) === Number(targetReceiverId)))
+                    || this.activeConversation?.other_user
+                    || this.activeConversation?.user
+                    || null;
+                const activeOtherId = Number(this.activeConversation?.other_user_id || this.activeConversation?.other_user?.id || 0);
+                const safeDirectConvId = (
+                    this.activeConversation &&
+                    !this.activeConversation.is_virtual &&
+                    this.activeConversation.type !== 'group' &&
+                    (!activeOtherId || activeOtherId === Number(targetReceiverId)) &&
+                    Number.isFinite(Number(targetConvId))
+                ) ? Number(targetConvId) : 0;
+
+                return window.dgtStartCall({
+                    receiverId: Number(targetReceiverId),
+                    conversationId: safeDirectConvId,
+                    callType: isVideo ? 'video' : 'voice',
+                    name: contactObj?.name || this.activeConversation?.title || 'Team Member',
+                    avatar: contactObj?.avatar_url || this.activeConversation?.avatar_url || '',
+                });
             }
 
             // Immediately display Outgoing Call overlay (0ms optimistic UI) so the user gets instant visual & audio feedback
@@ -7745,6 +7795,7 @@ window.dgtChat = function(initialConfig = {}) {
         },
 
         async pollActiveCallCheck() {
+            if (window.DgtWebRtcCallManager) return;
             if (document.hidden) return;
             // Never interfere with or terminate an active call via periodic background sync!
             if (this.callState.active || this._isInitiatingCall) return;

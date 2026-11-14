@@ -1128,7 +1128,41 @@ class DgtChatController extends Controller
     }
 
     /**
-     * Initiate a 1-to-1 WebRTC Voice or Video Call.
+     * Retrieve WebRTC ICE/STUN/TURN server configuration for the authenticated user.
+     */
+    public function getIceConfig(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+
+        return response()->json(array_merge(
+            ['success' => true],
+            $this->callService->getIceConfiguration($user)
+        ));
+    }
+
+    /**
+     * Retrieve recent Voice & Video call history for the authenticated user.
+     */
+    public function getCallHistory(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        $limit = (int) $request->input('limit', 50);
+        $conversationId = $request->filled('conversation_id') ? (int) $request->input('conversation_id') : null;
+
+        return response()->json([
+            'success' => true,
+            'calls'   => $this->callService->getCallHistory($user, $limit, $conversationId),
+        ]);
+    }
+
+    protected function callErrorStatus(Exception $e): int
+    {
+        $code = (int) $e->getCode();
+        return in_array($code, [400, 401, 403, 404, 409, 422, 429], true) ? $code : 400;
+    }
+
+    /**
+     * Initiate a new 1-to-1 WebRTC voice or video call.
      */
     public function initiateCall(Request $request): JsonResponse
     {
@@ -1138,16 +1172,35 @@ class DgtChatController extends Controller
         $callType = in_array($request->input('call_type'), ['voice', 'video'], true)
             ? $request->input('call_type')
             : 'voice';
+        $metadata = is_array($request->input('metadata')) ? $request->input('metadata') : [];
 
         if (!$receiverId) {
-            return response()->json(['success' => false, 'error' => 'Receiver contact is required.'], 400);
+            return response()->json(['success' => false, 'error' => 'Receiver contact is required.'], 422);
         }
 
-        // Auto-resolve or create private conversation between caller and receiver if not provided
-        if (!$conversationId) {
-            $conv = $this->chatService->getOrCreatePrivateChat($user, $receiverId);
-            $conversationId = $conv?->id ?? 0;
+        if ($receiverId === (int) $user->id) {
+            return response()->json(['success' => false, 'error' => 'You cannot call yourself.'], 422);
         }
+
+        // Ensure we always use a valid 1-on-1 direct/private conversation between caller and receiver
+        $validDirectConv = null;
+        if ($conversationId > 0) {
+            $candidate = ChatConversation::with('members')->find($conversationId);
+            if (
+                $candidate &&
+                in_array($candidate->type, ['private', 'direct'], true) &&
+                $candidate->hasMember($user->id) &&
+                $candidate->hasMember($receiverId)
+            ) {
+                $validDirectConv = $candidate;
+            }
+        }
+
+        if (!$validDirectConv) {
+            $validDirectConv = $this->chatService->getOrCreatePrivateChat($user, $receiverId);
+        }
+
+        $conversationId = $validDirectConv?->id ?? 0;
 
         if (!$conversationId) {
             return response()->json(['success' => false, 'error' => 'Conversation could not be initiated.'], 400);
@@ -1158,18 +1211,39 @@ class DgtChatController extends Controller
                 $user,
                 $conversationId,
                 $receiverId,
-                $callType
+                $callType,
+                $metadata
             );
-
-            $formattedCall = $this->callService->formatCall($call, $user);
-            $formattedCall['call_type'] = $callType;
 
             return response()->json([
                 'success' => true,
-                'call'    => $formattedCall,
+                'call'    => $this->callService->formatCall($call, $user),
             ]);
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
+            return response()->json([
+                'success' => false,
+                'error'   => $e->getMessage(),
+                'busy'    => ((int) $e->getCode() === 409),
+            ], $this->callErrorStatus($e));
+        }
+    }
+
+    /**
+     * Recipient device reports incoming call is actively ringing.
+     */
+    public function markCallRinging(Request $request, int $id): JsonResponse
+    {
+        $user = auth()->user();
+
+        try {
+            $call = $this->callService->markRinging($user, $id);
+
+            return response()->json([
+                'success' => true,
+                'call'    => $this->callService->formatCall($call, $user, false),
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], $this->callErrorStatus($e));
         }
     }
 
@@ -1179,7 +1253,7 @@ class DgtChatController extends Controller
     public function sendCallSignal(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'type'    => ['required', 'string', 'in:offer,answer,ice-candidate,ice_candidate,status,mute,unmute,video_on,video_off,renegotiate,end'],
+            'type'    => ['required', 'string', 'in:offer,answer,ice-candidate,ice_candidate,status,mute,unmute,video_on,video_off,renegotiate,failed,end'],
             'payload' => ['nullable', 'array'],
         ]);
 
@@ -1198,7 +1272,7 @@ class DgtChatController extends Controller
                 'signal_id' => $signal->id,
             ]);
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], $this->callErrorStatus($e));
         }
     }
 
@@ -1217,10 +1291,11 @@ class DgtChatController extends Controller
             return response()->json([
                 'success'     => true,
                 'call_status' => $call->status,
+                'call_type'   => $call->isVideo() ? 'video' : 'voice',
                 'signals'     => $signals,
             ]);
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], $this->callErrorStatus($e));
         }
     }
 
@@ -1239,27 +1314,66 @@ class DgtChatController extends Controller
                 'call'    => $this->callService->formatCall($call, $user),
             ]);
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], $this->callErrorStatus($e));
         }
     }
 
     /**
-     * Decline incoming call.
+     * Decline / reject incoming call.
      */
     public function declineCall(Request $request, int $id): JsonResponse
     {
         $user = auth()->user();
-        $reason = $request->input('reason', 'declined');
+        $reason = (string) $request->input('reason', 'declined');
 
         try {
             $call = $this->callService->declineCall($user, $id, $reason);
 
             return response()->json([
                 'success' => true,
-                'call'    => $this->callService->formatCall($call, $user),
+                'call'    => $this->callService->formatCall($call, $user, false),
             ]);
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], $this->callErrorStatus($e));
+        }
+    }
+
+    /**
+     * Cancel outgoing unanswered call.
+     */
+    public function cancelCall(Request $request, int $id): JsonResponse
+    {
+        $user = auth()->user();
+        $reason = (string) $request->input('reason', 'cancelled');
+
+        try {
+            $call = $this->callService->cancelCall($user, $id, $reason);
+
+            return response()->json([
+                'success' => true,
+                'call'    => $this->callService->formatCall($call, $user, false),
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], $this->callErrorStatus($e));
+        }
+    }
+
+    /**
+     * Mark unanswered ringing call as timed out.
+     */
+    public function timeoutCall(Request $request, int $id): JsonResponse
+    {
+        $user = auth()->user();
+
+        try {
+            $call = $this->callService->timeoutCall($user, $id);
+
+            return response()->json([
+                'success' => true,
+                'call'    => $this->callService->formatCall($call, $user, false),
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], $this->callErrorStatus($e));
         }
     }
 
@@ -1269,17 +1383,17 @@ class DgtChatController extends Controller
     public function endCall(Request $request, int $id): JsonResponse
     {
         $user = auth()->user();
-        $reason = $request->input('reason', 'normal');
+        $reason = (string) $request->input('reason', 'normal');
 
         try {
             $call = $this->callService->endCall($user, $id, $reason);
 
             return response()->json([
                 'success' => true,
-                'call'    => $this->callService->formatCall($call, $user),
+                'call'    => $this->callService->formatCall($call, $user, false),
             ]);
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], $this->callErrorStatus($e));
         }
     }
 

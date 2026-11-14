@@ -72,6 +72,10 @@
   [data-theme="dark"] .cl-tip::after {
     border-color: #1e293b transparent transparent transparent;
   }
+  [data-theme="dark"] .cl-review-box {
+    background: #0f172a;
+    border-color: #334155;
+  }
 
   .cl-issue-pill {
     font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
@@ -1180,156 +1184,210 @@
                   </div>
                 </div>
 
-                {{-- Checklist Items --}}
-                <div class="space-y-1.5 mb-3">
-                  <template x-for="item in (cl.items ?? [])" :key="item.id">
-                    <div class="flex items-center justify-between py-1.5 group hover:bg-slate-100/80 rounded-lg px-3 transition-colors">
-                      <div class="flex items-center gap-2.5 flex-1 min-w-0 select-none">
-                        {{-- 1. Assigned User Profile Avatar(s) immediately to the LEFT of the checkbox --}}
-                        <div class="flex items-center gap-1 flex-shrink-0" x-show="getChecklistItemUsers(item).length > 0">
-                          <template x-for="u in getChecklistItemUsers(item)" :key="u.id">
-                            <div class="relative flex-shrink-0 cursor-pointer" :title="u.name">
-                              <template x-if="avatarUrl(u)">
-                                <img :src="avatarUrl(u)" :alt="u.name"
-                                     class="w-5 h-5 rounded-full object-cover shadow-sm ring-1 ring-slate-200">
-                              </template>
-                              <template x-if="!avatarUrl(u)">
-                                <span class="w-5 h-5 rounded-full shadow-sm flex items-center justify-center text-[8px] font-black text-white"
-                                      :style="avatarStyle(u)"
-                                      x-text="avatarInitials(u)"></span>
-                              </template>
-                            </div>
-                          </template>
-                        </div>
+                {{-- Checklist Items with Clear 4-Column Layout (Poster / Video -> Check -> Upload -> Actions) --}}
+                <div class="overflow-x-auto -mx-1 sm:mx-0 px-1 sm:px-0 mb-3 scrollbar-thin">
+                  <div class="min-w-[560px] sm:min-w-0">
 
-                        {{-- 2. Checkbox --}}
-                        <input type="checkbox" :checked="item.is_completed" class="rounded accent-indigo-600 w-4 h-4 border-slate-300 focus:ring-0 cursor-pointer flex-shrink-0"
-                               :style="canTickChecklistItem(item) ? '' : 'opacity:.45; cursor:not-allowed;'"
-                               :title="checklistTickTitle(item)"
-                               @change="toggleChecklistItem(cl, item, $event)">
-                        <span x-show="!canTickChecklistItem(item)" class="text-[10px] flex-shrink-0 select-none" :title="checklistTickTitle(item)">🔒</span>
-
-                        {{-- 3. Checklist Text --}}
-                        <label class="flex-1 min-w-0 cursor-pointer" @dblclick="openEditChecklistItemModal(cl, item)">
-                          <span class="text-xs break-words block leading-relaxed" :class="item.is_completed ? 'line-through text-slate-400 font-medium' : 'text-slate-700 dark:text-slate-200'"
-                                x-text="item.title || item.content"></span>
-                        </label>
+                    {{-- Column Headings --}}
+                    <div x-show="(cl.items ?? []).length > 0"
+                         class="grid grid-cols-[1fr_170px_110px_64px] sm:grid-cols-[1fr_180px_120px_64px] items-center gap-2 sm:gap-3 px-3 py-2 mb-1.5 rounded-lg bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 select-none">
+                      <div class="text-left flex items-center gap-1.5">
+                        <span>Poster / Video</span>
                       </div>
-
-                      {{-- 3b. Review marks: green tick (Production A/B), red cross (error) --}}
-                      <div class="cl-review mr-1"
-                           x-show="canReviewMark() || item.is_marked || item.has_issue">
-
-                        {{-- Case 1: Green mark is ON (Hide red, show green with user avatar + name) --}}
-                        <template x-if="item.is_marked">
-                          <div class="cl-review-wrap">
-                            <span class="cl-tip" x-show="canReviewMark()">untick</span>
-                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 shadow-2xs"
-                                 :title="!canReviewMark() ? ('Checked by ' + (item.marked_user?.name || getReviewUser(item.marked_by, item.marked_user)?.name || 'Reviewer')) : ''">
-                              <button type="button"
-                                      class="cl-review-box mark is-on flex-shrink-0"
-                                      :class="canReviewMark() ? 'is-clickable' : 'is-readonly'"
-                                      :disabled="!canReviewMark()"
-                                      aria-label="untick"
-                                      @click.stop="reviewChecklistItem(cl, item, 'mark')">
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                              </button>
-                              <div class="flex items-center gap-1 select-none flex-shrink-0"
-                                   x-show="item.marked_user || getReviewUser(item.marked_by, item.marked_user)">
-                                <template x-if="avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))">
-                                  <img :src="avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"
-                                       :alt="(item.marked_user || getReviewUser(item.marked_by, item.marked_user))?.name"
-                                       class="w-4 h-4 rounded-full object-cover shadow-2xs ring-1 ring-emerald-300">
-                                </template>
-                                <template x-if="!avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))">
-                                  <span class="w-4 h-4 rounded-full flex items-center justify-center text-[7.5px] font-black text-white shadow-2xs ring-1 ring-emerald-300"
-                                        :style="avatarStyle(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"
-                                        x-text="avatarInitials(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"></span>
-                                </template>
-                                <span class="text-[11px] font-semibold text-emerald-800 max-w-[90px] truncate"
-                                      x-text="(item.marked_user || getReviewUser(item.marked_by, item.marked_user))?.name || ''"></span>
-                              </div>
-                            </div>
-                          </div>
-                        </template>
-
-                        {{-- Case 2: Red issue is ON (Hide green, show red with user avatar + name) --}}
-                        <template x-if="item.has_issue">
-                          <div class="cl-review-wrap">
-                            <span class="cl-tip" x-show="canReviewMark()">untick</span>
-                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 shadow-2xs"
-                                 :title="!canReviewMark() ? ('Error reported by ' + (item.issue_user?.name || getReviewUser(item.issue_by, item.issue_user)?.name || 'Reviewer')) : ''">
-                              <button type="button"
-                                      class="cl-review-box issue is-on flex-shrink-0"
-                                      :class="canReviewMark() ? 'is-clickable' : 'is-readonly'"
-                                      :disabled="!canReviewMark()"
-                                      aria-label="untick"
-                                      @click.stop="reviewChecklistItem(cl, item, 'issue')">
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-                              </button>
-                              <div class="flex items-center gap-1 select-none flex-shrink-0"
-                                   x-show="item.issue_user || getReviewUser(item.issue_by, item.issue_user)">
-                                <template x-if="avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))">
-                                  <img :src="avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"
-                                       :alt="(item.issue_user || getReviewUser(item.issue_by, item.issue_user))?.name"
-                                       class="w-4 h-4 rounded-full object-cover shadow-2xs ring-1 ring-rose-300">
-                                </template>
-                                <template x-if="!avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))">
-                                  <span class="w-4 h-4 rounded-full flex items-center justify-center text-[7.5px] font-black text-white shadow-2xs ring-1 ring-rose-300"
-                                        :style="avatarStyle(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"
-                                        x-text="avatarInitials(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"></span>
-                                </template>
-                                <span class="text-[11px] font-semibold text-rose-800 max-w-[90px] truncate"
-                                      x-text="(item.issue_user || getReviewUser(item.issue_by, item.issue_user))?.name || ''"></span>
-                              </div>
-                            </div>
-                          </div>
-                        </template>
-
-                        {{-- Case 3: Both unticked / idle (Visible to Dara / Kim) --}}
-                        <template x-if="!item.is_marked && !item.has_issue && canReviewMark()">
-                          <div class="flex items-center gap-1.5">
-                            {{-- Green mark box --}}
-                            <div class="cl-review-wrap">
-                              <span class="cl-tip">approve</span>
-                              <button type="button"
-                                      class="cl-review-box mark is-idle is-clickable"
-                                      aria-label="approve"
-                                      @click.stop="reviewChecklistItem(cl, item, 'mark')">
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
-                              </button>
-                            </div>
-
-                            {{-- Red issue box --}}
-                            <div class="cl-review-wrap">
-                              <span class="cl-tip">error</span>
-                              <button type="button"
-                                      class="cl-review-box issue is-idle is-clickable"
-                                      aria-label="error"
-                                      @click.stop="reviewChecklistItem(cl, item, 'issue')">
-                                <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
-                              </button>
-                            </div>
-                          </div>
-                        </template>
-
+                      <div class="text-center">
+                        <span>Check</span>
                       </div>
-
-                      {{-- 4. Edit and Delete --}}
-                      <div class="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button type="button" @click="openEditChecklistItemModal(cl, item)"
-                                class="text-[10px] text-slate-400 hover:text-indigo-600 p-1 rounded hover:bg-slate-200/50 cursor-pointer"
-                                title="Edit checklist item">
-                          ✏️
-                        </button>
-                        <button type="button" @click="deleteChecklistItem(cl, item)"
-                                class="text-[10px] text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 cursor-pointer"
-                                title="Delete checklist item">
-                          🗑
-                        </button>
+                      <div class="text-center">
+                        <span>Upload</span>
+                      </div>
+                      <div class="text-right">
+                        <span>Actions</span>
                       </div>
                     </div>
-                  </template>
+
+                    {{-- Checklist Items Rows --}}
+                    <div class="space-y-1.5">
+                      <template x-for="item in (cl.items ?? [])" :key="item.id">
+                        <div class="grid grid-cols-[1fr_170px_110px_64px] sm:grid-cols-[1fr_180px_120px_64px] items-center gap-2 sm:gap-3 py-2 px-3 rounded-lg group hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-colors border border-transparent hover:border-slate-200/50 dark:hover:border-slate-700/50">
+                          
+                          {{-- 1. POSTER / VIDEO COLUMN (Left) --}}
+                          <div class="flex items-center gap-2.5 min-w-0 select-none">
+                            {{-- Assigned User Profile Avatar(s) immediately to the LEFT of the checkbox --}}
+                            <div class="flex items-center gap-1 flex-shrink-0" x-show="getChecklistItemUsers(item).length > 0">
+                              <template x-for="u in getChecklistItemUsers(item)" :key="u.id">
+                                <div class="relative flex-shrink-0 cursor-pointer" :title="u.name">
+                                  <template x-if="avatarUrl(u)">
+                                    <img :src="avatarUrl(u)" :alt="u.name"
+                                         class="w-5 h-5 rounded-full object-cover shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+                                  </template>
+                                  <template x-if="!avatarUrl(u)">
+                                    <span class="w-5 h-5 rounded-full shadow-sm flex items-center justify-center text-[8px] font-black text-white"
+                                          :style="avatarStyle(u)"
+                                          x-text="avatarInitials(u)"></span>
+                                  </template>
+                                </div>
+                              </template>
+                            </div>
+
+                            {{-- Completion Checkbox (Purple / Indigo indicator) --}}
+                            <input type="checkbox" :checked="item.is_completed"
+                                   class="rounded accent-indigo-600 w-4 h-4 border-slate-300 dark:border-slate-600 focus:ring-0 cursor-pointer flex-shrink-0"
+                                   :style="canTickChecklistItem(item) ? '' : 'opacity:.45; cursor:not-allowed;'"
+                                   :title="checklistTickTitle(item)"
+                                   @change="toggleChecklistItem(cl, item, $event)">
+                            <span x-show="!canTickChecklistItem(item)" class="text-[10px] flex-shrink-0 select-none" :title="checklistTickTitle(item)">🔒</span>
+
+                            {{-- Checklist Text (Poster/Video name and date) --}}
+                            <label class="flex-1 min-w-0 cursor-pointer" @dblclick="openEditChecklistItemModal(cl, item)">
+                              <span class="text-xs break-words block leading-relaxed"
+                                    :class="item.is_completed ? 'line-through text-slate-400 dark:text-slate-500 font-medium' : 'text-slate-700 dark:text-slate-200'"
+                                    x-text="item.title || item.content"></span>
+                            </label>
+                          </div>
+
+                          {{-- 2. CHECK COLUMN (Approve / Error Controls) --}}
+                          <div class="flex items-center justify-center flex-shrink-0">
+                            {{-- Case 1: Green mark / approved is ON --}}
+                            <template x-if="item.is_marked || item.is_approved">
+                              <div class="cl-review-wrap">
+                                <span class="cl-tip" x-show="canReviewMark()">untick</span>
+                                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 shadow-2xs"
+                                     :title="!canReviewMark() ? ('Checked by ' + (item.marked_user?.name || getReviewUser(item.marked_by, item.marked_user)?.name || 'Reviewer')) : ''">
+                                  <button type="button"
+                                          class="cl-review-box mark is-on flex-shrink-0"
+                                          :class="canReviewMark() ? 'is-clickable' : 'is-readonly'"
+                                          :disabled="!canReviewMark()"
+                                          aria-label="untick"
+                                          @click.stop="reviewChecklistItem(cl, item, 'mark')">
+                                    <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                  </button>
+                                  <div class="flex items-center gap-1 select-none flex-shrink-0"
+                                       x-show="item.marked_user || getReviewUser(item.marked_by, item.marked_user)">
+                                    <template x-if="avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))">
+                                      <img :src="avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"
+                                           :alt="(item.marked_user || getReviewUser(item.marked_by, item.marked_user))?.name"
+                                           class="w-4 h-4 rounded-full object-cover shadow-2xs ring-1 ring-emerald-300 dark:ring-emerald-700">
+                                    </template>
+                                    <template x-if="!avatarUrl(item.marked_user || getReviewUser(item.marked_by, item.marked_user))">
+                                      <span class="w-4 h-4 rounded-full flex items-center justify-center text-[7.5px] font-black text-white shadow-2xs ring-1 ring-emerald-300 dark:ring-emerald-700"
+                                            :style="avatarStyle(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"
+                                            x-text="avatarInitials(item.marked_user || getReviewUser(item.marked_by, item.marked_user))"></span>
+                                    </template>
+                                    <span class="text-[11px] font-semibold text-emerald-800 dark:text-emerald-200 max-w-[80px] sm:max-w-[90px] truncate"
+                                          x-text="(item.marked_user || getReviewUser(item.marked_by, item.marked_user))?.name || ''"></span>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+
+                            {{-- Case 2: Red issue / error is ON --}}
+                            <template x-if="item.has_issue">
+                              <div class="cl-review-wrap">
+                                <span class="cl-tip" x-show="canReviewMark()">untick</span>
+                                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 shadow-2xs"
+                                     :title="!canReviewMark() ? ('Error reported by ' + (item.issue_user?.name || getReviewUser(item.issue_by, item.issue_user)?.name || 'Reviewer')) : ''">
+                                  <button type="button"
+                                          class="cl-review-box issue is-on flex-shrink-0"
+                                          :class="canReviewMark() ? 'is-clickable' : 'is-readonly'"
+                                          :disabled="!canReviewMark()"
+                                          aria-label="untick"
+                                          @click.stop="reviewChecklistItem(cl, item, 'issue')">
+                                    <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                  </button>
+                                  <div class="flex items-center gap-1 select-none flex-shrink-0"
+                                       x-show="item.issue_user || getReviewUser(item.issue_by, item.issue_user)">
+                                    <template x-if="avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))">
+                                      <img :src="avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"
+                                           :alt="(item.issue_user || getReviewUser(item.issue_by, item.issue_user))?.name"
+                                           class="w-4 h-4 rounded-full object-cover shadow-2xs ring-1 ring-rose-300 dark:ring-rose-700">
+                                    </template>
+                                    <template x-if="!avatarUrl(item.issue_user || getReviewUser(item.issue_by, item.issue_user))">
+                                      <span class="w-4 h-4 rounded-full flex items-center justify-center text-[7.5px] font-black text-white shadow-2xs ring-1 ring-rose-300 dark:ring-rose-700"
+                                            :style="avatarStyle(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"
+                                            x-text="avatarInitials(item.issue_user || getReviewUser(item.issue_by, item.issue_user))"></span>
+                                    </template>
+                                    <span class="text-[11px] font-semibold text-rose-800 dark:text-rose-200 max-w-[80px] sm:max-w-[90px] truncate"
+                                          x-text="(item.issue_user || getReviewUser(item.issue_by, item.issue_user))?.name || ''"></span>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+
+                            {{-- Case 3: Both unticked / idle (Reviewer can choose Approve or Error) --}}
+                            <template x-if="!item.is_marked && !item.is_approved && !item.has_issue && canReviewMark()">
+                              <div class="flex items-center gap-1.5">
+                                {{-- Green mark / approve box --}}
+                                <div class="cl-review-wrap">
+                                  <span class="cl-tip">approve</span>
+                                  <button type="button"
+                                          class="cl-review-box mark is-idle is-clickable"
+                                          aria-label="approve"
+                                          @click.stop="reviewChecklistItem(cl, item, 'mark')">
+                                    <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                  </button>
+                                </div>
+
+                                {{-- Red issue / error box --}}
+                                <div class="cl-review-wrap">
+                                  <span class="cl-tip">error</span>
+                                  <button type="button"
+                                          class="cl-review-box issue is-idle is-clickable"
+                                          aria-label="error"
+                                          @click.stop="reviewChecklistItem(cl, item, 'issue')">
+                                    <svg fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </template>
+
+                            {{-- Case 4: Idle & cannot review (placeholder dash) --}}
+                            <template x-if="!item.is_marked && !item.is_approved && !item.has_issue && !canReviewMark()">
+                              <span class="text-xs text-slate-300 dark:text-slate-600 select-none font-bold">-</span>
+                            </template>
+                          </div>
+
+                          {{-- 3. UPLOAD COLUMN (Immediately after Check) --}}
+                          <div class="flex items-center justify-center flex-shrink-0 select-none">
+                            <label class="inline-flex items-center gap-2 cursor-pointer group/upload">
+                              <input type="checkbox"
+                                     :checked="!!item.is_uploaded"
+                                     @change="toggleUploadChecklistItem(cl, item, $event)"
+                                     class="rounded w-4 h-4 border-slate-300 dark:border-slate-600 focus:ring-0 cursor-pointer accent-emerald-600 transition-colors">
+                              
+                              {{-- Unchecked status text: "Upload" --}}
+                              <span x-show="!item.is_uploaded"
+                                    class="text-xs font-semibold text-slate-500 dark:text-slate-400 group-hover/upload:text-slate-700 dark:group-hover/upload:text-slate-200 transition-colors">
+                                Upload
+                              </span>
+
+                              {{-- Checked status text: "Uploaded" with green visual indicator --}}
+                              <span x-show="item.is_uploaded"
+                                    class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 shadow-2xs">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>Uploaded</span>
+                              </span>
+                            </label>
+                          </div>
+
+                          {{-- 4. ACTIONS COLUMN (Far right) --}}
+                          <div class="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            <button type="button" @click="openEditChecklistItemModal(cl, item)"
+                                    class="text-[11px] text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 cursor-pointer transition"
+                                    title="Edit checklist item">
+                              ✏️
+                            </button>
+                            <button type="button" @click="deleteChecklistItem(cl, item)"
+                                    class="text-[11px] text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer transition"
+                                    title="Delete checklist item">
+                              🗑
+                            </button>
+                          </div>
+
+                        </div>
+                      </template>
+                    </div>
+
+                  </div>
                 </div>
 
                 {{-- Add Checklist Item Form --}}
@@ -2370,6 +2428,34 @@
               <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400"></span>
             </template>
           </button>
+
+          {{-- Card Color Action (try colors live; the card on the board updates instantly) --}}
+          <div class="relative" x-data="{ open: false }">
+            <button type="button" @click="open = !open" data-ctx-panel="color"
+                    class="btn btn-secondary w-full text-xs text-left justify-start gap-2 py-2.5 px-3 flex items-center shadow-sm transition-all rounded-xl">
+              <span class="w-4 h-4 rounded-full border border-slate-300 flex-shrink-0"
+                    :style="activeCard?.card_color ? ('background: rgb(' + (cardColorOptions.find(c => c.key === activeCard.card_color)?.rgb || '148,163,184') + ')') : 'background: conic-gradient(#f43f5e, #f59e0b, #10b981, #3b82f6, #a855f7, #f43f5e)'"></span>
+              <span class="font-semibold">Card color</span>
+              <span class="ml-auto text-[10px] font-bold text-slate-400" x-text="activeCard?.card_color ? cardColorLabel(activeCard.card_color) : 'Default'"></span>
+            </button>
+            <div x-show="open" @click.outside="open = false" x-cloak
+                 class="absolute right-0 top-11 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 py-1.5"
+                 x-transition:enter="transition ease-out duration-75"
+                 x-transition:enter-start=" scale-95"
+                 x-transition:enter-end=" scale-100">
+              <p class="text-[10px] uppercase font-bold text-slate-400 px-3 py-1.5 border-b border-slate-100 select-none">Card color</p>
+              <div class="pr-swatch-grid">
+                <template x-for="c in cardColorOptions" :key="c.key">
+                  <button type="button" class="pr-swatch" :class="activeCard?.card_color === c.key ? 'is-active' : ''"
+                          :style="'background: rgb(' + c.rgb + ')'" :title="c.label" :aria-label="c.label"
+                          @click="setCardColor(activeCard, c.key)"></button>
+                </template>
+                <button type="button" class="pr-swatch pr-swatch-none" :class="!activeCard?.card_color ? 'is-active' : ''"
+                        title="Default (no color)" aria-label="Default color" @click="setCardColor(activeCard, null)"></button>
+              </div>
+              <p class="px-3 pb-2 text-[10px] text-slate-400 leading-snug">Colors apply instantly on the board so you can test which one suits. Striped circle = default.</p>
+            </div>
+          </div>
 
           {{-- Attachment Action --}}
           <button type="button" @click="openAttachmentModal(activeCard)"

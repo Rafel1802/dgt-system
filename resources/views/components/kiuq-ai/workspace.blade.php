@@ -42,7 +42,7 @@
             <div class="p-3.5 border-b border-slate-200/60 dark:border-slate-800/60 space-y-2.5">
                 <div class="flex items-center gap-2">
                     <button type="button"
-                            @click="startNewChat(mode)"
+                            @click="startNewChat('general')"
                             class="flex-1 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 active:scale-98 transition-all duration-150">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -110,7 +110,7 @@
 
                 <template x-for="conv in conversations" :key="conv.id">
                     <div class="group relative flex items-center justify-between rounded-xl px-3 py-2 text-xs transition-all cursor-pointer border"
-                         :class="activeConversationId === conv.id && (mode === 'general' || mode === 'translate') ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 font-semibold border-indigo-500/25 shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 border-transparent'"
+                         :class="activeConversationId === conv.id && mode === 'general' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 font-semibold border-indigo-500/25 shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 border-transparent'"
                          @click="selectConversation(conv.id)">
                         <div class="flex items-center gap-2 min-w-0 pr-6">
                             <span x-show="conv.is_pinned" class="text-amber-500 text-[10px]">📌</span>
@@ -156,7 +156,8 @@
         <main class="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#0b101b] h-full overflow-hidden">
             
             {{-- Top Window Navigation Bar --}}
-            <header class="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0d1424]">
+            <header class="flex items-center justify-between px-5 pb-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0d1424]"
+                    :style="isFullscreen ? 'padding-top: max(0.875rem, calc(var(--dgt-safe-top, env(safe-area-inset-top, 0px)) + 0.5rem));' : 'padding-top: 0.875rem;'">
                 <div class="flex items-center gap-3 min-w-0">
                     {{-- Mobile toggle sidebar button --}}
                     <button type="button"
@@ -228,8 +229,10 @@
 
             {{-- ── DYNAMIC VIEW AREA ──────────────────────────────────────────── --}}
 
-            {{-- 1. GENERAL ASSISTANT CHAT & TRANSLATOR VIEW ─────────────────── --}}
-            <div x-show="mode === 'general' || mode === 'translate'" class="flex-1 flex flex-col min-h-0 overflow-hidden">
+            @include('components.kiuq-ai.translation-studio')
+
+            {{-- 1. GENERAL ASSISTANT CHAT VIEW ─────────────────────────────── --}}
+            <div x-show="mode === 'general'" class="flex-1 flex flex-col min-h-0 overflow-hidden">
                 
                 {{-- Messages Feed --}}
                 <div x-ref="messagesFeed" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 custom-scrollbar">

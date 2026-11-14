@@ -191,6 +191,7 @@ window.kiuqCopyText = function(text, button) {
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('kiuqAiWorkspace', () => ({
+        ...(typeof window.kiuqTranslationStudioMixin === 'function' ? window.kiuqTranslationStudioMixin() : {}),
         isOpen: false,
         isFullscreen: false,
         sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
@@ -384,10 +385,16 @@ document.addEventListener('alpine:init', () => {
                     this.loadConversations();
                     this.loadModels();
                     this.loadStudioData();
+                    if (typeof this.initTranslationStudio === 'function') {
+                        this.initTranslationStudio();
+                    }
                     this.$nextTick(() => {
                         this.focusInput();
                         this.scrollToBottom();
                     });
+                } else {
+                    if (typeof this.stopTranslationTts === 'function') this.stopTranslationTts();
+                    if (typeof this.stopTranslationVoiceInput === 'function') this.stopTranslationVoiceInput();
                 }
             });
         },
@@ -423,7 +430,14 @@ document.addEventListener('alpine:init', () => {
             this.mode = newMode;
             this.errorNotice = null;
             if (newMode === 'translate') {
-                this.selectedModel = 'qwen/qwen3.8-27b';
+                if (typeof this.initTranslationStudio === 'function') {
+                    this.initTranslationStudio();
+                }
+                if (window.innerWidth < 768) {
+                    this.sidebarOpen = false;
+                }
+                this.$nextTick(() => this.$refs.translatorSourceInput?.focus());
+                return;
             }
             if (window.innerWidth < 768) {
                 this.sidebarOpen = false;
@@ -1151,6 +1165,9 @@ document.addEventListener('alpine:init', () => {
                 if (res.ok) {
                     const data = await res.json();
                     this.studioData = data;
+                    if (Array.isArray(data.translate_languages) && data.translate_languages.length > 0 && this.translator) {
+                        this.translator.languages = data.translate_languages;
+                    }
                     if (data.websites?.length > 0 && !this.blogForm.website_id) {
                         this.blogForm.website_id = data.websites[0].id;
                         this.qcForm.website_id = data.websites[0].id;

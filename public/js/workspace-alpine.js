@@ -21,16 +21,32 @@ window.workspacePage = function() {
       if (typeof Sortable === 'undefined') return;
 
       document.querySelectorAll('.board-sort-grid').forEach((grid) => {
-        Sortable.create(grid, {
+        if (grid._dgtSortable) return;
+        const getOrder = () => Array.from((grid.closest('section') || grid).querySelectorAll('[data-board-id]'))
+          .map((b) => Number(b.dataset.boardId)).join(',');
+        let dragStartOrder = '';
+
+        grid._dgtSortable = Sortable.create(grid, {
           animation: 180,
           draggable: '[data-board-id]',
+          // Touch screens: must press & hold 3 seconds before a board can be moved.
+          // Desktop mouse drag stays instant.
+          delay: 3000,
+          delayOnTouchOnly: true,
+          touchStartThreshold: 8,
           ghostClass: 'opacity-40',
           chosenClass: 'ring-4',
           dragClass: 'shadow-2xl',
-          onStart: () => { window.isDraggingBoard = true; },
-          onEnd: (evt) => { 
-            setTimeout(() => window.isDraggingBoard = false, 50);
-            this.saveBoardOrder(grid); 
+          onStart: () => {
+            window.isDraggingBoard = true;
+            dragStartOrder = getOrder();
+          },
+          onEnd: (evt) => {
+            setTimeout(() => { window.isDraggingBoard = false; }, 50);
+            // A simple tap/click (no real move) must never save or show a toast
+            if (evt.oldIndex === evt.newIndex && evt.from === evt.to) return;
+            if (getOrder() === dragStartOrder) return;
+            this.saveBoardOrder(grid);
           },
         });
       });

@@ -51,13 +51,15 @@ def verify_and_resolve_password():
     for candidate in candidates:
         for attempt in range(1, 4):
             test_cmd = [
-                SSHPASS, "-p", candidate,
+                SSHPASS, "-e",
                 "ssh", "-o", "StrictHostKeyChecking=no", "-o", "PubkeyAuthentication=no",
                 "-o", "ConnectTimeout=15", "-p", str(SSH_PORT),
                 f"{SSH_USER}@{SSH_HOST}", "echo AUTH_SUCCESS"
             ]
             try:
-                res = subprocess.run(test_cmd, capture_output=True, text=True, timeout=20)
+                env = os.environ.copy()
+                env["SSHPASS"] = candidate
+                res = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=20)
                 if res.returncode == 0 and "AUTH_SUCCESS" in res.stdout:
                     SSH_PASSWORD = candidate
                     print(f"[✓] SSH authentication verified successfully.\n")
@@ -85,11 +87,13 @@ def run_cmd(cmd_args, allow_fail=False):
     print(f"Running: {' '.join(cmd_args)}")
     time.sleep(2.5)  # Avoid SSH connection burst throttling on Hostinger
 
+    env = os.environ.copy()
     if "--interactive" in sys.argv or not SSH_PASSWORD:
         proc = subprocess.run(cmd_args)
     else:
-        full_cmd = [SSHPASS, "-p", SSH_PASSWORD] + cmd_args
-        proc = subprocess.run(full_cmd)
+        full_cmd = [SSHPASS, "-e"] + cmd_args
+        env["SSHPASS"] = SSH_PASSWORD
+        proc = subprocess.run(full_cmd, env=env)
 
     if proc.returncode != 0:
         if allow_fail:
@@ -103,7 +107,7 @@ def run_cmd(cmd_args, allow_fail=False):
             if "--interactive" in sys.argv or not SSH_PASSWORD:
                 proc = subprocess.run(cmd_args)
             else:
-                proc = subprocess.run(full_cmd)
+                proc = subprocess.run(full_cmd, env=env)
             if proc.returncode == 0:
                 print("\n--- Command Finished ---\n")
                 return
@@ -170,6 +174,8 @@ if __name__ == "__main__":
         "--exclude", "/*.xls",
         "--exclude", "/*.csv",
         "--exclude", ".phpunit.result.cache",
+        "--exclude", "deploy/",
+        "--exclude", "scratch/",
         "--exclude", "dgt_macos_app/",
         "--exclude", "dgt-mobile/",
         "./",
@@ -231,6 +237,13 @@ if __name__ == "__main__":
         "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/js/"
     ]
     run_cmd(rsync_all_js_cmd, allow_fail=True)
+
+    rsync_all_js_public_cmd = [
+        "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
+        "public/js/",
+        "u355625773@157.173.215.124:domains/lightcyan-weasel-711536.hostingersite.com/public_html/public/js/"
+    ]
+    run_cmd(rsync_all_js_public_cmd, allow_fail=True)
 
     rsync_images_cmd = [
         "rsync", "-avz", "-e", "ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=30 -p 65002",
@@ -581,6 +594,68 @@ if __name__ == "__main__":
         '" && '
     )
 
+    tinker_fix_workflow_duplicates = (
+        PHP + ' artisan tinker --execute="'
+        # Deduplicate PRJ: Kuvuo 2.5 Content on board 129
+        "\\$kuvuoCopies = \\\\App\\\\Models\\\\Card::where('board_id', 129)->where('title', 'like', '%Kuvuo 2.5 Content%')->get(); "
+        "if (\\$kuvuoCopies->count() > 1) { "
+        "    \\$keep = \\$kuvuoCopies->firstWhere('id', 2569) ?: \\$kuvuoCopies->sortByDesc('id')->first(); "
+        "    foreach (\\$kuvuoCopies as \\$c) { "
+        "        if (\\$c->id !== \\$keep->id) { \\$c->delete(); } "
+        "    } "
+        "    \\$keep->update(['team' => 'B']); "
+        "} "
+        # Ensure source planning card 2552 has team 'B'
+        "\\$pCard = \\\\App\\\\Models\\\\Card::find(2552); if (\\$pCard) { \\$pCard->update(['team' => 'B']); } "
+        # General deduplication: any cards sharing sync_group_id on the exact same workflow board
+        "\\$wfBoards = \\\\App\\\\Models\\\\Board::where('name', 'like', '%Workflow%')->get(); "
+        "foreach (\\$wfBoards as \\$b) { "
+        "    \\$dupes = \\$b->cards()->whereNotNull('sync_group_id')->get()->groupBy('sync_group_id'); "
+        "    foreach (\\$dupes as \\$grp => \\$cList) { "
+        "        if (\\$cList->count() > 1) { "
+        "            \\$keepCard = \\$cList->sortByDesc('board_list_id')->first(); "
+        "            foreach (\\$cList as \\$cardItem) { "
+        "                if (\\$cardItem->id !== \\$keepCard->id) { \\$cardItem->delete(); } "
+        "            } "
+        "        } "
+        "    } "
+        "} "
+        "echo 'Deduplicated workflow cards and aligned team badges successfully\\n';"
+        '" && '
+    )
+
+    tinker_hide_non_nov_boards = (
+        PHP + ' artisan tinker --execute="'
+        "foreach(\\\\App\\\\Models\\\\Board::all() as \\$b) { "
+        "    \\$disp = (string) \\$b->name; "
+        "    \\$raw = (string) (\\$b->getAttributes()[\'name\'] ?? \'\'); "
+        "    \\$slug = (string) \\$b->slug; "
+        "    \\$isNov = str_contains(strtolower(\\$disp), \'november\') || str_contains(strtolower(\\$raw), \'november\') || str_contains(strtolower(\\$slug), \'november\'); "
+        "    \\$b->is_hidden = !\\$isNov; "
+        "    \\$b->saveQuietly(); "
+        "} "
+        "echo \'Boards updated: only November visible, all others hidden\\n\';"
+        '" && '
+    )
+
+    tinker_fix_blog_post_themes = (
+        PHP + ' artisan tinker --execute="'
+        "\\$svc = app(\\\\App\\\\Services\\\\WebsiteBlogPostService::class); "
+        "\\$updated = 0; "
+        "foreach (\\\\App\\\\Models\\\\WebsitePost::with(\'website\')->where(\'content_html\', \'like\', \'%2563eb%\')->get() as \\$p) { "
+        "    \\$t = \\$svc->resolveWebsiteTheme(\\$p->website, \\$p); "
+        "    \\$c = \\$p->content_html; "
+        "    \\$c = str_replace(\'#2563eb\', \\$t[\'primary\'], \\$c); "
+        "    \\$c = str_replace(\'background: #f8fafc; border: 1px solid #e2e8f0;\', \'background: \' . \\$t[\'cta_bg\'] . \'; border: 1px solid \' . \\$t[\'cta_border\'] . \';\', \\$c); "
+        "    \\$c = str_replace(\'text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-800\', \'font-semibold underline\', \\$c); "
+        "    \\$p->content_html = \\$c; "
+        "    \\$p->saveQuietly(); "
+        "    \\$updated++; "
+        "} "
+        "echo \'Aligned \' . \\$updated . \' website posts with authentic CMS brand colors\\n\';"
+        '" && '
+    )
+
 
     local_gemini_key = os.environ.get("GEMINI_API_KEY", "")
     if not local_gemini_key and os.path.exists(".env"):
@@ -637,6 +712,9 @@ if __name__ == "__main__":
             + tinker_clean_test_video
             + tinker_fix_stickers_privacy
             + tinker_resync_blog_followup
+            + tinker_fix_workflow_duplicates
+            + tinker_hide_non_nov_boards
+            + tinker_fix_blog_post_themes
             + PHP + " artisan view:cache && "
             + PHP + " artisan storage:link && "
             + PHP + ' artisan tinker --execute="App\\\\Models\\\\User::where(\'name\', \'like\', \'%Dara%\')->first()->assignRole(\'admin-digital\');"'

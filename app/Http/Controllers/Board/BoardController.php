@@ -40,7 +40,7 @@ class BoardController extends Controller
         $workspaces = $this->getAuthorizedWorkspaces($user)
             ->map(function ($ws) {
                 $ws->setRelation('boards', $ws->boards->reject(function ($b) {
-                    return ($b->type === 'smm') || str_contains(strtolower($b->name ?? ''), 'smm');
+                    return $b->is_hidden || ($b->type === 'smm') || str_contains(strtolower($b->name ?? ''), 'smm');
                 })->values());
                 return $ws;
             })
@@ -269,6 +269,9 @@ class BoardController extends Controller
         $this->authorizeBoard($board);
         $user = auth()->user();
 
+        // Workflow boards must always start with the "Draft" list (self-heal if it was archived/deleted/renamed).
+        $this->ensureWorkflowDraftList($board);
+
         $allWorkspaces = $this->getAuthorizedWorkspaces($user);
 
         $board->load([
@@ -285,7 +288,7 @@ class BoardController extends Controller
             $query->select([
                 'id', 'board_list_id', 'title', 'team', 'priority', 'due_at', 'start_date', 'due_time', 'reminder', 'recurring',
                 'status', 'block_completed_at', 'block_completed_by', 'smm_class_label', 'smm_team_label', 'smm_cluster_label',
-                'content_public_date', 'created_by', 'position', 'sync_group_id', 'is_archived', 'label', 'sub_label', 'description', 'created_at', 'updated_at'
+                'content_public_date', 'created_by', 'position', 'sync_group_id', 'is_archived', 'label', 'card_color', 'sub_label', 'description', 'created_at', 'updated_at'
             ])->with([
                 'creator:id,name,avatar,username',
                 'assignees:id,name,avatar,username',
@@ -484,6 +487,8 @@ class BoardController extends Controller
                     'smm_team_label'     => $c->smm_team_label,
                     'smm_cluster_label'  => $c->smm_cluster_label,
                     'content_public_date'=> $c->content_public_date?->format('Y-m-d'),
+                    'label'    => $c->label,
+                    'card_color' => $c->card_color,
                     'labels'   => $c->labels->map(fn($lb) => ['id'=>$lb->id,'name'=>$lb->name,'color'=>$lb->color]),
                     'assignees'=> $c->assignees->map(fn($u) => [
                         'id' => $u->id,
@@ -560,6 +565,8 @@ class BoardController extends Controller
                     'type' => $b->type,
                     'workspace_id' => $b->workspace_id,
                     'is_starred' => (bool) $b->is_starred,
+                    'is_hidden' => (bool) $b->is_hidden,
+                    'created_at' => $b->created_at?->toISOString(),
                     'background_type' => $b->background_type,
                     'background_value' => $b->background_value,
                     'cover_type' => $b->cover_type,
@@ -1457,6 +1464,79 @@ class BoardController extends Controller
         return back()->with('success', "Board \"{$boardName}\" permanently deleted.");
     }
 
+    // ── Workflow "Draft" list protection ──────────────────────────────────────
+
+    /** A Workflow board = name contains "workflow" (not a planning/SMM board) and has the usual production lists. */
+    private function isWorkflowBoard(?Board $board): bool
+    {
+        if (!$board) {
+            return false;
+        }
+        $name = strtolower((string) $board->name);
+        if (!str_contains($name, 'workflow') || str_contains($name, 'planning') || $board->type === 'smm') {
+            return false;
+        }
+
+        return $board->lists()
+            ->where(function ($q) {
+                $q->where('name', 'like', '%Production%')->orWhere('name', 'like', '%Approved%')->orWhere('name', 'like', '%Digital Department%');
+            })
+            ->exists();
+    }
+
+    private function isProtectedDraftList(BoardList $list): bool
+    {
+        return in_array(strtolower(trim($list->name)), ['draft', 'drafts'], true)
+            && $this->isWorkflowBoard($list->board);
+    }
+
+    /**
+     * Make sure a Workflow board has its first "Draft" list:
+     *  - active Draft list → nothing to do
+     *  - archived / deleted Draft list → restore it (and its cards)
+     *  - missing entirely → create it at position 0
+     */
+    private function ensureWorkflowDraftList(Board $board): void
+    {
+        try {
+            if (!$this->isWorkflowBoard($board)) {
+                return;
+            }
+
+            $isDraft = fn ($q) => $q->whereRaw('LOWER(TRIM(name)) IN (?, ?)', ['draft', 'drafts']);
+
+            if ($board->lists()->where($isDraft)->where('is_archived', false)->exists()) {
+                return;
+            }
+
+            $existing = BoardList::withTrashed()->where('board_id', $board->id)->where($isDraft)->orderByDesc('id')->first();
+
+            if ($existing) {
+                $deletedAt = $existing->deleted_at;
+                if ($existing->trashed()) {
+                    $existing->restore();
+                    // Cards were soft-deleted together with the list — bring them back too.
+                    \App\Models\Card::withTrashed()
+                        ->where('board_list_id', $existing->id)
+                        ->whereNotNull('deleted_at')
+                        ->where('deleted_at', '>=', $deletedAt->copy()->subMinutes(2))
+                        ->restore();
+                }
+                $existing->update(['is_archived' => false]);
+            } else {
+                \Illuminate\Support\Facades\DB::transaction(function () use ($board) {
+                    BoardList::where('board_id', $board->id)->increment('position');
+                    $board->lists()->create(['name' => 'Draft', 'position' => 0]);
+                });
+            }
+
+            $board->unsetRelation('lists');
+            $board->unsetRelation('activeLists');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('ensureWorkflowDraftList failed: ' . $e->getMessage());
+        }
+    }
+
     // ── List AJAX endpoints ───────────────────────────────────────────────────
 
     /** Add a new list to a board. */
@@ -1491,6 +1571,13 @@ class BoardController extends Controller
     {
         $this->authorizeBoard($list->board);
 
+        if ($this->isProtectedDraftList($list)
+            && (($request->has('name') && strcasecmp(trim((string) $request->input('name')), $list->name) !== 0) || $request->boolean('is_archived'))) {
+            return response()->json([
+                'message' => 'The "Draft" list is the first list of every Workflow board and cannot be renamed or archived.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'name'        => ['sometimes', 'string', 'max:100'],
             'color'       => ['nullable', 'string', 'max:7'],
@@ -1520,6 +1607,12 @@ class BoardController extends Controller
      public function destroyList(BoardList $list): JsonResponse
      {
          $this->authorizeBoard($list->board);
+
+         if ($this->isProtectedDraftList($list)) {
+             return response()->json([
+                 'message' => 'The "Draft" list is the first list of every Workflow board and cannot be deleted.',
+             ], 422);
+         }
          
          try {
              \App\Notifications\BoardActivityNotification::send($list->board, 'list_deleted', "deleted list **{$list->name}**");
@@ -1929,7 +2022,7 @@ class BoardController extends Controller
             $query->select([
                 'id', 'board_list_id', 'title', 'team', 'priority', 'due_at', 'start_date', 'due_time', 'reminder', 'recurring',
                 'status', 'block_completed_at', 'block_completed_by', 'smm_class_label', 'smm_team_label', 'smm_cluster_label',
-                'content_public_date', 'created_by', 'position', 'sync_group_id', 'is_archived', 'label', 'sub_label', 'description', 'created_at', 'updated_at'
+                'content_public_date', 'created_by', 'position', 'sync_group_id', 'is_archived', 'label', 'card_color', 'sub_label', 'description', 'created_at', 'updated_at'
             ])->with([
                 'creator:id,name,avatar,username',
                 'assignees:id,name,avatar,username',
@@ -2061,6 +2154,8 @@ class BoardController extends Controller
                     'created_by' => $card->created_by,
                     'description' => $card->description,
                     'has_description' => !empty($card->description),
+                    'label' => $card->label,
+                    'card_color' => $card->card_color,
                     'labels' => $card->labels->map(fn($label) => [
                         'id' => $label->id,
                         'name' => $label->name,
@@ -2123,6 +2218,8 @@ class BoardController extends Controller
                     'type' => $workspaceBoard->type,
                     'workspace_id' => $workspaceBoard->workspace_id,
                     'is_starred' => (bool) $workspaceBoard->is_starred,
+                    'is_hidden' => (bool) $workspaceBoard->is_hidden,
+                    'created_at' => $workspaceBoard->created_at?->toISOString(),
                     'background_type' => $workspaceBoard->background_type,
                     'background_value' => $workspaceBoard->background_value,
                     'cover_type' => $workspaceBoard->cover_type,
@@ -2385,7 +2482,7 @@ class BoardController extends Controller
         $canSeeSMM = $user->hasAnyRole(['super-admin', 'admin-digital', 'social_admin', 'social_qc', 'supervisor', 'boss', 'digital-team']) || $isQc || $isHead;
 
         $eagerRelations = [
-            'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'type', 'position', 'is_starred', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by', 'created_at'),
+            'boards' => fn($q) => $q->where('is_archived', false)->where('is_hidden', false)->orderBy('position')->select('id', 'workspace_id', 'name', 'slug', 'type', 'position', 'is_starred', 'is_hidden', 'background_type', 'background_value', 'cover_type', 'cover_value', 'created_by', 'created_at'),
             'boards.members:id,name,avatar,team_role',
             'boards.activeLists:id,board_id,name,position',
             'boards.creator:id,name,avatar,team_role',
@@ -2530,12 +2627,6 @@ class BoardController extends Controller
                 $card->save();
             }
             $card->restore();
-
-            if ($card->sync_group_id) {
-                \App\Models\Card::onlyTrashed()
-                    ->where('sync_group_id', $card->sync_group_id)
-                    ->restore();
-            }
         }
 
         return response()->json(['message' => 'Item restored successfully.']);
@@ -2572,12 +2663,6 @@ class BoardController extends Controller
                         $card->save();
                     }
                     $card->restore();
-
-                    if ($card->sync_group_id) {
-                        \App\Models\Card::onlyTrashed()
-                            ->where('sync_group_id', $card->sync_group_id)
-                            ->restore();
-                    }
                 }
             }
         }
@@ -2611,13 +2696,7 @@ class BoardController extends Controller
                     })
                     ->find($item['id']);
                 if ($card) {
-                    $syncGroupId = $card->sync_group_id;
                     $card->forceDelete();
-                    if ($syncGroupId) {
-                        \App\Models\Card::onlyTrashed()
-                            ->where('sync_group_id', $syncGroupId)
-                            ->forceDelete();
-                    }
                 }
             }
         }
@@ -2646,13 +2725,7 @@ class BoardController extends Controller
                       ->orWhereIn('board_list_id', $boardListIds);
                 })
                 ->findOrFail($request->id);
-            $syncGroupId = $card->sync_group_id;
             $card->forceDelete();
-            if ($syncGroupId) {
-                \App\Models\Card::onlyTrashed()
-                    ->where('sync_group_id', $syncGroupId)
-                    ->forceDelete();
-            }
         }
 
         return response()->json(['message' => 'Item permanently deleted.']);

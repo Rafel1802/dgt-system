@@ -45,6 +45,7 @@ class Card extends Model
         'recurring',
         'due_reminder_sent',
         'cover_image',
+        'card_color',
         'is_archived',
         'created_by',
         'approved_by',
@@ -77,6 +78,12 @@ class Card extends Model
         'smm_class_link',
     ];
 
+    /** Palette keys a card can be tinted with (see boards/show.blade.php + trello-board.js). */
+    public const CARD_COLORS = [
+        'green', 'teal', 'sky', 'blue', 'indigo', 'purple', 'pink',
+        'rose', 'red', 'orange', 'amber', 'yellow', 'lime', 'slate',
+    ];
+
     public static $isSyncing = false;
 
     protected static function booted()
@@ -92,7 +99,7 @@ class Card extends Model
                     $syncFields = [
                         'title', 'description', 'label', 'sub_label', 'team', 'smm_class_label', 'smm_team_label', 'smm_cluster_label', 'priority', 'status',
                         'deadline', 'due_at', 'start_date', 'content_public_date', 'due_time', 'reminder', 'recurring',
-                        'cover_image', 'is_archived', 'approved_by', 'approved_at', 'rejection_reason',
+                        'cover_image', 'approved_by', 'approved_at', 'rejection_reason',
                         'reviewed_by', 'reviewed_at', 'block_completed_by', 'block_completed_at', 'created_by'
                     ];
 
@@ -220,6 +227,9 @@ class Card extends Model
                     $newItem->is_approved = (bool)$item->is_approved;
                     $newItem->approved_by = $item->approved_by;
                     $newItem->approved_at = $item->approved_at;
+                    $newItem->is_uploaded = (bool)$item->is_uploaded;
+                    $newItem->uploaded_by = $item->uploaded_by;
+                    $newItem->uploaded_at = $item->uploaded_at;
                     $newItem->is_completed = (bool)$item->is_completed;
                     $newItem->completed_by = $item->completed_by;
                     $newItem->completed_at = $item->completed_at;
@@ -697,13 +707,16 @@ class Card extends Model
         // 1. Explicit attribute
         if (!empty($this->attributes['team'])) {
             $t = strtoupper(trim($this->attributes['team']));
+            if ($t === 'NONE' || $t === 'NULL') {
+                return $this->cachedDetectedTeam = null;
+            }
             if (in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B']) || (str_contains($t, 'A') && str_contains($t, 'B'))) {
                 return $this->cachedDetectedTeam = 'Both';
             }
             if ($t === 'A' || $t === 'B') {
                 return $this->cachedDetectedTeam = $t;
             }
-            return $this->cachedDetectedTeam = $t;
+            return $this->cachedDetectedTeam = $this->attributes['team'];
         }
 
         // 2. Check attached labels (e.g. [Team A] and [Team B], or [Team A & B])
@@ -761,7 +774,26 @@ class Card extends Model
             } catch (\Throwable $e) {}
         }
 
-        // 5. Check assignees (if assignees contain members of Team A and/or Team B)
+        // 5. Check creator (Assigned By): Kim is Team B, Dara is Team A
+        try {
+            $creator = $this->relationLoaded('creator') ? $this->creator : ($this->created_by ? \App\Models\User::find($this->created_by) : null);
+            if ($creator) {
+                $cUser = strtolower($creator->username ?? '');
+                $cName = strtolower($creator->name ?? '');
+                if (str_contains($cUser, 'kim') || str_contains($cName, 'kim') || $creator->id === 5 || $creator->id === 13) {
+                    return $this->cachedDetectedTeam = 'B';
+                }
+                if (str_contains($cUser, 'dara') || str_contains($cName, 'dara') || $creator->id === 4 || $creator->id === 12) {
+                    return $this->cachedDetectedTeam = 'A';
+                }
+                $cTeam = $creator->getDigitalTeam();
+                if ($cTeam === 'A' || $cTeam === 'B') {
+                    return $this->cachedDetectedTeam = $cTeam;
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        // 6. Check assignees (fallback if creator has no team)
         try {
             $assignees = $this->relationLoaded('assignees') ? $this->assignees : $this->assignees()->get();
             $assHasA = false;
@@ -776,25 +808,6 @@ class Card extends Model
             if ($assHasB) return $this->cachedDetectedTeam = 'B';
         } catch (\Throwable $e) {}
 
-        // 6. Check creator: Kim is Team B, Dara is Team A
-        try {
-            $creator = $this->relationLoaded('creator') ? $this->creator : ($this->created_by ? \App\Models\User::find($this->created_by) : null);
-            if ($creator) {
-                $cUser = strtolower($creator->username ?? '');
-                $cName = strtolower($creator->name ?? '');
-                if (str_contains($cUser, 'kim') || str_contains($cName, 'kim') || $creator->id === 13) {
-                    return $this->cachedDetectedTeam = 'B';
-                }
-                if (str_contains($cUser, 'dara') || str_contains($cName, 'dara') || $creator->id === 12) {
-                    return $this->cachedDetectedTeam = 'A';
-                }
-                $cTeam = $creator->getDigitalTeam();
-                if ($cTeam) {
-                    return $this->cachedDetectedTeam = $cTeam;
-                }
-            }
-        } catch (\Throwable $e) {}
-
         return $this->cachedDetectedTeam = null;
     }
 
@@ -804,7 +817,13 @@ class Card extends Model
         if (!$team) {
             $team = $this->detectTeam();
         }
+        if (!$team) {
+            return false;
+        }
         $t = strtoupper(trim((string)$team));
+        if ($t === 'A' || $t === 'B' || $t === 'NONE') {
+            return false;
+        }
         return in_array($t, ['BOTH', 'A,B', 'A, B', 'A&B', 'A & B', 'ALL', 'A+B', 'TEAM A & B', 'TEAM A & TEAM B'])
             || (str_contains($t, 'A') && str_contains($t, 'B'));
     }
@@ -816,6 +835,13 @@ class Card extends Model
         }
         $t = strtoupper(trim((string)($this->team ?? $this->detectTeam())));
         return $t === strtoupper(trim($team));
+    }
+
+    public function setTeamAttribute($value): void
+    {
+        $this->attributes['team'] = $value;
+        $this->hasDetectedTeam = false;
+        $this->cachedDetectedTeam = null;
     }
 
     public function getTeamAttribute(): ?string

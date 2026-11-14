@@ -67,12 +67,12 @@ class CardChecklistController extends Controller
             'created_at'   => now(),
         ]);
 
-        // Automation: If card is on a Planning Board, has an SMM label, and all checklist items are now 100% completed,
+        // Automation: If card is on a Planning Board and all checklist items are now 100% completed,
         // automatically copy to the appropriate Workflow Board (Team A or Team B) into list "Draft".
         if ($item->is_completed) {
             try {
                 $freshCard = $card->fresh(['checklists.items', 'assignees', 'board', 'labels']);
-                if ($freshCard && !$freshCard->hasIncompleteChecklist() && $freshCard->hasSmmLabel()) {
+                if ($freshCard && !$freshCard->hasIncompleteChecklist()) {
                     app(\App\Services\BoardWorkflowService::class)->autoCopyCompletedPlanningCardToWorkflow($freshCard);
                 }
             } catch (\Throwable $e) {
@@ -84,6 +84,28 @@ class CardChecklistController extends Controller
             'success' => true,
             'item'    => $item->fresh(),
             'percent' => $checklist->load('items')->progressPercent(),
+        ]);
+    }
+
+    /** Toggle upload status on a checklist item */
+    public function uploadItem(Request $request, Card $card, CardChecklist $checklist, CardChecklistItem $item): JsonResponse
+    {
+        $this->authorize('view', $card);
+
+        $isUploaded = $request->has('is_uploaded')
+            ? filter_var($request->input('is_uploaded'), FILTER_VALIDATE_BOOLEAN)
+            : ! $item->is_uploaded;
+
+        $item->update([
+            'is_uploaded' => $isUploaded,
+            'uploaded_by' => $isUploaded ? auth()->id() : null,
+            'uploaded_at' => $isUploaded ? now() : null,
+        ]);
+
+        return response()->json([
+            'success'     => true,
+            'is_uploaded' => (bool) $item->is_uploaded,
+            'item'        => $item->fresh(),
         ]);
     }
 

@@ -1,17 +1,24 @@
-// Bumped to v2: the old v1 cache may hold personalized HTML pages cached
-// under the previous (unsafe) strategy — this forces every client to drop
-// it on next activation (see the activate handler below).
-const CACHE_NAME = 'kiuq-system-cache-v5';
+// Unified KIUQ / DGT System Service Worker (v6)
+// Combines Pusher Beams Web Push + Mobile Asset Caching + Background Notification Delivery
+try {
+  importScripts("https://js.pusher.com/beams/service-worker.js");
+} catch (e) {
+  // Offline or CDN blocked — continue with native/local SW handlers
+}
+
+const CACHE_NAME = 'kiuq-system-cache-v6';
+const CDN_CACHE_NAME = 'kiuq-cdn-cache-v1';
 const PRE_CACHE_ASSETS = [
   '/favicon.ico',
-  '/manifest.json'
+  '/manifest.json',
+  '/images/logo.png'
 ];
 
-// Install event - precache app shell
+// Install event - precache core shell assets
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(PRE_CACHE_ASSETS))
+      .then(cache => Promise.allSettled(PRE_CACHE_ASSETS.map(url => cache.add(url))))
       .then(() => self.skipWaiting())
   );
 });
@@ -20,39 +27,61 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
-      const staleKeys = keys.filter(key => key !== CACHE_NAME);
-      return Promise.all(staleKeys.map(key => caches.delete(key))).then(() => staleKeys.length > 0);
-    }).then(hadStaleCache => {
-      return self.clients.claim().then(() => {
-        // Only force a reload of already-open tabs when we actually cleared
-        // an old (potentially cross-user-poisoned) cache — not on a brand
-        // new install where there's nothing to fix. This is what makes the
-        // fix take effect without staff needing to know to hard-refresh.
-        if (!hadStaleCache) return;
-        return self.clients.matchAll({ type: 'window' }).then(clients => {
-          clients.forEach(client => client.navigate(client.url));
-        });
-      });
-    })
+      const validKeys = new Set([CACHE_NAME, CDN_CACHE_NAME]);
+      const staleKeys = keys.filter(key => !validKeys.has(key));
+      return Promise.all(staleKeys.map(key => caches.delete(key)));
+    }).then(() => self.clients.claim())
   );
 });
 
-// Fetch event - caching strategies
+// Fetch event - fast Cache-First + Stale-While-Revalidate for static & CDN assets
 self.addEventListener('fetch', event => {
   const request = event.request;
-  const url = new URL(request.url);
+  if (request.method !== 'GET') return;
 
-  // Only handle GET requests from the same origin
-  if (request.method !== 'GET' || url.origin !== self.location.origin) {
+  let url;
+  try {
+    url = new URL(request.url);
+  } catch (e) {
     return;
   }
 
-  // Exclude administrative, authentication, dynamic live polling, and action endpoints from cache
+  // 1) Cache trusted immutable/semi-static CDN assets (Google Fonts, jsDelivr) for instant mobile load
+  const isTrustedCdn =
+    url.hostname === 'fonts.googleapis.com' ||
+    url.hostname === 'fonts.gstatic.com' ||
+    url.hostname === 'cdn.jsdelivr.net';
+
+  if (isTrustedCdn) {
+    event.respondWith(
+      caches.open(CDN_CACHE_NAME).then(cache =>
+        cache.match(request).then(cachedResponse => {
+          const networkFetch = fetch(request).then(networkResponse => {
+            if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
+              cache.put(request, networkResponse.clone()).catch(() => {});
+            }
+            return networkResponse;
+          }).catch(() => cachedResponse);
+
+          return cachedResponse || networkFetch;
+        })
+      )
+    );
+    return;
+  }
+
+  // Only handle same-origin requests below
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Exclude authentication, live broadcasting, notifications, and mutation endpoints
   if (
     url.pathname.startsWith('/login') ||
     url.pathname.startsWith('/logout') ||
     url.pathname.startsWith('/broadcasting') ||
     url.pathname.startsWith('/notifications') ||
+    url.pathname.startsWith('/chat') ||
     url.pathname.startsWith('/api') ||
     url.pathname.includes('/reorder') ||
     url.pathname.includes('/move') ||
@@ -63,65 +92,88 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // For static assets (JS, CSS, images, fonts): Cache-First strategy
-  const isAsset = 
-    url.pathname.startsWith('/build/') || 
-    url.pathname.startsWith('/js/') || 
-    url.pathname.startsWith('/css/') || 
-    url.pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|otf|mp3)$/i);
+  // 2) Same-origin static assets (Vite build, JS, CSS, images, fonts, sounds): Cache-First + background revalidate
+  const isAsset =
+    url.pathname.startsWith('/build/') ||
+    url.pathname.startsWith('/js/') ||
+    url.pathname.startsWith('/css/') ||
+    url.pathname.startsWith('/images/') ||
+    url.pathname.startsWith('/sounds/') ||
+    /\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|otf|mp3|wav)$/i.test(url.pathname);
 
   if (isAsset) {
     event.respondWith(
-      caches.match(request).then(cachedResponse => {
-        if (cachedResponse) {
-          // Fetch update in background to keep cache fresh
-          fetch(request).then(networkResponse => {
-            if (networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then(cache => cache.put(request, networkResponse));
+      caches.open(CACHE_NAME).then(cache =>
+        cache.match(request).then(cachedResponse => {
+          const fetchPromise = fetch(request).then(networkResponse => {
+            if (networkResponse && networkResponse.status === 200) {
+              cache.put(request, networkResponse.clone()).catch(() => {});
             }
-          }).catch(() => {});
-          return cachedResponse;
-        }
-        return fetch(request).then(networkResponse => {
-          if (networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, responseClone));
-          }
-          return networkResponse;
-        });
-      })
-    );
-    return;
-  }
+            return networkResponse;
+          }).catch(() => cachedResponse);
 
-  // HTML pages are intentionally NEVER cached-and-replayed: every page in
-  // this app is personalized/authenticated (user name, role, CSRF token,
-  // and — critically — the per-user meta tag the notification bell's
-  // Pusher client reads to pick which private channel to subscribe to).
-  // The previous Network-First-with-cache-fallback strategy cached these
-  // by URL only, with no per-session/per-user variance, so on a shared
-  // device a slow (>200ms) page load could silently serve a DIFFERENT
-  // staff member's cached HTML — including their user ID — causing this
-  // browser to subscribe to that other user's live notification channel.
-  // Always hit the network for HTML; let the browser's own default
-  // handling take over instead of intercepting.
+          return cachedResponse || fetchPromise;
+        })
+      )
+    );
+  }
 });
 
-// Handle notification clicks (deep-linking)
+// Handle messages from the app (background notifications, badge updates, cache invalidation)
+self.addEventListener('message', event => {
+  const data = event.data || {};
+  if (data.type === 'SHOW_NOTIFICATION' && data.payload) {
+    const p = data.payload;
+    const title = p.title || 'KIUQ System';
+    const options = {
+      body: p.body || '',
+      icon: p.icon || '/images/logo.png',
+      badge: '/images/logo.png',
+      tag: p.tag || ('dgt-notif-' + (p.id || Date.now())),
+      renotify: true,
+      data: {
+        link: p.url || p.link || '/dashboard',
+        card_id: p.card_id || null
+      }
+    };
+    if (typeof p.badgeCount === 'number' && 'setAppBadge' in self.navigator) {
+      if (p.badgeCount > 0) {
+        self.navigator.setAppBadge(p.badgeCount).catch(() => {});
+      } else if ('clearAppBadge' in self.navigator) {
+        self.navigator.clearAppBadge().catch(() => {});
+      }
+    }
+    event.waitUntil(self.registration.showNotification(title, options));
+  } else if (data.type === 'SET_BADGE') {
+    const count = Number(data.count || 0);
+    if ('setAppBadge' in self.navigator) {
+      if (count > 0) {
+        self.navigator.setAppBadge(count).catch(() => {});
+      } else if ('clearAppBadge' in self.navigator) {
+        self.navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  }
+});
+
+// Handle notification clicks (deep-linking to exact conversation, card, or report)
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  const link = event.notification.data ? event.notification.data.link : null;
-  const cardId = event.notification.data ? event.notification.data.card_id : null;
-  
+  const notifData = event.notification.data || {};
+  const link = notifData.link || notifData.url || (notifData.pusher && notifData.pusher.customerPayload && notifData.pusher.customerPayload.web && notifData.pusher.customerPayload.web.notification && notifData.pusher.customerPayload.web.notification.deep_link) || null;
+  const cardId = notifData.card_id || null;
+
   if (link) {
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
         for (let i = 0; i < clientList.length; i++) {
-          let client = clientList[i];
+          const client = clientList[i];
           if ('focus' in client) {
-            // Send message to client if we need to open a card
             if (cardId) {
-                client.postMessage({ type: 'OPEN_CARD', cardId: cardId });
+              client.postMessage({ type: 'OPEN_CARD', cardId: cardId });
+            }
+            if ('navigate' in client && link) {
+              client.navigate(link).catch(() => {});
             }
             return client.focus();
           }

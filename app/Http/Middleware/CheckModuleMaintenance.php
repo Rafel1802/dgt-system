@@ -167,10 +167,10 @@ class CheckModuleMaintenance
                 $isMaintained = true;
                 $displayModule = 'Dashboard';
             }
-        } elseif ($module === 'reports') {
-            if (in_array('reports', $maintenanceModules)) {
+        } elseif ($module === 'reports' || $module === 'production_reports') {
+            if (in_array('production_reports', $maintenanceModules, true) || in_array('reports', $maintenanceModules, true)) {
                 $isMaintained = true;
-                $displayModule = 'Reports Portals';
+                $displayModule = 'Production Report Management System';
             }
         } else {
             if (in_array($module, $maintenanceModules)) {

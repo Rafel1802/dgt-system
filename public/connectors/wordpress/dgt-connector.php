@@ -243,12 +243,14 @@ class DGT_Website_Connector {
                 if ($postStatus === 'publish') {
                     $timestamp = min($timestamp, time() - 120);
                 }
-                $postData['post_date']     = date('Y-m-d H:i:s', $timestamp);
-                $postData['post_date_gmt'] = gmdate('Y-m-d H:i:s', $timestamp);
+                $gmtStr = gmdate('Y-m-d H:i:s', $timestamp);
+                $postData['post_date_gmt'] = $gmtStr;
+                $postData['post_date']     = function_exists('get_date_from_gmt') ? get_date_from_gmt($gmtStr) : date('Y-m-d H:i:s', $timestamp);
             }
         } elseif ($postStatus === 'publish') {
-            $postData['post_date']     = date('Y-m-d H:i:s', time() - 120);
-            $postData['post_date_gmt'] = gmdate('Y-m-d H:i:s', time() - 120);
+            $gmtStr = gmdate('Y-m-d H:i:s', time() - 120);
+            $postData['post_date_gmt'] = $gmtStr;
+            $postData['post_date']     = function_exists('get_date_from_gmt') ? get_date_from_gmt($gmtStr) : date('Y-m-d H:i:s', time() - 120);
         }
 
         // Check if an existing post has this slug to avoid duplicates
@@ -278,35 +280,50 @@ class DGT_Website_Connector {
             wp_publish_post($postId);
         }
 
-        // Category assignment
+        // Category assignment (ignore internal DGT SEO tier labels like "1st Class".."10th Class")
+        if (!empty($category) && preg_match('/^(\d+(st|nd|rd|th)\s*class|class\s*\d+|uncategorized)$/i', trim($category))) {
+            $category = '';
+        }
+
         $assignedCategoryIds = [];
         if (!empty($category)) {
             $catTerm = term_exists($category, 'category');
             if (!$catTerm) {
                 $catTerm = wp_insert_term($category, 'category');
             }
-            if (!is_wp_error($catTerm) && isset($catTerm['term_id'])) {
-                $assignedCategoryIds[] = (int) $catTerm['term_id'];
+            if (!is_wp_error($catTerm)) {
+                $termId = is_array($catTerm) ? (int) ($catTerm['term_id'] ?? 0) : (int) $catTerm;
+                if ($termId > 0) {
+                    $assignedCategoryIds[] = $termId;
+                }
             }
         }
 
-        // Guarantee main Blog archive inclusion: attach 'blog' category if it exists on the site
-        $mainBlogSlugs = ['blog', 'blogs', 'articles', 'news'];
+        // Guarantee main Blog archive / Elementor Post Grid inclusion across all fleet WordPress themes
+        $mainBlogSlugs = [
+            'blog', 'blogs', 'all-blogs', 'post', 'posts',
+            'articles', 'news', 'machinery-guide',
+            'electric-forklift-guides', 'skid-steer-buying-guides',
+            'road-roller-blogs', 'forklift-blog', 'roadroller',
+        ];
         foreach ($mainBlogSlugs as $blogSlug) {
             $foundTerm = get_term_by('slug', $blogSlug, 'category');
             if ($foundTerm && !is_wp_error($foundTerm)) {
                 $assignedCategoryIds[] = (int) $foundTerm->term_id;
-                break;
             }
         }
-        if (empty($assignedCategoryIds)) {
-            $defaultCat = (int) get_option('default_category');
-            if ($defaultCat > 0) {
+
+        $defaultCat = (int) get_option('default_category');
+        if ($defaultCat > 0) {
+            $defaultTerm = get_term($defaultCat, 'category');
+            $defaultSlug = ($defaultTerm && !is_wp_error($defaultTerm)) ? ($defaultTerm->slug ?? '') : '';
+            if (empty($assignedCategoryIds) || ($defaultSlug !== '' && $defaultSlug !== 'uncategorized')) {
                 $assignedCategoryIds[] = $defaultCat;
             }
         }
+
         if (!empty($assignedCategoryIds)) {
-            wp_set_post_categories($postId, array_unique($assignedCategoryIds), false);
+            wp_set_post_categories($postId, array_values(array_unique(array_filter($assignedCategoryIds))), false);
         }
 
         // Store SEO Meta
@@ -345,7 +362,19 @@ class DGT_Website_Connector {
             }
         }
 
-        // Flush all caches immediately so post is visible to public visitors without delay
+        // Flush all caches immediately (including Elementor widget cache & Hostinger LiteSpeed/hcdn header)
+        global $wpdb;
+        if (isset($wpdb->postmeta)) {
+            $wpdb->query("DELETE FROM {$wpdb->postmeta} WHERE meta_key = '_elementor_element_cache'");
+        }
+        if (class_exists('\\Elementor\\Plugin') && isset(\Elementor\Plugin::$instance->files_manager)) {
+            try {
+                \Elementor\Plugin::$instance->files_manager->clear_cache();
+            } catch (\Throwable $e) {}
+        }
+        if (!headers_sent()) {
+            header('X-LiteSpeed-Purge: *');
+        }
         clean_post_cache($postId);
         if (function_exists('wp_cache_flush')) {
             wp_cache_flush();
@@ -424,7 +453,19 @@ class DGT_Website_Connector {
 
         $deleted = wp_delete_post($targetPostId, true);
 
-        // Purge caches
+        // Purge caches (including Elementor widget cache & Hostinger LiteSpeed/hcdn header)
+        global $wpdb;
+        if (isset($wpdb->postmeta)) {
+            $wpdb->query("DELETE FROM {$wpdb->postmeta} WHERE meta_key = '_elementor_element_cache'");
+        }
+        if (class_exists('\\Elementor\\Plugin') && isset(\Elementor\Plugin::$instance->files_manager)) {
+            try {
+                \Elementor\Plugin::$instance->files_manager->clear_cache();
+            } catch (\Throwable $e) {}
+        }
+        if (!headers_sent()) {
+            header('X-LiteSpeed-Purge: *');
+        }
         if (function_exists('wp_cache_flush')) {
             wp_cache_flush();
         }
@@ -443,9 +484,29 @@ class DGT_Website_Connector {
     }
 
     /**
-     * Health check endpoint.
+     * Health check endpoint (also supports ?purge=1 to trigger LiteSpeed & Elementor cache flush over HTTP).
      */
-    public function rest_get_health() {
+    public function rest_get_health($request = null) {
+        if ($request && $request->get_param('purge')) {
+            global $wpdb;
+            if (isset($wpdb->postmeta)) {
+                $wpdb->query("DELETE FROM {$wpdb->postmeta} WHERE meta_key = '_elementor_element_cache'");
+            }
+            if (class_exists('\\Elementor\\Plugin') && isset(\Elementor\Plugin::$instance->files_manager)) {
+                try {
+                    \Elementor\Plugin::$instance->files_manager->clear_cache();
+                } catch (\Throwable $e) {}
+            }
+            if (!headers_sent()) {
+                header('X-LiteSpeed-Purge: *');
+            }
+            if (function_exists('wp_cache_flush')) {
+                wp_cache_flush();
+            }
+            if (has_action('litespeed_purge_all')) {
+                do_action('litespeed_purge_all');
+            }
+        }
         return rest_ensure_response([
             'status'     => 'ok',
             'platform'   => 'WordPress',

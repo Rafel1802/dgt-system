@@ -37,32 +37,110 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
     public function handle(GoogleSearchConsoleSitemapService $sitemapService): int
     {
         $websiteId = $this->option('website');
-        $limit = max(5, (int) $this->option('limit') ?: 150);
-        $delayMs = max(50, (int) $this->option('delay') ?: 120);
+        $limit = max(3, (int) $this->option('limit') ?: 25);
+        $delayMs = max(20, (int) $this->option('delay') ?: 80);
         $force = (bool) $this->option('force');
 
-        $sitesQuery = GoogleSearchConsoleSite::where('is_sync_enabled', true)
-            ->whereHas('account', fn($q) => $q->where('is_active', true));
+        $activeAccount = \App\Models\GoogleSearchConsole\GoogleSearchConsoleAccount::where('is_active', true)->first();
 
+        // Ensure all Websites with a domain have a GoogleSearchConsoleSite record so no website is skipped
+        $websitesQuery = Website::query()->whereNotNull('url')->where('url', '!=', '');
+        if ($websiteId) {
+            $websitesQuery->where('id', $websiteId);
+        }
+        $websites = $websitesQuery->orderBy('id')->get();
+
+        foreach ($websites as $ws) {
+            $cleanDomain = $ws->clean_domain ?: preg_replace('#^(https?://)?(www\.)?#i', '', rtrim((string) $ws->url, '/'));
+            $cleanDomain = strtolower(trim(preg_replace('#/.*$#', '', (string) $cleanDomain)));
+            if (!$cleanDomain || str_contains($cleanDomain, '127.0.0.1') || str_contains($cleanDomain, 'localhost')) {
+                continue;
+            }
+
+            $existingSite = GoogleSearchConsoleSite::where('website_id', $ws->id)->first();
+            if (!$existingSite) {
+                $existingSite = GoogleSearchConsoleSite::whereIn('site_url', \App\Http\Controllers\GoogleSearchConsoleController::exactGscPropertyCandidates($cleanDomain))->first();
+                if ($existingSite && !$existingSite->website_id) {
+                    $existingSite->update(['website_id' => $ws->id, 'is_sync_enabled' => true]);
+                } elseif (!$existingSite) {
+                    GoogleSearchConsoleSite::create([
+                        'account_id'       => $activeAccount?->id,
+                        'website_id'       => $ws->id,
+                        'site_url'         => "sc-domain:{$cleanDomain}",
+                        'permission_level' => 'siteFullUser',
+                        'is_verified'      => true,
+                        'is_sync_enabled'  => true,
+                    ]);
+                }
+            } elseif (!$existingSite->is_sync_enabled) {
+                $existingSite->update(['is_sync_enabled' => true]);
+            }
+        }
+
+        $sitesQuery = GoogleSearchConsoleSite::where('is_sync_enabled', true)->whereNotNull('website_id');
         if ($websiteId) {
             $sitesQuery->where('website_id', $websiteId);
         }
 
-        $sites = $sitesQuery->with('website')->get();
+        $sites = $sitesQuery->with('website')->orderBy('website_id')->get();
 
         if ($sites->isEmpty()) {
             $this->warn("No active Google Search Console sites found to inspect.");
+            Cache::put('gsc_auto_inspect_all_status', [
+                'running' => false,
+                'message' => 'No websites found to scan.',
+            ], 600);
             return 0;
         }
 
-        $this->info("Starting Automated GSC URL Inspection across " . $sites->count() . " site(s)...");
+        $totalSites = $sites->count();
+        $recentLogs = [];
+        $sumIndexedAll = 0;
+        $sumNotIndexedAll = 0;
 
-        foreach ($sites as $site) {
+        if (!$websiteId) {
+            Cache::put('gsc_auto_inspect_all_status', [
+                'running'                 => true,
+                'started_at'              => now()->toIso8601String(),
+                'total_sites'             => $totalSites,
+                'sites_completed'         => 0,
+                'current_domain'          => 'Initializing multi-site scanner...',
+                'total_indexed_found'     => 0,
+                'total_not_indexed_found' => 0,
+                'recent_logs'             => ['🚀 Starting full scan across ' . $totalSites . ' websites...'],
+                'message'                 => "Scanning 0/{$totalSites} websites...",
+            ], 3600);
+        }
+
+        $this->info("Starting Automated GSC URL Inspection across {$totalSites} site(s)...");
+
+        foreach ($sites as $siteIdx => $site) {
             $website = $site->website;
             if (!$website) continue;
 
+            $cleanDomain = $website->clean_domain ?: preg_replace('#^(sc-domain:|https?://(www\.)?)#i', '', rtrim((string) $site->site_url, '/'));
+            $siteNum = $siteIdx + 1;
+
             $this->line("==================================================");
-            $this->info("Scanning Website: {$website->name} ({$site->site_url})");
+            $this->info("[{$siteNum}/{$totalSites}] Scanning Website: {$website->name} ({$site->site_url})");
+
+            if (!$websiteId) {
+                $recentLogs[] = "[{$siteNum}/{$totalSites}] Scanning {$cleanDomain}...";
+                if (count($recentLogs) > 25) {
+                    $recentLogs = array_slice($recentLogs, -25);
+                }
+                Cache::put('gsc_auto_inspect_all_status', [
+                    'running'                 => true,
+                    'started_at'              => now()->toIso8601String(),
+                    'total_sites'             => $totalSites,
+                    'sites_completed'         => $siteIdx,
+                    'current_domain'          => $cleanDomain,
+                    'total_indexed_found'     => $sumIndexedAll,
+                    'total_not_indexed_found' => $sumNotIndexedAll,
+                    'recent_logs'             => $recentLogs,
+                    'message'                 => "Scanning [{$siteNum}/{$totalSites}] {$cleanDomain}...",
+                ], 3600);
+            }
 
             $cacheKey = "gsc_inspecting_{$website->id}";
             Cache::put($cacheKey, [
@@ -75,12 +153,17 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
                 'indexed'      => 0,
                 'not_indexed'  => 0,
                 'errors'       => 0,
-                'message'      => 'Discovering URLs...',
+                'message'      => 'Discovering Sitemaps & URLs...',
             ], 3600);
 
             try {
+                // 0. Sync sitemaps first so submitted/indexed counts are fresh
+                try {
+                    $sitemapService->getWebsiteSitemaps($website, false);
+                } catch (\Throwable $e) {}
+
                 // 1. Gather all discovered URLs (sitemaps + published pages)
-                $urls = $sitemapService->getDiscoveredSitemapUrls($website);
+                $urls = $sitemapService->getDiscoveredSitemapUrls($website, false);
 
                 // Also include any URLs from google_search_console_pages
                 $analyticsUrls = DB::table('google_search_console_pages')
@@ -89,14 +172,15 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
                     ->all();
 
                 $allUrls = array_values(array_unique(array_filter(array_merge($urls, $analyticsUrls))));
+                if (empty($allUrls) && $cleanDomain) {
+                    $allUrls = [
+                        'https://' . $cleanDomain . '/',
+                        'https://www.' . $cleanDomain . '/',
+                    ];
+                }
                 $totalDiscovered = count($allUrls);
 
                 $this->line("Found {$totalDiscovered} total unique URLs.");
-
-                if ($totalDiscovered === 0) {
-                    Cache::put($cacheKey, ['running' => false, 'message' => 'No URLs discovered.'], 300);
-                    continue;
-                }
 
                 // 2. Filter URLs that need inspection (never inspected, or older than 7 days if not forced)
                 $cutoff = $force ? now()->addDay() : now()->subDays(7);
@@ -113,8 +197,6 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
                         $pendingUrls[] = $u;
                     }
                 }
-
-                $this->line(count($pendingUrls) . " URLs need inspection (skipped " . (count($allUrls) - count($pendingUrls)) . " recently verified).");
 
                 $urlsToInspect = array_slice($pendingUrls, 0, $limit);
                 $toInspectCount = count($urlsToInspect);
@@ -133,7 +215,7 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
                     'indexed'      => 0,
                     'not_indexed'  => 0,
                     'errors'       => 0,
-                    'message'      => "Inspecting {$toInspectCount} URLs via Google API...",
+                    'message'      => "Inspecting {$toInspectCount} URLs...",
                 ], 3600);
 
                 foreach ($urlsToInspect as $idx => $url) {
@@ -150,10 +232,7 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
                     }
 
                     $processed = $idx + 1;
-                    if ($processed % 10 === 0 || $processed === $toInspectCount) {
-                        $this->line(sprintf(" [%d/%d] Indexed: %d, Not Indexed: %d, Errors: %d",
-                            $processed, $toInspectCount, $indexedCount, $notIndexedCount, $errorsCount));
-
+                    if ($processed % 5 === 0 || $processed === $toInspectCount) {
                         Cache::put($cacheKey, [
                             'running'      => true,
                             'started_at'   => now()->toIso8601String(),
@@ -173,47 +252,49 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
                     }
                 }
 
-                // 3. Aggregate all verified URL inspections for this website into site headline stats
-                $inspections = GoogleSearchConsoleUrlInspection::where('website_id', $website->id)->get();
-                $totalVerifiedIndexed = $inspections->where('is_indexed', true)->count();
-                $totalVerifiedNotIndexed = $inspections->where('is_indexed', false)->count();
+                // 3. Refresh full indexation overview so Indexed / Not Indexed counts and reasons are stored in DB
+                $overview = $sitemapService->getIndexationOverview($website, 'all', '', 1, 25, false);
+                $summary = $overview['summary'] ?? [];
 
-                // If some discovered URLs are not in inspections, add them to not-indexed
-                $uninspectedDiscovered = max(0, $totalDiscovered - ($totalVerifiedIndexed + $totalVerifiedNotIndexed));
-                $effectiveNotIndexed = $totalVerifiedNotIndexed + $uninspectedDiscovered;
+                $finalIndexed = (int) ($summary['total_indexed'] ?? 0);
+                $finalNotIndexed = (int) ($summary['total_not_indexed'] ?? 0);
+                $finalReasons = $summary['gsc_reasons'] ?? [];
 
-                // Tally exclusion reasons
-                $reasonsTally = [];
-                foreach ($inspections as $ins) {
-                    if (!$ins->is_indexed) {
-                        $st = $ins->coverage_state ?: 'Discovered - currently not indexed';
-                        $reasonsTally[$st] = ($reasonsTally[$st] ?? 0) + 1;
+                // Ensure site record has updated timestamp and counts
+                $site->refresh();
+                $site->update([
+                    'gsc_indexed_pages'       => $site->gsc_indexed_pages !== null ? max((int) $site->gsc_indexed_pages, $finalIndexed) : $finalIndexed,
+                    'gsc_not_indexed_pages'   => ($site->gsc_not_indexed_pages !== null && (int) $site->gsc_not_indexed_pages > 0) ? (int) $site->gsc_not_indexed_pages : $finalNotIndexed,
+                    'gsc_indexing_updated_at' => now(),
+                    'gsc_indexing_reasons'    => !empty($site->gsc_indexing_reasons) ? $site->gsc_indexing_reasons : $finalReasons,
+                    'last_synced_at'          => now(),
+                    'sync_status'             => 'success',
+                ]);
+
+                $siteIndexed = (int) $site->gsc_indexed_pages;
+                $siteNotIndexed = (int) $site->gsc_not_indexed_pages;
+                $sumIndexedAll += $siteIndexed;
+                $sumNotIndexedAll += $siteNotIndexed;
+
+                $this->info("Completed {$website->name}! Indexed: {$siteIndexed}, Not Indexed: {$siteNotIndexed}");
+
+                if (!$websiteId) {
+                    $recentLogs[] = "✓ {$cleanDomain}: {$siteIndexed} Indexed, {$siteNotIndexed} Not Indexed";
+                    if (count($recentLogs) > 25) {
+                        $recentLogs = array_slice($recentLogs, -25);
                     }
+                    Cache::put('gsc_auto_inspect_all_status', [
+                        'running'                 => true,
+                        'started_at'              => now()->toIso8601String(),
+                        'total_sites'             => $totalSites,
+                        'sites_completed'         => $siteNum,
+                        'current_domain'          => $cleanDomain,
+                        'total_indexed_found'     => $sumIndexedAll,
+                        'total_not_indexed_found' => $sumNotIndexedAll,
+                        'recent_logs'             => $recentLogs,
+                        'message'                 => "Scanned {$siteNum}/{$totalSites} websites...",
+                    ], 3600);
                 }
-                if ($uninspectedDiscovered > 0) {
-                    $reasonsTally['Discovered in sitemap - Not inspected yet'] = $uninspectedDiscovered;
-                }
-
-                $reasons = [];
-                foreach ($reasonsTally as $rName => $rCount) {
-                    $reasons[] = ['reason' => $rName, 'count' => (int) $rCount];
-                }
-                usort($reasons, fn($a, $b) => $b['count'] <=> $a['count']);
-
-                // Update site record with live verified snapshot ONLY IF all discovered URLs have been inspected OR verified indexed exceeds current snapshot
-                $currentOfficialIndexed = $site->gsc_indexed_pages;
-                $currentOfficialNotIndexed = $site->gsc_not_indexed_pages;
-
-                if ($currentOfficialIndexed === null || $totalVerifiedIndexed > $currentOfficialIndexed) {
-                    $site->update([
-                        'gsc_indexed_pages'       => max($totalVerifiedIndexed, (int) $currentOfficialIndexed),
-                        'gsc_not_indexed_pages'   => $currentOfficialNotIndexed !== null ? $currentOfficialNotIndexed : $effectiveNotIndexed,
-                        'gsc_indexing_updated_at' => now(),
-                        'gsc_indexing_reasons'    => !empty($reasons) ? $reasons : $site->gsc_indexing_reasons,
-                    ]);
-                }
-
-                $this->info("Completed {$website->name}! Verified Indexed: {$totalVerifiedIndexed}, Not Indexed: {$effectiveNotIndexed}");
 
                 Cache::put($cacheKey, [
                     'running'      => false,
@@ -222,18 +303,36 @@ class AutoInspectGoogleSearchConsoleCommand extends Command
                     'website_name' => $website->name,
                     'total'        => $toInspectCount,
                     'processed'    => $toInspectCount,
-                    'indexed'      => $totalVerifiedIndexed,
-                    'not_indexed'  => $effectiveNotIndexed,
-                    'message'      => "Scan complete! {$totalVerifiedIndexed} indexed, {$effectiveNotIndexed} not indexed.",
+                    'indexed'      => $siteIndexed,
+                    'not_indexed'  => $siteNotIndexed,
+                    'message'      => "Scan complete! {$siteIndexed} indexed, {$siteNotIndexed} not indexed.",
                 ], 3600);
 
             } catch (\Throwable $ex) {
                 $this->error("Failed scanning {$website->name}: " . $ex->getMessage());
+                if (!$websiteId) {
+                    $recentLogs[] = "⚠️ {$cleanDomain}: " . $ex->getMessage();
+                }
                 Cache::put($cacheKey, [
                     'running' => false,
                     'error'   => $ex->getMessage(),
                 ], 600);
             }
+        }
+
+        if (!$websiteId) {
+            $recentLogs[] = "🎉 Finished scanning all {$totalSites} websites! Total Indexed: {$sumIndexedAll}, Total Not Indexed: {$sumNotIndexedAll}";
+            Cache::put('gsc_auto_inspect_all_status', [
+                'running'                 => false,
+                'finished_at'             => now()->toIso8601String(),
+                'total_sites'             => $totalSites,
+                'sites_completed'         => $totalSites,
+                'current_domain'          => "All {$totalSites} websites scanned!",
+                'total_indexed_found'     => $sumIndexedAll,
+                'total_not_indexed_found' => $sumNotIndexedAll,
+                'recent_logs'             => $recentLogs,
+                'message'                 => "Completed! Scanned {$totalSites} websites ({$sumIndexedAll} Indexed, {$sumNotIndexedAll} Not Indexed).",
+            ], 3600);
         }
 
         $this->info("All GSC auto-inspections finished successfully.");

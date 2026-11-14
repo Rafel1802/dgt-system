@@ -1,3 +1,11 @@
+@php
+    $theme = $theme ?? app(\App\Services\WebsiteBlogPostService::class)->resolveWebsiteTheme($website ?? null, $post ?? null, $siteUrl ?? ($post?->canonical_url ?? ''));
+    $primaryColor = $theme['primary'] ?? '#ea580c';
+    $primaryDarkColor = $theme['primary_dark'] ?? '#c2410c';
+    $primaryLightColor = $theme['primary_light'] ?? '#fff7ed';
+    $linkColor = $theme['link_color'] ?? $primaryColor;
+    $linkHoverColor = $theme['link_hover'] ?? $primaryDarkColor;
+@endphp
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -55,7 +63,7 @@
             top: 0;
             left: 0;
             height: 3.5px;
-            background: linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6);
+            background: linear-gradient(90deg, {{ $primaryColor }}, {{ $linkHoverColor }});
             z-index: 100;
             width: 0%;
             transition: width 0.1s ease-out;
@@ -72,6 +80,28 @@
         }
         .article-content p {
             margin-bottom: 1.65rem;
+        }
+        /* Hyperlink typography & contrast - strictly adheres to website brand theme */
+        .article-content a,
+        .article-content .cms-article-link {
+            color: {{ $linkColor }};
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            font-weight: 600;
+            transition: color 0.15s ease-in-out, text-decoration-color 0.15s ease-in-out;
+        }
+        .article-content a:hover,
+        .article-content .cms-article-link:hover {
+            color: {{ $linkHoverColor }};
+            text-decoration: underline;
+        }
+        .dark .article-content a,
+        .dark .article-content .cms-article-link {
+            color: {{ $linkColor }};
+        }
+        .dark .article-content a:hover,
+        .dark .article-content .cms-article-link:hover {
+            color: {{ $linkHoverColor }};
         }
         .article-content h2 {
             font-size: 1.75rem;
@@ -217,12 +247,12 @@
                     @if($website && $website->logo_path)
                         <img src="{{ $website->logo_path }}" alt="{{ $siteName }}" class="h-8 w-auto max-w-[130px] object-contain">
                     @else
-                        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-md">
+                        <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-md" style="background: {{ $primaryColor }};">
                             {{ substr($siteName, 0, 1) }}
                         </div>
                     @endif
                     <div class="flex flex-col">
-                        <span class="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white group-hover:text-blue-600 transition">{{ $siteName }}</span>
+                        <span class="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white transition" onmouseover="this.style.color='{{ $primaryColor }}'" onmouseout="this.style.color=''">{{ $siteName }}</span>
                         @if($website && $website->category)
                         <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">{{ $website->category }}</span>
                         @endif
@@ -256,9 +286,9 @@
 
         <!-- Category & Breadcrumb -->
         <div class="flex items-center gap-2 mb-4 text-xs font-bold text-slate-500">
-            <a href="{{ $siteUrl }}" class="hover:text-blue-600 transition">{{ $siteName }}</a>
+            <a href="{{ $siteUrl }}" class="transition" onmouseover="this.style.color='{{ $primaryColor }}'" onmouseout="this.style.color=''">{{ $siteName }}</a>
             <span>/</span>
-            <span class="px-2.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 font-extrabold uppercase tracking-wider text-[11px]">
+            <span class="px-2.5 py-0.5 rounded-md font-extrabold uppercase tracking-wider text-[11px]" style="background: {{ $primaryLightColor }}; color: {{ $primaryColor }};">
                 {{ $post->category ?: 'Editorial Insights' }}
             </span>
         </div>
@@ -330,7 +360,7 @@
 
         <!-- ── Author Bio Box ── -->
         <div class="mt-12 p-6 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center sm:items-start gap-4">
-            <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-xl shadow-md shrink-0">
+            <div class="w-14 h-14 rounded-full flex items-center justify-center text-white font-extrabold text-xl shadow-md shrink-0" style="background: {{ $primaryColor }};">
                 {{ substr($authorName, 0, 1) }}
             </div>
             <div class="space-y-1 text-center sm:text-left">
@@ -340,7 +370,7 @@
                 </p>
                 @if($website && $website->url)
                 <div class="pt-2">
-                    <a href="{{ $website->url }}" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
+                    <a href="{{ $website->url }}" target="_blank" rel="noopener noreferrer" class="text-xs font-bold hover:underline inline-flex items-center gap-1" style="color: {{ $linkColor }};">
                         Visit {{ $siteName }} ↗
                     </a>
                 </div>

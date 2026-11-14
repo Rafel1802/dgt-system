@@ -27,6 +27,9 @@ class CardChecklistItem extends Model
         'is_approved',
         'approved_by',
         'approved_at',
+        'is_uploaded',
+        'uploaded_by',
+        'uploaded_at',
     ];
 
     /**
@@ -49,7 +52,7 @@ class CardChecklistItem extends Model
         'content' => 'sreypich',
     ];
 
-    protected $with = ['assignedUser', 'markedBy', 'issueBy'];
+    protected $with = ['assignedUser', 'markedBy', 'issueBy', 'uploadedBy'];
 
     protected static function booted()
     {
@@ -124,6 +127,19 @@ class CardChecklistItem extends Model
                             if (!empty($siblingUpdates)) {
                                 $existingSibling->updateQuietly($siblingUpdates);
                             }
+                            if ($item->is_uploaded && !$existingSibling->is_uploaded) {
+                                $existingSibling->updateQuietly([
+                                    'is_uploaded' => $item->is_uploaded,
+                                    'uploaded_by' => $item->uploaded_by,
+                                    'uploaded_at' => $item->uploaded_at,
+                                ]);
+                            } elseif ($existingSibling->is_uploaded && !$item->is_uploaded) {
+                                $item->updateQuietly([
+                                    'is_uploaded' => $existingSibling->is_uploaded,
+                                    'uploaded_by' => $existingSibling->uploaded_by,
+                                    'uploaded_at' => $existingSibling->uploaded_at,
+                                ]);
+                            }
                         } else {
                             \App\Models\CardChecklistItem::create([
                                 'checklist_id'     => $otherChecklist->id,
@@ -144,6 +160,9 @@ class CardChecklistItem extends Model
                                 'is_approved'      => $item->is_approved ?? false,
                                 'approved_by'      => $item->approved_by,
                                 'approved_at'      => $item->approved_at,
+                                'is_uploaded'      => $item->is_uploaded ?? false,
+                                'uploaded_by'      => $item->uploaded_by,
+                                'uploaded_at'      => $item->uploaded_at,
                             ]);
                         }
                     }
@@ -166,6 +185,7 @@ class CardChecklistItem extends Model
                     'is_marked', 'marked_by', 'marked_at',
                     'has_issue', 'issue_by', 'issue_at',
                     'is_approved', 'approved_by', 'approved_at',
+                    'is_uploaded', 'uploaded_by', 'uploaded_at',
                 ];
                 $changes = array_intersect_key($item->getChanges(), array_flip($allowed));
                 if (empty($changes)) {
@@ -204,7 +224,7 @@ class CardChecklistItem extends Model
         });
     }
 
-    protected $appends = ['title', 'assigned_users', 'marked_user', 'issue_user'];
+    protected $appends = ['title', 'assigned_users', 'marked_user', 'issue_user', 'uploaded_user'];
 
     /**
      * Effective assignee ids: the multi-assignee list, falling back to the single legacy column.
@@ -298,6 +318,23 @@ class CardChecklistItem extends Model
         ];
     }
 
+    public function getUploadedUserAttribute(): ?array
+    {
+        if (!$this->uploaded_by) return null;
+        $u = $this->relationLoaded('uploadedBy') ? $this->uploadedBy : User::withTrashed()->find($this->uploaded_by);
+        if (!$u) return null;
+        return [
+            'id'              => $u->id,
+            'name'            => $u->name,
+            'username'        => $u->username,
+            'email'           => $u->email,
+            'avatar'          => $u->avatar_url,
+            'avatar_url'      => $u->avatar_url,
+            'avatar_initials' => $u->avatar_initials,
+            'avatar_color'    => $u->avatar_color,
+        ];
+    }
+
     public function getTitleAttribute(): string
     {
         return $this->content ?? '';
@@ -317,6 +354,8 @@ class CardChecklistItem extends Model
         'issue_at'     => 'datetime',
         'is_approved'  => 'boolean',
         'approved_at'  => 'datetime',
+        'is_uploaded'  => 'boolean',
+        'uploaded_at'  => 'datetime',
         'assigned_user_ids' => 'array',
     ];
 
@@ -407,6 +446,11 @@ class CardChecklistItem extends Model
     public function issueBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issue_by')->withTrashed();
+    }
+
+    public function uploadedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by')->withTrashed();
     }
 
     public function approvedBy(): BelongsTo

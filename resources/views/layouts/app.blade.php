@@ -25,29 +25,116 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <meta name="apple-touch-fullscreen" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="DIGITAL SYSTEM">
+    <meta name="theme-color" id="dgt-theme-color-meta" content="#020819">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <style>
+        /* Critical layout & logo sizing to prevent FOUC / flash of large logo */
+        #sidebar { width: 260px; }
+        .sidebar-is-collapsed #sidebar { width: 72px; }
+        .sidebar-logo { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; }
+        .sidebar-logo-icon { width: 36px !important; height: 36px !important; min-width: 36px !important; min-height: 36px !important; max-width: 36px !important; max-height: 36px !important; flex-shrink: 0 !important; overflow: hidden !important; border-radius: 8px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+        .sidebar-logo-icon img, .sidebar-logo img { width: 36px !important; height: 36px !important; max-width: 36px !important; max-height: 36px !important; object-fit: contain !important; display: block !important; }
+        img[alt*="logo" i] { max-width: 36px !important; max-height: 36px !important; }
+        [x-cloak] { display: none !important; }
+    </style>
     @auth
+        <meta name="kiuq-user-id" content="{{ auth()->id() }}">
         @if(config('broadcasting.default') === 'pusher' && config('broadcasting.connections.pusher.key'))
-            <meta name="kiuq-user-id" content="{{ auth()->id() }}">
             <meta name="kiuq-pusher-key" content="{{ config('broadcasting.connections.pusher.key') }}">
             <meta name="kiuq-pusher-cluster" content="{{ config('broadcasting.connections.pusher.options.cluster') }}">
             <script defer src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
         @endif
     @endauth
 
-    <!-- Pusher Beams Web Push Notifications SDK -->
-    <script src="https://js.pusher.com/beams/2.1.0/push-notifications-cdn.js"></script>
+    <!-- Mobile Storage Cache Engine (Instant 0ms State Hydration + Touch Prefetching) -->
     <script>
         (function() {
-            window.kiuqInitPusherBeams = function() {
+            const getUid = () => document.querySelector('meta[name="kiuq-user-id"]')?.content || 'guest';
+            const prefix = () => `dgt_mcache_v2_u${getUid()}_`;
+
+            window.DgtMobileCache = {
+                get(key, fallback = null, maxAgeMs = 1000 * 60 * 30) {
+                    try {
+                        const raw = localStorage.getItem(prefix() + key);
+                        if (!raw) return fallback;
+                        const parsed = JSON.parse(raw);
+                        if (!parsed || typeof parsed !== 'object') return fallback;
+                        if (maxAgeMs > 0 && parsed.ts && (Date.now() - parsed.ts > maxAgeMs)) {
+                            return fallback;
+                        }
+                        return parsed.val !== undefined ? parsed.val : fallback;
+                    } catch (e) {
+                        return fallback;
+                    }
+                },
+                set(key, val) {
+                    try {
+                        localStorage.setItem(prefix() + key, JSON.stringify({ ts: Date.now(), val }));
+                    } catch (e) {
+                        // Quota exceeded: prune older cache keys
+                        try {
+                            const keysToDelete = [];
+                            for (let i = 0; i < localStorage.length; i++) {
+                                const k = localStorage.key(i);
+                                if (k && k.startsWith('dgt_mcache_')) keysToDelete.push(k);
+                            }
+                            keysToDelete.forEach(k => localStorage.removeItem(k));
+                            localStorage.setItem(prefix() + key, JSON.stringify({ ts: Date.now(), val }));
+                        } catch (_) {}
+                    }
+                },
+                remove(key) {
+                    try {
+                        localStorage.removeItem(prefix() + key);
+                    } catch (e) {}
+                }
+            };
+
+            // Touch-start & hover link prefetcher for near-instant mobile/desktop page transitions
+            const prefetchedUrls = new Set();
+            const prefetchUrl = (href) => {
+                if (!href || prefetchedUrls.has(href)) return;
+                try {
+                    const url = new URL(href, window.location.origin);
+                    if (url.origin !== window.location.origin) return;
+                    if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+                    if (/\/(logout|login|api|broadcasting|notifications|google|oauth|auth|connect|callback|disconnect)(\/|$)/.test(url.pathname)) return;
+                    prefetchedUrls.add(url.href);
+                    const link = document.createElement('link');
+                    link.rel = 'prefetch';
+                    link.href = url.href;
+                    link.as = 'document';
+                    document.head.appendChild(link);
+                } catch (e) {}
+            };
+
+            document.addEventListener('touchstart', (e) => {
+                const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+                if (a && a.href && !a.hasAttribute('download') && a.target !== '_blank') {
+                    prefetchUrl(a.href);
+                }
+            }, { passive: true });
+        })();
+    </script>
+
+    <!-- Pusher Beams Web Push Notifications SDK -->
+    <script defer src="https://js.pusher.com/beams/2.1.0/push-notifications-cdn.js"></script>
+    <script>
+        (function() {
+            window.kiuqInitPusherBeams = async function(swRegistration) {
                 if (typeof PusherPushNotifications === 'undefined') return;
                 if (window.beamsClient) return;
 
                 try {
-                    const beamsClient = new PusherPushNotifications.Client({
+                    const reg = swRegistration || (navigator.serviceWorker ? await navigator.serviceWorker.ready.catch(() => null) : null);
+                    const clientOptions = {
                         instanceId: '{{ config('services.pusher_beams.instance_id', '9bc62035-82e2-48e0-8818-3355c2a76a10') }}',
-                    });
+                    };
+                    if (reg) {
+                        clientOptions.serviceWorkerRegistration = reg;
+                    }
+                    const beamsClient = new PusherPushNotifications.Client(clientOptions);
                     window.beamsClient = beamsClient;
 
                     beamsClient.start()
@@ -56,22 +143,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         .then(() => beamsClient.addDeviceInterest('user-{{ auth()->id() }}'))
                         .then(() => beamsClient.addDeviceInterest('dgt-all'))
                         @endauth
-                        .then(() => {
-                            console.log('Successfully registered and subscribed!');
-                        })
-                        .catch(function(err) {
-                            console.error('Pusher Beams error:', err);
-                        });
-                } catch (e) {
-                    console.error('Pusher Beams initialization error:', e);
-                }
+                        .catch(function() {});
+                } catch (e) {}
             };
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', window.kiuqInitPusherBeams);
-            } else {
-                window.kiuqInitPusherBeams();
-            }
         })();
     </script>
 
@@ -535,6 +609,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             });
         })();
 
+        (function() {
             // Revert submit buttons when Turbo completes the request
             document.addEventListener('turbo:submit-end', function(e) {
                 const form = e.target;
@@ -725,6 +800,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
     <script defer src="{{ asset('js/trello-board.js') }}?v={{ file_exists(public_path('js/trello-board.js')) ? filemtime(public_path('js/trello-board.js')) : '1.0.0' }}"></script>
     <script defer src="{{ asset('js/drag-scroll.js') }}?v={{ file_exists(public_path('js/drag-scroll.js')) ? filemtime(public_path('js/drag-scroll.js')) : '1.0.0' }}"></script>
     <script defer src="{{ asset('js/dgt-chat.js') }}?v={{ file_exists(public_path('js/dgt-chat.js')) ? filemtime(public_path('js/dgt-chat.js')) : '1.0.0' }}" data-turbo-track="reload"></script>
+    <script defer src="{{ asset('js/dgt-webrtc-call.js') }}?v={{ file_exists(public_path('js/dgt-webrtc-call.js')) ? filemtime(public_path('js/dgt-webrtc-call.js')) : '1.0.0' }}" data-turbo-track="reload"></script>
     <!-- Vite assets (Tailwind CSS + Alpine.js + Livewire, bundled manually so Livewire's JS
          is not injected into <body> where Turbo would re-execute it on every navigation) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -892,25 +968,48 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 user-select: text !important;
             }
 
-            html.dgt-ios-app .topbar {
-                background: rgba(255, 255, 255, 0.82) !important;
+            html.dgt-ios-app:not([data-theme="dark"]):not([data-theme="neon"]) .topbar {
+                background: rgba(255, 255, 255, 0.85) !important;
                 backdrop-filter: blur(36px) saturate(210%) !important;
                 -webkit-backdrop-filter: blur(36px) saturate(210%) !important;
                 border-bottom: 0.5px solid rgba(15, 23, 42, 0.08) !important;
             }
 
-            [data-theme="dark"] html.dgt-ios-app .topbar {
-                background: rgba(15, 23, 42, 0.85) !important;
+            html.dgt-ios-app[data-theme="dark"] .topbar,
+            html.dgt-mobile-app[data-theme="dark"] .topbar,
+            html[data-theme="dark"] .topbar {
+                background: rgba(15, 23, 42, 0.90) !important;
                 backdrop-filter: blur(36px) saturate(210%) !important;
                 -webkit-backdrop-filter: blur(36px) saturate(210%) !important;
                 border-bottom: 0.5px solid rgba(255, 255, 255, 0.1) !important;
             }
 
-            [data-theme="neon"] html.dgt-ios-app .topbar {
-                background: rgba(3, 12, 34, 0.88) !important;
+            html.dgt-ios-app[data-theme="neon"] .topbar,
+            html.dgt-mobile-app[data-theme="neon"] .topbar,
+            html[data-theme="neon"] .topbar {
+                background: linear-gradient(180deg, rgba(2, 8, 28, 0.96) 0%, rgba(4, 16, 46, 0.92) 100%) !important;
                 backdrop-filter: blur(36px) saturate(210%) !important;
                 -webkit-backdrop-filter: blur(36px) saturate(210%) !important;
-                border-bottom: 0.5px solid rgba(0, 220, 255, 0.35) !important;
+                border-bottom: 1px solid rgba(0, 210, 255, 0.35) !important;
+                box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65), 0 1px 12px rgba(0, 170, 255, 0.18) !important;
+            }
+
+            html.dgt-ios-app[data-theme="neon"],
+            html.dgt-ios-app[data-theme="neon"] body,
+            html.dgt-mobile-app[data-theme="neon"],
+            html.dgt-mobile-app[data-theme="neon"] body,
+            html.dgt-mobile-app[data-theme="neon"] #dgt-app-wrapper,
+            html.dgt-mobile-app[data-theme="neon"] .main-wrapper {
+                background-color: #020819 !important;
+            }
+
+            html.dgt-ios-app[data-theme="dark"],
+            html.dgt-ios-app[data-theme="dark"] body,
+            html.dgt-mobile-app[data-theme="dark"],
+            html.dgt-mobile-app[data-theme="dark"] body,
+            html.dgt-mobile-app[data-theme="dark"] #dgt-app-wrapper,
+            html.dgt-mobile-app[data-theme="dark"] .main-wrapper {
+                background-color: #0f172a !important;
             }
 
             html.dgt-ios-app .page-content {
@@ -920,13 +1019,65 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         </style>
     @endif
 
-    <!-- Service Worker Registration for Instant Offline-First Cache Loads -->
+    <style>
+        /* ── Mobile & iOS App Header Theme Enforcement (Light / Dark / Neon) ── */
+        @media (max-width: 1023px) {
+            html:not([data-theme="dark"]):not([data-theme="neon"]) .topbar {
+                background: rgba(255, 255, 255, 0.86) !important;
+                border-bottom: 0.5px solid rgba(15, 23, 42, 0.08) !important;
+            }
+
+            html[data-theme="dark"] .topbar,
+            [data-theme="dark"] .topbar {
+                background: rgba(15, 23, 42, 0.90) !important;
+                border-bottom: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+            }
+
+            html[data-theme="neon"] .topbar,
+            [data-theme="neon"] .topbar {
+                background: linear-gradient(180deg, rgba(2, 8, 28, 0.96) 0%, rgba(4, 16, 46, 0.92) 100%) !important;
+                border-bottom: 1px solid rgba(0, 210, 255, 0.35) !important;
+                box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65), 0 1px 12px rgba(0, 170, 255, 0.18) !important;
+            }
+
+            html[data-theme="neon"] .ios-nav-back-btn,
+            html[data-theme="neon"] .ios-nav-brand-btn,
+            html[data-theme="neon"] .topbar .kiuq-ai-header-btn,
+            html[data-theme="neon"] .topbar .notif-bell-btn {
+                background: rgba(6, 24, 60, 0.88) !important;
+                border: 1px solid rgba(0, 220, 255, 0.45) !important;
+                color: #38bdf8 !important;
+                box-shadow: 0 0 14px rgba(0, 180, 255, 0.22), inset 0 1px 0 rgba(0, 240, 255, 0.25) !important;
+            }
+
+            html[data-theme="neon"] .ios-nav-brand-text {
+                background: linear-gradient(90deg, #ffffff 0%, #38bdf8 100%) !important;
+                -webkit-background-clip: text !important;
+                background-clip: text !important;
+                color: transparent !important;
+                filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.45));
+            }
+
+            html[data-theme="neon"] .mobile-avatar-btn {
+                background: rgba(6, 24, 60, 0.88) !important;
+                border: 1.5px solid rgba(0, 220, 255, 0.6) !important;
+                box-shadow: 0 0 12px rgba(0, 180, 255, 0.3) !important;
+            }
+        }
+    </style>
+
+    <!-- Service Worker Registration for Instant Offline-First Cache & Background Notifications -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('Service Worker registered!'))
-                    .catch(err => console.error('Service Worker registration failed:', err));
+                    .then(reg => {
+                        window.__dgtSwRegistration = reg;
+                        if (typeof window.kiuqInitPusherBeams === 'function') {
+                            window.kiuqInitPusherBeams(reg);
+                        }
+                    })
+                    .catch(err => console.warn('Service Worker registration failed:', err));
             });
         }
     </script>
@@ -947,15 +1098,28 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     theme = 'dark';
                 }
 
+                const themeMeta = document.getElementById('dgt-theme-color-meta');
                 if (theme === 'dark') {
                     if (neon) {
                         document.documentElement.setAttribute('data-theme', 'neon');
+                        if (themeMeta) themeMeta.setAttribute('content', '#020819');
                     } else {
                         document.documentElement.setAttribute('data-theme', 'dark');
+                        if (themeMeta) themeMeta.setAttribute('content', '#0f172a');
                     }
                 } else {
                     document.documentElement.removeAttribute('data-theme');
+                    if (themeMeta) themeMeta.setAttribute('content', '#ffffff');
                 }
+
+                window.addEventListener('theme-changed', function(e) {
+                    const m = document.getElementById('dgt-theme-color-meta');
+                    if (!m) return;
+                    const dt = document.documentElement.getAttribute('data-theme');
+                    if (dt === 'neon') m.setAttribute('content', '#020819');
+                    else if (dt === 'dark') m.setAttribute('content', '#0f172a');
+                    else m.setAttribute('content', '#ffffff');
+                });
             } catch (e) {}
         })();
     </script>
@@ -1321,8 +1485,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         >
             <!-- Logo -->
             <div class="sidebar-logo">
-                <div class="sidebar-logo-icon">
-                    <img src="{{ $appIconAsset }}" alt="DIGITAL SYSTEM logo" class="h-full w-full object-contain">
+                <div class="sidebar-logo-icon" style="width:36px;height:36px;min-width:36px;min-height:36px;max-width:36px;max-height:36px;">
+                    <img src="{{ $appIconAsset }}" alt="DIGITAL SYSTEM logo" width="36" height="36" style="width:36px;height:36px;max-width:36px;max-height:36px;" class="h-full w-full object-contain">
                 </div>
                 <div>
                     <div class="sidebar-logo-text">DIGITAL SYSTEM</div>
@@ -1396,53 +1560,100 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                    data-turbo="false"
                    class="sidebar-item {{ request()->routeIs('chat.*') ? 'active' : '' }}"
                    id="nav-chat" data-tooltip="Chat"
-                   x-data="{ unreadCount: {{ $initialChatUnread }} }"
+                   x-data="{ unreadCount: Number(window.DgtMobileCache?.get('chat_unread', {{ $initialChatUnread }}) ?? {{ $initialChatUnread }}) }"
                    x-init="
-                       const fetchChatUnread = () => {
-                           if (document.hidden) return;
-                           fetch('{{ route('chat.unread-count') }}', { credentials: 'same-origin' })
-                               .then(r => r.ok ? r.json() : null)
-                               .then(d => { if (d && d.unread_count !== undefined) unreadCount = Number(d.unread_count); })
-                               .catch(() => {});
+                       window.__dgtChatUnreadValue = unreadCount;
+                       const applyChatUnread = (count) => {
+                           const num = Math.max(0, Number(count || 0));
+                           unreadCount = num;
+                           window.__dgtChatUnreadValue = num;
+                           window.DgtMobileCache?.set('chat_unread', num);
+                           window.dgtSyncAppBadge?.();
                        };
-                       fetchChatUnread();
-                       setInterval(fetchChatUnread, 2500);
-                       document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchChatUnread(); });
-                       window.addEventListener('focus', fetchChatUnread);
                        window.addEventListener('chat:unread-updated', (e) => {
-                           if (e.detail && e.detail.unread_count !== undefined) unreadCount = Number(e.detail.unread_count);
+                           if (e.detail && e.detail.unread_count !== undefined) {
+                               applyChatUnread(e.detail.unread_count);
+                           }
                        });
 
-                       const setupRealtimeUnread = () => {
-                           if (typeof window.kiuqGetPusherClient !== 'function') return;
-                           const pusher = window.kiuqGetPusherClient();
-                           const currentUserId = '{{ auth()->id() }}';
-                           if (!pusher || !currentUserId) return;
-                           try {
-                               const userChannel = pusher.subscribe(`private-chat.user.${currentUserId}`);
-                               userChannel.bind_global((eventName, data) => {
-                                   if (!data) return;
-                                   const evStr = String(eventName);
-                                   if (evStr.includes('ChatMessageSent') || evStr.includes('message.sent')) {
-                                       fetchChatUnread();
+                       window.__dgtFetchChatUnread = () => {
+                           if (document.hidden || window.__dgtChatUnreadFetchInFlight) return;
+                           window.__dgtChatUnreadFetchInFlight = true;
+                           fetch('{{ route('chat.unread-count') }}', { credentials: 'same-origin' })
+                               .then(r => r.ok ? r.json() : null)
+                               .then(d => {
+                                   if (d && d.unread_count !== undefined) {
+                                       const num = Number(d.unread_count);
+                                       window.dispatchEvent(new CustomEvent('chat:unread-updated', { detail: { unread_count: num } }));
                                    }
-                               });
-                           } catch (e) {}
+                               })
+                               .catch(() => {})
+                               .finally(() => { window.__dgtChatUnreadFetchInFlight = false; });
                        };
-                       setTimeout(setupRealtimeUnread, 1200);
+
+                       if (!window.__dgtChatUnreadPollStarted) {
+                           window.__dgtChatUnreadPollStarted = true;
+                           window.__dgtFetchChatUnread();
+                           setInterval(() => window.__dgtFetchChatUnread?.(), 6000);
+                           document.addEventListener('visibilitychange', () => { if (!document.hidden) window.__dgtFetchChatUnread?.(); });
+                           window.addEventListener('focus', () => window.__dgtFetchChatUnread?.());
+
+                           const setupRealtimeUnread = () => {
+                               if (typeof window.kiuqGetPusherClient !== 'function') return;
+                               const pusher = window.kiuqGetPusherClient();
+                               const currentUserId = '{{ auth()->id() }}';
+                               if (!pusher || !currentUserId) return;
+                               try {
+                                   const userChannel = pusher.subscribe(`private-chat.user.${currentUserId}`);
+                                   userChannel.bind_global((eventName, data) => {
+                                       if (!data) return;
+                                       const evStr = String(eventName);
+                                       if (evStr.includes('ChatMessageSent') || evStr.includes('message.sent')) {
+                                           window.__dgtFetchChatUnread?.();
+                                       }
+                                   });
+                               } catch (e) {}
+                           };
+                           setTimeout(setupRealtimeUnread, 1000);
+                       }
                    ">
                     <div class="relative flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.75.75 0 0 1-.974-.948l.783-2.35A7.47 7.47 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
                         </svg>
                         <span x-show="unreadCount > 0"
+                              data-chat-unread-badge
                               class="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-sm ring-2 ring-white dark:ring-slate-900"
                               x-text="unreadCount > 99 ? '99+' : unreadCount">{{ $initialChatUnread > 99 ? '99+' : ($initialChatUnread > 0 ? $initialChatUnread : '') }}</span>
                     </div>
                     <span>Chat</span>
                     <span x-show="unreadCount > 0"
+                          data-chat-unread-badge
                           class="ml-auto inline-flex items-center justify-center h-5 min-w-[22px] px-1.5 rounded-full bg-rose-500 text-[11px] font-black text-white shadow-md shadow-rose-500/50 ring-1 ring-white/40"
                           x-text="unreadCount > 99 ? '99+' : unreadCount">{{ $initialChatUnread > 99 ? '99+' : ($initialChatUnread > 0 ? $initialChatUnread : '') }}</span>
+                </a>
+                @endif
+
+                @php
+                    $sidebarMaintModules = \Illuminate\Support\Facades\Cache::remember('active_maintenance_modules_list', 15, function() {
+                        $val = \App\Models\Setting::where('key', 'maintenance_modules')->value('value');
+                        return $val ? (json_decode($val, true) ?: []) : [];
+                    });
+                    $isProductionReportsMaint = in_array('production_reports', $sidebarMaintModules, true) || in_array('reports', $sidebarMaintModules, true);
+                @endphp
+
+                <!-- Report (Production Report Management System) -->
+                @if(auth()->check() && !auth()->user()?->hasRole('boss') && auth()->user()->canAccessProductionReports())
+                <a href="{{ route('production-reports.index') }}"
+                   class="sidebar-item {{ request()->routeIs('production-reports.*') ? 'active' : '' }}"
+                   id="nav-production-reports" data-tooltip="Report">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    <span>Report</span>
+                    @if($isProductionReportsMaint)
+                        <span class="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0 ml-auto" title="Under Maintenance">Maint</span>
+                    @endif
                 </a>
                 @endif
 
@@ -1519,7 +1730,9 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <div x-data="{ smOpen: localStorage.getItem('dgt-sm-menu-open') === 'true' || {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'true' : 'false' }} }" class="sidebar-accordion-group">
                     <div class="sidebar-item w-full flex items-center justify-between text-left {{ request()->routeIs('social-media.*') || request()->routeIs('smm-boards.*') ? 'active' : '' }}" data-tooltip="Social Media Management">
                         <a href="{{ route('social-media.dashboard') }}" @click="smOpen = true; localStorage.setItem('dgt-sm-menu-open', 'true')" class="flex items-center gap-[0.625rem] flex-1">
-                            <img src="https://cdn-icons-png.flaticon.com/512/1468/1468269.png" alt="Social Media Management" class="w-[18px] h-[18px] flex-shrink-0 object-contain">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-[18px] h-[18px] flex-shrink-0">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                            </svg>
                             <span>Social Media Management</span>
                         </a>
                         <button type="button" @click.stop="smOpen = !smOpen; localStorage.setItem('dgt-sm-menu-open', smOpen)" class="p-1 -mr-1 rounded hover:bg-slate-700/50 transition-colors" aria-label="Toggle SMM menu">
@@ -2228,8 +2441,8 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                 @click="$store.mobileHub.toggle()"
                                 class="ios-nav-brand-btn flex items-center gap-2 active:scale-95 transition-transform py-1 px-2.5 rounded-full select-none"
                                 aria-label="Open Hub">
-                            <img src="{{ $appIconAsset }}" alt="DGT" class="w-6.5 h-6.5 rounded-lg object-contain shadow-xs">
-                            <span class="text-xs font-black tracking-wider uppercase bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">DGT</span>
+                            <img src="{{ $appIconAsset }}" alt="DGT" class="w-6 h-6 rounded-lg object-contain shadow-xs">
+                            <span class="ios-nav-brand-text text-xs font-black tracking-wider uppercase bg-gradient-to-r from-indigo-600 to-sky-500 dark:from-sky-300 dark:to-white bg-clip-text text-transparent">DGT</span>
                         </button>
                         @endif
                     </div>
@@ -2261,7 +2474,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                 <div class="topbar-actions ml-auto flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
 
                     <!-- Cambodia Clock & Live Latency Indicator -->
-                    <div x-data="cambodiaClock()" x-init="start()" class="hidden md:flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 mr-4 select-none">
+                    <div x-data="cambodiaClock()" x-init="start()" class="hidden lg:flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 mr-4 select-none flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 flex-shrink-0">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
@@ -2342,21 +2555,26 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                         </svg>
                     </button>
 
-                    <div class="relative notif-bell-wrapper" x-data="notificationSystem()" x-init="initNotifications()" @dgt:mute-changed.window="notificationsMuted = Boolean($event.detail && $event.detail.muted)">
+                    <div class="relative flex-shrink-0 notif-bell-wrapper"
+                         x-data="notificationSystem()"
+                         x-init="initNotifications()"
+                         @keydown.escape.window="open = false"
+                         @turbo:before-visit.window="open = false"
+                         @dgt:mute-changed.window="notificationsMuted = Boolean($event.detail && $event.detail.muted)">
                         <button class="btn btn-secondary btn-icon notif-bell-btn relative hover:!bg-blue-600 hover:!text-white hover:!border-blue-600 transition-all duration-75"
                                 @click="toggleOpen()"
                                 aria-label="Open notifications"
                                 :aria-expanded="open">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a9.004 9.004 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/>
                             </svg>
                             <template x-if="unreadCount > 0">
-                                <span class="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black leading-4 text-center shadow shadow-rose-500/30 border border-white" x-text="badgeCount()"></span>
+                                <span class="notif-unread-badge absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black leading-4 text-center shadow shadow-rose-500/40 border border-white dark:border-slate-900" x-text="badgeCount()"></span>
                             </template>
                         </button>
 
                         <div x-show="open" @click.outside="open = false" x-cloak style="display: none;"
-                             class="notif-panel absolute right-0 mt-2 w-[calc(100vw-1.5rem)] overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl shadow-2xl z-[9990] sm:w-96"
+                             class="notif-panel absolute right-0 mt-2 w-[calc(100vw-1.5rem)] flex flex-col overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl shadow-2xl z-[9990] sm:w-96"
                              x-transition:enter="transition ease-out duration-150"
                              x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
                              x-transition:enter-end="opacity-100 scale-100 translate-y-0"
@@ -2383,10 +2601,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                             Mark read
                                         </button>
                                         <button type="button"
-                                                @click="open = false"
-                                                class="lg:hidden inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400 active:scale-90 transition"
+                                                @click.stop="open = false"
+                                                class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 active:scale-90 transition touch-manipulation cursor-pointer"
                                                 aria-label="Close notifications">
-                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                                         </button>
                                     </div>
                                 </div>
@@ -2780,19 +2998,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     <!-- Mobile iOS Profile Avatar Touchpoint -->
                     <button type="button"
                             @click="$store.mobileHub.toggle()"
-                            class="lg:hidden flex-shrink-0 relative active:scale-90 transition-transform p-0.5 rounded-full ring-2 ring-indigo-500/20 dark:ring-sky-400/30"
+                            class="mobile-avatar-btn lg:hidden flex-shrink-0 relative inline-flex items-center justify-center w-9 h-9 active:scale-90 transition-transform p-0.5 rounded-full ring-2 ring-indigo-500/20 dark:ring-sky-400/35"
                             aria-label="Account Hub">
                         <img src="{{ auth()->user()?->avatar_url }}"
                              alt="{{ auth()->user()?->name }}"
                              onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()?->name ?? 'User', auth()->user()?->avatar_color ?? '#64748b') }}';"
-                             class="w-7 h-7 rounded-full object-cover">
+                             class="w-full h-full rounded-full object-cover">
                     </button>
 
                     @php
                         // CRM removed — no pending handler confirmations needed.
                         $pendingHandlerConfirmations = collect();
                     @endphp
-                    <div class="relative"
+                    <div class="relative hidden lg:block flex-shrink-0"
                          x-data="dropdown"
                          @turbo:before-visit.window="close()"
                          @turbo:visit.window="close()"
@@ -2837,11 +3055,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                              x-cloak
                              style="display: none;"
                              role="menu">
-                            <div class="flex items-center gap-3 border-b border-slate-100 px-2 py-2.5">
+                            <div class="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800/80 px-2 py-2.5">
                                 <img src="{{ auth()->user()?->avatar_url }}" alt="{{ auth()->user()?->name }}" onerror="this.onerror=null; this.src='{{ \App\Models\User::initialsAvatarDataUri(auth()->user()?->name ?? 'User', auth()->user()?->avatar_color ?? '#64748b') }}';" class="avatar avatar-md">
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-black text-slate-900">{{ auth()->user()?->name }}</p>
-                                    <p class="truncate text-xs font-semibold text-slate-500">{{ auth()->user()?->email }}</p>
+                                    <p class="truncate text-sm font-black text-slate-900 dark:text-white">{{ auth()->user()?->name }}</p>
+                                    <p class="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{{ auth()->user()?->email }}</p>
                                 </div>
                             </div>
 
@@ -3012,13 +3230,41 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             <a href="{{ route('chat.index') }}"
                data-turbo="false"
                class="mobile-nav-item {{ request()->routeIs('chat.*') ? 'active' : '' }}"
-               aria-label="Chat">
-                <span class="mobile-nav-icon">
+               aria-label="Chat"
+               x-data="{ unreadCount: Number(window.DgtMobileCache?.get('chat_unread', {{ (int)($initialChatUnread ?? 0) }}) ?? {{ (int)($initialChatUnread ?? 0) }}) }"
+               x-init="
+                   window.addEventListener('chat:unread-updated', (e) => {
+                       if (e.detail && e.detail.unread_count !== undefined) unreadCount = Number(e.detail.unread_count);
+                   });
+               ">
+                <span class="mobile-nav-icon relative">
                     <svg fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
                     </svg>
+                    <span x-show="unreadCount > 0"
+                          data-chat-unread-badge
+                          class="absolute -top-1.5 -right-2 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-xs"
+                          x-text="unreadCount > 99 ? '99+' : unreadCount">{{ ($initialChatUnread ?? 0) > 99 ? '99+' : (($initialChatUnread ?? 0) > 0 ? $initialChatUnread : '') }}</span>
                 </span>
                 <span class="mobile-nav-label">Chat</span>
+            </a>
+            @endif
+
+            <!-- 6b. Production Reports -->
+            @if(auth()->check() && !auth()->user()?->hasRole('boss') && auth()->user()->canAccessProductionReports())
+            <a href="{{ route('production-reports.index') }}"
+               data-turbo-preload
+               class="mobile-nav-item {{ request()->routeIs('production-reports.*') ? 'active' : '' }}"
+               aria-label="Report">
+                <span class="mobile-nav-icon relative">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.9" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    @if($isProductionReportsMaint ?? false)
+                        <span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-slate-900" title="Under Maintenance"></span>
+                    @endif
+                </span>
+                <span class="mobile-nav-label">Report</span>
             </a>
             @endif
 
@@ -3374,7 +3620,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                            data-turbo="false"
                            @click="$store.mobileHub.close()"
                            class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group relative"
-                           x-data="{ unreadCount: {{ (int)($initialChatUnread ?? 0) }} }"
+                           x-data="{ unreadCount: Number(window.DgtMobileCache?.get('chat_unread', {{ (int)($initialChatUnread ?? 0) }}) ?? {{ (int)($initialChatUnread ?? 0) }}) }"
                            x-init="
                                window.addEventListener('chat:unread-updated', (e) => {
                                    if (e.detail && e.detail.unread_count !== undefined) unreadCount = Number(e.detail.unread_count);
@@ -3385,12 +3631,30 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.75.75 0 0 1-.974-.948l.783-2.35A7.47 7.47 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
                                 </svg>
                                 <span x-show="unreadCount > 0"
+                                      data-chat-unread-badge
                                       class="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-slate-900"
                                       x-text="unreadCount > 99 ? '99+' : unreadCount">
                                     {{ ($initialChatUnread ?? 0) > 99 ? '99+' : (($initialChatUnread ?? 0) > 0 ? $initialChatUnread : '') }}
                                 </span>
                             </div>
                             <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Chat</span>
+                        </a>
+                        @endif
+
+                        @if(auth()->check() && !auth()->user()?->hasRole('boss') && auth()->user()->canAccessProductionReports())
+                        <!-- App: Production Reports -->
+                        <a href="{{ route('production-reports.index') }}"
+                           @click="$store.mobileHub.close()"
+                           class="flex flex-col items-center gap-1.5 p-1 rounded-2xl active:scale-90 transition-transform group relative">
+                            <div class="w-11 h-11 sm:w-13 sm:h-13 rounded-[16px] sm:rounded-[18px] bg-gradient-to-tr from-fuchsia-600 via-indigo-600 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/25 relative">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                </svg>
+                                @if($isProductionReportsMaint ?? false)
+                                    <span class="absolute -top-1 -right-1 px-1 py-0.2 text-[8px] font-black uppercase tracking-wider rounded bg-amber-500 text-white shadow" title="Under Maintenance">Maint</span>
+                                @endif
+                            </div>
+                            <span class="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-300 text-center truncate w-full px-0.5">Report</span>
                         </a>
                         @endif
 
@@ -4328,8 +4592,88 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }, 8000);
     };
 
+    // Sync total unread count to iOS App Badge, PWA App Badge, and Service Worker
+    window.dgtSyncAppBadge = function(notifUnread = null, chatUnread = null) {
+        try {
+            if (notifUnread !== null) window.__dgtNotifUnreadValue = Number(notifUnread || 0);
+            if (chatUnread !== null) window.__dgtChatUnreadValue = Number(chatUnread || 0);
+            const total = Math.max(0, Number(window.__dgtNotifUnreadValue || 0) + Number(window.__dgtChatUnreadValue || 0));
+
+            if ('setAppBadge' in navigator) {
+                if (total > 0) {
+                    navigator.setAppBadge(total).catch(() => {});
+                } else if ('clearAppBadge' in navigator) {
+                    navigator.clearAppBadge().catch(() => {});
+                }
+            }
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'SET_BADGE', count: total });
+            }
+            if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === 'function') {
+                window.flutter_inappwebview.callHandler('DgtShellBadgeSync', { badgeCount: total }).catch?.(() => {});
+            }
+        } catch (e) {}
+    };
+
+    // Unified helper to dispatch a native notification to iOS/macOS app wrapper + Service Worker
+    window.dgtDispatchNativeAndSwNotification = function(payload) {
+        if (!payload) return false;
+        let handledByNative = false;
+        const totalBadge = Math.max(1, Number(window.__dgtNotifUnreadValue || 0) + Number(window.__dgtChatUnreadValue || 0));
+        const normalized = {
+            id: String(payload.id || Date.now()),
+            title: String(payload.title || 'KIUQ System'),
+            subtitle: String(payload.subtitle || ''),
+            body: String(payload.body || payload.message || ''),
+            message: String(payload.message || payload.body || ''),
+            url: payload.url || payload.link ? new URL(payload.url || payload.link, window.location.origin).href : window.location.origin + '/dashboard',
+            link: payload.link || payload.url || '/dashboard',
+            card_id: payload.card_id || null,
+            icon: payload.icon || payload.avatarUrl || '/images/logo.png',
+            badgeCount: totalBadge
+        };
+
+        try {
+            if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === 'function') {
+                window.flutter_inappwebview.callHandler('DgtNativeNotifications', normalized);
+                handledByNative = true;
+            } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.DgtNativeNotifications) {
+                window.webkit.messageHandlers.DgtNativeNotifications.postMessage(normalized);
+                handledByNative = true;
+            } else if (window.DgtNativeNotifications && typeof window.DgtNativeNotifications.postMessage === 'function') {
+                window.DgtNativeNotifications.postMessage(JSON.stringify(normalized));
+                handledByNative = true;
+            }
+        } catch (e) {}
+
+        // Also notify Service Worker when page is hidden/backgrounded on mobile browser / PWA
+        if (!handledByNative && document.hidden && navigator.serviceWorker && navigator.serviceWorker.controller) {
+            try {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SHOW_NOTIFICATION',
+                    payload: normalized
+                });
+            } catch (e) {}
+        }
+
+        return handledByNative;
+    };
+
     window.sendBrowserNotification = function(title, body, iconUrl = null, linkUrl = null, cardId = null) {
         if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
+
+        // 1. Always dispatch to iOS / macOS Native Notification Bridge + Service Worker
+        const handledByNative = window.dgtDispatchNativeAndSwNotification({
+            id: 'notif-' + (cardId || Date.now()),
+            title: title || 'KIUQ System',
+            body: body || '',
+            icon: iconUrl || '/images/logo.png',
+            link: linkUrl || '/dashboard',
+            card_id: cardId || null
+        });
+        if (handledByNative) return;
+
+        // 2. Standard HTML5 Web Notification API
         if (!("Notification" in window)) return;
         const audioSrc = document.getElementById('notif-sound')?.src;
         
@@ -4342,26 +4686,28 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         };
 
         if (Notification.permission === "granted") {
-            const notif = new Notification(title, options);
-            if (linkUrl) {
-                notif.onclick = function(e) {
-                    e.preventDefault();
-                    window.focus(); // Focus the browser window
-                    
-                    try {
-                        const targetUrl = new URL(linkUrl, window.location.origin);
-                        if (cardId && window.location.pathname === targetUrl.pathname) {
-                            window.dispatchEvent(new CustomEvent('kiuq:open-card', { detail: { cardId: cardId } }));
-                        } else {
+            try {
+                const notif = new Notification(title, options);
+                if (linkUrl) {
+                    notif.onclick = function(e) {
+                        e.preventDefault();
+                        window.focus(); // Focus the browser window
+                        
+                        try {
+                            const targetUrl = new URL(linkUrl, window.location.origin);
+                            if (cardId && window.location.pathname === targetUrl.pathname) {
+                                window.dispatchEvent(new CustomEvent('kiuq:open-card', { detail: { cardId: cardId } }));
+                            } else {
+                                window.location.href = linkUrl;
+                            }
+                        } catch (e) {
                             window.location.href = linkUrl;
                         }
-                    } catch (e) {
-                        window.location.href = linkUrl;
-                    }
-                    
-                    notif.close();
-                };
-            }
+                        
+                        notif.close();
+                    };
+                }
+            } catch (e) {}
         }
     };
 
@@ -4443,7 +4789,7 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         }, 7000);
     };
 
-    // Out-of-system (Device / Desktop) Chat Notification
+    // Out-of-system (Device / Desktop / iOS App) Chat Notification
     window.sendBrowserChatNotification = function(data) {
         if (localStorage.getItem('dgt_notifications_muted') === 'true') return;
         const senderName = data.sender_name || 'DGT Chat';
@@ -4454,22 +4800,19 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
             : (rawAvatar || (window.location.origin + '/favicon.svg'));
         const link = data.link || '/chat';
 
-        // 1. macOS native app bridge (Flutter InAppWebView)
-        try {
-            const nativePayload = {
-                id: String(data.id || Date.now()),
-                title: senderName,
-                subtitle: 'DGT Team Chat',
-                message: preview,
-                link: window.location.origin + link,
-                avatarUrl: avatarUrl
-            };
-            if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === 'function') {
-                window.flutter_inappwebview.callHandler('DgtNativeNotifications', JSON.stringify(nativePayload));
-            } else if (window.DgtNativeNotifications && typeof window.DgtNativeNotifications.postMessage === 'function') {
-                window.DgtNativeNotifications.postMessage(JSON.stringify(nativePayload));
-            }
-        } catch (e) {}
+        // 1. iOS & macOS native app bridge (Flutter InAppWebView) + Service Worker
+        const handledByNative = window.dgtDispatchNativeAndSwNotification({
+            id: 'chat-' + String(data.id || Date.now()),
+            title: senderName,
+            subtitle: 'DGT Team Chat',
+            body: preview,
+            message: preview,
+            url: window.location.origin + link,
+            link: link,
+            avatarUrl: avatarUrl,
+            icon: avatarUrl
+        });
+        if (handledByNative) return;
 
         // 2. Standard HTML5 Web Notification API
         if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -4627,6 +4970,13 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     const evStr = String(eventName);
                     if (evStr.includes('ChatMessageSent') || evStr.includes('message.sent')) {
                         window.handleGlobalIncomingChatMessage?.(payload);
+                    } else if (
+                        evStr.includes('call.') ||
+                        evStr.includes('CallSignalingEvent') ||
+                        evStr.includes('CallLifecycleEvent') ||
+                        evStr.includes('call_signal')
+                    ) {
+                        window.DgtWebRtcCallManager?.onSignalingEvent(evStr, payload);
                     }
                 });
             }
@@ -4727,6 +5077,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
             initNotifications() {
                 this.refreshBrowserPermission();
+
+                // Instant 0ms hydration from Mobile Storage Cache before network completes
+                const cachedPayload = window.DgtMobileCache?.get('notifications_payload', null);
+                if (cachedPayload && typeof cachedPayload === 'object') {
+                    this.notifications = Array.isArray(cachedPayload.notifications) ? cachedPayload.notifications : [];
+                    this.unreadCount = Number(cachedPayload.unread_count || 0);
+                    window.dgtSyncAppBadge?.(this.unreadCount, null);
+                }
+
                 this.fetchData(true);
 
                 // Always points at the fetchData() of whichever component instance
@@ -4745,14 +5104,10 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 if (! window.__kiuqNotificationsPollingStarted) {
                     window.__kiuqNotificationsPollingStarted = true;
-                    // Polling failover — Pusher is instant when it connects, but this
-                    // deployment has no queue worker and depends on third-party
-                    // WebSocket delivery, so a silent connection failure (misconfigured
-                    // keys, blocked domain, etc.) would otherwise mean live updates and
-                    // popups just never arrive until the page is manually refreshed.
-                    // fetchData() already dedupes by notification id, so this is safe
-                    // to run even when Pusher is also connected.
-                    setInterval(() => window.__kiuqNotificationsPoll?.(), pusherConnected ? 120000 : 15000);
+                    setInterval(() => window.__kiuqNotificationsPoll?.(), pusherConnected ? 60000 : 12000);
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden) window.__kiuqNotificationsPoll?.();
+                    });
                 }
             },
 
@@ -4885,6 +5240,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     }
                     this.notifications = data.notifications || [];
                     this.unreadCount = data.unread_count || 0;
+                    window.DgtMobileCache?.set('notifications_payload', {
+                        notifications: this.notifications.slice(0, 30),
+                        unread_count: this.unreadCount
+                    });
+                    window.dgtSyncAppBadge?.(this.unreadCount, null);
                 } catch (e) {
                     console.error('Error fetching notifications:', e);
                 } finally {
@@ -4912,6 +5272,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
 
                 this.notifications.unshift(notifItem);
                 this.unreadCount++;
+                window.DgtMobileCache?.set('notifications_payload', {
+                    notifications: this.notifications.slice(0, 30),
+                    unread_count: this.unreadCount
+                });
+                window.dgtSyncAppBadge?.(this.unreadCount, null);
                 window.dispatchEvent(new CustomEvent('kiuq:realtime-notification', { detail: notifItem }));
 
                 // Trigger animations and toasts. Board/Kanban payloads use the rich card toast;
@@ -4934,6 +5299,15 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     );
                 } else if (notifItem.data && notifItem.data.module !== 'crm' && notifItem.data.actor_name) {
                     window.showRichNotificationToast(notifItem.data);
+                    if (notifItem.data.browser_notifications_enabled !== false) {
+                        window.sendBrowserNotification(
+                            "KIUQ Board Update",
+                            `${notifItem.data.actor_name} ${notifItem.data.description?.replace(/\*\*/g, '') || ''}`,
+                            notifItem.data.actor_avatar || null,
+                            notifItem.data.link || null,
+                            notifItem.data.card_id || null
+                        );
+                    }
                 } else {
                     window.showCrmNotificationCard(notifItem.data, notifItem.id);
                     window.sendBrowserNotification(
@@ -5032,6 +5406,11 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
                     });
                     this.unreadCount = 0;
                     this.notifications.forEach(n => n.read_at = new Date().toISOString());
+                    window.DgtMobileCache?.set('notifications_payload', {
+                        notifications: this.notifications.slice(0, 30),
+                        unread_count: 0
+                    });
+                    window.dgtSyncAppBadge?.(0, null);
                     window.showToast("All notifications marked as read!");
                 } catch(e) {
                     console.error(e);
@@ -5757,9 +6136,16 @@ $isMacDesktopApp = str_contains((string) request()->userAgent(), 'DGTSystemMacOS
         });
     </script>
 
-    <!-- KIUQ AI Liquid Glass Workspace Modal -->
+    <!-- KIUQ AI Liquid Glass Workspace Modal & Global WebRTC Voice/Video Call Overlay -->
     @include('components.kiuq-ai.workspace')
+    @include('chat.partials.global-webrtc-call-overlay')
+    @auth
+        @if(auth()->user()->canAccessProductionReports() && app(\App\Services\ProductionReport\ProductionReportPermissionService::class)->canSubmitDaily(auth()->user()))
+            @include('production-reports.partials.daily-reminder')
+        @endif
+    @endauth
     <script src="{{ asset('js/marked.min.js') }}?v={{ file_exists(public_path('js/marked.min.js')) ? filemtime(public_path('js/marked.min.js')) : '1.0.0' }}"></script>
+    <script src="{{ asset('js/kiuq-ai-translator.js') }}?v={{ file_exists(public_path('js/kiuq-ai-translator.js')) ? filemtime(public_path('js/kiuq-ai-translator.js')) : '1.0.0' }}"></script>
     <script src="{{ asset('js/kiuq-ai.js') }}?v={{ file_exists(public_path('js/kiuq-ai.js')) ? filemtime(public_path('js/kiuq-ai.js')) : '1.0.0' }}"></script>
 
 </body>

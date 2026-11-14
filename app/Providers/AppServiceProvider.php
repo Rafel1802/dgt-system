@@ -34,11 +34,22 @@ class AppServiceProvider extends ServiceProvider
         // ── Register Policies ──────────────────────────────────────────────
         Gate::policy(Card::class, CardPolicy::class);
         Gate::policy(Lead::class, WebsiteLeadPolicy::class);
+        Gate::policy(\App\Models\ProductionReport\ProductionReport::class, \App\Policies\ProductionReportPolicy::class);
 
         // ── Super Admin Gate Bypass ────────────────────────────────────────
-        // Super admins bypass all Gate/Policy checks (Spatie handles this
-        // via the HasRoles trait for permission checks; this covers Gates).
-        Gate::before(function ($user, $ability) {
+        // Super admins bypass all Gate/Policy checks EXCEPT ProductionReport,
+        // which strictly enforces ProductionReportPolicy (Supervisor view-only,
+        // Dara/Kim team isolation, and explicit team mapping).
+        Gate::before(function ($user, $ability, $arguments = []) {
+            $firstArg = $arguments[0] ?? null;
+            if (
+                $firstArg instanceof \App\Models\ProductionReport\ProductionReport
+                || $firstArg === \App\Models\ProductionReport\ProductionReport::class
+                || str_starts_with((string) $ability, 'production-report')
+            ) {
+                return null;
+            }
+
             if ($user->hasRole('super-admin')) {
                 return true;
             }

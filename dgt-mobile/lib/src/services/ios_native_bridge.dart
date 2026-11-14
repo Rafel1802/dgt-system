@@ -7,7 +7,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../config/app_config.dart';
 
-/// Connectivity snapshot reported by native `NWPathMonitor` or `/ping` check.
+/// Connectivity snapshot reported by native `NWPathMonitor` / `ConnectivityManager` or `/ping` check.
 @immutable
 class KiuqConnectivityStatus {
   const KiuqConnectivityStatus({
@@ -19,6 +19,20 @@ class KiuqConnectivityStatus {
   final bool isOnline;
   final String connectionType;
   final int? latencyMs;
+}
+
+/// Native CallKit event dispatched from `AppDelegate.swift`.
+@immutable
+class KiuqCallKitActionEvent {
+  const KiuqCallKitActionEvent({
+    required this.action,
+    required this.callId,
+    this.muted,
+  });
+
+  final String action; // 'accept' | 'end' | 'mute'
+  final int callId;
+  final bool? muted;
 }
 
 /// Result of an authenticated file download handled natively on iOS.
@@ -37,11 +51,12 @@ class KiuqDownloadResult {
   final String? errorMessage;
 }
 
-/// Typed Dart interface to the native Swift `kiuq_system/ios_bridge` channel.
+/// Typed Dart interface to the native Swift/Java `kiuq_system/ios_bridge` channel.
 class IosNativeBridge {
   IosNativeBridge({
     this.onConnectivityChanged,
     this.onNotificationTap,
+    this.onCallKitAction,
   }) {
     _channel.setMethodCallHandler(_handleNativeCallback);
   }
@@ -50,9 +65,15 @@ class IosNativeBridge {
 
   final ValueChanged<KiuqConnectivityStatus>? onConnectivityChanged;
   final ValueChanged<String>? onNotificationTap;
+  ValueChanged<KiuqCallKitActionEvent>? onCallKitAction;
 
   bool get _isNativeIos =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  bool get _isNativeMobile =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android);
 
   Future<dynamic> _handleNativeCallback(MethodCall call) async {
     final args = call.arguments;
@@ -67,13 +88,22 @@ class IosNativeBridge {
       if (url.isNotEmpty) {
         onNotificationTap?.call(url);
       }
+    } else if (call.method == 'onCallKitAction' && args is Map) {
+      final action = (args['action'] ?? '').toString();
+      final callId = int.tryParse('${args['callId'] ?? 0}') ?? 0;
+      final muted = args['muted'] is bool ? args['muted'] as bool : null;
+      if (action.isNotEmpty) {
+        onCallKitAction?.call(
+          KiuqCallKitActionEvent(action: action, callId: callId, muted: muted),
+        );
+      }
     }
     return null;
   }
 
-  /// Queries `NWPathMonitor` for immediate OS-level network status.
+  /// Queries `NWPathMonitor` (iOS) or `ConnectivityManager` (Android) for OS-level network status.
   Future<KiuqConnectivityStatus> checkConnectivity() async {
-    if (!_isNativeIos) {
+    if (!_isNativeMobile) {
       return const KiuqConnectivityStatus(isOnline: true);
     }
     try {
@@ -202,16 +232,22 @@ class IosNativeBridge {
   Future<bool> showLocalNotification({
     required String title,
     required String body,
+    String? id,
+    String? subtitle,
     String? url,
+    int? badgeCount,
   }) async {
     if (!_isNativeIos) return false;
     try {
       final delivered = await _channel.invokeMethod<bool>(
         'showLocalNotification',
         <String, dynamic>{
+          if (id != null && id.isNotEmpty) 'id': id,
           'title': title,
+          if (subtitle != null && subtitle.isNotEmpty) 'subtitle': subtitle,
           'body': body,
           if (url != null && url.isNotEmpty) 'url': url,
+          if (badgeCount != null) 'badgeCount': badgeCount,
         },
       );
       return delivered == true;
@@ -220,9 +256,43 @@ class IosNativeBridge {
     }
   }
 
-  /// Verifies/requests native iOS Camera or Microphone access (`AVCaptureDevice`).
+  /// Updates the iOS app icon badge count.
+  Future<bool> setBadgeCount(int count) async {
+    if (!_isNativeIos) return false;
+    try {
+      final ok = await _channel.invokeMethod<bool>(
+        'setBadgeCount',
+        <String, dynamic>{'count': count},
+      );
+      return ok == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Configures native iOS background notification polling (Facebook/Messenger style background delivery).
+  Future<bool> configureBackgroundPolling({
+    required String baseUrl,
+    required bool authenticated,
+  }) async {
+    if (!_isNativeIos) return false;
+    try {
+      final ok = await _channel.invokeMethod<bool>(
+        'configureBackgroundPolling',
+        <String, dynamic>{
+          'baseUrl': baseUrl,
+          'authenticated': authenticated,
+        },
+      );
+      return ok == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Verifies/requests native Camera or Microphone access (`AVCaptureDevice` / Android `ActivityCompat`).
   Future<bool> requestMediaPermission(String kind) async {
-    if (!_isNativeIos) return true;
+    if (!_isNativeMobile) return true;
     try {
       final granted = await _channel.invokeMethod<bool>(
         'requestMediaPermission',
@@ -232,6 +302,99 @@ class IosNativeBridge {
     } catch (_) {
       return false;
     }
+  }
+
+  // ─── WebRTC Native Call Audio & CallKit Routing ───────────────────────────
+
+  Future<void> configureCallAudio({
+    required bool isVideo,
+    required bool speakerOn,
+  }) async {
+    if (!_isNativeMobile) return;
+    try {
+      await _channel.invokeMethod<bool>('configureCallAudio', <String, dynamic>{
+        'isVideo': isVideo,
+        'speakerOn': speakerOn,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> setSpeakerphone(bool enabled) async {
+    if (!_isNativeMobile) return;
+    try {
+      await _channel.invokeMethod<bool>('setSpeakerphone', <String, dynamic>{
+        'enabled': enabled,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> deactivateCallAudio() async {
+    if (!_isNativeMobile) return;
+    try {
+      await _channel.invokeMethod<bool>('deactivateCallAudio');
+    } catch (_) {}
+  }
+
+  Future<bool> reportIncomingCallKit({
+    required int callId,
+    required String callerName,
+    required bool isVideo,
+  }) async {
+    if (!_isNativeIos) return false;
+    try {
+      final ok = await _channel.invokeMethod<bool>(
+        'reportIncomingCallKit',
+        <String, dynamic>{
+          'callId': callId,
+          'callerName': callerName,
+          'isVideo': isVideo,
+        },
+      );
+      return ok == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> startOutgoingCallKit({
+    required int callId,
+    required String calleeName,
+    required bool isVideo,
+  }) async {
+    if (!_isNativeIos) return false;
+    try {
+      final ok = await _channel.invokeMethod<bool>(
+        'startOutgoingCallKit',
+        <String, dynamic>{
+          'callId': callId,
+          'calleeName': calleeName,
+          'isVideo': isVideo,
+        },
+      );
+      return ok == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> reportCallConnected(int callId) async {
+    if (!_isNativeIos) return;
+    try {
+      await _channel.invokeMethod<bool>(
+        'reportCallConnected',
+        <String, dynamic>{'callId': callId},
+      );
+    } catch (_) {}
+  }
+
+  Future<void> endCallKit(int callId) async {
+    if (!_isNativeIos) return;
+    try {
+      await _channel.invokeMethod<bool>(
+        'endCallKit',
+        <String, dynamic>{'callId': callId},
+      );
+    } catch (_) {}
   }
 
   /// Downloads an authenticated KIUQ SYSTEM file using active `WKWebView` session cookies
@@ -270,7 +433,6 @@ class IosNativeBridge {
       }
 
       final contentType = response.headers.contentType?.mimeType.toLowerCase() ?? '';
-      // Guard against session-expired HTML login page masquerading as a download.
       if (contentType == 'text/html' && !uri.path.toLowerCase().endsWith('.html')) {
         await response.drain<void>();
         return const KiuqDownloadResult(
